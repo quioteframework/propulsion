@@ -1,0 +1,89 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  unit:
+    name: Unit tests (no Docker)
+    runs-on: ubuntu-latest
+    # As of this writing the suite has ~160 known, tracked failures unrelated to
+    # this job's setup (see KNOWN_ISSUES.md -- other work is in progress on them
+    # in parallel). Non-blocking for now so CI is still useful signal without
+    # turning every PR red over pre-existing issues; flip this to false once
+    # those clusters are fixed.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: pdo, pdo_sqlite, pdo_pgsql, pdo_mysql, mbstring, xml, simplexml
+          coverage: none
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Run PHPUnit (unit tier only)
+        working-directory: test
+        env:
+          # Skips every test that needs the shared Postgres testcontainer (Bookstore/
+          # Cms/Namespace/Schemas fixtures and anything built on them -- ~1100+ test
+          # methods, markTestSkipped() individually) instead of spending the time to
+          # pull postgres:latest and build fixtures just for a fast smoke-test job.
+          # Full coverage, including those tests, runs in the "integration" job below.
+          PROPULSION_SKIP_INTEGRATION: '1'
+        run: ../vendor/bin/phpunit -c phpunit.xml
+
+  integration:
+    name: Full suite (with Docker/Postgres)
+    runs-on: ubuntu-latest
+    # Best-effort tier: as of this writing the suite has known, tracked failures
+    # unrelated to Docker/Postgres itself (see KNOWN_ISSUES.md), so this job isn't
+    # required to pass yet. It still runs on every push/PR so regressions in the
+    # ~63 Docker-dependent integration tests (and any progress fixing the known
+    # failures) are visible without blocking merges.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: pdo, pdo_sqlite, pdo_pgsql, pdo_mysql, mbstring, xml, simplexml
+          coverage: none
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Run full PHPUnit suite (starts its own Postgres testcontainer)
+        working-directory: test
+        run: ../vendor/bin/phpunit -c phpunit.xml
