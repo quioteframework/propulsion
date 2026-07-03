@@ -257,43 +257,52 @@ class SluggableBehaviorTest extends BookstoreTestBase
 	}
 }
 
-class TestableTable13 extends Table13
-{
-	public function createSlug()
+// Table13/Table14 only exist once the bookstore fixtures are built (needs the
+// shared Postgres testcontainer -- IntegrationDatabase::ensureReady()). PHPUnit
+// requires this whole file up front during test-suite discovery, so without this
+// guard a Docker-less run (PROPULSION_SKIP_INTEGRATION=1) would fatal here instead
+// of letting this file's *Test classes skip gracefully in their own setUp().
+if (class_exists(Table13::class)) {
+	class TestableTable13 extends Table13
 	{
-		return parent::createSlug();
-	}
+		public function createSlug()
+		{
+			return parent::createSlug();
+		}
 
-	public function createRawSlug()
-	{
-		return parent::createRawSlug();
-	}
+		public function createRawSlug()
+		{
+			return parent::createRawSlug();
+		}
 
-	public static function cleanupSlugPart($slug, $separator = '-')
-	{
-		return parent::cleanupSlugPart($slug, $separator);
-	}
+		public static function cleanupSlugPart($slug, $separator = '-')
+		{
+			return parent::cleanupSlugPart($slug, $separator);
+		}
 
-	public function makeSlugUnique($slug, $separator = '-', $increment = 0)
-	{
-		return parent::makeSlugUnique($slug, $separator, $increment);
+		public function makeSlugUnique($slug, $separator = '-', $increment = 0)
+		{
+			return parent::makeSlugUnique($slug, $separator, $increment);
+		}
 	}
 }
 
-class TestableTable14 extends Table14
-{
-	public function createSlug()
+if (class_exists(Table14::class)) {
+	class TestableTable14 extends Table14
 	{
-		return parent::createSlug();
-	}
+		public function createSlug()
+		{
+			return parent::createSlug();
+		}
 
-	public function createRawSlug()
-	{
-		return parent::createRawSlug();
-	}
+		public function createRawSlug()
+		{
+			return parent::createRawSlug();
+		}
 
-	public static function limitSlugSize($slug, $incrementReservedSpace = 3)
-	{
-		return parent::limitSlugSize($slug, $incrementReservedSpace);
+		public static function limitSlugSize($slug, $incrementReservedSpace = 3)
+		{
+			return parent::limitSlugSize($slug, $incrementReservedSpace);
+		}
 	}
 }

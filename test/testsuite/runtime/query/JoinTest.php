@@ -8,7 +8,11 @@
  * @license    MIT License
  */
 
-Propel::init(dirname(__FILE__) . '/../../../fixtures/bookstore/build/conf/bookstore-conf.php');
+// See CriteriaCombineTest.php for why this is guarded rather than unconditional.
+$bookstoreConfFile = dirname(__FILE__) . '/../../../fixtures/bookstore/build/conf/bookstore-conf.php';
+if (file_exists($bookstoreConfFile)) {
+	Propel::init($bookstoreConfFile);
+}
 
 /**
  * Test class for Join.

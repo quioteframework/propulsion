@@ -55,6 +55,13 @@ class PropelQueryTest extends BookstoreTestBase
 	}
 }
 
-class myBookQuery extends BookQuery
-{
+// BookQuery only exists once the bookstore fixtures are built (needs the shared
+// Postgres testcontainer -- IntegrationDatabase::ensureReady()). PHPUnit requires
+// this whole file up front during test-suite discovery, so without this guard a
+// Docker-less run (PROPULSION_SKIP_INTEGRATION=1) would fatal here instead of
+// letting PropelQueryTest's own setUp() skip gracefully.
+if (class_exists(BookQuery::class)) {
+	class myBookQuery extends BookQuery
+	{
+	}
 }

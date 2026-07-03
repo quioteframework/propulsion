@@ -196,58 +196,66 @@ class AggregateColumnBehaviorTest extends BookstoreTestBase
 
 }
 
-class TestableComment extends AggregateComment
-{
-	// overrides the parent save() to bypass behavior hooks
-	public function save(PropelPDO $con = null)
+// AggregateComment/AggregateCommentQuery only exist once the bookstore fixtures
+// are built (needs the shared Postgres testcontainer --
+// IntegrationDatabase::ensureReady()). PHPUnit requires this whole file up front
+// during test-suite discovery, so without this guard a Docker-less run
+// (PROPULSION_SKIP_INTEGRATION=1) would fatal here instead of letting this file's
+// *Test classes skip gracefully in their own setUp().
+if (class_exists(AggregateComment::class) && class_exists(AggregateCommentQuery::class)) {
+	class TestableComment extends AggregateComment
 	{
-		$con->beginTransaction();
-		try {
-			$affectedRows = $this->doSave($con);
-			AggregateCommentPeer::addInstanceToPool($this);
-			$con->commit();
-			return $affectedRows;
-		} catch (PropelException $e) {
-			$con->rollBack();
-			throw $e;
+		// overrides the parent save() to bypass behavior hooks
+		public function save(PropelPDO $con = null)
+		{
+			$con->beginTransaction();
+			try {
+				$affectedRows = $this->doSave($con);
+				AggregateCommentPeer::addInstanceToPool($this);
+				$con->commit();
+				return $affectedRows;
+			} catch (PropelException $e) {
+				$con->rollBack();
+				throw $e;
+			}
 		}
-	}
 
-	// overrides the parent delete() to bypass behavior hooks
-	public function delete(PropelPDO $con = null)
-	{
-		$con->beginTransaction();
-		try {
-			TestableAggregateCommentQuery::create()
-				->filterByPrimaryKey($this->getPrimaryKey())
-				->delete($con);
-			$con->commit();
-			$this->setDeleted(true);
-		} catch (PropelException $e) {
-			$con->rollBack();
-			throw $e;
+		// overrides the parent delete() to bypass behavior hooks
+		public function delete(PropelPDO $con = null)
+		{
+			$con->beginTransaction();
+			try {
+				TestableAggregateCommentQuery::create()
+					->filterByPrimaryKey($this->getPrimaryKey())
+					->delete($con);
+				$con->commit();
+				$this->setDeleted(true);
+			} catch (PropelException $e) {
+				$con->rollBack();
+				throw $e;
+			}
 		}
+
 	}
 
-}
-
-class TestableAggregateCommentQuery extends AggregateCommentQuery
-{
-	public static function create($modelAlias = null, $criteria = null)
+	class TestableAggregateCommentQuery extends AggregateCommentQuery
 	{
-		return new TestableAggregateCommentQuery();
-	}
+		public static function create($modelAlias = null, $criteria = null)
+		{
+			return new TestableAggregateCommentQuery();
+		}
 
-	// overrides the parent basePreDelete() to bypass behavior hooks
-	protected function basePreDelete(PropelPDO $con)
-	{
-		return $this->preDelete($con);
-	}
+		// overrides the parent basePreDelete() to bypass behavior hooks
+		protected function basePreDelete(PropelPDO $con)
+		{
+			return $this->preDelete($con);
+		}
 
-	// overrides the parent basePostDelete() to bypass behavior hooks
-	protected function basePostDelete($affectedRows, PropelPDO $con)
-	{
-		return $this->postDelete($affectedRows, $con);
-	}
+		// overrides the parent basePostDelete() to bypass behavior hooks
+		protected function basePostDelete($affectedRows, PropelPDO $con)
+		{
+			return $this->postDelete($affectedRows, $con);
+		}
 
+	}
 }

@@ -218,10 +218,13 @@ class SubQueryTest extends BookstoreTestBase
 	}
 }
 
-class TestableBookQuery extends BookQuery
-{
-	public function configureSelectColumns()
+// See PropelQueryTest.php's myBookQuery for why this is guarded.
+if (class_exists(BookQuery::class)) {
+	class TestableBookQuery extends BookQuery
 	{
-		return parent::configureSelectColumns();
+		public function configureSelectColumns()
+		{
+			return parent::configureSelectColumns();
+		}
 	}
 }
