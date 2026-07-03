@@ -37,6 +37,9 @@ class IntegrationDatabase
     private static bool $namespacedAttempted = false;
     private static ?string $namespacedSkipReason = null;
 
+    private static bool $schemasAttempted = false;
+    private static ?string $schemasSkipReason = null;
+
     public static function confFile(): string
     {
         return dirname(__DIR__, 2) . '/fixtures/bookstore/build/conf/bookstore-conf.php';
@@ -135,6 +138,180 @@ class IntegrationDatabase
 
         class_exists(\Propulsion\Propel::class);
         self::registerClassmapAutoloader(self::namespacedClassesDir());
+    }
+
+    public static function schemasConfFile(): string
+    {
+        return dirname(__DIR__, 2) . '/fixtures/schemas/build/conf/bookstore-conf.php';
+    }
+
+    public static function schemasClassesDir(): string
+    {
+        return dirname(__DIR__, 2) . '/fixtures/schemas/build/classes';
+    }
+
+    /**
+     * Same idea as ensureReady()/ensureNamespacedReady(), for the separate "schemas"
+     * fixture project (test/fixtures/schemas/schema.xml) used by the *WithSchema(s)
+     * tests: its tables use a `schema="..."` attribute (Propel's "multiple schemas in
+     * one database" support) combined with `propel.schema.autoPrefix`, which bakes the
+     * schema name into the generated PHP class/table names (e.g.
+     * `BookstoreSchemasBookstore`, `ContestBookstoreContest`) rather than needing real
+     * Postgres `CREATE SCHEMA`/`search_path` support -- so, like the bookstore fixtures,
+     * this targets the default (PHP5, flat/unnamespaced) builder. Reuses the same
+     * running container as ensureReady() (starting one if none has run yet) but a
+     * separate database, since the schemas project's tables overlap in name with the
+     * bookstore fixtures (book, bookstore, customer, ...).
+     */
+    public static function ensureSchemasReady(): void
+    {
+        if (self::$schemasAttempted) {
+            if (self::$schemasSkipReason !== null) {
+                throw new \RuntimeException(self::$schemasSkipReason);
+            }
+            return;
+        }
+        self::$schemasAttempted = true;
+
+        try {
+            self::ensureContainerStarted();
+        } catch (\Throwable $e) {
+            self::$schemasSkipReason = $e->getMessage();
+            throw new \RuntimeException(self::$schemasSkipReason);
+        }
+
+        try {
+            self::buildSchemasFixtures(self::$container->getHost(), self::$container->getFirstMappedPort());
+        } catch (\Throwable $e) {
+            self::$schemasSkipReason = 'Could not build schemas fixtures: ' . $e->getMessage();
+            throw new \RuntimeException(self::$schemasSkipReason);
+        }
+
+        class_exists(\Propulsion\Propel::class);
+        self::registerClassmapAutoloader(self::schemasClassesDir());
+    }
+
+    private static function buildSchemasFixtures(string $host, int $port): void
+    {
+        $fixtureDir = dirname(__DIR__, 2) . '/fixtures/schemas';
+        $repoRoot = dirname(__DIR__, 3);
+        $classesDir = self::schemasClassesDir();
+
+        if (!is_dir($classesDir) && !mkdir($classesDir, 0777, true) && !is_dir($classesDir)) {
+            throw new \RuntimeException("Unable to create $classesDir");
+        }
+
+        $config = GeneratorConfig::createFromPropertiesFile(
+            $repoRoot . '/generator/default.properties',
+            [$fixtureDir . '/build.properties'],
+            ['propel.database' => 'pgsql']
+        );
+
+        $schemas = glob($fixtureDir . '/*schema.xml');
+        sort($schemas);
+
+        $sqlDir = sys_get_temp_dir() . '/propulsion-test-sql-schemas';
+        if (!is_dir($sqlDir)) {
+            mkdir($sqlDir, 0777, true);
+        }
+
+        $previousCwd = getcwd();
+        chdir($repoRoot);
+        try {
+            (new ModelManager($config, $classesDir))->generate($schemas);
+            (new SqlManager($config, $sqlDir))->generate($schemas);
+        } finally {
+            chdir($previousCwd);
+        }
+
+        $adminDsn = "pgsql:host=$host;port=$port;dbname=propulsion_test";
+        $admin = new \PDO($adminDsn, 'propulsion', 'propulsion');
+        $admin->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+        if (!$admin->query("SELECT 1 FROM pg_database WHERE datname = 'propulsion_test_schemas'")->fetchColumn()) {
+            $admin->exec('CREATE DATABASE propulsion_test_schemas');
+        }
+
+        $dsn = "pgsql:host=$host;port=$port;dbname=propulsion_test_schemas";
+        $pdo = new \PDO($dsn, 'propulsion', 'propulsion');
+        $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+
+        // The schemas fixture's tables use a `schema="..."` attribute (Propel's
+        // "multiple schemas in one database" support) on real Postgres, which -- unlike
+        // MySQL, where "schema" just becomes a cross-database reference -- requires an
+        // actual `CREATE SCHEMA` up front: Table::getName() qualifies the DDL/DML table
+        // name as `schema.table` whenever the target platform's supportsSchemas() is
+        // true, regardless of propel.schema.autoPrefix (that only affects the generated
+        // PHP class/phpName, not the real SQL identifier). The generator's own
+        // getAddSchemasDDL() only emits CREATE SCHEMA for pgsql *vendor-info*
+        // parameters, which this fixture doesn't set, so create them here instead of
+        // teaching the generator a new implicit-schema-creation code path.
+        foreach (self::schemaNamesUsedBy($schemas) as $schemaName) {
+            $pdo->exec('CREATE SCHEMA IF NOT EXISTS "' . str_replace('"', '""', $schemaName) . '"');
+        }
+
+        foreach (glob($sqlDir . '/*.sql') as $sqlFile) {
+            $pdo->exec((string) file_get_contents($sqlFile));
+        }
+
+        self::writeSchemasRuntimeConf($dsn);
+    }
+
+    /**
+     * Collects every distinct `schema="..."` attribute value from the given schema.xml
+     * files (both the root <database> element and individual <table> elements), so the
+     * corresponding real Postgres schemas can be created before the generated DDL runs.
+     */
+    private static function schemaNamesUsedBy(array $schemaXmlFiles): array
+    {
+        $names = [];
+        foreach ($schemaXmlFiles as $file) {
+            $xml = simplexml_load_file($file);
+            if ($xml === false) {
+                continue;
+            }
+            if (isset($xml['schema'])) {
+                $names[(string) $xml['schema']] = true;
+            }
+            foreach ($xml->table as $table) {
+                if (isset($table['schema'])) {
+                    $names[(string) $table['schema']] = true;
+                }
+            }
+        }
+        return array_keys($names);
+    }
+
+    private static function writeSchemasRuntimeConf(string $dsn): void
+    {
+        // The schema.xml's <database name="bookstore-schemas"> becomes the generated
+        // classes' DATABASE_NAME constant, so the datasource key needs to match exactly.
+        $config = [
+            'datasources' => [
+                'default' => 'bookstore-schemas',
+                'bookstore-schemas' => [
+                    'adapter' => 'pgsql',
+                    'connection' => [
+                        'dsn' => $dsn,
+                        'user' => 'propulsion',
+                        'password' => 'propulsion',
+                        'classname' => 'DebugPDO',
+                        'settings' => [
+                            'queries' => [
+                                'SET lock_timeout = 5000',
+                                'SET statement_timeout = 15000',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $confDir = dirname(self::schemasConfFile());
+        if (!is_dir($confDir) && !mkdir($confDir, 0777, true) && !is_dir($confDir)) {
+            throw new \RuntimeException("Unable to create $confDir");
+        }
+
+        file_put_contents(self::schemasConfFile(), "<?php\nreturn " . var_export($config, true) . ";\n");
     }
 
     private static function ensureContainerStarted(): void
