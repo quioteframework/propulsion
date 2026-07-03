@@ -50,8 +50,15 @@ abstract class CmsTestBase extends TestCase
 	 */
 	protected function tearDown(): void
 	{
-		CmsDataPopulator::depopulate($this->con);
-		$this->con->commit();
+		if ($this->con && $this->con->isCommitable()) {
+			CmsDataPopulator::depopulate($this->con);
+			$this->con->commit();
+		} elseif ($this->con && $this->con->isInTransaction()) {
+			// See BookstoreTestBase::tearDown() -- a failed test leaves Postgres
+			// itself in an aborted-transaction state that persists across tests
+			// sharing this process-wide connection unless explicitly rolled back.
+			$this->con->forceRollBack();
+		}
 		parent::tearDown();
 	}
 

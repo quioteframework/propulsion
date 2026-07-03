@@ -649,6 +649,8 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
     public function testIsModifiedIsTrueForSavedObjectsWithModifications()
     {
         $a = new Author();
+        $a->setFirstName('Bar');
+        $a->setLastName('Baz');
         $a->save();
         $a->setFirstName('Foo');
         $this->assertTrue($a->isModified());
@@ -693,12 +695,17 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
 
     public function testIsModifiedAndNullValues()
     {
+        // first_name/last_name are required (NOT NULL) columns -- exercise the
+        // null-value tracking on the nullable `email` column instead, so this
+        // test's saves succeed regardless of database engine.
         $a = new Author();
-        $a->setFirstName("");
+        $a->setFirstName('Foo');
+        $a->setLastName('Bar');
+        $a->setEmail("");
         $a->setAge(0);
         $a->save();
 
-        $a->setFirstName(null);
+        $a->setEmail(null);
         $this->assertTrue($a->isModified(), "Expected Author to be modified after changing empty string column value to NULL.");
 
         $a->setAge(null);
@@ -706,7 +713,7 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
 
         $a->save();
 
-        $a->setFirstName('');
+        $a->setEmail('');
         $this->assertTrue($a->isModified(), "Expected Author to be modified after changing NULL column value to empty string.");
 
         $a->setAge(0);

@@ -53,8 +53,19 @@ abstract class BookstoreTestBase extends TestCase
 		// and we don't want to call PropelPDO::commit() in that case
 		// since it will trigger an exception on its own
 		// ('Cannot commit because a nested transaction was rolled back')
-		if ($this->con && $this->con->isCommitable()) {
+		if (!$this->con) {
+			return;
+		}
+		if ($this->con->isCommitable()) {
 			$this->con->commit();
+		} elseif ($this->con->isInTransaction()) {
+			// A test that threw mid-transaction (e.g. a constraint violation) leaves
+			// Postgres itself in an aborted-transaction state -- unlike MySQL, every
+			// subsequent statement on this connection fails with "current transaction
+			// is aborted" until an explicit ROLLBACK, and Propel's connections are
+			// process-wide, not per-test. Without this, one failing test silently
+			// breaks every other test that runs afterward in the same process.
+			$this->con->forceRollBack();
 		}
 	}
 }
