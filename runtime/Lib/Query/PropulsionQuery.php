@@ -16,15 +16,15 @@ namespace Propulsion\Query;
  * @version    $Revision$
  * @package    propel.runtime.query
  */
-use Propulsion\Exception\PropelException;
-class PropelQuery
+use Propulsion\Exception\PropulsionException;
+class PropulsionQuery
 {
 	public static function from($queryClassAndAlias)
 	{
 		list($class, $alias) = ModelCriteria::getClassAndAlias($queryClassAndAlias);
 		$queryClass = $class . 'Query';
 		if (!class_exists($queryClass)) {
-			throw new PropelException('Cannot find a query class for ' . $class);
+			throw new PropulsionException('Cannot find a query class for ' . $class);
 		}
 		$query = new $queryClass();
 		if ($alias !== null) {

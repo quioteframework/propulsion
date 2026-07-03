@@ -27,7 +27,7 @@ namespace Propulsion\Query;
  * @author     Sam Joseph <sam@neurogrid.com> (Torque)
  * @package    propel.runtime.query
  */
-use Propulsion\Exception\PropelException;
+use Propulsion\Exception\PropulsionException;
 use Propulsion\Adapter\DBAdapter;
 class Join
 {
@@ -124,7 +124,7 @@ class Join
 	public function addConditions($lefts, $rights, $operators = array())
 	{
 		if (count($lefts) != count($rights) ) {
-			throw new PropelException("Unable to create join because the left column count isn't equal to the right column count");
+			throw new PropulsionException("Unable to create join because the left column count isn't equal to the right column count");
 		}
 		foreach ($lefts as $key => $left) {
 			$this->addCondition($left, $rights[$key], isset($operators[$key]) ? $operators[$key] : self::EQUAL);

@@ -22,7 +22,7 @@ namespace Propulsion\Adapter;
 use PDO;
 use PDOStatement;
 use Exception;
-use Propulsion\Exception\PropelException;
+use Propulsion\Exception\PropulsionException;
 use Propulsion\Map\ColumnMap;
 use Propulsion\Map\DatabaseMap;
 class DBMySQL extends DBAdapter
@@ -218,7 +218,7 @@ class DBMySQL extends DBAdapter
 
 		if(isset($params['settings']['charset']['value'])) {
 			if(version_compare(PHP_VERSION, '5.3.6', '<')) {
-				throw new PropelException(<<<EXCEPTION
+				throw new PropulsionException(<<<EXCEPTION
 Connection option "charset" cannot be used for MySQL connections in PHP versions older than 5.3.6.
 Please refer to http://www.propelorm.org/ticket/1360 for instructions and details about the implications of
 using a SET NAMES statement in the "queries" setting.

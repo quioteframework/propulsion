@@ -11,18 +11,18 @@ namespace Propulsion\Formatter;
 
 use PDOStatement;
 use PDO;
-use Propulsion\Exception\PropelException;
+use Propulsion\Exception\PropulsionException;
 /**
  * Array formatter for Propulsion select query
- * format() returns a PropelArrayCollection of associative arrays, a string,
+ * format() returns a PropulsionArrayCollection of associative arrays, a string,
  * or an array
  *
  * @author     Benjamin Runnels
  * @version    $Revision$
  * @package    propel.runtime.formatter
  */
-class PropelSimpleArrayFormatter extends PropelFormatter {
-	protected $collectionName = 'Propulsion\\Collection\\PropelArrayCollection';
+class PropulsionSimpleArrayFormatter extends PropulsionFormatter {
+	protected $collectionName = 'Propulsion\\Collection\\PropulsionArrayCollection';
 
 	public function format(PDOStatement $stmt) {
 		$this->checkInit ();
@@ -34,7 +34,7 @@ class PropelSimpleArrayFormatter extends PropelFormatter {
 			$collection = array();
 		}
 		if ($this->isWithOneToMany () && $this->hasLimit) {
-			throw new PropelException('Cannot use limit() in conjunction with with() on a one-to-many relationship. Please remove the with() call, or the limit() call.');
+			throw new PropulsionException('Cannot use limit() in conjunction with with() on a one-to-many relationship. Please remove the with() call, or the limit() call.');
 		}
 		while ($row = $stmt->fetch (PDO::FETCH_NUM)) {
 			if ($rowArray = $this->getStructuredArrayFromRow ($row)) {

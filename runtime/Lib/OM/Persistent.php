@@ -19,7 +19,7 @@ namespace Propulsion\OM;
  * @package    propel.runtime.om
  */
 
- use Propulsion\Connection\PropelPDO;
+ use Propulsion\Connection\PropulsionPDO;
 interface Persistent
 {
 
@@ -95,17 +95,17 @@ interface Persistent
 
 	/**
 	 * Deletes the object.
-	 * @param      PropelPDO $con
+	 * @param      PropulsionPDO $con
 	 * @return     void
 	 * @throws     Exception
 	 */
-	public function delete(?PropelPDO $con = null);
+	public function delete(?PropulsionPDO $con = null);
 
 	/**
 	 * Saves the object.
-	 * @param      PropelPDO $con
+	 * @param      PropulsionPDO $con
 	 * @return     void
 	 * @throws     Exception
 	 */
-	public function save(?PropelPDO $con = null);
+	public function save(?PropulsionPDO $con = null);
 }

@@ -26,11 +26,11 @@ namespace Propulsion;
  * @version    $Revision$
  * @package    propel.runtime
  */
-use Propulsion\Config\PropelConfiguration;
-use Propulsion\Exception\PropelException;
-use Propulsion\Util\PropelAutoloader;
+use Propulsion\Config\PropulsionConfiguration;
+use Propulsion\Exception\PropulsionException;
+use Propulsion\Util\PropulsionAutoloader;
 use Propulsion\Map\DatabaseMap;
-use Propulsion\Connection\PropelPDO;
+use Propulsion\Connection\PropulsionPDO;
 use PDO;
 use PDOException;
 use Propulsion\Adapter\DBAdapter;
@@ -95,9 +95,9 @@ class Propulsion
 	const CLASS_PDO = 'PDO';
 
 	/**
-	 * The class name for a PropelPDO object.
+	 * The class name for a PropulsionPDO object.
 	 */
-	const CLASS_PROPEL_PDO = 'PropelPDO';
+	const CLASS_PROPEL_PDO = 'PropulsionPDO';
 
 	/**
 	 * The class name for a DebugPDO object.
@@ -135,7 +135,7 @@ class Propulsion
 	private static $connectionMap = array();
 
 	/**
-	 * @var        PropelConfiguration Propulsion-specific configuration.
+	 * @var        PropulsionConfiguration Propulsion-specific configuration.
 	 */
 	private static $configuration;
 
@@ -183,13 +183,13 @@ class Propulsion
 	/**
 	 * Initializes Propulsion
 	 *
-	 * @throws     PropelException Any exceptions caught during processing will be
-	 *                             rethrown wrapped into a PropelException.
+	 * @throws     PropulsionException Any exceptions caught during processing will be
+	 *                             rethrown wrapped into a PropulsionException.
 	 */
 	public static function initialize()
 	{
 		if (self::$configuration === null) {
-			throw new PropelException("Propulsion cannot be initialized without a valid configuration. Please check the log files for further details.");
+			throw new PropulsionException("Propulsion cannot be initialized without a valid configuration. Please check the log files for further details.");
 		}
 
 		self::configureLogging();
@@ -205,14 +205,14 @@ class Propulsion
 	 *
 	 * @param      string Path (absolute or relative to include_path) to config file.
 	 *
-	 * @throws     PropelException If configuration file cannot be opened.
+	 * @throws     PropulsionException If configuration file cannot be opened.
 	 *                             (E_WARNING probably will also be raised by PHP)
 	 */
 	public static function configure($configFile)
 	{
 		$configuration = include($configFile);
 		if ($configuration === false) {
-			throw new PropelException("Unable to open configuration file: " . var_export($configFile, true));
+			throw new PropulsionException("Unable to open configuration file: " . var_export($configFile, true));
 		}
 		self::setConfiguration($configuration);
 	}
@@ -233,8 +233,8 @@ class Propulsion
 	 *
 	 * @param      string $c The Propulsion configuration file path.
 	 *
-	 * @throws     PropelException Any exceptions caught during processing will be
-	 *                             rethrown wrapped into a PropelException.
+	 * @throws     PropulsionException Any exceptions caught during processing will be
+	 *                             rethrown wrapped into a PropulsionException.
 	 */
 	public static function init($c)
 	{
@@ -255,7 +255,7 @@ class Propulsion
 	/**
 	 * Sets the configuration for Propulsion and all dependencies.
 	 *
-	 * @param      mixed The Configuration (array or PropelConfiguration)
+	 * @param      mixed The Configuration (array or PropulsionConfiguration)
 	 */
 	public static function setConfiguration($c)
 	{
@@ -263,7 +263,7 @@ class Propulsion
 			if (isset($c['propel']) && is_array($c['propel'])) {
 				$c = $c['propel'];
 			}
-			$c = new PropelConfiguration($c);
+			$c = new PropulsionConfiguration($c);
 		}
 		self::$configuration = $c;
 	}
@@ -271,14 +271,14 @@ class Propulsion
 	/**
 	 * Get the configuration for this component.
 	 *
-	 * @param      int - PropelConfiguration::TYPE_ARRAY: return the configuration as an array
+	 * @param      int - PropulsionConfiguration::TYPE_ARRAY: return the configuration as an array
 	 *                   (for backward compatibility this is the default)
-	 *                 - PropelConfiguration::TYPE_ARRAY_FLAT: return the configuration as a flat array
+	 *                 - PropulsionConfiguration::TYPE_ARRAY_FLAT: return the configuration as a flat array
 	 *                   ($config['name.space.item'])
-	 *                 - PropelConfiguration::TYPE_OBJECT: return the configuration as a PropelConfiguration instance
-	 * @return     mixed The Configuration (array or PropelConfiguration)
+	 *                 - PropulsionConfiguration::TYPE_OBJECT: return the configuration as a PropulsionConfiguration instance
+	 * @return     mixed The Configuration (array or PropulsionConfiguration)
 	 */
-	public static function getConfiguration($type = PropelConfiguration::TYPE_ARRAY)
+	public static function getConfiguration($type = PropulsionConfiguration::TYPE_ARRAY)
 	{
 		return self::$configuration->getParameters($type);
 	}
@@ -343,14 +343,14 @@ class Propulsion
 	 *
 	 * @return     DatabaseMap The named <code>DatabaseMap</code>.
 	 *
-	 * @throws     PropelException - if database map is null or propel was not initialized properly.
+	 * @throws     PropulsionException - if database map is null or propel was not initialized properly.
 	 */
 	public static function getDatabaseMap($name = null)
 	{
 		if ($name === null) {
 			$name = self::getDefaultDB();
 			if ($name === null) {
-				throw new PropelException("DatabaseMap name is null!");
+				throw new PropulsionException("DatabaseMap name is null!");
 			}
 		}
 
@@ -463,7 +463,7 @@ class Propulsion
 	}
 
 	/**
-	 * @return     array<int, PDO> Every PDO/PropelPDO connection Propulsion currently
+	 * @return     array<int, PDO> Every PDO/PropulsionPDO connection Propulsion currently
 	 *                              has open (master and slave, across all
 	 *                              datasources), deduplicated.
 	 */
@@ -485,10 +485,10 @@ class Propulsion
 	 * Sets a Connection for specified datasource name.
 	 *
 	 * @param      string $name The datasource name for the connection being set.
-	 * @param      PropelPDO $con The PDO connection.
+	 * @param      PropulsionPDO $con The PDO connection.
 	 * @param      string $mode Whether this is a READ or WRITE connection (Propulsion::CONNECTION_READ, Propulsion::CONNECTION_WRITE)
 	 */
-	public static function setConnection($name, PropelPDO $con, $mode = Propulsion::CONNECTION_WRITE)
+	public static function setConnection($name, PropulsionPDO $con, $mode = Propulsion::CONNECTION_WRITE)
 	{
 		if ($name === null) {
 			$name = self::getDefaultDB();
@@ -506,9 +506,9 @@ class Propulsion
 	 * @param      string $name The datasource name that is used to look up the DSN from the runtime configuation file.
 	 * @param      string $mode The connection mode (this applies to replication systems).
 	 *
-	 * @return     PDO|PropelPDO A database connection
+	 * @return     PDO|PropulsionPDO A database connection
 	 *
-	 * @throws     PropelException - if connection cannot be configured or initialized.
+	 * @throws     PropulsionException - if connection cannot be configured or initialized.
 	 */
 	public static function getConnection($name = null, $mode = Propulsion::CONNECTION_WRITE)
 	{
@@ -534,7 +534,7 @@ class Propulsion
 	 *
 	 * @return     PDO A database connection
 	 *
-	 * @throws     PropelException - if connection cannot be configured or initialized.
+	 * @throws     PropulsionException - if connection cannot be configured or initialized.
 	 */
 	public static function getReadConnection($name = null)
 	{
@@ -548,7 +548,7 @@ class Propulsion
 	 *
 	 * @return     PDO A database connection
 	 *
-	 * @throws     PropelException - if connection cannot be configured or initialized.
+	 * @throws     PropulsionException - if connection cannot be configured or initialized.
 	 */
 	public static function getWriteConnection($name = null)
 	{
@@ -561,9 +561,9 @@ class Propulsion
 	 * @param      string $name The datasource name that is used to look up the DSN
 	 *                          from the runtime configuation file. Empty name not allowed.
 	 *
-	 * @return     PDO|PropelPDO A database connection
+	 * @return     PDO|PropulsionPDO A database connection
 	 *
-	 * @throws     PropelException - if connection cannot be configured or initialized.
+	 * @throws     PropulsionException - if connection cannot be configured or initialized.
 	 */
 	public static function getMasterConnection($name)
 	{
@@ -571,7 +571,7 @@ class Propulsion
 			// load connection parameter for master connection
 			$conparams = isset(self::$configuration['datasources'][$name]['connection']) ? self::$configuration['datasources'][$name]['connection'] : null;
 			if (empty($conparams)) {
-				throw new PropelException('No connection information in your runtime configuration file for datasource ['.$name.']');
+				throw new PropulsionException('No connection information in your runtime configuration file for datasource ['.$name.']');
 			}
 			// initialize master connection
 			$con = Propulsion::initConnection($conparams, $name);
@@ -630,7 +630,7 @@ class Propulsion
 	 *
 	 * @return     PDO A database connection
 	 *
-	 * @throws     PropelException - if connection cannot be configured or initialized.
+	 * @throws     PropulsionException - if connection cannot be configured or initialized.
 	 */
 	public static function getSlaveConnection($name)
 	{
@@ -653,7 +653,7 @@ class Propulsion
 					$randkey = array_rand($slaveconfigs['connection']);
 					$conparams = $slaveconfigs['connection'][$randkey];
 					if (empty($conparams)) {
-						throw new PropelException('No connection information in your runtime configuration file for SLAVE ['.$randkey.'] to datasource ['.$name.']');
+						throw new PropulsionException('No connection information in your runtime configuration file for SLAVE ['.$randkey.'] to datasource ['.$name.']');
 					}
 				}
 
@@ -675,9 +675,9 @@ class Propulsion
 	 * @param      string $defaultClass The PDO subclass to instantiate if there is no explicit classname
 	 * 									specified in the connection params (default is Propulsion::CLASS_PROPEL_PDO)
 	 *
-	 * @return     PDO|PropelPDO A database connection of the given class (PDO, PropelPDO, SlavePDO or user-defined)
+	 * @return     PDO|PropulsionPDO A database connection of the given class (PDO, PropulsionPDO, SlavePDO or user-defined)
 	 *
-	 * @throws     PropelException - if lower-level exception caught when trying to connect.
+	 * @throws     PropulsionException - if lower-level exception caught when trying to connect.
 	 */
 	public static function initConnection($conparams, $name, $defaultClass = Propulsion::CLASS_PROPEL_PDO)
 	{
@@ -685,7 +685,7 @@ class Propulsion
 
 		$dsn = $conparams['dsn'];
 		if ($dsn === null) {
-			throw new PropelException('No dsn specified in your connection parameters for datasource ['.$name.']');
+			throw new PropulsionException('No dsn specified in your connection parameters for datasource ['.$name.']');
 		}
 
 		$conparams = $adapter->prepareParams($conparams);
@@ -693,7 +693,7 @@ class Propulsion
 		if (isset($conparams['classname']) && !empty($conparams['classname'])) {
 			$classname = $conparams['classname'];
 			if (!class_exists($classname)) {
-				throw new PropelException('Unable to load specified PDO subclass: ' . $classname);
+				throw new PropulsionException('Unable to load specified PDO subclass: ' . $classname);
 			}
 		} else {
 			$classname = $defaultClass;
@@ -708,8 +708,8 @@ class Propulsion
 		if ( isset($conparams['options']) && is_array($conparams['options']) ) {
 			try {
 				self::processDriverOptions( $conparams['options'], $driver_options );
-			} catch (PropelException $e) {
-				throw new PropelException('Error processing driver options for datasource ['.$name.']', $e);
+			} catch (PropulsionException $e) {
+				throw new PropulsionException('Error processing driver options for datasource ['.$name.']', $e);
 			}
 		}
 
@@ -717,7 +717,7 @@ class Propulsion
 			$con = new $classname($dsn, $user, $password, $driver_options);
 			$con->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 		} catch (PDOException $e) {
-			throw new PropelException("Unable to open PDO connection", $e);
+			throw new PropulsionException("Unable to open PDO connection", $e);
 		}
 
 		// load any connection options from the config file
@@ -726,8 +726,8 @@ class Propulsion
 			$attributes = array();
 			try {
 				self::processDriverOptions( $conparams['attributes'], $attributes );
-			} catch (PropelException $e) {
-				throw new PropelException('Error processing connection attributes for datasource ['.$name.']', $e);
+			} catch (PropulsionException $e) {
+				throw new PropulsionException('Error processing connection attributes for datasource ['.$name.']', $e);
 			}
 			foreach ($attributes as $key => $value) {
 				$con->setAttribute($key, $value);
@@ -748,7 +748,7 @@ class Propulsion
 	 * @param      array Where to find the list of constant flags and their new setting.
 	 * @param      array Put the data into here
 	 *
-	 * @throws     PropelException If invalid options were specified.
+	 * @throws     PropulsionException If invalid options were specified.
 	 */
 	private static function processDriverOptions(array $source, array &$write_to)
 	{
@@ -756,17 +756,17 @@ class Propulsion
 			if (is_string($option) && strpos($option, '::') !== false) {
 				$key = $option;
 			} elseif (is_string($option)) {
-				$key = 'Propulsion\\Connection\\PropelPDO::' . $option;
+				$key = 'Propulsion\\Connection\\PropulsionPDO::' . $option;
 			}
 			if (!defined($key)) {
-				throw new PropelException("Invalid PDO option/attribute name specified: ".$key);
+				throw new PropulsionException("Invalid PDO option/attribute name specified: ".$key);
 			}
 			$key = constant($key);
 
 			$value = $optiondata['value'];
 			if (is_string($value) && strpos($value, '::') !== false) {
 				if (!defined($value)) {
-					throw new PropelException("Invalid PDO option/attribute value specified: ".$value);
+					throw new PropulsionException("Invalid PDO option/attribute value specified: ".$value);
 				}
 				$value = constant($value);
 			}
@@ -782,7 +782,7 @@ class Propulsion
 	 *
 	 * @return     DBAdapter The corresponding database adapter.
 	 *
-	 * @throws     PropelException If unable to find DBdapter for specified db.
+	 * @throws     PropulsionException If unable to find DBdapter for specified db.
 	 */
 		public static function getDB($name = null)
 	{
@@ -792,7 +792,7 @@ class Propulsion
 
 		if (!isset(self::$adapterMap[$name])) {
 			if (!isset(self::$configuration['datasources'][$name]['adapter'])) {
-				throw new PropelException("Unable to find adapter for datasource [" . $name . "].");
+				throw new PropulsionException("Unable to find adapter for datasource [" . $name . "].");
 			}
 			$db = DBAdapter::factory(self::$configuration['datasources'][$name]['adapter']);
 			// register the adapter for this name
@@ -890,7 +890,7 @@ class Propulsion
 		// include class
 		$ret = include_once($path);
 		if ($ret === false) {
-			throw new PropelException("Unable to import class: " . $class . " from " . $path);
+			throw new PropulsionException("Unable to import class: " . $class . " from " . $path);
 		}
 
 		// return qualified name
@@ -952,9 +952,9 @@ class Propulsion
 
 // Generated Object Model classes (both the archived PHP5 builders and the current
 // PHP84 ones) are emitted unnamespaced and reference runtime classes by their bare
-// historic name (Propulsion::, TableMap, PropelException, ...) -- that was their actual
+// historic name (Propulsion::, TableMap, PropulsionException, ...) -- that was their actual
 // global name before this fork renamed Propulsion\ to Propulsion\. Alias them eagerly
-// (not lazily via spl_autoload_register) because `catch (PropelException $e)` --
+// (not lazily via spl_autoload_register) because `catch (PropulsionException $e)` --
 // used throughout this codebase and any already-generated model code -- does NOT
 // trigger autoloading in PHP the way `new`/`instanceof`/class_exists() do; an alias
 // created only on first *reference* would still be missing the first time a catch
@@ -971,7 +971,7 @@ try {
 				class_alias($fqcn, $legacyName);
 			} catch (\Throwable $e) {
 				// A handful of runtime classes have optional dependencies of their own
-				// (e.g. PropelYAMLParser expects a bundled sfYaml.php that isn't part of
+				// (e.g. PropulsionYAMLParser expects a bundled sfYaml.php that isn't part of
 				// this fork). Don't let one broken/unused legacy class -- or even just a
 				// warning it emits while loading -- take down every other alias, and by
 				// extension Propulsion::init() itself, for it.

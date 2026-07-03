@@ -16,8 +16,8 @@ namespace Propulsion\Parser;
  * @author     Jonathan H. Wage <jwage@mac.com> (Doctrine_Parser)
  * @package    propel.runtime.parser
  */
-use Propulsion\Exception\PropelException;
-abstract class PropelParser
+use Propulsion\Exception\PropulsionException;
+abstract class PropulsionParser
 {
 	/**
 	 * Converts data from an associative array to the parser format.
@@ -59,7 +59,7 @@ abstract class PropelParser
 	public function load($path)
 	{
 		if (!file_exists($path)) {
-			throw new PropelException(sprintf('File "%s" does not exist or is unreadable', $path));
+			throw new PropulsionException(sprintf('File "%s" does not exist or is unreadable', $path));
 		}
 		ob_start();
 		include($path);
@@ -84,17 +84,17 @@ abstract class PropelParser
 	}
 
 	/**
-	 * Factory for getting an instance of a subclass of PropelParser
+	 * Factory for getting an instance of a subclass of PropulsionParser
 	 *
 	 * @param string $type Parser type, amon 'XML', 'YAML', 'JSON', and 'CSV'
 	 *
-	 * @return PropelParser A PropelParser subclass instance
+	 * @return PropulsionParser A PropulsionParser subclass instance
 	 */
 	static public function getParser($type = 'XML')
 	{
 		$class = sprintf('Propulsion\\Parser\\Propulsion%sParser', $type);
 		if (!class_exists($class)) {
-			throw new PropelException(sprintf('Unknown parser class "%s"', $class));
+			throw new PropulsionException(sprintf('Unknown parser class "%s"', $class));
 		}
 
 		return new $class;

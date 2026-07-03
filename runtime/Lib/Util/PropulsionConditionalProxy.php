@@ -18,10 +18,10 @@ namespace Propulsion\Util;
  * <code>
  * $c->_if(true)        // returns $c
  *     ->doStuff()      // executed
- *   ->_else()          // returns a PropelConditionalProxy instance
+ *   ->_else()          // returns a PropulsionConditionalProxy instance
  *     ->doOtherStuff() // not executed
  *   ->_endif();        // returns $c
- * $c->_if(false)       // returns a PropelConditionalProxy instance
+ * $c->_if(false)       // returns a PropulsionConditionalProxy instance
  *     ->doStuff()      // not executed
  *   ->_else()          // returns $c
  *     ->doOtherStuff() // executed
@@ -32,7 +32,7 @@ namespace Propulsion\Util;
  * @version    $Revision$
  * @package    propel.runtime.util
  */
-class PropelConditionalProxy
+class PropulsionConditionalProxy
 {
 	protected $mainObject;
 

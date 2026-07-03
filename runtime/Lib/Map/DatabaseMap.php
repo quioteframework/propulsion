@@ -26,7 +26,7 @@ namespace Propulsion\Map;
  * @package    propel.runtime.map
  */
 
- use Propulsion\Exception\PropelException;
+ use Propulsion\Exception\PropulsionException;
  use Propulsion\Adapter\DBAdapter;
  use Propulsion\Propulsion;
  
@@ -124,12 +124,12 @@ class DatabaseMap
    *
    * @param      string $name Name of the table.
    * @return     TableMap A TableMap
-   * @throws     PropelException if the table is undefined
+   * @throws     PropulsionException if the table is undefined
    */
   public function getTable($name)
   {
     if (!isset($this->tables[$name])) {
-      throw new PropelException("Cannot fetch TableMap for undefined table: " . $name );
+      throw new PropulsionException("Cannot fetch TableMap for undefined table: " . $name );
     }
     return $this->tables[$name];
   }
@@ -150,7 +150,7 @@ class DatabaseMap
    *
    * @param      $qualifiedColumnName Name of the column.
    * @return     ColumnMap A TableMap
-   * @throws     PropelException if the table is undefined, or if the table is undefined
+   * @throws     PropulsionException if the table is undefined, or if the table is undefined
    */
   public function getColumn($qualifiedColumnName)
   {
@@ -200,7 +200,7 @@ class DatabaseMap
       return $this->addTableFromMapClass($tmClass);
     }
     
-    throw new PropelException("Cannot fetch TableMap for undefined table phpName: " . $phpName);
+    throw new PropulsionException("Cannot fetch TableMap for undefined table phpName: " . $phpName);
   }
 
   /**

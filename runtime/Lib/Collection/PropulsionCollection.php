@@ -13,10 +13,10 @@ namespace Propulsion\Collection;
  * Class for iterating over a list of Propulsion elements
  * The collection keys must be integers - no associative array accepted
  *
- * @method     PropelCollection fromXML(string $data) Populate the collection from an XML string
- * @method     PropelCollection fromYAML(string $data) Populate the collection from a YAML string
- * @method     PropelCollection fromJSON(string $data) Populate the collection from a JSON string
- * @method     PropelCollection fromCSV(string $data) Populate the collection from a CSV string
+ * @method     PropulsionCollection fromXML(string $data) Populate the collection from an XML string
+ * @method     PropulsionCollection fromYAML(string $data) Populate the collection from a YAML string
+ * @method     PropulsionCollection fromJSON(string $data) Populate the collection from a JSON string
+ * @method     PropulsionCollection fromCSV(string $data) Populate the collection from a CSV string
  *
  * @method     string toXML(boolean $usePrefix, boolean $includeLazyLoadColumns) Export the collection to an XML string
  * @method     string toYAML(boolean $usePrefix, boolean $includeLazyLoadColumns) Export the collection to a YAML string
@@ -27,17 +27,17 @@ namespace Propulsion\Collection;
  * @package    propel.runtime.collection
  */
 
- use Propulsion\Formatter\PropelFormatter;
- use Propulsion\Exception\PropelException;
+ use Propulsion\Formatter\PropulsionFormatter;
+ use Propulsion\Exception\PropulsionException;
  use ArrayIterator;
  use Iterator;
- use Propulsion\Connection\PropelPDO;
+ use Propulsion\Connection\PropulsionPDO;
  use Propulsion\Propulsion;
  use Propulsion\Om\BaseObject;
- use Propulsion\Parser\PropelParser;
+ use Propulsion\Parser\PropulsionParser;
  use Propulsion\Util\BasePeer;
 
-class PropelCollection extends \ArrayObject implements \Serializable
+class PropulsionCollection extends \ArrayObject implements \Serializable
 {
 	/**
 	 * @var       string
@@ -50,7 +50,7 @@ class PropelCollection extends \ArrayObject implements \Serializable
 	protected $iterator;
 
 	/**
-	 * @var       PropelFormatter
+	 * @var       PropulsionFormatter
 	 */
 	protected $formatter;
 
@@ -257,7 +257,7 @@ class PropelCollection extends \ArrayObject implements \Serializable
 	public function get($key)
 	{
 		if (!$this->offsetExists($key)) {
-			throw new PropelException('Unknown key ' . $key);
+			throw new PropulsionException('Unknown key ' . $key);
 		}
 		return $this->offsetGet($key);
 	}
@@ -333,7 +333,7 @@ class PropelCollection extends \ArrayObject implements \Serializable
 	public function remove($key)
 	{
 		if (!$this->offsetExists($key)) {
-			throw new PropelException('Unknown key ' . $key);
+			throw new PropulsionException('Unknown key ' . $key);
 		}
 		return $this->offsetUnset($key);
 	}
@@ -427,7 +427,7 @@ class PropelCollection extends \ArrayObject implements \Serializable
 
 	/**
 	 * Clear the internal Iterator.
-	 * PHP 5.3 doesn't know how to free a PropelCollection object if it has an attached
+	 * PHP 5.3 doesn't know how to free a PropulsionCollection object if it has an attached
 	 * Iterator, so this must be done manually to avoid memory leaks.
 	 * @see http://www.propelorm.org/ticket/1232
 	 */
@@ -466,21 +466,21 @@ class PropelCollection extends \ArrayObject implements \Serializable
 	public function getPeerClass()
 	{
 		if ($this->model == '') {
-			throw new PropelException('You must set the collection model before interacting with it');
+			throw new PropulsionException('You must set the collection model before interacting with it');
 		}
 		return constant($this->getModel() . '::PEER');
 	}
 
 	/**
-	 * @param     PropelFormatter  $formatter
+	 * @param     PropulsionFormatter  $formatter
 	 */
-	public function setFormatter(PropelFormatter $formatter)
+	public function setFormatter(PropulsionFormatter $formatter)
 	{
 		$this->formatter = $formatter;
 	}
 
 	/**
-	 * @return    PropelFormatter
+	 * @return    PropulsionFormatter
 	 */
 	public function getFormatter()
 	{
@@ -491,7 +491,7 @@ class PropelCollection extends \ArrayObject implements \Serializable
 	 * Get a connection object for the database containing the elements of the collection
 	 *
 	 * @param     string  $type  The connection type (Propulsion::CONNECTION_READ by default; can be Propulsion::connection_WRITE)
-	 * @return    PropelPDO  A PropelPDO connection object
+	 * @return    PropulsionPDO  A PropulsionPDO connection object
 	 */
 	public function getConnection($type = Propulsion::CONNECTION_READ)
 	{
@@ -503,20 +503,20 @@ class PropelCollection extends \ArrayObject implements \Serializable
 	/**
 	 * Populate the current collection from a string, using a given parser format
 	 * <code>
-	 * $coll = new PropelObjectCollection();
+	 * $coll = new PropulsionObjectCollection();
 	 * $coll->setModel('Book');
 	 * $coll->importFrom('JSON', '{{"Id":9012,"Title":"Don Juan","ISBN":"0140422161","Price":12.99,"PublisherId":1234,"AuthorId":5678}}');
 	 * </code>
 	 *
-	 * @param     mixed   $parser  A PropelParser instance, or a format name ('XML', 'YAML', 'JSON', 'CSV')
+	 * @param     mixed   $parser  A PropulsionParser instance, or a format name ('XML', 'YAML', 'JSON', 'CSV')
 	 * @param     string  $data    The source data to import from
 	 *
 	 * @return    BaseObject  The current object, for fluid interface
 	 */
 	public function importFrom($parser, $data): mixed
 	{
-		if (!$parser instanceof PropelParser) {
-			$parser = PropelParser::getParser($parser);
+		if (!$parser instanceof PropulsionParser) {
+			$parser = PropulsionParser::getParser($parser);
 		}
 		return $this->fromArray($parser->listToArray($data), BasePeer::TYPE_PHPNAME);
 	}
@@ -529,22 +529,22 @@ class PropelCollection extends \ArrayObject implements \Serializable
 	 *  => {{"Id":9012,"Title":"Don Juan","ISBN":"0140422161","Price":12.99,"PublisherId":1234,"AuthorId":5678}}');
 	 * </code>
 	 *
-	 * A PropelOnDemandCollection cannot be exported. Any attempt will result in a PropelExecption being thrown.
+	 * A PropulsionOnDemandCollection cannot be exported. Any attempt will result in a PropulsionExecption being thrown.
 	 *
-	 * @param     mixed   $parser                 A PropelParser instance, or a format name ('XML', 'YAML', 'JSON', 'CSV')
+	 * @param     mixed   $parser                 A PropulsionParser instance, or a format name ('XML', 'YAML', 'JSON', 'CSV')
 	 * @param     boolean $usePrefix              (optional) If true, the returned element keys will be prefixed with the
 	 *                                            model class name ('Article_0', 'Article_1', etc). Defaults to TRUE.
-	 *                                            Not supported by PropelArrayCollection, as PropelArrayFormatter has
+	 *                                            Not supported by PropulsionArrayCollection, as PropulsionArrayFormatter has
 	 *                                            already created the array used here with integers as keys.
 	 * @param     boolean $includeLazyLoadColumns (optional) Whether to include lazy load(ed) columns. Defaults to TRUE.
-	 *                                            Not supported by PropelArrayCollection, as PropelArrayFormatter has
+	 *                                            Not supported by PropulsionArrayCollection, as PropulsionArrayFormatter has
 	 *                                            already included lazy-load columns in the array used here.
 	 * @return    string                          The exported data
 	 */
 	public function exportTo($parser, $usePrefix = true, $includeLazyLoadColumns = true)
 	{
-		if (!$parser instanceof PropelParser) {
-			$parser = PropelParser::getParser($parser);
+		if (!$parser instanceof PropulsionParser) {
+			$parser = PropulsionParser::getParser($parser);
 		}
 		return $parser->listFromArray($this->toArray(null, $usePrefix, BasePeer::TYPE_PHPNAME, $includeLazyLoadColumns));
 	}
@@ -571,7 +571,7 @@ class PropelCollection extends \ArrayObject implements \Serializable
 
 			return $this->exportTo($matches[1], $usePrefix, $includeLazyLoadColumns);
 		}
-		throw new PropelException('Call to undefined method: ' . $name);
+		throw new PropulsionException('Call to undefined method: ' . $name);
 	}
 
 	/**

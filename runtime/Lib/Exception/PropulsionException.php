@@ -14,7 +14,7 @@ namespace Propulsion\Exception;
  * @version    $Revision$
  * @package    propel.runtime.exception
  */
-class PropelException extends \Exception
+class PropulsionException extends \Exception
 {
 	/**
 	 * The nested "cause" exception.
@@ -29,7 +29,7 @@ class PropelException extends \Exception
 	 * @param     string     $message
 	 * @param     \Exception  $previous
 	 *
-	 * @return    PropelException
+	 * @return    PropulsionException
 	 */
 	public function __construct($message = null, ?\Exception $previous = null)
 	{

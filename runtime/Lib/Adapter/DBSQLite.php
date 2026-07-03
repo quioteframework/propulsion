@@ -17,7 +17,7 @@ namespace Propulsion\Adapter;
  * @package    propel.runtime.adapter
  */
 use PDO;
-use Propulsion\Exception\PropelException;
+use Propulsion\Exception\PropulsionException;
 class DBSQLite extends DBAdapter
 {
 
@@ -28,7 +28,7 @@ class DBSQLite extends DBAdapter
 	 * @param     PDO     $con  A PDO connection instance.
 	 * @param     string  $charset  The charset encoding.
 	 *
-	 * @throws    PropelException If the specified charset doesn't match sqlite_libencoding()
+	 * @throws    PropulsionException If the specified charset doesn't match sqlite_libencoding()
 	 */
 	public function setCharset(PDO $con, $charset)
 	{

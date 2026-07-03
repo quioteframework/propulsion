@@ -25,8 +25,8 @@ namespace Propulsion\Util;
 use DateTimeImmutable;
 use \DateTimeZone;
  use \Exception;
- use Propulsion\Exception\PropelException;
-class PropelDateTime extends DateTime
+ use Propulsion\Exception\PropulsionException;
+class PropulsionDateTime extends DateTime
 {
 
 	/**
@@ -98,7 +98,7 @@ class PropelDateTime extends DateTime
 				}
 			}
 		} catch (Exception $e) {
-			throw new PropelException('Error parsing date/time value: ' . var_export($value, true), $e);
+			throw new PropulsionException('Error parsing date/time value: ' . var_export($value, true), $e);
 		}
 		return $dateTimeObject;
 	}

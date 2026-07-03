@@ -13,7 +13,7 @@ namespace Propulsion\Adapter\MSSQL;
  *
  * @package    propel.runtime.adapter.MSSQL
  */
-class MssqlDebugPDO extends MssqlPropelPDO
+class MssqlDebugPDO extends MssqlPropulsionPDO
 {
 	public $useDebug = true;
 }

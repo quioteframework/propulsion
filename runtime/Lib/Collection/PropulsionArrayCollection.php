@@ -15,25 +15,25 @@ namespace Propulsion\Collection;
  * @package    propel.runtime.collection
  */
 
-use Propulsion\Connection\PropelPDO;
-use Propulsion\Exception\PropelException;
+use Propulsion\Connection\PropulsionPDO;
+use Propulsion\Exception\PropulsionException;
 use Propulsion\Propulsion;
 use Propulsion\Om\BaseObject;
 use Propulsion\Util\BasePeer;
 
-class PropelArrayCollection extends PropelCollection
+class PropulsionArrayCollection extends PropulsionCollection
 {
 	protected $workerObject;
 
 	/**
 	 * Save all the elements in the collection
 	 *
-	 * @param     PropelPDO  $con
+	 * @param     PropulsionPDO  $con
 	 */
 	public function save($con = null)
 	{
 		if (!method_exists($this->getModel(), 'save')) {
-			throw new PropelException('Cannot save objects on a read-only model');
+			throw new PropulsionException('Cannot save objects on a read-only model');
 		}
 		if (null === $con) {
 			$con = $this->getConnection(Propulsion::CONNECTION_WRITE);
@@ -48,7 +48,7 @@ class PropelArrayCollection extends PropelCollection
 				$obj->save($con);
 			}
 			$con->commit();
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$con->rollback();
 		}
 	}
@@ -56,12 +56,12 @@ class PropelArrayCollection extends PropelCollection
 	/**
 	 * Delete all the elements in the collection
 	 *
-	 * @param     PropelPDO  $con
+	 * @param     PropulsionPDO  $con
 	 */
 	public function delete($con = null)
 	{
 		if (!method_exists($this->getModel(), 'delete')) {
-			throw new PropelException('Cannot delete objects on a read-only model');
+			throw new PropulsionException('Cannot delete objects on a read-only model');
 		}
 		if (null === $con) {
 			$con = $this->getConnection(Propulsion::CONNECTION_WRITE);
@@ -75,7 +75,7 @@ class PropelArrayCollection extends PropelCollection
 				$obj->delete($con);
 			}
 			$con->commit();
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$con->rollback();
 			throw $e;
 		}
@@ -198,14 +198,14 @@ class PropelArrayCollection extends PropelCollection
 	}
 
 	/**
-	 * @throws    PropelException
+	 * @throws    PropulsionException
 	 * @return    BaseObject
 	 */
 	protected function getWorkerObject()
 	{
 		if (null === $this->workerObject) {
 			if ($this->model == '') {
-				throw new PropelException('You must set the collection model before interacting with it');
+				throw new PropulsionException('You must set the collection model before interacting with it');
 			}
 			$class = $this->getModel();
 			$this->workerObject = new $class();

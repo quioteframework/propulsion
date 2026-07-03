@@ -15,7 +15,7 @@ namespace Propulsion\Parser;
  * @author     Francois Zaninotto
  * @package    propel.runtime.parser
  */
-class PropelXMLParser extends PropelParser
+class PropulsionXMLParser extends PropulsionParser
 {
 
 	/**
@@ -62,7 +62,7 @@ class PropelXMLParser extends PropelParser
 	}
 
 	/**
-	 * Alias for PropelXMLParser::fromArray()
+	 * Alias for PropulsionXMLParser::fromArray()
 	 *
 	 * @param  array   $array Source data to convert
 	 * @param  string  $rootElementName Name of the root element of the XML document
@@ -76,7 +76,7 @@ class PropelXMLParser extends PropelParser
 	}
 
 	/**
-	 * Alias for PropelXMLParser::listFromArray()
+	 * Alias for PropulsionXMLParser::listFromArray()
 	 *
 	 * @param  array   $array Source data to convert
 	 * @param  string  $rootElementName Name of the root element of the XML document
@@ -142,7 +142,7 @@ class PropelXMLParser extends PropelParser
 	}
 
 	/**
-	 * Alias for PropelXMLParser::toArray()
+	 * Alias for PropulsionXMLParser::toArray()
 	 *
 	 * @param  string $data Source data to convert, as an XML string
 	 * @return array Converted data

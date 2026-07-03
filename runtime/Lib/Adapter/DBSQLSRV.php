@@ -19,7 +19,7 @@ namespace Propulsion\Adapter;
 use PDO;
 use PDOStatement;
 use Propulsion\Query\Criteria;
-use Propulsion\Exception\PropelException;
+use Propulsion\Exception\PropulsionException;
 use Propulsion\Map\ColumnMap;
 use Propulsion\Map\DatabaseMap;
 
@@ -45,7 +45,7 @@ class DBSQLSRV extends DBMSSQL
 	 * @param     PDO     $con
 	 * @param     string  $charset
 	 *
-	 * @throws    PropelException
+	 * @throws    PropulsionException
 	 */
 	public function setCharset(PDO $con, $charset)
 	{
@@ -57,7 +57,7 @@ class DBSQLSRV extends DBMSSQL
 			$con->setAttribute(PDO::SQLSRV_ATTR_ENCODING, PDO::SQLSRV_ENCODING_SYSTEM);
 			break;
 		default:
-			throw new PropelException('only utf-8 or system encoding are supported by the pdo_sqlsrv driver');
+			throw new PropulsionException('only utf-8 or system encoding are supported by the pdo_sqlsrv driver');
 		}
 	}
 

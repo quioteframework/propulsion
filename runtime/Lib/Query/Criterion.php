@@ -20,7 +20,7 @@ namespace Propulsion\Query;
  */
  use Propulsion\Propulsion;
  use Propulsion\Adapter\DBAdapter;
- use Propulsion\Exception\PropelException;
+ use Propulsion\Exception\PropulsionException;
  use Propulsion\Adapter\DBPostgres;
  use \Exception;
 class Criterion
@@ -254,7 +254,7 @@ class Criterion
 	 * @param      string &$sb The string that will receive the Prepared Statement
 	 * @param      array $params A list to which Prepared Statement parameters will be appended
 	 * @return     void
-	 * @throws     PropelException - if the expression builder cannot figure out how to turn a specified
+	 * @throws     PropulsionException - if the expression builder cannot figure out how to turn a specified
 	 *                           expression into proper SQL.
 	 */
 	public function appendPsTo(&$sb, array &$params)
@@ -421,7 +421,7 @@ class Criterion
 				$sb .= $field . Criteria::ISNOTNULL;
 			} else {
 				// for now throw an exception, because not sure how to interpret this
-				throw new PropelException("Could not build SQL for expression: $field " . $this->comparison . " NULL");
+				throw new PropulsionException("Could not build SQL for expression: $field " . $this->comparison . " NULL");
 			}
 
 		}

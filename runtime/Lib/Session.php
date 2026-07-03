@@ -9,7 +9,7 @@
  */
 namespace Propulsion;
 
-use Propulsion\Connection\PropelPDO;
+use Propulsion\Connection\PropulsionPDO;
 
 /**
  * Request-scoped state (Propulsion worker-safety rework, phase 4a -- see
@@ -66,7 +66,7 @@ class Session
      *
      *  1. Force-rollback any dangling open transaction on every connection
      *     `Propulsion` currently knows about. This is the same failure mode
-     *     `PropelPDO::forceRollBack()` was wired up to fix at *test*-teardown
+     *     `PropulsionPDO::forceRollBack()` was wired up to fix at *test*-teardown
      *     boundaries in commit 6f6b08e ("Fix the real driver of the ~300-error
      *     cascade: unrolled-back transactions") -- an uncommitted transaction
      *     left open past its boundary poisons the connection for whatever reuses
@@ -98,7 +98,7 @@ class Session
     private function rollBackDanglingTransactions(): void
     {
         foreach (Propulsion::getOpenConnections() as $con) {
-            if ($con instanceof PropelPDO && $con->isInTransaction()) {
+            if ($con instanceof PropulsionPDO && $con->isInTransaction()) {
                 $con->forceRollBack();
             }
         }

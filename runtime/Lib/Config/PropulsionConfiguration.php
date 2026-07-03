@@ -9,20 +9,20 @@
  */
 namespace Propulsion\Config;
 /**
- * PropelConfiguration is a container for all Propulsion's runtime configuration data.
+ * PropulsionConfiguration is a container for all Propulsion's runtime configuration data.
  *
- * PropelConfiguration implements ArrayAccess interface so the configuration
+ * PropulsionConfiguration implements ArrayAccess interface so the configuration
  * can be accessed as an array or using a simple getter and setter. The whole
  * configuration can also be retrieved as a nested arrays, flat array or as a
- * PropelConfiguration instance.
+ * PropulsionConfiguration instance.
  *
  * @author     Veikko M�kinen <veikko@veikko.fi>
  * @version    $Revision$
  * @package    propel.runtime.config
  */
 
-use Propulsion\Exception\PropelException;
-class PropelConfiguration implements \ArrayAccess
+use Propulsion\Exception\PropulsionException;
+class PropulsionConfiguration implements \ArrayAccess
 {
 	const TYPE_ARRAY = 1;
 	const TYPE_ARRAY_FLAT = 2;
@@ -143,22 +143,22 @@ class PropelConfiguration implements \ArrayAccess
 	}
 
 	/**
-	 * @throws     PropelException
+	 * @throws     PropulsionException
 	 *
 	 * @param     integer  $type
 	 * @return    mixed
 	 */
-	public function getParameters($type = PropelConfiguration::TYPE_ARRAY)
+	public function getParameters($type = PropulsionConfiguration::TYPE_ARRAY)
 	{
 		switch ($type) {
-			case PropelConfiguration::TYPE_ARRAY:
+			case PropulsionConfiguration::TYPE_ARRAY:
 				return $this->parameters;
-			case PropelConfiguration::TYPE_ARRAY_FLAT:
+			case PropulsionConfiguration::TYPE_ARRAY_FLAT:
 				return $this->getFlattenedParameters();
-			case PropelConfiguration::TYPE_OBJECT:
+			case PropulsionConfiguration::TYPE_OBJECT:
 				return $this;
 			default:
-				throw new PropelException('Unknown configuration type: '. var_export($type, true));
+				throw new PropulsionException('Unknown configuration type: '. var_export($type, true));
 		}
 	}
 
@@ -177,10 +177,10 @@ class PropelConfiguration implements \ArrayAccess
 	protected function flattenParameters()
 	{
 		$result = array();
-		$it = new PropelConfigurationIterator(new \RecursiveArrayIterator($this->parameters), \RecursiveIteratorIterator::SELF_FIRST);
+		$it = new PropulsionConfigurationIterator(new \RecursiveArrayIterator($this->parameters), \RecursiveIteratorIterator::SELF_FIRST);
 		foreach($it as $key => $value) {
 			$ns = $it->getDepth() ? $it->getNamespace() . '.'. $key : $key;
-			if ($it->getNodeType() == PropelConfigurationIterator::NODE_ITEM) {
+			if ($it->getNodeType() == PropulsionConfigurationIterator::NODE_ITEM) {
 				$result[$ns] = $value;
 			}
 		}

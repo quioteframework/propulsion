@@ -15,10 +15,10 @@ namespace Propulsion\Adapter\MSSQL;
  *
  * @package    propel.runtime.adapter.MSSQL
  */
-use Propulsion\Connection\PropelPDO;
-use Propulsion\Exception\PropelException;
+use Propulsion\Connection\PropulsionPDO;
+use Propulsion\Exception\PropulsionException;
 
-class MssqlPropelPDO extends PropelPDO
+class MssqlPropulsionPDO extends PropulsionPDO
 {
 	/**
 	 * Begin a transaction.
@@ -58,7 +58,7 @@ class MssqlPropelPDO extends PropelPDO
 		if ($opcount > 0) {
 			if ($opcount === 1) {
 				if ($this->isUncommitable) {
-					throw new PropelException('Cannot commit because a nested transaction was rolled back');
+					throw new PropulsionException('Cannot commit because a nested transaction was rolled back');
 				} else {
 					$return = self::exec('COMMIT TRANSACTION');
 					if ($this->useDebug) {

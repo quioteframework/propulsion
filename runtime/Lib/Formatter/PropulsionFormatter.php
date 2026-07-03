@@ -20,9 +20,9 @@ namespace Propulsion\Formatter;
  use Propulsion\Query\ModelCriteria;
  use Propulsion\Om\BaseObject;
  use Propulsion\Propulsion;
- use Propulsion\Exception\PropelException;
+ use Propulsion\Exception\PropulsionException;
  use PDOStatement;
-abstract class PropelFormatter
+abstract class PropulsionFormatter
 {
 	protected
 		$dbName,
@@ -46,7 +46,7 @@ abstract class PropelFormatter
 	 *
 	 * @param ModelCriteria $criteria
 	 *
-	 * @return PropelFormatter The current formatter object
+	 * @return PropulsionFormatter The current formatter object
 	 */
 	public function init(ModelCriteria $criteria)
 	{
@@ -143,7 +143,7 @@ abstract class PropelFormatter
 	public function checkInit()
 	{
 		if (null === $this->peer) {
-			throw new PropelException('You must initialize a formatter object before calling format() or formatOne()');
+			throw new PropulsionException('You must initialize a formatter object before calling format() or formatOne()');
 		}
 	}
 

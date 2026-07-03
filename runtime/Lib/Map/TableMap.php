@@ -26,7 +26,7 @@ namespace Propulsion\Map;
  * @package    propel.runtime.map
  */
 
- use Propulsion\Exception\PropelException;
+ use Propulsion\Exception\PropulsionException;
 class TableMap
 {
 
@@ -362,7 +362,7 @@ class TableMap
    * @param      string    $name A String with the name of the table.
    * @param      boolean   $normalize Normalize the column name (if column name not like FIRST_NAME)
    * @return     ColumnMap A ColumnMap.
-   * @throws     PropelException if the column is undefined
+   * @throws     PropulsionException if the column is undefined
    */
   public function getColumn($name, $normalize = true)
   {
@@ -370,7 +370,7 @@ class TableMap
       $name = ColumnMap::normalizeName($name);
     }
     if (!$this->hasColumn($name, false)) {
-      throw new PropelException("Cannot fetch ColumnMap for undefined column: " . $name);
+      throw new PropulsionException("Cannot fetch ColumnMap for undefined column: " . $name);
     }
     return $this->columns[$name];
   }
@@ -391,12 +391,12 @@ class TableMap
    *
    * @param      string    $phpName A String with the name of the table.
    * @return     ColumnMap A ColumnMap.
-   * @throws     PropelException if the column is undefined
+   * @throws     PropulsionException if the column is undefined
    */
   public function getColumnByPhpName($phpName)
   {
     if (!isset($this->columnsByPhpName[$phpName])) {
-      throw new PropelException("Cannot fetch ColumnMap for undefined column phpName: " . $phpName);
+      throw new PropulsionException("Cannot fetch ColumnMap for undefined column phpName: " . $phpName);
     }
     return $this->columnsByPhpName[$phpName];
   }
@@ -576,13 +576,13 @@ class TableMap
    *
    * @param       string $name The relation name
    * @return      RelationMap The relation object
-   * @throws      PropelException When called on an inexistent relation
+   * @throws      PropulsionException When called on an inexistent relation
    */
   public function getRelation($name)
   {
     if (!array_key_exists($name, $this->getRelations()))
     {
-      throw new PropelException('Calling getRelation() on an unknown relation, ' . $name);
+      throw new PropulsionException('Calling getRelation() on an unknown relation, ' . $name);
     }
     return $this->relations[$name];
   }

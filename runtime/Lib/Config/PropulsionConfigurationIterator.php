@@ -9,14 +9,14 @@
  */
 namespace Propulsion\Config;
 /**
- * PropelConfigurationIterator is used internally by PropelConfiguration to
+ * PropulsionConfigurationIterator is used internally by PropulsionConfiguration to
  * build a flat array from nesting configuration arrays.
  *
  * @author     Veikko M�kinen <veikko@veikko.fi>
  * @version    $Revision$
  * @package    propel.runtime.config
  */
-class PropelConfigurationIterator extends \RecursiveIteratorIterator
+class PropulsionConfigurationIterator extends \RecursiveIteratorIterator
 {
 	/**
 	 * Node is a parent node

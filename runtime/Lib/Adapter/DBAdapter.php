@@ -30,11 +30,11 @@ namespace Propulsion\Adapter;
  * @version    $Revision$
  * @package    propel.runtime.adapter
  */
-use Propulsion\Exception\PropelException;
+use Propulsion\Exception\PropulsionException;
 use PDO;
 use Propulsion\Map\ColumnMap;
-use Propulsion\Util\PropelDateTime;
-use Propulsion\Util\PropelColumnTypes;
+use Propulsion\Util\PropulsionDateTime;
+use Propulsion\Util\PropulsionColumnTypes;
 use Propulsion\Query\Criteria;
 use Propulsion\Map\DatabaseMap;
 
@@ -67,7 +67,7 @@ abstract class DBAdapter
 	 * @param     string  $driver The name of the Propulsion driver to create a new adapter instance
 	 *                            for or a shorter form adapter key.
 	 *
-	 * @throws    PropelException  If the adapter could not be instantiated.
+	 * @throws    PropulsionException  If the adapter could not be instantiated.
 	 * @return    DBAdapter        An instance of a Propulsion database adapter.
 	 */
 	public static function factory($driver) {
@@ -76,7 +76,7 @@ abstract class DBAdapter
 			$a = new $adapterClass();
 			return $a;
 		} else {
-			throw new PropelException("Unsupported Propulsion driver: " . $driver . ": Check your configuration file");
+			throw new PropulsionException("Unsupported Propulsion driver: " . $driver . ": Check your configuration file");
 		}
 	}
 
@@ -282,18 +282,18 @@ abstract class DBAdapter
 	 */
 	protected function formatTemporalValue($value, ColumnMap $cMap)
 	{
-		/** @var $dt PropelDateTime */
-		if ($dt = PropelDateTime::newInstance($value)) {
+		/** @var $dt PropulsionDateTime */
+		if ($dt = PropulsionDateTime::newInstance($value)) {
 			switch($cMap->getType()) {
-			case PropelColumnTypes::TIMESTAMP:
-			case PropelColumnTypes::BU_TIMESTAMP:
+			case PropulsionColumnTypes::TIMESTAMP:
+			case PropulsionColumnTypes::BU_TIMESTAMP:
 				$value = $dt->format($this->getTimestampFormatter());
 				break;
-			case PropelColumnTypes::DATE:
-			case PropelColumnTypes::BU_DATE:
+			case PropulsionColumnTypes::DATE:
+			case PropulsionColumnTypes::BU_DATE:
 				$value = $dt->format($this->getDateFormatter());
 				break;
-			case PropelColumnTypes::TIME:
+			case PropulsionColumnTypes::TIME:
 				$value = $dt->format($this->getTimeFormatter());
 				break;
 			}
@@ -572,7 +572,7 @@ abstract class DBAdapter
 	public function bindValue(\PDOStatement $stmt, $parameter, $value, ColumnMap $cMap, $position = null)
 	{
 		if (is_array($value)) {
-			throw new \Propulsion\Exception\PropelException(
+			throw new \Propulsion\Exception\PropulsionException(
 				sprintf('Cannot bind array value for parameter %s. Use IN() criteria instead.', $parameter)
 			);
 		}

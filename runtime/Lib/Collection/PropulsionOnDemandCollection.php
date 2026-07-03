@@ -16,14 +16,14 @@ namespace Propulsion\Collection;
  * @package    propel.runtime.collection
  */
 use PDOStatement;
-use Propulsion\Exception\PropelException;
-use Propulsion\Formatter\PropelFormatter;
+use Propulsion\Exception\PropulsionException;
+use Propulsion\Formatter\PropulsionFormatter;
 use Propulsion\OM\BaseObject;
 use Propulsion\Util\BasePeer;
-class PropelOnDemandCollection extends PropelCollection
+class PropulsionOnDemandCollection extends PropulsionCollection
 {
 	/**
-	 * @var       PropelOnDemandIterator
+	 * @var       PropulsionOnDemandIterator
 	 */
 	protected $iterator;
 
@@ -33,12 +33,12 @@ class PropelOnDemandCollection extends PropelCollection
 	protected ?bool $isValid = null;
 
 	/**
-	 * @param     PropelFormatter $formatter
+	 * @param     PropulsionFormatter $formatter
 	 * @param     PDOStatement $stmt
 	 */
-	public function initIterator(PropelFormatter $formatter, PDOStatement $stmt)
+	public function initIterator(PropulsionFormatter $formatter, PDOStatement $stmt)
 	{
-		$this->iterator = new PropelOnDemandIterator($formatter, $stmt);
+		$this->iterator = new PropulsionOnDemandIterator($formatter, $stmt);
 	}
 
 	/**
@@ -99,13 +99,13 @@ class PropelOnDemandCollection extends PropelCollection
 	 */
 	public function fromArray($arr)
 	{
-		throw new PropelException('The On Demand Collection is read only');
+		throw new PropulsionException('The On Demand Collection is read only');
 	}
 
 	// IteratorAggregate Interface
 
 	/**
-	 * @return    PropelOnDemandIterator
+	 * @return    PropulsionOnDemandIterator
 	 */
 	public function getIterator(): \Iterator
 	{
@@ -115,7 +115,7 @@ class PropelOnDemandCollection extends PropelCollection
 	// ArrayAccess Interface
 
 	/**
-	 * @throws    PropelException
+	 * @throws    PropulsionException
 	 * @param     integer  $offset
 	 *
 	 * @return    boolean
@@ -125,11 +125,11 @@ class PropelOnDemandCollection extends PropelCollection
 		if ($offset == $this->currentKey) {
 			return true;
 		}
-		throw new PropelException('The On Demand Collection does not allow acces by offset');
+		throw new PropulsionException('The On Demand Collection does not allow acces by offset');
 	}
 
 	/**
-	 * @throws    PropelException
+	 * @throws    PropulsionException
 	 * @param     integer  $offset
 	 *
 	 * @return    mixed
@@ -139,46 +139,46 @@ class PropelOnDemandCollection extends PropelCollection
 		if ($offset == $this->currentKey) {
 			return $this->currentRow;
 		}
-		throw new PropelException('The On Demand Collection does not allow acces by offset');
+		throw new PropulsionException('The On Demand Collection does not allow acces by offset');
 	}
 
 	/**
-	 * @throws    PropelException
+	 * @throws    PropulsionException
 	 *
 	 * @param     integer  $offset
 	 * @param     mixed    $value
 	 */
 	public function offsetSet($offset, $value) : void
 	{
-		throw new PropelException('The On Demand Collection is read only');
+		throw new PropulsionException('The On Demand Collection is read only');
 	}
 
 	/**
-	 * @throws    PropelException
+	 * @throws    PropulsionException
 	 * @param     integer  $offset
 	 */
 	public function offsetUnset($offset) : void
 	{
-		throw new PropelException('The On Demand Collection is read only');
+		throw new PropulsionException('The On Demand Collection is read only');
 	}
 
 	// Serializable Interface
 
 	/**
-	 * @throws    PropelException
+	 * @throws    PropulsionException
 	 */
 	public function serialize() : string
 	{
-		throw new PropelException('The On Demand Collection cannot be serialized');
+		throw new PropulsionException('The On Demand Collection cannot be serialized');
 	}
 
 	/**
-	 * @throws    PropelException
+	 * @throws    PropulsionException
 	 * @param     string  $data
 	 */
 	public function unserialize($data) : void
 	{
-		throw new PropelException('The On Demand Collection cannot be serialized');
+		throw new PropulsionException('The On Demand Collection cannot be serialized');
 	}
 
 	// Countable Interface
@@ -198,64 +198,64 @@ class PropelOnDemandCollection extends PropelCollection
 
 	public function append($value) : void
 	{
-		throw new PropelException('The On Demand Collection is read only');
+		throw new PropulsionException('The On Demand Collection is read only');
 	}
 
 	public function prepend($value)
 	{
-		throw new PropelException('The On Demand Collection is read only');
+		throw new PropulsionException('The On Demand Collection is read only');
 	}
 
 	public function asort(int $flags = SORT_REGULAR) : true
 	{
-		throw new PropelException('The On Demand Collection is read only');
+		throw new PropulsionException('The On Demand Collection is read only');
 	}
 
 
 	public function exchangeArray($input) : array
 	{
-		throw new PropelException('The On Demand Collection is read only');
+		throw new PropulsionException('The On Demand Collection is read only');
 	}
 
 	public function getArrayCopy() : array
 	{
-		throw new PropelException('The On Demand Collection does not allow acces by offset');
+		throw new PropulsionException('The On Demand Collection does not allow acces by offset');
 	}
 
 	public function getFlags() : int
 	{
-		throw new PropelException('The On Demand Collection does not allow acces by offset');
+		throw new PropulsionException('The On Demand Collection does not allow acces by offset');
 	}
 
 	public function ksort(int $flags = SORT_REGULAR) : true
 	{
-		throw new PropelException('The On Demand Collection is read only');
+		throw new PropulsionException('The On Demand Collection is read only');
 	}
 
 
 	public function natcasesort() : true
 	{
-		throw new PropelException('The On Demand Collection is read only');
+		throw new PropulsionException('The On Demand Collection is read only');
 	}
 
 	public function natsort() : true
 	{
-		throw new PropelException('The On Demand Collection is read only');
+		throw new PropulsionException('The On Demand Collection is read only');
 	}
 
 	public function setFlags($flags) : void
 	{
-		throw new PropelException('The On Demand Collection does not allow acces by offset');
+		throw new PropulsionException('The On Demand Collection does not allow acces by offset');
 	}
 
 	public function uasort($cmp_function) : true
 	{
-		throw new PropelException('The On Demand Collection is read only');
+		throw new PropulsionException('The On Demand Collection is read only');
 	}
 
 	public function uksort($cmp_function) : true
 	{
-		throw new PropelException('The On Demand Collection is read only');
+		throw new PropulsionException('The On Demand Collection is read only');
 	}
 
 	/**
@@ -263,6 +263,6 @@ class PropelOnDemandCollection extends PropelCollection
 	 */
 	public function exportTo($parser, $usePrefix = true, $includeLazyLoadColumns = true)
 	{
-		throw new PropelException('A PropelOnDemandCollection cannot be exported.');
+		throw new PropulsionException('A PropulsionOnDemandCollection cannot be exported.');
 	}
 }

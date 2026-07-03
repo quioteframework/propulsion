@@ -26,7 +26,7 @@ namespace Propulsion\Validator;
  */
 
 use Propulsion\Map\ValidatorMap;
-use Propulsion\Exception\PropelException;
+use Propulsion\Exception\PropulsionException;
 
 class TypeValidator implements BasicValidator
 {
@@ -74,7 +74,7 @@ class TypeValidator implements BasicValidator
 				return function_exists($value);
 				break;
 			default:
-				throw new PropelException('Unkonwn type ' . $map->getValue());
+				throw new PropulsionException('Unkonwn type ' . $map->getValue());
 				break;
 		}
 	}

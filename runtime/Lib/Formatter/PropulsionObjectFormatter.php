@@ -11,19 +11,19 @@ namespace Propulsion\Formatter;
 
 /**
  * Object formatter for Propulsion query
- * format() returns a PropelObjectCollection of Propulsion model objects
+ * format() returns a PropulsionObjectCollection of Propulsion model objects
  *
  * @author     Francois Zaninotto
  * @version    $Revision$
  * @package    propel.runtime.formatter
  */
 
- use Propulsion\Exception\PropelException;
+ use Propulsion\Exception\PropulsionException;
  use PDOStatement;
  use PDO;
-class PropelObjectFormatter extends PropelFormatter
+class PropulsionObjectFormatter extends PropulsionFormatter
 {
-	protected $collectionName = 'Propulsion\\Collection\\PropelObjectCollection';
+	protected $collectionName = 'Propulsion\\Collection\\PropulsionObjectCollection';
 
 	public function format(PDOStatement $stmt)
 	{
@@ -37,7 +37,7 @@ class PropelObjectFormatter extends PropelFormatter
 		}
 		if ($this->isWithOneToMany()) {
 			if ($this->hasLimit) {
-				throw new PropelException('Cannot use limit() in conjunction with with() on a one-to-many relationship. Please remove the with() call, or the limit() call.');
+				throw new PropulsionException('Cannot use limit() in conjunction with with() on a one-to-many relationship. Please remove the with() call, or the limit() call.');
 			}
 			$pks = array();
 			while ($row = $stmt->fetch(PDO::FETCH_NUM)) {

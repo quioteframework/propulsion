@@ -21,7 +21,7 @@
 
 	<taskdef
     name="pear-package"
-    classname="BuildPropelPEARPackageTask" classpath="."/>
+    classname="BuildPropulsionPEARPackageTask" classpath="."/>
 
 	<fileset dir="${propel.home}/lib" id="classes">
 		<include name="**"/>

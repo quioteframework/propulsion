@@ -28,12 +28,12 @@ namespace Propulsion\Connection;
  * @package    propel.runtime.connection
  */
 use Propulsion\Propulsion;
-use Propulsion\Config\PropelConfiguration;
-use Propulsion\Exception\PropelException;
+use Propulsion\Config\PropulsionConfiguration;
+use Propulsion\Exception\PropulsionException;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 
-class PropelPDO extends \PDO
+class PropulsionPDO extends \PDO
 {
 
 	/**
@@ -109,7 +109,7 @@ class PropelPDO extends \PDO
 	/**
 	 * The runtime configuration
 	 *
-	 * @var       PropelConfiguration
+	 * @var       PropulsionConfiguration
 	 */
 	protected $configuration;
 
@@ -119,20 +119,20 @@ class PropelPDO extends \PDO
 	 * @var       array
 	 */
 	protected static $defaultLogMethods = array(
-		'PropelPDO::exec',                     // legacy (pre-namespace) identifier
-		'PropelPDO::query',                    // legacy identifier
+		'PropulsionPDO::exec',                     // legacy (pre-namespace) identifier
+		'PropulsionPDO::query',                    // legacy identifier
 		'DebugPDOStatement::execute',          // legacy identifier
-		'Propulsion\\Connection\\PropelPDO::exec',    // namespaced runtime __METHOD__ form
-		'Propulsion\\Connection\\PropelPDO::query',   // namespaced runtime __METHOD__ form
+		'Propulsion\\Connection\\PropulsionPDO::exec',    // namespaced runtime __METHOD__ form
+		'Propulsion\\Connection\\PropulsionPDO::query',   // namespaced runtime __METHOD__ form
 		'Propulsion\\Connection\\DebugPDOStatement::execute', // namespaced runtime __METHOD__ form
 	);
 
 	/**
-	 * Creates a PropelPDO instance representing a connection to a database.
+	 * Creates a PropulsionPDO instance representing a connection to a database.
 	 *.
 	 * If so configured, specifies a custom PDOStatement class and makes an entry
 	 * to the log with the state of this object just after its initialization.
-	 * Add PropelPDO::__construct to $defaultLogMethods to see this message
+	 * Add PropulsionPDO::__construct to $defaultLogMethods to see this message
 	 *
 	 * @param     string  $dsn  Connection DSN.
 	 * @param     string  $username  The user name for the DSN string.
@@ -159,7 +159,7 @@ class PropelPDO extends \PDO
 	/**
 	 * Inject the runtime configuration
 	 *
-	 * @param   PropelConfiguration  $configuration
+	 * @param   PropulsionConfiguration  $configuration
 	 */
 	public function setConfiguration($configuration)
 	{
@@ -169,12 +169,12 @@ class PropelPDO extends \PDO
 	/**
 	 * Get the runtime configuration
 	 *
-	 * @return    PropelConfiguration
+	 * @return    PropulsionConfiguration
 	 */
 	public function getConfiguration()
 	{
 		if (null === $this->configuration) {
-			$this->configuration = Propulsion::getConfiguration(PropelConfiguration::TYPE_OBJECT);
+			$this->configuration = Propulsion::getConfiguration(PropulsionConfiguration::TYPE_OBJECT);
 		}
 		return $this->configuration;
 	}
@@ -211,7 +211,7 @@ class PropelPDO extends \PDO
 
 	/**
 	 * Check whether the connection contains a transaction that can be committed.
-	 * To be used in an evironment where Propelexceptions are caught.
+	 * To be used in an evironment where Propulsionexceptions are caught.
 	 *
 	 * @return    boolean  True if the connection is in a committable transaction
 	 */
@@ -255,7 +255,7 @@ class PropelPDO extends \PDO
 		if ($opcount > 0) {
 			if ($opcount === 1) {
 				if ($this->isUncommitable) {
-					throw new PropelException('Cannot commit because a nested transaction was rolled back');
+					throw new PropulsionException('Cannot commit because a nested transaction was rolled back');
 				} else {
 					$return = parent::commit();
 					if ($this->useDebug) {
@@ -328,7 +328,7 @@ class PropelPDO extends \PDO
 	 *
 	 * This is overridden here to provide support for setting Propulsion-specific attributes too.
 	 *
-	 * @param     integer  $attribute  The attribute to set (e.g. PropelPDO::PROPEL_ATTR_CACHE_PREPARES).
+	 * @param     integer  $attribute  The attribute to set (e.g. PropulsionPDO::PROPEL_ATTR_CACHE_PREPARES).
 	 * @param     mixed    $value  The attribute value.
 	 */
 	public function setAttribute($attribute, $value): bool
@@ -347,7 +347,7 @@ class PropelPDO extends \PDO
 	 *
 	 * This is overridden here to provide support for setting Propulsion-specific attributes too.
 	 *
-	 * @param     integer  $attribute  The attribute to get (e.g. PropelPDO::PROPEL_ATTR_CACHE_PREPARES).
+	 * @param     integer  $attribute  The attribute to get (e.g. PropulsionPDO::PROPEL_ATTR_CACHE_PREPARES).
 	 * @return    mixed
 	 */
 	public function getAttribute($attribute): mixed
@@ -365,7 +365,7 @@ class PropelPDO extends \PDO
 	 *
 	 * Overrides PDO::prepare() in order to:
 	 *  - Add logging and query counting if logging is true.
-	 *  - Add query caching support if the PropelPDO::PROPEL_ATTR_CACHE_PREPARES was set to true.
+	 *  - Add query caching support if the PropulsionPDO::PROPEL_ATTR_CACHE_PREPARES was set to true.
 	 *
 	 * @param     string  $sql  This must be a valid SQL statement for the target database server.
 	 * @param     array   $driver_options  One $array or more key => value pairs to set attribute values
@@ -422,7 +422,7 @@ class PropelPDO extends \PDO
 			$return = parent::exec($sql);
 		} catch (\PDOException $e) {
 			if (\Propulsion\Propulsion::isConnectionDropped($e)) {
-				error_log('[PropelPDO::exec] connection dropped, reconnecting and retrying');
+				error_log('[PropulsionPDO::exec] connection dropped, reconnecting and retrying');
 				\Propulsion\Propulsion::forceReconnect();
 				$return = parent::exec($sql);
 			} else {
@@ -461,7 +461,7 @@ class PropelPDO extends \PDO
 			$return = parent::query($query, $fetchMode, ...$args);
 		} catch (\PDOException $e) {
 			if (\Propulsion\Propulsion::isConnectionDropped($e)) {
-				error_log('[PropelPDO::query] connection dropped, reconnecting and retrying');
+				error_log('[PropulsionPDO::query] connection dropped, reconnecting and retrying');
 				\Propulsion\Propulsion::forceReconnect();
 				$return = parent::query($query, $fetchMode, ...$args);
 			} else {
@@ -492,7 +492,7 @@ class PropelPDO extends \PDO
 	 * @param     string   $class
 	 * @param     boolean  $suppressError  Whether to suppress an exception if the statement class cannot be set.
 	 *
-	 * @throws    PropelException if the statement class cannot be set (and $suppressError is false).
+	 * @throws    PropulsionException if the statement class cannot be set (and $suppressError is false).
 	 */
 	protected function configureStatementClass($class = 'PDOStatement', $suppressError = true)
 	{
@@ -511,7 +511,7 @@ class PropelPDO extends \PDO
 		if (!$this->getAttribute(\PDO::ATTR_PERSISTENT)) {
 			$this->setAttribute(\PDO::ATTR_STATEMENT_CLASS, array($class, array($this)));
 		} elseif (!$suppressError) {
-			throw new PropelException('Extending PDOStatement is not supported with persistent connections.');
+			throw new PropulsionException('Extending PDOStatement is not supported with persistent connections.');
 		}
 	}
 
@@ -521,14 +521,14 @@ class PropelPDO extends \PDO
 	 * When using DebugPDOStatement as the statement class, any queries by DebugPDOStatement instances
 	 * are counted as well.
 	 *
-	 * @throws     PropelException if persistent connection is used (since unable to override PDOStatement in that case).
+	 * @throws     PropulsionException if persistent connection is used (since unable to override PDOStatement in that case).
 	 * @return     integer
 	 */
 	public function getQueryCount()
 	{
 		// extending PDOStatement is not supported with persistent connections
 		if ($this->getAttribute(\PDO::ATTR_PERSISTENT)) {
-			throw new PropelException('Extending PDOStatement is not supported with persistent connections. Count would be inaccurate, because we cannot count the PDOStatment::execute() calls. Either don\'t use persistent connections or don\'t call PropelPDO::getQueryCount()');
+			throw new PropulsionException('Extending PDOStatement is not supported with persistent connections. Count would be inaccurate, because we cannot count the PDOStatment::execute() calls. Either don\'t use persistent connections or don\'t call PropulsionPDO::getQueryCount()');
 		}
 		return $this->queryCount;
 	}
@@ -683,7 +683,7 @@ class PropelPDO extends \PDO
 				'memory_get_peak_usage' => memory_get_peak_usage($this->getLoggingConfig('realmemoryusage', false)),
 				);
 		} else {
-			throw new PropelException('Should not get debug snapshot when not debugging');
+			throw new PropulsionException('Should not get debug snapshot when not debugging');
 		}
 	}
 
@@ -805,7 +805,7 @@ class PropelPDO extends \PDO
 
 	/**
 	 * If so configured, makes an entry to the log of the state of this object just prior to its destruction.
-	 * Add PropelPDO::__destruct to $defaultLogMethods to see this message
+	 * Add PropulsionPDO::__destruct to $defaultLogMethods to see this message
 	 *
 	 * @see       self::log()
 	 */

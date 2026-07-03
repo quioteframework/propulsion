@@ -16,26 +16,26 @@ namespace Propulsion\Collection;
  * @package    propel.runtime.collection
  */
 
- use Propulsion\Connection\PropelPDO;
- use Propulsion\Exception\PropelException;
+ use Propulsion\Connection\PropulsionPDO;
+ use Propulsion\Exception\PropulsionException;
  use Propulsion\Propulsion;
  use Propulsion\Query\Criteria;
- use Propulsion\Query\PropelQuery;
+ use Propulsion\Query\PropulsionQuery;
  use Propulsion\Map\RelationMap;
 use Propulsion\OM\BaseObject;
 use Propulsion\Util\BasePeer;
-class PropelObjectCollection extends PropelCollection
+class PropulsionObjectCollection extends PropulsionCollection
 {
 
 	/**
 	 * Save all the elements in the collection
 	 *
-	 * @param     PropelPDO  $con
+	 * @param     PropulsionPDO  $con
 	 */
 	public function save($con = null)
 	{
 		if (!method_exists($this->getModel(), 'save')) {
-			throw new PropelException('Cannot save objects on a read-only model');
+			throw new PropulsionException('Cannot save objects on a read-only model');
 		}
 		if (null === $con) {
 			$con = $this->getConnection(Propulsion::CONNECTION_WRITE);
@@ -47,7 +47,7 @@ class PropelObjectCollection extends PropelCollection
 				$element->save($con);
 			}
 			$con->commit();
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$con->rollback();
 			throw $e;
 		}
@@ -56,12 +56,12 @@ class PropelObjectCollection extends PropelCollection
 	/**
 	 * Delete all the elements in the collection
 	 *
-	 * @param     PropelPDO  $con
+	 * @param     PropulsionPDO  $con
 	 */
 	public function delete($con = null)
 	{
 		if (!method_exists($this->getModel(), 'delete')) {
-			throw new PropelException('Cannot delete objects on a read-only model');
+			throw new PropulsionException('Cannot delete objects on a read-only model');
 		}
 		if (null === $con) {
 			$con = $this->getConnection(Propulsion::CONNECTION_WRITE);
@@ -73,7 +73,7 @@ class PropelObjectCollection extends PropelCollection
 				$element->delete($con);
 			}
 			$con->commit();
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$con->rollback();
 			throw $e;
 		}
@@ -242,25 +242,25 @@ class PropelObjectCollection extends PropelCollection
 	 *
 	 * @param     string     $relation  Relation name (e.g. 'Book')
 	 * @param     Criteria   $criteria  Optional Criteria object to filter the related object collection
-	 * @param     PropelPDO  $con       Optional connection object
+	 * @param     PropulsionPDO  $con       Optional connection object
 	 *
-	 * @return    PropelObjectCollection  The list of related objects
+	 * @return    PropulsionObjectCollection  The list of related objects
 	 */
 	public function populateRelation($relation, $criteria = null, $con = null)
 	{
 		if (!Propulsion::isInstancePoolingEnabled()) {
-			throw new PropelException('populateRelation() needs instance pooling to be enabled prior to populating the collection');
+			throw new PropulsionException('populateRelation() needs instance pooling to be enabled prior to populating the collection');
 		}
 		$relationMap = $this->getFormatter()->getTableMap()->getRelation($relation);
 		if ($this->isEmpty()) {
 			// save a useless query and return an empty collection
-			$coll = new PropelObjectCollection();
+			$coll = new PropulsionObjectCollection();
 			$coll->setModel($relationMap->getRightTable()->getClassname());
 			return $coll;
 		}
 		$symRelationMap = $relationMap->getSymmetricalRelation();
 
-		$query = PropelQuery::from($relationMap->getRightTable()->getClassname());
+		$query = PropulsionQuery::from($relationMap->getRightTable()->getClassname());
 		if (null !== $criteria) {
 			$query->mergeWith($criteria);
 		}
@@ -286,7 +286,7 @@ class PropelObjectCollection extends PropelCollection
 			// nothing to do; the instance pool will catch all calls to getRelatedObject()
 			// and return the object in memory
 		} else {
-			throw new PropelException('populateRelation() does not support this relation type');
+			throw new PropulsionException('populateRelation() does not support this relation type');
 		}
 
 		return $relatedObjects;

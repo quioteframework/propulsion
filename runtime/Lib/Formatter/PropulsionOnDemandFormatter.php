@@ -11,8 +11,8 @@ namespace Propulsion\Formatter;
 
 /**
  * Object formatter for Propulsion query
- * format() returns a PropelOnDemandCollection that hydrates objects as the use iterates on the collection
- * This formatter consumes less memory than the PropelObjectFormatter, but doesn't use Instance Pool
+ * format() returns a PropulsionOnDemandCollection that hydrates objects as the use iterates on the collection
+ * This formatter consumes less memory than the PropulsionObjectFormatter, but doesn't use Instance Pool
  *
  * @author     Francois Zaninotto
  * @version    $Revision$
@@ -21,13 +21,13 @@ namespace Propulsion\Formatter;
 
  use Propulsion\Query\ModelCriteria;
  use PDOStatement;
- use Propulsion\Exception\PropelException;
+ use Propulsion\Exception\PropulsionException;
  use Propulsion\Om\BaseObject;
  use ReflectionClass;
  
-class PropelOnDemandFormatter extends PropelObjectFormatter
+class PropulsionOnDemandFormatter extends PropulsionObjectFormatter
 {
-	protected $collectionName = 'Propulsion\\Collection\\PropelOnDemandCollection';
+	protected $collectionName = 'Propulsion\\Collection\\PropulsionOnDemandCollection';
 	protected $isSingleTableInheritance = false;
 
 	public function init(ModelCriteria $criteria)
@@ -42,7 +42,7 @@ class PropelOnDemandFormatter extends PropelObjectFormatter
 	{
 		$this->checkInit();
 		if ($this->isWithOneToMany()) {
-			throw new PropelException('PropelOnDemandFormatter cannot hydrate related objects using a one-to-many relationship. Try removing with() from your query.');
+			throw new PropulsionException('PropulsionOnDemandFormatter cannot hydrate related objects using a one-to-many relationship. Try removing with() from your query.');
 		}
 		$class = $this->collectionName;
 		$collection = new $class();

@@ -9,13 +9,13 @@
  */
 namespace Propulsion\Collection;
 
-use Propulsion\Formatter\PropelObjectFormatter;
+use Propulsion\Formatter\PropulsionObjectFormatter;
 use \Iterator;
 use \PDOStatement;
 use Propulsion\Om\BaseObject;
 use Propulsion\Propulsion;
-use Propulsion\Formatter\PropelFormatter;
-use Propulsion\Exception\PropelException;
+use Propulsion\Formatter\PropulsionFormatter;
+use Propulsion\Exception\PropulsionException;
 use PDO;
 /**
  * Class for iterating over a statement and returning one Propulsion object at a time
@@ -23,10 +23,10 @@ use PDO;
  * @author     Francois Zaninotto
  * @package    propel.runtime.collection
  */
-class PropelOnDemandIterator implements Iterator
+class PropulsionOnDemandIterator implements Iterator
 {
 	/**
-	 * @var       PropelObjectFormatter
+	 * @var       PropulsionObjectFormatter
 	 */
 	protected $formatter;
 
@@ -42,10 +42,10 @@ class PropelOnDemandIterator implements Iterator
 		$enableInstancePoolingOnFinish = false;
 
 	/**
-	 * @param     PropelFormatter  $formatter
+	 * @param     PropulsionFormatter  $formatter
 	 * @param     PDOStatement     $stmt
 	 */
-	public function __construct(PropelFormatter $formatter, PDOStatement $stmt)
+	public function __construct(PropulsionFormatter $formatter, PDOStatement $stmt)
 	{
 		$this->formatter = $formatter;
 		$this->stmt = $stmt;
@@ -74,7 +74,7 @@ class PropelOnDemandIterator implements Iterator
 	 * Gets the current Model object in the collection
 	 * This is where the hydration takes place.
 	 *
-	 * @see       PropelObjectFormatter::getAllObjectsFromRow()
+	 * @see       PropulsionObjectFormatter::getAllObjectsFromRow()
 	 *
 	 * @return    BaseObject
 	 */
@@ -118,13 +118,13 @@ class PropelOnDemandIterator implements Iterator
 	{
 		// check that the hydration can begin
 		if (null === $this->formatter) {
-			throw new PropelException('The On Demand collection requires a formatter. Add it by calling setFormatter()');
+			throw new PropulsionException('The On Demand collection requires a formatter. Add it by calling setFormatter()');
 		}
 		if (null === $this->stmt) {
-			throw new PropelException('The On Demand collection requires a statement. Add it by calling setStatement()');
+			throw new PropulsionException('The On Demand collection requires a statement. Add it by calling setStatement()');
 		}
 		if (null !== $this->isValid) {
-			throw new PropelException('The On Demand collection can only be iterated once');
+			throw new PropulsionException('The On Demand collection can only be iterated once');
 		}
 
 		// initialize the current row and key

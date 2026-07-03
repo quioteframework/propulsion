@@ -18,8 +18,8 @@ use PDOStatement;
  * @version    $Revision$
  * @package    propel.runtime.formatter
  */
-use Propulsion\Exception\PropelException;
-class PropelStatementFormatter extends PropelFormatter
+use Propulsion\Exception\PropulsionException;
+class PropulsionStatementFormatter extends PropulsionFormatter
 {
 	public function format(PDOStatement $stmt)
 	{
@@ -37,7 +37,7 @@ class PropelStatementFormatter extends PropelFormatter
 
 	public function formatRecord($record = null)
 	{
-		throw new PropelException('The Statement formatter cannot transform a record into a statement');
+		throw new PropulsionException('The Statement formatter cannot transform a record into a statement');
 	}
 
 	public function isObjectFormatter()

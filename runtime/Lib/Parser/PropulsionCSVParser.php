@@ -17,7 +17,7 @@ namespace Propulsion\Parser;
  * @author     Francois Zaninotto
  * @package    propel.runtime.parser
  */
-class PropelCSVParser extends PropelParser
+class PropulsionCSVParser extends PropulsionParser
 {
 	const QUOTE_NONE = 0;
 	const QUOTE_ALL = 1;
@@ -158,7 +158,7 @@ class PropelCSVParser extends PropelParser
 	}
 
 	/**
-	 * Alias for PropelCSVParser::fromArray()
+	 * Alias for PropulsionCSVParser::fromArray()
 	 *
 	 * @param  array   $array Source data to convert
 	 * @param  boolean $isList Whether the input data contains more than one row
@@ -288,7 +288,7 @@ class PropelCSVParser extends PropelParser
 	}
 
 	/**
-	 * Alias for PropelCSVParser::toArray()
+	 * Alias for PropulsionCSVParser::toArray()
 	 *
 	 * @param  string  $data Source data to convert, as a CSV string
 	 * @param  boolean $isList Whether the input data contains more than one row

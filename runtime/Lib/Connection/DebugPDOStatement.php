@@ -25,7 +25,7 @@ class DebugPDOStatement extends \PDOStatement
 	/**
 	 * The PDO connection from which this instance was created.
 	 *
-	 * @var       PropelPDO
+	 * @var       PropulsionPDO
 	 */
 	protected $pdo;
 
@@ -53,10 +53,10 @@ class DebugPDOStatement extends \PDOStatement
 	 * Construct a new statement class with reference to main DebugPDO object from
 	 * which this instance was created.
 	 *
-	 * @param     PropelPDO  $pdo  Reference to the parent PDO instance.
+	 * @param     PropulsionPDO  $pdo  Reference to the parent PDO instance.
 	 * @return    DebugPDOStatement
 	 */
-	protected function __construct(PropelPDO $pdo)
+	protected function __construct(PropulsionPDO $pdo)
 	{
 		$this->pdo = $pdo;
 	}

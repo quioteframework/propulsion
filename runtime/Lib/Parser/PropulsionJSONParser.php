@@ -15,7 +15,7 @@ namespace Propulsion\Parser;
  * @author     Francois Zaninotto
  * @package    propel.runtime.parser
  */
-class PropelJSONParser extends PropelParser
+class PropulsionJSONParser extends PropulsionParser
 {
 
 	/**
@@ -30,7 +30,7 @@ class PropelJSONParser extends PropelParser
 	}
 
 	/**
-	 * Alias for PropelJSONParser::fromArray()
+	 * Alias for PropulsionJSONParser::fromArray()
 	 *
 	 * @param  array $array Source data to convert
 	 * @return string Converted data, as a JSON string
@@ -52,7 +52,7 @@ class PropelJSONParser extends PropelParser
 	}
 
 	/**
-	 * Alias for PropelJSONParser::toArray()
+	 * Alias for PropulsionJSONParser::toArray()
 	 *
 	 * @param  string $data Source data to convert, as a JSON string
 	 * @return array Converted data

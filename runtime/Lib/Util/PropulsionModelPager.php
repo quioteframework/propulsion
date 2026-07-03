@@ -20,7 +20,7 @@ namespace Propulsion\Util;
  */
 
  use Propulsion\Query\ModelCriteria;
-class PropelModelPager implements \IteratorAggregate, \Countable
+class PropulsionModelPager implements \IteratorAggregate, \Countable
 {
 	protected
 		$query = null,
@@ -95,7 +95,7 @@ class PropelModelPager implements \IteratorAggregate, \Countable
 	/**
 	 * Get the collection of results in the page
 	 *
-	 * @return PropelCollection A collection of results
+	 * @return PropulsionCollection A collection of results
 	 */
 	public function getResults()
 	{
@@ -336,7 +336,7 @@ class PropelModelPager implements \IteratorAggregate, \Countable
 
 	/**
 	 * Check whether the internal pointer is at the beginning of the list
-	 * @see       PropelCollection
+	 * @see       PropulsionCollection
 	 *
 	 * @return    boolean
 	 */
@@ -347,7 +347,7 @@ class PropelModelPager implements \IteratorAggregate, \Countable
 
 	/**
 	 * Check whether the internal pointer is at the end of the list
-	 * @see       PropelCollection
+	 * @see       PropulsionCollection
 	 *
 	 * @return    boolean
 	 */
@@ -358,7 +358,7 @@ class PropelModelPager implements \IteratorAggregate, \Countable
 
 	/**
 	 * Check if the collection is empty
-	 * @see       PropelCollection
+	 * @see       PropulsionCollection
 	 *
 	 * @return    boolean
 	 */
@@ -369,7 +369,7 @@ class PropelModelPager implements \IteratorAggregate, \Countable
 
 	/**
 	 * Check if the current index is an odd integer
-	 * @see       PropelCollection
+	 * @see       PropulsionCollection
 	 *
 	 * @return    boolean
 	 */
@@ -380,7 +380,7 @@ class PropelModelPager implements \IteratorAggregate, \Countable
 
 	/**
 	 * Check if the current index is an even integer
-	 * @see       PropelCollection
+	 * @see       PropulsionCollection
 	 *
 	 * @return    boolean
 	 */

@@ -10,22 +10,22 @@
 namespace Propulsion\Util;
 
 /**
- *  PropelPager
+ *  PropulsionPager
  *
  *  Example Usage:
  *
- *  require_once 'propel/util/PropelPager.php';
+ *  require_once 'propel/util/PropulsionPager.php';
  *  require_once 'PEACH/Propulsion/Poem/poemPeer.php';
  *
  *  $c = new Criteria();
  *  $c->addDescendingOrderByColumn(poemPeer::SID);
  *
  *  // with join
- *  $pager = new PropelPager($c, 'poemPeer', 'doSelectJoinPoemUsers', 1, 50);
+ *  $pager = new PropulsionPager($c, 'poemPeer', 'doSelectJoinPoemUsers', 1, 50);
  *
  *  // without Join
  *
- *  $pager = new PropelPager($c, 'poemPeer', 'doSelect', 1, 50);
+ *  $pager = new PropulsionPager($c, 'poemPeer', 'doSelect', 1, 50);
  *
  * Some template:
  *
@@ -93,7 +93,7 @@ namespace Propulsion\Util;
  */
 use Propulsion\Query\Criteria;
 
-class PropelPager implements \Countable, \Iterator
+class PropulsionPager implements \Countable, \Iterator
 {
 
 	private $recordCount;

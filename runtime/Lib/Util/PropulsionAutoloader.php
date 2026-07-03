@@ -19,7 +19,7 @@ use \Exception;
  * @version    $Revision$
  * @package    propel.util
  */
-class PropelAutoloader
+class PropulsionAutoloader
 {
 
 	static protected $instance = null;
@@ -29,19 +29,19 @@ class PropelAutoloader
 	/**
 	 * Retrieves the singleton instance of this class.
 	 *
-	 * @return PropelAutoloader A PropelAutoloader instance.
+	 * @return PropulsionAutoloader A PropulsionAutoloader instance.
 	 */
 	static public function getInstance()
 	{
 		if (!isset(self::$instance)) {
-			self::$instance = new PropelAutoloader();
+			self::$instance = new PropulsionAutoloader();
 		}
 
 		return self::$instance;
 	}
 
 	/**
-	 * Register PropelAutoloader in spl autoloader.
+	 * Register PropulsionAutoloader in spl autoloader.
 	 *
 	 * @return void
 	 */
@@ -55,7 +55,7 @@ class PropelAutoloader
 	}
 
 	/**
-	 * Unregister PropelAutoloader from spl autoloader.
+	 * Unregister PropulsionAutoloader from spl autoloader.
 	 *
 	 * @return void
 	 */

@@ -17,7 +17,7 @@ include_once 'phing/tasks/ext/pearpackage/Fileset.php';
  * @package    phing.tasks.ext
  * @version    $Revision$
  */
-class BuildPropelPEARPackageTask extends MatchingTask
+class BuildPropulsionPEARPackageTask extends MatchingTask
 {
 
 	/** Base directory for reading files. */
