@@ -18,8 +18,32 @@ namespace Propulsion\Generator\Builder\OM;
  * @author     Modernized for PHP 8.4
  * @package    propel.generator.builder.om
  */
-class ExtensionPeerBuilder extends PHP5ExtensionPeerBuilder
+class ExtensionPeerBuilder extends AbstractPeerBuilder
 {
+    /**
+     * Returns the name of the current class being built.
+     * Inlined from the (now-archived) PHP5ExtensionPeerBuilder base -- this class no
+     * longer extends it (see KNOWN_ISSUES.md, PHP5 removal).
+     * @return     string
+     */
+    public function getUnprefixedClassname()
+    {
+        return $this->getStubObjectBuilder()->getUnprefixedClassname() . 'Peer';
+    }
+
+    /**
+     * Closes class.
+     * Inlined from the (now-archived) PHP5ExtensionPeerBuilder base.
+     * @param      string &$script The script will be modified in this method.
+     */
+    protected function addClassClose(&$script)
+    {
+        $script .= "
+} // " . $this->getClassname() . "
+";
+        $this->applyBehaviorModifier('extensionPeerFilter', $script, "");
+    }
+
     /**
      * Adds the include() statements for files that this class depends on or utilizes.
      * For PHP 8.4, we use autoloading instead of require statements.
