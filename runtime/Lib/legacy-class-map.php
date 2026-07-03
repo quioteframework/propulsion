@@ -8,7 +8,7 @@
  * classes by their bare historic name (e.g. TableMap, PropelException),
  * because that was their actual global name before this fork renamed
  * Propel\ to Propulsion\. The autoloader registered at the bottom of
- * Propel.php uses this to alias them on demand, so already-generated code --
+ * Propulsion.php uses this to alias them on demand, so already-generated code --
  * and anyone who hasn't regenerated their models yet -- keeps working.
  *
  * @return array<string,string>
@@ -50,7 +50,7 @@ return [
     'NotMatchValidator' => 'Propulsion\\Validator\\NotMatchValidator',
     'Persistent' => 'Propulsion\\OM\\Persistent',
     'PreOrderNodeIterator' => 'Propulsion\\OM\\PreOrderNodeIterator',
-    'Propel' => 'Propulsion\\Propel',
+    'Propel' => 'Propulsion\\Propulsion',
     'PropelArrayCollection' => 'Propulsion\\Collection\\PropelArrayCollection',
     'PropelArrayFormatter' => 'Propulsion\\Formatter\\PropelArrayFormatter',
     'PropelAutoloader' => 'Propulsion\\Util\\PropelAutoloader',

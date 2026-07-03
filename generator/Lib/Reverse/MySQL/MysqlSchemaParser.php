@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -38,7 +38,7 @@ class MysqlSchemaParser extends BaseSchemaParser
 	private $addVendorInfo = false;
 
 	/**
-	 * Map MySQL native types to Propel types.
+	 * Map MySQL native types to Propulsion types.
 	 * @var        array
 	 */
 	private static $mysqlTypeMap = array(
@@ -83,7 +83,7 @@ class MysqlSchemaParser extends BaseSchemaParser
 	);
 
 	/**
-	 * Gets a type mapping from native types to Propel types
+	 * Gets a type mapping from native types to Propulsion types
 	 *
 	 * @return     array
 	 */
@@ -238,7 +238,7 @@ class MysqlSchemaParser extends BaseSchemaParser
 		if (!$propelType) {
 			$propelType = Column::DEFAULT_TYPE;
 			$sqlType = $row['Type'];
-			$this->warn("Column [" . $table->getName() . "." . $name. "] has a column type (".$nativeType.") that Propel does not support.");
+			$this->warn("Column [" . $table->getName() . "." . $name. "] has a column type (".$nativeType.") that Propulsion does not support.");
 		}
 
 		// Special case for TINYINT(1) which is a BOOLEAN

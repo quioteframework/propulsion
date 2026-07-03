@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -399,7 +399,7 @@ public function moveToRank(\$newRank, PropelPDO \$con = null)
 		throw new PropelException('New objects cannot be moved. Please use insertAtRank() instead');
 	}
 	if (\$con === null) {
-		\$con = Propel::getConnection($peerClassname::DATABASE_NAME);
+		\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME);
 	}
 	if (\$newRank < 1 || \$newRank > {$this->queryClassname}::create()->getMaxRank(" . ($useScope ? "\$this->{$this->getColumnGetter('scope_column')}(), " : '') . "\$con)) {
 		throw new PropelException('Invalid rank ' . \$newRank);
@@ -446,7 +446,7 @@ public function moveToRank(\$newRank, PropelPDO \$con = null)
 public function swapWith(\$object, PropelPDO \$con = null)
 {
 	if (\$con === null) {
-		\$con = Propel::getConnection({$this->peerClassname}::DATABASE_NAME);
+		\$con = Propulsion::getConnection({$this->peerClassname}::DATABASE_NAME);
 	}
 	\$con->beginTransaction();
 	try {
@@ -483,7 +483,7 @@ public function moveUp(PropelPDO \$con = null)
 		return \$this;
 	}
 	if (\$con === null) {
-		\$con = Propel::getConnection({$this->peerClassname}::DATABASE_NAME);
+		\$con = Propulsion::getConnection({$this->peerClassname}::DATABASE_NAME);
 	}
 	\$con->beginTransaction();
 	try {
@@ -516,7 +516,7 @@ public function moveDown(PropelPDO \$con = null)
 		return \$this;
 	}
 	if (\$con === null) {
-		\$con = Propel::getConnection({$this->peerClassname}::DATABASE_NAME);
+		\$con = Propulsion::getConnection({$this->peerClassname}::DATABASE_NAME);
 	}
 	\$con->beginTransaction();
 	try {
@@ -570,7 +570,7 @@ public function moveToBottom(PropelPDO \$con = null)
 		return false;
 	}
 	if (\$con === null) {
-		\$con = Propel::getConnection({$this->peerClassname}::DATABASE_NAME);
+		\$con = Propulsion::getConnection({$this->peerClassname}::DATABASE_NAME);
 	}
 	\$con->beginTransaction();
 	try {

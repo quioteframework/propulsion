@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -13,7 +13,7 @@ use Phing\Io\File;
 use \Exception;
 
 /**
- * A task to generate Graphviz dot files from Propel datamodel.
+ * A task to generate Graphviz dot files from Propulsion datamodel.
  *
  * @author     Mark Kimsal
  * @version    $Revision$

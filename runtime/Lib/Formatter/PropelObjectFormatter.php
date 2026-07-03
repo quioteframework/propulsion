@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -10,8 +10,8 @@
 namespace Propulsion\Formatter;
 
 /**
- * Object formatter for Propel query
- * format() returns a PropelObjectCollection of Propel model objects
+ * Object formatter for Propulsion query
+ * format() returns a PropelObjectCollection of Propulsion model objects
  *
  * @author     Francois Zaninotto
  * @version    $Revision$

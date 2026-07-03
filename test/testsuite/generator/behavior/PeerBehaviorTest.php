@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -30,7 +30,7 @@ class PeerBehaviorTest extends BookstoreTestBase
 
   public function testPreSelect()
   {
-    $con = Propel::getConnection(Table3Peer::DATABASE_NAME, Propel::CONNECTION_READ);
+    $con = Propulsion::getConnection(Table3Peer::DATABASE_NAME, Propulsion::CONNECTION_READ);
     $con->preSelect = 0;
     Table3Peer::doSelect(new Criteria, $con);
     $this->assertNotEquals($con->preSelect, 0, 'preSelect hook is called in doSelect()');

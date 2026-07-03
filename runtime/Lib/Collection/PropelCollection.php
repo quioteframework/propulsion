@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -10,7 +10,7 @@
 namespace Propulsion\Collection;
 
 /**
- * Class for iterating over a list of Propel elements
+ * Class for iterating over a list of Propulsion elements
  * The collection keys must be integers - no associative array accepted
  *
  * @method     PropelCollection fromXML(string $data) Populate the collection from an XML string
@@ -32,7 +32,7 @@ namespace Propulsion\Collection;
  use ArrayIterator;
  use Iterator;
  use Propulsion\Connection\PropelPDO;
- use Propulsion\Propel;
+ use Propulsion\Propulsion;
  use Propulsion\Om\BaseObject;
  use Propulsion\Parser\PropelParser;
  use Propulsion\Util\BasePeer;
@@ -436,12 +436,12 @@ class PropelCollection extends \ArrayObject implements \Serializable
 		$this->iterator = null;
 	}
 
-	// Propel collection methods
+	// Propulsion collection methods
 
 	/**
 	 * Set the model of the elements in the collection
 	 *
-	 * @param     string  $model  Name of the Propel object classes stored in the collection
+	 * @param     string  $model  Name of the Propulsion object classes stored in the collection
 	 */
 	public function setModel($model)
 	{
@@ -451,7 +451,7 @@ class PropelCollection extends \ArrayObject implements \Serializable
 	/**
 	 * Get the model of the elements in the collection
 	 *
-	 * @return    string  Name of the Propel object class stored in the collection
+	 * @return    string  Name of the Propulsion object class stored in the collection
 	 */
 	public function getModel()
 	{
@@ -461,7 +461,7 @@ class PropelCollection extends \ArrayObject implements \Serializable
 	/**
 	 * Get the peer class of the elements in the collection
 	 *
-	 * @return    string  Name of the Propel peer class stored in the collection
+	 * @return    string  Name of the Propulsion peer class stored in the collection
 	 */
 	public function getPeerClass()
 	{
@@ -490,14 +490,14 @@ class PropelCollection extends \ArrayObject implements \Serializable
 	/**
 	 * Get a connection object for the database containing the elements of the collection
 	 *
-	 * @param     string  $type  The connection type (Propel::CONNECTION_READ by default; can be Propel::connection_WRITE)
+	 * @param     string  $type  The connection type (Propulsion::CONNECTION_READ by default; can be Propulsion::connection_WRITE)
 	 * @return    PropelPDO  A PropelPDO connection object
 	 */
-	public function getConnection($type = Propel::CONNECTION_READ)
+	public function getConnection($type = Propulsion::CONNECTION_READ)
 	{
 		$databaseName = constant($this->getPeerClass() . '::DATABASE_NAME');
 
-		return Propel::getConnection($databaseName, $type);
+		return Propulsion::getConnection($databaseName, $type);
 	}
 
 	/**

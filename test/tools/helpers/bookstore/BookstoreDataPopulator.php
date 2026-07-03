@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -13,9 +13,9 @@ define('_LOB_SAMPLE_FILE_PATH', dirname(__FILE__) . '/../../../etc/lob');
 /**
  * Populates data needed by the bookstore unit tests.
  *
- * This classes uses the actual Propel objects to do the population rather than
+ * This classes uses the actual Propulsion objects to do the population rather than
  * inserting directly into the database.  This will have a performance hit, but will
- * benefit from increased flexibility (as does anything using Propel).
+ * benefit from increased flexibility (as does anything using Propulsion).
  *
  * @author     Hans Lellelid <hans@xmpl.org>
  */
@@ -25,7 +25,7 @@ class BookstoreDataPopulator
 	public static function populate($con = null)
 	{
 		if($con === null) {
-			$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+			$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		}
 		$con->beginTransaction();
 
@@ -133,7 +133,7 @@ class BookstoreDataPopulator
 		$m1->setBook($td);
 		$m1->setCoverImage(file_get_contents($blob_path));
 		// CLOB is broken in PDO OCI, see http://pecl.php.net/bugs/bug.php?id=7943
-		if (get_class(Propel::getDB()) != "DBOracle") {
+		if (get_class(Propulsion::getDB()) != "DBOracle") {
 			$m1->setExcerpt(file_get_contents($clob_path));
 		}
 		$m1->save($con);
@@ -202,7 +202,7 @@ class BookstoreDataPopulator
 	public static function populateOpinionFavorite($con = null)
 	{
 		if($con === null) {
-			$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+			$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		}
 		$con->beginTransaction();
 
@@ -256,7 +256,7 @@ class BookstoreDataPopulator
 		}
 		// delete records from the database
 		if($con === null) {
-			$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+			$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		}
 		$con->beginTransaction();
 		foreach ($peerClasses as $peerClass) {

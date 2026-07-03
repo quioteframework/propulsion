@@ -2,7 +2,7 @@
 namespace Propulsion\Generator\Behavior;
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -365,7 +365,7 @@ public static function isSoftDeleteEnabled()
 public static function doSoftDelete(\$values, PropelPDO \$con = null)
 {
 	if (\$con === null) {
-		\$con = Propel::getConnection({$this->getTable()->getPhpName()}Peer::DATABASE_NAME, Propel::CONNECTION_WRITE);
+		\$con = Propulsion::getConnection({$this->getTable()->getPhpName()}Peer::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
 	}
 	if (\$values instanceof Criteria) {
 		// rename for clarity
@@ -437,7 +437,7 @@ public static function doDelete2(\$values, PropelPDO \$con = null)
 public static function doSoftDeleteAll(PropelPDO \$con = null)
 {
 	if (\$con === null) {
-		\$con = Propel::getConnection({$this->builder->getPeerClassname()}::DATABASE_NAME, Propel::CONNECTION_WRITE);
+		\$con = Propulsion::getConnection({$this->builder->getPeerClassname()}::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
 	}
 	\$selectCriteria = new Criteria();
 	\$selectCriteria->add({$this->builder->getColumnConstant($this->getColumnForParameter('deleted_column'))}, null, Criteria::ISNULL);

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -27,7 +27,7 @@ namespace Propulsion\Query;
  * @package    propel.runtime.query
  */
 
- use Propulsion\Propel;
+ use Propulsion\Propulsion;
  use Propulsion\Map\TableMap;
  use Propulsion\Formatter\PropelFormatter;
  use Propulsion\Exception\PropelException;
@@ -87,7 +87,7 @@ class ModelCriteria extends Criteria
 		$this->modelName = $modelName;
 		$this->modelPeerName = constant($this->modelName . '::PEER');
 		$this->modelAlias = $modelAlias;
-		$this->tableMap = Propel::getDatabaseMap($this->getDbName())->getTableByPhpName($this->modelName);
+		$this->tableMap = Propulsion::getDatabaseMap($this->getDbName())->getTableByPhpName($this->modelName);
 	}
 
 	/**
@@ -615,7 +615,7 @@ class ModelCriteria extends Criteria
 	/**
 	 * Adds a JOIN clause to the query
 	 * Infers the ON clause from a relation name
-	 * Uses the Propel table maps, based on the schema, to guess the related columns
+	 * Uses the Propulsion table maps, based on the schema, to guess the related columns
 	 * Beware that the default JOIN operator is INNER JOIN, while Criteria defaults to WHERE
 	 * Examples:
 	 * <code>
@@ -1264,10 +1264,10 @@ class ModelCriteria extends Criteria
 
 	protected function getSelectStatement(?PropelPDO $con = null) : \PDOStatement
 	{
-		$dbMap = Propel::getDatabaseMap($this->getDbName());
-		$db = Propel::getDB($this->getDbName());
+		$dbMap = Propulsion::getDatabaseMap($this->getDbName());
+		$db = Propulsion::getDB($this->getDbName());
 		if ($con === null) {
-			$con = Propel::getConnection($this->getDbName(), Propel::CONNECTION_READ);
+			$con = Propulsion::getConnection($this->getDbName(), Propulsion::CONNECTION_READ);
 		}
 
 		// check that the columns of the main class are already added (if this is the primary ModelCriteria)
@@ -1288,7 +1288,7 @@ class ModelCriteria extends Criteria
 			if (isset($stmt)) {
 				$stmt = null; // close
 			}
-			Propel::log($e->getMessage(), Propel::LOG_ERR);
+			Propulsion::log($e->getMessage(), Propulsion::LOG_ERR);
 			throw new PropelException(sprintf('Unable to execute SELECT statement [%s]', $sql), $e);
 		}
 
@@ -1393,7 +1393,7 @@ class ModelCriteria extends Criteria
 	public function count(?PropelPDO $con = null)
 	{
 		if ($con === null) {
-			$con = Propel::getConnection($this->getDbName(), Propel::CONNECTION_READ);
+			$con = Propulsion::getConnection($this->getDbName(), Propulsion::CONNECTION_READ);
 		}
 
 		$criteria = $this->isKeepQuery() ? clone $this : $this;
@@ -1418,10 +1418,10 @@ class ModelCriteria extends Criteria
 
 	protected function getCountStatement(?PropelPDO $con = null)
 	{
-		$dbMap = Propel::getDatabaseMap($this->getDbName());
-		$db = Propel::getDB($this->getDbName());
+		$dbMap = Propulsion::getDatabaseMap($this->getDbName());
+		$db = Propulsion::getDB($this->getDbName());
 		if ($con === null) {
-			$con = Propel::getConnection($this->getDbName(), Propel::CONNECTION_READ);
+			$con = Propulsion::getConnection($this->getDbName(), Propulsion::CONNECTION_READ);
 		}
 
 		// check that the columns of the main class are already added (if this is the primary ModelCriteria)
@@ -1443,7 +1443,7 @@ class ModelCriteria extends Criteria
 			if ($needsComplexCount) {
 				if (BasePeer::needsSelectAliases($this)) {
 					if ($this->getHaving()) {
-						throw new PropelException('Propel cannot create a COUNT query when using HAVING and  duplicate column names in the SELECT part');
+						throw new PropelException('Propulsion cannot create a COUNT query when using HAVING and  duplicate column names in the SELECT part');
 					}
 					$db->turnSelectColumnsToAliases($this);
 				}
@@ -1461,7 +1461,7 @@ class ModelCriteria extends Criteria
 			if ($stmt) {
 				$stmt = null; // close
 			}
-			Propel::log($e->getMessage(), Propel::LOG_ERR);
+			Propulsion::log($e->getMessage(), Propulsion::LOG_ERR);
 			throw new PropelException(sprintf('Unable to execute COUNT statement [%s]', $sql), $e);
 		}
 
@@ -1533,7 +1533,7 @@ class ModelCriteria extends Criteria
 		}
 
 		if ($con === null) {
-			$con = Propel::getConnection($this->getDbName(), Propel::CONNECTION_WRITE);
+			$con = Propulsion::getConnection($this->getDbName(), Propulsion::CONNECTION_WRITE);
 		}
 
 		$criteria = $this->isKeepQuery() ? clone $this : $this;
@@ -1580,7 +1580,7 @@ class ModelCriteria extends Criteria
 	public function deleteAll(?PropelPDO $con = null)
 	{
 		if ($con === null) {
-			$con = Propel::getConnection($this->getDbName(), Propel::CONNECTION_WRITE);
+			$con = Propulsion::getConnection($this->getDbName(), Propulsion::CONNECTION_WRITE);
 		}
 		$con->beginTransaction();
 		try {
@@ -1612,7 +1612,7 @@ class ModelCriteria extends Criteria
 		// which takes ($criteria, $con)). Passing an extra leading null here used to
 		// silently shift $con out of the call (PHP drops excess positional args to a
 		// non-variadic method), so the peer always saw $con === null and fell back to
-		// Propel::getConnection(PeerClass::DATABASE_NAME) -- a brand new, independent
+		// Propulsion::getConnection(PeerClass::DATABASE_NAME) -- a brand new, independent
 		// connection instead of the one the caller (and its surrounding transaction)
 		// was using. Harmless when that connection name happens to already be cached
 		// under the same name, but for datasources registered under a different name
@@ -1677,7 +1677,7 @@ class ModelCriteria extends Criteria
 		}
 
 		if ($con === null) {
-			$con = Propel::getConnection($this->getDbName(), Propel::CONNECTION_WRITE);
+			$con = Propulsion::getConnection($this->getDbName(), Propulsion::CONNECTION_WRITE);
 		}
 
 		$criteria = $this->isKeepQuery() ? clone $this : $this;
@@ -1828,7 +1828,7 @@ class ModelCriteria extends Criteria
 
 	/**
 	 * Replaces complete column names (like Article.AuthorId) in an SQL clause
-	 * by their exact Propel column fully qualified name (e.g. article.AUTHOR_ID)
+	 * by their exact Propulsion column fully qualified name (e.g. article.AUTHOR_ID)
 	 * but ignores the column names inside quotes
 	 * e.g. 'CONCAT(Book.Title, "Book.Title") = ?'
 	 *   => 'CONCAT(book.TITLE, "Book.Title") = ?'
@@ -2061,7 +2061,7 @@ class ModelCriteria extends Criteria
 	public function getParams() : array
 	{
 		$params = array();
-		$dbMap = Propel::getDatabaseMap($this->getDbName());
+		$dbMap = Propulsion::getDatabaseMap($this->getDbName());
 
 		foreach ($this->getMap() as $criterion) {
 

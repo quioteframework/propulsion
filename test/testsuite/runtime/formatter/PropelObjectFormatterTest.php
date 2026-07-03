@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -25,7 +25,7 @@ class PropelObjectFormatterTest extends BookstoreEmptyTestBase
 
 	public function testFormatNoCriteria()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
 		$stmt = $con->query('SELECT * FROM book');
 		$formatter = new PropelObjectFormatter();
@@ -49,7 +49,7 @@ class PropelObjectFormatterTest extends BookstoreEmptyTestBase
 
 	public function testFormatManyResults()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
 		$stmt = $con->query('SELECT * FROM book');
 		$formatter = new PropelObjectFormatter();
@@ -65,7 +65,7 @@ class PropelObjectFormatterTest extends BookstoreEmptyTestBase
 
 	public function testFormatOneResult()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
 		$stmt = $con->query('SELECT * FROM book WHERE book.TITLE = "Quicksilver"');
 		$formatter = new PropelObjectFormatter();
@@ -81,7 +81,7 @@ class PropelObjectFormatterTest extends BookstoreEmptyTestBase
 
 	public function testFormatNoResult()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
 		$stmt = $con->query('SELECT * FROM book WHERE book.TITLE = "foo"');
 		$formatter = new PropelObjectFormatter();
@@ -94,7 +94,7 @@ class PropelObjectFormatterTest extends BookstoreEmptyTestBase
 
 	public function testFormatOneNoCriteria()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
 		$stmt = $con->query('SELECT * FROM book');
 		$formatter = new PropelObjectFormatter();
@@ -108,7 +108,7 @@ class PropelObjectFormatterTest extends BookstoreEmptyTestBase
 
 	public function testFormatOneManyResults()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
 		$stmt = $con->query('SELECT * FROM book');
 		$formatter = new PropelObjectFormatter();
@@ -120,7 +120,7 @@ class PropelObjectFormatterTest extends BookstoreEmptyTestBase
 
 	public function testFormatOneNoResult()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
 		$stmt = $con->query('SELECT * FROM book WHERE book.TITLE = "foo"');
 		$formatter = new PropelObjectFormatter();

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -175,7 +175,7 @@ class TableMap
   }
 
   /**
-   * Get the Classname of the Propel Class belonging to this table.
+   * Get the Classname of the Propulsion Class belonging to this table.
    * @return     string
    */
   public function getClassname()
@@ -184,7 +184,7 @@ class TableMap
   }
 
   /**
-   * Get the Peer Classname of the Propel Class belonging to this table.
+   * Get the Peer Classname of the Propulsion Class belonging to this table.
    * @return     string
    */
   public function getPeerClassname()
@@ -289,7 +289,7 @@ class TableMap
    * Add a column to the table.
    *
    * @param      string name A String with the column name.
-   * @param      string $type A string specifying the Propel type.
+   * @param      string $type A string specifying the Propulsion type.
    * @param      boolean $isNotNull Whether column does not allow NULL values.
    * @param      int $size An int specifying the size.
    * @param      boolean $pk True if column is a primary key.
@@ -415,7 +415,7 @@ class TableMap
    * Add a primary key column to this Table.
    *
    * @param      string $columnName A String with the column name.
-   * @param      string $type A string specifying the Propel type.
+   * @param      string $type A string specifying the Propulsion type.
    * @param      boolean $isNotNull Whether column does not allow NULL values.
    * @param      $size An int specifying the size.
    * @return     ColumnMap Newly added PrimaryKey column.
@@ -429,7 +429,7 @@ class TableMap
    * Add a foreign key column to the table.
    *
    * @param      string $columnName A String with the column name.
-   * @param      string $type A string specifying the Propel type.
+   * @param      string $type A string specifying the Propulsion type.
    * @param      string $fkTable A String with the foreign key table name.
    * @param      string $fkColumn A String with the foreign key column name.
    * @param      boolean $isNotNull Whether column does not allow NULL values.
@@ -446,7 +446,7 @@ class TableMap
    * Add a foreign primary key column to the table.
    *
    * @param      string $columnName A String with the column name.
-   * @param      string $type A string specifying the Propel type.
+   * @param      string $type A string specifying the Propulsion type.
    * @param      string $fkTable A String with the foreign key table name.
    * @param      string $fkColumn A String with the foreign key column name.
    * @param      boolean $isNotNull Whether column does not allow NULL values.
@@ -682,14 +682,14 @@ class TableMap
 
   /**
    * The prefix on the table name.
-   * @deprecated Not used anywhere in Propel
+   * @deprecated Not used anywhere in Propulsion
    */
   private $prefix;
 
   /**
    * Get table prefix name.
    *
-   * @deprecated Not used anywhere in Propel
+   * @deprecated Not used anywhere in Propulsion
    * @return     string A String with the prefix.
    */
   public function getPrefix()
@@ -700,7 +700,7 @@ class TableMap
   /**
    * Set table prefix name.
    *
-   * @deprecated Not used anywhere in Propel
+   * @deprecated Not used anywhere in Propulsion
    * @param      string $prefix The prefix for the table name (ie: SCARAB for
    * SCARAB_PROJECT).
    * @return     void
@@ -713,7 +713,7 @@ class TableMap
   /**
    * Tell me if i have PREFIX in my string.
    *
-   * @deprecated Not used anywhere in Propel
+   * @deprecated Not used anywhere in Propulsion
    * @param      string A String.
    * @return     boolean True if prefix is contained in data.
    */
@@ -725,7 +725,7 @@ class TableMap
   /**
    * Removes the PREFIX if found
    *
-   * @deprecated Not used anywhere in Propel
+   * @deprecated Not used anywhere in Propulsion
    * @param      string $data A String.
    * @return     string A String with data, but with prefix removed.
    */
@@ -740,7 +740,7 @@ class TableMap
    *
    * SCARAB_FOO_BAR becomes FooBar.
    *
-   * @deprecated Not used anywhere in Propel. At buildtime, use Column::generatePhpName() for that purpose
+   * @deprecated Not used anywhere in Propulsion. At buildtime, use Column::generatePhpName() for that purpose
    * @param      string A String.
    * @return     string A String with data processed.
    */
@@ -759,7 +759,7 @@ class TableMap
   /**
    * Makes the first letter caps and the rest lowercase.
    *
-   * @deprecated Not used anywhere in Propel.
+   * @deprecated Not used anywhere in Propulsion.
    * @param      string $data A String.
    * @return     string A String with data processed.
    */

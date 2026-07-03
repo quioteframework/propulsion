@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -13,7 +13,7 @@ use PDOStatement;
 use PDO;
 use Propulsion\Exception\PropelException;
 /**
- * Array formatter for Propel select query
+ * Array formatter for Propulsion select query
  * format() returns a PropelArrayCollection of associative arrays, a string,
  * or an array
  *

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -798,7 +798,7 @@ class Column extends XMLElement
 	}
 
 	/**
-	 * Sets the domain up for specified Propel type.
+	 * Sets the domain up for specified Propulsion type.
 	 *
 	 * Calling this method will implicitly overwrite any previously set type,
 	 * size, scale (or other domain attributes).
@@ -824,8 +824,8 @@ class Column extends XMLElement
 	}
 
 	/**
-	 * Returns the Propel column type as a string.
-	 * @return		 string The constant representing Propel type: e.g. "VARCHAR".
+	 * Returns the Propulsion column type as a string.
+	 * @return		 string The constant representing Propulsion type: e.g. "VARCHAR".
 	 * @see				 Domain::getType()
 	 */
 	public function getType()
@@ -834,7 +834,7 @@ class Column extends XMLElement
 	}
 
 	/**
-	 * Returns the column PDO type integer for this column's Propel type.
+	 * Returns the column PDO type integer for this column's Propulsion type.
 	 * @return		 int The integer value representing PDO type param: e.g. PDO::PARAM_INT
 	 */
 	public function getPDOType()

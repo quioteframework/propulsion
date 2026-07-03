@@ -1,6 +1,6 @@
 <!--
     Use this file to faciliate easy per-project building using
-	PEAR-installed Propel-generator.
+	PEAR-installed Propulsion-generator.
 
 	This Phing script is invoked via the shell script propel-gen (.bat
 	for Windows).  Normally you should not need to edit this script or

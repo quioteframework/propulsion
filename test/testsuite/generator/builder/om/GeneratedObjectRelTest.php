@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -145,7 +145,7 @@ class GeneratedObjectRelTest extends BookstoreEmptyTestBase
 	{
 		$blc1 = new BookClubList();
 		$books = $blc1->getBooks();
-		$this->assertTrue($books instanceof PropelObjectCollection, 'getCrossRefFK() returns a Propel collection');
+		$this->assertTrue($books instanceof PropelObjectCollection, 'getCrossRefFK() returns a Propulsion collection');
 		$this->assertEquals('Book', $books->getModel(), 'getCrossRefFK() returns a collection of the correct model');
 		$this->assertEquals(0, count($books), 'getCrossRefFK() returns an empty list for new objects');
 		$query = BookQuery::create()
@@ -159,7 +159,7 @@ class GeneratedObjectRelTest extends BookstoreEmptyTestBase
 		BookstoreDataPopulator::populate();
 		$blc1 = BookClubListQuery::create()->findOneByGroupLeader('Crazyleggs');
 		$books = $blc1->getBooks();
-		$this->assertTrue($books instanceof PropelObjectCollection, 'getCrossRefFK() returns a Propel collection');
+		$this->assertTrue($books instanceof PropelObjectCollection, 'getCrossRefFK() returns a Propulsion collection');
 		$this->assertEquals('Book', $books->getModel(), 'getCrossRefFK() returns a collection of the correct model');
 		$this->assertEquals(2, count($books), 'getCrossRefFK() returns the correct list of objects');
 		$query = BookQuery::create()
@@ -337,7 +337,7 @@ class GeneratedObjectRelTest extends BookstoreEmptyTestBase
 		BookstoreDataPopulator::populate();
 		BookPeer::clearInstancePool();
 		AuthorPeer::clearInstancePool();
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$author = AuthorPeer::doSelectOne(new Criteria(), $con);
 		// populate book instance pool
 		$books = $author->getBooks(null, $con);
@@ -352,7 +352,7 @@ class GeneratedObjectRelTest extends BookstoreEmptyTestBase
 		BookPeer::clearInstancePool();
 		AuthorPeer::clearInstancePool();
 		PublisherPeer::clearInstancePool();
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$author = AuthorPeer::doSelectOne(new Criteria(), $con);
 		// populate book instance pool
 		$books = $author->getBooksJoinPublisher(null, $con);

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -92,7 +92,7 @@ abstract class PropelParser
 	 */
 	static public function getParser($type = 'XML')
 	{
-		$class = sprintf('Propulsion\\Parser\\Propel%sParser', $type);
+		$class = sprintf('Propulsion\\Parser\\Propulsion%sParser', $type);
 		if (!class_exists($class)) {
 			throw new PropelException(sprintf('Unknown parser class "%s"', $class));
 		}

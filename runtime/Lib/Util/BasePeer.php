@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -31,7 +31,7 @@ namespace Propulsion\Util;
  use Propulsion\Query\Criteria;
  use Propulsion\Exception\PropelException;
  use Propulsion\Connection\PropelPDO;
- use Propulsion\Propel;
+ use Propulsion\Propulsion;
  use \Exception;
  use \PDOStatement;
  use Propulsion\Map\ColumnMap;
@@ -96,8 +96,8 @@ class BasePeer
 	 */
 	public static function doDelete(Criteria $criteria, PropelPDO $con)
 	{
-		$db = Propel::getDB($criteria->getDbName());
-		$dbMap = Propel::getDatabaseMap($criteria->getDbName());
+		$db = Propulsion::getDB($criteria->getDbName());
+		$dbMap = Propulsion::getDatabaseMap($criteria->getDbName());
 
 		//join are not supported with DELETE statement
 		if (count($criteria->getJoins())) {
@@ -133,7 +133,7 @@ class BasePeer
 				$stmt->execute();
 				$affectedRows = $stmt->rowCount();
 			} catch (Exception $e) {
-				Propel::log($e->getMessage(), Propel::LOG_ERR);
+				Propulsion::log($e->getMessage(), Propulsion::LOG_ERR);
 				throw new PropelException(sprintf('Unable to execute DELETE statement [%s]', $sql), $e);
 			}
 
@@ -149,7 +149,7 @@ class BasePeer
 	 * <code>
 	 * public static function doDeleteAll($con = null)
 	 * {
-	 *   if ($con === null) $con = Propel::getConnection(self::DATABASE_NAME);
+	 *   if ($con === null) $con = Propulsion::getConnection(self::DATABASE_NAME);
 	 *   BasePeer::doDeleteAll(self::TABLE_NAME, $con, self::DATABASE_NAME);
 	 * }
 	 * </code>
@@ -159,13 +159,13 @@ class BasePeer
 	 * @param      string $databaseName the name of the database.
 	 * @return     int	The number of rows affected by the statement.  Note
 	 * 				that the return value does require that this information
-	 * 				is returned (supported) by the Propel db driver.
+	 * 				is returned (supported) by the Propulsion db driver.
 	 * @throws     PropelException - wrapping SQLException caught from statement execution.
 	 */
 	public static function doDeleteAll(?string $tableName = null, ?PropelPDO $con = null, ?string $databaseName = null)
 	{
 		try {
-			$db = Propel::getDB($databaseName);
+			$db = Propulsion::getDB($databaseName);
 			if ($db->useQuoteIdentifier()) {
 				$tableName = $db->quoteIdentifierTable($tableName);
 			}
@@ -174,7 +174,7 @@ class BasePeer
 			$stmt->execute();
 			return $stmt->rowCount();
 		} catch (Exception $e) {
-			Propel::log($e->getMessage(), Propel::LOG_ERR);
+			Propulsion::log($e->getMessage(), Propulsion::LOG_ERR);
 			throw new PropelException(sprintf('Unable to execute DELETE ALL statement [%s]', $sql), $e);
 		}
 	}
@@ -207,7 +207,7 @@ class BasePeer
 		// the primary key
 		$id = null;
 
-		$db = Propel::getDB($criteria->getDbName());
+		$db = Propulsion::getDB($criteria->getDbName());
 
 		// Get the table name and method for determining the primary
 		// key value.
@@ -218,7 +218,7 @@ class BasePeer
 			throw new PropelException("Database insert attempted without anything specified to insert");
 		}
 
-		$dbMap = Propel::getDatabaseMap($criteria->getDbName());
+		$dbMap = Propulsion::getDatabaseMap($criteria->getDbName());
 		$tableMap = $dbMap->getTable($tableName);
 		$keyInfo = $tableMap->getPrimaryKeyMethodInfo();
 		$useIdGen = $tableMap->isUseIdGenerator();
@@ -244,7 +244,7 @@ class BasePeer
 		}
 
 		try {
-			$adapter = Propel::getDB($criteria->getDBName());
+			$adapter = Propulsion::getDB($criteria->getDBName());
 
 			$qualifiedCols = $criteria->keys(); // we need table.column cols when populating values
 			$columns = array(); // but just 'column' cols for the SQL
@@ -277,7 +277,7 @@ class BasePeer
 			$stmt->execute();
 
 		} catch (Exception $e) {
-			Propel::log($e->getMessage(), Propel::LOG_ERR);
+			Propulsion::log($e->getMessage(), Propulsion::LOG_ERR);
 			throw new PropelException(sprintf('Unable to execute INSERT statement [%s]', $sql), $e);
 		}
 
@@ -311,13 +311,13 @@ class BasePeer
 	 * 				uses there is only one update statement executed, so this number
 	 * 				will correspond to the number of rows affected by the call to this
 	 * 				method.  Note that the return value does require that this information
-	 * 				is returned (supported) by the Propel db driver.
+	 * 				is returned (supported) by the Propulsion db driver.
 	 * @throws     PropelException
 	 */
 	public static function doUpdate(Criteria $selectCriteria, Criteria $updateValues, ?PropelPDO $con = null) {
 
-		$db = Propel::getDB($selectCriteria->getDbName());
-		$dbMap = Propel::getDatabaseMap($selectCriteria->getDbName());
+		$db = Propulsion::getDB($selectCriteria->getDbName());
+		$dbMap = Propulsion::getDatabaseMap($selectCriteria->getDbName());
 
 		// Get list of required tables, containing all columns
 		$tablesColumns = $selectCriteria->getTablesColumns();
@@ -423,7 +423,7 @@ class BasePeer
 
 			} catch (Exception $e) {
 				if ($stmt) $stmt = null; // close
-				Propel::log($e->getMessage(), Propel::LOG_ERR);
+				Propulsion::log($e->getMessage(), Propulsion::LOG_ERR);
 				throw new PropelException(sprintf('Unable to execute UPDATE statement [%s]', $sql), $e);
 			}
 
@@ -443,12 +443,12 @@ class BasePeer
 	 */
 	public static function doSelect(Criteria $criteria, ?PropelPDO $con = null)
 	{
-		$dbMap = Propel::getDatabaseMap($criteria->getDbName());
-		$db = Propel::getDB($criteria->getDbName());
+		$dbMap = Propulsion::getDatabaseMap($criteria->getDbName());
+		$db = Propulsion::getDB($criteria->getDbName());
 		$stmt = null;
 
 		if ($con === null) {
-			$con = Propel::getConnection($criteria->getDbName(), Propel::CONNECTION_READ);
+			$con = Propulsion::getConnection($criteria->getDbName(), Propulsion::CONNECTION_READ);
 		}
 
 		try {
@@ -466,7 +466,7 @@ class BasePeer
 			if ($stmt) {
 				$stmt = null; // close
 			}
-			Propel::log($e->getMessage(), Propel::LOG_ERR);
+			Propulsion::log($e->getMessage(), Propulsion::LOG_ERR);
 			throw new PropelException(sprintf('Unable to execute SELECT statement [%s]', $sql), $e);
 		}
 
@@ -485,11 +485,11 @@ class BasePeer
 	 */
 	public static function doCount(Criteria $criteria, ?PropelPDO $con = null)
 	{
-		$dbMap = Propel::getDatabaseMap($criteria->getDbName());
-		$db = Propel::getDB($criteria->getDbName());
+		$dbMap = Propulsion::getDatabaseMap($criteria->getDbName());
+		$db = Propulsion::getDB($criteria->getDbName());
 
 		if ($con === null) {
-			$con = Propel::getConnection($criteria->getDbName(), Propel::CONNECTION_READ);
+			$con = Propulsion::getConnection($criteria->getDbName(), Propulsion::CONNECTION_READ);
 		}
 
 		$stmt = null;
@@ -507,7 +507,7 @@ class BasePeer
 			if ($needsComplexCount) {
 				if (self::needsSelectAliases($criteria)) {
 					if ($criteria->getHaving()) {
-						throw new PropelException('Propel cannot create a COUNT query when using HAVING and  duplicate column names in the SELECT part');
+						throw new PropelException('Propulsion cannot create a COUNT query when using HAVING and  duplicate column names in the SELECT part');
 					}
 					$db->turnSelectColumnsToAliases($criteria);
 				}
@@ -527,7 +527,7 @@ class BasePeer
 			if ($stmt !== null) {
 				$stmt = null;
 			}
-			Propel::log($e->getMessage(), Propel::LOG_ERR);
+			Propulsion::log($e->getMessage(), Propulsion::LOG_ERR);
 			throw new PropelException(sprintf('Unable to execute COUNT statement [%s]', $sql), $e);
 		}
 
@@ -543,7 +543,7 @@ class BasePeer
 	 */
 	public static function doValidate($dbName, $tableName, $columns)
 	{
-		$dbMap = Propel::getDatabaseMap($dbName);
+		$dbMap = Propulsion::getDatabaseMap($dbName);
 		$tableMap = $dbMap->getTable($tableName);
 		$failureMap = array(); // map of ValidationFailed objects
 		foreach ($columns as $colName => $colValue) {
@@ -582,7 +582,7 @@ class BasePeer
 
 		if (!empty($table)) {
 
-			$dbMap = Propel::getDatabaseMap($criteria->getDbName());
+			$dbMap = Propulsion::getDatabaseMap($criteria->getDbName());
 
 			$pks = $dbMap->getTable($table)->getPrimaryKeys();
 			if (!empty($pks)) {
@@ -628,8 +628,8 @@ class BasePeer
 	 */
 	public static function createSelectSql(Criteria $criteria, &$params)
 	{
-		$db = Propel::getDB($criteria->getDbName());
-		$dbMap = Propel::getDatabaseMap($criteria->getDbName());
+		$db = Propulsion::getDB($criteria->getDbName());
+		$dbMap = Propulsion::getDatabaseMap($criteria->getDbName());
 
 		$fromClause = array();
 		$joinClause = array();
@@ -865,13 +865,13 @@ class BasePeer
 		try {
 			$v = isset(self::$validatorMap[$classname]) ? self::$validatorMap[$classname] : null;
 			if ($v === null) {
-				$cls = Propel::importClass($classname);
+				$cls = Propulsion::importClass($classname);
 				$v = new $cls();
 				self::$validatorMap[$classname] = $v;
 			}
 			return $v;
 		} catch (Exception $e) {
-			Propel::log("BasePeer::getValidator(): failed trying to instantiate " . $classname . ": ".$e->getMessage(), Propel::LOG_ERR);
+			Propulsion::log("BasePeer::getValidator(): failed trying to instantiate " . $classname . ": ".$e->getMessage(), Propulsion::LOG_ERR);
 		}
 	}
 

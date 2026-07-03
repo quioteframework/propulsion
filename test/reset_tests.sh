@@ -1,5 +1,5 @@
 #!/bin/bash
-# Reset Propel tests fixtures
+# Reset Propulsion tests fixtures
 # 2011 - William Durand <william.durand1@gmail.com>
 
 CURRENT=`pwd`

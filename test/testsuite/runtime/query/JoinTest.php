@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -11,7 +11,7 @@
 // See CriteriaCombineTest.php for why this is guarded rather than unconditional.
 $bookstoreConfFile = dirname(__FILE__) . '/../../../fixtures/bookstore/build/conf/bookstore-conf.php';
 if (file_exists($bookstoreConfFile)) {
-	Propel::init($bookstoreConfFile);
+	Propulsion::init($bookstoreConfFile);
 }
 
 /**
@@ -33,13 +33,13 @@ class JoinTest extends BaseTestCase
   protected function setUp(): void
   {
     parent::setUp();
-    $this->savedAdapter = Propel::getDB(null);
-    Propel::setDB(null, new DBSQLite());
+    $this->savedAdapter = Propulsion::getDB(null);
+    Propulsion::setDB(null, new DBSQLite());
   }
 
   protected function tearDown(): void
   {
-    Propel::setDB(null, $this->savedAdapter);
+    Propulsion::setDB(null, $this->savedAdapter);
     parent::tearDown();
   }
 

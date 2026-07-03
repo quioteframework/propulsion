@@ -2,9 +2,9 @@
 
 
 use PHPUnit\Framework\TestCase;
-use Propulsion\Propel;
+use Propulsion\Propulsion;
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -29,7 +29,7 @@ abstract class SchemasTestBase extends TestCase
 			$this->markTestSkipped($e->getMessage());
 		}
 
-		Propel::init(IntegrationDatabase::schemasConfFile());
+		Propulsion::init(IntegrationDatabase::schemasConfFile());
 	}
 
 	protected function tearDown(): void
@@ -37,7 +37,7 @@ abstract class SchemasTestBase extends TestCase
 		parent::tearDown();
 		try {
 			IntegrationDatabase::ensureReady();
-			Propel::init(IntegrationDatabase::confFile());
+			Propulsion::init(IntegrationDatabase::confFile());
 		} catch (\RuntimeException $e) {
 			// Bookstore fixtures unavailable (e.g. Docker missing) -- nothing to
 			// reset back to, and the schemas test above will already have been

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -25,33 +25,33 @@ class PropelOnDemandIteratorTest extends BookstoreEmptyTestBase
 
 	public function testInstancePoolingDisabled()
 	{
-		Propel::enableInstancePooling();
+		Propulsion::enableInstancePooling();
 		$books = PropelQuery::from('Book')
 			->setFormatter(ModelCriteria::FORMAT_ON_DEMAND)
 			->find($this->con);
 		foreach ($books as $book) {
-			$this->assertFalse(Propel::isInstancePoolingEnabled());
+			$this->assertFalse(Propulsion::isInstancePoolingEnabled());
 		}
 	}
 
 	public function testInstancePoolingReenabled()
 	{
-		Propel::enableInstancePooling();
+		Propulsion::enableInstancePooling();
 		$books = PropelQuery::from('Book')
 			->setFormatter(ModelCriteria::FORMAT_ON_DEMAND)
 			->find($this->con);
 		foreach ($books as $book) {
 		}
-		$this->assertTrue(Propel::isInstancePoolingEnabled());
+		$this->assertTrue(Propulsion::isInstancePoolingEnabled());
 
-		Propel::disableInstancePooling();
+		Propulsion::disableInstancePooling();
 		$books = PropelQuery::from('Book')
 			->setFormatter(ModelCriteria::FORMAT_ON_DEMAND)
 			->find($this->con);
 		foreach ($books as $book) {
 		}
-		$this->assertFalse(Propel::isInstancePoolingEnabled());
-		Propel::enableInstancePooling();
+		$this->assertFalse(Propulsion::isInstancePoolingEnabled());
+		Propulsion::enableInstancePooling();
 	}
 
 }

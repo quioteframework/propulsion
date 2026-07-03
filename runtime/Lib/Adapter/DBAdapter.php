@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -9,14 +9,14 @@
  */
 namespace Propulsion\Adapter;
 /**
- * DBAdapter</code> defines the interface for a Propel database adapter.
+ * DBAdapter</code> defines the interface for a Propulsion database adapter.
  *
  * <p>Support for new databases is added by subclassing
  * <code>DBAdapter</code> and implementing its abstract interface, and by
- * registering the new database adapter and corresponding Propel
+ * registering the new database adapter and corresponding Propulsion
  * driver in the private adapters map (array) in this class.</p>
  *
- * <p>The Propel database adapters exist to present a uniform
+ * <p>The Propulsion database adapters exist to present a uniform
  * interface to database access across all available databases.  Once
  * the necessary adapters have been written and configured,
  * transparent swapping of databases is theoretically supported with
@@ -45,7 +45,7 @@ abstract class DBAdapter
 	const ID_METHOD_SEQUENCE = 2;
 
 	/**
-	 * Propel driver to Propel adapter map.
+	 * Propulsion driver to Propulsion adapter map.
 	 * @var array
 	 */
 	private static $adapters = array(
@@ -62,13 +62,13 @@ abstract class DBAdapter
 
 	/**
 	 * Creates a new instance of the database adapter associated
-	 * with the specified Propel driver.
+	 * with the specified Propulsion driver.
 	 *
-	 * @param     string  $driver The name of the Propel driver to create a new adapter instance
+	 * @param     string  $driver The name of the Propulsion driver to create a new adapter instance
 	 *                            for or a shorter form adapter key.
 	 *
 	 * @throws    PropelException  If the adapter could not be instantiated.
-	 * @return    DBAdapter        An instance of a Propel database adapter.
+	 * @return    DBAdapter        An instance of a Propulsion database adapter.
 	 */
 	public static function factory($driver) {
 		$adapterClass = isset(self::$adapters[$driver]) ? self::$adapters[$driver] : null;
@@ -76,7 +76,7 @@ abstract class DBAdapter
 			$a = new $adapterClass();
 			return $a;
 		} else {
-			throw new PropelException("Unsupported Propel driver: " . $driver . ": Check your configuration file");
+			throw new PropelException("Unsupported Propulsion driver: " . $driver . ": Check your configuration file");
 		}
 	}
 
@@ -524,11 +524,11 @@ abstract class DBAdapter
 	 * values that should be substituted.
 	 *
 	 * <code>
-	 * $db = Propel::getDB($criteria->getDbName());
+	 * $db = Propulsion::getDB($criteria->getDbName());
 	 * $sql = BasePeer::createSelectSql($criteria, $params);
 	 * $stmt = $con->prepare($sql);
 	 * $params = array();
-	 * $db->populateStmtValues($stmt, $params, Propel::getDatabaseMap($critera->getDbName()));
+	 * $db->populateStmtValues($stmt, $params, Propulsion::getDatabaseMap($critera->getDbName()));
 	 * $stmt->execute();
 	 * </code>
 	 *

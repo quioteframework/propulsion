@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -10,7 +10,7 @@
 namespace Propulsion\Util;
 
 /**
- * Enumeration of Propel types.
+ * Enumeration of Propulsion types.
  *
  * THIS CLASS MUST BE KEPT UP-TO-DATE WITH THE MORE EXTENSIVE GENERATOR VERSION OF THIS CLASS.
  *
@@ -85,7 +85,7 @@ class PropelColumnTypes
 	);
 
 	/**
-	 * Resturns the PDO type (PDO::PARAM_* constant) value for the Propel type provided.
+	 * Resturns the PDO type (PDO::PARAM_* constant) value for the Propulsion type provided.
 	 * @param      string $propelType
 	 * @return     int
 	 */

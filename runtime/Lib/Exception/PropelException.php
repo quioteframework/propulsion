@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -9,7 +9,7 @@
  */
 namespace Propulsion\Exception;
 /**
- * The base class of all exceptions thrown by Propel.
+ * The base class of all exceptions thrown by Propulsion.
  * @author     Hans Lellelid <hans@xmpl.org>
  * @version    $Revision$
  * @package    propel.runtime.exception

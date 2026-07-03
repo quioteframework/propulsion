@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -18,7 +18,7 @@ namespace Propulsion\Query;
  * @version    $Revision$
  * @package    propel.runtime.query
  */
- use Propulsion\Propel;
+ use Propulsion\Propulsion;
  use Propulsion\Adapter\DBAdapter;
  use Propulsion\Exception\PropelException;
  use Propulsion\Adapter\DBPostgres;
@@ -96,12 +96,12 @@ class Criterion
 	{
 		// init $this->db
 		try {
-			$db = Propel::getDB($criteria->getDbName());
+			$db = Propulsion::getDB($criteria->getDbName());
 			$this->setDB($db);
 		} catch (Exception $e) {
 			// we are only doing this to allow easier debugging, so
 			// no need to throw up the exception, just make note of it.
-			Propel::log("Could not get a DBAdapter, sql may be wrong", Propel::LOG_ERR);
+			Propulsion::log("Could not get a DBAdapter, sql may be wrong", Propulsion::LOG_ERR);
 		}
 
 		// init $this->realtable

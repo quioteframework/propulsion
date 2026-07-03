@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -106,7 +106,7 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
      */
     public function testDefaultExpresions()
     {
-        if (Propel::getDb(BookstoreEmployeePeer::DATABASE_NAME) instanceof DBSqlite) {
+        if (Propulsion::getDb(BookstoreEmployeePeer::DATABASE_NAME) instanceof DBSqlite) {
             $this->markTestSkipped("Cannot test default expressions with SQLite");
         }
 
@@ -150,7 +150,7 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
      */
     public function testDefaultExpresions_ReloadOnInsert()
     {
-        if (Propel::getDb(BookstoreEmployeePeer::DATABASE_NAME) instanceof DBSqlite) {
+        if (Propulsion::getDb(BookstoreEmployeePeer::DATABASE_NAME) instanceof DBSqlite) {
             $this->markTestSkipped("Cannot test default date expressions with SQLite");
         }
 
@@ -190,7 +190,7 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
      */
     public function testDefaultExpresions_ReloadOnInsert_Override()
     {
-        if (Propel::getDb(BookstoreEmployeePeer::DATABASE_NAME) instanceof DBSqlite) {
+        if (Propulsion::getDb(BookstoreEmployeePeer::DATABASE_NAME) instanceof DBSqlite) {
             $this->markTestSkipped("Cannot test default date expressions with SQLite");
         }
 
@@ -315,7 +315,7 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
         $this->assertSame($pub1, $book->getPublisher());
 
         // now change values behind the scenes
-        $con = Propel::getConnection(BookstoreEmployeeAccountPeer::DATABASE_NAME);
+        $con = Propulsion::getConnection(BookstoreEmployeeAccountPeer::DATABASE_NAME);
         $con->exec("UPDATE " . BookPeer::TABLE_NAME . " SET "
             . " publisher_id = " . $pub2->getId()
             . " WHERE id = " . $book->getId());
@@ -1248,7 +1248,7 @@ EOF;
 
     public function testPreSaveFalse()
     {
-        $con = Propel::getConnection(AuthorPeer::DATABASE_NAME);
+        $con = Propulsion::getConnection(AuthorPeer::DATABASE_NAME);
         $author = new TestAuthorSaveFalse();
         $author->setFirstName("bogus");
         $author->setLastName("Lastname");
@@ -1281,7 +1281,7 @@ EOF;
 
     public function testPreDeleteFalse()
     {
-        $con = Propel::getConnection(AuthorPeer::DATABASE_NAME);
+        $con = Propulsion::getConnection(AuthorPeer::DATABASE_NAME);
         $author = new TestAuthorDeleteFalse();
         $author->setFirstName("bogus");
         $author->setLastName("Lastname");

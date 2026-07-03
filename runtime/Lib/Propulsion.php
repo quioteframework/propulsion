@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -10,9 +10,9 @@
 namespace Propulsion;
 
 /**
- * Propel's main resource pool and initialization & configuration class.
+ * Propulsion's main resource pool and initialization & configuration class.
  *
- * This static class is used to handle Propel initialization and to maintain all of the
+ * This static class is used to handle Propulsion initialization and to maintain all of the
  * open database connections and instantiated database maps.
  *
  * @author     Hans Lellelid <hans@xmpl.rg> (Propel)
@@ -37,10 +37,10 @@ use Propulsion\Adapter\DBAdapter;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 
-class Propel
+class Propulsion
 {
 	/**
-	 * The Propel version.
+	 * The Propulsion version.
 	 */
 	const VERSION = '1.6.2-dev';
 
@@ -135,7 +135,7 @@ class Propel
 	private static $connectionMap = array();
 
 	/**
-	 * @var        PropelConfiguration Propel-specific configuration.
+	 * @var        PropelConfiguration Propulsion-specific configuration.
 	 */
 	private static $configuration;
 
@@ -147,7 +147,7 @@ class Propel
 	/**
 	 * @var        LoggerInterface|null optional PSR-3 logger. Propulsion ships no
 	 *             concrete implementation -- bring your own (Monolog, etc.) via
-	 *             Propel::setLogger().
+	 *             Propulsion::setLogger().
 	 */
 	private static ?LoggerInterface $logger = null;
 
@@ -181,7 +181,7 @@ class Propel
 
 
 	/**
-	 * Initializes Propel
+	 * Initializes Propulsion
 	 *
 	 * @throws     PropelException Any exceptions caught during processing will be
 	 *                             rethrown wrapped into a PropelException.
@@ -189,7 +189,7 @@ class Propel
 	public static function initialize()
 	{
 		if (self::$configuration === null) {
-			throw new PropelException("Propel cannot be initialized without a valid configuration. Please check the log files for further details.");
+			throw new PropelException("Propulsion cannot be initialized without a valid configuration. Please check the log files for further details.");
 		}
 
 		self::configureLogging();
@@ -201,7 +201,7 @@ class Propel
 	}
 
 	/**
-	 * Configure Propel a PHP (array) config file.
+	 * Configure Propulsion a PHP (array) config file.
 	 *
 	 * @param      string Path (absolute or relative to include_path) to config file.
 	 *
@@ -221,17 +221,17 @@ class Propel
 	 * Configure the logging system.
 	 *
 	 * Propulsion does not auto-configure a logger from the runtime configuration
-	 * file -- bring your own PSR-3 logger and register it with Propel::setLogger()
-	 * (typically right after Propel::init()). Without one, Propel::log() is a no-op.
+	 * file -- bring your own PSR-3 logger and register it with Propulsion::setLogger()
+	 * (typically right after Propulsion::init()). Without one, Propulsion::log() is a no-op.
 	 */
 	protected static function configureLogging()
 	{
 	}
 
 	/**
-	 * Initialization of Propel a PHP (array) configuration file.
+	 * Initialization of Propulsion a PHP (array) configuration file.
 	 *
-	 * @param      string $c The Propel configuration file path.
+	 * @param      string $c The Propulsion configuration file path.
 	 *
 	 * @throws     PropelException Any exceptions caught during processing will be
 	 *                             rethrown wrapped into a PropelException.
@@ -243,9 +243,9 @@ class Propel
 	}
 
 	/**
-	 * Determine whether Propel has already been initialized.
+	 * Determine whether Propulsion has already been initialized.
 	 *
-	 * @return     bool True if Propel is already initialized.
+	 * @return     bool True if Propulsion is already initialized.
 	 */
 	public static function isInit()
 	{
@@ -253,7 +253,7 @@ class Propel
 	}
 
 	/**
-	 * Sets the configuration for Propel and all dependencies.
+	 * Sets the configuration for Propulsion and all dependencies.
 	 *
 	 * @param      mixed The Configuration (array or PropelConfiguration)
 	 */
@@ -299,7 +299,7 @@ class Propel
 	/**
 	 * Returns true if a PSR-3 logger has been configured, otherwise false.
 	 *
-	 * @return     bool True if Propel uses logging
+	 * @return     bool True if Propulsion uses logging
 	 */
 	public static function hasLogger()
 	{
@@ -322,7 +322,7 @@ class Propel
 	 * logging message will be discarded without any further action.
 	 *
 	 * @param      string $message The message that will be logged.
-	 * @param      string $level One of the Psr\Log\LogLevel::* constants (also available as Propel::LOG_*).
+	 * @param      string $level One of the Psr\Log\LogLevel::* constants (also available as Propulsion::LOG_*).
 	 * @param      array  $context PSR-3 context array.
 	 *
 	 * @return     bool True if the message was logged successfully or no logger was used.
@@ -463,7 +463,7 @@ class Propel
 	}
 
 	/**
-	 * @return     array<int, PDO> Every PDO/PropelPDO connection Propel currently
+	 * @return     array<int, PDO> Every PDO/PropelPDO connection Propulsion currently
 	 *                              has open (master and slave, across all
 	 *                              datasources), deduplicated.
 	 */
@@ -486,14 +486,14 @@ class Propel
 	 *
 	 * @param      string $name The datasource name for the connection being set.
 	 * @param      PropelPDO $con The PDO connection.
-	 * @param      string $mode Whether this is a READ or WRITE connection (Propel::CONNECTION_READ, Propel::CONNECTION_WRITE)
+	 * @param      string $mode Whether this is a READ or WRITE connection (Propulsion::CONNECTION_READ, Propulsion::CONNECTION_WRITE)
 	 */
-	public static function setConnection($name, PropelPDO $con, $mode = Propel::CONNECTION_WRITE)
+	public static function setConnection($name, PropelPDO $con, $mode = Propulsion::CONNECTION_WRITE)
 	{
 		if ($name === null) {
 			$name = self::getDefaultDB();
 		}
-		if ($mode == Propel::CONNECTION_READ) {
+		if ($mode == Propulsion::CONNECTION_READ) {
 			self::$connectionMap[$name]['slave'] = $con;
 		} else {
 			self::$connectionMap[$name]['master'] = $con;
@@ -510,16 +510,16 @@ class Propel
 	 *
 	 * @throws     PropelException - if connection cannot be configured or initialized.
 	 */
-	public static function getConnection($name = null, $mode = Propel::CONNECTION_WRITE)
+	public static function getConnection($name = null, $mode = Propulsion::CONNECTION_WRITE)
 	{
 		if ($name === null) {
 			$name = self::getDefaultDB();
 		}
 
 		// IF a WRITE-mode connection was requested
-		// or Propel is configured to always use the master connection
+		// or Propulsion is configured to always use the master connection
 		// THEN return the master connection.
-		if ($mode != Propel::CONNECTION_READ || self::getSession()->getForceMasterConnection()) {
+		if ($mode != Propulsion::CONNECTION_READ || self::getSession()->getForceMasterConnection()) {
 			return self::getMasterConnection($name);
 		} else {
 			return self::getSlaveConnection($name);
@@ -538,7 +538,7 @@ class Propel
 	 */
 	public static function getReadConnection($name = null)
 	{
-		return self::getConnection($name, Propel::CONNECTION_READ);
+		return self::getConnection($name, Propulsion::CONNECTION_READ);
 	}
 
 	/**
@@ -552,7 +552,7 @@ class Propel
 	 */
 	public static function getWriteConnection($name = null)
 	{
-		return self::getConnection($name, Propel::CONNECTION_WRITE);
+		return self::getConnection($name, Propulsion::CONNECTION_WRITE);
 	}
 
 	/**
@@ -574,11 +574,11 @@ class Propel
 				throw new PropelException('No connection information in your runtime configuration file for datasource ['.$name.']');
 			}
 			// initialize master connection
-			$con = Propel::initConnection($conparams, $name);
+			$con = Propulsion::initConnection($conparams, $name);
 			self::$connectionMap[$name]['master'] = $con;
 
 			if (getenv('AGAVI_DEBUG_DATABASE')) {
-				self::log('[Propel::getMasterConnection] created new connection for ' . $name, LogLevel::DEBUG);
+				self::log('[Propulsion::getMasterConnection] created new connection for ' . $name, LogLevel::DEBUG);
 			}
 		}
 
@@ -658,7 +658,7 @@ class Propel
 				}
 
 				// initialize slave connection
-				$con = Propel::initConnection($conparams, $name);
+				$con = Propulsion::initConnection($conparams, $name);
 				self::$connectionMap[$name]['slave'] = $con;
 			}
 
@@ -673,13 +673,13 @@ class Propel
 	 * @param      array $conparams Connection paramters.
 	 * @param      string $name Datasource name.
 	 * @param      string $defaultClass The PDO subclass to instantiate if there is no explicit classname
-	 * 									specified in the connection params (default is Propel::CLASS_PROPEL_PDO)
+	 * 									specified in the connection params (default is Propulsion::CLASS_PROPEL_PDO)
 	 *
 	 * @return     PDO|PropelPDO A database connection of the given class (PDO, PropelPDO, SlavePDO or user-defined)
 	 *
 	 * @throws     PropelException - if lower-level exception caught when trying to connect.
 	 */
-	public static function initConnection($conparams, $name, $defaultClass = Propel::CLASS_PROPEL_PDO)
+	public static function initConnection($conparams, $name, $defaultClass = Propulsion::CLASS_PROPEL_PDO)
 	{
 		$adapter = self::getDB($name);
 
@@ -839,14 +839,14 @@ class Propel
 	public static function close()
 	{
 		if (getenv('AGAVI_DEBUG_DATABASE')) {
-			self::log('[Propel::close] closing ' . count(self::$connectionMap) . ' connection groups', LogLevel::DEBUG);
+			self::log('[Propulsion::close] closing ' . count(self::$connectionMap) . ' connection groups', LogLevel::DEBUG);
 		}
 
 		foreach (self::$connectionMap as $idx => $cons) {
 			if (getenv('AGAVI_DEBUG_DATABASE')) {
 				$masterCount = isset($cons['master']) ? 1 : 0;
 				$slaveCount = isset($cons['slave']) ? 1 : 0;
-				self::log('[Propel::close] closing connection group: ' . $idx . ' (master=' . $masterCount . ' slave=' . $slaveCount . ')', LogLevel::DEBUG);
+				self::log('[Propulsion::close] closing connection group: ' . $idx . ' (master=' . $masterCount . ' slave=' . $slaveCount . ')', LogLevel::DEBUG);
 			}
 		}
 
@@ -854,16 +854,16 @@ class Propel
 		self::$connectionMap = array();
 
 		if (getenv('AGAVI_DEBUG_DATABASE')) {
-			self::log('[Propel::close] all connections closed - connection map cleared', LogLevel::DEBUG);
+			self::log('[Propulsion::close] all connections closed - connection map cleared', LogLevel::DEBUG);
 		}
 	}
 
 	/**
 	 * Include once a file specified in DOT notation and return unqualified classname.
 	 *
-	 * Typically, Propel uses autoload is used to load classes and expects that all classes
-	 * referenced within Propel are included in Propel's autoload map.  This method is only
-	 * called when a specific non-Propel classname was specified -- for example, the
+	 * Typically, Propulsion uses autoload is used to load classes and expects that all classes
+	 * referenced within Propulsion are included in Propulsion's autoload map.  This method is only
+	 * called when a specific non-Propulsion classname was specified -- for example, the
 	 * classname of a validator in the schema.xml.  This method will attempt to include that
 	 * class via autoload and then relative to a location on the include_path.
 	 *
@@ -952,15 +952,15 @@ class Propel
 
 // Generated Object Model classes (both the archived PHP5 builders and the current
 // PHP84 ones) are emitted unnamespaced and reference runtime classes by their bare
-// historic name (Propel::, TableMap, PropelException, ...) -- that was their actual
-// global name before this fork renamed Propel\ to Propulsion\. Alias them eagerly
+// historic name (Propulsion::, TableMap, PropelException, ...) -- that was their actual
+// global name before this fork renamed Propulsion\ to Propulsion\. Alias them eagerly
 // (not lazily via spl_autoload_register) because `catch (PropelException $e)` --
 // used throughout this codebase and any already-generated model code -- does NOT
 // trigger autoloading in PHP the way `new`/`instanceof`/class_exists() do; an alias
 // created only on first *reference* would still be missing the first time a catch
 // block needs it. class_alias() autoloads its target class itself, so this eagerly
-// loads all of them once, whenever Propulsion\Propel is first loaded (i.e. always,
-// since Propel::init() is the mandatory bootstrap call).
+// loads all of them once, whenever Propulsion\Propulsion is first loaded (i.e. always,
+// since Propulsion::init() is the mandatory bootstrap call).
 set_error_handler(static function (int $severity, string $message, string $file = '', int $line = 0): bool {
 	throw new \ErrorException($message, 0, $severity, $file, $line);
 });
@@ -974,7 +974,7 @@ try {
 				// (e.g. PropelYAMLParser expects a bundled sfYaml.php that isn't part of
 				// this fork). Don't let one broken/unused legacy class -- or even just a
 				// warning it emits while loading -- take down every other alias, and by
-				// extension Propel::init() itself, for it.
+				// extension Propulsion::init() itself, for it.
 			}
 		}
 	}

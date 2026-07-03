@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -20,7 +20,7 @@ class DBAdapterTest extends BookstoreTestBase
 
 	public function testTurnSelectColumnsToAliases()
 	{
-		$db = Propel::getDB(BookPeer::DATABASE_NAME);
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
 		$c1 = new Criteria();
 		$c1->addSelectColumn(BookPeer::ID);
 		$db->turnSelectColumnsToAliases($c1);
@@ -32,7 +32,7 @@ class DBAdapterTest extends BookstoreTestBase
 
 	public function testTurnSelectColumnsToAliasesPreservesAliases()
 	{
-		$db = Propel::getDB(BookPeer::DATABASE_NAME);
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
 		$c1 = new Criteria();
 		$c1->addSelectColumn(BookPeer::ID);
 		$c1->addAsColumn('foo', BookPeer::TITLE);
@@ -46,7 +46,7 @@ class DBAdapterTest extends BookstoreTestBase
 
 	public function testTurnSelectColumnsToAliasesExisting()
 	{
-		$db = Propel::getDB(BookPeer::DATABASE_NAME);
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
 		$c1 = new Criteria();
 		$c1->addSelectColumn(BookPeer::ID);
 		$c1->addAsColumn('book_ID', BookPeer::ID);
@@ -60,7 +60,7 @@ class DBAdapterTest extends BookstoreTestBase
 
 	public function testTurnSelectColumnsToAliasesDuplicate()
 	{
-		$db = Propel::getDB(BookPeer::DATABASE_NAME);
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
 		$c1 = new Criteria();
 		$c1->addSelectColumn(BookPeer::ID);
 		$c1->addSelectColumn(BookPeer::ID);
@@ -74,7 +74,7 @@ class DBAdapterTest extends BookstoreTestBase
 
 	public function testCreateSelectSqlPart()
 	{
-		$db = Propel::getDB(BookPeer::DATABASE_NAME);
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
 		$c = new Criteria();
 		$c->addSelectColumn(BookPeer::ID);
 		$c->addAsColumn('book_ID', BookPeer::ID);
@@ -86,7 +86,7 @@ class DBAdapterTest extends BookstoreTestBase
 
 	public function testCreateSelectSqlPartSelectModifier()
 	{
-		$db = Propel::getDB(BookPeer::DATABASE_NAME);
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
 		$c = new Criteria();
 		$c->addSelectColumn(BookPeer::ID);
 		$c->addAsColumn('book_ID', BookPeer::ID);
@@ -99,7 +99,7 @@ class DBAdapterTest extends BookstoreTestBase
 
 	public function testCreateSelectSqlPartAliasAll()
 	{
-		$db = Propel::getDB(BookPeer::DATABASE_NAME);
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
 		$c = new Criteria();
 		$c->addSelectColumn(BookPeer::ID);
 		$c->addAsColumn('book_ID', BookPeer::ID);

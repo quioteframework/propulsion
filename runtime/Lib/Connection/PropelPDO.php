@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -9,10 +9,10 @@
  */
 namespace Propulsion\Connection;
 /**
- * PDO connection subclass that provides the basic fixes to PDO that are required by Propel.
+ * PDO connection subclass that provides the basic fixes to PDO that are required by Propulsion.
  *
  * This class was designed to work around the limitation in PDO where attempting to begin
- * a transaction when one has already been begun will trigger a PDOException.  Propel
+ * a transaction when one has already been begun will trigger a PDOException.  Propulsion
  * relies on the ability to create nested transactions, even if the underlying layer
  * simply ignores these (because it doesn't support nested transactions).
  *
@@ -27,7 +27,7 @@ namespace Propulsion\Connection;
  * @since      2006-09-22
  * @package    propel.runtime.connection
  */
-use Propulsion\Propel;
+use Propulsion\Propulsion;
 use Propulsion\Config\PropelConfiguration;
 use Propulsion\Exception\PropelException;
 use Psr\Log\LoggerInterface;
@@ -92,7 +92,7 @@ class PropelPDO extends \PDO
 	public $useDebug = false;
 
 	/**
-	 * Optional per-connection PSR-3 logger override. Falls back to Propel::log()
+	 * Optional per-connection PSR-3 logger override. Falls back to Propulsion::log()
 	 * (and whatever logger is registered there) when unset.
 	 *
 	 * @var       LoggerInterface|null
@@ -104,7 +104,7 @@ class PropelPDO extends \PDO
 	 *
 	 * @var       string
 	 */
-	private $logLevel = Propel::LOG_DEBUG;
+	private $logLevel = Propulsion::LOG_DEBUG;
 
 	/**
 	 * The runtime configuration
@@ -174,7 +174,7 @@ class PropelPDO extends \PDO
 	public function getConfiguration()
 	{
 		if (null === $this->configuration) {
-			$this->configuration = Propel::getConfiguration(PropelConfiguration::TYPE_OBJECT);
+			$this->configuration = Propulsion::getConfiguration(PropelConfiguration::TYPE_OBJECT);
 		}
 		return $this->configuration;
 	}
@@ -326,7 +326,7 @@ class PropelPDO extends \PDO
 	/**
 	 * Sets a connection attribute.
 	 *
-	 * This is overridden here to provide support for setting Propel-specific attributes too.
+	 * This is overridden here to provide support for setting Propulsion-specific attributes too.
 	 *
 	 * @param     integer  $attribute  The attribute to set (e.g. PropelPDO::PROPEL_ATTR_CACHE_PREPARES).
 	 * @param     mixed    $value  The attribute value.
@@ -345,7 +345,7 @@ class PropelPDO extends \PDO
 	/**
 	 * Gets a connection attribute.
 	 *
-	 * This is overridden here to provide support for setting Propel-specific attributes too.
+	 * This is overridden here to provide support for setting Propulsion-specific attributes too.
 	 *
 	 * @param     integer  $attribute  The attribute to get (e.g. PropelPDO::PROPEL_ATTR_CACHE_PREPARES).
 	 * @return    mixed
@@ -421,9 +421,9 @@ class PropelPDO extends \PDO
 		try {
 			$return = parent::exec($sql);
 		} catch (\PDOException $e) {
-			if (\Propulsion\Propel::isConnectionDropped($e)) {
+			if (\Propulsion\Propulsion::isConnectionDropped($e)) {
 				error_log('[PropelPDO::exec] connection dropped, reconnecting and retrying');
-				\Propulsion\Propel::forceReconnect();
+				\Propulsion\Propulsion::forceReconnect();
 				$return = parent::exec($sql);
 			} else {
 				throw $e;
@@ -460,9 +460,9 @@ class PropelPDO extends \PDO
 		try {
 			$return = parent::query($query, $fetchMode, ...$args);
 		} catch (\PDOException $e) {
-			if (\Propulsion\Propel::isConnectionDropped($e)) {
+			if (\Propulsion\Propulsion::isConnectionDropped($e)) {
 				error_log('[PropelPDO::query] connection dropped, reconnecting and retrying');
-				\Propulsion\Propel::forceReconnect();
+				\Propulsion\Propulsion::forceReconnect();
 				$return = parent::query($query, $fetchMode, ...$args);
 			} else {
 				throw $e;
@@ -548,7 +548,7 @@ class PropelPDO extends \PDO
 	}
 
 	/**
-	 * Get the SQL code for the latest query executed by Propel
+	 * Get the SQL code for the latest query executed by Propulsion
 	 *
 	 * @return string Executable SQL code
 	 */
@@ -558,7 +558,7 @@ class PropelPDO extends \PDO
 	}
 
 	/**
-	 * Set the SQL code for the latest query executed by Propel
+	 * Set the SQL code for the latest query executed by Propulsion
 	 *
 	 * @param     string  $query  Executable SQL code
 	 */
@@ -590,7 +590,7 @@ class PropelPDO extends \PDO
 	/**
 	 * Sets the logging level to use for logging method calls and SQL statements.
 	 *
-	 * @param     string  $level  One of the Propel::LOG_* / Psr\Log\LogLevel::* constants.
+	 * @param     string  $level  One of the Propulsion::LOG_* / Psr\Log\LogLevel::* constants.
 	 */
 	public function setLogLevel($level)
 	{
@@ -598,7 +598,7 @@ class PropelPDO extends \PDO
 	}
 
 	/**
-	 * Sets a PSR-3 logger to use for this connection, overriding Propel::log().
+	 * Sets a PSR-3 logger to use for this connection, overriding Propulsion::log().
 	 *
 	 * @param     LoggerInterface  $logger
 	 */
@@ -618,7 +618,7 @@ class PropelPDO extends \PDO
 	}
 
 	/**
-	 * Logs the method call or SQL using the Propel::log() method or a registered logger class.
+	 * Logs the method call or SQL using the Propulsion::log() method or a registered logger class.
 	 *
 	 * @uses      self::getLogPrefix()
 	 * @see       self::setLogger()
@@ -665,7 +665,7 @@ class PropelPDO extends \PDO
 		if ($this->logger) {
 			$this->logger->log($level, $msg);
 		} else {
-			Propel::log($msg, $level);
+			Propulsion::log($msg, $level);
 		}
 	}
 
@@ -688,7 +688,7 @@ class PropelPDO extends \PDO
 	}
 
 	/**
-	 * Returns a named configuration item from the Propel runtime configuration, from under the
+	 * Returns a named configuration item from the Propulsion runtime configuration, from under the
 	 * 'debugpdo.logging' prefix.  If such a configuration setting hasn't been set, the given default
 	 * value will be returned.
 	 *

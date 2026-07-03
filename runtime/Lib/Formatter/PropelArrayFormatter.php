@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -10,7 +10,7 @@
 namespace Propulsion\Formatter;
 
 /**
- * Array formatter for Propel query
+ * Array formatter for Propulsion query
  * format() returns a PropelArrayCollection of associative arrays
  *
  * @author     Francois Zaninotto

@@ -1,7 +1,7 @@
 <?php
 namespace Propulsion\Generator\Model;
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -182,7 +182,7 @@ class Behavior extends XMLElement
 	}
 
 	/**
-	 * Use Propel's simple templating system to render a PHP file
+	 * Use Propulsion's simple templating system to render a PHP file
 	 * using variables passed as arguments.
 	 *
 	 * @param string $filename    The template file name, relative to the behavior's dirname

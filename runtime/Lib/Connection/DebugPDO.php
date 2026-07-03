@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -89,7 +89,7 @@ namespace Propulsion\Connection;
  * which they will appear in the log file.
  *
  * @example    // Enable simple query profiling, flagging calls taking over 1.5 seconds as slow:
- *             $config = Propel::getConfiguration(PropelConfiguration::TYPE_OBJECT);
+ *             $config = Propulsion::getConfiguration(PropelConfiguration::TYPE_OBJECT);
  *             $config->setParameter('debugpdo.logging.details.slow.enabled', true);
  *             $config->setParameter('debugpdo.logging.details.slow.threshold', 1.5);
  *             $config->setParameter('debugpdo.logging.details.time.enabled', true);

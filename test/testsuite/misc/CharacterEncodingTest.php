@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -43,7 +43,7 @@ class CharacterEncodingTest extends BookstoreTestBase
 	{
 		$this->markTestSkipped();
 
-		$db = Propel::getDB(BookPeer::DATABASE_NAME);
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
 
 		$title = "Смерть на брудершафт. Младенец и черт";
 		//        1234567890123456789012345678901234567
@@ -74,7 +74,7 @@ class CharacterEncodingTest extends BookstoreTestBase
 	{
 		$this->markTestSkipped();
 
-		$db = Propel::getDB(BookPeer::DATABASE_NAME);
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
 		if ($db instanceof DBSQLite) {
 			$this->markTestSkipped();
 		}

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -252,7 +252,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		$this->declareClass('Propulsion\\Util\\BasePeer');
 		$this->declareClass('Propulsion\\Connection\\PropelPDO');
 		$this->declareClass('Propulsion\\Query\\Criteria');
-		$this->declareClass('Propulsion\\Propel');
+		$this->declareClass('Propulsion\\Propulsion');
 		$this->declareClass('\\DateTime');
 		$this->declareClass('\\DateTimeInterface');
 		$this->declareClass('\\Exception');
@@ -291,7 +291,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			'ModelJoin' => 'Propulsion\\Query\\ModelJoin',
 			'PropelPDO' => 'Propulsion\\Connection\\PropelPDO',
 			'PropelCollection' => 'Propulsion\\Collection\\PropelCollection',
-			'Propel' => 'Propulsion\\Propel',
+			'Propulsion' => 'Propulsion\\Propulsion',
 			'BaseObject' => 'Propulsion\\OM\\BaseObject',
 			'Persistent' => 'Propulsion\\OM\\Persistent'
 		];
@@ -351,7 +351,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/** the table name for this class */
 	const TABLE_NAME = '$tableName';
 
-	/** the related Propel class for this table */
+	/** the related Propulsion class for this table */
 	const OM_CLASS = '$tablePhpName';
 
 	/** A class that can be returned by this peer. */
@@ -652,7 +652,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 */
 	public static function buildTableMap()
 	{
-	  \$dbMap = Propel::getDatabaseMap(".$this->getClassname()."::DATABASE_NAME);
+	  \$dbMap = Propulsion::getDatabaseMap(".$this->getClassname()."::DATABASE_NAME);
 	  if (!\$dbMap->hasTable(".$this->getClassname()."::TABLE_NAME))
 	  {
 	    \$dbMap->addTableObject(new ".$this->getTableMapClass()."());
@@ -676,7 +676,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 */
 	public static function getTableMap()
 	{
-		return Propel::getDatabaseMap(self::DATABASE_NAME)->getTable(self::TABLE_NAME);
+		return Propulsion::getDatabaseMap(self::DATABASE_NAME)->getTable(self::TABLE_NAME);
 	}
 ";
 	}
@@ -744,7 +744,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	public static function doInsert(\$values, ?PropelPDO \$con = null)
 	{
 		if (\$con === null) {
-			\$con = Propel::getConnection(self::DATABASE_NAME, Propel::CONNECTION_WRITE);
+			\$con = Propulsion::getConnection(self::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
 		}
 
 		if (\$values instanceof Criteria) {
@@ -842,7 +842,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	public static function doUpdateThis(\$values, ?PropelPDO \$con = null)
 	{
 		if (\$con === null) {
-			\$con = Propel::getConnection(self::DATABASE_NAME, Propel::CONNECTION_WRITE);
+			\$con = Propulsion::getConnection(self::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
 		}
 
 		\$selectCriteria = new Criteria(self::DATABASE_NAME);
@@ -947,7 +947,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	public static function doSelectStmt(Criteria \$criteria, ?PropelPDO \$con = null)
 	{
 		if (\$con === null) {
-			\$con = Propel::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propel::CONNECTION_READ);
+			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_READ);
 		}
 
 		if (!\$criteria->hasSelectClause()) {
@@ -1018,7 +1018,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		\$criteria->setDbName(self::DATABASE_NAME); // Set the correct dbName
 
 		if (\$con === null) {
-			\$con = Propel::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propel::CONNECTION_READ);
+			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_READ);
 		}";
 
 		$this->applyBehaviorModifier('preSelect', $script);
@@ -1173,7 +1173,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 */
 	public static function addInstanceToPool(object \$obj, ?string \$key = null): void
 	{
-		if (Propel::isInstancePoolingEnabled()) {
+		if (Propulsion::isInstancePoolingEnabled()) {
 			if (\$key === null) {";
 
 		$pks = $table->getPrimaryKey();
@@ -1207,7 +1207,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 */
 	public static function removeInstanceFromPool(mixed \$value): void
 	{
-		if (Propel::isInstancePoolingEnabled() && \$value !== null) {";
+		if (Propulsion::isInstancePoolingEnabled() && \$value !== null) {";
 
 		$pks = $table->getPrimaryKey();
 		$script .= "
@@ -1278,7 +1278,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	public static function getInstanceFromPool(?string \$key): ?object
 	{
 		if (\$key === null) { return null; }
-		if (Propel::isInstancePoolingEnabled() && isset(self::\$instances[\$key])) {
+		if (Propulsion::isInstancePoolingEnabled() && isset(self::\$instances[\$key])) {
 			return self::\$instances[\$key];
 		}
 		return null; // explicit
@@ -1389,7 +1389,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	public static function retrieveByPK($pkType \$pk, ?PropelPDO \$con = null): \\" . $objectClass . "|null
 	{
 		if (\$con === null) {
-			\$con = Propel::getConnection(self::getDatabaseName(), Propel::CONNECTION_READ);
+			\$con = Propulsion::getConnection(self::getDatabaseName(), Propulsion::CONNECTION_READ);
 		}
 
 		\$criteria = new Criteria(self::getDatabaseName());
@@ -1457,7 +1457,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		}
 
 		if (\$con === null) {
-			\$con = Propel::getConnection(self::getDatabaseName(), Propel::CONNECTION_READ);
+			\$con = Propulsion::getConnection(self::getDatabaseName(), Propulsion::CONNECTION_READ);
 		}
 
 		\$criteria = new Criteria(self::getDatabaseName());
@@ -1494,7 +1494,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		\$columns = array();
 
 		if (\$cols) {
-			\$dbMap = Propel::getDatabaseMap(self::DATABASE_NAME);
+			\$dbMap = Propulsion::getDatabaseMap(self::DATABASE_NAME);
 			\$tableMap = \$dbMap->getTable(self::TABLE_NAME);
 
 			if (!\is_array(\$cols)) {
@@ -1557,14 +1557,14 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 *              which is used to create the DELETE statement
 	 * @param      PropelPDO \$con the connection to use
 	 * @return     int 	The number of affected rows (if supported by underlying database driver).  This includes CASCADE-related rows
-	 *				if supported by native driver or if emulated using Propel.
+	 *				if supported by native driver or if emulated using Propulsion.
 	 * @throws     PropelException Any exceptions caught during processing will be
 	 *		 rethrown wrapped into a PropelException.
 	 */
 	 public static function doDelete(\$values, ?PropelPDO \$con = null)
 	 {
 		if (\$con === null) {
-			\$con = Propel::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propel::CONNECTION_WRITE);
+			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
 		}
 
 		if (\$values instanceof Criteria) {";
@@ -1712,7 +1712,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		$script .= "
 } // " . $this->getClassname() . "
 
-// This is the static code needed to register the TableMap for this table with the main Propel class.
+// This is the static code needed to register the TableMap for this table with the main Propulsion class.
 //
 ".$this->getClassname()."::buildTableMap();
 ";
@@ -1995,7 +1995,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	public static function doDeleteAll(?PropelPDO \$con = null)
 	{
 		if (\$con === null) {
-			\$con = Propel::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propel::CONNECTION_WRITE);
+			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
 		}
 		\$affectedRows = 0; // initialize var to track total num of affected rows
 		try {
@@ -2053,7 +2053,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		}
 
 		if (\$con === null) {
-			\$con = Propel::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propel::CONNECTION_READ);
+			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_READ);
 		}
 
 		\$criteria = new Criteria(".$this->getPeerClassname()."::DATABASE_NAME);
@@ -2085,7 +2085,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	public static function ".$this->getRetrieveMethodName()."s(\$pks, ?PropelPDO \$con = null)
 	{
 		if (\$con === null) {
-			\$con = Propel::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propel::CONNECTION_READ);
+			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_READ);
 		}
 
 		\$objs = null;
@@ -2145,7 +2145,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		}
 
 		if (\$con === null) {
-			\$con = Propel::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propel::CONNECTION_READ);
+			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_READ);
 		}
 		\$criteria = new Criteria(".$this->getPeerClassname()."::DATABASE_NAME);";
 		foreach ($table->getPrimaryKey() as $col) {

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -37,10 +37,10 @@ class PgsqlSchemaParserV12Plus extends BaseSchemaParser
 {
 
 	/**
-	 * Map PostgreSQL native types to Propel types.
+	 * Map PostgreSQL native types to Propulsion types.
 	 * @var        array
 	 */
-	 /** Map MySQL native types to Propel (JDBC) types. */
+	 /** Map MySQL native types to Propulsion (JDBC) types. */
 	private static $pgsqlTypeMap = array(
 				'bool' => PropelTypes::BOOLEAN,
 				'boolean' => PropelTypes::BOOLEAN,
@@ -79,7 +79,7 @@ class PgsqlSchemaParserV12Plus extends BaseSchemaParser
 	);
 
 	/**
-	 * Gets a type mapping from native types to Propel types
+	 * Gets a type mapping from native types to Propulsion types
 	 *
 	 * @return     array
 	 */
@@ -253,7 +253,7 @@ class PgsqlSchemaParserV12Plus extends BaseSchemaParser
 			$propelType = $this->getMappedPropelType($type);
 			if (!$propelType) {
 				$propelType = Column::DEFAULT_TYPE;
-				$this->warn("Column [" . $table->getName() . "." . $name. "] has a column type (".$type.") that Propel does not support.");
+				$this->warn("Column [" . $table->getName() . "." . $name. "] has a column type (".$type.") that Propulsion does not support.");
 			}
 
 			$column = new Column($name);

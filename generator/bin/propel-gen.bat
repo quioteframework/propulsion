@@ -1,7 +1,7 @@
 @echo off
 
 rem *********************************************************************
-rem ** The Propel generator convenience script for Windows based systems
+rem ** The Propulsion generator convenience script for Windows based systems
 rem ** $Id$
 rem *********************************************************************
 

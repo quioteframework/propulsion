@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -91,7 +91,7 @@ class DBMySQL extends DBAdapter
 	/**
 	 * Locks the specified table.
 	 *
-	 * @param     PDO     $con  The Propel connection to use.
+	 * @param     PDO     $con  The Propulsion connection to use.
 	 * @param     string  $table  The name of the table to lock.
 	 *
 	 * @throws    PDOException  No Statement could be created or executed.

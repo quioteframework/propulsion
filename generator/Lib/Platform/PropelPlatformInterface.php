@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -83,7 +83,7 @@ interface PropelPlatformInterface
 	/**
 	 * Returns the db specific domain for a propelType.
 	 *
-	 * @param      string $propelType the Propel type name.
+	 * @param      string $propelType the Propulsion type name.
 	 * @return     Domain The db specific domain.
 	 */
 	public function getDomainForType($propelType);
@@ -195,7 +195,7 @@ interface PropelPlatformInterface
 	 * Returns the boolean value for the RDBMS.
 	 *
 	 * This value should match the boolean value that is set
-	 * when using Propel's PreparedStatement::setBoolean().
+	 * when using Propulsion's PreparedStatement::setBoolean().
 	 *
 	 * This function is used to set default column values when building
 	 * SQL.

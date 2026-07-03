@@ -22,7 +22,7 @@ independent fix branches together transiently produced **285** errors, not
 called `$this->con->commit()` after `testComputeWithSchema()` hit a
 pre-existing not-null violation that aborted the Postgres transaction;
 committing an already-aborted transaction throws, which skipped
-`parent::tearDown()` (`SchemasTestBase`), which is what restores Propel's
+`parent::tearDown()` (`SchemasTestBase`), which is what restores Propulsion's
 process-global config from the `schemas` datasource back to `bookstore`
 after a schema test runs. Every subsequent test in the same PHPUnit process
 that assumed `bookstore` was configured (any `BookstoreTestBase` subclass —
@@ -201,7 +201,7 @@ isn't available.)
 8. ~~**~5 `aggregate_poll`/`aggregate_post` "lock timeout" errors**~~
    **Fixed.** `ModelCriteria::doDeleteAll()` passed an extra leading `null`
    to `Peer::doDeleteAll($con)`, silently shifting `$con` out of the call
-   so it always fell back to `Propel::getConnection()` — opening a second
+   so it always fell back to `Propulsion::getConnection()` — opening a second
    real connection/transaction against the same database instead of
    reusing the caller's, which deadlocked later cleanup.
 
@@ -218,7 +218,7 @@ happened, since a couple had surprises:
   template, and `SchemasTestBase` now calls it instead of just checking
   `file_exists()` on a conf file nothing ever wrote. One real bug had to be
   fixed to make the fixture buildable at all: the schema's tables use a
-  `schema="..."` attribute (Propel's multi-schema-per-database support), and
+  `schema="..."` attribute (Propulsion's multi-schema-per-database support), and
   on Postgres (unlike MySQL, where `schema` just becomes a cross-database
   reference) `Table::getName()` qualifies the real SQL identifier as
   `schema.table` whenever the platform's `supportsSchemas()` is true --
@@ -302,9 +302,9 @@ happened, since a couple had surprises:
   `test/testsuite/generator/builder/om/QueryBuilderTest.php`, and
   `test/tools/helpers/bookstore/behavior/{BookstoreNestedSetTestBase,TestAuthor}.php`.
   Also found two files (`JoinTest.php`, `CriteriaCombineTest.php`) that call
-  `Propel::init(bookstore-conf.php)` unconditionally at file scope, and one
+  `Propulsion::init(bookstore-conf.php)` unconditionally at file scope, and one
   more root cause: `test/bootstrap.php` only triggered
-  `Propulsion\Propel`'s legacy bare-class-name aliasing (`PropelException`,
+  `Propulsion\Propulsion`'s legacy bare-class-name aliasing (`PropelException`,
   `PropelCollection`, `PropelArrayCollection`, ...) as a side effect of the
   bookstore fixture build *succeeding*, so ordinary runtime tests with no
   fixture dependency at all fataled on missing bare names whenever
@@ -483,21 +483,21 @@ is already marked `@deprecated` in its own generated docblock).
 
 This is the actual motivating goal from `PROPULSION_WORKER_REWORK.md`
 (FrankenPHP/worker-mode safety — moving instance pools,
-`forceMasterConnection`, and dangling transactions off `Propel`'s
+`forceMasterConnection`, and dangling transactions off `Propulsion`'s
 process-global statics into a request-scoped `Session`, while keeping
 connections/adapters/maps process-scoped in a `ServiceContainer`). Phased
 as:
 
 - **4a**: **Done.** Introduced `Propulsion\ServiceContainer` and
-  `Propulsion\Session` behind `Propel::getServiceContainer()`/
-  `Propel::getSession()` (both lazily-created singletons, with
+  `Propulsion\Session` behind `Propulsion::getServiceContainer()`/
+  `Propulsion::getSession()` (both lazily-created singletons, with
   `setServiceContainer()`/`setSession()` escape hatches for tests or a
   worker integration that wants to swap in a fresh `Session` per request).
   Concretely:
   - `ServiceContainer::clearInstancePools()` is the interim pool-registry
     hack: since every generated Peer class has its own private `static
     $instances` array with no central registry, this walks every table in
-    every `DatabaseMap` Propel currently has loaded, resolves each table's
+    every `DatabaseMap` Propulsion currently has loaded, resolves each table's
     `PEER` classname, and calls the already-existing (per-class, generated)
     `clearInstancePool()` on each one. `registerInstancePoolClass()` also
     lets a class be cleared even if it's never been loaded into a
@@ -507,21 +507,21 @@ as:
     back (via `PropelPDO::forceRollBack()`, the same mechanism added in
     commit `6f6b08e` for test-teardown boundaries — this is the identical
     dangling-transaction failure mode, just at a request boundary instead)
-    every connection `Propel` currently has open, then clears instance
+    every connection `Propulsion` currently has open, then clears instance
     pools via `ServiceContainer`, then resets `forceMasterConnection` back
     to its default.
-  - `forceMasterConnection` moved off `Propel`'s statics onto `Session`.
-    `Propel::setForceMasterConnection()`/`getForceMasterConnection()` are
-    kept as thin proxies to `Propel::getSession()` for backwards
-    compatibility, and `Propel::getConnection()` now reads it from there.
+  - `forceMasterConnection` moved off `Propulsion`'s statics onto `Session`.
+    `Propulsion::setForceMasterConnection()`/`getForceMasterConnection()` are
+    kept as thin proxies to `Propulsion::getSession()` for backwards
+    compatibility, and `Propulsion::getConnection()` now reads it from there.
   - Instance pooling's default was checked and is **already on**
-    (`Propel::$instancePoolingEnabled` was already `true` by default) — no
+    (`Propulsion::$instancePoolingEnabled` was already `true` by default) — no
     code change was needed there, contrary to what reading the plan in
     isolation might suggest.
   - Deliberately NOT done in this pass (all still gated on Phase 3, per the
-    original phasing): `Propel`'s other process-global statics (connection
+    original phasing): `Propulsion`'s other process-global statics (connection
     map, adapter map, database maps) are untouched and still live on
-    `Propel` directly — `ServiceContainer` does not yet own them, it only
+    `Propulsion` directly — `ServiceContainer` does not yet own them, it only
     hosts the pool registry hack. No generated code (builder templates)
     changed at all. The full worker test matrix from the rework plan (no
     object bleed, transaction cleanup, connection persistence across
@@ -533,7 +533,7 @@ as:
     `SessionResetTransactionTest.php`): pool registration/clearing in
     isolation and via the `DatabaseMap` walk, `forceMasterConnection`
     default/get/set/reset and that it's genuinely per-`Session` rather than
-    shared global state, `Propel`'s delegation to both new classes, and
+    shared global state, `Propulsion`'s delegation to both new classes, and
     `Session::reset()` end-to-end against a real connection — force-rolling
     back a nested dangling transaction, being a no-op with nothing open,
     and clearing pools/forceMaster together.
@@ -594,7 +594,7 @@ worker test matrix was consulted beyond what's summarized here.
   `pgsql`), but that's incidental to fixing tests, not the same as
   actually making Postgres the documented/default choice for real
   projects: `generator/default.properties`'s `propel.database` is still
-  empty (matches upstream Propel's original "you must configure this"
+  empty (matches upstream Propulsion's original "you must configure this"
   stance), the README doesn't mention a recommended database, and
   `PgsqlPlatform` hasn't had a pass to check it's on equal footing with
   `MysqlPlatform` feature-wise (this session only found and fixed the two

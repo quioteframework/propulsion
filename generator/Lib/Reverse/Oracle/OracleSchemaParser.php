@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -34,7 +34,7 @@ class OracleSchemaParser extends BaseSchemaParser
 {
 
 	/**
-	 * Map Oracle native types to Propel types.
+	 * Map Oracle native types to Propulsion types.
 	 *
 	 * There really aren't any Oracle native types, so we're just
 	 * using the MySQL ones here.
@@ -69,7 +69,7 @@ class OracleSchemaParser extends BaseSchemaParser
 	);
 
 	/**
-	 * Gets a type mapping from native types to Propel types
+	 * Gets a type mapping from native types to Propulsion types
 	 *
 	 * @return     array
 	 */
@@ -182,7 +182,7 @@ class OracleSchemaParser extends BaseSchemaParser
 			$propelType = $this->getMappedPropelType($type);
 			if (!$propelType) {
 				$propelType = Column::DEFAULT_TYPE;
-				$this->warn("Column [" . $table->getName() . "." . $row['COLUMN_NAME']. "] has a column type (".$row["DATA_TYPE"].") that Propel does not support.");
+				$this->warn("Column [" . $table->getName() . "." . $row['COLUMN_NAME']. "] has a column type (".$row["DATA_TYPE"].") that Propulsion does not support.");
 			}
 
 			$column = new Column($row['COLUMN_NAME']);

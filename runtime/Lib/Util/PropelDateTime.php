@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -12,7 +12,7 @@ namespace Propulsion\Util;
 /**
  * DateTime subclass which supports serialization.
  *
- * Currently Propel is not using this for storing date/time objects
+ * Currently Propulsion is not using this for storing date/time objects
  * within model objeects; however, we are keeping it in the repository
  * because it is useful if you want to store a DateTime object in a session.
  *

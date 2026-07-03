@@ -1,18 +1,18 @@
 <?php
 
 /**
- * PHPUnit bootstrap file for Propel tests
+ * PHPUnit bootstrap file for Propulsion tests
  */
 
 // Load Composer autoloader
 require_once __DIR__ . '/../vendor/autoload.php';
 
-// This test suite predates the Propel -> Propulsion namespace rename entirely and
+// This test suite predates the Propulsion -> Propulsion namespace rename entirely and
 // references generator classes (Criteria, ModelCriteria, Behavior, XmlToAppData, ...)
 // by their bare historic name throughout. Alias them eagerly, before PHPUnit loads
 // any test file, so `catch (SomeException $e)` (which does not autoload) also works.
 // (runtime/Lib/legacy-class-map.php's equivalent aliasing for runtime classes runs
-// automatically whenever Propulsion\Propel is loaded.)
+// automatically whenever Propulsion\Propulsion is loaded.)
 set_error_handler(static function (int $severity, string $message, string $file = '', int $line = 0): bool {
     throw new \ErrorException($message, 0, $severity, $file, $line);
 });
@@ -33,13 +33,13 @@ try {
 
 // Trigger runtime/Lib/legacy-class-map.php's equivalent bare-name aliasing for
 // runtime classes (BaseObject, TableMap, PropelException, PropelCollection,
-// PropelArrayCollection, ...), which runs automatically whenever Propulsion\Propel
+// PropelArrayCollection, ...), which runs automatically whenever Propulsion\Propulsion
 // is loaded. This used to only happen as a side effect of IntegrationDatabase's
 // bookstore-fixture build succeeding below -- meaning any Docker-less run
 // (PROPULSION_SKIP_INTEGRATION=1, or no Docker) fataled on ordinary runtime tests
 // referencing these bare legacy names, unrelated to any actual fixture/Docker
 // dependency of theirs. Trigger it unconditionally, up front, instead.
-class_exists(\Propulsion\Propel::class);
+class_exists(\Propulsion\Propulsion::class);
 
 // Include the base test case
 require_once __DIR__ . '/tools/helpers/BaseTestCase.php';
@@ -51,7 +51,7 @@ if (file_exists($dataPopulatorFile)) {
     require_once $dataPopulatorFile;
 }
 
-// Include all test base classes (these may depend on Propel being loaded)
+// Include all test base classes (these may depend on Propulsion being loaded)
 $testBaseFiles = [
     __DIR__ . '/tools/helpers/bookstore/BookstoreTestBase.php',
     __DIR__ . '/tools/helpers/bookstore/BookstoreEmptyTestBase.php',

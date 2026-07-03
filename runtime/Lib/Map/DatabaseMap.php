@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -28,7 +28,7 @@ namespace Propulsion\Map;
 
  use Propulsion\Exception\PropelException;
  use Propulsion\Adapter\DBAdapter;
- use Propulsion\Propel;
+ use Propulsion\Propulsion;
  
 class DatabaseMap
 {
@@ -204,12 +204,12 @@ class DatabaseMap
   }
 
   /**
-   * Convenience method to get the DBAdapter registered with Propel for this database.
+   * Convenience method to get the DBAdapter registered with Propulsion for this database.
    * @return  DBAdapter
-   * @see     Propel::getDB(string)
+   * @see     Propulsion::getDB(string)
    */
   public function getDBAdapter()
   {
-    return Propel::getDB($this->name);
+    return Propulsion::getDB($this->name);
   }
 }

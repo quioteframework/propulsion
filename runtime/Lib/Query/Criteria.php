@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -26,7 +26,7 @@ namespace Propulsion\Query;
  * @package    propel.runtime.query
  */
 
- use Propulsion\Propel;
+ use Propulsion\Propulsion;
  use Propulsion\Exception\PropelException;
  use Propulsion\Util\BasePeer;
  use Propulsion\Util\PropelConditionalProxy;
@@ -605,14 +605,14 @@ class Criteria implements \IteratorAggregate
 
 	/**
 	 * Set the DatabaseMap name.  If <code>null</code> is supplied, uses value
-	 * provided by <code>Propel::getDefaultDB()</code>.
+	 * provided by <code>Propulsion::getDefaultDB()</code>.
 	 *
 	 * @param      string $dbName The Database (Map) name.
 	 * @return     void
 	 */
 	public function setDbName($dbName = null)
 	{
-		$this->dbName = ($dbName === null ? Propel::getDefaultDB() : $dbName);
+		$this->dbName = ($dbName === null ? Propulsion::getDefaultDB() : $dbName);
 	}
 
 	/**
@@ -1597,7 +1597,7 @@ class Criteria implements \IteratorAggregate
 	}
 
 	/**
-	 * If a criterion for the requested column already exists, the condition is "AND"ed to the existing criterion (necessary for Propel 1.4 compatibility).
+	 * If a criterion for the requested column already exists, the condition is "AND"ed to the existing criterion (necessary for Propulsion 1.4 compatibility).
 	 * If no criterion for the requested column already exists, the condition is "AND"ed to the latest criterion.
 	 * If no criterion exist, the condition is added a new criterion
 	 *
@@ -1617,7 +1617,7 @@ class Criteria implements \IteratorAggregate
 		$key = $criterion->getTable() . '.' . $criterion->getColumn();
 		if ($preferColumnCondition && $this->containsKey($key)) {
 			// FIXME: addAnd() operates preferably on existing conditions on the same column
-			// this may cause unexpected results, but it's there for BC with Propel 14
+			// this may cause unexpected results, but it's there for BC with Propulsion 14
 			$this->getCriterion($key)->addAnd($criterion);
 		} else {
 			// simply add the condition to the list - this is the expected behavior
@@ -1628,7 +1628,7 @@ class Criteria implements \IteratorAggregate
 	}
 
 	/**
-	 * If a criterion for the requested column already exists, the condition is "OR"ed to the existing criterion (necessary for Propel 1.4 compatibility).
+	 * If a criterion for the requested column already exists, the condition is "OR"ed to the existing criterion (necessary for Propulsion 1.4 compatibility).
 	 * If no criterion for the requested column already exists, the condition is "OR"ed to the latest criterion.
 	 * If no criterion exist, the condition is added a new criterion
 	 *
@@ -1648,7 +1648,7 @@ class Criteria implements \IteratorAggregate
 		$key = $rightCriterion->getTable() . '.' . $rightCriterion->getColumn();
 		if ($preferColumnCondition && $this->containsKey($key)) {
 			// FIXME: addOr() operates preferably on existing conditions on the same column
-			// this may cause unexpected results, but it's there for BC with Propel 14
+			// this may cause unexpected results, but it's there for BC with Propulsion 14
 			$leftCriterion = $this->getCriterion($key);
 		} else {
 			// fallback to the latest condition - this is the expected behavior
@@ -1674,7 +1674,7 @@ class Criteria implements \IteratorAggregate
 	 * @param      mixed $value
 	 * @param      string $operator A String, like Criteria::EQUAL.
 	 * @param      boolean $preferColumnCondition If true, the condition is combined with an existing condition on the same column
-	*                      (necessary for Propel 1.4 compatibility).
+	*                      (necessary for Propulsion 1.4 compatibility).
 	 *                     If false, the condition is combined with the last existing condition.
 	 *
 	 * @return     Criteria A modified Criteria object.

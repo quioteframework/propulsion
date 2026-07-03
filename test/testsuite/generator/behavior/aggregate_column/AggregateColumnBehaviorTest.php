@@ -2,7 +2,7 @@
 
 /*
  *	$Id: SoftDeleteBehaviorTest.php 1612 2010-03-16 22:56:21Z francois $
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *

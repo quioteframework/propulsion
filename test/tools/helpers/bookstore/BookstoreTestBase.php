@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -9,7 +9,7 @@
  */
 
 use PHPUnit\Framework\TestCase;
-use Propulsion\Propel;
+use Propulsion\Propulsion;
 
 require_once dirname(__FILE__) . '/../IntegrationDatabase.php';
 
@@ -33,12 +33,12 @@ abstract class BookstoreTestBase extends TestCase
 			$this->markTestSkipped($e->getMessage());
 		}
 
-		if (!Propel::isInit()) {
+		if (!Propulsion::isInit()) {
 			set_include_path(get_include_path() . PATH_SEPARATOR . realpath(IntegrationDatabase::classesDir()));
-			Propel::init(IntegrationDatabase::confFile());
+			Propulsion::init(IntegrationDatabase::confFile());
 		}
 
-		$this->con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$this->con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$this->con->beginTransaction();
 	}
 
@@ -62,7 +62,7 @@ abstract class BookstoreTestBase extends TestCase
 			// A test that threw mid-transaction (e.g. a constraint violation) leaves
 			// Postgres itself in an aborted-transaction state -- unlike MySQL, every
 			// subsequent statement on this connection fails with "current transaction
-			// is aborted" until an explicit ROLLBACK, and Propel's connections are
+			// is aborted" until an explicit ROLLBACK, and Propulsion's connections are
 			// process-wide, not per-test. Without this, one failing test silently
 			// breaks every other test that runs afterward in the same process.
 			$this->con->forceRollBack();

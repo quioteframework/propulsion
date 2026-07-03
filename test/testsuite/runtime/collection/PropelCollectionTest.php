@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -336,10 +336,10 @@ class PropelCollectionTest extends BookstoreTestBase
 	{
 		$col = new PropelCollection();
 		$col->setModel('Book');
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$this->assertEquals($con, $col->getConnection(), 'getConnection() returns a connection for the collection model');
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME, Propel::CONNECTION_WRITE);
-		$this->assertEquals($con, $col->getConnection(Propel::CONNECTION_WRITE), 'getConnection() accepts a connection type parameter');
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
+		$this->assertEquals($con, $col->getConnection(Propulsion::CONNECTION_WRITE), 'getConnection() accepts a connection type parameter');
 	}
 
 	/**

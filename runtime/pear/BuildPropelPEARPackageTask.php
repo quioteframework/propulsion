@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -90,8 +90,8 @@ class BuildPropelPEARPackageTask extends MatchingTask
 
 		// the hard-coded stuff
 		$package->setPackage('propel_runtime');
-		$package->setSummary('Runtime component of the Propel PHP object persistence layer');
-		$package->setDescription('Propel is an object persistence layer for PHP5 based on Apache Torque. This package provides the runtime engine that transparently handles object persistence and retrieval.');
+		$package->setSummary('Runtime component of the Propulsion PHP object persistence layer');
+		$package->setDescription('Propulsion is an object persistence layer for PHP5 based on Apache Torque. This package provides the runtime engine that transparently handles object persistence and retrieval.');
 		$package->setChannel('pear.propelorm.org');
 		$package->setPackageType('php');
 

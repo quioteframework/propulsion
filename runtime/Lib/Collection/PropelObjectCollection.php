@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -10,7 +10,7 @@
 namespace Propulsion\Collection;
 
 /**
- * Class for iterating over a list of Propel objects
+ * Class for iterating over a list of Propulsion objects
  *
  * @author     Francois Zaninotto
  * @package    propel.runtime.collection
@@ -18,7 +18,7 @@ namespace Propulsion\Collection;
 
  use Propulsion\Connection\PropelPDO;
  use Propulsion\Exception\PropelException;
- use Propulsion\Propel;
+ use Propulsion\Propulsion;
  use Propulsion\Query\Criteria;
  use Propulsion\Query\PropelQuery;
  use Propulsion\Map\RelationMap;
@@ -38,7 +38,7 @@ class PropelObjectCollection extends PropelCollection
 			throw new PropelException('Cannot save objects on a read-only model');
 		}
 		if (null === $con) {
-			$con = $this->getConnection(Propel::CONNECTION_WRITE);
+			$con = $this->getConnection(Propulsion::CONNECTION_WRITE);
 		}
 		$con->beginTransaction();
 		try {
@@ -64,7 +64,7 @@ class PropelObjectCollection extends PropelCollection
 			throw new PropelException('Cannot delete objects on a read-only model');
 		}
 		if (null === $con) {
-			$con = $this->getConnection(Propel::CONNECTION_WRITE);
+			$con = $this->getConnection(Propulsion::CONNECTION_WRITE);
 		}
 		$con->beginTransaction();
 		try {
@@ -248,7 +248,7 @@ class PropelObjectCollection extends PropelCollection
 	 */
 	public function populateRelation($relation, $criteria = null, $con = null)
 	{
-		if (!Propel::isInstancePoolingEnabled()) {
+		if (!Propulsion::isInstancePoolingEnabled()) {
 			throw new PropelException('populateRelation() needs instance pooling to be enabled prior to populating the collection');
 		}
 		$relationMap = $this->getFormatter()->getTableMap()->getRelation($relation);

@@ -2,7 +2,7 @@
 
 /*
  *	$Id$
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -307,7 +307,7 @@ class NestedSetBehaviorObjectBuilderModifierTest extends BookstoreNestedSetTestB
 		       |  \
 		       t6 t7
 		*/
-		$con = Propel::getConnection();
+		$con = Propulsion::getConnection();
 		$count = $con->getQueryCount();
 		$parent = $t5->getParent($con);
 		$parent = $t5->getParent($con);
@@ -446,7 +446,7 @@ class NestedSetBehaviorObjectBuilderModifierTest extends BookstoreNestedSetTestB
 	public function testGetChildrenCache()
 	{
 		list($t1, $t2, $t3, $t4, $t5, $t6, $t7) = $this->initTree();
-		$con = Propel::getConnection();
+		$con = Propulsion::getConnection();
 		$count = $con->getQueryCount();
 		$children = $t3->getChildren(null, $con);
 		$children = $t3->getChildren(null, $con);
@@ -506,7 +506,7 @@ class NestedSetBehaviorObjectBuilderModifierTest extends BookstoreNestedSetTestB
 		       |  \
 		       t6 t7
 		*/
-		$con = Propel::getConnection();
+		$con = Propulsion::getConnection();
 		$count = $con->getQueryCount();
 		$children = $t3->getChildren(null, $con);
 		$nbChildren = $t3->countChildren(null, $con);

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -19,7 +19,7 @@ class PropelObjectFormatterWithTest extends BookstoreEmptyTestBase
 {
 	protected function assertCorrectHydration1($c, $msg)
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$book = $c->findOne($con);
 		$count = $con->getQueryCount();
 		$this->assertEquals($book->getTitle(), 'Don Juan', 'Main object is correctly hydrated ' . $msg);
@@ -90,7 +90,7 @@ class PropelObjectFormatterWithTest extends BookstoreEmptyTestBase
 	public function testFindOneWithoutUsingInstancePool()
 	{
 		BookstoreDataPopulator::populate();
-		Propel::disableInstancePooling();
+		Propulsion::disableInstancePooling();
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->orderBy('Book.Title');
 		$c->join('Book.Author');
@@ -98,7 +98,7 @@ class PropelObjectFormatterWithTest extends BookstoreEmptyTestBase
 		$c->join('Book.Publisher');
 		$c->with('Publisher');
 		$this->assertCorrectHydration1($c, 'without instance pool');
-		Propel::enableInstancePooling();
+		Propulsion::enableInstancePooling();
 	}
 
 	public function testFindOneWithEmptyLeftJoin()
@@ -112,7 +112,7 @@ class PropelObjectFormatterWithTest extends BookstoreEmptyTestBase
 		$c->where('Book.Title = ?', 'Foo');
 		$c->leftJoin('Book.Author');
 		$c->with('Author');
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$book = $c->findOne($con);
 		$count = $con->getQueryCount();
 		$author = $book->getAuthor($con);
@@ -135,7 +135,7 @@ class PropelObjectFormatterWithTest extends BookstoreEmptyTestBase
 		$b2->setISBN('0000000002');
 		$a1->addBook($b2);
 		$a1->save();
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$author = AuthorQuery::create()
 			->filterByFirstName('Foo')
 			->leftJoinWith('Author.Book')
@@ -167,7 +167,7 @@ class PropelObjectFormatterWithTest extends BookstoreEmptyTestBase
 		$c->join('BookstoreEmployee.Supervisor s');
 		$c->with('s');
 		$c->where('s.Name = ?', 'John');
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$emp = $c->findOne($con);
 		$count = $con->getQueryCount();
 		$this->assertEquals($emp->getName(), 'Pieter', 'Main object is correctly hydrated');
@@ -199,7 +199,7 @@ class PropelObjectFormatterWithTest extends BookstoreEmptyTestBase
 		$c->join('Essay.AuthorRelatedByFirstAuthor');
 		$c->with('AuthorRelatedByFirstAuthor');
 		$c->where('Essay.Title = ?', 'Foo');
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$essay = $c->findOne($con);
 		$count = $con->getQueryCount();
 		$this->assertEquals($essay->getTitle(), 'Foo', 'Main object is correctly hydrated');
@@ -238,14 +238,14 @@ class PropelObjectFormatterWithTest extends BookstoreEmptyTestBase
 		BookPeer::clearInstancePool();
 		AuthorPeer::clearInstancePool();
 		ReviewPeer::clearInstancePool();
-		Propel::enableInstancePooling();
+		Propulsion::enableInstancePooling();
 		$c = new ModelCriteria('bookstore', 'Review');
 		$c->where('Review.Recommended = ?', true);
 		$c->join('Review.Book');
 		$c->with('Book');
 		$c->join('Book.Author');
 		$c->with('Author');
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$review = $c->findOne($con);
 		$count = $con->getQueryCount();
 		$this->assertEquals($review->getReviewedBy(), 'Washington Post', 'Main object is correctly hydrated');
@@ -263,11 +263,11 @@ class PropelObjectFormatterWithTest extends BookstoreEmptyTestBase
 		BookPeer::clearInstancePool();
 		AuthorPeer::clearInstancePool();
 		ReviewPeer::clearInstancePool();
-		Propel::enableInstancePooling();
+		Propulsion::enableInstancePooling();
 		$c = new ModelCriteria('bookstore', 'BookSummary');
 		$c->joinWith('BookSummary.SummarizedBook');
 		$c->joinWith('SummarizedBook.Author');
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$summary = $c->findOne($con);
 		$count = $con->getQueryCount();
 		$this->assertEquals('Harry Potter does some amazing magic!', $summary->getSummary(), 'Main object is correctly hydrated');
@@ -303,7 +303,7 @@ class PropelObjectFormatterWithTest extends BookstoreEmptyTestBase
 		$c->add(BookPeer::ISBN, '043935806X');
 		$c->leftJoin('Book.Review');
 		$c->with('Review');
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$books = $c->find($con);
 		$this->assertEquals(1, count($books), 'with() does not duplicate the main object');
 		$book = $books[0];
@@ -360,7 +360,7 @@ class PropelObjectFormatterWithTest extends BookstoreEmptyTestBase
 		$c->add(AuthorPeer::LAST_NAME, 'Rowling');
 		$c->leftJoinWith('Author.Book');
 		$c->leftJoinWith('Book.Review');
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$authors = $c->find($con);
 		$this->assertEquals(1, count($authors), 'with() does not duplicate the main object');
 		$rowling = $authors[0];
@@ -418,7 +418,7 @@ class PropelObjectFormatterWithTest extends BookstoreEmptyTestBase
 		AuthorPeer::clearInstancePool();
 		ReviewPeer::clearInstancePool();
 
-		$con = Propel::getConnection(AuthorPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(AuthorPeer::DATABASE_NAME);
 		$authors = AuthorQuery::create()
 			->filterByLastName('Rowling')
 			->joinBook('book')
@@ -452,7 +452,7 @@ class PropelObjectFormatterWithTest extends BookstoreEmptyTestBase
 		$c->add(AuthorPeer::LAST_NAME, 'Rowling');
 		$c->leftJoinWith('Author.Book b');
 		$c->leftJoinWith('b.Review r');
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$authors = $c->find($con);
 		$this->assertEquals(1, count($authors), 'with() does not duplicate the main object');
 		$rowling = $authors[0];
@@ -479,7 +479,7 @@ class PropelObjectFormatterWithTest extends BookstoreEmptyTestBase
 		$c->join('Book.Author');
 		$c->withColumn('Author.FirstName', 'AuthorName');
 		$c->withColumn('Author.LastName', 'AuthorName2');
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$book = $c->findOne($con);
 		$this->assertTrue($book instanceof Book, 'withColumn() do not change the resulting model class');
 		$this->assertEquals('The Tin Drum', $book->getTitle());
@@ -500,7 +500,7 @@ class PropelObjectFormatterWithTest extends BookstoreEmptyTestBase
 		$c->joinWith('Book.Review');
 		$c->join('Book.Author');
 		$c->withColumn('Author.FirstName', 'AuthorName');
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$book = $c->findOne($con);
 		$count = $con->getQueryCount();
 		$reviews = $book->getReviews();
@@ -524,7 +524,7 @@ class PropelObjectFormatterWithTest extends BookstoreEmptyTestBase
 		$c->withColumn('Author.FirstName', 'AuthorName');
 		$c->withColumn('Author.LastName', 'AuthorName2');
 		$c->with('Author');
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$book = $c->findOne($con);
 		$this->assertTrue($book instanceof Book, 'withColumn() do not change the resulting model class');
 		$this->assertEquals('The Tin Drum', $book->getTitle());
@@ -540,7 +540,7 @@ class PropelObjectFormatterWithTest extends BookstoreEmptyTestBase
 		BookPeer::clearInstancePool();
 		AuthorPeer::clearInstancePool();
 		ReviewPeer::clearInstancePool();
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$book = BookQuery::create()
 			->findOneByTitle('Harry Potter and the Order of the Phoenix', $con);
 		$pk = $book->getPrimaryKey();

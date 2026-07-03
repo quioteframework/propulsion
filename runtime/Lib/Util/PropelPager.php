@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -15,7 +15,7 @@ namespace Propulsion\Util;
  *  Example Usage:
  *
  *  require_once 'propel/util/PropelPager.php';
- *  require_once 'PEACH/Propel/Poem/poemPeer.php';
+ *  require_once 'PEACH/Propulsion/Poem/poemPeer.php';
  *
  *  $c = new Criteria();
  *  $c->addDescendingOrderByColumn(poemPeer::SID);
@@ -116,7 +116,7 @@ class PropelPager implements \Countable, \Iterator
 	protected $max = 0;
 
 	/**
-	 * Create a new Propel Pager.
+	 * Create a new Propulsion Pager.
 	 * @param      Criteria $c
 	 * @param      string $peerClass The name of the static Peer class.
 	 * @param      string $peerSelectMethod The name of the static method for selecting content from the Peer class.

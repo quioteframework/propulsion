@@ -5,7 +5,7 @@ use PHPUnit\Framework\TestCase;
 use Propulsion\Generator\Util\PropelSQLParser;
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *

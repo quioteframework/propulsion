@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -10,7 +10,7 @@
 namespace Propulsion\Collection;
 
 /**
- * Class for iterating over a statement and returning one Propel object at a time
+ * Class for iterating over a statement and returning one Propulsion object at a time
  *
  * @author     Francois Zaninotto
  * @package    propel.runtime.collection

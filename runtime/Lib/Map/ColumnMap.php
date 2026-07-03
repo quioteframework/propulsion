@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -31,7 +31,7 @@ namespace Propulsion\Map;
 class ColumnMap
 {
 
-  // Propel type of the column
+  // Propulsion type of the column
   protected $type;
 
   // Size of the column
@@ -143,9 +143,9 @@ class ColumnMap
   }
 
   /**
-   * Set the Propel type of this column.
+   * Set the Propulsion type of this column.
    *
-   * @param      string $type A string representing the Propel type (e.g. PropelColumnTypes::DATE).
+   * @param      string $type A string representing the Propulsion type (e.g. PropelColumnTypes::DATE).
    * @return     void
    */
   public function setType($type)
@@ -154,9 +154,9 @@ class ColumnMap
   }
 
   /**
-   * Get the Propel type of this column.
+   * Get the Propulsion type of this column.
    *
-   * @return     string A string representing the Propel type (e.g. PropelColumnTypes::DATE).
+   * @return     string A string representing the Propulsion type (e.g. PropelColumnTypes::DATE).
    */
   public function getType()
   {
@@ -200,7 +200,7 @@ class ColumnMap
    * between epoch and pre-epoch timestamps.
    *
    * @return     boolean
-   * @deprecated Propel supports non-epoch dates
+   * @deprecated Propulsion supports non-epoch dates
    */
   public function isEpochTemporal()
   {

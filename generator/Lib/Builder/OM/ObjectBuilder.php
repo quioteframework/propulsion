@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -103,7 +103,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 
 		foreach ($table->getForeignKeys() as $fk) {
 			if ($fk->isMatchedByInverseFK()) {
-				throw new EngineException("The 1:1 relationship expressed by foreign key " . $fk->getName() . " is defined in both directions; Propel does not currently support this (if you must have both foreign key constraints, consider adding this constraint with a custom SQL file.)" );
+				throw new EngineException("The 1:1 relationship expressed by foreign key " . $fk->getName() . " is defined in both directions; Propulsion does not currently support this (if you must have both foreign key constraints, consider adding this constraint with a custom SQL file.)" );
 			}
 		}
 	}
@@ -165,7 +165,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 			// Return the enumerated index as a PHP literal
 			$defaultValue = var_export(array_search($val, $valueSet), true);
 		} else if ($col->isPhpPrimitiveType()) {
-			// Prefer using the underlying Propel type for reliable casting
+			// Prefer using the underlying Propulsion type for reliable casting
 			$propelType = $col->getType();
 			if ($propelType === PropelTypes::BIGINT || $propelType === PropelTypes::INTEGER ||
 			    $propelType === PropelTypes::SMALLINT || $propelType === PropelTypes::TINYINT) {
@@ -207,10 +207,10 @@ class ObjectBuilder extends AbstractObjectBuilder
 			return '?DateTimeInterface';
 		}
 		
-		// Check the actual Propel type for better type hints
+		// Check the actual Propulsion type for better type hints
 		$propelType = $col->getType();
 		
-		// Map Propel types to PHP 8.4 types
+		// Map Propulsion types to PHP 8.4 types
 		// For BIGINT, use int since we're on 64-bit PHP 8.4 (handles up to 2^63-1)
 		if ($propelType === PropelTypes::BIGINT || $propelType === PropelTypes::INTEGER || 
 		    $propelType === PropelTypes::SMALLINT || $propelType === PropelTypes::TINYINT) {
@@ -256,7 +256,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 			return '?DateTimeInterface';
 		}
 		
-		// Check the actual Propel type for better type hints
+		// Check the actual Propulsion type for better type hints
 		// For BIGINT, use int since we're on 64-bit PHP 8.4 (handles up to 2^63-1)
 		$propelType = $col->getType();
 		
@@ -298,7 +298,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 	}
 
 	/**
-	 * Adds use statements for commonly used Propel classes
+	 * Adds use statements for commonly used Propulsion classes
 	 * @param      string &$script The script will be modified in this method.
 	 */
 	protected function addUseStatements(&$script)
@@ -354,7 +354,7 @@ class ObjectBuilder extends AbstractObjectBuilder
  * @package    " . $this->getPackage() . "
  */";
 
-		// Add use statements for Propel classes
+		// Add use statements for Propulsion classes
 		$this->addUseStatements($script);
 
 		$script .= "
@@ -377,7 +377,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$this->declareClass('\\DateTime');
 		$this->declareClass('\\DateTimeInterface');
 		$this->declareClass('\\Exception');
-		$this->declareClass('Propulsion\\Propel');
+		$this->declareClass('Propulsion\\Propulsion');
 		$this->declareClass('Propulsion\\Query\\Criteria');
 		$this->declareClass('Propulsion\\Collection\\PropelCollection');
 		$this->declareClass('Propulsion\\Collection\\PropelObjectCollection');
@@ -879,7 +879,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Checks whether the object read from the database has only default values.
 	 *
-	 * This is used internally by Propel to determine whether to make the
+	 * This is used internally by Propulsion to determine whether to make the
 	 * object dirty (set as modified) when it is first loaded from the database.
 	 *
 	 * @return bool True if the object has only default values
@@ -1218,7 +1218,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 
 	/**
 	 * Ensures that all required foreign key objects are loaded.
-	 * This method is used internally by Propel to hydrate the object.
+	 * This method is used internally by Propulsion to hydrate the object.
 	 */
 	protected function ensureConsistency(): void
 	{
@@ -1292,7 +1292,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		}
 
 		if (\$con === null) {
-			\$con = Propel::getWriteConnection(" . $this->getPeerClassname() . "::DATABASE_NAME);
+			\$con = Propulsion::getWriteConnection(" . $this->getPeerClassname() . "::DATABASE_NAME);
 		}
 
 		\$con->beginTransaction();
@@ -1347,7 +1347,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		}
 
 		if (\$con === null) {
-			\$con = Propel::getWriteConnection(" . $this->getPeerClassname() . "::DATABASE_NAME);
+			\$con = Propulsion::getWriteConnection(" . $this->getPeerClassname() . "::DATABASE_NAME);
 		}
 
 		\$con->beginTransaction();
@@ -1537,7 +1537,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		}
 
 		if (\$con === null) {
-			\$con = Propel::getReadConnection(" . $this->getPeerClassname() . "::DATABASE_NAME);
+			\$con = Propulsion::getReadConnection(" . $this->getPeerClassname() . "::DATABASE_NAME);
 		}
 
 		\$stmt = " . $this->getPeerClassname() . "::doSelectStmt(\$this->buildPkeyCriteria(), \$con);
@@ -2044,7 +2044,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 
 	/**
 	 * Returns the Peer class name.
-	 * Propel uses the Peer classes to retrieve and save data from the database.
+	 * Propulsion uses the Peer classes to retrieve and save data from the database.
 	 * @return string
 	 */
 	public function getPeer(): string
@@ -2661,7 +2661,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 *
 	 * This method is a user-space workaround for PHP's inability to garbage collect
 	 * objects with circular references (even in PHP 5.3). This is currently necessary
-	 * when using Propel in certain daemon or large-volume/high-memory operations.
+	 * when using Propulsion in certain daemon or large-volume/high-memory operations.
 	 *
 	 * @param bool \$deep Whether to also clear the references on all referrer objects.
 	 */

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -102,7 +102,7 @@ class PropelTypes
 	const ENUM_NATIVE_TYPE = "string";
 
 	/**
-	 * Mapping between Propel types and PHP native types.
+	 * Mapping between Propulsion types and PHP native types.
 	 *
 	 * @var        array
 	 */
@@ -138,7 +138,7 @@ class PropelTypes
 	);
 
 	/**
-	 * Mapping between Propel types and Creole types (for rev-eng task)
+	 * Mapping between Propulsion types and Creole types (for rev-eng task)
 	 *
 	 * @var        array
 	 */
@@ -178,7 +178,7 @@ class PropelTypes
 	);
 
 	/**
-	 * Mapping between Propel types and PDO type contants (for prepared statement setting).
+	 * Mapping between Propulsion types and PDO type contants (for prepared statement setting).
 	 *
 	 * @var        array
 	 */
@@ -221,7 +221,7 @@ class PropelTypes
 	 * Return native PHP type which corresponds to the
 	 * Creole type provided. Use in the base object class generation.
 	 *
-	 * @param      $propelType The Propel type name.
+	 * @param      $propelType The Propulsion type name.
 	 * @return     string Name of the native PHP type
 	 */
 	public static function getPhpNative($propelType)
@@ -250,11 +250,11 @@ class PropelTypes
 	}
 
 	/**
-	 * Returns Propel type constant corresponding to Creole type code.
-	 * Used but Propel Creole task.
+	 * Returns Propulsion type constant corresponding to Creole type code.
+	 * Used but Propulsion Creole task.
 	 *
 	 * @param      int $sqlType The Creole SQL type constant.
-	 * @return     string The Propel type to use or NULL if none found.
+	 * @return     string The Propulsion type to use or NULL if none found.
 	 */
 	public static function getPropelType($sqlType)
 	{
@@ -264,7 +264,7 @@ class PropelTypes
 	}
 
 	/**
-	 * Get array of Propel types.
+	 * Get array of Propulsion types.
 	 *
 	 * @return     array string[]
 	 */
@@ -276,7 +276,7 @@ class PropelTypes
 	/**
 	 * Whether passed type is a temporal (date/time/timestamp) type.
 	 *
-	 * @param      string $type Propel type
+	 * @param      string $type Propulsion type
 	 * @return     boolean
 	 */
 	public static function isTemporalType($type)
@@ -287,7 +287,7 @@ class PropelTypes
 	/**
 	 * Returns true if values for the type need to be quoted.
 	 *
-	 * @param      string $type The Propel type to check.
+	 * @param      string $type The Propulsion type to check.
 	 * @return     boolean True if values for the type need to be quoted.
 	 */
 	public static function isTextType($type)
@@ -298,7 +298,7 @@ class PropelTypes
 	/**
 	 * Returns true if values for the type are numeric.
 	 *
-	 * @param      string $type The Propel type to check.
+	 * @param      string $type The Propulsion type to check.
 	 * @return     boolean True if values for the type need to be quoted.
 	 */
 	public static function isNumericType($type)
@@ -309,7 +309,7 @@ class PropelTypes
 	/**
 	 * Returns true if values for the type are boolean.
 	 *
-	 * @param      string $type The Propel type to check.
+	 * @param      string $type The Propulsion type to check.
 	 * @return     boolean True if values for the type need to be quoted.
 	 */
 	public static function isBooleanType($type)
@@ -319,7 +319,7 @@ class PropelTypes
 
 	/**
 	 * Returns true if type is a LOB type (i.e. would be handled by Blob/Clob class).
-	 * @param      string $type Propel type to check.
+	 * @param      string $type Propulsion type to check.
 	 * @return     boolean
 	 */
 	public static function isLobType($type)

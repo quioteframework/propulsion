@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -143,12 +143,12 @@ class GeneratedPeerDoSelectTest extends BookstoreEmptyTestBase
 
 	public function testDoSelectJoinOneToOne()
 	{
-		$con = Propel::getConnection();
+		$con = Propulsion::getConnection();
 		$count = $con->getQueryCount();
-		Propel::disableInstancePooling();
+		Propulsion::disableInstancePooling();
 		$c = new Criteria();
 		$accs = BookstoreEmployeeAccountPeer::doSelectJoinBookstoreEmployee($c);
-		Propel::enableInstancePooling();
+		Propulsion::enableInstancePooling();
 		$this->assertEquals(1, $con->getQueryCount() - $count, 'doSelectJoin() makes only one query in a one-to-one relationship');
 	}
 
@@ -312,7 +312,7 @@ class GeneratedPeerDoSelectTest extends BookstoreEmptyTestBase
 	 */
 	public function testMultiColFk()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
 		ReaderFavoritePeer::doDeleteAll();
 

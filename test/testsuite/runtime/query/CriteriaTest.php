@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -36,13 +36,13 @@ class CriteriaTest extends BookstoreTestBase
 	{
 		parent::setUp();
 		$this->c = new Criteria();
-		$this->savedAdapter = Propel::getDB(null);
-		Propel::setDB(null, new DBSQLite());
+		$this->savedAdapter = Propulsion::getDB(null);
+		Propulsion::setDB(null, new DBSQLite());
 	}
 
 	protected function tearDown(): void
 	{
-		Propel::setDB(null, $this->savedAdapter);
+		Propulsion::setDB(null, $this->savedAdapter);
 		parent::tearDown();
 	}
 
@@ -301,14 +301,14 @@ class CriteriaTest extends BookstoreTestBase
 	 */
 	public function testCriterionIgnoreCase()
 	{
-		$originalDB = Propel::getDB();
+		$originalDB = Propulsion::getDB();
 		$adapters = array(new DBMySQL(), new DBPostgres());
 		$expectedIgnore = array("UPPER(TABLE.COLUMN) LIKE UPPER(:p1)", "TABLE.COLUMN ILIKE :p1");
 
 		$i =0;
 		foreach ($adapters as $adapter) {
 
-			Propel::setDB(null, $adapter);
+			Propulsion::setDB(null, $adapter);
 			$myCriteria = new Criteria();
 
 			$myCriterion = $myCriteria->getNewCriterion(
@@ -329,13 +329,13 @@ class CriteriaTest extends BookstoreTestBase
 			$this->assertEquals($expectedIgnore[$i], $sb);
 			$i++;
 		}
-		Propel::setDB(null, $originalDB);
+		Propulsion::setDB(null, $originalDB);
 	}
 
 	public function testOrderByIgnoreCase()
 	{
-		$originalDB = Propel::getDB();
-		Propel::setDB(null, new DBMySQL());
+		$originalDB = Propulsion::getDB();
+		Propulsion::setDB(null, new DBMySQL());
 
 		$criteria = new Criteria();
 		$criteria->setIgnoreCase(true);
@@ -346,7 +346,7 @@ class CriteriaTest extends BookstoreTestBase
 		$expectedSQL = 'SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID, UPPER(book.TITLE) FROM `book` ORDER BY UPPER(book.TITLE) ASC';
 		$this->assertEquals($expectedSQL, $sql);
 
-		Propel::setDB(null, $originalDB);
+		Propulsion::setDB(null, $originalDB);
 	}
 
 	/**

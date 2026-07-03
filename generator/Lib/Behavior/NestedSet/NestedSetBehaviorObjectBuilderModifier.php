@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -459,7 +459,7 @@ public function isLeaf()
 /**
  * Tests if node is a descendant of another node
  *
- * @param      $objectClassname \$node Propel node object
+ * @param      $objectClassname \$node Propulsion node object
  * @return     bool
  */
 public function isDescendantOf(\$parent)
@@ -483,7 +483,7 @@ public function isDescendantOf(\$parent)
 /**
  * Tests if node is a ancestor of another node
  *
- * @param      $objectClassname \$node Propel node object
+ * @param      $objectClassname \$node Propulsion node object
  * @return     bool
  */
 public function isAncestorOf(\$child)
@@ -538,7 +538,7 @@ public function setParent(\$parent = null)
  * The result is cached so further calls to the same method don't issue any queries
  *
  * @param      PropelPDO \$con Connection to use.
- * @return     mixed 		Propel object if exists else false
+ * @return     mixed 		Propulsion object if exists else false
  */
 public function getParent(PropelPDO \$con = null)
 {
@@ -589,7 +589,7 @@ public function hasPrevSibling(PropelPDO \$con = null)
  * Gets previous sibling for the given node if it exists
  *
  * @param      PropelPDO \$con Connection to use.
- * @return     mixed 		Propel object if exists else false
+ * @return     mixed 		Propulsion object if exists else false
  */
 public function getPrevSibling(PropelPDO \$con = null)
 {
@@ -641,7 +641,7 @@ public function hasNextSibling(PropelPDO \$con = null)
  * Gets next sibling for the given node if it exists
  *
  * @param      PropelPDO \$con Connection to use.
- * @return     mixed 		Propel object if exists else false
+ * @return     mixed 		Propulsion object if exists else false
  */
 public function getNextSibling(PropelPDO \$con = null)
 {
@@ -991,9 +991,9 @@ public function getAncestors(\$query = null, PropelPDO \$con = null)
  * The modifications in the current object and the tree
  * are not persisted until the child object is saved.
  *
- * @param      $objectClassname \$child	Propel object for child node
+ * @param      $objectClassname \$child	Propulsion object for child node
  *
- * @return     $objectClassname The current Propel object
+ * @return     $objectClassname The current Propulsion object
  */
 public function addChild($objectClassname \$child)
 {
@@ -1026,9 +1026,9 @@ public function addChild($objectClassname \$child)
  * The modifications in the current object and the tree
  * are not persisted until the current object is saved.
  *
- * @param      $objectClassname \$parent	Propel object for parent node
+ * @param      $objectClassname \$parent	Propulsion object for parent node
  *
- * @return     $objectClassname The current Propel object
+ * @return     $objectClassname The current Propulsion object
  */
 public function insertAsFirstChildOf(\$parent)
 {
@@ -1071,9 +1071,9 @@ public function insertAsFirstChildOf(\$parent)
  * The modifications in the current object and the tree
  * are not persisted until the current object is saved.
  *
- * @param      $objectClassname \$parent	Propel object for parent node
+ * @param      $objectClassname \$parent	Propulsion object for parent node
  *
- * @return     $objectClassname The current Propel object
+ * @return     $objectClassname The current Propulsion object
  */
 public function insertAsLastChildOf(\$parent)
 {
@@ -1116,9 +1116,9 @@ public function insertAsLastChildOf(\$parent)
  * The modifications in the current object and the tree
  * are not persisted until the current object is saved.
  *
- * @param      $objectClassname \$sibling	Propel object for parent node
+ * @param      $objectClassname \$sibling	Propulsion object for parent node
  *
- * @return     $objectClassname The current Propel object
+ * @return     $objectClassname The current Propulsion object
  */
 public function insertAsPrevSiblingOf(\$sibling)
 {
@@ -1158,9 +1158,9 @@ public function insertAsPrevSiblingOf(\$sibling)
  * The modifications in the current object and the tree
  * are not persisted until the current object is saved.
  *
- * @param      $objectClassname \$sibling	Propel object for parent node
+ * @param      $objectClassname \$sibling	Propulsion object for parent node
  *
- * @return     $objectClassname The current Propel object
+ * @return     $objectClassname The current Propulsion object
  */
 public function insertAsNextSiblingOf(\$sibling)
 {
@@ -1197,10 +1197,10 @@ public function insertAsNextSiblingOf(\$sibling)
  * Moves current node and its subtree to be the first child of \$parent
  * The modifications in the current object and the tree are immediate
  *
- * @param      $objectClassname \$parent	Propel object for parent node
+ * @param      $objectClassname \$parent	Propulsion object for parent node
  * @param      PropelPDO \$con	Connection to use.
  *
- * @return     $objectClassname The current Propel object
+ * @return     $objectClassname The current Propulsion object
  */
 public function moveToFirstChildOf(\$parent, PropelPDO \$con = null)
 {
@@ -1233,10 +1233,10 @@ public function moveToFirstChildOf(\$parent, PropelPDO \$con = null)
  * Moves current node and its subtree to be the last child of \$parent
  * The modifications in the current object and the tree are immediate
  *
- * @param      $objectClassname \$parent	Propel object for parent node
+ * @param      $objectClassname \$parent	Propulsion object for parent node
  * @param      PropelPDO \$con	Connection to use.
  *
- * @return     $objectClassname The current Propel object
+ * @return     $objectClassname The current Propulsion object
  */
 public function moveToLastChildOf(\$parent, PropelPDO \$con = null)
 {
@@ -1269,10 +1269,10 @@ public function moveToLastChildOf(\$parent, PropelPDO \$con = null)
  * Moves current node and its subtree to be the previous sibling of \$sibling
  * The modifications in the current object and the tree are immediate
  *
- * @param      $objectClassname \$sibling	Propel object for sibling node
+ * @param      $objectClassname \$sibling	Propulsion object for sibling node
  * @param      PropelPDO \$con	Connection to use.
  *
- * @return     $objectClassname The current Propel object
+ * @return     $objectClassname The current Propulsion object
  */
 public function moveToPrevSiblingOf(\$sibling, PropelPDO \$con = null)
 {
@@ -1308,10 +1308,10 @@ public function moveToPrevSiblingOf(\$sibling, PropelPDO \$con = null)
  * Moves current node and its subtree to be the next sibling of \$sibling
  * The modifications in the current object and the tree are immediate
  *
- * @param      $objectClassname \$sibling	Propel object for sibling node
+ * @param      $objectClassname \$sibling	Propulsion object for sibling node
  * @param      PropelPDO \$con	Connection to use.
  *
- * @return     $objectClassname The current Propel object
+ * @return     $objectClassname The current Propulsion object
  */
 public function moveToNextSiblingOf(\$sibling, PropelPDO \$con = null)
 {
@@ -1365,7 +1365,7 @@ protected function moveSubtreeTo(\$destLeft, \$levelDelta, PropelPDO \$con = nul
 	\$treeSize = \$right - \$left +1;
 
 	if (\$con === null) {
-		\$con = Propel::getConnection($peerClassname::DATABASE_NAME, Propel::CONNECTION_WRITE);
+		\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
 	}
 
 	\$con->beginTransaction();
@@ -1424,7 +1424,7 @@ public function deleteDescendants(PropelPDO \$con = null)
 		return;
 	}
 	if (\$con === null) {
-		\$con = Propel::getConnection($peerClassname::DATABASE_NAME, Propel::CONNECTION_READ);
+		\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME, Propulsion::CONNECTION_READ);
 	}
 	\$left = \$this->getLeftValue();
 	\$right = \$this->getRightValue();";
@@ -1477,7 +1477,7 @@ public function getIterator()
 		$objectClassname = $this->objectClassname;
 		$script .= "
 /**
- * Alias for makeRoot(), for BC with Propel 1.4 nested sets
+ * Alias for makeRoot(), for BC with Propulsion 1.4 nested sets
  *
  * @deprecated since 1.5
  * @see        makeRoot
@@ -1488,7 +1488,7 @@ public function createRoot()
 }
 
 /**
- * Alias for getParent(), for BC with Propel 1.4 nested sets
+ * Alias for getParent(), for BC with Propulsion 1.4 nested sets
  *
  * @deprecated since 1.5
  * @see        getParent
@@ -1499,7 +1499,7 @@ public function retrieveParent(PropelPDO \$con = null)
 }
 
 /**
- * Alias for setParent(), for BC with Propel 1.4 nested sets
+ * Alias for setParent(), for BC with Propulsion 1.4 nested sets
  *
  * @deprecated since 1.5
  * @see        setParent
@@ -1510,7 +1510,7 @@ public function setParentNode(\$parent = null)
 }
 
 /**
- * Alias for countDecendants(), for BC with Propel 1.4 nested sets
+ * Alias for countDecendants(), for BC with Propulsion 1.4 nested sets
  *
  * @deprecated since 1.5
  * @see        setParent
@@ -1521,7 +1521,7 @@ public function getNumberOfDescendants(PropelPDO \$con = null)
 }
 
 /**
- * Alias for countChildren(), for BC with Propel 1.4 nested sets
+ * Alias for countChildren(), for BC with Propulsion 1.4 nested sets
  *
  * @deprecated since 1.5
  * @see        setParent
@@ -1532,7 +1532,7 @@ public function getNumberOfChildren(PropelPDO \$con = null)
 }
 
 /**
- * Alias for getPrevSibling(), for BC with Propel 1.4 nested sets
+ * Alias for getPrevSibling(), for BC with Propulsion 1.4 nested sets
  *
  * @deprecated since 1.5
  * @see        getParent
@@ -1543,7 +1543,7 @@ public function retrievePrevSibling(PropelPDO \$con = null)
 }
 
 /**
- * Alias for getNextSibling(), for BC with Propel 1.4 nested sets
+ * Alias for getNextSibling(), for BC with Propulsion 1.4 nested sets
  *
  * @deprecated since 1.5
  * @see        getParent
@@ -1554,7 +1554,7 @@ public function retrieveNextSibling(PropelPDO \$con = null)
 }
 
 /**
- * Alias for getFirstChild(), for BC with Propel 1.4 nested sets
+ * Alias for getFirstChild(), for BC with Propulsion 1.4 nested sets
  *
  * @deprecated since 1.5
  * @see        getParent
@@ -1565,7 +1565,7 @@ public function retrieveFirstChild(PropelPDO \$con = null)
 }
 
 /**
- * Alias for getLastChild(), for BC with Propel 1.4 nested sets
+ * Alias for getLastChild(), for BC with Propulsion 1.4 nested sets
  *
  * @deprecated since 1.5
  * @see        getParent
@@ -1576,7 +1576,7 @@ public function retrieveLastChild(PropelPDO \$con = null)
 }
 
 /**
- * Alias for getAncestors(), for BC with Propel 1.4 nested sets
+ * Alias for getAncestors(), for BC with Propulsion 1.4 nested sets
  *
  * @deprecated since 1.5
  * @see        getAncestors

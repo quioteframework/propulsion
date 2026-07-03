@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -19,7 +19,7 @@ class DBOracleTest extends BookstoreTestBase
 {
 	public function testApplyLimitSimple()
 	{
-		Propel::setDb('oracle', new DBOracle());
+		Propulsion::setDb('oracle', new DBOracle());
 		$c = new Criteria();
 		$c->setDbName('oracle');
 		BookPeer::addSelectColumns($c);
@@ -31,7 +31,7 @@ class DBOracleTest extends BookstoreTestBase
 
 	public function testApplyLimitDuplicateColumnName()
 	{
-		Propel::setDb('oracle', new DBOracle());
+		Propulsion::setDb('oracle', new DBOracle());
 		$c = new Criteria();
 		$c->setDbName('oracle');
 		BookPeer::addSelectColumns($c);
@@ -44,7 +44,7 @@ class DBOracleTest extends BookstoreTestBase
 
 	public function testApplyLimitDuplicateColumnNameWithColumn()
 	{
-		Propel::setDb('oracle', new DBOracle());
+		Propulsion::setDb('oracle', new DBOracle());
 		$c = new Criteria();
 		$c->setDbName('oracle');
 		BookPeer::addSelectColumns($c);
@@ -60,8 +60,8 @@ class DBOracleTest extends BookstoreTestBase
 
 	public function testCreateSelectSqlPart()
 	{
-		Propel::setDb('oracle', new DBOracle());
-		$db = Propel::getDB();
+		Propulsion::setDb('oracle', new DBOracle());
+		$db = Propulsion::getDB();
 		$c = new Criteria();
 		$c->addSelectColumn(BookPeer::ID);
 		$c->addAsColumn('book_ID', BookPeer::ID);

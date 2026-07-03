@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -20,7 +20,7 @@ class PropelOnDemandFormatterTest extends BookstoreEmptyTestBase
 
 	public function testFormatNoCriteria()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
 		$stmt = $con->query('SELECT * FROM book');
 		$formatter = new PropelOnDemandFormatter();
@@ -34,7 +34,7 @@ class PropelOnDemandFormatterTest extends BookstoreEmptyTestBase
 
 	public function testFormatManyResults()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		BookstoreDataPopulator::populate($con);
 
 		$stmt = $con->query('SELECT * FROM book');
@@ -55,7 +55,7 @@ class PropelOnDemandFormatterTest extends BookstoreEmptyTestBase
 	public function testFormatManyResultsIteratedTwice()
 	{
 		$this->expectException(PropelException::class);
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		BookstoreDataPopulator::populate($con);
 
 		$stmt = $con->query('SELECT * FROM book');
@@ -74,8 +74,8 @@ class PropelOnDemandFormatterTest extends BookstoreEmptyTestBase
 	public function testFormatALotOfResults()
 	{
 		$nbBooks = 50;
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
-		Propel::disableInstancePooling();
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
+		Propulsion::disableInstancePooling();
 		$book = new Book();
 		for ($i=0; $i < $nbBooks; $i++) {
 			$book->clear();
@@ -97,12 +97,12 @@ class PropelOnDemandFormatterTest extends BookstoreEmptyTestBase
 			$this->assertEquals('BookTest' . $i, $book->getTitle(), 'PropelOnDemandFormatter::format() returns the model objects matching the query');
 			$i++;
 		}
-		Propel::enableInstancePooling();
+		Propulsion::enableInstancePooling();
 	}
 
 	public function testFormatOneResult()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		BookstoreDataPopulator::populate($con);
 
 		$stmt = $con->query('SELECT * FROM book WHERE book.TITLE = "Quicksilver"');
@@ -120,7 +120,7 @@ class PropelOnDemandFormatterTest extends BookstoreEmptyTestBase
 
 	public function testFormatNoResult()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
 		$stmt = $con->query('SELECT * FROM book WHERE book.TITLE = "foo"');
 		$formatter = new PropelOnDemandFormatter();
@@ -136,7 +136,7 @@ class PropelOnDemandFormatterTest extends BookstoreEmptyTestBase
 
 	public function testFormatOneManyResults()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		BookstoreDataPopulator::populate($con);
 
 		$stmt = $con->query('SELECT * FROM book');

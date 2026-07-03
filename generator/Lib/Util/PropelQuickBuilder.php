@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -20,7 +20,7 @@ use Propulsion\Generator\Config\QuickGeneratorConfig;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Platform\PropelPlatformInterface;
 use Propulsion\Generator\Platform\SqlitePlatform;
-use \Propulsion\Propel;
+use \Propulsion\Propulsion;
 
 class PropelQuickBuilder
 {
@@ -97,12 +97,12 @@ class PropelQuickBuilder
 		$this->buildSQL($con);
 		$this->buildClasses();
 		$name = $this->getDatabase()->getName();
-		if (!Propel::isInit()) {
-			Propel::setConfiguration(array('datasources' => array('default' => $name)));
+		if (!Propulsion::isInit()) {
+			Propulsion::setConfiguration(array('datasources' => array('default' => $name)));
 		}
-		Propel::setDB($name, $adapter);
-		Propel::setConnection($name, $con, Propel::CONNECTION_READ);
-		Propel::setConnection($name, $con, Propel::CONNECTION_WRITE);
+		Propulsion::setDB($name, $adapter);
+		Propulsion::setConnection($name, $con, Propulsion::CONNECTION_READ);
+		Propulsion::setConnection($name, $con, Propulsion::CONNECTION_WRITE);
 		return $con;
 	}
 

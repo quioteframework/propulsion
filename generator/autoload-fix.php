@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Autoloader fix for Phing 3.x compatibility with namespaced Propel classes
+ * Autoloader fix for Phing 3.x compatibility with namespaced Propulsion classes
  */
 
 // Try to load Composer autoloader
@@ -18,12 +18,12 @@ foreach ($autoloadPaths as $autoloadPath) {
     }
 }
 
-// Register custom autoloader for Propel Generator classes
+// Register custom autoloader for Propulsion Generator classes
 spl_autoload_register(function($class) {
     // Normalize leading backslash (autoload may pass class names with or without it)
     $normalized = ltrim($class, '\\');
 
-    // If it's a namespaced Propel Generator class, try to load from the bundled Lib/ tree
+    // If it's a namespaced Propulsion Generator class, try to load from the bundled Lib/ tree
     if (strpos($normalized, 'Propulsion\\Generator\\') === 0) {
         $file = str_replace('Propulsion\\Generator\\', '', $normalized);
         $file = str_replace('\\', '/', $file) . '.php';
@@ -73,7 +73,7 @@ spl_autoload_register(function($class) {
             return ctype_lower($p) ? ucfirst($p) : $p;
         }, explode('.', ltrim($class, '.'))));
 
-        // Also try with initial segment capitalized (propel -> Propel)
+        // Also try with initial segment capitalized (propel -> Propulsion)
         $parts = explode('\\', $psr);
         if (count($parts) > 0) {
             $parts[0] = ucfirst($parts[0]);

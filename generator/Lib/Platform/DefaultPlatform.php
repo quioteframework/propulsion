@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -37,7 +37,7 @@ class DefaultPlatform implements PropelPlatformInterface
 	protected $generatorConfig;
 
 	/**
-	 * Mapping from Propel types to Domain objects.
+	 * Mapping from Propulsion types to Domain objects.
 	 *
 	 * @var        array
 	 */
@@ -166,13 +166,13 @@ class DefaultPlatform implements PropelPlatformInterface
 	/**
 	 * Returns the db specific domain for a propelType.
 	 *
-	 * @param      string $propelType the Propel type name.
+	 * @param      string $propelType the Propulsion type name.
 	 * @return     Domain The db specific domain.
 	 */
 	public function getDomainForType($propelType)
 	{
 		if (!isset($this->schemaDomainMap[$propelType])) {
-			throw new EngineException("Cannot map unknown Propel type " . var_export($propelType, true) . " to native database type.");
+			throw new EngineException("Cannot map unknown Propulsion type " . var_export($propelType, true) . " to native database type.");
 		}
 		return $this->schemaDomainMap[$propelType];
 	}
@@ -1096,7 +1096,7 @@ ALTER TABLE %s ADD
 	 * Returns the boolean value for the RDBMS.
 	 *
 	 * This value should match the boolean value that is set
-	 * when using Propel's PreparedStatement::setBoolean().
+	 * when using Propulsion's PreparedStatement::setBoolean().
 	 *
 	 * This function is used to set default column values when building
 	 * SQL.

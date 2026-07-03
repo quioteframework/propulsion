@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -204,7 +204,7 @@ public function findList(" . ($useScope ? "\$scope = null, " : "") . "\$con = nu
 
 	protected function addGetMaxRank(&$script)
 	{
-		$this->builder->declareClasses('Propel');
+		$this->builder->declareClasses('Propulsion');
 		$useScope = $this->behavior->useScope();
 		$script .= "
 /**
@@ -222,7 +222,7 @@ public function findList(" . ($useScope ? "\$scope = null, " : "") . "\$con = nu
 public function getMaxRank(" . ($useScope ? "\$scope = null, " : "") . "PropelPDO \$con = null)
 {
 	if (\$con === null) {
-		\$con = Propel::getConnection({$this->peerClassname}::DATABASE_NAME);
+		\$con = Propulsion::getConnection({$this->peerClassname}::DATABASE_NAME);
 	}
 	// shift the objects with a position lower than the one of object
 	\$this->addSelectColumn('MAX(' . {$this->peerClassname}::RANK_COL . ')');";
@@ -240,7 +240,7 @@ public function getMaxRank(" . ($useScope ? "\$scope = null, " : "") . "PropelPD
 
 	protected function addReorder(&$script)
 	{
-		$this->builder->declareClasses('Propel');
+		$this->builder->declareClasses('Propulsion');
 		$peerClassname = $this->peerClassname;
 		$columnGetter = 'get' . $this->behavior->getColumnForParameter('rank_column')->getPhpName();
 		$columnSetter = 'set' . $this->behavior->getColumnForParameter('rank_column')->getPhpName();
@@ -258,7 +258,7 @@ public function getMaxRank(" . ($useScope ? "\$scope = null, " : "") . "PropelPD
 public function reorder(array \$order, PropelPDO \$con = null)
 {
 	if (\$con === null) {
-		\$con = Propel::getConnection($peerClassname::DATABASE_NAME);
+		\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME);
 	}
 
 	\$con->beginTransaction();

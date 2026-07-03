@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -9,7 +9,7 @@
  */
 namespace Propulsion\Config;
 /**
- * PropelConfiguration is a container for all Propel's runtime configuration data.
+ * PropelConfiguration is a container for all Propulsion's runtime configuration data.
  *
  * PropelConfiguration implements ArrayAccess interface so the configuration
  * can be accessed as an array or using a simple getter and setter. The whole

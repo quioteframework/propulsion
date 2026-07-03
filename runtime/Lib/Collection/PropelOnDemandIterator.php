@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -13,12 +13,12 @@ use Propulsion\Formatter\PropelObjectFormatter;
 use \Iterator;
 use \PDOStatement;
 use Propulsion\Om\BaseObject;
-use Propulsion\Propel;
+use Propulsion\Propulsion;
 use Propulsion\Formatter\PropelFormatter;
 use Propulsion\Exception\PropelException;
 use PDO;
 /**
- * Class for iterating over a statement and returning one Propel object at a time
+ * Class for iterating over a statement and returning one Propulsion object at a time
  *
  * @author     Francois Zaninotto
  * @package    propel.runtime.collection
@@ -49,7 +49,7 @@ class PropelOnDemandIterator implements Iterator
 	{
 		$this->formatter = $formatter;
 		$this->stmt = $stmt;
-		$this->enableInstancePoolingOnFinish = Propel::disableInstancePooling();
+		$this->enableInstancePoolingOnFinish = Propulsion::disableInstancePooling();
 	}
 
 	public function closeCursor()
@@ -105,7 +105,7 @@ class PropelOnDemandIterator implements Iterator
 		if (!$this->isValid) {
 			$this->closeCursor();
 			if ($this->enableInstancePoolingOnFinish) {
-				Propel::enableInstancePooling();
+				Propulsion::enableInstancePooling();
 			}
 		}
 	}

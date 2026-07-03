@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -21,14 +21,14 @@ class PropelOnDemandCollectionTest extends BookstoreEmptyTestBase
 	{
 		parent::setUp();
 		BookstoreDataPopulator::populate($this->con);
-		Propel::disableInstancePooling();
+		Propulsion::disableInstancePooling();
 		$this->books = PropelQuery::from('Book')->setFormatter(ModelCriteria::FORMAT_ON_DEMAND)->find();
 	}
 
 	protected function tearDown(): void
 	{
 		parent::tearDown();
-		Propel::enableInstancePooling();
+		Propulsion::enableInstancePooling();
 	}
 
 	public function testSetFormatter()

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Script to modernize Propel test files for PHPUnit 12 compatibility
+ * Script to modernize Propulsion test files for PHPUnit 12 compatibility
  */
 
 function updateTestFile($filePath) {

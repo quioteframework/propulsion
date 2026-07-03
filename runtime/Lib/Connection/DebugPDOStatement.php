@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -11,7 +11,7 @@ namespace Propulsion\Connection;
 
 use \PDO;
 /**
- * PDOStatement that provides some enhanced functionality needed by Propel.
+ * PDOStatement that provides some enhanced functionality needed by Propulsion.
  *
  * Simply adds the ability to count the number of queries executed and log the queries/method calls.
  *
@@ -96,9 +96,9 @@ class DebugPDOStatement extends \PDOStatement
 			$return = parent::execute($input_parameters);
 		} catch (\Throwable $e) {
 			// Transparent reconnect on dropped connections
-			if ($e instanceof \PDOException && \Propulsion\Propel::isConnectionDropped($e)) {
+			if ($e instanceof \PDOException && \Propulsion\Propulsion::isConnectionDropped($e)) {
 				error_log('[DebugPDOStatement::execute] connection dropped, reconnecting and retrying');
-				\Propulsion\Propel::forceReconnect();
+				\Propulsion\Propulsion::forceReconnect();
 				try {
 					$return = parent::execute($input_parameters);
 				} catch (\Throwable $retryE) {

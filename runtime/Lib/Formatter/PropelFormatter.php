@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -19,7 +19,7 @@ namespace Propulsion\Formatter;
 
  use Propulsion\Query\ModelCriteria;
  use Propulsion\Om\BaseObject;
- use Propulsion\Propel;
+ use Propulsion\Propulsion;
  use Propulsion\Exception\PropelException;
  use PDOStatement;
 abstract class PropelFormatter
@@ -149,7 +149,7 @@ abstract class PropelFormatter
 
 	public function getTableMap()
 	{
-		return Propel::getDatabaseMap($this->dbName)->getTableByPhpName($this->class);
+		return Propulsion::getDatabaseMap($this->dbName)->getTableByPhpName($this->class);
 	}
 
 	protected function isWithOneToMany()
@@ -170,7 +170,7 @@ abstract class PropelFormatter
 	 * As there may be more than one object of the same class in the chain
 	 *
 	 * @param     int    $col    Offset of the object in the list of objects to hydrate
-	 * @param     string $class  Propel model object class
+	 * @param     string $class  Propulsion model object class
 	 *
 	 * @return    BaseObject
 	 */
@@ -185,7 +185,7 @@ abstract class PropelFormatter
 	}
 
 	/**
-	 * Gets a Propel object hydrated from a selection of columns in statement row
+	 * Gets a Propulsion object hydrated from a selection of columns in statement row
 	 *
 	 * @param     array  $row associative array indexed by column number,
 	 *                   as returned by PDOStatement::fetch(PDO::FETCH_NUM)

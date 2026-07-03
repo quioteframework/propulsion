@@ -3,7 +3,7 @@
 use PHPUnit\Framework\TestCase;
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -18,7 +18,7 @@ use Propulsion\Session;
  * Worker-safety rework (ServiceContainer/Session split)".
  *
  * These are the DB-independent tests (forceMasterConnection get/set/reset,
- * per-instance isolation, and Propel's delegation to it). The transaction
+ * per-instance isolation, and Propulsion's delegation to it). The transaction
  * rollback behavior of reset() needs a real connection and lives in
  * SessionResetTransactionTest instead.
  *
@@ -31,7 +31,7 @@ class SessionTest extends TestCase
         // Don't leak forceMasterConnection state into unrelated tests that run
         // later in the same process -- exactly the kind of cross-request bleed
         // this whole rework exists to prevent.
-        Propel::getSession()->setForceMasterConnection(false);
+        Propulsion::getSession()->setForceMasterConnection(false);
         parent::tearDown();
     }
 
@@ -63,7 +63,7 @@ class SessionTest extends TestCase
 
     /**
      * forceMasterConnection must live on the Session instance, not on any
-     * remaining process-global (Propel static) state -- that's the whole point
+     * remaining process-global (Propulsion static) state -- that's the whole point
      * of moving it in phase 4a.
      */
     public function testForceMasterConnectionIsPerSessionInstance()
@@ -79,40 +79,40 @@ class SessionTest extends TestCase
 
     public function testPropelDelegatesForceMasterConnectionToItsSession()
     {
-        Propel::setForceMasterConnection(true);
+        Propulsion::setForceMasterConnection(true);
 
-        $this->assertTrue(Propel::getSession()->getForceMasterConnection());
-        $this->assertTrue(Propel::getForceMasterConnection());
+        $this->assertTrue(Propulsion::getSession()->getForceMasterConnection());
+        $this->assertTrue(Propulsion::getForceMasterConnection());
 
-        Propel::setForceMasterConnection(false);
-        $this->assertFalse(Propel::getSession()->getForceMasterConnection());
-        $this->assertFalse(Propel::getForceMasterConnection());
+        Propulsion::setForceMasterConnection(false);
+        $this->assertFalse(Propulsion::getSession()->getForceMasterConnection());
+        $this->assertFalse(Propulsion::getForceMasterConnection());
     }
 
     public function testPropelSetSessionSwapsTheActiveSession()
     {
-        $original = Propel::getSession();
+        $original = Propulsion::getSession();
         $custom = new Session();
         $custom->setForceMasterConnection(true);
 
         try {
-            Propel::setSession($custom);
-            $this->assertSame($custom, Propel::getSession());
-            $this->assertTrue(Propel::getForceMasterConnection());
+            Propulsion::setSession($custom);
+            $this->assertSame($custom, Propulsion::getSession());
+            $this->assertTrue(Propulsion::getForceMasterConnection());
         } finally {
-            Propel::setSession($original);
+            Propulsion::setSession($original);
         }
 
-        $this->assertSame($original, Propel::getSession());
+        $this->assertSame($original, Propulsion::getSession());
     }
 
     public function testGetServiceContainerReturnsSameInstanceAcrossCalls()
     {
-        $this->assertSame(Propel::getServiceContainer(), Propel::getServiceContainer());
+        $this->assertSame(Propulsion::getServiceContainer(), Propulsion::getServiceContainer());
     }
 
     public function testGetSessionReturnsSameInstanceAcrossCalls()
     {
-        $this->assertSame(Propel::getSession(), Propel::getSession());
+        $this->assertSame(Propulsion::getSession(), Propulsion::getSession());
     }
 }

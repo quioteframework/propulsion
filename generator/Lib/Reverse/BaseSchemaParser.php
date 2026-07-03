@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -44,7 +44,7 @@ abstract class BaseSchemaParser implements SchemaParser
 	private $generatorConfig;
 
 	/**
-	 * Map native DB types to Propel types.
+	 * Map native DB types to Propulsion types.
 	 * (Override in subclasses.)
 	 * @var        array
 	 */
@@ -168,17 +168,17 @@ abstract class BaseSchemaParser implements SchemaParser
 	}
 
 	/**
-	 * Gets a type mapping from native type to Propel type.
+	 * Gets a type mapping from native type to Propulsion type.
 	 *
-	 * @return     array The mapped Propel type.
+	 * @return     array The mapped Propulsion type.
 	 */
 	abstract protected function getTypeMapping();
 
 	/**
-	 * Gets a mapped Propel type for specified native type.
+	 * Gets a mapped Propulsion type for specified native type.
 	 *
 	 * @param      string $nativeType
-	 * @return     string The mapped Propel type.
+	 * @return     string The mapped Propulsion type.
 	 */
 	protected function getMappedPropelType($nativeType)
 	{
@@ -195,7 +195,7 @@ abstract class BaseSchemaParser implements SchemaParser
 	 * Give a best guess at the native type.
 	 *
 	 * @param      string $propelType
-	 * @return     string The native SQL type that best matches the specified Propel type.
+	 * @return     string The native SQL type that best matches the specified Propulsion type.
 	 */
 	protected function getMappedNativeType($propelType)
 	{

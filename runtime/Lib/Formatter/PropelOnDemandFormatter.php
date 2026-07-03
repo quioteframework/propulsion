@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -10,7 +10,7 @@
 namespace Propulsion\Formatter;
 
 /**
- * Object formatter for Propel query
+ * Object formatter for Propulsion query
  * format() returns a PropelOnDemandCollection that hydrates objects as the use iterates on the collection
  * This formatter consumes less memory than the PropelObjectFormatter, but doesn't use Instance Pool
  *

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -31,7 +31,7 @@ namespace Propulsion\OM;
 
  use Propulsion\Connection\PropelPDO;
  use Propulsion\Exception\PropelException;
- use Propulsion\Propel;
+ use Propulsion\Propulsion;
  use Propulsion\Parser\PropelParser;
  use Propulsion\Util\BasePeer;
 abstract class BaseObject
@@ -114,7 +114,7 @@ abstract class BaseObject
 
 	/**
 	 * Setter for the isNew attribute.  This method will be called
-	 * by Propel-generated children and Peers.
+	 * by Propulsion-generated children and Peers.
 	 *
 	 * @param      boolean $b the state of the object.
 	 */
@@ -311,15 +311,15 @@ abstract class BaseObject
 	}
 
 	/**
-	 * Logs a message using Propel::log().
+	 * Logs a message using Propulsion::log().
 	 *
 	 * @param      string $msg
-	 * @param      string $priority One of the Propel::LOG_* / Psr\Log\LogLevel::* logging levels
+	 * @param      string $priority One of the Propulsion::LOG_* / Psr\Log\LogLevel::* logging levels
 	 * @return     boolean
 	 */
-	protected function log($msg, $priority = Propel::LOG_INFO)
+	protected function log($msg, $priority = Propulsion::LOG_INFO)
 	{
-		return Propel::log(get_class($this) . ': ' . $msg, $priority);
+		return Propulsion::log(get_class($this) . ': ' . $msg, $priority);
 	}
 
 	/**

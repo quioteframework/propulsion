@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -9,7 +9,7 @@
  */
 namespace Propulsion\Collection;
 /**
- * Class for iterating over a list of Propel objects stored as arrays
+ * Class for iterating over a list of Propulsion objects stored as arrays
  *
  * @author     Francois Zaninotto
  * @package    propel.runtime.collection
@@ -17,7 +17,7 @@ namespace Propulsion\Collection;
 
 use Propulsion\Connection\PropelPDO;
 use Propulsion\Exception\PropelException;
-use Propulsion\Propel;
+use Propulsion\Propulsion;
 use Propulsion\Om\BaseObject;
 use Propulsion\Util\BasePeer;
 
@@ -36,7 +36,7 @@ class PropelArrayCollection extends PropelCollection
 			throw new PropelException('Cannot save objects on a read-only model');
 		}
 		if (null === $con) {
-			$con = $this->getConnection(Propel::CONNECTION_WRITE);
+			$con = $this->getConnection(Propulsion::CONNECTION_WRITE);
 		}
 		$con->beginTransaction();
 		try {
@@ -64,7 +64,7 @@ class PropelArrayCollection extends PropelCollection
 			throw new PropelException('Cannot delete objects on a read-only model');
 		}
 		if (null === $con) {
-			$con = $this->getConnection(Propel::CONNECTION_WRITE);
+			$con = $this->getConnection(Propulsion::CONNECTION_WRITE);
 		}
 		$con->beginTransaction();
 		try {

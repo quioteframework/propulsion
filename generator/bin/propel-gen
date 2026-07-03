@@ -1,5 +1,5 @@
 #!/bin/sh
-# Shell wrapper for Propel generator
+# Shell wrapper for Propulsion generator
 # $Id$
 #
 # This script will do the following:
@@ -10,7 +10,7 @@
 
 if [ -z "$PROPEL_GEN_HOME" ] ; then
 
-  # try to find Propel
+  # try to find Propulsion
   if [ -d /opt/propel/generator ] ; then
     PROPEL_GEN_HOME=/opt/propel/generator
   fi

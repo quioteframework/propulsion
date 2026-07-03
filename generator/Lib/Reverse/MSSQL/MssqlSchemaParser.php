@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -31,7 +31,7 @@ class MssqlSchemaParser extends BaseSchemaParser
 {
 
 	/**
-	 * Map MSSQL native types to Propel types.
+	 * Map MSSQL native types to Propulsion types.
 	 * @var        array
 	 */
 	private static $mssqlTypeMap = array(
@@ -143,7 +143,7 @@ class MssqlSchemaParser extends BaseSchemaParser
 			$propelType = $this->getMappedPropelType($type);
 			if (!$propelType) {
 				$propelType = Column::DEFAULT_TYPE;
-				$this->warn("Column [" . $table->getName() . "." . $name. "] has a column type (".$type.") that Propel does not support.");
+				$this->warn("Column [" . $table->getName() . "." . $name. "] has a column type (".$type.") that Propulsion does not support.");
 			}
 
 			$column = new Column($name);

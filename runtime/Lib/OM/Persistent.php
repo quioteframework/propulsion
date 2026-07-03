@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -67,7 +67,7 @@ interface Persistent
 
 	/**
 	 * Setter for the isNew attribute.  This method will be called
-	 * by Propel-generated children and Peers.
+	 * by Propulsion-generated children and Peers.
 	 *
 	 * @param      boolean $b the state of the object.
 	 */

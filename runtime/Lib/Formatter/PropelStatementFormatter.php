@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -11,7 +11,7 @@ namespace Propulsion\Formatter;
 
 use PDOStatement;
 /**
- * statement formatter for Propel query
+ * statement formatter for Propulsion query
  * format() returns a PDO statement
  *
  * @author     Francois Zaninotto

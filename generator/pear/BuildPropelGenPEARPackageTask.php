@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -125,8 +125,8 @@ class BuildPropelGenPEARPackageTask extends MatchingTask
 
 		// the hard-coded stuff
 		$package->setPackage('propel_generator');
-		$package->setSummary('Generator component of the Propel PHP object persistence layer');
-		$package->setDescription('Propel is an object persistence layer for PHP5 based on Apache Torque. This package provides the generator engine that builds PHP classes and SQL DDL based on an XML representation of your data model.');
+		$package->setSummary('Generator component of the Propulsion PHP object persistence layer');
+		$package->setDescription('Propulsion is an object persistence layer for PHP5 based on Apache Torque. This package provides the generator engine that builds PHP classes and SQL DDL based on an XML representation of your data model.');
 		$package->setChannel('pear.propelorm.org');
 		$package->setPackageType('php');
 

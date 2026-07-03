@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -19,7 +19,7 @@ class PropelOnDemandFormatterWithTest extends BookstoreEmptyTestBase
 {
 	protected function assertCorrectHydration1($c, $msg)
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$c->limit(1);
 		$books = $c->find($con);
 		foreach ($books as $book) {
@@ -108,7 +108,7 @@ class PropelOnDemandFormatterWithTest extends BookstoreEmptyTestBase
 		$c->leftJoin('Book.Author');
 		$c->with('Author');
 		$c->limit(1);
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$books = $c->find($con);
 		foreach ($books as $book) {
 			break;
@@ -127,7 +127,7 @@ class PropelOnDemandFormatterWithTest extends BookstoreEmptyTestBase
 		$c->with('s');
 		$c->where('s.Name = ?', 'John');
 		$c->limit(1);
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$emps = $c->find($con);
 		foreach ($emps as $emp) {
 			break;
@@ -164,7 +164,7 @@ class PropelOnDemandFormatterWithTest extends BookstoreEmptyTestBase
 		$c->with('AuthorRelatedByFirstAuthor');
 		$c->where('Essay.Title = ?', 'Foo');
 		$c->limit(1);
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$essays = $c->find($con);
 		foreach ($essays as $essay) {
 			break;
@@ -192,7 +192,7 @@ class PropelOnDemandFormatterWithTest extends BookstoreEmptyTestBase
 		$c->join('Book.Author');
 		$c->with('Author');
 		$c->limit(1);
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$reviews = $c->find($con);
 		foreach ($reviews as $review) {
 			break;
@@ -213,12 +213,12 @@ class PropelOnDemandFormatterWithTest extends BookstoreEmptyTestBase
 		BookPeer::clearInstancePool();
 		AuthorPeer::clearInstancePool();
 		ReviewPeer::clearInstancePool();
-		Propel::enableInstancePooling();
+		Propulsion::enableInstancePooling();
 		$c = new ModelCriteria('bookstore', 'BookSummary');
 		$c->joinWith('BookSummary.SummarizedBook');
 		$c->joinWith('SummarizedBook.Author');
 		$c->setFormatter(ModelCriteria::FORMAT_ON_DEMAND);
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$summary = $c->findOne($con);
 		$count = $con->getQueryCount();
 		$this->assertEquals('Harry Potter does some amazing magic!', $summary->getSummary(), 'Main object is correctly hydrated');
@@ -279,7 +279,7 @@ class PropelOnDemandFormatterWithTest extends BookstoreEmptyTestBase
 		$c->withColumn('Author.FirstName', 'AuthorName');
 		$c->withColumn('Author.LastName', 'AuthorName2');
 		$c->limit(1);
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$books = $c->find($con);
 		foreach ($books as $book) {
 			break;
@@ -305,7 +305,7 @@ class PropelOnDemandFormatterWithTest extends BookstoreEmptyTestBase
 		$c->withColumn('Author.LastName', 'AuthorName2');
 		$c->with('Author');
 		$c->limit(1);
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$books = $c->find($con);
 		foreach ($books as $book) {
 			break;

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -49,25 +49,25 @@ class PropelDataDumpTask extends AbstractPropelDataModelTask
 	private $databaseName;
 
 	/**
-	 * Database URL used for Propel connection.
+	 * Database URL used for Propulsion connection.
 	 * This is a PEAR-compatible (loosely) DSN URL.
 	 */
 	private $databaseUrl;
 
 	/**
-	 * Database driver used for Propel connection.
-	 * This should normally be left blank so that default (Propel built-in) driver for database type is used.
+	 * Database driver used for Propulsion connection.
+	 * This should normally be left blank so that default (Propulsion built-in) driver for database type is used.
 	 */
 	private $databaseDriver;
 
 	/**
-	 * Database user used for Propel connection.
+	 * Database user used for Propulsion connection.
 	 * @deprecated Put username in databaseUrl.
 	 */
 	private $databaseUser;
 
 	/**
-	 * Database password used for Propel connection.
+	 * Database password used for Propulsion connection.
 	 * @deprecated Put password in databaseUrl.
 	 */
 	private $databasePassword;

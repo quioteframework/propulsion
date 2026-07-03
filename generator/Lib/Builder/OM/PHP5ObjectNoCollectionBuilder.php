@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -17,7 +17,7 @@ namespace Propulsion\Generator\Builder\OM;
  *
  * This class overrides PHP5BaseObject to use Peer methods and Criteria
  * instead of Query objects for fetching foreign keys. This can be useful if
- * some legacy Propel 1.4 code assumes that the getters returns arrays
+ * some legacy Propulsion 1.4 code assumes that the getters returns arrays
  * instead of collections.
  *
  * This class is not used by default. You must override
@@ -26,7 +26,7 @@ namespace Propulsion\Generator\Builder\OM;
  * propel.builder.object.class = builder.om.PHP5ObjectNoCollectionBuilder
  * </code>
  *
- * @deprecated Since Propel 1.5
+ * @deprecated Since Propulsion 1.5
  * @author     Hans Lellelid <hans@xmpl.org>
  * @package    propel.generator.builder.om
  */
@@ -296,7 +296,7 @@ class PHP5ObjectNoCollectionBuilder extends PHP5ObjectBuilder
 		}
 
 		if (\$con === null) {
-			\$con = Propel::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propel::CONNECTION_WRITE);
+			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
 		}
 
 		\$con->beginTransaction();
@@ -366,7 +366,7 @@ class PHP5ObjectNoCollectionBuilder extends PHP5ObjectBuilder
 		}
 
 		if (\$con === null) {
-			\$con = Propel::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propel::CONNECTION_READ);
+			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_READ);
 		}
 
 		// We don't need to alter the object instance pool; we're just modifying this instance

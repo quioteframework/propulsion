@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -228,7 +228,7 @@ class Ticket520Test extends BookstoreTestBase
 		revision 851, in this case we call getBooksJoinPublisher() instead
 		of just getBooks(). get...Join...() does not contain the check whether
 		the current object is new, it will always consult the DB and lose the
-		new objects entirely. Thus the test fails. (At least for Propel 1.2 ?!?) */
+		new objects entirely. Thus the test fails. (At least for Propulsion 1.2 ?!?) */
 		$this->markTestSkipped();
 
 		$a = new Author();
