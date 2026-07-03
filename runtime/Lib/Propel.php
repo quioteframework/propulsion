@@ -34,6 +34,8 @@ use Propulsion\Connection\PropelPDO;
 use PDO;
 use PDOException;
 use Propulsion\Adapter\DBAdapter;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class Propel
 {
@@ -50,42 +52,42 @@ class Propel
 	/**
 	 * A constant defining 'System is unusuable' logging level
 	 */
-	const LOG_EMERG = 0;
+	const LOG_EMERG = LogLevel::EMERGENCY;
 
 	/**
 	 * A constant defining 'Immediate action required' logging level
 	 */
-	const LOG_ALERT = 1;
+	const LOG_ALERT = LogLevel::ALERT;
 
 	/**
 	 * A constant defining 'Critical conditions' logging level
 	 */
-	const LOG_CRIT = 2;
+	const LOG_CRIT = LogLevel::CRITICAL;
 
 	/**
 	 * A constant defining 'Error conditions' logging level
 	 */
-	const LOG_ERR = 3;
+	const LOG_ERR = LogLevel::ERROR;
 
 	/**
 	 * A constant defining 'Warning conditions' logging level
 	 */
-	const LOG_WARNING = 4;
+	const LOG_WARNING = LogLevel::WARNING;
 
 	/**
 	 * A constant defining 'Normal but significant' logging level
 	 */
-	const LOG_NOTICE = 5;
+	const LOG_NOTICE = LogLevel::NOTICE;
 
 	/**
 	 * A constant defining 'Informational' logging level
 	 */
-	const LOG_INFO = 6;
+	const LOG_INFO = LogLevel::INFO;
 
 	/**
 	 * A constant defining 'Debug-level messages' logging level
 	 */
-	const LOG_DEBUG = 7;
+	const LOG_DEBUG = LogLevel::DEBUG;
 
 	/**
 	 * The class name for a PDO object.
@@ -143,9 +145,11 @@ class Propel
 	private static $isInit = false;
 
 	/**
-	 * @var        \Propulsion\Logger\BasicLogger|null optional logger
+	 * @var        LoggerInterface|null optional PSR-3 logger. Propulsion ships no
+	 *             concrete implementation -- bring your own (Monolog, etc.) via
+	 *             Propel::setLogger().
 	 */
-	private static $logger = null;
+	private static ?LoggerInterface $logger = null;
 
 	/**
 	 * @var        string The name of the database mapper class
@@ -206,26 +210,14 @@ class Propel
 	}
 
 	/**
-	 * Configure the logging system, if config is specified in the runtime configuration.
+	 * Configure the logging system.
+	 *
+	 * Propulsion does not auto-configure a logger from the runtime configuration
+	 * file -- bring your own PSR-3 logger and register it with Propel::setLogger()
+	 * (typically right after Propel::init()). Without one, Propel::log() is a no-op.
 	 */
 	protected static function configureLogging()
 	{
-
-		/*
-		This uses PEAR::LOG I think, maybe fix or not
-		if (self::$logger === null) {
-			if (isset(self::$configuration['log']) && is_array(self::$configuration['log']) && count(self::$configuration['log'])) {
-				include_once 'Log.php'; // PEAR Log class
-				$c = self::$configuration['log'];
-				$type = isset($c['type']) ? $c['type'] : 'file';
-				$name = isset($c['name']) ? $c['name'] : './propel.log';
-				$ident = isset($c['ident']) ? $c['ident'] : 'propel';
-				$conf = isset($c['conf']) ? $c['conf'] : array();
-				$level = isset($c['level']) ? $c['level'] : PEAR_LOG_DEBUG;
-				self::$logger = Log::singleton($type, $name, $ident, $conf, $level);
-			} // if isset()
-		}*/
-
 	}
 
 	/**
@@ -284,25 +276,20 @@ class Propel
 	}
 
 	/**
-	 * Override the configured logger.
+	 * Sets the PSR-3 logger to use.
 	 *
-	 * This is primarily for things like unit tests / debugging where
-	 * you want to change the logger without altering the configuration file.
+	 * Propulsion ships no concrete logger implementation -- bring your own
+	 * (Monolog, or anything else implementing Psr\Log\LoggerInterface).
 	 *
-	 * You can use any logger class that implements the propel.logger.BasicLogger
-	 * interface.  This interface is based on PEAR::Log, so you can also simply pass
-	 * a PEAR::Log object to this method.
-	 *
-	 * @param      object The new logger to use. ([PEAR] Log or BasicLogger)
+	 * @param      LoggerInterface $logger The new logger to use.
 	 */
-	public static function setLogger($logger)
+	public static function setLogger(LoggerInterface $logger)
 	{
 		self::$logger = $logger;
 	}
 
 	/**
-	 * Returns true if a logger, for example PEAR::Log, has been configured,
-	 * otherwise false.
+	 * Returns true if a PSR-3 logger has been configured, otherwise false.
 	 *
 	 * @return     bool True if Propel uses logging
 	 */
@@ -314,7 +301,7 @@ class Propel
 	/**
 	 * Get the configured logger.
 	 *
-	 * @return     \Propulsion\Logger\BasicLogger Configured log class ([PEAR] Log or BasicLogger).
+	 * @return     LoggerInterface|null Configured PSR-3 logger, or null if none was set.
 	 */
 	public static function logger()
 	{
@@ -322,38 +309,19 @@ class Propel
 	}
 
 	/**
-	 * Logs a message
-	 * If a logger has been configured, the logger will be used, otherwrise the
-	 * logging message will be discarded without any further action
+	 * Logs a message.
+	 * If a logger has been configured, the logger will be used, otherwise the
+	 * logging message will be discarded without any further action.
 	 *
-	 * @param      string The message that will be logged.
-	 * @param      string The logging level.
+	 * @param      string $message The message that will be logged.
+	 * @param      string $level One of the Psr\Log\LogLevel::* constants (also available as Propel::LOG_*).
+	 * @param      array  $context PSR-3 context array.
 	 *
 	 * @return     bool True if the message was logged successfully or no logger was used.
 	 */
-	public static function log($message, $level = self::LOG_DEBUG)
+	public static function log($message, $level = LogLevel::DEBUG, array $context = [])
 	{
-		if (self::hasLogger()) {
-			$logger = self::logger();
-			switch ($level) {
-			case self::LOG_EMERG:
-				return $logger->log($message, $level);
-			case self::LOG_ALERT:
-				return $logger->alert($message);
-			case self::LOG_CRIT:
-				return $logger->crit($message);
-			case self::LOG_ERR:
-				return $logger->err($message);
-			case self::LOG_WARNING:
-				return $logger->warning($message);
-			case self::LOG_NOTICE:
-				return $logger->notice($message);
-			case self::LOG_INFO:
-				return $logger->info($message);
-			default:
-				return $logger->debug($message);
-			}
-		}
+		self::$logger?->log($level, $message, $context);
 		return true;
 	}
 
@@ -517,7 +485,7 @@ class Propel
 			self::$connectionMap[$name]['master'] = $con;
 
 			if (getenv('AGAVI_DEBUG_DATABASE')) {
-				error_log('[Propel::getMasterConnection] created new connection for ' . $name);
+				self::log('[Propel::getMasterConnection] created new connection for ' . $name, LogLevel::DEBUG);
 			}
 		}
 
@@ -778,22 +746,22 @@ class Propel
 	public static function close()
 	{
 		if (getenv('AGAVI_DEBUG_DATABASE')) {
-			error_log('[Propel::close] closing ' . count(self::$connectionMap) . ' connection groups');
+			self::log('[Propel::close] closing ' . count(self::$connectionMap) . ' connection groups', LogLevel::DEBUG);
 		}
-		
+
 		foreach (self::$connectionMap as $idx => $cons) {
 			if (getenv('AGAVI_DEBUG_DATABASE')) {
 				$masterCount = isset($cons['master']) ? 1 : 0;
 				$slaveCount = isset($cons['slave']) ? 1 : 0;
-				error_log('[Propel::close] closing connection group: ' . $idx . ' (master=' . $masterCount . ' slave=' . $slaveCount . ')');
+				self::log('[Propel::close] closing connection group: ' . $idx . ' (master=' . $masterCount . ' slave=' . $slaveCount . ')', LogLevel::DEBUG);
 			}
 		}
-		
+
 		// Clear the entire connection map to release all PDO references
 		self::$connectionMap = array();
-		
+
 		if (getenv('AGAVI_DEBUG_DATABASE')) {
-			error_log('[Propel::close] all connections closed - connection map cleared');
+			self::log('[Propel::close] all connections closed - connection map cleared', LogLevel::DEBUG);
 		}
 	}
 

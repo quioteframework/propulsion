@@ -314,7 +314,7 @@ abstract class BaseObject
 	 * Logs a message using Propel::log().
 	 *
 	 * @param      string $msg
-	 * @param      int $priority One of the Propel::LOG_* logging levels
+	 * @param      string $priority One of the Propel::LOG_* / Psr\Log\LogLevel::* logging levels
 	 * @return     boolean
 	 */
 	protected function log($msg, $priority = Propel::LOG_INFO)

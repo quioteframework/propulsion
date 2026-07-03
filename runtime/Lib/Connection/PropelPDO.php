@@ -27,10 +27,11 @@ namespace Propulsion\Connection;
  * @since      2006-09-22
  * @package    propel.runtime.connection
  */
-use Propulsion\Logger\BasicLogger;
 use Propulsion\Propel;
 use Propulsion\Config\PropelConfiguration;
 use Propulsion\Exception\PropelException;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 class PropelPDO extends \PDO
 {
@@ -91,16 +92,17 @@ class PropelPDO extends \PDO
 	public $useDebug = false;
 
 	/**
-	 * Configured BasicLogger (or compatible) logger.
+	 * Optional per-connection PSR-3 logger override. Falls back to Propel::log()
+	 * (and whatever logger is registered there) when unset.
 	 *
-	 * @var       \Propulsion\Logger\BasicLogger
+	 * @var       LoggerInterface|null
 	 */
-	protected $logger;
+	protected ?LoggerInterface $logger = null;
 
 	/**
 	 * The log level to use for logging.
 	 *
-	 * @var       integer
+	 * @var       string
 	 */
 	private $logLevel = Propel::LOG_DEBUG;
 
@@ -588,7 +590,7 @@ class PropelPDO extends \PDO
 	/**
 	 * Sets the logging level to use for logging method calls and SQL statements.
 	 *
-	 * @param     integer  $level  Value of one of the Propel::LOG_* class constants.
+	 * @param     string  $level  One of the Propel::LOG_* / Psr\Log\LogLevel::* constants.
 	 */
 	public function setLogLevel($level)
 	{
@@ -596,21 +598,19 @@ class PropelPDO extends \PDO
 	}
 
 	/**
-	 * Sets a logger to use.
+	 * Sets a PSR-3 logger to use for this connection, overriding Propel::log().
 	 *
-	 * The logger will be used by this class to log various method calls and their properties.
-	 *
-	 * @param     BasicLogger  $logger  A Logger with an API compatible with BasicLogger (or PEAR Log).
+	 * @param     LoggerInterface  $logger
 	 */
-	public function setLogger($logger)
+	public function setLogger(LoggerInterface $logger)
 	{
 		$this->logger = $logger;
 	}
 
 	/**
-	 * Gets the logger in use.
+	 * Gets the per-connection logger override, if any.
 	 *
-	 * @return    BasicLogger  A Logger with an API compatible with BasicLogger (or PEAR Log).
+	 * @return    LoggerInterface|null
 	 */
 	public function getLogger()
 	{
@@ -624,7 +624,7 @@ class PropelPDO extends \PDO
 	 * @see       self::setLogger()
 	 *
 	 * @param     string   $msg  Message to log.
-	 * @param     integer  $level  Log level to use; will use self::setLogLevel() specified level by default.
+	 * @param     string   $level  Log level to use; will use self::setLogLevel() specified level by default.
 	 * @param     string   $methodName  Name of the method whose execution is being logged.
 	 * @param     array    $debugSnapshot  Previous return value from self::getDebugSnapshot().
 	 */
@@ -663,7 +663,7 @@ class PropelPDO extends \PDO
 
 		// Delegate the actual logging forward
 		if ($this->logger) {
-			$this->logger->log($msg, $level);
+			$this->logger->log($level, $msg);
 		} else {
 			Propel::log($msg, $level);
 		}
