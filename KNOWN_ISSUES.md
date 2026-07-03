@@ -376,22 +376,71 @@ handling, etc.). Concretely, still needed:
 
 ### Phase 4 — Worker-safety rework (ServiceContainer/Session split)
 
-Not started at all. This is the actual motivating goal from
-`PROPULSION_WORKER_REWORK.md` (FrankenPHP/worker-mode safety — moving
-instance pools, `forceMasterConnection`, and dangling transactions off
-`Propel`'s process-global statics into a request-scoped `Session`, while
-keeping connections/adapters/maps process-scoped in a `ServiceContainer`).
-Phased as:
+This is the actual motivating goal from `PROPULSION_WORKER_REWORK.md`
+(FrankenPHP/worker-mode safety — moving instance pools,
+`forceMasterConnection`, and dangling transactions off `Propel`'s
+process-global statics into a request-scoped `Session`, while keeping
+connections/adapters/maps process-scoped in a `ServiceContainer`). Phased
+as:
 
-- **4a**: Introduce `ServiceContainer` + `Session` behind
-  `Propel::getServiceContainer()`/`getSession()`; interim pool-registry
-  hack to clear all static Peer pools at once; wire transaction-rollback-
-  on-reset (the `PropelPDO::forceRollBack()` mechanism this session
-  started actually exercising in the test harness, commit `6f6b08e`, is
-  directly relevant groundwork here — the worker-safety doc's concern
-  about dangling transactions is the same failure mode, just at a request
-  boundary instead of a test boundary); move `forceMasterConnection` into
-  `Session`.
+- **4a**: **Done.** Introduced `Propulsion\ServiceContainer` and
+  `Propulsion\Session` behind `Propel::getServiceContainer()`/
+  `Propel::getSession()` (both lazily-created singletons, with
+  `setServiceContainer()`/`setSession()` escape hatches for tests or a
+  worker integration that wants to swap in a fresh `Session` per request).
+  Concretely:
+  - `ServiceContainer::clearInstancePools()` is the interim pool-registry
+    hack: since every generated Peer class has its own private `static
+    $instances` array with no central registry, this walks every table in
+    every `DatabaseMap` Propel currently has loaded, resolves each table's
+    `PEER` classname, and calls the already-existing (per-class, generated)
+    `clearInstancePool()` on each one. `registerInstancePoolClass()` also
+    lets a class be cleared even if it's never been loaded into a
+    `DatabaseMap` yet. Explicitly a stopgap — gets deleted in 4b once
+    pooling delegates to `Session` directly instead of static arrays.
+  - `Session::reset()` wires transaction-rollback-on-reset: it force-rolls-
+    back (via `PropelPDO::forceRollBack()`, the same mechanism added in
+    commit `6f6b08e` for test-teardown boundaries — this is the identical
+    dangling-transaction failure mode, just at a request boundary instead)
+    every connection `Propel` currently has open, then clears instance
+    pools via `ServiceContainer`, then resets `forceMasterConnection` back
+    to its default.
+  - `forceMasterConnection` moved off `Propel`'s statics onto `Session`.
+    `Propel::setForceMasterConnection()`/`getForceMasterConnection()` are
+    kept as thin proxies to `Propel::getSession()` for backwards
+    compatibility, and `Propel::getConnection()` now reads it from there.
+  - Instance pooling's default was checked and is **already on**
+    (`Propel::$instancePoolingEnabled` was already `true` by default) — no
+    code change was needed there, contrary to what reading the plan in
+    isolation might suggest.
+  - Deliberately NOT done in this pass (all still gated on Phase 3, per the
+    original phasing): `Propel`'s other process-global statics (connection
+    map, adapter map, database maps) are untouched and still live on
+    `Propel` directly — `ServiceContainer` does not yet own them, it only
+    hosts the pool registry hack. No generated code (builder templates)
+    changed at all. The full worker test matrix from the rework plan (no
+    object bleed, transaction cleanup, connection persistence across
+    requests, forceMaster isolation between requests, memory doesn't grow
+    under sustained load) was NOT run — that requires an actual worker-mode
+    harness (FrankenPHP or equivalent) this repo doesn't have yet, which is
+    a bigger undertaking than 4a's scaffolding scope. What *was* tested (in
+    `test/testsuite/runtime/ServiceContainerTest.php`, `SessionTest.php`,
+    `SessionResetTransactionTest.php`): pool registration/clearing in
+    isolation and via the `DatabaseMap` walk, `forceMasterConnection`
+    default/get/set/reset and that it's genuinely per-`Session` rather than
+    shared global state, `Propel`'s delegation to both new classes, and
+    `Session::reset()` end-to-end against a real connection — force-rolling
+    back a nested dangling transaction, being a no-op with nothing open,
+    and clearing pools/forceMaster together.
+  - Full suite after this change: 2200 tests, 36 errors, 21 failures, 12
+    skipped, 2 risky (2200 = the previous 2184 baseline + 16 new tests, all
+    16 passing). An immediate before/after A-B run on the same environment
+    was needed to be confident about the ±2 error/failure delta, because
+    this suite's counts already fluctuate a few points run-to-run from the
+    global-state test-ordering flakiness documented elsewhere in this file
+    — the unmodified baseline, re-run back-to-back right after, came out at
+    38 errors / 23 failures for the same 2184 pre-existing tests. So this
+    change is confirmed equal-or-better, not a regression.
 - **4b**: Rework the (renamed, per Phase 3) `PeerBuilder` template so pool
   methods delegate to `Session`; regenerate models; drop the interim
   pool-registry hack.
@@ -405,7 +454,18 @@ Decision already made in an earlier conversation: instance pooling
 defaults to **on** once 4a's reset-on-request-boundary wiring is in place
 and the worker test matrix (§8 of the rework doc — no object bleed,
 transaction cleanup, connection persistence, forceMaster isolation,
-memory doesn't grow) passes.
+memory doesn't grow) passes. As noted above, the default was already on
+before this pass; what's still outstanding is the worker test matrix
+itself, deferred to whenever an actual worker-mode harness exists to run
+it against (likely alongside 4b, once generated code actually delegates to
+`Session`).
+
+Note: `PROPULSION_WORKER_REWORK.md`, cited above as the source doc for this
+phase, does not actually exist in this repo (checked at the start of this
+pass) — only referenced from this file and from commit messages. This
+pass's scope was therefore driven entirely by this section's own
+description of 4a; nothing from the doc's supposedly-more-detailed §8
+worker test matrix was consulted beyond what's summarized here.
 
 ### Deferred, no target phase yet
 
