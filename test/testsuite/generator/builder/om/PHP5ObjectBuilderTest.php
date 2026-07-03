@@ -11,7 +11,14 @@ use PHPUnit\Framework\TestCase;
  */
 
 /**
- * Test class for PHP5ObjectBuilder.
+ * Test class for ObjectBuilder::getDefaultValueString().
+ *
+ * Was PHP5ObjectBuilderTest / TestablePHP5ObjectBuilder against the
+ * (now-archived, see archaeology/php5-builders/) PHP5ObjectBuilder --
+ * ObjectBuilder (the promoted PHP84 builder, and since Phase 3's PHP5
+ * removal the only "object" builder left, see KNOWN_ISSUES.md) shares the
+ * same getDefaultValueString() logic, so the test was ported rather than
+ * dropped.
  *
  * @author     François Zaninotto
  * @version    $Id$
@@ -23,7 +30,7 @@ class PHP5ObjectBuilderTest extends TestCase
 
 	public function setUp(): void
 	{
-		$builder = new TestablePHP5ObjectBuilder(new Table('Foo'));
+		$builder = new TestableObjectBuilder(new Table('Foo'));
 		$builder->setPlatform(new MysqlPlatform());
 		$this->builder = $builder;
 	}
@@ -60,7 +67,7 @@ class PHP5ObjectBuilderTest extends TestCase
 
 }
 
-class TestablePHP5ObjectBuilder extends PHP5ObjectBuilder
+class TestableObjectBuilder extends ObjectBuilder
 {
 	public function getDefaultValueString(Column $col)
 	{
