@@ -7,28 +7,36 @@ scoping conversation, before it detoured into fixing tests).
 
 ## Current test suite state
 
-With Docker (full suite): as of the not-null-violation and Join/self-join
-fixes above, 2135 tests, **118 errors, 176 failures**, 27 skipped, 10 risky.
-`fixtures/schemas` is now wired up too (see "Structural/tooling gaps"
-below) — its 5 `*WithSchema(s)Test` classes build and run instead of being
-unconditionally skipped, 3 of the 5 passing and 2 hitting the pre-existing
-`ModelCriteria` protected-property issue tracked elsewhere in this doc — so
-the actual combined count once all of the above land together will differ
-slightly from 118/176/27; re-run the suite for an exact number rather than
-trusting this line. Started from a suite that couldn't run a single test at
+With Docker (full suite, confirmed by an actual combined run after all of the
+below landed together on `main`): **2184 tests, 44 errors, 19 failures, 12
+skipped, 2 risky**. Started from a suite that couldn't run a single test at
 the start of this work (bootstrap was completely broken) and had 1137+
 errors once it could run at all. See git log on `main` for the detailed fix
 history — each commit message documents the specific root cause found and
 fixed.
 
+Getting from ~118 errors (clusters #1-#3 fixed) down to 44 required fixing
+one more thing not called out as its own numbered cluster: merging four
+independent fix branches together transiently produced **285** errors, not
+44 — `AggregateColumnBehaviorWithSchemaTest::tearDown()` unconditionally
+called `$this->con->commit()` after `testComputeWithSchema()` hit a
+pre-existing not-null violation that aborted the Postgres transaction;
+committing an already-aborted transaction throws, which skipped
+`parent::tearDown()` (`SchemasTestBase`), which is what restores Propel's
+process-global config from the `schemas` datasource back to `bookstore`
+after a schema test runs. Every subsequent test in the same PHPUnit process
+that assumed `bookstore` was configured (any `BookstoreTestBase` subclass —
+most of the suite) then failed with `No connection information ... for
+datasource [bookstore]`, even though each one passes fine in isolation.
+Fixed by guarding the commit the same way `BookstoreTestBase::tearDown()`
+already does elsewhere (`isCommitable()`/`isInTransaction()`/
+`forceRollBack()`), so `parent::tearDown()` always runs regardless of
+whether the test body threw.
+
 Without Docker (`PROPULSION_SKIP_INTEGRATION=1`, now genuinely supported —
 see "Structural/tooling gaps" below): 2187 tests, 127 errors, 37 failures,
-1135 skipped.
-
-(The failure count going *up* by a couple after the join-clause fix below is
-expected, not a regression: a few tests that used to hard-error on a
-malformed `FROM` clause now get far enough to hit a separate, already-known
-quoting-style assertion mismatch instead — see cluster 3 below.)
+1135 skipped (not re-verified against the final combined state above; likely
+close but not re-run).
 
 Reproduce with:
 ```
@@ -120,34 +128,60 @@ isn't available.)
    quotes, which is a test-content call the original test author didn't
    make and isn't in scope here).
 
-4. **~27 "Failed asserting that two strings are equal"** — not yet
-   triaged. Likely a mix of genuine small bugs and legitimate
-   MySQL-vs-Postgres output differences (quoting style, error message
-   text, floating point formatting) similar to what `BasePeerExceptionsTest`
-   needed (commit `024cec0`). Needs case-by-case inspection.
+4. ~~**~27 "Failed asserting that two strings are equal"**~~ **Fixed** (the
+   real count was closer to 159 once masked data-provider datasets started
+   running — see #7). Mostly real bugs, not MySQL-vs-Postgres noise: a
+   typo'd `instanceof MysqlPLatform` in `Table.php` silently disabled
+   MySQL's auto FK indices; `DefaultPlatform::getDatabaseType()` substring-
+   matched `Platform` against the FQCN and tripped on the `Platform`
+   namespace segment, breaking MySQL charset/collation/FULLTEXT lookups;
+   `ColumnMap::normalizeName()` lowercased instead of uppercasing (against
+   its own docblock), which was band-aiding a real bug in
+   `PHP5TableMapBuilder`/`PHP84TableMapBuilder`'s uncased relation-column
+   mappings; `TableMap::hasPrefix()` used `strpos($data, null)`, which
+   always matches on an unset prefix; `ConcreteInheritanceBehavior::
+   parentClass()` matched builders by bare `get_class()` name instead of
+   FQCN, so reparenting silently never fired; `OMBuilder::getPackagePath()`
+   had a malformed regex (`$i#` instead of `$#i`); `PropelCollection::
+   getIterator()` returned a detached `ArrayIterator` copy, so by-reference
+   `foreach` mutation never persisted through `save()`. The remainder were
+   genuine MySQL-backtick-vs-Postgres-unquoted expected-SQL literals (~89
+   assertions across `ModelCriteriaTest`, `CriteriaMergeTest`, `SubQueryTest`,
+   `ModelCriteriaSelectTest`, `BasePeerTest`, `PropelPDOTest`) and a few
+   stale bare-vs-namespaced class-name literals.
 
-5. **10 "This test did not perform any assertions"** (risky, not
-   failing) — likely tests whose only verification was a removed
-   `@expectedException`/`@dataProvider` annotation on a branch that no
-   longer throws, or a genuinely incomplete test. Low priority.
+5. ~~**10 "This test did not perform any assertions"**~~ **8 of 10 fixed** —
+   restored dropped assertions or added `expectNotToPerformAssertions()`
+   where the test genuinely just checks "doesn't throw". Left 2 on purpose:
+   `NestedSetBehaviorQueryBuilderModifierTest::testOrderByLevel` exposes a
+   real separate ordering bug once its assertion is restored (not yet
+   fixed); `GeneratedObjectTest::testNoColsModified` is genuinely
+   incomplete.
 
-6. **4 "Unkown column BookClubList in model Book"** — likely a schema/
-   generated-code mismatch for a behavior-added relation; not yet
-   investigated.
+6. ~~**4 "Unkown column BookClubList in model Book"**~~ **Fixed.**
+   `QueryBuilder::addFilterByCrossFK()` only emitted the
+   `...ViaCrossReference()` filter method name, but generated getters/
+   counters on the related object call the plain `filterByBookClubList()`
+   name, which then hit PHP's magic `__call` as a bogus column filter.
+   Ported the already-correct dual-method-emission fix from
+   `PHP84QueryBuilder` back into the base `QueryBuilder`.
 
-7. **3 `PgsqlPlatformMigrationTest` "data provider ... is invalid"** —
-   a provider method itself is probably throwing or returning the wrong
-   shape; separate from the general `@dataProvider`-to-attribute fix
-   already applied everywhere else.
+7. ~~**3 `PgsqlPlatformMigrationTest` "data provider ... is invalid"**~~
+   **Fixed**, and it affected `Mysql`/`OraclePlatformMigrationTest` too, not
+   just Pgsql. Root cause: PHPUnit 10+ requires static data providers, but
+   `PlatformMigrationTestProvider` (and `DefaultPlatformTest`) called
+   `$this->getPlatform()`/`$this->getDatabaseFromSchema()` from methods
+   declared `static`. Made `PlatformTestBase`'s helpers and all platform
+   subclasses' `getPlatform()` static. This also fixed several previously
+   entirely-masked datasets that hadn't been running at all, which is why
+   cluster #4's real count was ~159, not ~27.
 
-8. **~5 `aggregate_poll`/`aggregate_post` "lock timeout" errors** — the
-   `AggregateColumnBehaviorTest` connection-handling bug mentioned in the
-   previous status update (a connection left open uncommitted, deadlocking
-   a later test's cleanup). The lock/statement timeout added in commit
-   `a5b1daa` makes this fail fast instead of hanging the whole suite, but
-   the underlying test bug (probably a manually-managed second connection/
-   transaction that isn't committed) is still there and still fails those
-   specific tests.
+8. ~~**~5 `aggregate_poll`/`aggregate_post` "lock timeout" errors**~~
+   **Fixed.** `ModelCriteria::doDeleteAll()` passed an extra leading `null`
+   to `Peer::doDeleteAll($con)`, silently shifting `$con` out of the call
+   so it always fell back to `Propel::getConnection()` — opening a second
+   real connection/transaction against the same database instead of
+   reusing the caller's, which deadlocked later cleanup.
 
 ### Structural/tooling gaps found but not fixed
 

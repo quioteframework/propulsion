@@ -132,7 +132,7 @@ class PHP84PeerBuilder extends PeerBuilder
 		$parentClass = $this->getBehaviorContent('parentClass');
 		if (null !== $parentClass) {
 			$extendingPeerClass = ' extends ' . $parentClass;
-		} elseif ($this->basePeerClassname) {
+		} elseif ($this->basePeerClassname && $this->basePeerClassname !== 'BasePeer') {
 			$extendingPeerClass = ' extends ' . $this->basePeerClassname;
 		}
 
@@ -1974,7 +1974,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * @param      PropelPDO \$con the connection to use
 	 * @return     int The number of affected rows (if supported by underlying database driver).
 	 */
-	public static function doDeleteAll(?string \$tableName = null, ?PropelPDO \$con = null, ?string \$dbName = null)
+	public static function doDeleteAll(?PropelPDO \$con = null)
 	{
 		if (\$con === null) {
 			\$con = Propel::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propel::CONNECTION_WRITE);
