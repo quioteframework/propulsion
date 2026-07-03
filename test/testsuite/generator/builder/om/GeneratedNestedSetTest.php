@@ -76,29 +76,20 @@ class GeneratedNestedSetTest extends CmsTestBase
 
 			list($id, $leftChild, $rightChild, $title) = $row;
 
-			if (!in_array($leftChild, $values)) {
-				$values[] = (int) $leftChild;
-			} else {
-				$this->fail('Duplicate LeftChild value '.$leftChild);
-			}
+			$this->assertNotContains($leftChild, $values, 'Duplicate LeftChild value '.$leftChild);
+			$values[] = (int) $leftChild;
 
-			if (!in_array($rightChild, $values)) {
-				$values[] = (int) $rightChild;
-			} else {
-				$this->fail('Duplicate RightChild value '.$rightChild);
-			}
+			$this->assertNotContains($rightChild, $values, 'Duplicate RightChild value '.$rightChild);
+			$values[] = (int) $rightChild;
 
 			$log .= "[$id($leftChild:$rightChild)]";
 		}
 
 		sort($values);
 
-		if ($values[count($values)-1] != count($values)) {
-			$message = sprintf("Tree integrity NOT ok (%s)\n", $log);
-			$message .= sprintf('Integrity error: value count: %d, high value: %d', count($values), $values[count($values)-1]);
-			$this->fail($message);
-		}
-
+		$message = sprintf("Tree integrity check (%s)\n", $log);
+		$message .= sprintf('Integrity error: value count: %d, high value: %d', count($values), $values[count($values)-1]);
+		$this->assertSame(count($values), $values[count($values)-1], $message);
 	}
 
 	/**

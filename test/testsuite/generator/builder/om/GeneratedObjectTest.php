@@ -594,6 +594,7 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
             $acct2->save();
             $this->fail("Expected PropelException in first attempt to save object with duplicate value for UNIQUE constraint.");
         } catch (Exception $x) {
+            $this->assertInstanceOf('PropelException', $x, "Expected PropelException in first attempt to save object with duplicate value for UNIQUE constraint.");
             try {
                 // attempt to save it again
                 $acct3 = $acct->copy();
@@ -601,6 +602,7 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
                 $this->fail("Expected PropelException in second attempt to save object with duplicate value for UNIQUE constraint.");
             } catch (Exception $x) {
                 // this is expected.
+                $this->assertInstanceOf('PropelException', $x, "Expected PropelException in second attempt to save object with duplicate value for UNIQUE constraint.");
             }
             // now let's double check that it can succeed if we're not violating the constraint.
             $acct3->setLogin("foo2");

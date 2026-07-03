@@ -214,11 +214,13 @@ class NestedSetBehaviorQueryBuilderModifierTest extends BookstoreNestedSetTestBa
 		$objs = Table9Query::create()
 			->orderByBranch()
 			->find();
-		$coll = $this->buildCollection(array($t1, $t2, $t3, $t5, $t6, $t7, $t4), 'orderByBranch() orders by branch left to right');
+		$coll = $this->buildCollection(array($t1, $t2, $t3, $t5, $t6, $t7, $t4));
+		$this->assertEquals($coll, $objs, 'orderByBranch() orders by branch left to right');
 		$objs = Table9Query::create()
 			->orderByBranch(true)
 			->find();
-		$coll = $this->buildCollection(array($t4, $t7, $t6, $t5, $t3, $t2, $t1), 'orderByBranch(true) orders by branch right to left');
+		$coll = $this->buildCollection(array($t4, $t7, $t6, $t5, $t3, $t2, $t1));
+		$this->assertEquals($coll, $objs, 'orderByBranch(true) orders by branch right to left');
 	}
 
 	public function testOrderByLevel()
