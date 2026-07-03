@@ -9,7 +9,6 @@
  */
 
 namespace Propulsion\Generator\Builder\Util;
-include_once 'phing/system/io/Reader.php';
 
 /**
  * Overrides Phing's StringReader to allow inclusin inside a BufferedReader
