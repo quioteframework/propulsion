@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/12.0/phpunit.xsd"
+    bootstrap="./bootstrap.php"
+    cacheDirectory=".phpunit.cache"
+    executionOrder="depends,defects"
+    requireCoverageMetadata="true"
+    beStrictAboutCoverageMetadata="true"
+    beStrictAboutOutputDuringTests="true"
+    failOnRisky="true"
+    failOnWarning="true"
+    colors="true"
+    verbose="true">
+
+    <testsuites>
+        <testsuite name="Propel Generator Tests">
+            <directory>./testsuite/generator</directory>
+        </testsuite>
+        <testsuite name="Propel Runtime Tests">
+            <directory>./testsuite/runtime</directory>
+        </testsuite>
+        <testsuite name="Propel Misc Tests">
+            <directory>./testsuite/misc</directory>
+        </testsuite>
+    </testsuites>
+
+    <source restrictDeprecations="true" restrictNotices="true" restrictWarnings="true">
+        <include>
+            <directory>../generator/lib</directory>
+            <directory>../runtime/lib</directory>
+        </include>
+    </source>
+
+    <php>
+        <ini name="error_reporting" value="E_ALL"/>
+        <ini name="display_errors" value="On"/>
+        <ini name="display_startup_errors" value="On"/>
+        <ini name="memory_limit" value="512M"/>
+    </php>
+
+</phpunit>

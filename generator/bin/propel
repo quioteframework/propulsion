@@ -1,0 +1,22 @@
+#!/usr/bin/env php
+<?php
+
+require_once __DIR__ . '/../vendor/autoload.php';
+
+use Symfony\Component\Console\Application;
+use Propel\Generator\Command\ModelBuildCommand;
+use Propel\Generator\Command\SqlBuildCommand;
+use Propel\Generator\Command\SqlInsertCommand;
+use Propel\Generator\Command\ReverseCommand;
+use Propel\Generator\Command\InitCommand;
+
+$application = new Application('Propel', '1.6.2-dev');
+
+// Add commands
+$application->add(new ModelBuildCommand());
+$application->add(new SqlBuildCommand());
+$application->add(new SqlInsertCommand());
+$application->add(new ReverseCommand());
+$application->add(new InitCommand());
+
+$application->run();
