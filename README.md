@@ -31,7 +31,7 @@ on disk.
 `Psr\Log\LogLevel::*` string constants, so existing call sites like
 `Propulsion::log($message, Propulsion::LOG_ERR)` keep working unchanged.
 
-A `PropelPDO` connection can also be given its own logger, overriding the
+A `PropulsionPDO` connection can also be given its own logger, overriding the
 globally-registered one for just that connection:
 
 ```php

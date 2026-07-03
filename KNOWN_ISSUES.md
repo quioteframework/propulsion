@@ -36,11 +36,11 @@ whether the test body threw.
 The second, separate regression (285 → 44 fixed that, then 44 → 36 fixed
 this one): the cluster #8 fix to `ModelCriteria::doDeleteAll()` (passing
 `$con` as the sole positional arg instead of `null, $con`) assumed every
-generated Peer class has the single-`$con` `doDeleteAll(PropelPDO $con =
+generated Peer class has the single-`$con` `doDeleteAll(PropulsionPDO $con =
 null)` contract that `PHP5PeerBuilder` generates. `PHP84PeerBuilder`'s
 peers, however, `extends BasePeer` directly whenever no behavior
 `parentClass` is set, and its `doDeleteAll` override literally copied
-`BasePeer::doDeleteAll(?string $tableName = null, ?PropelPDO $con = null,
+`BasePeer::doDeleteAll(?string $tableName = null, ?PropulsionPDO $con = null,
 ?string $databaseName = null)`'s 3-arg signature — so passing `$con` first
 now threw a `TypeError` (or a fatal LSP-incompatibility error once the
 per-table signature was corrected back to match) for every namespaced/PHP84
@@ -51,7 +51,7 @@ to avoid forcing the per-table peer's simpler `doDeleteAll($con)` wrapper
 into signature-compatibility with `BasePeer`'s generic 3-arg version — but
 `PHP84PeerBuilder`'s copy of that same check dropped the `'BasePeer'`
 exclusion, so it always extended it. Fixed `PHP84PeerBuilder` to match
-`PHP5PeerBuilder`'s guard; the per-table peer's `doDeleteAll(?PropelPDO
+`PHP5PeerBuilder`'s guard; the per-table peer's `doDeleteAll(?PropulsionPDO
 $con = null)` signature is correct again and no longer conflicts with the
 one-argument call site.
 
@@ -74,10 +74,10 @@ isn't available.)
 ### Remaining failures, by cluster (highest count first)
 
 1. ~~**~30 "not null violation" errors**~~ — **fixed.** 40 test methods
-   across `PropelModelPagerTest`, `PropelObjectCollectionTest`,
-   `PropelObjectCollectionWithFixturesTest`, `PropelArrayFormatterWithTest`,
-   `PropelObjectFormatterWithTest`, `PropelOnDemandFormatterTest`,
-   `PropelOnDemandFormatterWithTest`, `BaseObjectSerializeTest`,
+   across `PropulsionModelPagerTest`, `PropulsionObjectCollectionTest`,
+   `PropulsionObjectCollectionWithFixturesTest`, `PropulsionArrayFormatterWithTest`,
+   `PropulsionObjectFormatterWithTest`, `PropulsionOnDemandFormatterTest`,
+   `PropulsionOnDemandFormatterWithTest`, `BaseObjectSerializeTest`,
    `ModelCriteriaTest`, `Ticket520Test`, and `GeneratedObjectTest`
    constructed `new Book()` / `new Author()` / `new Review()` with required
    columns (`isbn`, `first_name`, `last_name`, `reviewed_by`,
@@ -138,8 +138,8 @@ isn't available.)
    throw `SQLSTATE[42703]` "Undefined column", not the `42601` "syntax
    error" that the issue-2 malformed `FROM` clause actually produced — the
    two clusters never overlapped). Every one comes from hand-written raw
-   SQL in `PropelArrayFormatterTest`/`PropelObjectFormatterTest`/
-   `PropelOnDemandFormatterTest`/`PropelStatementFormatterTest`, e.g.
+   SQL in `PropulsionArrayFormatterTest`/`PropulsionObjectFormatterTest`/
+   `PropulsionOnDemandFormatterTest`/`PropulsionStatementFormatterTest`, e.g.
    `$con->query('SELECT * FROM book WHERE book.TITLE = "Quicksilver"')`.
    MySQL's non-standard extension treats double-quoted string literals
    as strings; standard SQL (and Postgres) treats `"..."` as a quoted
@@ -164,12 +164,12 @@ isn't available.)
    always matches on an unset prefix; `ConcreteInheritanceBehavior::
    parentClass()` matched builders by bare `get_class()` name instead of
    FQCN, so reparenting silently never fired; `OMBuilder::getPackagePath()`
-   had a malformed regex (`$i#` instead of `$#i`); `PropelCollection::
+   had a malformed regex (`$i#` instead of `$#i`); `PropulsionCollection::
    getIterator()` returned a detached `ArrayIterator` copy, so by-reference
    `foreach` mutation never persisted through `save()`. The remainder were
    genuine MySQL-backtick-vs-Postgres-unquoted expected-SQL literals (~89
    assertions across `ModelCriteriaTest`, `CriteriaMergeTest`, `SubQueryTest`,
-   `ModelCriteriaSelectTest`, `BasePeerTest`, `PropelPDOTest`) and a few
+   `ModelCriteriaSelectTest`, `BasePeerTest`, `PropulsionPDOTest`) and a few
    stale bare-vs-namespaced class-name literals.
 
 5. ~~**10 "This test did not perform any assertions"**~~ **8 of 10 fixed** —
@@ -208,7 +208,7 @@ isn't available.)
 ### Structural/tooling gaps found but not fixed
 
 The five items below (schemas fixture wiring, namespaced-codegen casing,
-`QuickGeneratorConfig` hardcoded class names, `PropelStringReader`'s broken
+`QuickGeneratorConfig` hardcoded class names, `PropulsionStringReader`'s broken
 include, and CI) were fixed in a follow-up pass. Notes on what actually
 happened, since a couple had surprises:
 
@@ -263,7 +263,7 @@ happened, since a couple had surprises:
   codegen time, independent of this class). Verified with a standalone
   script instantiating `QuickGeneratorConfig` outside the test suite's
   bootstrap, and the full suite still passes at the same baseline.
-- **`generator/Lib/Builder/Util/PropelStringReader.php`**: fixed. Deleted
+- **`generator/Lib/Builder/Util/PropulsionStringReader.php`**: fixed. Deleted
   the broken `include_once 'phing/system/io/Reader.php'` the same way
   commit `3b7c64d` did for the other three call sites -- the file already
   has `use Phing\Io\StringReader;` at the top, making the require both
@@ -298,14 +298,14 @@ happened, since a couple had surprises:
   `test/testsuite/generator/behavior/SoftDeleteBehaviorTest.php`,
   `.../aggregate_column/AggregateColumnBehaviorTest.php`,
   `.../sluggable/SluggableBehaviorTest.php`,
-  `test/testsuite/runtime/query/{PropelQueryTest,SubQueryTest}.php`,
+  `test/testsuite/runtime/query/{PropulsionQueryTest,SubQueryTest}.php`,
   `test/testsuite/generator/builder/om/QueryBuilderTest.php`, and
   `test/tools/helpers/bookstore/behavior/{BookstoreNestedSetTestBase,TestAuthor}.php`.
   Also found two files (`JoinTest.php`, `CriteriaCombineTest.php`) that call
   `Propulsion::init(bookstore-conf.php)` unconditionally at file scope, and one
   more root cause: `test/bootstrap.php` only triggered
-  `Propulsion\Propulsion`'s legacy bare-class-name aliasing (`PropelException`,
-  `PropelCollection`, `PropelArrayCollection`, ...) as a side effect of the
+  `Propulsion\Propulsion`'s legacy bare-class-name aliasing (`PropulsionException`,
+  `PropulsionCollection`, `PropulsionArrayCollection`, ...) as a side effect of the
   bookstore fixture build *succeeding*, so ordinary runtime tests with no
   fixture dependency at all fataled on missing bare names whenever
   `PROPULSION_SKIP_INTEGRATION=1` was set -- moved that trigger to always
@@ -382,7 +382,7 @@ fixture.
   `addUseFkQuery`, etc.) unchanged. Of those 8, two were **not** merged
   after inspection found they regress real functionality:
   `addFindPk()`'s composite-primary-key branch is a hardcoded
-  `throw new PropelException('...not yet implemented for PHP84QueryBuilder')`,
+  `throw new PropulsionException('...not yet implemented for PHP84QueryBuilder')`,
   and `addFilterByCol()` silently drops the ENUM/OBJECT column-type
   branches entirely (present in the merged-in base, absent from PHP84's
   override). Both are real, pre-existing PHP84-builder completeness gaps,
@@ -428,7 +428,7 @@ this phase — same pattern as commit `306ee1b`'s findings):
   from the PHP84 builders) had a `use`-import bug that only manifests when
   a builder's output target has no PHP namespace of its own: it either
   emitted the same `use Propulsion\Query\ModelCriteria;`-style import once
-  per class — fatal ("name is already in use") when `PropelQuickBuilder`
+  per class — fatal ("name is already in use") when `PropulsionQuickBuilder`
   concatenates many such flat classes into one `eval()`'d script with no
   namespace block between them — or, in an earlier fix attempt, skipped
   imports too broadly and broke genuinely namespaced projects (a bare
@@ -449,7 +449,7 @@ this phase — same pattern as commit `306ee1b`'s findings):
   parent class's signatures, since `PHP5NestedSetBuilder`-generated
   classes extend whatever `object` builder is configured.
 - `VersionableBehaviorObjectBuilderModifier::addVersion()` passed a
-  `PropelPDO` positionally into a collection getter's `$criteria`
+  `PropulsionPDO` positionally into a collection getter's `$criteria`
   parameter — silently tolerated by the old untyped `create()` (the
   `instanceof Criteria` check just evaluated false and did nothing) but a
   hard `TypeError` under the new typed one. That mistyped `$con` being
@@ -504,7 +504,7 @@ as:
     `DatabaseMap` yet. Explicitly a stopgap — gets deleted in 4b once
     pooling delegates to `Session` directly instead of static arrays.
   - `Session::reset()` wires transaction-rollback-on-reset: it force-rolls-
-    back (via `PropelPDO::forceRollBack()`, the same mechanism added in
+    back (via `PropulsionPDO::forceRollBack()`, the same mechanism added in
     commit `6f6b08e` for test-teardown boundaries — this is the identical
     dangling-transaction failure mode, just at a request boundary instead)
     every connection `Propulsion` currently has open, then clears instance
@@ -552,7 +552,7 @@ as:
 - **4c**: Delete legacy `PHP5*` builders (gated on 4a/4b proving the new
   pool delegation works, and on Phase 3's TableMapBuilder inlining removing
   the last real dependency on PHP5 code).
-- **4d**: Quiote adapter integration (`PropelDatabase` wiring,
+- **4d**: Quiote adapter integration (`PropulsionDatabase` wiring,
   `ResetInterface`) — tracked in the Quiote-side doc, not this repo.
 
 Decision already made in an earlier conversation: instance pooling
