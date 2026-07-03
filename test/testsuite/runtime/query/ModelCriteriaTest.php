@@ -138,7 +138,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->setModelAlias('b');
 		$c->where('b.Title = ?', 'foo');
 
-		$sql = "SELECT  FROM `book` WHERE book.TITLE = :p1";
+		$sql = "SELECT  FROM book WHERE book.TITLE = :p1";
 		$params = array(
 			array('table' => 'book', 'column' => 'TITLE', 'value' => 'foo'),
 		);
@@ -147,7 +147,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c = new ModelCriteria('bookstore', 'Book', 'b');
 		$c->where('b.Title = ?', 'foo');
 
-		$sql = "SELECT  FROM `book` WHERE book.TITLE = :p1";
+		$sql = "SELECT  FROM book WHERE book.TITLE = :p1";
 		$params = array(
 			array('table' => 'book', 'column' => 'TITLE', 'value' => 'foo'),
 		);
@@ -162,7 +162,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->join('b.Author a');
 		$c->where('a.FirstName = ?', 'john');
 
-		$sql = "SELECT  FROM `book` `b` INNER JOIN `author` `a` ON (b.AUTHOR_ID=a.ID) WHERE b.TITLE = :p1 AND a.FIRST_NAME = :p2";
+		$sql = "SELECT  FROM book b INNER JOIN author a ON (b.AUTHOR_ID=a.ID) WHERE b.TITLE = :p1 AND a.FIRST_NAME = :p2";
 		$params = array(
 			array('table' => 'book', 'column' => 'TITLE', 'value' => 'foo'),
 			array('table' => 'author', 'column' => 'FIRST_NAME', 'value' => 'john'),
@@ -177,7 +177,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->condition('cond2', 'Book.Title like ?', '%bar%');
 		$c->combine(array('cond1', 'cond2'), 'or');
 
-		$sql = "SELECT  FROM `book` WHERE (book.TITLE <> :p1 OR book.TITLE like :p2)";
+		$sql = "SELECT  FROM book WHERE (book.TITLE <> :p1 OR book.TITLE like :p2)";
 		$params = array(
 			array('table' => 'book', 'column' => 'TITLE', 'value' => 'foo'),
 			array('table' => 'book', 'column' => 'TITLE', 'value' => '%bar%'),
@@ -210,7 +210,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 	{
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->where($clause, $value);
-		$sql = 'SELECT  FROM `book` WHERE ' . $sql;
+		$sql = 'SELECT  FROM book WHERE ' . $sql;
 		$this->assertCriteriaTranslation($c, $sql, $params, 'where() accepts a string clause');
 	}
 
@@ -220,7 +220,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->where('Book.Id = ?', 12);
 		$c->_or();
 		$c->where('Book.Title = ?', 'foo');
-		$sql = 'SELECT  FROM `book` WHERE (book.ID = :p1 OR book.TITLE = :p2)';
+		$sql = 'SELECT  FROM book WHERE (book.ID = :p1 OR book.TITLE = :p2)';
 		$params = array(
 			array('table' => 'book', 'column' => 'ID', 'value' => '12'),
 			array('table' => 'book', 'column' => 'TITLE', 'value' => 'foo'),
@@ -239,7 +239,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 			array('table' => 'book', 'column' => 'ID', 'value' => '3'),
 			array('table' => 'book', 'column' => 'ID', 'value' => '5'),
 		);
-		$sql = 'SELECT  FROM `book` WHERE (book.ID IN (:p1,:p2,:p3) AND book.ID <> :p4)';
+		$sql = 'SELECT  FROM book WHERE (book.ID IN (:p1,:p2,:p3) AND book.ID <> :p4)';
 		$this->assertCriteriaTranslation($c, $sql, $params, 'where() adds clauses on the same column correctly');
 	}
 
@@ -250,7 +250,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->condition('cond2', 'Book.Title like ?', '%bar%');
 		$c->where(array('cond1', 'cond2'));
 
-		$sql = "SELECT  FROM `book` WHERE (book.TITLE <> :p1 AND book.TITLE like :p2)";
+		$sql = "SELECT  FROM book WHERE (book.TITLE <> :p1 AND book.TITLE like :p2)";
 		$params = array(
 			array('table' => 'book', 'column' => 'TITLE', 'value' => 'foo'),
 			array('table' => 'book', 'column' => 'TITLE', 'value' => '%bar%'),
@@ -262,7 +262,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->condition('cond2', 'Book.Title like ?', '%bar%');
 		$c->where(array('cond1', 'cond2'), Criteria::LOGICAL_OR);
 
-		$sql = "SELECT  FROM `book` WHERE (book.TITLE <> :p1 OR book.TITLE like :p2)";
+		$sql = "SELECT  FROM book WHERE (book.TITLE <> :p1 OR book.TITLE like :p2)";
 		$this->assertCriteriaTranslation($c, $sql, $params, 'where() accepts an array of named conditions with operator');
 	}
 
@@ -272,7 +272,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->where('b.Title = ?', 'foo');
 		$c->where('1=1');
 
-		$sql = "SELECT  FROM `book` WHERE book.TITLE = :p1 AND 1=1";
+		$sql = "SELECT  FROM book WHERE book.TITLE = :p1 AND 1=1";
 		$params = array(
 			array('table' => 'book', 'column' => 'TITLE', 'value' => 'foo'),
 		);
@@ -292,7 +292,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c = new ModelCriteria('bookstore', 'Book', 'b');
 		$c->where('UPPER(b.Title) = ?', 'foo');
 
-		$sql = "SELECT  FROM `book` WHERE UPPER(book.TITLE) = :p1";
+		$sql = "SELECT  FROM book WHERE UPPER(book.TITLE) = :p1";
 		$params = array(
 			array('table' => 'book', 'column' => 'TITLE', 'value' => 'foo'),
 		);
@@ -305,7 +305,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->where('Book.Title <> ?', 'foo');
 		$c->orWhere('Book.Title like ?', '%bar%');
 
-		$sql = "SELECT  FROM `book` WHERE (book.TITLE <> :p1 OR book.TITLE like :p2)";
+		$sql = "SELECT  FROM book WHERE (book.TITLE <> :p1 OR book.TITLE like :p2)";
 		$params = array(
 			array('table' => 'book', 'column' => 'TITLE', 'value' => 'foo'),
 			array('table' => 'book', 'column' => 'TITLE', 'value' => '%bar%'),
@@ -321,7 +321,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->condition('cond2', 'Book.Title like ?', '%bar%');
 		$c->orWhere(array('cond1', 'cond2'));
 
-		$sql = "SELECT  FROM `book` WHERE (book.ID = :p1 OR (book.TITLE <> :p2 AND book.TITLE like :p3))";
+		$sql = "SELECT  FROM book WHERE (book.ID = :p1 OR (book.TITLE <> :p2 AND book.TITLE like :p3))";
 		$params = array(
 			array('table' => 'book', 'column' => 'ID', 'value' => 12),
 			array('table' => 'book', 'column' => 'TITLE', 'value' => 'foo'),
@@ -335,7 +335,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->condition('cond2', 'Book.Title like ?', '%bar%');
 		$c->orWhere(array('cond1', 'cond2'), Criteria::LOGICAL_OR);
 
-		$sql = "SELECT  FROM `book` WHERE (book.ID = :p1 OR (book.TITLE <> :p2 OR book.TITLE like :p3))";
+		$sql = "SELECT  FROM book WHERE (book.ID = :p1 OR (book.TITLE <> :p2 OR book.TITLE like :p3))";
 		$this->assertCriteriaTranslation($c, $sql, $params, 'orWhere() accepts an array of named conditions with operator');
 	}
 
@@ -345,7 +345,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->where('Book.Title = ?', 'foo');
 		$c->add(BookPeer::ID, array(1, 2), Criteria::IN);
 
-		$sql = 'SELECT  FROM `book` WHERE book.TITLE = :p1 AND book.ID IN (:p2,:p3)';
+		$sql = 'SELECT  FROM book WHERE book.TITLE = :p1 AND book.ID IN (:p2,:p3)';
 		$params =  array(
 			array('table' => 'book', 'column' => 'TITLE', 'value' => 'foo'),
 			array('table' => 'book', 'column' => 'ID', 'value' => 1),
@@ -359,7 +359,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->filterBy('Title', 'foo');
 
-		$sql = 'SELECT  FROM `book` WHERE book.TITLE=:p1';
+		$sql = 'SELECT  FROM book WHERE book.TITLE=:p1';
 		$params =  array(
 			array('table' => 'book', 'column' => 'TITLE', 'value' => 'foo'),
 		);
@@ -368,7 +368,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->filterBy('Title', 'foo', Criteria::NOT_EQUAL);
 
-		$sql = 'SELECT  FROM `book` WHERE book.TITLE<>:p1';
+		$sql = 'SELECT  FROM book WHERE book.TITLE<>:p1';
 		$params =  array(
 			array('table' => 'book', 'column' => 'TITLE', 'value' => 'foo'),
 		);
@@ -377,7 +377,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c = new ModelCriteria('bookstore', 'Book', 'b');
 		$c->filterBy('Title', 'foo');
 
-		$sql = 'SELECT  FROM `book` WHERE book.TITLE=:p1';
+		$sql = 'SELECT  FROM book WHERE book.TITLE=:p1';
 		$params =  array(
 			array('table' => 'book', 'column' => 'TITLE', 'value' => 'foo'),
 		);
@@ -557,7 +557,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->join('Author.Book');
 		$c->groupByClass('Book');
 
-		$sql = 'SELECT  FROM `author` INNER JOIN `book` ON (author.ID=book.AUTHOR_ID) GROUP BY book.ID,book.TITLE,book.ISBN,book.PRICE,book.PUBLISHER_ID,book.AUTHOR_ID';
+		$sql = 'SELECT  FROM author INNER JOIN book ON (author.ID=book.AUTHOR_ID) GROUP BY book.ID,book.TITLE,book.ISBN,book.PRICE,book.PUBLISHER_ID,book.AUTHOR_ID';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'groupByClass() accepts the class name of a joined model');
 	}
@@ -568,7 +568,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->join('Author.Book b');
 		$c->groupByClass('b');
 
-		$sql = 'SELECT  FROM `author` INNER JOIN `book` `b` ON (author.ID=b.AUTHOR_ID) GROUP BY b.ID,b.TITLE,b.ISBN,b.PRICE,b.PUBLISHER_ID,b.AUTHOR_ID';
+		$sql = 'SELECT  FROM author INNER JOIN book b ON (author.ID=b.AUTHOR_ID) GROUP BY b.ID,b.TITLE,b.ISBN,b.PRICE,b.PUBLISHER_ID,b.AUTHOR_ID';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'groupByClass() accepts the alias of a joined model');
 	}
@@ -606,7 +606,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->addJoin(BookPeer::AUTHOR_ID, AuthorPeer::ID);
 		$c->addJoin(BookPeer::PUBLISHER_ID, PublisherPeer::ID);
-		$sql = 'SELECT  FROM `book` INNER JOIN `author` ON (book.AUTHOR_ID=author.ID) INNER JOIN `publisher` ON (book.PUBLISHER_ID=publisher.ID)';
+		$sql = 'SELECT  FROM book INNER JOIN author ON (book.AUTHOR_ID=author.ID) INNER JOIN publisher ON (book.PUBLISHER_ID=publisher.ID)';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'addJoin() works the same as in Criteria');
 	}
@@ -615,7 +615,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 	{
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->join('Book.Author');
-		$sql = 'SELECT  FROM `book` INNER JOIN `author` ON (book.AUTHOR_ID=author.ID)';
+		$sql = 'SELECT  FROM book INNER JOIN author ON (book.AUTHOR_ID=author.ID)';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'join() uses a relation to guess the columns');
 
@@ -630,7 +630,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->join('Book.Author');
 		$c->where('Author.FirstName = ?', 'Leo');
-		$sql = 'SELECT  FROM `book` INNER JOIN `author` ON (book.AUTHOR_ID=author.ID) WHERE author.FIRST_NAME = :p1';
+		$sql = 'SELECT  FROM book INNER JOIN author ON (book.AUTHOR_ID=author.ID) WHERE author.FIRST_NAME = :p1';
 		$params = array(
 			array('table' => 'author', 'column' => 'FIRST_NAME', 'value' => 'Leo'),
 		);
@@ -639,7 +639,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->join('Author');
 		$c->where('Author.FirstName = ?', 'Leo');
-		$sql = 'SELECT  FROM `book` INNER JOIN `author` ON (book.AUTHOR_ID=author.ID) WHERE author.FIRST_NAME = :p1';
+		$sql = 'SELECT  FROM book INNER JOIN author ON (book.AUTHOR_ID=author.ID) WHERE author.FIRST_NAME = :p1';
 		$params = array(
 			array('table' => 'author', 'column' => 'FIRST_NAME', 'value' => 'Leo'),
 		);
@@ -656,7 +656,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->join('Book.Author');
 		$c->where('Author.FirstName = ?', 'Neal');
 		$books = BookPeer::doSelect($c);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` INNER JOIN `author` ON (book.AUTHOR_ID=author.ID) WHERE author.FIRST_NAME = 'Neal'";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book INNER JOIN author ON (book.AUTHOR_ID=author.ID) WHERE author.FIRST_NAME = 'Neal'";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'join() issues a real JOIN query');
 		$this->assertEquals(1, count($books), 'join() issues a real JOIN query');
 	}
@@ -665,7 +665,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 	{
 		$c = new ModelCriteria('bookstore', 'BookstoreEmployee');
 		$c->join('BookstoreEmployee.Supervisor');
-		$sql = 'SELECT  FROM  INNER JOIN `bookstore_employee` ON (bookstore_employee.SUPERVISOR_ID=bookstore_employee.ID)';
+		$sql = 'SELECT  FROM  INNER JOIN bookstore_employee ON (bookstore_employee.SUPERVISOR_ID=bookstore_employee.ID)';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'join() uses relation names as defined in schema.xml');
 	}
@@ -674,7 +674,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 	{
 		$c = new ModelCriteria('bookstore', 'ReaderFavorite');
 		$c->join('ReaderFavorite.BookOpinion');
-		$sql = 'SELECT  FROM `reader_favorite` INNER JOIN `book_opinion` ON (reader_favorite.BOOK_ID=book_opinion.BOOK_ID AND reader_favorite.READER_ID=book_opinion.READER_ID)';
+		$sql = 'SELECT  FROM reader_favorite INNER JOIN book_opinion ON (reader_favorite.BOOK_ID=book_opinion.BOOK_ID AND reader_favorite.READER_ID=book_opinion.READER_ID)';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'join() knows how to create a JOIN clause for relationships with composite fkeys');
 	}
@@ -683,31 +683,31 @@ class ModelCriteriaTest extends BookstoreTestBase
 	{
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->join('Book.Author');
-		$sql = 'SELECT  FROM `book` INNER JOIN `author` ON (book.AUTHOR_ID=author.ID)';
+		$sql = 'SELECT  FROM book INNER JOIN author ON (book.AUTHOR_ID=author.ID)';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'join() adds an INNER JOIN by default');
 
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->join('Book.Author', Criteria::INNER_JOIN);
-		$sql = 'SELECT  FROM `book` INNER JOIN `author` ON (book.AUTHOR_ID=author.ID)';
+		$sql = 'SELECT  FROM book INNER JOIN author ON (book.AUTHOR_ID=author.ID)';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'join() adds an INNER JOIN by default');
 
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->join('Book.Author', Criteria::LEFT_JOIN);
-		$sql = 'SELECT  FROM `book` LEFT JOIN `author` ON (book.AUTHOR_ID=author.ID)';
+		$sql = 'SELECT  FROM book LEFT JOIN author ON (book.AUTHOR_ID=author.ID)';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'join() can add a LEFT JOIN');
 
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->join('Book.Author', Criteria::RIGHT_JOIN);
-		$sql = 'SELECT  FROM `book` RIGHT JOIN `author` ON (book.AUTHOR_ID=author.ID)';
+		$sql = 'SELECT  FROM book RIGHT JOIN author ON (book.AUTHOR_ID=author.ID)';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'join() can add a RIGHT JOIN');
 
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->join('Book.Author', 'incorrect join');
-		$sql = 'SELECT  FROM `book` incorrect join `author` ON (book.AUTHOR_ID=author.ID)';
+		$sql = 'SELECT  FROM book incorrect join author ON (book.AUTHOR_ID=author.ID)';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'join() accepts any join string');
 	}
@@ -716,25 +716,25 @@ class ModelCriteriaTest extends BookstoreTestBase
 	{
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->join('Book.Author');
-		$sql = 'SELECT  FROM `book` INNER JOIN `author` ON (book.AUTHOR_ID=author.ID)';
+		$sql = 'SELECT  FROM book INNER JOIN author ON (book.AUTHOR_ID=author.ID)';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'join() adds a JOIN clause correctly for many to one relationship');
 
 		$c = new ModelCriteria('bookstore', 'Author');
 		$c->join('Author.Book');
-		$sql = 'SELECT  FROM `author` INNER JOIN `book` ON (author.ID=book.AUTHOR_ID)';
+		$sql = 'SELECT  FROM author INNER JOIN book ON (author.ID=book.AUTHOR_ID)';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'join() adds a JOIN clause correctly for one to many relationship');
 
 		$c = new ModelCriteria('bookstore', 'BookstoreEmployee');
 		$c->join('BookstoreEmployee.BookstoreEmployeeAccount');
-		$sql = 'SELECT  FROM `bookstore_employee` INNER JOIN `bookstore_employee_account` ON (bookstore_employee.ID=bookstore_employee_account.EMPLOYEE_ID)';
+		$sql = 'SELECT  FROM bookstore_employee INNER JOIN bookstore_employee_account ON (bookstore_employee.ID=bookstore_employee_account.EMPLOYEE_ID)';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'join() adds a JOIN clause correctly for one to one relationship');
 
 		$c = new ModelCriteria('bookstore', 'BookstoreEmployeeAccount');
 		$c->join('BookstoreEmployeeAccount.BookstoreEmployee');
-		$sql = 'SELECT  FROM `bookstore_employee_account` INNER JOIN `bookstore_employee` ON (bookstore_employee_account.EMPLOYEE_ID=bookstore_employee.ID)';
+		$sql = 'SELECT  FROM bookstore_employee_account INNER JOIN bookstore_employee ON (bookstore_employee_account.EMPLOYEE_ID=bookstore_employee.ID)';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'join() adds a JOIN clause correctly for one to one relationship');
 	}
@@ -745,7 +745,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->join('Author.Book');
 		$c->join('Book.Publisher');
 		$c->where('Publisher.Name = ?', 'foo');
-		$sql = 'SELECT  FROM `author` INNER JOIN `book` ON (author.ID=book.AUTHOR_ID) INNER JOIN `publisher` ON (book.PUBLISHER_ID=publisher.ID) WHERE publisher.NAME = :p1';
+		$sql = 'SELECT  FROM author INNER JOIN book ON (author.ID=book.AUTHOR_ID) INNER JOIN publisher ON (book.PUBLISHER_ID=publisher.ID) WHERE publisher.NAME = :p1';
 		$params = array(
 			array('table' => 'publisher', 'column' => 'NAME', 'value' => 'foo'),
 		);
@@ -756,25 +756,25 @@ class ModelCriteriaTest extends BookstoreTestBase
 	{
 		$c = new ModelCriteria('bookstore', 'Book', 'b');
 		$c->join('b.Author');
-		$sql = 'SELECT  FROM `book` INNER JOIN `author` ON (book.AUTHOR_ID=author.ID)';
+		$sql = 'SELECT  FROM book INNER JOIN author ON (book.AUTHOR_ID=author.ID)';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'join() supports relation on main alias');
 
 		$c = new ModelCriteria('bookstore', 'Book', 'b');
 		$c->join('Author');
-		$sql = 'SELECT  FROM `book` INNER JOIN `author` ON (book.AUTHOR_ID=author.ID)';
+		$sql = 'SELECT  FROM book INNER JOIN author ON (book.AUTHOR_ID=author.ID)';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'join() can use a simple relation name when the model has an alias');
 
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->join('Book.Author a');
-		$sql = 'SELECT  FROM `book` INNER JOIN `author` `a` ON (book.AUTHOR_ID=a.ID)';
+		$sql = 'SELECT  FROM book INNER JOIN author a ON (book.AUTHOR_ID=a.ID)';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'join() supports relation alias');
 
 		$c = new ModelCriteria('bookstore', 'Book', 'b');
 		$c->join('b.Author a');
-		$sql = 'SELECT  FROM `book` INNER JOIN `author` `a` ON (book.AUTHOR_ID=a.ID)';
+		$sql = 'SELECT  FROM book INNER JOIN author a ON (book.AUTHOR_ID=a.ID)';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'join() supports relation alias on main alias');
 
@@ -782,7 +782,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c = new ModelCriteria('bookstore', 'Book', 'b');
 		$c->join('b.Author a');
 		$c->where('a.FirstName = ?', 'Leo');
-		$sql = 'SELECT  FROM `book` INNER JOIN `author` `a` ON (book.AUTHOR_ID=a.ID) WHERE a.FIRST_NAME = :p1';
+		$sql = 'SELECT  FROM book INNER JOIN author a ON (book.AUTHOR_ID=a.ID) WHERE a.FIRST_NAME = :p1';
 		$params = array(
 			array('table' => 'author', 'column' => 'FIRST_NAME', 'value' => 'Leo'),
 		);
@@ -792,7 +792,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->join('a.Book b');
 		$c->join('b.Publisher p');
 		$c->where('p.Name = ?', 'foo');
-		$sql = 'SELECT  FROM `author` INNER JOIN `book` `b` ON (author.ID=b.AUTHOR_ID) INNER JOIN `publisher` `p` ON (b.PUBLISHER_ID=p.ID) WHERE p.NAME = :p1';
+		$sql = 'SELECT  FROM author INNER JOIN book b ON (author.ID=b.AUTHOR_ID) INNER JOIN publisher p ON (b.PUBLISHER_ID=p.ID) WHERE p.NAME = :p1';
 		$params = array(
 			array('table' => 'publisher', 'column' => 'NAME', 'value' => 'foo'),
 		);
@@ -804,14 +804,14 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->setModelAlias('b', true);
 		$c->join('b.Author');
-		$sql = 'SELECT  FROM `book` `b` INNER JOIN `author` ON (b.AUTHOR_ID=author.ID)';
+		$sql = 'SELECT  FROM book b INNER JOIN author ON (b.AUTHOR_ID=author.ID)';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'join() supports relation on true table alias');
 
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->setModelAlias('b', true);
 		$c->join('Author');
-		$sql = 'SELECT  FROM `book` `b` INNER JOIN `author` ON (b.AUTHOR_ID=author.ID)';
+		$sql = 'SELECT  FROM book b INNER JOIN author ON (b.AUTHOR_ID=author.ID)';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'join() supports relation without alias name on true table alias');
 	}
@@ -836,7 +836,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->join('b.Author a');
 		$c->where('a.FirstName = ?', 'Leo');
 		$books = BookPeer::doSelect($c, $con);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` INNER JOIN `author` `a` ON (book.AUTHOR_ID=a.ID) WHERE a.FIRST_NAME = 'Leo'";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book INNER JOIN author a ON (book.AUTHOR_ID=a.ID) WHERE a.FIRST_NAME = 'Leo'";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'join() allows the use of relation alias in where()');
 
 		$c = new ModelCriteria('bookstore', 'BookstoreEmployee', 'be');
@@ -855,7 +855,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->join('Book.Author', Criteria::INNER_JOIN);
 		$c->addJoinCondition('Author', 'Book.Title IS NOT NULL');
 		$books = BookPeer::doSelect($c, $con);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` INNER JOIN `author` ON (book.AUTHOR_ID=author.ID AND book.TITLE IS NOT NULL)";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book INNER JOIN author ON (book.AUTHOR_ID=author.ID AND book.TITLE IS NOT NULL)";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'addJoinCondition() allows the use of custom conditions');
 	}
 
@@ -866,7 +866,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->join('Book.Author', Criteria::INNER_JOIN);
 		$c->addJoinCondition('Author', 'Book.Title = ?', 'foo');
 		$books = BookPeer::doSelect($c, $con);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` INNER JOIN `author` ON (book.AUTHOR_ID=author.ID AND book.TITLE = 'foo')";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book INNER JOIN author ON (book.AUTHOR_ID=author.ID AND book.TITLE = 'foo')";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'addJoinCondition() allows the use of custom conditions with values to bind');
 	}
 
@@ -878,7 +878,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->addJoinCondition('Author', 'Book.Title = ?', 'foo');
 		$c->addJoinCondition('Author', 'Book.ISBN IS NOT NULL');
 		$books = BookPeer::doSelect($c, $con);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` INNER JOIN `author` ON ((book.AUTHOR_ID=author.ID AND book.TITLE = 'foo') AND book.ISBN IS NOT NULL)";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book INNER JOIN author ON ((book.AUTHOR_ID=author.ID AND book.TITLE = 'foo') AND book.ISBN IS NOT NULL)";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'addJoinCondition() allows the use of several custom conditions');
 	}
 
@@ -890,7 +890,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->join('Book.Author', Criteria::INNER_JOIN);
 		$c->addJoinCondition('Author', 'Book.Title = ?', 'foo');
 		$books = BookPeer::doSelect($c, $con);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` INNER JOIN `author` ON (book.AUTHOR_ID=author.ID AND book.TITLE = 'foo') WHERE book.TITLE LIKE 'foo%'";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book INNER JOIN author ON (book.AUTHOR_ID=author.ID AND book.TITLE = 'foo') WHERE book.TITLE LIKE 'foo%'";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'addJoinCondition() allows the use of custom conditions with values and lives well with WHERE conditions');
 	}
 
@@ -901,7 +901,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->join('Book.Author a', Criteria::INNER_JOIN);
 		$c->addJoinCondition('a', 'Book.Title IS NOT NULL');
 		$books = BookPeer::doSelect($c, $con);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` INNER JOIN `author` `a` ON (book.AUTHOR_ID=a.ID AND book.TITLE IS NOT NULL)";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book INNER JOIN author a ON (book.AUTHOR_ID=a.ID AND book.TITLE IS NOT NULL)";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'addJoinCondition() allows the use of custom conditions even on aliased relations');
 	}
 
@@ -912,7 +912,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->join('Book.Author', Criteria::INNER_JOIN);
 		$c->addJoinCondition('Author', 'Book.Title IS NOT NULL', null, Criteria::LOGICAL_OR);
 		$books = BookPeer::doSelect($c, $con);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` INNER JOIN `author` ON (book.AUTHOR_ID=author.ID OR book.TITLE IS NOT NULL)";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book INNER JOIN author ON (book.AUTHOR_ID=author.ID OR book.TITLE IS NOT NULL)";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'addJoinCondition() allows the use of custom conditions with a custom operator');
 	}
 
@@ -924,7 +924,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$criterion = $c->getNewCriterion(BookPeer::TITLE, BookPeer::TITLE . ' = ' . AuthorPeer::FIRST_NAME, Criteria::CUSTOM);
 		$c->setJoinCondition('Author', $criterion);
 		$books = BookPeer::doSelect($c, $con);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` INNER JOIN `author` ON book.TITLE = author.FIRST_NAME";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book INNER JOIN author ON book.TITLE = author.FIRST_NAME";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'setJoinCondition() can override a previous join condition with a Criterion');
 	}
 
@@ -936,7 +936,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->condition('cond1', 'Book.Title = Author.FirstName');
 		$c->setJoinCondition('Author', 'cond1');
 		$books = BookPeer::doSelect($c, $con);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` INNER JOIN `author` ON book.TITLE = author.FIRST_NAME";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book INNER JOIN author ON book.TITLE = author.FIRST_NAME";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'setJoinCondition() can override a previous join condition with a named condition');
 	}
 
@@ -1232,7 +1232,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 	{
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->withColumn($clause, $alias);
-		$sql = 'SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID, ' . $selectTranslation . ' FROM `book`';
+		$sql = 'SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID, ' . $selectTranslation . ' FROM book';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'withColumn() adds a calculated column to the select clause');
 	}
@@ -1261,7 +1261,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 	{
 		$c = new ModelCriteria('bookstore', 'Author');
 		$c->withColumn($clause, $alias);
-		$sql = 'SELECT author.ID, author.FIRST_NAME, author.LAST_NAME, author.EMAIL, author.AGE, ' . $selectTranslation . ' FROM `author`';
+		$sql = 'SELECT author.ID, author.FIRST_NAME, author.LAST_NAME, author.EMAIL, author.AGE, ' . $selectTranslation . ' FROM author';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'withColumn() adds a calculated column using quotes to the select clause');
 	}
@@ -1270,14 +1270,14 @@ class ModelCriteriaTest extends BookstoreTestBase
 	{
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->withColumn('UPPER(Book.Title)', 'foo');
-		$sql = 'SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID, UPPER(book.TITLE) AS foo FROM `book`';
+		$sql = 'SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID, UPPER(book.TITLE) AS foo FROM book';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'withColumn() adds the object columns if the criteria has no select columns');
 
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->addSelectColumn('book.ID');
 		$c->withColumn('UPPER(Book.Title)', 'foo');
-		$sql = 'SELECT book.ID, UPPER(book.TITLE) AS foo FROM `book`';
+		$sql = 'SELECT book.ID, UPPER(book.TITLE) AS foo FROM book';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'withColumn() does not add the object columns if the criteria already has select columns');
 
@@ -1285,7 +1285,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->addSelectColumn('book.ID');
 		$c->withColumn('UPPER(Book.Title)', 'foo');
 		$c->addSelectColumn('book.TITLE');
-		$sql = 'SELECT book.ID, book.TITLE, UPPER(book.TITLE) AS foo FROM `book`';
+		$sql = 'SELECT book.ID, book.TITLE, UPPER(book.TITLE) AS foo FROM book';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'withColumn() does adds as column after the select columns even though the withColumn() method was called first');
 
@@ -1293,7 +1293,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->addSelectColumn('book.ID');
 		$c->withColumn('UPPER(Book.Title)', 'foo');
 		$c->withColumn('UPPER(Book.ISBN)', 'isbn');
-		$sql = 'SELECT book.ID, UPPER(book.TITLE) AS foo, UPPER(book.ISBN) AS isbn FROM `book`';
+		$sql = 'SELECT book.ID, UPPER(book.TITLE) AS foo, UPPER(book.ISBN) AS isbn FROM book';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'withColumn() called repeatedly adds several as colums');
 	}
@@ -1388,7 +1388,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
 		$c = new ModelCriteria('bookstore', 'Book');
 		$books = $c->find($con);
-		$sql = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book`";
+		$sql = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book";
 		$this->assertEquals($sql, $con->getLastExecutedQuery(), 'find() adds the select columns of the current model');
 	}
 
@@ -1398,7 +1398,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->setModelAlias('b', true);
 		$books = $c->find($con);
-		$sql = "SELECT b.ID, b.TITLE, b.ISBN, b.PRICE, b.PUBLISHER_ID, b.AUTHOR_ID FROM `book` `b`";
+		$sql = "SELECT b.ID, b.TITLE, b.ISBN, b.PRICE, b.PUBLISHER_ID, b.AUTHOR_ID FROM book b";
 		$this->assertEquals($sql, $con->getLastExecutedQuery(), 'find() uses the true model alias if available');
 	}
 
@@ -1628,7 +1628,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
 		$c = new ModelCriteria('bookstore', 'Book');
 		$books = $c->findBy('Title', 'Don Juan', $con);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` WHERE book.TITLE='Don Juan'";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book WHERE book.TITLE='Don Juan'";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'findBy() adds simple column conditions');
 		$this->assertTrue($books instanceof PropelCollection, 'findBy() issues a find()');
 		$this->assertEquals(1, count($books), 'findBy() adds simple column conditions');
@@ -1642,7 +1642,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
 		$c = new ModelCriteria('bookstore', 'Book');
 		$books = $c->findByArray(array('Title' => 'Don Juan', 'ISBN' => 12345), $con);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` WHERE book.TITLE='Don Juan' AND book.ISBN=12345";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book WHERE book.TITLE='Don Juan' AND book.ISBN=12345";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'findByArray() adds multiple column conditions');
 	}
 
@@ -1659,7 +1659,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
 		$c = new ModelCriteria('bookstore', 'Book');
 		$book = $c->findOneBy('Title', 'Don Juan', $con);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` WHERE book.TITLE='Don Juan' LIMIT 1";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book WHERE book.TITLE='Don Juan' LIMIT 1";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'findOneBy() adds simple column conditions');
 		$this->assertTrue($book instanceof Book, 'findOneBy() returns a Model object by default');
 		$this->assertEquals('Don Juan', $book->getTitle(), 'findOneBy() returns the model object matching the query');
@@ -1670,7 +1670,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
 		$c = new ModelCriteria('bookstore', 'Book');
 		$book = $c->findOneByArray(array('Title' => 'Don Juan', 'ISBN' => 12345), $con);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` WHERE book.TITLE='Don Juan' AND book.ISBN=12345 LIMIT 1";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book WHERE book.TITLE='Don Juan' AND book.ISBN=12345 LIMIT 1";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'findOneBy() adds multiple column conditions');
 	}
 
@@ -1741,14 +1741,14 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->setModelAlias('b', false);
 		$c->where('b.Title = ?', 'foo');
 		$c->delete();
-		$expectedSQL = "DELETE FROM `book` WHERE book.TITLE = 'foo'";
+		$expectedSQL = "DELETE FROM book WHERE book.TITLE = 'foo'";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'delete() also works on tables with table alias');
 
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->setModelAlias('b', true);
 		$c->where('b.Title = ?', 'foo');
 		$c->delete();
-		$expectedSQL = "DELETE b FROM `book` AS b WHERE b.TITLE = 'foo'";
+		$expectedSQL = "DELETE b FROM book AS b WHERE b.TITLE = 'foo'";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'delete() also works on tables with true table alias');
 	}
 
@@ -1812,14 +1812,14 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->setModelAlias('b', false);
 		$c->where('b.Title = ?', 'foo');
 		$c->update(array('Title' => 'foo2'), $con);
-		$expectedSQL = "UPDATE `book` SET `TITLE`='foo2' WHERE book.TITLE = 'foo'";
+		$expectedSQL = "UPDATE book SET TITLE='foo2' WHERE book.TITLE = 'foo'";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'update() also works on tables with table alias');
 
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->setModelAlias('b', true);
 		$c->where('b.Title = ?', 'foo');
 		$c->update(array('Title' => 'foo2'), $con);
-		$expectedSQL = "UPDATE `book` `b` SET `TITLE`='foo2' WHERE b.TITLE = 'foo'";
+		$expectedSQL = "UPDATE book b SET TITLE='foo2' WHERE b.TITLE = 'foo'";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'update() also works on tables with true table alias');
 	}
 
@@ -1897,49 +1897,49 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->leftJoin('b.Author a');
 		$c->where('a.FirstName = ?', 'Leo');
 		$books = $c->findOne($con);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` LEFT JOIN `author` `a` ON (book.AUTHOR_ID=a.ID) WHERE a.FIRST_NAME = 'Leo' LIMIT 1";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book LEFT JOIN author a ON (book.AUTHOR_ID=a.ID) WHERE a.FIRST_NAME = 'Leo' LIMIT 1";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'leftJoin($x) is turned into join($x, Criteria::LEFT_JOIN)');
 
 		$books = BookQuery::create()
 			->leftJoinAuthor('a')
 			->where('a.FirstName = ?', 'Leo')
 			->findOne($con);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` LEFT JOIN `author` `a` ON (book.AUTHOR_ID=a.ID) WHERE a.FIRST_NAME = 'Leo' LIMIT 1";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book LEFT JOIN author a ON (book.AUTHOR_ID=a.ID) WHERE a.FIRST_NAME = 'Leo' LIMIT 1";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'leftJoinX() is turned into join($x, Criteria::LEFT_JOIN)');
 
 		$c = new ModelCriteria('bookstore', 'Book', 'b');
 		$c->innerJoin('b.Author a');
 		$c->where('a.FirstName = ?', 'Leo');
 		$books = $c->findOne($con);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` INNER JOIN `author` `a` ON (book.AUTHOR_ID=a.ID) WHERE a.FIRST_NAME = 'Leo' LIMIT 1";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book INNER JOIN author a ON (book.AUTHOR_ID=a.ID) WHERE a.FIRST_NAME = 'Leo' LIMIT 1";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'innerJoin($x) is turned into join($x, Criteria::INNER_JOIN)');
 
 		$books = BookQuery::create()
 			->innerJoinAuthor('a')
 			->where('a.FirstName = ?', 'Leo')
 			->findOne($con);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` INNER JOIN `author` `a` ON (book.AUTHOR_ID=a.ID) WHERE a.FIRST_NAME = 'Leo' LIMIT 1";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book INNER JOIN author a ON (book.AUTHOR_ID=a.ID) WHERE a.FIRST_NAME = 'Leo' LIMIT 1";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'innerJoinX() is turned into join($x, Criteria::INNER_JOIN)');
 
 		$c = new ModelCriteria('bookstore', 'Book', 'b');
 		$c->rightJoin('b.Author a');
 		$c->where('a.FirstName = ?', 'Leo');
 		$books = $c->findOne($con);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` RIGHT JOIN `author` `a` ON (book.AUTHOR_ID=a.ID) WHERE a.FIRST_NAME = 'Leo' LIMIT 1";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book RIGHT JOIN author a ON (book.AUTHOR_ID=a.ID) WHERE a.FIRST_NAME = 'Leo' LIMIT 1";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'rightJoin($x) is turned into join($x, Criteria::RIGHT_JOIN)');
 
 		$books = BookQuery::create()
 			->rightJoinAuthor('a')
 			->where('a.FirstName = ?', 'Leo')
 			->findOne($con);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` RIGHT JOIN `author` `a` ON (book.AUTHOR_ID=a.ID) WHERE a.FIRST_NAME = 'Leo' LIMIT 1";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book RIGHT JOIN author a ON (book.AUTHOR_ID=a.ID) WHERE a.FIRST_NAME = 'Leo' LIMIT 1";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'rightJoinX() is turned into join($x, Criteria::RIGHT_JOIN)');
 
 		$books = BookQuery::create()
 			->leftJoinAuthor()
 			->where('Author.FirstName = ?', 'Leo')
 			->findOne($con);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` LEFT JOIN `author` ON (book.AUTHOR_ID=author.ID) WHERE author.FIRST_NAME = 'Leo' LIMIT 1";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book LEFT JOIN author ON (book.AUTHOR_ID=author.ID) WHERE author.FIRST_NAME = 'Leo' LIMIT 1";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'leftJoinX() is turned into join($x, Criteria::LEFT_JOIN)');
 	}
 
@@ -2018,22 +2018,22 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 		$c = new ModelCriteria('bookstore', 'Book');
 		$books = $c->findByTitle('Don Juan');
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` WHERE book.TITLE='Don Juan'";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book WHERE book.TITLE='Don Juan'";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'findByXXX($value) is turned into findBy(XXX, $value)');
 
 		$c = new ModelCriteria('bookstore', 'Book');
 		$books = $c->findByTitleAndISBN('Don Juan', 1234);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` WHERE book.TITLE='Don Juan' AND book.ISBN=1234";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book WHERE book.TITLE='Don Juan' AND book.ISBN=1234";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'findByXXXAndYYY($value) is turned into findBy(array(XXX,YYY), $value)');
 
 		$c = new ModelCriteria('bookstore', 'Book');
 		$book = $c->findOneByTitle('Don Juan');
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` WHERE book.TITLE='Don Juan' LIMIT 1";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book WHERE book.TITLE='Don Juan' LIMIT 1";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'findOneByXXX($value) is turned into findOneBy(XXX, $value)');
 
 		$c = new ModelCriteria('bookstore', 'Book');
 		$book = $c->findOneByTitleAndISBN('Don Juan', 1234);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` WHERE book.TITLE='Don Juan' AND book.ISBN=1234 LIMIT 1";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book WHERE book.TITLE='Don Juan' AND book.ISBN=1234 LIMIT 1";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'findOneByXXX($value) is turned into findOneBy(XXX, $value)');
 	}
 
@@ -2043,7 +2043,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 		$c = new ModelCriteria('bookstore', 'Book');
 		$books = $c->filterByTitle('Don Juan')->find($con);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` WHERE book.TITLE='Don Juan'";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book WHERE book.TITLE='Don Juan'";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'filterByXXX($value) is turned into filterBy(XXX, $value)');
 	}
 
@@ -2053,12 +2053,12 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 		$c = new ModelCriteria('bookstore', 'Book');
 		$books = $c->orderByTitle()->find($con);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` ORDER BY book.TITLE ASC";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book ORDER BY book.TITLE ASC";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'orderByXXX() is turned into orderBy(XXX)');
 
 		$c = new ModelCriteria('bookstore', 'Book');
 		$books = $c->orderByTitle(Criteria::DESC)->find($con);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` ORDER BY book.TITLE DESC";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book ORDER BY book.TITLE DESC";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'orderByXXX($direction) is turned into orderBy(XXX, $direction)');
 	}
 
@@ -2068,7 +2068,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 		$c = new ModelCriteria('bookstore', 'Book');
 		$books = $c->groupByTitle()->find($con);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` GROUP BY book.TITLE";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book GROUP BY book.TITLE";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'groupByXXX() is turned into groupBy(XXX)');
 	}
 
@@ -2136,7 +2136,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
 		$c->find($con);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` LEFT JOIN `author` `a` ON (book.AUTHOR_ID=a.ID) WHERE book.TITLE = 'foo' AND a.FIRST_NAME IS NOT NULL  AND a.LAST_NAME IS NOT NULL LIMIT 10";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book LEFT JOIN author a ON (book.AUTHOR_ID=a.ID) WHERE book.TITLE = 'foo' AND a.FIRST_NAME IS NOT NULL  AND a.LAST_NAME IS NOT NULL LIMIT 10";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'useQuery() and endUse() allow to merge a custom secondary criteria');
 	}
 
@@ -2158,7 +2158,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
 		$c->find($con);
-		$expectedSQL = "SELECT review.ID, review.REVIEWED_BY, review.REVIEW_DATE, review.RECOMMENDED, review.STATUS, review.BOOK_ID, book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID, author.ID, author.FIRST_NAME, author.LAST_NAME, author.EMAIL, author.AGE FROM `review` INNER JOIN `book` ON (review.BOOK_ID=book.ID) INNER JOIN `author` ON (book.AUTHOR_ID=author.ID)";
+		$expectedSQL = "SELECT review.ID, review.REVIEWED_BY, review.REVIEW_DATE, review.RECOMMENDED, review.STATUS, review.BOOK_ID, book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID, author.ID, author.FIRST_NAME, author.LAST_NAME, author.EMAIL, author.AGE FROM review INNER JOIN book ON (review.BOOK_ID=book.ID) INNER JOIN author ON (book.AUTHOR_ID=author.ID)";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'useQuery() and joinWith() can be used together and form a correct query');
 	}
 
@@ -2177,7 +2177,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
 		$c->find($con);
-		$expectedSQL = "SELECT bookstore_contest.BOOKSTORE_ID, bookstore_contest.CONTEST_ID, bookstore_contest.PRIZE_BOOK_ID FROM `bookstore_contest` LEFT JOIN `book` ON (bookstore_contest.PRIZE_BOOK_ID=book.ID) WHERE book.TITLE = 'War And Peace'";
+		$expectedSQL = "SELECT bookstore_contest.BOOKSTORE_ID, bookstore_contest.CONTEST_ID, bookstore_contest.PRIZE_BOOK_ID FROM bookstore_contest LEFT JOIN book ON (bookstore_contest.PRIZE_BOOK_ID=book.ID) WHERE book.TITLE = 'War And Peace'";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'useQuery() and endUse() allow to merge a secondary criteria');
 	}
 
@@ -2196,7 +2196,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
 		$c->find($con);
-		$expectedSQL = "SELECT bookstore_contest.BOOKSTORE_ID, bookstore_contest.CONTEST_ID, bookstore_contest.PRIZE_BOOK_ID FROM `bookstore_contest` LEFT JOIN `book` `w` ON (bookstore_contest.PRIZE_BOOK_ID=w.ID) WHERE w.TITLE = 'War And Peace'";
+		$expectedSQL = "SELECT bookstore_contest.BOOKSTORE_ID, bookstore_contest.CONTEST_ID, bookstore_contest.PRIZE_BOOK_ID FROM bookstore_contest LEFT JOIN book w ON (bookstore_contest.PRIZE_BOOK_ID=w.ID) WHERE w.TITLE = 'War And Peace'";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'useQuery() and endUse() allow to merge a secondary criteria');
 	}
 
@@ -2334,7 +2334,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 			->filterByPrice(2);
 		$params = array();
 		$sql = BasePeer::createSelectSql($bookQuery1, $params);
-		$this->assertEquals('SELECT  FROM `book` WHERE book.PRICE=:p1', $sql, 'conditions applied on a cloned query don\'t get applied on the original query');
+		$this->assertEquals('SELECT  FROM book WHERE book.PRICE=:p1', $sql, 'conditions applied on a cloned query don\'t get applied on the original query');
 	}
 }
 

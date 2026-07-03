@@ -37,7 +37,7 @@ class SubQueryTest extends BookstoreTestBase
 		$c->addSelectQuery($subCriteria, 'subCriteriaAlias', false);
 		$c->groupBy('subCriteriaAlias.AuthorId');
 
-		$sql = "SELECT subCriteriaAlias.ID, subCriteriaAlias.TITLE, subCriteriaAlias.ISBN, subCriteriaAlias.PRICE, subCriteriaAlias.PUBLISHER_ID, subCriteriaAlias.AUTHOR_ID FROM (SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` ORDER BY book.TITLE ASC) AS subCriteriaAlias GROUP BY subCriteriaAlias.AUTHOR_ID";
+		$sql = "SELECT subCriteriaAlias.ID, subCriteriaAlias.TITLE, subCriteriaAlias.ISBN, subCriteriaAlias.PRICE, subCriteriaAlias.PUBLISHER_ID, subCriteriaAlias.AUTHOR_ID FROM (SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book ORDER BY book.TITLE ASC) AS subCriteriaAlias GROUP BY subCriteriaAlias.AUTHOR_ID";
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'addSubQueryCriteriaInFrom() combines two queries succesfully');
 	}
@@ -67,7 +67,7 @@ class SubQueryTest extends BookstoreTestBase
 		$c->addSelectQuery($subCriteria); // no alias
 		$c->filterByPrice(20, Criteria::LESS_THAN);
 
-		$sql = "SELECT alias_1.ID, alias_1.TITLE, alias_1.ISBN, alias_1.PRICE, alias_1.PUBLISHER_ID, alias_1.AUTHOR_ID FROM (SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book`) AS alias_1 WHERE alias_1.PRICE<:p1";
+		$sql = "SELECT alias_1.ID, alias_1.TITLE, alias_1.ISBN, alias_1.PRICE, alias_1.PUBLISHER_ID, alias_1.AUTHOR_ID FROM (SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book) AS alias_1 WHERE alias_1.PRICE<:p1";
 		$params = array(
 			array('table' => 'book', 'column' => 'PRICE', 'value' => 20),
 		);
@@ -191,7 +191,7 @@ class SubQueryTest extends BookstoreTestBase
 		$sql = "SELECT latestBookQuery.ID, latestBookQuery.TITLE, latestBookQuery.ISBN, latestBookQuery.PRICE, latestBookQuery.PUBLISHER_ID, latestBookQuery.AUTHOR_ID ".
 		 "FROM (SELECT sortedBookQuery.ID, sortedBookQuery.TITLE, sortedBookQuery.ISBN, sortedBookQuery.PRICE, sortedBookQuery.PUBLISHER_ID, sortedBookQuery.AUTHOR_ID ".
 		 "FROM (SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID ".
-		 "FROM `book` ".
+		 "FROM book ".
 		 "WHERE book.PUBLISHER_ID=:p2 ".
 		 "ORDER BY book.TITLE DESC,book.ID DESC) AS sortedBookQuery ".
 		 "GROUP BY sortedBookQuery.AUTHOR_ID) AS latestBookQuery ".
