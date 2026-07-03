@@ -8,15 +8,15 @@ scoping conversation, before it detoured into fixing tests).
 ## Current test suite state
 
 With Docker (full suite, confirmed by an actual combined run after all of the
-below landed together on `main`): **2184 tests, 44 errors, 19 failures, 12
+below landed together on `main`): **2184 tests, 36 errors, 19 failures, 12
 skipped, 2 risky**. Started from a suite that couldn't run a single test at
 the start of this work (bootstrap was completely broken) and had 1137+
 errors once it could run at all. See git log on `main` for the detailed fix
 history — each commit message documents the specific root cause found and
 fixed.
 
-Getting from ~118 errors (clusters #1-#3 fixed) down to 44 required fixing
-one more thing not called out as its own numbered cluster: merging four
+Getting from ~118 errors (clusters #1-#3 fixed) down to 36 required fixing
+two more things not called out as their own numbered clusters: merging four
 independent fix branches together transiently produced **285** errors, not
 44 — `AggregateColumnBehaviorWithSchemaTest::tearDown()` unconditionally
 called `$this->con->commit()` after `testComputeWithSchema()` hit a
@@ -32,6 +32,28 @@ Fixed by guarding the commit the same way `BookstoreTestBase::tearDown()`
 already does elsewhere (`isCommitable()`/`isInTransaction()`/
 `forceRollBack()`), so `parent::tearDown()` always runs regardless of
 whether the test body threw.
+
+The second, separate regression (285 → 44 fixed that, then 44 → 36 fixed
+this one): the cluster #8 fix to `ModelCriteria::doDeleteAll()` (passing
+`$con` as the sole positional arg instead of `null, $con`) assumed every
+generated Peer class has the single-`$con` `doDeleteAll(PropelPDO $con =
+null)` contract that `PHP5PeerBuilder` generates. `PHP84PeerBuilder`'s
+peers, however, `extends BasePeer` directly whenever no behavior
+`parentClass` is set, and its `doDeleteAll` override literally copied
+`BasePeer::doDeleteAll(?string $tableName = null, ?PropelPDO $con = null,
+?string $databaseName = null)`'s 3-arg signature — so passing `$con` first
+now threw a `TypeError` (or a fatal LSP-incompatibility error once the
+per-table signature was corrected back to match) for every namespaced/PHP84
+fixture test (8 `NamespaceTest` methods). Root cause: `PHP5PeerBuilder`
+deliberately skips the `extends BasePeer` when `basePeerClassname ===
+'BasePeer'` (`generator/Lib/Builder/OM/PHP5PeerBuilder.php`), specifically
+to avoid forcing the per-table peer's simpler `doDeleteAll($con)` wrapper
+into signature-compatibility with `BasePeer`'s generic 3-arg version — but
+`PHP84PeerBuilder`'s copy of that same check dropped the `'BasePeer'`
+exclusion, so it always extended it. Fixed `PHP84PeerBuilder` to match
+`PHP5PeerBuilder`'s guard; the per-table peer's `doDeleteAll(?PropelPDO
+$con = null)` signature is correct again and no longer conflicts with the
+one-argument call site.
 
 Without Docker (`PROPULSION_SKIP_INTEGRATION=1`, now genuinely supported —
 see "Structural/tooling gaps" below): 2187 tests, 127 errors, 37 failures,
