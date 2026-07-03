@@ -7,11 +7,16 @@ scoping conversation, before it detoured into fixing tests).
 
 ## Current test suite state
 
-2135 tests, **88 errors, 174 failures**, 27 skipped, 10 risky, out of a
+2135 tests, **118 errors, 176 failures**, 27 skipped, 10 risky, out of a
 suite that couldn't run a single test at the start of this work (bootstrap
 was completely broken) and had 1137+ errors once it could run at all. See
 git log on `main` for the detailed fix history — each commit message
 documents the specific root cause found and fixed.
+
+(The failure count going *up* by a couple after the join-clause fix below is
+expected, not a regression: a few tests that used to hard-error on a
+malformed `FROM` clause now get far enough to hit a separate, already-known
+quoting-style assertion mismatch instead — see cluster 3 below.)
 
 Reproduce with:
 ```
@@ -41,26 +46,67 @@ tests that need it, if Docker isn't available.)
    same value conventions already used elsewhere in each file. No behavior
    or assertions changed. Dropped the suite's error count from 128 to 88.
 
-2. **1 real runtime bug**: `Join::getLeftTableAliasOrName(): string` throws
-   `TypeError: ... none returned` — `leftTableName` is never populated for
-   at least one join-construction path (surfaces on the
-   `bookstore_employee` self-referencing `supervisor_id` join used by
-   nested-set/employee-hierarchy tests: the generated SQL comes out as
-   `FROM  INNER JOIN bookstore_employee s ON (...)`, i.e. the left table
-   name is genuinely empty, not just a return-type mismatch).
-   `setLeftTableName()` (`runtime/Lib/Query/Join.php:299`) is never called
-   anywhere in `runtime/Lib/` except its own docblock example — worth
-   tracing which of `Criteria`/`ModelCriteria`'s several join-building
-   paths (`addJoinObject`, `mergeWith`, `useQuery`, behavior-injected
-   joins) is responsible for this specific self-join case and isn't
-   setting it. Affects 6 test methods directly, contributes to the ~11
-   "column does not exist" and syntax-error failures nearby too (a broken
-   `FROM` clause cascades into bogus column references in the same query).
+2. ~~**1 real runtime bug**: `Join::getLeftTableAliasOrName(): string`
+   throws `TypeError: ... none returned`~~ **Fixed.** This was actually two
+   separate bugs that happened to share a stack trace:
 
-3. **~11 "column does not exist" PDOExceptions** — not yet triaged
-   individually; at least some are downstream of issue #2's malformed
-   `FROM` clause. Worth re-triaging once #2 is fixed, since the count may
-   drop on its own.
+   - `Join::getLeftTableAliasOrName()` (`runtime/Lib/Query/Join.php:328`)
+     had a `: string` return type added during the PHP8.4 modernization
+     pass, but returning `null` here is legitimate by design: `Join`'s
+     legacy `addCondition($left, $right)` form (still exercised directly by
+     `JoinTest`, e.g. `addCondition('foo', 'bar')` with no `table.column`
+     dot) never sets `leftTableName`/`leftTableAlias` at all, and
+     `getLeftColumn()` already has a ternary that tolerates that
+     (`$tableName ? $tableName . '.' . ... : ...`). Traced every
+     join-construction path (`Criteria::addJoin`/`addMultipleJoin`,
+     `ModelJoin::setRelationMap` via `ModelCriteria::join()`, `mergeWith`,
+     `useQuery`, `addJoinObject`) — none of them fail to set
+     `leftTableName` when a table is actually known; `addExplicitCondition()`
+     (used by every production path) always sets it directly (not via the
+     `setLeftTableName()` setter, which is why grepping for that setter's
+     call sites was a dead end). Fixed by widening the return type to
+     `?string`, matching the getter's actual, always-been-nullable
+     contract, instead of inventing a table name that was never there.
+     Fixed 6 `JoinTest` methods.
+   - The `bookstore_employee` self-join (`Supervisor`/`Subordinate`) SQL
+     really was malformed (`FROM  INNER JOIN bookstore_employee s ON
+     (...)`, empty `FROM`), but the cause was in
+     `BasePeer::createSelectSql()` (`runtime/Lib/Util/BasePeer.php`,
+     "tables should not exist in both the from and join clauses" block),
+     not in `Join`. That block deduplicated `$fromClause` against
+     `$joinTables` by *base table name*, ignoring aliases. For a self-join,
+     the primary table's own unaliased `FROM` entry (`bookstore_employee`)
+     and the joined table's aliased entry (`bookstore_employee s`) share a
+     base name but are different table references — the base-name-only
+     comparison stripped the real `FROM` entry, leaving an empty `FROM`
+     before the `JOIN` keyword. This block predates this modernization
+     session (present unchanged since the original `b474bb8` PHP8.4-port
+     import), so it wasn't something introduced by recent fix commits.
+     Fixed by narrowing the dedup back to an exact string match (table
+     name *and* alias, or lack thereof) — the only case it actually needs
+     to handle (a criterion or select-column referencing the same,
+     identically-aliased/unaliased table that's also the right side of a
+     join). Fixed `ModelCriteriaTest::testJoinOnSameTable` (now only fails
+     on an unrelated, already-known MySQL-vs-Postgres backtick-quoting
+     mismatch, cluster 4) and the 3 `*FormatterWithTest::testFindOneWithRelationName`
+     tests that exercised the same `Supervisor` self-join end to end.
+
+3. ~~**~11 "column does not exist" PDOExceptions**~~ **Re-triaged, not a
+   bug.** All 11 are the exact same cause, unrelated to issue 2 above (they
+   throw `SQLSTATE[42703]` "Undefined column", not the `42601` "syntax
+   error" that the issue-2 malformed `FROM` clause actually produced — the
+   two clusters never overlapped). Every one comes from hand-written raw
+   SQL in `PropelArrayFormatterTest`/`PropelObjectFormatterTest`/
+   `PropelOnDemandFormatterTest`/`PropelStatementFormatterTest`, e.g.
+   `$con->query('SELECT * FROM book WHERE book.TITLE = "Quicksilver"')`.
+   MySQL's non-standard extension treats double-quoted string literals
+   as strings; standard SQL (and Postgres) treats `"..."` as a quoted
+   *identifier*, so Postgres correctly reports `column "Quicksilver" does
+   not exist`. This is a legitimate MySQL-vs-Postgres semantic difference
+   in the test's own SQL, not a library bug — left alone rather than
+   papered over (would require rewriting the test SQL to use single
+   quotes, which is a test-content call the original test author didn't
+   make and isn't in scope here).
 
 4. **~27 "Failed asserting that two strings are equal"** — not yet
    triaged. Likely a mix of genuine small bugs and legitimate

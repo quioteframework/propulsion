@@ -694,30 +694,20 @@ class BasePeer
 		$fromClause = array_unique($fromClause);
 		$fromClause = array_diff($fromClause, array(''));
 
-		// tables should not exist in both the from and join clauses
+		// A table should not appear in both the from and join clauses: if a join
+		// already introduces a table (with or without alias) via "... JOIN table [alias] ON ...",
+		// drop any from-clause entry that is the exact same table reference.
+		//
+		// This must be an *exact* match (same table name AND same alias, or lack thereof) rather
+		// than a match on the base table name alone: for self-joins (e.g. a table joined to itself
+		// via an alias), the from-clause entry for the unaliased anchor table and the join-clause
+		// entry for the aliased joined table share the same base table name but are genuinely
+		// different table references that both need to remain in the SQL. Stripping the from-clause
+		// entry just because its base name matches an aliased join target used to blank out the
+		// entire FROM clause for self-joins (bookstore_employee's Supervisor/Subordinate relation).
 		if ($joinTables && $fromClause) {
-			// Build a map of joined table names (base table name without alias) for comparison
-			$joinedTableNames = [];
-			foreach ($joinTables as $jt) {
-				// Extract base table name: "schema.table Alias" -> "schema.table" or just "schema.table"
-				$parts = explode(' ', trim($jt));
-				$joinedTableNames[] = $parts[0]; // Always use the first part (table name)
-				if (count($parts) > 1) {
-					$joinedTableNames[] = $jt; // Also keep the full "table alias" version
-				}
-			}
-			
 			foreach ($fromClause as $fi => $ftable) {
-				// Check exact match first
 				if (in_array($ftable, $joinTables)) {
-					unset($fromClause[$fi]);
-					continue;
-				}
-				
-				// Check if the base table name (without alias) matches any joined table
-				$ftableParts = explode(' ', trim($ftable));
-				$ftableBaseName = $ftableParts[0];
-				if (in_array($ftableBaseName, $joinedTableNames)) {
 					unset($fromClause[$fi]);
 				}
 			}
