@@ -452,8 +452,14 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			$colname = $col->getName();
 			$phpname = $col->getPhpName();
 			$type = $this->getPhp84PropertyType($col);
-			$defaultVal = $this->getDefaultValueString($col);
-			
+			// Temporal (DateTimeInterface-typed) and other object-typed columns can have a
+			// non-null default, but PHP property declarations only accept constant/scalar
+			// expressions as defaults -- `new DateTime(...)` isn't legal here (unlike in a
+			// constructor-promoted parameter). Always default those to null in the property
+			// declaration; the real default is applied via applyDefaultValues(), called from
+			// the constructor (see addApplyDefaultValues()).
+			$defaultVal = $col->isTemporalType() ? 'NULL' : $this->getDefaultValueString($col);
+
 			// Add property documentation
 			$script .= "
 
@@ -617,10 +623,20 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			$def = $col->getDefaultValue();
 			
 			if ($def !== null && !$def->isExpression()) {
-				// Use the explicit default value
+				// Use the explicit default value. Temporal columns need an actual
+				// DateTime instance assigned here (a typed ?DateTimeInterface property
+				// can't be assigned the raw formatted string getDefaultValueString()
+				// returns for them -- see addProperties() for why it can't just be the
+				// property's compile-time default either).
 				$defaultValue = $this->getDefaultValueString($col);
-				$script .= "
+				if ($col->isTemporalType() && $defaultValue !== 'NULL' && $defaultValue !== 'null') {
+					$this->declareClass('\\DateTime');
+					$script .= "
+		\$this->$phpname = new \\DateTime($defaultValue);";
+				} else {
+					$script .= "
 		\$this->$phpname = $defaultValue;";
+				}
 			} else {
 				// For typed properties without explicit defaults, initialize to null if nullable
 				$returnType = $this->getPhp84TypeHint($col);
@@ -879,10 +895,20 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			foreach ($colsWithDefaults as $col) {
 				$phpname = $col->getPhpName();
 				$defaultVal = $this->getDefaultValueString($col);
-				$script .= "
+				if ($col->isTemporalType() && $defaultVal !== 'NULL' && $defaultVal !== 'null') {
+					// $this->$phpname is a DateTimeInterface object here (or null), not the
+					// raw formatted string $defaultVal holds -- compare formatted values.
+					$fmt = $this->getTemporalFormatter($col);
+					$script .= "
+		if (\$this->$phpname === null || \$this->$phpname->format('$fmt') !== $defaultVal) {
+			return false;
+		}";
+				} else {
+					$script .= "
 		if (\$this->$phpname !== $defaultVal) {
 			return false;
 		}";
+				}
 			}
 			$script .= "
 

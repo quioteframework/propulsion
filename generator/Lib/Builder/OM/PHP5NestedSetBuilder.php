@@ -259,7 +259,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	 *                 May be unreliable with parent/children/brother changes
 	 * @throws     PropelException
 	 */
-	public function save(PropelPDO \$con = null)
+	public function save(?PropelPDO \$con = null): int
 	{
 		\$left = \$this->getLeftValue();
 		\$right = \$this->getRightValue();
@@ -284,7 +284,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	 * @return     void
 	 * @throws     PropelException
 	 */
-	public function delete(PropelPDO \$con = null)
+	public function delete(?PropelPDO \$con = null): void
 	{
 		// delete node first
 		parent::delete(\$con);

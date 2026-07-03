@@ -272,11 +272,14 @@ abstract class ".$this->getClassname()." implements \\IteratorAggregate
 	 */
 	protected function addSetLevel(&$script): void
 	{
+		// See NestedSetBuilder::addSetLevel() for why this deliberately has no return
+		// type: it would otherwise fatal wherever it ends up implementing
+		// Propulsion\OM\NodeObject::setLevel($level), which is untyped.
 		$script .= "
 	/**
 	 * Set the level of the node in the tree
 	 */
-	public function setLevel(?int \$level): static
+	public function setLevel(\$level)
 	{
 		\$this->level = \$level;
 		return \$this;

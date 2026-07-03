@@ -35,7 +35,7 @@ class FieldnameRelatedTest extends TestCase
 	{
 		parent::setUp();
 		set_include_path(get_include_path() . PATH_SEPARATOR . "fixtures/bookstore/build/classes");
-		require_once 'bookstore/map/BookTableMap.php';
+		require_once 'bookstore/Map/BookTableMap.php';
 		require_once 'bookstore/BookPeer.php';
 		require_once 'bookstore/Book.php';
 	}

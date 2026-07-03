@@ -270,7 +270,7 @@ public function addVersion(\$con = null)
       $idsColumn = $this->behavior->getReferrerIdsColumn($fk);
       $versionsColumn = $this->behavior->getReferrerVersionsColumn($fk);
       $script .= "
-	if (\$relateds = \$this->get{$fkGetter}(\$con)->toKeyValue('{$fk->getForeignColumn()->getPhpName()}', 'Version')) {
+	if (\$relateds = \$this->get{$fkGetter}(new Criteria(), \$con)->toKeyValue('{$fk->getForeignColumn()->getPhpName()}', 'Version')) {
 		\$version->set{$idsColumn->getPhpName()}(array_keys(\$relateds));
 		\$version->set{$versionsColumn->getPhpName()}(array_values(\$relateds));
 	}";

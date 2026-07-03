@@ -271,8 +271,17 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		$script = '';
 		$declaredClasses = $this->declaredClasses;
 		unset($declaredClasses[$ignoredNamespace]);
-		
-		// Build a map of class names to their preferred fully qualified names
+
+		// Build a map of class names to their preferred fully qualified names.
+		// See QueryBuilder::getUseStatements() for the full rationale: these Propulsion\*
+		// core classes are globally aliased by runtime/Lib/legacy-class-map.php, so a bare
+		// reference to e.g. `Criteria` only resolves correctly on its own for a class with
+		// no namespace of its own -- inside a real `namespace Foo\Bar;` block, it would
+		// resolve relative to that namespace instead, so it still needs a real `use` import
+		// there. PropelQuickBuilder also concatenates many flat/non-namespaced generated
+		// classes into a single eval()'d script with no namespace block between them, so
+		// unconditionally emitting `use Fully\Qualified\Name;` once per such class (as
+		// addClassBody()'s FQCN declareClass() calls would otherwise cause) is fatal.
 		$classMap = [];
 		$preferredNamespaces = [
 			'PropelException' => 'Propulsion\\Exception\\PropelException',
@@ -286,17 +295,26 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			'BaseObject' => 'Propulsion\\OM\\BaseObject',
 			'Persistent' => 'Propulsion\\OM\\Persistent'
 		];
-		
+		$isFlat = !$this->getNamespace();
+
 		// Collect all classes and prefer properly namespaced versions
 		foreach ($declaredClasses as $namespace => $classes) {
 			foreach ($classes as $class) {
 				$fullName = $namespace ? $namespace . '\\' . $class : $class;
-				
-				// Skip root namespace classes that have preferred namespaced versions
-				if ($namespace === '' && isset($preferredNamespaces[$class])) {
+
+				if ($isFlat && isset($preferredNamespaces[$class])
+					&& ($namespace === '' || $fullName === $preferredNamespaces[$class])) {
+					// Flat target referencing a globally-aliased core class: no import needed.
 					continue;
 				}
-				
+
+				if (!$isFlat && $namespace === '' && isset($preferredNamespaces[$class])) {
+					// Namespaced target with a legacy bare declare of a core class: import its
+					// real FQCN, since a bare reference here would resolve relative to this
+					// class's own namespace instead.
+					$fullName = $preferredNamespaces[$class];
+				}
+
 				// Use the class name as the key for deduplication
 				$classMap[$class] = $fullName;
 			}

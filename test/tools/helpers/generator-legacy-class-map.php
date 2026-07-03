@@ -103,7 +103,7 @@ return [
     'NodePeerBuilder' => 'Propulsion\\Generator\\Builder\\OM\\NodePeerBuilder',
     'ObjectBuilder' => 'Propulsion\\Generator\\Builder\\OM\\ObjectBuilder',
     'PeerBuilder' => 'Propulsion\\Generator\\Builder\\OM\\PeerBuilder',
-    'PHP84QueryBuilder' => 'Propulsion\\Generator\\Builder\\OM\\PHP84QueryBuilder',
+    'PHP5QueryBuilder' => 'Propulsion\\Generator\\Builder\\OM\\PHP5QueryBuilder',
     'TableMapBuilder' => 'Propulsion\\Generator\\Builder\\OM\\TableMapBuilder',
     'AbstractPeerBuilder' => 'Propulsion\\Generator\\Builder\\OM\\AbstractPeerBuilder',
     'PgsqlDataSQLBuilder' => 'Propulsion\\Generator\\Builder\\SQL\\PgSQL\\PgsqlDataSQLBuilder',
