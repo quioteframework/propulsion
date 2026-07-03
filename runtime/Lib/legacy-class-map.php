@@ -9,7 +9,17 @@
  * because that was their actual global name before this fork renamed
  * Propel\ to Propulsion\. The autoloader registered at the bottom of
  * Propulsion.php uses this to alias them on demand, so already-generated code --
- * and anyone who hasn't regenerated their models yet -- keeps working.
+ * and anyone who has not regenerated their models yet -- keeps working.
+ *
+ * This map also carries a parallel set of entries keyed by the *new* bare
+ * Propulsion* names (PropulsionPDO, PropulsionException, ...): the code
+ * generator itself emits unnamespaced Object Model / behavior code that
+ * references these runtime classes by bare name too, and that bare-name
+ * resolution mechanism -- not a per-renamed-class class_alias() -- is what
+ * makes freshly generated code work after the Propel* -> Propulsion*
+ * runtime class rename. The original bare legacy keys (PropelPDO, ...) are
+ * left exactly as they were for old/already-generated code; nothing here is
+ * renamed, only added to.
  *
  * @return array<string,string>
  */
@@ -44,6 +54,7 @@ return [
     'ModelWith' => 'Propulsion\\Formatter\\ModelWith',
     'MssqlDebugPDO' => 'Propulsion\\Adapter\\MSSQL\\MssqlDebugPDO',
     'MssqlPropelPDO' => 'Propulsion\\Adapter\\MSSQL\\MssqlPropulsionPDO',
+    'MssqlPropulsionPDO' => 'Propulsion\\Adapter\\MSSQL\\MssqlPropulsionPDO',
     'NestedSetRecursiveIterator' => 'Propulsion\\OM\\NestedSetRecursiveIterator',
     'NodeObject' => 'Propulsion\\OM\\NodeObject',
     'NodePeer' => 'Propulsion\\Util\\NodePeer',
@@ -78,6 +89,34 @@ return [
     'PropelStatementFormatter' => 'Propulsion\\Formatter\\PropulsionStatementFormatter',
     'PropelXMLParser' => 'Propulsion\\Parser\\PropulsionXMLParser',
     'PropelYAMLParser' => 'Propulsion\\Parser\\PropulsionYAMLParser',
+    'Propulsion' => 'Propulsion\\Propulsion',
+    'PropulsionArrayCollection' => 'Propulsion\\Collection\\PropulsionArrayCollection',
+    'PropulsionArrayFormatter' => 'Propulsion\\Formatter\\PropulsionArrayFormatter',
+    'PropulsionAutoloader' => 'Propulsion\\Util\\PropulsionAutoloader',
+    'PropulsionCSVParser' => 'Propulsion\\Parser\\PropulsionCSVParser',
+    'PropulsionCollection' => 'Propulsion\\Collection\\PropulsionCollection',
+    'PropulsionColumnTypes' => 'Propulsion\\Util\\PropulsionColumnTypes',
+    'PropulsionConditionalProxy' => 'Propulsion\\Util\\PropulsionConditionalProxy',
+    'PropulsionConfiguration' => 'Propulsion\\Config\\PropulsionConfiguration',
+    'PropulsionConfigurationIterator' => 'Propulsion\\Config\\PropulsionConfigurationIterator',
+    'PropulsionDateTime' => 'Propulsion\\Util\\PropulsionDateTime',
+    'PropulsionException' => 'Propulsion\\Exception\\PropulsionException',
+    'PropulsionFormatter' => 'Propulsion\\Formatter\\PropulsionFormatter',
+    'PropulsionJSONParser' => 'Propulsion\\Parser\\PropulsionJSONParser',
+    'PropulsionModelPager' => 'Propulsion\\Util\\PropulsionModelPager',
+    'PropulsionObjectCollection' => 'Propulsion\\Collection\\PropulsionObjectCollection',
+    'PropulsionObjectFormatter' => 'Propulsion\\Formatter\\PropulsionObjectFormatter',
+    'PropulsionOnDemandCollection' => 'Propulsion\\Collection\\PropulsionOnDemandCollection',
+    'PropulsionOnDemandFormatter' => 'Propulsion\\Formatter\\PropulsionOnDemandFormatter',
+    'PropulsionOnDemandIterator' => 'Propulsion\\Collection\\PropulsionOnDemandIterator',
+    'PropulsionPDO' => 'Propulsion\\Connection\\PropulsionPDO',
+    'PropulsionPager' => 'Propulsion\\Util\\PropulsionPager',
+    'PropulsionParser' => 'Propulsion\\Parser\\PropulsionParser',
+    'PropulsionQuery' => 'Propulsion\\Query\\PropulsionQuery',
+    'PropulsionSimpleArrayFormatter' => 'Propulsion\\Formatter\\PropulsionSimpleArrayFormatter',
+    'PropulsionStatementFormatter' => 'Propulsion\\Formatter\\PropulsionStatementFormatter',
+    'PropulsionXMLParser' => 'Propulsion\\Parser\\PropulsionXMLParser',
+    'PropulsionYAMLParser' => 'Propulsion\\Parser\\PropulsionYAMLParser',
     'RelationMap' => 'Propulsion\\Map\\RelationMap',
     'RequiredValidator' => 'Propulsion\\Validator\\RequiredValidator',
     'TableMap' => 'Propulsion\\Map\\TableMap',
@@ -86,5 +125,4 @@ return [
     'ValidValuesValidator' => 'Propulsion\\Validator\\ValidValuesValidator',
     'ValidationFailed' => 'Propulsion\\Validator\\ValidationFailed',
     'ValidatorMap' => 'Propulsion\\Map\\ValidatorMap',
-
 ];
