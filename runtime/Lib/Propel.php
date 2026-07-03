@@ -162,14 +162,22 @@ class Propel
 	private static $instancePoolingEnabled = true;
 
 	/**
-	 * @var        bool For replication, whether to force the use of master connection.
-	 */
-	private static $forceMasterConnection = false;
-
-	/**
 	 * @var        string Base directory to use for autoloading. Initialized in self::initBaseDir()
 	 */
 	protected static $baseDir;
+
+	/**
+	 * @var        ServiceContainer|null Process-scoped service registry (worker-safety
+	 *             rework phase 4a). Lazily created on first access.
+	 */
+	private static ?ServiceContainer $serviceContainer = null;
+
+	/**
+	 * @var        Session|null Request-scoped state (worker-safety rework phase 4a).
+	 *             Lazily created on first access. `forceMasterConnection` lives here now
+	 *             -- see Session::getForceMasterConnection()/setForceMasterConnection().
+	 */
+	private static ?Session $session = null;
 
 
 	/**
@@ -371,21 +379,106 @@ class Propel
 	/**
 	 * For replication, set whether to always force the use of a master connection.
 	 *
+	 * As of the worker-safety rework (phase 4a), this state actually lives on
+	 * {@see Session} -- it's request-scoped, not process-scoped, since it must
+	 * not leak from one request to the next in a persistent-worker environment.
+	 * This method is kept as a thin proxy for backwards compatibility.
+	 *
 	 * @param      boolean $bit True or False
 	 */
 	public static function setForceMasterConnection($bit)
 	{
-		self::$forceMasterConnection = (bool) $bit;
+		self::getSession()->setForceMasterConnection((bool) $bit);
 	}
 
 	/**
 	 * For replication, whether to always force the use of a master connection.
 	 *
+	 * @see        setForceMasterConnection()
+	 *
 	 * @return     boolean
 	 */
 	public static function getForceMasterConnection()
 	{
-		return self::$forceMasterConnection;
+		return self::getSession()->getForceMasterConnection();
+	}
+
+	/**
+	 * Returns the process-scoped service registry (worker-safety rework phase 4a).
+	 * Lazily creates one on first access.
+	 *
+	 * @return     ServiceContainer
+	 */
+	public static function getServiceContainer(): ServiceContainer
+	{
+		if (self::$serviceContainer === null) {
+			self::$serviceContainer = new ServiceContainer();
+		}
+
+		return self::$serviceContainer;
+	}
+
+	/**
+	 * Overrides the process-scoped service registry. Mainly useful for tests.
+	 */
+	public static function setServiceContainer(ServiceContainer $serviceContainer): void
+	{
+		self::$serviceContainer = $serviceContainer;
+	}
+
+	/**
+	 * Returns the request-scoped session (worker-safety rework phase 4a). Lazily
+	 * creates one on first access.
+	 *
+	 * In a persistent-worker environment, call {@see Session::reset()} on this at
+	 * each request boundary.
+	 *
+	 * @return     Session
+	 */
+	public static function getSession(): Session
+	{
+		if (self::$session === null) {
+			self::$session = new Session();
+		}
+
+		return self::$session;
+	}
+
+	/**
+	 * Overrides the request-scoped session. Mainly useful for tests, or for a
+	 * worker-mode integration explicitly starting a fresh session per request.
+	 */
+	public static function setSession(Session $session): void
+	{
+		self::$session = $session;
+	}
+
+	/**
+	 * @return     array<int, string> The names of every datasource with a
+	 *                                registered DatabaseMap.
+	 */
+	public static function getDatabaseMapNames(): array
+	{
+		return array_keys(self::$dbMaps);
+	}
+
+	/**
+	 * @return     array<int, PDO> Every PDO/PropelPDO connection Propel currently
+	 *                              has open (master and slave, across all
+	 *                              datasources), deduplicated.
+	 */
+	public static function getOpenConnections(): array
+	{
+		$connections = array();
+		foreach (self::$connectionMap as $modes) {
+			foreach ($modes as $con) {
+				if ($con instanceof PDO) {
+					$connections[spl_object_id($con)] = $con;
+				}
+			}
+		}
+
+		return array_values($connections);
 	}
 
 	/**
@@ -426,7 +519,7 @@ class Propel
 		// IF a WRITE-mode connection was requested
 		// or Propel is configured to always use the master connection
 		// THEN return the master connection.
-		if ($mode != Propel::CONNECTION_READ || self::$forceMasterConnection) {
+		if ($mode != Propel::CONNECTION_READ || self::getSession()->getForceMasterConnection()) {
 			return self::getMasterConnection($name);
 		} else {
 			return self::getSlaveConnection($name);
