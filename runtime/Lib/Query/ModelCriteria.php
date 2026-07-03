@@ -1608,7 +1608,18 @@ class ModelCriteria extends Criteria
 	 */
 	public function doDeleteAll(PropelPDO $con)
 	{
-		$affectedRows = call_user_func(array($this->modelPeerName, 'doDeleteAll'), null, $con);
+		// NOTE: Peer::doDeleteAll() takes a single $con parameter (unlike doDelete(),
+		// which takes ($criteria, $con)). Passing an extra leading null here used to
+		// silently shift $con out of the call (PHP drops excess positional args to a
+		// non-variadic method), so the peer always saw $con === null and fell back to
+		// Propel::getConnection(PeerClass::DATABASE_NAME) -- a brand new, independent
+		// connection instead of the one the caller (and its surrounding transaction)
+		// was using. Harmless when that connection name happens to already be cached
+		// under the same name, but for datasources registered under a different name
+		// (e.g. this fixture's 'bookstore-behavior') it opened a second real session
+		// against the same database, which could race/deadlock against uncommitted
+		// rows held by the first connection's still-open transaction.
+		$affectedRows = call_user_func(array($this->modelPeerName, 'doDeleteAll'), $con);
 
 		return $affectedRows;
 	}
