@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -20,7 +20,7 @@ use Propulsion\Generator\Manager\SqlManager;
  * CmsTestBase). Started lazily on first use: generates the Bookstore Object Model
  * classes and DDL via the real generator classes (the same ones bin/propulsion
  * uses -- no shelling out), loads the schema into the container, and writes a
- * runtime config file pointing Propel::init() at it.
+ * runtime config file pointing Propulsion::init() at it.
  *
  * One container serves the whole PHPUnit run (starting one per test class would be
  * far too slow); it's torn down via register_shutdown_function().
@@ -82,13 +82,13 @@ class IntegrationDatabase
             throw new \RuntimeException(self::$skipReason);
         }
 
-        // Force Propulsion\Propel to load now, which eagerly registers its own
-        // legacy-class-map aliases (BaseObject, TableMap, PropelException, ...).
+        // Force Propulsion\Propulsion to load now, which eagerly registers its own
+        // legacy-class-map aliases (BaseObject, TableMap, PropulsionException, ...).
         // Generated fixture classes (BaseTable4 extends BaseObject, etc.) need
         // those bare aliases to already exist the moment the classmap autoloader
         // below pulls them in -- which can happen as early as PHPUnit's test suite
-        // discovery, well before anything else would have triggered Propel::init().
-        class_exists(\Propulsion\Propel::class);
+        // discovery, well before anything else would have triggered Propulsion::init().
+        class_exists(\Propulsion\Propulsion::class);
 
         self::registerClassmapAutoloader();
     }
@@ -136,7 +136,7 @@ class IntegrationDatabase
             throw new \RuntimeException(self::$namespacedSkipReason);
         }
 
-        class_exists(\Propulsion\Propel::class);
+        class_exists(\Propulsion\Propulsion::class);
         self::registerClassmapAutoloader(self::namespacedClassesDir());
     }
 
@@ -153,7 +153,7 @@ class IntegrationDatabase
     /**
      * Same idea as ensureReady()/ensureNamespacedReady(), for the separate "schemas"
      * fixture project (test/fixtures/schemas/schema.xml) used by the *WithSchema(s)
-     * tests: its tables use a `schema="..."` attribute (Propel's "multiple schemas in
+     * tests: its tables use a `schema="..."` attribute (Propulsion's "multiple schemas in
      * one database" support) combined with `propel.schema.autoPrefix`, which bakes the
      * schema name into the generated PHP class/table names (e.g.
      * `BookstoreSchemasBookstore`, `ContestBookstoreContest`) rather than needing real
@@ -187,7 +187,7 @@ class IntegrationDatabase
             throw new \RuntimeException(self::$schemasSkipReason);
         }
 
-        class_exists(\Propulsion\Propel::class);
+        class_exists(\Propulsion\Propulsion::class);
         self::registerClassmapAutoloader(self::schemasClassesDir());
     }
 
@@ -235,7 +235,7 @@ class IntegrationDatabase
         $pdo = new \PDO($dsn, 'propulsion', 'propulsion');
         $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
 
-        // The schemas fixture's tables use a `schema="..."` attribute (Propel's
+        // The schemas fixture's tables use a `schema="..."` attribute (Propulsion's
         // "multiple schemas in one database" support) on real Postgres, which -- unlike
         // MySQL, where "schema" just becomes a cross-database reference -- requires an
         // actual `CREATE SCHEMA` up front: Table::getName() qualifies the DDL/DML table

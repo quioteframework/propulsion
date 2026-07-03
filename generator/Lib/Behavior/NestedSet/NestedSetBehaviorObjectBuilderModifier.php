@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -68,7 +68,7 @@ protected \$nestedSetQueries = array();
 
 /**
  * Internal cache for children nodes
- * @var        null|PropelObjectCollection
+ * @var        null|PropulsionObjectCollection
  */
 protected \$collNestedSetChildren = null;
 
@@ -99,7 +99,7 @@ protected \$aNestedSetParent = null;
 		$script .= "
 		->count(\$con);
 	if (\$nbRoots > 0) {
-			throw new PropelException(";
+			throw new PropulsionException(";
 
 		if ($this->behavior->useScope()) {
 			$script .= "sprintf('A root node already exists in this tree with scope \"%s\".', \$this->getScopeValue())";
@@ -119,7 +119,7 @@ protected \$aNestedSetParent = null;
 	{
 		$peerClassname = $builder->getStubPeerBuilder()->getClassname();
 		return "if (\$this->isRoot()) {
-	throw new PropelException('Deletion of a root node is disabled for nested sets. Use $peerClassname::deleteTree(" . ($this->behavior->useScope() ? '$scope' : '') . ") instead to delete an entire tree');
+	throw new PropulsionException('Deletion of a root node is disabled for nested sets. Use $peerClassname::deleteTree(" . ($this->behavior->useScope() ? '$scope' : '') . ") instead to delete an entire tree');
 }
 
 if (\$this->isInTree()) {
@@ -391,12 +391,12 @@ public function setScopeValue(\$v)
  * Creates the supplied node as the root node.
  *
  * @return     {$this->objectClassname} The current object (for fluent API support)
- * @throws     PropelException
+ * @throws     PropulsionException
  */
 public function makeRoot()
 {
 	if (\$this->getLeftValue() || \$this->getRightValue()) {
-		throw new PropelException('Cannot turn an existing node into a root node.');
+		throw new PropulsionException('Cannot turn an existing node into a root node.');
 	}
 
 	\$this->setLeftValue(1);
@@ -459,7 +459,7 @@ public function isLeaf()
 /**
  * Tests if node is a descendant of another node
  *
- * @param      $objectClassname \$node Propel node object
+ * @param      $objectClassname \$node Propulsion node object
  * @return     bool
  */
 public function isDescendantOf(\$parent)
@@ -467,7 +467,7 @@ public function isDescendantOf(\$parent)
 		if ($this->behavior->useScope()) {
 			$script .= "
 	if (\$this->getScopeValue() !== \$parent->getScopeValue()) {
-		throw new PropelException('Comparing two nodes of different trees');
+		throw new PropulsionException('Comparing two nodes of different trees');
 	}";
 		}
 		$script .= "
@@ -483,7 +483,7 @@ public function isDescendantOf(\$parent)
 /**
  * Tests if node is a ancestor of another node
  *
- * @param      $objectClassname \$node Propel node object
+ * @param      $objectClassname \$node Propulsion node object
  * @return     bool
  */
 public function isAncestorOf(\$child)
@@ -499,10 +499,10 @@ public function isAncestorOf(\$child)
 /**
  * Tests if object has an ancestor
  *
- * @param      PropelPDO \$con Connection to use.
+ * @param      PropulsionPDO \$con Connection to use.
  * @return     bool
  */
-public function hasParent(PropelPDO \$con = null)
+public function hasParent(PropulsionPDO \$con = null)
 {
 	return \$this->getLevel() > 0;
 }
@@ -537,10 +537,10 @@ public function setParent(\$parent = null)
  * Gets parent node for the current object if it exists
  * The result is cached so further calls to the same method don't issue any queries
  *
- * @param      PropelPDO \$con Connection to use.
- * @return     mixed 		Propel object if exists else false
+ * @param      PropulsionPDO \$con Connection to use.
+ * @return     mixed 		Propulsion object if exists else false
  */
-public function getParent(PropelPDO \$con = null)
+public function getParent(PropulsionPDO \$con = null)
 {
 	if (\$this->aNestedSetParent === null && \$this->hasParent()) {
 		\$this->aNestedSetParent = {$this->queryClassname}::create()
@@ -561,10 +561,10 @@ public function getParent(PropelPDO \$con = null)
 /**
  * Determines if the node has previous sibling
  *
- * @param      PropelPDO \$con Connection to use.
+ * @param      PropulsionPDO \$con Connection to use.
  * @return     bool
  */
-public function hasPrevSibling(PropelPDO \$con = null)
+public function hasPrevSibling(PropulsionPDO \$con = null)
 {
 	if (!{$this->peerClassname}::isValid(\$this)) {
 		return false;
@@ -588,10 +588,10 @@ public function hasPrevSibling(PropelPDO \$con = null)
 /**
  * Gets previous sibling for the given node if it exists
  *
- * @param      PropelPDO \$con Connection to use.
- * @return     mixed 		Propel object if exists else false
+ * @param      PropulsionPDO \$con Connection to use.
+ * @return     mixed 		Propulsion object if exists else false
  */
-public function getPrevSibling(PropelPDO \$con = null)
+public function getPrevSibling(PropulsionPDO \$con = null)
 {
 	return $queryClassname::create()
 		->filterBy" . $this->getColumnPhpName('right_column') . "(\$this->getLeftValue() - 1)";
@@ -613,10 +613,10 @@ public function getPrevSibling(PropelPDO \$con = null)
 /**
  * Determines if the node has next sibling
  *
- * @param      PropelPDO \$con Connection to use.
+ * @param      PropulsionPDO \$con Connection to use.
  * @return     bool
  */
-public function hasNextSibling(PropelPDO \$con = null)
+public function hasNextSibling(PropulsionPDO \$con = null)
 {
 	if (!{$this->peerClassname}::isValid(\$this)) {
 		return false;
@@ -640,10 +640,10 @@ public function hasNextSibling(PropelPDO \$con = null)
 /**
  * Gets next sibling for the given node if it exists
  *
- * @param      PropelPDO \$con Connection to use.
- * @return     mixed 		Propel object if exists else false
+ * @param      PropulsionPDO \$con Connection to use.
+ * @return     mixed 		Propulsion object if exists else false
  */
-public function getNextSibling(PropelPDO \$con = null)
+public function getNextSibling(PropulsionPDO \$con = null)
 {
 	return $queryClassname::create()
 		->filterBy" . $this->getColumnPhpName('left_column') . "(\$this->getRightValue() + 1)";
@@ -685,7 +685,7 @@ public function clearNestedSetChildren()
  */
 public function initNestedSetChildren()
 {
-	\$this->collNestedSetChildren = new PropelObjectCollection();
+	\$this->collNestedSetChildren = new PropulsionObjectCollection();
 	\$this->collNestedSetChildren->setModel('" . $this->builder->getNewStubObjectBuilder($this->table)->getClassname() . "');
 }
 ";
@@ -742,10 +742,10 @@ public function hasChildren()
  * Gets the children of the given node
  *
  * @param      Criteria  \$criteria Criteria to filter results.
- * @param      PropelPDO \$con Connection to use.
+ * @param      PropulsionPDO \$con Connection to use.
  * @return     array     List of $objectClassname objects
  */
-public function getChildren(\$criteria = null, PropelPDO \$con = null)
+public function getChildren(\$criteria = null, PropulsionPDO \$con = null)
 {
 	if(null === \$this->collNestedSetChildren || null !== \$criteria) {
 		if (\$this->isLeaf() || (\$this->isNew() && null === \$this->collNestedSetChildren)) {
@@ -776,10 +776,10 @@ public function getChildren(\$criteria = null, PropelPDO \$con = null)
  * Gets number of children for the given node
  *
  * @param      Criteria  \$criteria Criteria to filter results.
- * @param      PropelPDO \$con Connection to use.
+ * @param      PropulsionPDO \$con Connection to use.
  * @return     int       Number of children
  */
-public function countChildren(\$criteria = null, PropelPDO \$con = null)
+public function countChildren(\$criteria = null, PropulsionPDO \$con = null)
 {
 	if(null === \$this->collNestedSetChildren || null !== \$criteria) {
 		if (\$this->isLeaf() || (\$this->isNew() && null === \$this->collNestedSetChildren)) {
@@ -805,10 +805,10 @@ public function countChildren(\$criteria = null, PropelPDO \$con = null)
  * Gets the first child of the given node
  *
  * @param      Criteria \$query Criteria to filter results.
- * @param      PropelPDO \$con Connection to use.
+ * @param      PropulsionPDO \$con Connection to use.
  * @return     array 		List of $objectClassname objects
  */
-public function getFirstChild(\$query = null, PropelPDO \$con = null)
+public function getFirstChild(\$query = null, PropulsionPDO \$con = null)
 {
 	if(\$this->isLeaf()) {
 		return array();
@@ -831,10 +831,10 @@ public function getFirstChild(\$query = null, PropelPDO \$con = null)
  * Gets the last child of the given node
  *
  * @param      Criteria \$query Criteria to filter results.
- * @param      PropelPDO \$con Connection to use.
+ * @param      PropulsionPDO \$con Connection to use.
  * @return     array 		List of $objectClassname objects
  */
-public function getLastChild(\$query = null, PropelPDO \$con = null)
+public function getLastChild(\$query = null, PropulsionPDO \$con = null)
 {
 	if(\$this->isLeaf()) {
 		return array();
@@ -858,11 +858,11 @@ public function getLastChild(\$query = null, PropelPDO \$con = null)
  *
  * @param      bool			\$includeNode Whether to include the current node or not
  * @param      Criteria \$query Criteria to filter results.
- * @param      PropelPDO \$con Connection to use.
+ * @param      PropulsionPDO \$con Connection to use.
  *
  * @return     array 		List of $objectClassname objects
  */
-public function getSiblings(\$includeNode = false, \$query = null, PropelPDO \$con = null)
+public function getSiblings(\$includeNode = false, \$query = null, PropulsionPDO \$con = null)
 {
 	if(\$this->isRoot()) {
 		return array();
@@ -888,10 +888,10 @@ public function getSiblings(\$includeNode = false, \$query = null, PropelPDO \$c
  * Gets descendants for the given node
  *
  * @param      Criteria \$query Criteria to filter results.
- * @param      PropelPDO \$con Connection to use.
+ * @param      PropulsionPDO \$con Connection to use.
  * @return     array 		List of $objectClassname objects
  */
-public function getDescendants(\$query = null, PropelPDO \$con = null)
+public function getDescendants(\$query = null, PropulsionPDO \$con = null)
 {
 	if(\$this->isLeaf()) {
 		return array();
@@ -914,10 +914,10 @@ public function getDescendants(\$query = null, PropelPDO \$con = null)
  * Gets number of descendants for the given node
  *
  * @param      Criteria \$query Criteria to filter results.
- * @param      PropelPDO \$con Connection to use.
+ * @param      PropulsionPDO \$con Connection to use.
  * @return     int 		Number of descendants
  */
-public function countDescendants(\$query = null, PropelPDO \$con = null)
+public function countDescendants(\$query = null, PropulsionPDO \$con = null)
 {
 	if(\$this->isLeaf()) {
 		// save one query
@@ -940,10 +940,10 @@ public function countDescendants(\$query = null, PropelPDO \$con = null)
  * Gets descendants for the given node, plus the current node
  *
  * @param      Criteria \$query Criteria to filter results.
- * @param      PropelPDO \$con Connection to use.
+ * @param      PropulsionPDO \$con Connection to use.
  * @return     array 		List of $objectClassname objects
  */
-public function getBranch(\$query = null, PropelPDO \$con = null)
+public function getBranch(\$query = null, PropulsionPDO \$con = null)
 {
 	return $queryClassname::create(null, \$query)
 		->branchOf(\$this)
@@ -963,10 +963,10 @@ public function getBranch(\$query = null, PropelPDO \$con = null)
  * Use it for breadcrumb paths for instance
  *
  * @param      Criteria \$query Criteria to filter results.
- * @param      PropelPDO \$con Connection to use.
+ * @param      PropulsionPDO \$con Connection to use.
  * @return     array 		List of $objectClassname objects
  */
-public function getAncestors(\$query = null, PropelPDO \$con = null)
+public function getAncestors(\$query = null, PropulsionPDO \$con = null)
 {
 	if(\$this->isRoot()) {
 		// save one query
@@ -991,14 +991,14 @@ public function getAncestors(\$query = null, PropelPDO \$con = null)
  * The modifications in the current object and the tree
  * are not persisted until the child object is saved.
  *
- * @param      $objectClassname \$child	Propel object for child node
+ * @param      $objectClassname \$child	Propulsion object for child node
  *
- * @return     $objectClassname The current Propel object
+ * @return     $objectClassname The current Propulsion object
  */
 public function addChild($objectClassname \$child)
 {
 	if (\$this->isNew()) {
-		throw new PropelException('A $objectClassname object must not be new to accept children.');
+		throw new PropulsionException('A $objectClassname object must not be new to accept children.');
 	}
 	\$child->insertAsFirstChildOf(\$this);
 	return \$this;
@@ -1026,14 +1026,14 @@ public function addChild($objectClassname \$child)
  * The modifications in the current object and the tree
  * are not persisted until the current object is saved.
  *
- * @param      $objectClassname \$parent	Propel object for parent node
+ * @param      $objectClassname \$parent	Propulsion object for parent node
  *
- * @return     $objectClassname The current Propel object
+ * @return     $objectClassname The current Propulsion object
  */
 public function insertAsFirstChildOf(\$parent)
 {
 	if (\$this->isInTree()) {
-		throw new PropelException('A $objectClassname object must not already be in the tree to be inserted. Use the moveToFirstChildOf() instead.');
+		throw new PropulsionException('A $objectClassname object must not already be in the tree to be inserted. Use the moveToFirstChildOf() instead.');
 	}
 	\$left = \$parent->getLeftValue() + 1;
 	// Update node properties
@@ -1071,14 +1071,14 @@ public function insertAsFirstChildOf(\$parent)
  * The modifications in the current object and the tree
  * are not persisted until the current object is saved.
  *
- * @param      $objectClassname \$parent	Propel object for parent node
+ * @param      $objectClassname \$parent	Propulsion object for parent node
  *
- * @return     $objectClassname The current Propel object
+ * @return     $objectClassname The current Propulsion object
  */
 public function insertAsLastChildOf(\$parent)
 {
 	if (\$this->isInTree()) {
-		throw new PropelException('A $objectClassname object must not already be in the tree to be inserted. Use the moveToLastChildOf() instead.');
+		throw new PropulsionException('A $objectClassname object must not already be in the tree to be inserted. Use the moveToLastChildOf() instead.');
 	}
 	\$left = \$parent->getRightValue();
 	// Update node properties
@@ -1116,14 +1116,14 @@ public function insertAsLastChildOf(\$parent)
  * The modifications in the current object and the tree
  * are not persisted until the current object is saved.
  *
- * @param      $objectClassname \$sibling	Propel object for parent node
+ * @param      $objectClassname \$sibling	Propulsion object for parent node
  *
- * @return     $objectClassname The current Propel object
+ * @return     $objectClassname The current Propulsion object
  */
 public function insertAsPrevSiblingOf(\$sibling)
 {
 	if (\$this->isInTree()) {
-		throw new PropelException('A $objectClassname object must not already be in the tree to be inserted. Use the moveToPrevSiblingOf() instead.');
+		throw new PropulsionException('A $objectClassname object must not already be in the tree to be inserted. Use the moveToPrevSiblingOf() instead.');
 	}
 	\$left = \$sibling->getLeftValue();
 	// Update node properties
@@ -1158,14 +1158,14 @@ public function insertAsPrevSiblingOf(\$sibling)
  * The modifications in the current object and the tree
  * are not persisted until the current object is saved.
  *
- * @param      $objectClassname \$sibling	Propel object for parent node
+ * @param      $objectClassname \$sibling	Propulsion object for parent node
  *
- * @return     $objectClassname The current Propel object
+ * @return     $objectClassname The current Propulsion object
  */
 public function insertAsNextSiblingOf(\$sibling)
 {
 	if (\$this->isInTree()) {
-		throw new PropelException('A $objectClassname object must not already be in the tree to be inserted. Use the moveToNextSiblingOf() instead.');
+		throw new PropulsionException('A $objectClassname object must not already be in the tree to be inserted. Use the moveToNextSiblingOf() instead.');
 	}
 	\$left = \$sibling->getRightValue() + 1;
 	// Update node properties
@@ -1197,25 +1197,25 @@ public function insertAsNextSiblingOf(\$sibling)
  * Moves current node and its subtree to be the first child of \$parent
  * The modifications in the current object and the tree are immediate
  *
- * @param      $objectClassname \$parent	Propel object for parent node
- * @param      PropelPDO \$con	Connection to use.
+ * @param      $objectClassname \$parent	Propulsion object for parent node
+ * @param      PropulsionPDO \$con	Connection to use.
  *
- * @return     $objectClassname The current Propel object
+ * @return     $objectClassname The current Propulsion object
  */
-public function moveToFirstChildOf(\$parent, PropelPDO \$con = null)
+public function moveToFirstChildOf(\$parent, PropulsionPDO \$con = null)
 {
 	if (!\$this->isInTree()) {
-		throw new PropelException('A $objectClassname object must be already in the tree to be moved. Use the insertAsFirstChildOf() instead.');
+		throw new PropulsionException('A $objectClassname object must be already in the tree to be moved. Use the insertAsFirstChildOf() instead.');
 	}";
 	if ($this->behavior->useScope()) {
 		$script .= "
 	if (\$parent->getScopeValue() != \$this->getScopeValue()) {
-		throw new PropelException('Moving nodes across trees is not supported');
+		throw new PropulsionException('Moving nodes across trees is not supported');
 	}";
 	}
 	$script .= "
 	if (\$parent->isDescendantOf(\$this)) {
-		throw new PropelException('Cannot move a node as child of one of its subtree nodes.');
+		throw new PropulsionException('Cannot move a node as child of one of its subtree nodes.');
 	}
 
 	\$this->moveSubtreeTo(\$parent->getLeftValue() + 1, \$parent->getLevel() - \$this->getLevel() + 1, \$con);
@@ -1233,25 +1233,25 @@ public function moveToFirstChildOf(\$parent, PropelPDO \$con = null)
  * Moves current node and its subtree to be the last child of \$parent
  * The modifications in the current object and the tree are immediate
  *
- * @param      $objectClassname \$parent	Propel object for parent node
- * @param      PropelPDO \$con	Connection to use.
+ * @param      $objectClassname \$parent	Propulsion object for parent node
+ * @param      PropulsionPDO \$con	Connection to use.
  *
- * @return     $objectClassname The current Propel object
+ * @return     $objectClassname The current Propulsion object
  */
-public function moveToLastChildOf(\$parent, PropelPDO \$con = null)
+public function moveToLastChildOf(\$parent, PropulsionPDO \$con = null)
 {
 	if (!\$this->isInTree()) {
-		throw new PropelException('A $objectClassname object must be already in the tree to be moved. Use the insertAsLastChildOf() instead.');
+		throw new PropulsionException('A $objectClassname object must be already in the tree to be moved. Use the insertAsLastChildOf() instead.');
 	}";
 	if ($this->behavior->useScope()) {
 		$script .= "
 	if (\$parent->getScopeValue() != \$this->getScopeValue()) {
-		throw new PropelException('Moving nodes across trees is not supported');
+		throw new PropulsionException('Moving nodes across trees is not supported');
 	}";
 	}
 	$script .= "
 	if (\$parent->isDescendantOf(\$this)) {
-		throw new PropelException('Cannot move a node as child of one of its subtree nodes.');
+		throw new PropulsionException('Cannot move a node as child of one of its subtree nodes.');
 	}
 
 	\$this->moveSubtreeTo(\$parent->getRightValue(), \$parent->getLevel() - \$this->getLevel() + 1, \$con);
@@ -1269,28 +1269,28 @@ public function moveToLastChildOf(\$parent, PropelPDO \$con = null)
  * Moves current node and its subtree to be the previous sibling of \$sibling
  * The modifications in the current object and the tree are immediate
  *
- * @param      $objectClassname \$sibling	Propel object for sibling node
- * @param      PropelPDO \$con	Connection to use.
+ * @param      $objectClassname \$sibling	Propulsion object for sibling node
+ * @param      PropulsionPDO \$con	Connection to use.
  *
- * @return     $objectClassname The current Propel object
+ * @return     $objectClassname The current Propulsion object
  */
-public function moveToPrevSiblingOf(\$sibling, PropelPDO \$con = null)
+public function moveToPrevSiblingOf(\$sibling, PropulsionPDO \$con = null)
 {
 	if (!\$this->isInTree()) {
-		throw new PropelException('A $objectClassname object must be already in the tree to be moved. Use the insertAsPrevSiblingOf() instead.');
+		throw new PropulsionException('A $objectClassname object must be already in the tree to be moved. Use the insertAsPrevSiblingOf() instead.');
 	}
 	if (\$sibling->isRoot()) {
-		throw new PropelException('Cannot move to previous sibling of a root node.');
+		throw new PropulsionException('Cannot move to previous sibling of a root node.');
 	}";
 	if ($this->behavior->useScope()) {
 		$script .= "
 	if (\$sibling->getScopeValue() != \$this->getScopeValue()) {
-		throw new PropelException('Moving nodes across trees is not supported');
+		throw new PropulsionException('Moving nodes across trees is not supported');
 	}";
 	}
 	$script .= "
 	if (\$sibling->isDescendantOf(\$this)) {
-		throw new PropelException('Cannot move a node as sibling of one of its subtree nodes.');
+		throw new PropulsionException('Cannot move a node as sibling of one of its subtree nodes.');
 	}
 
 	\$this->moveSubtreeTo(\$sibling->getLeftValue(), \$sibling->getLevel() - \$this->getLevel(), \$con);
@@ -1308,28 +1308,28 @@ public function moveToPrevSiblingOf(\$sibling, PropelPDO \$con = null)
  * Moves current node and its subtree to be the next sibling of \$sibling
  * The modifications in the current object and the tree are immediate
  *
- * @param      $objectClassname \$sibling	Propel object for sibling node
- * @param      PropelPDO \$con	Connection to use.
+ * @param      $objectClassname \$sibling	Propulsion object for sibling node
+ * @param      PropulsionPDO \$con	Connection to use.
  *
- * @return     $objectClassname The current Propel object
+ * @return     $objectClassname The current Propulsion object
  */
-public function moveToNextSiblingOf(\$sibling, PropelPDO \$con = null)
+public function moveToNextSiblingOf(\$sibling, PropulsionPDO \$con = null)
 {
 	if (!\$this->isInTree()) {
-		throw new PropelException('A $objectClassname object must be already in the tree to be moved. Use the insertAsNextSiblingOf() instead.');
+		throw new PropulsionException('A $objectClassname object must be already in the tree to be moved. Use the insertAsNextSiblingOf() instead.');
 	}
 	if (\$sibling->isRoot()) {
-		throw new PropelException('Cannot move to next sibling of a root node.');
+		throw new PropulsionException('Cannot move to next sibling of a root node.');
 	}";
 	if ($this->behavior->useScope()) {
 		$script .= "
 	if (\$sibling->getScopeValue() != \$this->getScopeValue()) {
-		throw new PropelException('Moving nodes across trees is not supported');
+		throw new PropulsionException('Moving nodes across trees is not supported');
 	}";
 	}
 	$script .= "
 	if (\$sibling->isDescendantOf(\$this)) {
-		throw new PropelException('Cannot move a node as sibling of one of its subtree nodes.');
+		throw new PropulsionException('Cannot move a node as sibling of one of its subtree nodes.');
 	}
 
 	\$this->moveSubtreeTo(\$sibling->getRightValue() + 1, \$sibling->getLevel() - \$this->getLevel(), \$con);
@@ -1350,9 +1350,9 @@ public function moveToNextSiblingOf(\$sibling, PropelPDO \$con = null)
  *
  * @param      int	\$destLeft Destination left value
  * @param      int	\$levelDelta Delta to add to the levels
- * @param      PropelPDO \$con		Connection to use.
+ * @param      PropulsionPDO \$con		Connection to use.
  */
-protected function moveSubtreeTo(\$destLeft, \$levelDelta, PropelPDO \$con = null)
+protected function moveSubtreeTo(\$destLeft, \$levelDelta, PropulsionPDO \$con = null)
 {
 	\$left  = \$this->getLeftValue();
 	\$right = \$this->getRightValue();";
@@ -1365,7 +1365,7 @@ protected function moveSubtreeTo(\$destLeft, \$levelDelta, PropelPDO \$con = nul
 	\$treeSize = \$right - \$left +1;
 
 	if (\$con === null) {
-		\$con = Propel::getConnection($peerClassname::DATABASE_NAME, Propel::CONNECTION_WRITE);
+		\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
 	}
 
 	\$con->beginTransaction();
@@ -1393,7 +1393,7 @@ protected function moveSubtreeTo(\$destLeft, \$levelDelta, PropelPDO \$con = nul
 		$peerClassname::updateLoadedNodes(null, \$con);
 
 		\$con->commit();
-	} catch (PropelException \$e) {
+	} catch (PropulsionException \$e) {
 		\$con->rollback();
 		throw \$e;
 	}
@@ -1413,18 +1413,18 @@ protected function moveSubtreeTo(\$destLeft, \$levelDelta, PropelPDO \$con = nul
  * Instance pooling is wiped out by this command,
  * so existing $objectClassname instances are probably invalid (except for the current one)
  *
- * @param      PropelPDO \$con Connection to use.
+ * @param      PropulsionPDO \$con Connection to use.
  *
  * @return     int 		number of deleted nodes
  */
-public function deleteDescendants(PropelPDO \$con = null)
+public function deleteDescendants(PropulsionPDO \$con = null)
 {
 	if(\$this->isLeaf()) {
 		// save one query
 		return;
 	}
 	if (\$con === null) {
-		\$con = Propel::getConnection($peerClassname::DATABASE_NAME, Propel::CONNECTION_READ);
+		\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME, Propulsion::CONNECTION_READ);
 	}
 	\$left = \$this->getLeftValue();
 	\$right = \$this->getRightValue();";
@@ -1477,7 +1477,7 @@ public function getIterator()
 		$objectClassname = $this->objectClassname;
 		$script .= "
 /**
- * Alias for makeRoot(), for BC with Propel 1.4 nested sets
+ * Alias for makeRoot(), for BC with Propulsion 1.4 nested sets
  *
  * @deprecated since 1.5
  * @see        makeRoot
@@ -1488,18 +1488,18 @@ public function createRoot()
 }
 
 /**
- * Alias for getParent(), for BC with Propel 1.4 nested sets
+ * Alias for getParent(), for BC with Propulsion 1.4 nested sets
  *
  * @deprecated since 1.5
  * @see        getParent
  */
-public function retrieveParent(PropelPDO \$con = null)
+public function retrieveParent(PropulsionPDO \$con = null)
 {
 	return \$this->getParent(\$con);
 }
 
 /**
- * Alias for setParent(), for BC with Propel 1.4 nested sets
+ * Alias for setParent(), for BC with Propulsion 1.4 nested sets
  *
  * @deprecated since 1.5
  * @see        setParent
@@ -1510,78 +1510,78 @@ public function setParentNode(\$parent = null)
 }
 
 /**
- * Alias for countDecendants(), for BC with Propel 1.4 nested sets
+ * Alias for countDecendants(), for BC with Propulsion 1.4 nested sets
  *
  * @deprecated since 1.5
  * @see        setParent
  */
-public function getNumberOfDescendants(PropelPDO \$con = null)
+public function getNumberOfDescendants(PropulsionPDO \$con = null)
 {
 	return \$this->countDescendants(null, \$con);
 }
 
 /**
- * Alias for countChildren(), for BC with Propel 1.4 nested sets
+ * Alias for countChildren(), for BC with Propulsion 1.4 nested sets
  *
  * @deprecated since 1.5
  * @see        setParent
  */
-public function getNumberOfChildren(PropelPDO \$con = null)
+public function getNumberOfChildren(PropulsionPDO \$con = null)
 {
 	return \$this->countChildren(null, \$con);
 }
 
 /**
- * Alias for getPrevSibling(), for BC with Propel 1.4 nested sets
+ * Alias for getPrevSibling(), for BC with Propulsion 1.4 nested sets
  *
  * @deprecated since 1.5
  * @see        getParent
  */
-public function retrievePrevSibling(PropelPDO \$con = null)
+public function retrievePrevSibling(PropulsionPDO \$con = null)
 {
 	return \$this->getPrevSibling(\$con);
 }
 
 /**
- * Alias for getNextSibling(), for BC with Propel 1.4 nested sets
+ * Alias for getNextSibling(), for BC with Propulsion 1.4 nested sets
  *
  * @deprecated since 1.5
  * @see        getParent
  */
-public function retrieveNextSibling(PropelPDO \$con = null)
+public function retrieveNextSibling(PropulsionPDO \$con = null)
 {
 	return \$this->getNextSibling(\$con);
 }
 
 /**
- * Alias for getFirstChild(), for BC with Propel 1.4 nested sets
+ * Alias for getFirstChild(), for BC with Propulsion 1.4 nested sets
  *
  * @deprecated since 1.5
  * @see        getParent
  */
-public function retrieveFirstChild(PropelPDO \$con = null)
+public function retrieveFirstChild(PropulsionPDO \$con = null)
 {
 	return \$this->getFirstChild(null, \$con);
 }
 
 /**
- * Alias for getLastChild(), for BC with Propel 1.4 nested sets
+ * Alias for getLastChild(), for BC with Propulsion 1.4 nested sets
  *
  * @deprecated since 1.5
  * @see        getParent
  */
-public function retrieveLastChild(PropelPDO \$con = null)
+public function retrieveLastChild(PropulsionPDO \$con = null)
 {
 	return \$this->getLastChild(null, \$con);
 }
 
 /**
- * Alias for getAncestors(), for BC with Propel 1.4 nested sets
+ * Alias for getAncestors(), for BC with Propulsion 1.4 nested sets
  *
  * @deprecated since 1.5
  * @see        getAncestors
  */
-public function getPath(PropelPDO \$con = null)
+public function getPath(PropulsionPDO \$con = null)
 {
 	\$path = \$this->getAncestors(null, \$con);
 	\$path []= \$this;

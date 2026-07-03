@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -10,7 +10,7 @@
 namespace Propulsion\Generator\Behavior;
 
 /**
- * Changes the coding standard of Propel generated Model classes
+ * Changes the coding standard of Propulsion generated Model classes
  *  - Opening brackets always use newline, e.g.
  *     if ($foo) {
  *       ...

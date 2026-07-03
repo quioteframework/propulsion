@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -184,11 +184,11 @@ public function childrenOf($objectName)
  * The result does not include the object passed as parameter.
  *
  * @param     {$this->objectClassname} $objectName The object to use for sibling search
- * @param      PropelPDO \$con Connection to use.
+ * @param      PropulsionPDO \$con Connection to use.
  *
  * @return    {$this->queryClassname} The current query, for fluid interface
  */
-public function siblingsOf($objectName, PropelPDO \$con = null)
+public function siblingsOf($objectName, PropulsionPDO \$con = null)
 {
 	if ({$objectName}->isRoot()) {
 		return \$this->
@@ -311,7 +311,7 @@ public function orderByLevel(\$reverse = false)
  * @param      int \$scope		Scope to determine which root node to return";
  		}
 		$script .= "
- * @param      PropelPDO \$con	Connection to use.
+ * @param      PropulsionPDO \$con	Connection to use.
  *
  * @return     {$this->objectClassname} The tree root object
  */
@@ -335,7 +335,7 @@ public function findRoot(" . ($useScope ? "\$scope = null, " : "") . "\$con = nu
 /**
  * Returns the root objects for all trees.
  *
- * @param      PropelPDO \$con	Connection to use.
+ * @param      PropulsionPDO \$con	Connection to use.
  *
  * @return    mixed the list of results, formatted by the current formatter
  */
@@ -360,7 +360,7 @@ public function findRoots(\$con = null)
  * @param      int \$scope		Scope to determine which tree node to return";
  		}
 		$script .= "
- * @param      PropelPDO \$con	Connection to use.
+ * @param      PropulsionPDO \$con	Connection to use.
  *
  * @return     mixed the list of results, formatted by the current formatter
  */

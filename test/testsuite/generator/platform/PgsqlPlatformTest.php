@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -510,7 +510,7 @@ DROP SEQUENCE IF EXISTS \"foo_sequence\";
 		$table->setIdMethod(IDMethod::NATIVE);
 		$database->addTable($table);
 		$column = new Column('foo');
-		$column->getDomain()->copy($this->getPlatform()->getDomainForType(PropelTypes::BIGINT));
+		$column->getDomain()->copy($this->getPlatform()->getDomainForType(PropulsionTypes::BIGINT));
 		$column->setAutoIncrement(true);
 		$table->addColumn($column);
 		$expected = '"foo" bigserial';

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -26,7 +26,7 @@ namespace Propulsion\Generator\Builder\OM;
  */
 use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\Column;
-use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\PropulsionTypes;
 use Propulsion\Generator\Model\ForeignKey;
 use Propulsion\Generator\Model\IDMethod;
 use Propulsion\Generator\Platform\MysqlPlatform;
@@ -99,11 +99,10 @@ class ObjectBuilder extends AbstractObjectBuilder
 		// Check foreign keys to see if there are any foreign keys that
 		// are also matched with an inversed referencing foreign key
 		// (this is currently unsupported behavior)
-		// see: http://propel.phpdb.org/trac/ticket/549
 
 		foreach ($table->getForeignKeys() as $fk) {
 			if ($fk->isMatchedByInverseFK()) {
-				throw new EngineException("The 1:1 relationship expressed by foreign key " . $fk->getName() . " is defined in both directions; Propel does not currently support this (if you must have both foreign key constraints, consider adding this constraint with a custom SQL file.)" );
+				throw new EngineException("The 1:1 relationship expressed by foreign key " . $fk->getName() . " is defined in both directions; Propulsion does not currently support this (if you must have both foreign key constraints, consider adding this constraint with a custom SQL file.)" );
 			}
 		}
 	}
@@ -116,11 +115,11 @@ class ObjectBuilder extends AbstractObjectBuilder
 	protected function getTemporalFormatter(Column $col)
 	{
 		$fmt = null;
-		if ($col->getType() === PropelTypes::DATE) {
+		if ($col->getType() === PropulsionTypes::DATE) {
 			$fmt = $this->getPlatform()->getDateFormatter();
-		} elseif ($col->getType() === PropelTypes::TIME) {
+		} elseif ($col->getType() === PropulsionTypes::TIME) {
 			$fmt = $this->getPlatform()->getTimeFormatter();
-		} elseif ($col->getType() === PropelTypes::TIMESTAMP) {
+		} elseif ($col->getType() === PropulsionTypes::TIMESTAMP) {
 			$fmt = $this->getPlatform()->getTimestampFormatter();
 		}
 		return $fmt;
@@ -165,10 +164,10 @@ class ObjectBuilder extends AbstractObjectBuilder
 			// Return the enumerated index as a PHP literal
 			$defaultValue = var_export(array_search($val, $valueSet), true);
 		} else if ($col->isPhpPrimitiveType()) {
-			// Prefer using the underlying Propel type for reliable casting
+			// Prefer using the underlying Propulsion type for reliable casting
 			$propelType = $col->getType();
-			if ($propelType === PropelTypes::BIGINT || $propelType === PropelTypes::INTEGER ||
-			    $propelType === PropelTypes::SMALLINT || $propelType === PropelTypes::TINYINT) {
+			if ($propelType === PropulsionTypes::BIGINT || $propelType === PropulsionTypes::INTEGER ||
+			    $propelType === PropulsionTypes::SMALLINT || $propelType === PropulsionTypes::TINYINT) {
 				$defaultValue = var_export((int) $val, true);
 			} elseif ($col->isBooleanType()) {
 				$defaultValue = var_export((bool) $val, true);
@@ -207,13 +206,13 @@ class ObjectBuilder extends AbstractObjectBuilder
 			return '?DateTimeInterface';
 		}
 		
-		// Check the actual Propel type for better type hints
+		// Check the actual Propulsion type for better type hints
 		$propelType = $col->getType();
 		
-		// Map Propel types to PHP 8.4 types
+		// Map Propulsion types to PHP 8.4 types
 		// For BIGINT, use int since we're on 64-bit PHP 8.4 (handles up to 2^63-1)
-		if ($propelType === PropelTypes::BIGINT || $propelType === PropelTypes::INTEGER || 
-		    $propelType === PropelTypes::SMALLINT || $propelType === PropelTypes::TINYINT) {
+		if ($propelType === PropulsionTypes::BIGINT || $propelType === PropulsionTypes::INTEGER || 
+		    $propelType === PropulsionTypes::SMALLINT || $propelType === PropulsionTypes::TINYINT) {
 			return '?int';
 		}
 		
@@ -256,12 +255,12 @@ class ObjectBuilder extends AbstractObjectBuilder
 			return '?DateTimeInterface';
 		}
 		
-		// Check the actual Propel type for better type hints
+		// Check the actual Propulsion type for better type hints
 		// For BIGINT, use int since we're on 64-bit PHP 8.4 (handles up to 2^63-1)
 		$propelType = $col->getType();
 		
-		if ($propelType === PropelTypes::BIGINT || $propelType === PropelTypes::INTEGER || 
-		    $propelType === PropelTypes::SMALLINT || $propelType === PropelTypes::TINYINT) {
+		if ($propelType === PropulsionTypes::BIGINT || $propelType === PropulsionTypes::INTEGER || 
+		    $propelType === PropulsionTypes::SMALLINT || $propelType === PropulsionTypes::TINYINT) {
 			return '?int';
 		}
 		
@@ -298,7 +297,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 	}
 
 	/**
-	 * Adds use statements for commonly used Propel classes
+	 * Adds use statements for commonly used Propulsion classes
 	 * @param      string &$script The script will be modified in this method.
 	 */
 	protected function addUseStatements(&$script)
@@ -354,7 +353,7 @@ class ObjectBuilder extends AbstractObjectBuilder
  * @package    " . $this->getPackage() . "
  */";
 
-		// Add use statements for Propel classes
+		// Add use statements for Propulsion classes
 		$this->addUseStatements($script);
 
 		$script .= "
@@ -372,15 +371,15 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		// Declare essential classes for Base object classes
 		$this->declareClass('Propulsion\\OM\\BaseObject');
 		$this->declareClass('Propulsion\\OM\\Persistent');
-		$this->declareClass('Propulsion\\Exception\\PropelException');
+		$this->declareClass('Propulsion\\Exception\\PropulsionException');
 		$this->declareClass('Propulsion\\Util\\BasePeer');
 		$this->declareClass('\\DateTime');
 		$this->declareClass('\\DateTimeInterface');
 		$this->declareClass('\\Exception');
-		$this->declareClass('Propulsion\\Propel');
+		$this->declareClass('Propulsion\\Propulsion');
 		$this->declareClass('Propulsion\\Query\\Criteria');
-		$this->declareClass('Propulsion\\Collection\\PropelCollection');
-		$this->declareClass('Propulsion\\Collection\\PropelObjectCollection');
+		$this->declareClass('Propulsion\\Collection\\PropulsionCollection');
+		$this->declareClass('Propulsion\\Collection\\PropulsionObjectCollection');
 		
 		// Declare related builders for type hints and relationships
 		$this->declareClassFromBuilder($this->getStubPeerBuilder());
@@ -521,9 +520,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 				$script .= "
 
 	/**
-	 * @var PropelObjectCollection|null
+	 * @var PropulsionObjectCollection|null
 	 */
-	protected PropelObjectCollection|null \$$varName = null;";
+	protected PropulsionObjectCollection|null \$$varName = null;";
 			}
 		}
 
@@ -537,9 +536,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			$script .= "
 
 	/**
-	 * @var PropelObjectCollection|null
+	 * @var PropulsionObjectCollection|null
 	 */
-	protected PropelObjectCollection|null \$$varName = null;";
+	protected PropulsionObjectCollection|null \$$varName = null;";
 		}
 
 		$script .= "
@@ -816,7 +815,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		}
 		\$valueSet = {$peerClass}::getValueSet($columnConstant);
 		if (!isset(\$valueSet[\$this->$phpname])) {
-			throw new PropelException('Unknown stored enum key: ' . \$this->$phpname);
+			throw new PropulsionException('Unknown stored enum key: ' . \$this->$phpname);
 		}
 		return \$valueSet[\$this->$phpname];
 	}";
@@ -846,7 +845,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		if (\$v !== null) {
 			\$valueSet = {$peerClass}::getValueSet($columnConstant);
 			if (!in_array(\$v, \$valueSet)) {
-				throw new PropelException(sprintf('Value \"%s\" is not accepted in this enumerated column', \$v));
+				throw new PropulsionException(sprintf('Value \"%s\" is not accepted in this enumerated column', \$v));
 			}
 			\$v = array_search(\$v, \$valueSet);
 		}
@@ -879,7 +878,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Checks whether the object read from the database has only default values.
 	 *
-	 * This is used internally by Propel to determine whether to make the
+	 * This is used internally by Propulsion to determine whether to make the
 	 * object dirty (set as modified) when it is first loaded from the database.
 	 *
 	 * @return bool True if the object has only default values
@@ -985,11 +984,11 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Get the associated $className object
 	 *
-	 * @param PropelPDO|null \$con Optional Connection object.
+	 * @param PropulsionPDO|null \$con Optional Connection object.
 	 * @return ?$className The associated $className object.
-	 * @throws PropelException
+	 * @throws PropulsionException
 	 */
-	public function get".$this->getFKPhpNameAffix($fk, $plural = false)."(?PropelPDO \$con = null): ?$className
+	public function get".$this->getFKPhpNameAffix($fk, $plural = false)."(?PropulsionPDO \$con = null): ?$className
 	{";
 		$script .= "
 		if (\$this->{$varName} === null && ($conditional)) {";
@@ -1034,7 +1033,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 *
 	 * @param ?$className \$v
 	 * @return static The current object (for fluent API support)
-	 * @throws PropelException
+	 * @throws PropulsionException
 	 */
 	public function set".$this->getFKPhpNameAffix($fk, $plural = false)."(?$className \$v = null): static
 	{";
@@ -1098,7 +1097,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * @param int \$startcol The 0-based offset for reading from the resultset row.
 	 * @param bool \$rehydrate Whether this object is being re-hydrated from the database.
 	 * @return int Next column offset
-	 * @throws PropelException - Any caught Exception will be rewrapped as a PropelException.
+	 * @throws PropulsionException - Any caught Exception will be rewrapped as a PropulsionException.
 	 */
 	public function hydrate(array \$row, int \$startcol = 0, bool \$rehydrate = false): int
 	{";
@@ -1116,9 +1115,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			
 			if ($col->isTemporalType()) {
 				$script .= "new DateTime(\$row[\$startcol + " . $n . "])";
-			} elseif ($col->getType() === PropelTypes::BOOLEAN) {
+			} elseif ($col->getType() === PropulsionTypes::BOOLEAN) {
 				$script .= "(bool) \$row[\$startcol + " . $n . "]";
-			} elseif ($col->getType() === PropelTypes::PHP_ARRAY) {
+			} elseif ($col->getType() === PropulsionTypes::PHP_ARRAY) {
 				$script .= "(\$row[\$startcol + " . $n . "] === '' ? array() : (preg_match('/^ \\| (.*) \\| $/s', \$row[\$startcol + " . $n . "], \$matches) ? explode(' | ', \$matches[1]) : explode(' | ', \$row[\$startcol + " . $n . "])))";
 			} elseif ($col->isNumericType()) {
 				$phpType = $col->getPhpType();
@@ -1218,7 +1217,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 
 	/**
 	 * Ensures that all required foreign key objects are loaded.
-	 * This method is used internally by Propel to hydrate the object.
+	 * This method is used internally by Propulsion to hydrate the object.
 	 */
 	protected function ensureConsistency(): void
 	{
@@ -1273,26 +1272,26 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	protected function addDelete(&$script)
 	{
-		$this->declareClass('Propulsion\Connection\PropelPDO');
-		$this->declareClass('Propulsion\Exception\PropelException');
+		$this->declareClass('Propulsion\Connection\PropulsionPDO');
+		$this->declareClass('Propulsion\Exception\PropulsionException');
 		
 		$script .= "
 
 	/**
 	 * Removes this object from datastore and sets delete attribute.
 	 *
-	 * @param PropelPDO|null \$con Database connection
+	 * @param PropulsionPDO|null \$con Database connection
 	 * @return void
-	 * @throws PropelException
+	 * @throws PropulsionException
 	 */
-	public function delete(?PropelPDO \$con = null): void
+	public function delete(?PropulsionPDO \$con = null): void
 	{
 		if (\$this->isDeleted()) {
-			throw new PropelException('This object has already been deleted.');
+			throw new PropulsionException('This object has already been deleted.');
 		}
 
 		if (\$con === null) {
-			\$con = Propel::getWriteConnection(" . $this->getPeerClassname() . "::DATABASE_NAME);
+			\$con = Propulsion::getWriteConnection(" . $this->getPeerClassname() . "::DATABASE_NAME);
 		}
 
 		\$con->beginTransaction();
@@ -1302,7 +1301,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			\$deleteQuery->delete(\$con);
 			\$con->commit();
 			\$this->setDeleted(true);
-		} catch (PropelException \$e) {
+		} catch (PropulsionException \$e) {
 			\$con->rollBack();
 			throw \$e;
 		}
@@ -1314,8 +1313,8 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	protected function addSave(&$script)
 	{
-		$this->declareClass('Propulsion\Connection\PropelPDO');
-		$this->declareClass('Propulsion\Exception\PropelException');
+		$this->declareClass('Propulsion\Connection\PropulsionPDO');
+		$this->declareClass('Propulsion\Exception\PropulsionException');
 		
 		$table = $this->getTable();
 		$reloadOnUpdate = $table->isReloadOnUpdate();
@@ -1331,23 +1330,23 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * method. This method wraps all precipitate database operations in a
 	 * single transaction.
 	 *
-	 * @param PropelPDO|null \$con Database connection";
+	 * @param PropulsionPDO|null \$con Database connection";
 		if ($reloadOnUpdate || $reloadOnInsert) {
 			$script .= "
 	 * @param bool \$skipReload Whether to skip the reload for this object from database.";
 		}
 		$script .= "
 	 * @return int The number of rows affected by this insert/update and any referring fk objects' save() operations.
-	 * @throws PropelException
+	 * @throws PropulsionException
 	 */
-	public function save(?PropelPDO \$con = null" . ($reloadOnUpdate || $reloadOnInsert ? ", bool \$skipReload = false" : "") . "): int
+	public function save(?PropulsionPDO \$con = null" . ($reloadOnUpdate || $reloadOnInsert ? ", bool \$skipReload = false" : "") . "): int
 	{
 		if (\$this->isDeleted()) {
-			throw new PropelException('You cannot save an object that has been deleted.');
+			throw new PropulsionException('You cannot save an object that has been deleted.');
 		}
 
 		if (\$con === null) {
-			\$con = Propel::getWriteConnection(" . $this->getPeerClassname() . "::DATABASE_NAME);
+			\$con = Propulsion::getWriteConnection(" . $this->getPeerClassname() . "::DATABASE_NAME);
 		}
 
 		\$con->beginTransaction();
@@ -1357,7 +1356,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			" . $this->getPeerClassname() . "::addInstanceToPool(\$this);
 			\$con->commit();
 			return \$affectedRows;
-		} catch (PropelException \$e) {
+		} catch (PropulsionException \$e) {
 			\$con->rollBack();
 			throw \$e;
 		}
@@ -1369,8 +1368,8 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	protected function addDoSave(&$script)
 	{
-		$this->declareClass('Propulsion\Connection\PropelPDO');
-		$this->declareClass('Propulsion\Exception\PropelException');
+		$this->declareClass('Propulsion\Connection\PropulsionPDO');
+		$this->declareClass('Propulsion\Exception\PropulsionException');
 		
 		$table = $this->getTable();
 		$reloadOnUpdate = $table->isReloadOnUpdate();
@@ -1384,16 +1383,16 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * If the object is new, it inserts it; otherwise an update is performed.
 	 * All related objects are also updated in this method.
 	 *
-	 * @param PropelPDO \$con Database connection";
+	 * @param PropulsionPDO \$con Database connection";
 		if ($reloadOnUpdate || $reloadOnInsert) {
 			$script .= "
 	 * @param bool \$skipReload Whether to skip the reload for this object from database.";
 		}
 		$script .= "
 	 * @return int The number of rows affected by this insert/update and any referring fk objects' save() operations.
-	 * @throws PropelException
+	 * @throws PropulsionException
 	 */
-	protected function doSave(PropelPDO \$con" . ($reloadOnUpdate || $reloadOnInsert ? ", bool \$skipReload = false" : "") . "): int
+	protected function doSave(PropulsionPDO \$con" . ($reloadOnUpdate || $reloadOnInsert ? ", bool \$skipReload = false" : "") . "): int
 	{
 		\$affectedRows = 0;
 		if (!\$this->alreadyInSave) {
@@ -1439,7 +1438,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 				if ($col->isPrimaryKey() && $col->isAutoIncrement() && $table->getIdMethod() != "none" && !$table->isAllowPkInsert()) {
 					$script .= "
 					if (\$criteria->keyContainsValue($colConst)) {
-						throw new PropelException('Cannot insert a value for auto-increment primary key ($colConst)');
+						throw new PropulsionException('Cannot insert a value for auto-increment primary key ($colConst)');
 					}";
 					if (!$this->getPlatform()->supportsInsertNullPk()) {
 						$script .= "
@@ -1510,8 +1509,8 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	protected function addReload(&$script)
 	{
-		$this->declareClass('Propulsion\Connection\PropelPDO');
-		$this->declareClass('Propulsion\Exception\PropelException');
+		$this->declareClass('Propulsion\Connection\PropulsionPDO');
+		$this->declareClass('Propulsion\Exception\PropulsionException');
 		$this->declareClass('\PDO');
 		
 		$script .= "
@@ -1522,29 +1521,29 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * This will only work if the object has been saved and has a valid primary key set.
 	 *
 	 * @param bool \$deep Whether to also de-associate any related objects.
-	 * @param PropelPDO|null \$con The database connection to use.
+	 * @param PropulsionPDO|null \$con The database connection to use.
 	 * @return void
-	 * @throws PropelException If this object is deleted, unsaved or doesn't have pk match in db
+	 * @throws PropulsionException If this object is deleted, unsaved or doesn't have pk match in db
 	 */
-	public function reload(bool \$deep = false, ?PropelPDO \$con = null): void
+	public function reload(bool \$deep = false, ?PropulsionPDO \$con = null): void
 	{
 		if (\$this->isDeleted()) {
-			throw new PropelException('Cannot reload a deleted object.');
+			throw new PropulsionException('Cannot reload a deleted object.');
 		}
 
 		if (\$this->isNew()) {
-			throw new PropelException('Cannot reload an unsaved object.');
+			throw new PropulsionException('Cannot reload an unsaved object.');
 		}
 
 		if (\$con === null) {
-			\$con = Propel::getReadConnection(" . $this->getPeerClassname() . "::DATABASE_NAME);
+			\$con = Propulsion::getReadConnection(" . $this->getPeerClassname() . "::DATABASE_NAME);
 		}
 
 		\$stmt = " . $this->getPeerClassname() . "::doSelectStmt(\$this->buildPkeyCriteria(), \$con);
 		\$row = \$stmt->fetch(PDO::FETCH_NUM);
 		\$stmt->closeCursor();
 		if (!\$row) {
-			throw new PropelException('Cannot find matching row in the database to reload object values.');
+			throw new PropulsionException('Cannot find matching row in the database to reload object values.');
 		}
 		\$this->hydrate(\$row, 0, true); // rehydrate";
 		
@@ -1780,7 +1779,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			$cptype = $col->getPhpType();
 			$phpname = $col->getPhpName();
 			$const = $this->getColumnConstant($col);
-			if ($col->getType() === PropelTypes::PHP_ARRAY) {
+			if ($col->getType() === PropulsionTypes::PHP_ARRAY) {
 				$script .= "
 		if (\$this->isColumnModified($const)) \$criteria->add($const, \$this->$phpname ? ' | ' . implode(' | ', \$this->$phpname) . ' | ' : '');";
 			} else {
@@ -1814,7 +1813,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		foreach ($pks as $pk) {
 			$phpname = $pk->getPhpName();
 			$const = $this->getColumnConstant($pk);
-			if ($pk->getType() === PropelTypes::PHP_ARRAY) {
+			if ($pk->getType() === PropulsionTypes::PHP_ARRAY) {
 				$script .= "
 		\$criteria->add($const, \$this->$phpname ? ' | ' . implode(' | ', \$this->$phpname) . ' | ' : '');";
 			} else {
@@ -1956,7 +1955,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * @param object \$copyObj An object of $className (or compatible) type.
 	 * @param bool \$deepCopy Whether to also copy all rows that refer (by fkey) to the current row.
 	 * @param bool \$makeNew Whether to reset autoincrement PKs and make the object new.
-	 * @throws PropelException
+	 * @throws PropulsionException
 	 */
 	public function copyInto(object \$copyObj, bool \$deepCopy = false, bool \$makeNew = true): void
 	{";
@@ -2025,7 +2024,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 *
 	 * @param bool \$deepCopy Whether to also copy all rows that refer (by fkey) to the current row.
 	 * @return $className Clone of current object.
-	 * @throws PropelException
+	 * @throws PropulsionException
 	 */
 	public function copy(bool \$deepCopy = false): $className
 	{
@@ -2044,7 +2043,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 
 	/**
 	 * Returns the Peer class name.
-	 * Propel uses the Peer classes to retrieve and save data from the database.
+	 * Propulsion uses the Peer classes to retrieve and save data from the database.
 	 * @return string
 	 */
 	public function getPeer(): string
@@ -2140,7 +2139,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$relCol = $this->getRefFKPhpNameAffix($refFK, true);
 		$collName = $this->getRefFKCollVarName($refFK);
 		// NOTE: Use fully-qualified class name here (instead of short class) so that
-		// PropelObjectCollection::save() method_exists(<model>, 'save') succeeds.
+		// PropulsionObjectCollection::save() method_exists(<model>, 'save') succeeds.
 		// Short names caused runtime 'Cannot save objects on a read-only model' when
 		// the non-namespaced short class was not autoloadable.
 		$relatedObjectClassName = $this->getNewStubObjectBuilder($refFK->getTable())->getFullyQualifiedClassname();
@@ -2160,7 +2159,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		if (null !== \$this->{$collName} && !\$overrideExisting) {
 			return;
 		}
-		\$this->{$collName} = new PropelObjectCollection();
+		\$this->{$collName} = new PropulsionObjectCollection();
 		\$this->{$collName}->setModel('$relatedObjectClassName');
 	}";
 	}
@@ -2180,11 +2179,11 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * Gets a collection of $relatedObjectClassName objects which contain a foreign key that references this object.
 	 *
 	 * @param ?Criteria \$criteria optional Criteria object to narrow the query
-	 * @param ?PropelPDO \$con optional connection object
-	 * @return PropelObjectCollection<$relatedObjectClassName> List of $relatedObjectClassName objects
-	 * @throws PropelException
+	 * @param ?PropulsionPDO \$con optional connection object
+	 * @return PropulsionObjectCollection<$relatedObjectClassName> List of $relatedObjectClassName objects
+	 * @throws PropulsionException
 	 */
-	public function get$relCol(?Criteria \$criteria = null, ?PropelPDO \$con = null): PropelObjectCollection
+	public function get$relCol(?Criteria \$criteria = null, ?PropulsionPDO \$con = null): PropulsionObjectCollection
 	{
 		if (null === \$this->{$collName} || null !== \$criteria) {
 			if (\$this->isNew() && null === \$this->{$collName}) {
@@ -2199,7 +2198,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			}
 		}
 
-		return \$this->{$collName} ?? new PropelObjectCollection();
+		return \$this->{$collName} ?? new PropulsionObjectCollection();
 	}";
 	}
 
@@ -2218,11 +2217,11 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 *
 	 * @param ?Criteria \$criteria
 	 * @param bool \$distinct
-	 * @param ?PropelPDO \$con
+	 * @param ?PropulsionPDO \$con
 	 * @return int Count of related $relatedObjectClassName objects.
-	 * @throws PropelException
+	 * @throws PropulsionException
 	 */
-	public function count$relCol(?Criteria \$criteria = null, bool \$distinct = false, ?PropelPDO \$con = null): int
+	public function count$relCol(?Criteria \$criteria = null, bool \$distinct = false, ?PropulsionPDO \$con = null): int
 	{
 		if (\$this->isNew()) {
 			return 0;
@@ -2325,11 +2324,11 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * actually need in ".$table->getPhpName().".
 	 *
 	 * @param ?Criteria \$criteria optional Criteria object to narrow the query
-	 * @param ?PropelPDO \$con optional connection object
+	 * @param ?PropulsionPDO \$con optional connection object
 	 * @param string \$join_behavior optional join type to use (defaults to $join_behavior)
-	 * @return PropelCollection|array List of {$className} objects
+	 * @return PropulsionCollection|array List of {$className} objects
 	 */
-	public function get".$relCol."Join".$relCol2."(?Criteria \$criteria = null, ?PropelPDO \$con = null, string \$join_behavior = $join_behavior): PropelCollection|array
+	public function get".$relCol."Join".$relCol2."(?Criteria \$criteria = null, ?PropulsionPDO \$con = null, string \$join_behavior = $join_behavior): PropulsionCollection|array
 	{
 		\$query = $fkQueryClassname::create(null, \$criteria);
 		\$query->joinWith('" . $this->getFKPhpNameAffix($fk2, $plural=false) . "', \$join_behavior);
@@ -2354,11 +2353,11 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Get the associated $relatedObjectClassName object (1:1 relationship).
 	 *
-	 * @param ?PropelPDO \$con optional connection object
+	 * @param ?PropulsionPDO \$con optional connection object
 	 * @return ?$relatedObjectClassName The associated $relatedObjectClassName object.
-	 * @throws PropelException
+	 * @throws PropulsionException
 	 */
-	public function get$relatedByName(?PropelPDO \$con = null): ?$relatedObjectClassName
+	public function get$relatedByName(?PropulsionPDO \$con = null): ?$relatedObjectClassName
 	{
 		if (\$this->$varName === null && !\$this->isNew()) {
 			\$this->$varName = " . $this->getNewStubQueryBuilder($refFK->getTable())->getClassname() . "::create()->findPk(\$this->getPrimaryKey(), \$con);
@@ -2386,7 +2385,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 *
 	 * @param ?$relatedObjectClassName \$v The $relatedObjectClassName object.
 	 * @return static The current object (for fluent API support)
-	 * @throws PropelException
+	 * @throws PropulsionException
 	 */
 	public function set$relatedByName(?$relatedObjectClassName \$v = null): static
 	{
@@ -2475,7 +2474,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		if (null !== \$this->{$collName} && !\$overrideExisting) {
 			return;
 		}
-		\$this->{$collName} = new PropelObjectCollection();
+		\$this->{$collName} = new PropulsionObjectCollection();
 		\$this->{$collName}->setModel('$relatedObjectClassName');
 	}
 ";
@@ -2499,11 +2498,11 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * to the current object by way of the $crossRefTableName cross-reference table.
 	 *
 	 * @param ?Criteria \$criteria optional Criteria object to narrow the query
-	 * @param ?PropelPDO \$con optional connection object
-	 * @return PropelObjectCollection<$relatedObjectClassName> List of $relatedObjectClassName objects
-	 * @throws PropelException
+	 * @param ?PropulsionPDO \$con optional connection object
+	 * @return PropulsionObjectCollection<$relatedObjectClassName> List of $relatedObjectClassName objects
+	 * @throws PropulsionException
 	 */
-	public function get$relatedName(?Criteria \$criteria = null, ?PropelPDO \$con = null): PropelObjectCollection
+	public function get$relatedName(?Criteria \$criteria = null, ?PropulsionPDO \$con = null): PropulsionObjectCollection
 	{
 		if (null === \$this->$collName || null !== \$criteria) {
 			if (\$this->isNew() && null === \$this->$collName) {
@@ -2523,7 +2522,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			}
 		}
 
-		return \$this->$collName ?? new PropelObjectCollection();
+		return \$this->$collName ?? new PropulsionObjectCollection();
 	}
 ";
 	}
@@ -2546,11 +2545,11 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 *
 	 * @param ?Criteria \$criteria
 	 * @param bool \$distinct
-	 * @param ?PropelPDO \$con
+	 * @param ?PropulsionPDO \$con
 	 * @return int Count of related $relatedObjectClassName objects.
-	 * @throws PropelException
+	 * @throws PropulsionException
 	 */
-	public function count$relatedName(?Criteria \$criteria = null, bool \$distinct = false, ?PropelPDO \$con = null): int
+	public function count$relatedName(?Criteria \$criteria = null, bool \$distinct = false, ?PropulsionPDO \$con = null): int
 	{
 		if (\$this->isNew()) {
 			return 0;
@@ -2661,7 +2660,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 *
 	 * This method is a user-space workaround for PHP's inability to garbage collect
 	 * objects with circular references (even in PHP 5.3). This is currently necessary
-	 * when using Propel in certain daemon or large-volume/high-memory operations.
+	 * when using Propulsion in certain daemon or large-volume/high-memory operations.
 	 *
 	 * @param bool \$deep Whether to also clear the references on all referrer objects.
 	 */

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -18,7 +18,7 @@ namespace Propulsion\Generator\Reverse\MySQL;
  * @package    propel.generator.reverse.mysql
  */
 use Propulsion\Generator\Reverse\BaseSchemaParser;
-use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\PropulsionTypes;
 use Propulsion\Generator\Model\Database;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Model\Column;
@@ -38,39 +38,39 @@ class MysqlSchemaParser extends BaseSchemaParser
 	private $addVendorInfo = false;
 
 	/**
-	 * Map MySQL native types to Propel types.
+	 * Map MySQL native types to Propulsion types.
 	 * @var        array
 	 */
 	private static $mysqlTypeMap = array(
-		'tinyint' => PropelTypes::TINYINT,
-		'smallint' => PropelTypes::SMALLINT,
-		'mediumint' => PropelTypes::SMALLINT,
-		'int' => PropelTypes::INTEGER,
-		'integer' => PropelTypes::INTEGER,
-		'bigint' => PropelTypes::BIGINT,
-		'int24' => PropelTypes::BIGINT,
-		'real' => PropelTypes::REAL,
-		'float' => PropelTypes::FLOAT,
-		'decimal' => PropelTypes::DECIMAL,
-		'numeric' => PropelTypes::NUMERIC,
-		'double' => PropelTypes::DOUBLE,
-		'char' => PropelTypes::CHAR,
-		'varchar' => PropelTypes::VARCHAR,
-		'date' => PropelTypes::DATE,
-		'time' => PropelTypes::TIME,
-		'year' => PropelTypes::INTEGER,
-		'datetime' => PropelTypes::TIMESTAMP,
-		'timestamp' => PropelTypes::TIMESTAMP,
-		'tinyblob' => PropelTypes::BINARY,
-		'blob' => PropelTypes::BLOB,
-		'mediumblob' => PropelTypes::BLOB,
-		'longblob' => PropelTypes::BLOB,
-		'longtext' => PropelTypes::CLOB,
-		'tinytext' => PropelTypes::VARCHAR,
-		'mediumtext' => PropelTypes::LONGVARCHAR,
-		'text' => PropelTypes::LONGVARCHAR,
-		'enum' => PropelTypes::CHAR,
-		'set' => PropelTypes::CHAR,
+		'tinyint' => PropulsionTypes::TINYINT,
+		'smallint' => PropulsionTypes::SMALLINT,
+		'mediumint' => PropulsionTypes::SMALLINT,
+		'int' => PropulsionTypes::INTEGER,
+		'integer' => PropulsionTypes::INTEGER,
+		'bigint' => PropulsionTypes::BIGINT,
+		'int24' => PropulsionTypes::BIGINT,
+		'real' => PropulsionTypes::REAL,
+		'float' => PropulsionTypes::FLOAT,
+		'decimal' => PropulsionTypes::DECIMAL,
+		'numeric' => PropulsionTypes::NUMERIC,
+		'double' => PropulsionTypes::DOUBLE,
+		'char' => PropulsionTypes::CHAR,
+		'varchar' => PropulsionTypes::VARCHAR,
+		'date' => PropulsionTypes::DATE,
+		'time' => PropulsionTypes::TIME,
+		'year' => PropulsionTypes::INTEGER,
+		'datetime' => PropulsionTypes::TIMESTAMP,
+		'timestamp' => PropulsionTypes::TIMESTAMP,
+		'tinyblob' => PropulsionTypes::BINARY,
+		'blob' => PropulsionTypes::BLOB,
+		'mediumblob' => PropulsionTypes::BLOB,
+		'longblob' => PropulsionTypes::BLOB,
+		'longtext' => PropulsionTypes::CLOB,
+		'tinytext' => PropulsionTypes::VARCHAR,
+		'mediumtext' => PropulsionTypes::LONGVARCHAR,
+		'text' => PropulsionTypes::LONGVARCHAR,
+		'enum' => PropulsionTypes::CHAR,
+		'set' => PropulsionTypes::CHAR,
 	);
 
 	protected static $defaultTypeSizes = array(
@@ -83,7 +83,7 @@ class MysqlSchemaParser extends BaseSchemaParser
 	);
 
 	/**
-	 * Gets a type mapping from native types to Propel types
+	 * Gets a type mapping from native types to Propulsion types
 	 *
 	 * @return     array
 	 */
@@ -234,16 +234,16 @@ class MysqlSchemaParser extends BaseSchemaParser
 		//BLOBs can't have any default values in MySQL
 		$default = preg_match('~blob|text~', $nativeType) ? null : $row['Default'];
 
-		$propelType = $this->getMappedPropelType($nativeType);
+		$propelType = $this->getMappedPropulsionType($nativeType);
 		if (!$propelType) {
 			$propelType = Column::DEFAULT_TYPE;
 			$sqlType = $row['Type'];
-			$this->warn("Column [" . $table->getName() . "." . $name. "] has a column type (".$nativeType.") that Propel does not support.");
+			$this->warn("Column [" . $table->getName() . "." . $name. "] has a column type (".$nativeType.") that Propulsion does not support.");
 		}
 
 		// Special case for TINYINT(1) which is a BOOLEAN
-		if (PropelTypes::TINYINT === $propelType && 1 === $size) {
-			$propelType = PropelTypes::BOOLEAN;
+		if (PropulsionTypes::TINYINT === $propelType && 1 === $size) {
+			$propelType = PropulsionTypes::BOOLEAN;
 		}
 
 		$column = new Column($name);
@@ -255,7 +255,7 @@ class MysqlSchemaParser extends BaseSchemaParser
 		$column->getDomain()->replaceSize($size);
 		$column->getDomain()->replaceScale($scale);
 		if ($default !== null) {
-			if ($propelType == PropelTypes::BOOLEAN) {
+			if ($propelType == PropulsionTypes::BOOLEAN) {
 				if ($default == '1') $default = 'true';
 				if ($default == '0') $default = 'false';
 			}

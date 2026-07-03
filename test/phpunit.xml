@@ -10,13 +10,13 @@
     colors="true">
 
     <testsuites>
-        <testsuite name="Propel Generator Tests">
+        <testsuite name="Propulsion Generator Tests">
             <directory>./testsuite/generator</directory>
         </testsuite>
-        <testsuite name="Propel Runtime Tests">
+        <testsuite name="Propulsion Runtime Tests">
             <directory>./testsuite/runtime</directory>
         </testsuite>
-        <testsuite name="Propel Misc Tests">
+        <testsuite name="Propulsion Misc Tests">
             <directory>./testsuite/misc</directory>
         </testsuite>
     </testsuites>

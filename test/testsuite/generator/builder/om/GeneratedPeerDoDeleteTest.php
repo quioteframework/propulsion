@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -109,7 +109,6 @@ class GeneratedPeerDoDeleteTest extends BookstoreEmptyTestBase
 
 	/**
 	 * Test that cascading deletes are happening correctly for composite pk.
-	 * @link       http://propel.phpdb.org/trac/ticket/544
 	 */
 	public function testDoDelete_Cascade_CompositePK()
 	{
@@ -302,12 +301,9 @@ class GeneratedPeerDoDeleteTest extends BookstoreEmptyTestBase
 		$this->assertEquals(0, count(BookPeer::doSelect($c)), "Expect all book.author_id columns to be NULL.");
 	}
 
-	/**
-	 * @link       http://propel.phpdb.org/trac/ticket/519
-	 */
 	public function testDoDeleteCompositePK()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
 		ReaderFavoritePeer::doDeleteAll();
 		// Create books with IDs 1 to 3
@@ -475,7 +471,6 @@ class GeneratedPeerDoDeleteTest extends BookstoreEmptyTestBase
 
 	/**
 	 * Test doCountJoin*() methods with ORDER BY columns in Criteria.
-	 * @link http://propel.phpdb.org/trac/ticket/627
 	 */
 	public function testDoCountJoinWithOrderBy()
 	{
@@ -510,7 +505,7 @@ class GeneratedPeerDoDeleteTest extends BookstoreEmptyTestBase
 	 */
 	private function createBookWithId(int $id)
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$b = BookPeer::retrieveByPK($id);
 		if (!$b) {
 			$b = new Book();
@@ -529,7 +524,7 @@ class GeneratedPeerDoDeleteTest extends BookstoreEmptyTestBase
 	 */
 	private function createReaderWithId(int $id)
 	{
-		$con = Propel::getConnection(BookReaderPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookReaderPeer::DATABASE_NAME);
 		$r = BookReaderPeer::retrieveByPK($id);
 		if (!$r) {
 			$r = new BookReader();

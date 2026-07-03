@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -131,11 +131,11 @@ class GeneratedNestedSetObjectTest extends CmsTestBase
 
 	/**
 	 * Test xxxNestedSet::makeRoot() exception
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testObjectMakeRootException()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$c = new Criteria();
 		$c->add(PagePeer::TITLE, 'home', Criteria::EQUAL);
 

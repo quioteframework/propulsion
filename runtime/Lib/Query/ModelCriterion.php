@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -19,7 +19,7 @@ namespace Propulsion\Query;
 
  use Propulsion\Map\ColumnMap;
  use Propulsion\Adapter\DBPostgres;
- use Propulsion\Exception\PropelException;
+ use Propulsion\Exception\PropulsionException;
 class ModelCriterion extends Criterion
 {
 	protected $clause = '';
@@ -163,7 +163,7 @@ class ModelCriterion extends Criterion
 				// FIXME we eventually need to translate a BETWEEN to
 				// something like WHERE (col < :p1 OR :p1 IS NULL) AND (col < :p2 OR :p2 IS NULL)
 				// in order to support null values
-				throw new PropelException('Null values are not supported inside BETWEEN clauses');
+				throw new PropulsionException('Null values are not supported inside BETWEEN clauses');
 			}
 			$params[] = array('table' => $this->realtable, 'column' => $this->column, 'value' => $value);
 			$clause = self::strReplaceOnce('?', ':p'.count($params), $clause);

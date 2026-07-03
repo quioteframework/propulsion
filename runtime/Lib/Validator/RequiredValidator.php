@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -12,7 +12,7 @@ namespace Propulsion\Validator;
 /**
  * A validator for required fields.
  *
- * Below is an example usage for your Propel xml schema file.
+ * Below is an example usage for your Propulsion xml schema file.
  *
  * <code>
  *   <column name="username" type="VARCHAR" size="25" required="true" />

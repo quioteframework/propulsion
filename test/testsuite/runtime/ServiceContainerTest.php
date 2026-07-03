@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -40,7 +40,7 @@ class ServiceContainerTest extends BookstoreTestBase
     /**
      * The interim pool-registry hack (see ServiceContainer::clearInstancePools())
      * should clear a generated Peer's static instance pool, whether or not it was
-     * ever explicitly registered -- it also walks Propel's already-loaded
+     * ever explicitly registered -- it also walks Propulsion's already-loaded
      * DatabaseMaps to find Peer classes on a best-effort basis.
      */
     public function testClearInstancePoolsClearsUnregisteredPeerViaDatabaseMap()

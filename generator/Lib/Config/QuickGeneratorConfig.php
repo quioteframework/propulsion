@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -126,7 +126,7 @@ class QuickGeneratorConfig implements GeneratorConfigInterface
 	{
 		$this->buildProperties = array();
 
-		$renamedPropelProps = array();
+		$renamedPropulsionProps = array();
 		foreach ($props as $key => $propValue) {
 			if (strpos($key, "propel.") === 0) {
 				$newKey = substr($key, strlen("propel."));

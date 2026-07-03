@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -29,10 +29,10 @@ namespace Propulsion\OM;
  * @package    propel.runtime.om
  */
 
- use Propulsion\Connection\PropelPDO;
- use Propulsion\Exception\PropelException;
- use Propulsion\Propel;
- use Propulsion\Parser\PropelParser;
+ use Propulsion\Connection\PropulsionPDO;
+ use Propulsion\Exception\PropulsionException;
+ use Propulsion\Propulsion;
+ use Propulsion\Parser\PropulsionParser;
  use Propulsion\Util\BasePeer;
 abstract class BaseObject
 {
@@ -114,7 +114,7 @@ abstract class BaseObject
 
 	/**
 	 * Setter for the isNew attribute.  This method will be called
-	 * by Propel-generated children and Peers.
+	 * by Propulsion-generated children and Peers.
 	 *
 	 * @param      boolean $b the state of the object.
 	 */
@@ -144,67 +144,67 @@ abstract class BaseObject
 
 	/**
 	 * Code to be run before persisting the object
-	 * @param PropelPDO $con
+	 * @param PropulsionPDO $con
 	 * @return boolean
 	 */
-	public function preSave(?PropelPDO $con = null)
+	public function preSave(?PropulsionPDO $con = null)
 	{
 		return true;
 	}
 
 	/**
 	 * Code to be run after persisting the object
-	 * @param PropelPDO $con
+	 * @param PropulsionPDO $con
 	 */
-	public function postSave(?PropelPDO $con = null) { }
+	public function postSave(?PropulsionPDO $con = null) { }
 
 		/**
 		 * Code to be run before inserting to database
-		 * @param PropelPDO $con
+		 * @param PropulsionPDO $con
 		 * @return boolean
 		 */
-		public function preInsert(?PropelPDO $con = null)
+		public function preInsert(?PropulsionPDO $con = null)
 		{
 			return true;
 		}
 
 	/**
 	 * Code to be run after inserting to database
-	 * @param PropelPDO $con
+	 * @param PropulsionPDO $con
 	 */
-	public function postInsert(?PropelPDO $con = null) { }
+	public function postInsert(?PropulsionPDO $con = null) { }
 
 		/**
 		 * Code to be run before updating the object in database
-		 * @param PropelPDO $con
+		 * @param PropulsionPDO $con
 		 * @return boolean
 		 */
-		public function preUpdate(?PropelPDO $con = null)
+		public function preUpdate(?PropulsionPDO $con = null)
 		{
 			return true;
 		}
 
 	/**
 	 * Code to be run after updating the object in database
-	 * @param PropelPDO $con
+	 * @param PropulsionPDO $con
 	 */
-	public function postUpdate(?PropelPDO $con = null) { }
+	public function postUpdate(?PropulsionPDO $con = null) { }
 
 		/**
 		 * Code to be run before deleting the object in database
-		 * @param PropelPDO $con
+		 * @param PropulsionPDO $con
 		 * @return boolean
 		 */
-		public function preDelete(?PropelPDO $con = null)
+		public function preDelete(?PropulsionPDO $con = null)
 		{
 			return true;
 		}
 
 	/**
 	 * Code to be run after deleting the object in database
-	 * @param PropelPDO $con
+	 * @param PropulsionPDO $con
 	 */
-	public function postDelete(?PropelPDO $con = null) { }
+	public function postDelete(?PropulsionPDO $con = null) { }
 
 		/**
 		 * Sets the modified state for the object to be false.
@@ -291,7 +291,7 @@ abstract class BaseObject
 	public function getVirtualColumn($name)
 	{
 		if (!$this->hasVirtualColumn($name)) {
-			throw new PropelException('Cannot get value of inexistent virtual column ' . $name);
+			throw new PropulsionException('Cannot get value of inexistent virtual column ' . $name);
 		}
 		return $this->virtualColumns[$name];
 	}
@@ -311,15 +311,15 @@ abstract class BaseObject
 	}
 
 	/**
-	 * Logs a message using Propel::log().
+	 * Logs a message using Propulsion::log().
 	 *
 	 * @param      string $msg
-	 * @param      string $priority One of the Propel::LOG_* / Psr\Log\LogLevel::* logging levels
+	 * @param      string $priority One of the Propulsion::LOG_* / Psr\Log\LogLevel::* logging levels
 	 * @return     boolean
 	 */
-	protected function log($msg, $priority = Propel::LOG_INFO)
+	protected function log($msg, $priority = Propulsion::LOG_INFO)
 	{
-		return Propel::log(get_class($this) . ': ' . $msg, $priority);
+		return Propulsion::log(get_class($this) . ': ' . $msg, $priority);
 	}
 
 	/**
@@ -329,7 +329,7 @@ abstract class BaseObject
 	 * $book->importFrom('JSON', '{"Id":9012,"Title":"Don Juan","ISBN":"0140422161","Price":12.99,"PublisherId":1234,"AuthorId":5678}');
 	 * </code>
 	 *
-	 * @param mixed  $parser A PropelParser instance,
+	 * @param mixed  $parser A PropulsionParser instance,
 	 *                       or a format name ('XML', 'YAML', 'JSON', 'CSV')
 	 * @param string $data   The source data to import from
 	 *
@@ -337,8 +337,8 @@ abstract class BaseObject
 	 */
 	public function importFrom($parser, $data)
 	{
-		if (!$parser instanceof PropelParser) {
-			$parser = PropelParser::getParser($parser);
+		if (!$parser instanceof PropulsionParser) {
+			$parser = PropulsionParser::getParser($parser);
 		}
 		return $this->fromArray($parser->toArray($data), BasePeer::TYPE_PHPNAME);
 	}
@@ -351,14 +351,14 @@ abstract class BaseObject
 	 *  => {"Id":9012,"Title":"Don Juan","ISBN":"0140422161","Price":12.99,"PublisherId":1234,"AuthorId":5678}');
 	 * </code>
 	 *
-	 * @param     mixed   $parser                 A PropelParser instance, or a format name ('XML', 'YAML', 'JSON', 'CSV')
+	 * @param     mixed   $parser                 A PropulsionParser instance, or a format name ('XML', 'YAML', 'JSON', 'CSV')
 	 * @param     boolean $includeLazyLoadColumns (optional) Whether to include lazy load(ed) columns. Defaults to TRUE.
 	 * @return    string                          The exported data
 	 */
 	public function exportTo($parser, $includeLazyLoadColumns = true)
 	{
-		if (!$parser instanceof PropelParser) {
-			$parser = PropelParser::getParser($parser);
+		if (!$parser instanceof PropulsionParser) {
+			$parser = PropulsionParser::getParser($parser);
 		}
 		return $parser->fromArray($this->toArray(BasePeer::TYPE_PHPNAME, $includeLazyLoadColumns, array(), true));
 	}
@@ -424,6 +424,6 @@ abstract class BaseObject
 			$includeLazyLoadColumns = isset($params[0]) ? $params[0] : true;
 			return $this->exportTo($matches[1], $includeLazyLoadColumns);
 		}
-		throw new PropelException("Call to undefined method: $name");
+		throw new PropulsionException("Call to undefined method: $name");
 	}
 }

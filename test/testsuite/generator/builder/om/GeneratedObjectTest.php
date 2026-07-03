@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -101,12 +101,10 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
     /**
      * Tests the use of default expressions and the reloadOnInsert and reloadOnUpdate attributes.
      *
-     * @link       http://propel.phpdb.org/trac/ticket/378
-     * @link       http://propel.phpdb.org/trac/ticket/555
      */
     public function testDefaultExpresions()
     {
-        if (Propel::getDb(BookstoreEmployeePeer::DATABASE_NAME) instanceof DBSqlite) {
+        if (Propulsion::getDb(BookstoreEmployeePeer::DATABASE_NAME) instanceof DBSqlite) {
             $this->markTestSkipped("Cannot test default expressions with SQLite");
         }
 
@@ -145,12 +143,10 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
     /**
      * Tests the use of default expressions and the reloadOnInsert attribute.
      *
-     * @link       http://propel.phpdb.org/trac/ticket/378
-     * @link       http://propel.phpdb.org/trac/ticket/555
      */
     public function testDefaultExpresions_ReloadOnInsert()
     {
-        if (Propel::getDb(BookstoreEmployeePeer::DATABASE_NAME) instanceof DBSqlite) {
+        if (Propulsion::getDb(BookstoreEmployeePeer::DATABASE_NAME) instanceof DBSqlite) {
             $this->markTestSkipped("Cannot test default date expressions with SQLite");
         }
 
@@ -185,12 +181,10 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
     /**
      * Tests the overriding reloadOnInsert at runtime.
      *
-     * @link       http://propel.phpdb.org/trac/ticket/378
-     * @link       http://propel.phpdb.org/trac/ticket/555
      */
     public function testDefaultExpresions_ReloadOnInsert_Override()
     {
-        if (Propel::getDb(BookstoreEmployeePeer::DATABASE_NAME) instanceof DBSqlite) {
+        if (Propulsion::getDb(BookstoreEmployeePeer::DATABASE_NAME) instanceof DBSqlite) {
             $this->markTestSkipped("Cannot test default date expressions with SQLite");
         }
 
@@ -224,7 +218,6 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
     /**
      * Tests the use of default expressions and the reloadOnUpdate attribute.
      *
-     * @link       http://propel.phpdb.org/trac/ticket/555
      */
     public function testDefaultExpresions_ReloadOnUpdate()
     {
@@ -250,8 +243,6 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
     /**
      * Tests the overriding reloadOnUpdate at runtime.
      *
-     * @link       http://propel.phpdb.org/trac/ticket/378
-     * @link       http://propel.phpdb.org/trac/ticket/555
      */
     public function testDefaultExpresions_ReloadOnUpdate_Override()
     {
@@ -315,7 +306,7 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
         $this->assertSame($pub1, $book->getPublisher());
 
         // now change values behind the scenes
-        $con = Propel::getConnection(BookstoreEmployeeAccountPeer::DATABASE_NAME);
+        $con = Propulsion::getConnection(BookstoreEmployeeAccountPeer::DATABASE_NAME);
         $con->exec("UPDATE " . BookPeer::TABLE_NAME . " SET "
             . " publisher_id = " . $pub2->getId()
             . " WHERE id = " . $book->getId());
@@ -488,7 +479,7 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
             $book->setTitle("Will Fail");
             $book->save();
             $this->fail("Expect an exception to be thrown when attempting to save() a deleted object.");
-        } catch (PropelException $e) {}
+        } catch (PropulsionException $e) {}
 
             // 4) make sure that it doesn't exist in db
             $book = BookPeer::retrieveByPK($bookId);
@@ -571,7 +562,6 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
 
     /**
      * This is a test for expected exceptions when saving UNIQUE.
-     * See http://propel.phpdb.org/trac/ticket/2
      */
     public function testSaveUnique()
     {
@@ -592,17 +582,17 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
 
         try {
             $acct2->save();
-            $this->fail("Expected PropelException in first attempt to save object with duplicate value for UNIQUE constraint.");
+            $this->fail("Expected PropulsionException in first attempt to save object with duplicate value for UNIQUE constraint.");
         } catch (Exception $x) {
-            $this->assertInstanceOf('PropelException', $x, "Expected PropelException in first attempt to save object with duplicate value for UNIQUE constraint.");
+            $this->assertInstanceOf('PropulsionException', $x, "Expected PropulsionException in first attempt to save object with duplicate value for UNIQUE constraint.");
             try {
                 // attempt to save it again
                 $acct3 = $acct->copy();
                 $acct3->save();
-                $this->fail("Expected PropelException in second attempt to save object with duplicate value for UNIQUE constraint.");
+                $this->fail("Expected PropulsionException in second attempt to save object with duplicate value for UNIQUE constraint.");
             } catch (Exception $x) {
                 // this is expected.
-                $this->assertInstanceOf('PropelException', $x, "Expected PropelException in second attempt to save object with duplicate value for UNIQUE constraint.");
+                $this->assertInstanceOf('PropulsionException', $x, "Expected PropulsionException in second attempt to save object with duplicate value for UNIQUE constraint.");
             }
             // now let's double check that it can succeed if we're not violating the constraint.
             $acct3->setLogin("foo2");
@@ -742,7 +732,6 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
 
     /**
      * Test checking for non-default values.
-     * @see        http://propel.phpdb.org/trac/ticket/331
      */
     public function testHasOnlyDefaultValues()
     {
@@ -871,7 +860,6 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
 
     /**
      * Test copying when an object has composite primary key.
-     * @link http://propel.phpdb.org/trac/ticket/618
      */
     public function testCopy_CompositePK()
     {
@@ -943,7 +931,6 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
 
     /**
      * Test the toArray() method with new lazyLoad param.
-     * @link       http://propel.phpdb.org/trac/ticket/527
      */
     public function testToArrayLazyLoad()
     {
@@ -1040,7 +1027,6 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
 
     /**
      * Test regexp validator for ticket:542
-     * @link       http://propel.phpdb.org/trac/ticket/542
      */
     public function testRegexValidator()
     {
@@ -1065,7 +1051,7 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
             $b->save();
             $this->fail("Expected setting auto-increment primary key to result in Exception");
         } catch (Exception $x) {
-            $this->assertInstanceOf('PropelException', $x);
+            $this->assertInstanceOf('PropulsionException', $x);
         }
 
         // ... but we should silently ignore NULL values, since these are really
@@ -1115,7 +1101,6 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
 
     /**
      * Test foreign key relationships based on references to unique cols but not PK.
-     * @link       http://propel.phpdb.org/trac/ticket/691
      */
     public function testUniqueFkRel()
     {
@@ -1248,7 +1233,7 @@ EOF;
 
     public function testPreSaveFalse()
     {
-        $con = Propel::getConnection(AuthorPeer::DATABASE_NAME);
+        $con = Propulsion::getConnection(AuthorPeer::DATABASE_NAME);
         $author = new TestAuthorSaveFalse();
         $author->setFirstName("bogus");
         $author->setLastName("Lastname");
@@ -1281,7 +1266,7 @@ EOF;
 
     public function testPreDeleteFalse()
     {
-        $con = Propel::getConnection(AuthorPeer::DATABASE_NAME);
+        $con = Propulsion::getConnection(AuthorPeer::DATABASE_NAME);
         $author = new TestAuthorDeleteFalse();
         $author->setFirstName("bogus");
         $author->setLastName("Lastname");
@@ -1314,11 +1299,11 @@ EOF;
     }
 
     /**
-     * @expectedException PropelException
+     * @expectedException PropulsionException
      */
     public function testMagicCallUndefined()
     {
-    	$this->expectException(PropelException::class);
+    	$this->expectException(PropulsionException::class);
         $book = new Book();
         $book->fooMethodName();
     }

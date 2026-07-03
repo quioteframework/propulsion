@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -322,7 +322,7 @@ public function filterBySlug(\$slug)
  * Find one object based on its slug
  *
  * @param     string \$slug The value to use as filter.
- * @param     PropelPDO \$con The optional connection object
+ * @param     PropulsionPDO \$con The optional connection object
  *
  * @return    " . $this->builder->getStubObjectBuilder()->getClassname() . " the result, formatted by the current formatter
  */

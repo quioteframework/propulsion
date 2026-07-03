@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -139,7 +139,7 @@ public function orderByRank(\$order = Criteria::ASC)
 			return \$this->addDescendingOrderByColumn(\$this->getAliasedColName(" . $this->peerClassname . "::RANK_COL));
 			break;
 		default:
-			throw new PropelException('" . $this->queryClassname . "::orderBy() only accepts \"asc\" or \"desc\" as argument');
+			throw new PropulsionException('" . $this->queryClassname . "::orderBy() only accepts \"asc\" or \"desc\" as argument');
 	}
 }
 ";
@@ -159,11 +159,11 @@ public function orderByRank(\$order = Criteria::ASC)
  * @param     int \$scope		Scope to determine which suite to consider";
 		}
 		$script .= "
- * @param     PropelPDO \$con optional connection
+ * @param     PropulsionPDO \$con optional connection
  *
  * @return    {$this->objectClassname}
  */
-public function findOneByRank(\$rank, " . ($useScope ? "\$scope = null, " : "") . "PropelPDO \$con = null)
+public function findOneByRank(\$rank, " . ($useScope ? "\$scope = null, " : "") . "PropulsionPDO \$con = null)
 {
 	return \$this
 		->filterByRank(\$rank" . ($useScope ? ", \$scope" : "") . ")
@@ -184,7 +184,7 @@ public function findOneByRank(\$rank, " . ($useScope ? "\$scope = null, " : "") 
  * @param      int \$scope		Scope to determine which list to return";
  		}
 		$script .= "
- * @param      PropelPDO \$con	Connection to use.
+ * @param      PropulsionPDO \$con	Connection to use.
  *
  * @return     mixed the list of results, formatted by the current formatter
  */
@@ -204,7 +204,7 @@ public function findList(" . ($useScope ? "\$scope = null, " : "") . "\$con = nu
 
 	protected function addGetMaxRank(&$script)
 	{
-		$this->builder->declareClasses('Propel');
+		$this->builder->declareClasses('Propulsion');
 		$useScope = $this->behavior->useScope();
 		$script .= "
 /**
@@ -215,14 +215,14 @@ public function findList(" . ($useScope ? "\$scope = null, " : "") . "\$con = nu
  * @param      int \$scope		Scope to determine which suite to consider";
 		}
 		$script .= "
- * @param     PropelPDO optional connection
+ * @param     PropulsionPDO optional connection
  *
  * @return    integer highest position
  */
-public function getMaxRank(" . ($useScope ? "\$scope = null, " : "") . "PropelPDO \$con = null)
+public function getMaxRank(" . ($useScope ? "\$scope = null, " : "") . "PropulsionPDO \$con = null)
 {
 	if (\$con === null) {
-		\$con = Propel::getConnection({$this->peerClassname}::DATABASE_NAME);
+		\$con = Propulsion::getConnection({$this->peerClassname}::DATABASE_NAME);
 	}
 	// shift the objects with a position lower than the one of object
 	\$this->addSelectColumn('MAX(' . {$this->peerClassname}::RANK_COL . ')');";
@@ -240,7 +240,7 @@ public function getMaxRank(" . ($useScope ? "\$scope = null, " : "") . "PropelPD
 
 	protected function addReorder(&$script)
 	{
-		$this->builder->declareClasses('Propel');
+		$this->builder->declareClasses('Propulsion');
 		$peerClassname = $this->peerClassname;
 		$columnGetter = 'get' . $this->behavior->getColumnForParameter('rank_column')->getPhpName();
 		$columnSetter = 'set' . $this->behavior->getColumnForParameter('rank_column')->getPhpName();
@@ -251,14 +251,14 @@ public function getMaxRank(" . ($useScope ? "\$scope = null, " : "") . "PropelPD
  * So incoherent positions will result in an incoherent list
  *
  * @param     array     \$order id => rank pairs
- * @param     PropelPDO \$con   optional connection
+ * @param     PropulsionPDO \$con   optional connection
  *
  * @return    boolean true if the reordering took place, false if a database problem prevented it
  */
-public function reorder(array \$order, PropelPDO \$con = null)
+public function reorder(array \$order, PropulsionPDO \$con = null)
 {
 	if (\$con === null) {
-		\$con = Propel::getConnection($peerClassname::DATABASE_NAME);
+		\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME);
 	}
 
 	\$con->beginTransaction();
@@ -275,7 +275,7 @@ public function reorder(array \$order, PropelPDO \$con = null)
 		\$con->commit();
 
 		return true;
-	} catch (PropelException \$e) {
+	} catch (PropulsionException \$e) {
 		\$con->rollback();
 		throw \$e;
 	}

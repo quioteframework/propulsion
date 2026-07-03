@@ -1,8 +1,8 @@
-= Running The Propel Unit Tests =
+= Running The Propulsion Unit Tests =
 
 == Background ==
 
-Propel uses [http://www.phpunit.de PHPUnit] to test the build and runtime frameworks.
+Propulsion uses [http://www.phpunit.de PHPUnit] to test the build and runtime frameworks.
 
 You can find the unit test classes and support files in the [browser:branches/1.6/test/testsuite] directory.
 
@@ -31,7 +31,7 @@ propel.database.password = p@ssw0rd
 {{{
 // in test/fixtures/bookstore/runtime-conf.xml
 <datasource id="bookstore">
-  <!-- the Propel adapter to use for this connection -->
+  <!-- the Propulsion adapter to use for this connection -->
   <adapter>mysql</adapter>
   <!-- Connection parameters. See PDO documentation for DSN format and available option constants. -->
   <connection>
@@ -58,7 +58,7 @@ propel.database.password = p@ssw0rd
 **Tip**: To run the unit tests for the namespace support in PHP 5.3, you must also configure the `fixtures/namespaced` project.
 **Tip**: To run the unit tests for the database schema support, you must also configure the `fixtures/schemas` project. This projects requires that your database supports schemas, and already contains the following schemas: `bookstore_schemas`, `contest`, and `second_hand_books`. Note that the user defined in `build.properties` and `runtime-conf.xml` must have access to these schemas.
 
-== Build the Propel Model and Initialize the Database ==
+== Build the Propulsion Model and Initialize the Database ==
 
 {{{
 > cd /path/to/propel/test
@@ -111,9 +111,9 @@ The [browser:branches/1.6/test/tools/helpers/bookstore/BookstoreTestBase.php Boo
 
 == Writing Tests ==
 
-If you've made a change to a template or to Propel behavior, the right thing to do is write a unit test that ensures that it works properly -- and continues to work in the future.
+If you've made a change to a template or to Propulsion behavior, the right thing to do is write a unit test that ensures that it works properly -- and continues to work in the future.
 
-Writing a unit test often means adding a method to one of the existing test classes. For example, let's test a feature in the Propel templates that supports saving of objects when only default values have been specified. Just add a `testSaveWithDefaultValues()` method to the [browser:branches/1.6/test/testsuite/generator/engine/builder/om/php5/GeneratedObjectTest.php GeneratedObjectTest] class, as follows:
+Writing a unit test often means adding a method to one of the existing test classes. For example, let's test a feature in the Propulsion templates that supports saving of objects when only default values have been specified. Just add a `testSaveWithDefaultValues()` method to the [browser:branches/1.6/test/testsuite/generator/engine/builder/om/php5/GeneratedObjectTest.php GeneratedObjectTest] class, as follows:
 
 {{{
 #!php

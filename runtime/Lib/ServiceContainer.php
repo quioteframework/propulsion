@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -23,7 +23,7 @@ namespace Propulsion;
  *    forceMasterConnection replication flag, in-flight transactions) -- this
  *    belongs on {@see Session}, which is reset at each request boundary.
  *
- * This is phase 4a: additive scaffolding only. `Propel`'s existing process-global
+ * This is phase 4a: additive scaffolding only. `Propulsion`'s existing process-global
  * statics (connection map, adapter map, database maps) are NOT being ripped out
  * or re-homed here yet -- that is phase 4b/4c, gated on the (separately in
  * progress) Phase 3 builder rename landing first. For now, ServiceContainer's
@@ -74,7 +74,7 @@ class ServiceContainer
      * Clear every generated Peer class's static instance pool: both the ones
      * explicitly registered via {@see registerInstancePoolClass()}, and (since
      * nothing calls that today -- no generated code has been touched for this
-     * phase) every Peer reachable via Propel's already-loaded DatabaseMaps, on a
+     * phase) every Peer reachable via Propulsion's already-loaded DatabaseMaps, on a
      * best-effort basis. A table only shows up here once something has actually
      * looked up its TableMap/Peer at least once, which is fine for this interim
      * hack: an object class that was never touched has an empty pool anyway.
@@ -83,8 +83,8 @@ class ServiceContainer
     {
         $classes = $this->instancePoolClasses;
 
-        foreach (Propel::getDatabaseMapNames() as $dbName) {
-            $dbMap = Propel::getDatabaseMap($dbName);
+        foreach (Propulsion::getDatabaseMapNames() as $dbName) {
+            $dbMap = Propulsion::getDatabaseMap($dbName);
             foreach ($dbMap->getTables() as $table) {
                 try {
                     $peerClass = $table->getPeerClassname();

@@ -2,7 +2,7 @@
 
 /*
  *	$Id$
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -86,11 +86,11 @@ class NestedSetBehaviorObjectBuilderModifierTest extends BookstoreNestedSetTestB
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testSaveRootInTreeWithExistingRoot()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		Table9Peer::doDeleteAll();
 		$t1 = new Table9();
 		$t1->makeRoot();
@@ -137,7 +137,7 @@ class NestedSetBehaviorObjectBuilderModifierTest extends BookstoreNestedSetTestB
 		try {
 			$t1->delete();
 			$this->fail('delete() throws an exception when called on a root node');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->assertTrue(true, 'delete() throws an exception when called on a root node');
 		}
 		$this->assertNotEquals(array(), Table9Peer::doSelect(new Criteria()), 'delete() called on the root node does not delete the whole tree');
@@ -163,7 +163,7 @@ class NestedSetBehaviorObjectBuilderModifierTest extends BookstoreNestedSetTestB
 		try {
 			$t->makeRoot();
 			$this->fail('makeRoot() throws an exception when called on an object with a left_column value');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->assertTrue(true, 'makeRoot() throws an exception when called on an object with a left_column value');
 		}
 	}
@@ -307,7 +307,7 @@ class NestedSetBehaviorObjectBuilderModifierTest extends BookstoreNestedSetTestB
 		       |  \
 		       t6 t7
 		*/
-		$con = Propel::getConnection();
+		$con = Propulsion::getConnection();
 		$count = $con->getQueryCount();
 		$parent = $t5->getParent($con);
 		$parent = $t5->getParent($con);
@@ -426,7 +426,7 @@ class NestedSetBehaviorObjectBuilderModifierTest extends BookstoreNestedSetTestB
 		       |  \
 		       t6 t7
 		*/
-	$this->assertTrue($t2->getChildren() instanceof PropelObjectCollection, 'getChildren() returns a collection');
+	$this->assertTrue($t2->getChildren() instanceof PropulsionObjectCollection, 'getChildren() returns a collection');
 		$this->assertEquals(0, count($t2->getChildren()), 'getChildren() returns an empty collection for leafs');
 		$children = $t3->getChildren();
 		$expected = array(
@@ -446,7 +446,7 @@ class NestedSetBehaviorObjectBuilderModifierTest extends BookstoreNestedSetTestB
 	public function testGetChildrenCache()
 	{
 		list($t1, $t2, $t3, $t4, $t5, $t6, $t7) = $this->initTree();
-		$con = Propel::getConnection();
+		$con = Propulsion::getConnection();
 		$count = $con->getQueryCount();
 		$children = $t3->getChildren(null, $con);
 		$children = $t3->getChildren(null, $con);
@@ -506,7 +506,7 @@ class NestedSetBehaviorObjectBuilderModifierTest extends BookstoreNestedSetTestB
 		       |  \
 		       t6 t7
 		*/
-		$con = Propel::getConnection();
+		$con = Propulsion::getConnection();
 		$count = $con->getQueryCount();
 		$children = $t3->getChildren(null, $con);
 		$nbChildren = $t3->countChildren(null, $con);
@@ -756,7 +756,7 @@ class NestedSetBehaviorObjectBuilderModifierTest extends BookstoreNestedSetTestB
 		try {
 			$t8->insertAsFirstChildOf($t4);
 			$this->fail('insertAsFirstChildOf() throws an exception when called on a saved object');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->assertTrue(true, 'insertAsFirstChildOf() throws an exception when called on a saved object');
 		}
 	}
@@ -821,7 +821,7 @@ class NestedSetBehaviorObjectBuilderModifierTest extends BookstoreNestedSetTestB
 		try {
 			$t8->insertAsLastChildOf($t4);
 			$this->fail('insertAsLastChildOf() throws an exception when called on a saved object');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->assertTrue(true, 'insertAsLastChildOf() throws an exception when called on a saved object');
 		}
 	}
@@ -886,7 +886,7 @@ class NestedSetBehaviorObjectBuilderModifierTest extends BookstoreNestedSetTestB
 		try {
 			$t8->insertAsPrevSiblingOf($t4);
 			$this->fail('insertAsPrevSiblingOf() throws an exception when called on a saved object');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->assertTrue(true, 'insertAsPrevSiblingOf() throws an exception when called on a saved object');
 		}
 	}
@@ -960,7 +960,7 @@ class NestedSetBehaviorObjectBuilderModifierTest extends BookstoreNestedSetTestB
 		try {
 			$t8->insertAsNextSiblingOf($t4);
 			$this->fail('insertAsNextSiblingOf() throws an exception when called on a saved object');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->assertTrue(true, 'insertAsNextSiblingOf() throws an exception when called on a saved object');
 		}
 	}
@@ -1014,7 +1014,7 @@ class NestedSetBehaviorObjectBuilderModifierTest extends BookstoreNestedSetTestB
 		try {
 			$t3->moveToFirstChildOf($t5);
 			$this->fail('moveToFirstChildOf() throws an exception when the target is a child node');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->assertTrue(true, 'moveToFirstChildOf() throws an exception when the target is a child node');
 		}
 		// moving down
@@ -1105,7 +1105,7 @@ class NestedSetBehaviorObjectBuilderModifierTest extends BookstoreNestedSetTestB
 		try {
 			$t3->moveToLastChildOf($t5);
 			$this->fail('moveToLastChildOf() throws an exception when the target is a child node');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->assertTrue(true, 'moveToLastChildOf() throws an exception when the target is a child node');
 		}
 		// moving up
@@ -1196,13 +1196,13 @@ class NestedSetBehaviorObjectBuilderModifierTest extends BookstoreNestedSetTestB
 		try {
 			$t5->moveToPrevSiblingOf($t1);
 			$this->fail('moveToPrevSiblingOf() throws an exception when the target is a root node');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->assertTrue(true, 'moveToPrevSiblingOf() throws an exception when the target is a root node');
 		}
 		try {
 			$t5->moveToPrevSiblingOf($t6);
 			$this->fail('moveToPrevSiblingOf() throws an exception when the target is a child node');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->assertTrue(true, 'moveToPrevSiblingOf() throws an exception when the target is a child node');
 		}
 		// moving up
@@ -1347,13 +1347,13 @@ class NestedSetBehaviorObjectBuilderModifierTest extends BookstoreNestedSetTestB
 		try {
 			$t5->moveToNextSiblingOf($t1);
 			$this->fail('moveToNextSiblingOf() throws an exception when the target is a root node');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->assertTrue(true, 'moveToNextSiblingOf() throws an exception when the target is a root node');
 		}
 		try {
 			$t5->moveToNextSiblingOf($t6);
 			$this->fail('moveToNextSiblingOf() throws an exception when the target is a child node');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->assertTrue(true, 'moveToNextSiblingOf() throws an exception when the target is a child node');
 		}
 		// moving up

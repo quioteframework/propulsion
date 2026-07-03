@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -143,11 +143,11 @@ class CriteriaMergeTest extends BookstoreTestBase
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testMergeWithAsColumnsThrowsException()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$c1 = new Criteria();
 		$c1->addAsColumn('foo', BookPeer::TITLE);
 		$c2 = new Criteria();
@@ -383,11 +383,11 @@ class CriteriaMergeTest extends BookstoreTestBase
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testMergeWithAliasesThrowsException()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$c1 = new Criteria();
 		$c1->addAlias('b', BookPeer::TABLE_NAME);
 		$c2 = new Criteria();

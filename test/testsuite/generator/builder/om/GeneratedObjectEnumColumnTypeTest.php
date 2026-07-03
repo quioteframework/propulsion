@@ -3,7 +3,7 @@
 
 use PHPUnit\Framework\TestCase;
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -30,7 +30,7 @@ class GeneratedObjectEnumColumnTypeTest extends TestCase
 	</table>
 </database>
 EOF;
-			PropelQuickBuilder::buildSchema($schema);
+			PropulsionQuickBuilder::buildSchema($schema);
 			// ok this is hackish but it makes testing of getter and setter independent of each other
 			$publicAccessorCode = <<<EOF
 class PublicComplexColumnTypeEntity3 extends ComplexColumnTypeEntity3
@@ -57,11 +57,11 @@ EOF;
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testGetterThrowsExceptionOnUnknownKey()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$e = new PublicComplexColumnTypeEntity3();
 		$e->bar = 156;
 		$e->getBar();
@@ -88,11 +88,11 @@ EOF;
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testSetterThrowsExceptionOnUnknownValue()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$e = new ComplexColumnTypeEntity3();
 		$e->setBar('bazz');
 	}

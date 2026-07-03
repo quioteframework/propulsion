@@ -2,9 +2,9 @@
 
 
 use PHPUnit\Framework\TestCase;
-use Propulsion\Propel;
+use Propulsion\Propulsion;
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -34,12 +34,12 @@ abstract class CmsTestBase extends TestCase
 			$this->markTestSkipped($e->getMessage());
 		}
 
-		if (!Propel::isInit()) {
+		if (!Propulsion::isInit()) {
 			set_include_path(get_include_path() . PATH_SEPARATOR . realpath(IntegrationDatabase::classesDir()));
-			Propel::init(IntegrationDatabase::confFile());
+			Propulsion::init(IntegrationDatabase::confFile());
 		}
 
-		$this->con = Propel::getConnection(PagePeer::DATABASE_NAME);
+		$this->con = Propulsion::getConnection(PagePeer::DATABASE_NAME);
 		$this->con->beginTransaction();
 		CmsDataPopulator::depopulate($this->con);
 		CmsDataPopulator::populate($this->con);

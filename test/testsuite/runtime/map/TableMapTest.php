@@ -3,7 +3,7 @@
 
 use PHPUnit\Framework\TestCase;
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -81,13 +81,13 @@ class TableMapTest extends TestCase
     {
       $this->tmap->getColumn('FOO');
       $this->fail('getColumn throws an exception when called on an inexistent column');
-    } catch(PropelException $e) {}
+    } catch(PropulsionException $e) {}
     $this->assertEquals($column, $this->tmap->getColumn('foo.bar'), 'getColumn accepts a denormalized column name');
     try
     {
       $this->tmap->getColumn('foo.bar', false);
       $this->fail('getColumn accepts a $normalize parameter to skip name normalization');
-    } catch(PropelException $e) {}
+    } catch(PropulsionException $e) {}
   }
 
   public function testGetColumnByPhpName()
@@ -98,7 +98,7 @@ class TableMapTest extends TestCase
     {
       $this->tmap->getColumn('Foo');
       $this->fail('getColumnByPhpName() throws an exception when called on an inexistent column');
-    } catch(PropelException $e) {}
+    } catch(PropulsionException $e) {}
   }
 
   public function testGetColumns()
@@ -165,11 +165,11 @@ class TableMapTest extends TestCase
   }
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
   public function testLoadWrongRelations()
   {
-  	$this->expectException(PropelException::class);
+  	$this->expectException(PropulsionException::class);
     $this->tmap->getRelation('Bar');
   }
 

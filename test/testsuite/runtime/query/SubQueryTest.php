@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -218,7 +218,7 @@ class SubQueryTest extends BookstoreTestBase
 	}
 }
 
-// See PropelQueryTest.php's myBookQuery for why this is guarded.
+// See PropulsionQueryTest.php's myBookQuery for why this is guarded.
 if (class_exists(BookQuery::class)) {
 	class TestableBookQuery extends BookQuery
 	{

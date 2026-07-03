@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -13,7 +13,7 @@ namespace Propulsion\Adapter\MSSQL;
  *
  * @package    propel.runtime.adapter.MSSQL
  */
-class MssqlDebugPDO extends MssqlPropelPDO
+class MssqlDebugPDO extends MssqlPropulsionPDO
 {
 	public $useDebug = true;
 }

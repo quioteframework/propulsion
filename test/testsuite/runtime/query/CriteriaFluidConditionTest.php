@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -48,11 +48,11 @@ class CriteriaFluidConditionTest extends BaseTestCase
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testNestedIf()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$f = new TestableCriteria();
 		$f->
 			_if(false)->
@@ -62,11 +62,11 @@ class CriteriaFluidConditionTest extends BaseTestCase
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testNestedIf2()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$f = new TestableCriteria();
 		$f->
 			_if(true)->

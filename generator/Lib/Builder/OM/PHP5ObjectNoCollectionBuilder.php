@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -17,7 +17,7 @@ namespace Propulsion\Generator\Builder\OM;
  *
  * This class overrides PHP5BaseObject to use Peer methods and Criteria
  * instead of Query objects for fetching foreign keys. This can be useful if
- * some legacy Propel 1.4 code assumes that the getters returns arrays
+ * some legacy Propulsion 1.4 code assumes that the getters returns arrays
  * instead of collections.
  *
  * This class is not used by default. You must override
@@ -26,13 +26,13 @@ namespace Propulsion\Generator\Builder\OM;
  * propel.builder.object.class = builder.om.PHP5ObjectNoCollectionBuilder
  * </code>
  *
- * @deprecated Since Propel 1.5
+ * @deprecated Since Propulsion 1.5
  * @author     Hans Lellelid <hans@xmpl.org>
  * @package    propel.generator.builder.om
  */
 
  use Propulsion\Generator\Model\Column;
- use Propulsion\Generator\Model\PropelTypes;
+ use Propulsion\Generator\Model\PropulsionTypes;
  use Propulsion\Generator\Platform\OraclePlatform;
  use Propulsion\Generator\Model\ForeignKey;
  use Propulsion\Generator\Exception\EngineException;
@@ -70,9 +70,9 @@ class PHP5ObjectNoCollectionBuilder extends PHP5ObjectBuilder
 	 * the [$clo] column, since it is not populated by
 	 * the hydrate() method.
 	 *
-	 * @param      \$con PropelPDO (optional) The PropelPDO connection to use.
+	 * @param      \$con PropulsionPDO (optional) The PropulsionPDO connection to use.
 	 * @return     void
-	 * @throws     PropelException - any underlying error will be wrapped and re-thrown.
+	 * @throws     PropulsionException - any underlying error will be wrapped and re-thrown.
 	 */";
 	}
 
@@ -85,7 +85,7 @@ class PHP5ObjectNoCollectionBuilder extends PHP5ObjectBuilder
 	protected function addLazyLoaderOpen(&$script, Column $col) {
 		$cfc = $col->getPhpName();
 		$script .= "
-	protected function load$cfc(PropelPDO \$con = null)
+	protected function load$cfc(PropulsionPDO \$con = null)
 	{";
 	}
 
@@ -107,7 +107,7 @@ class PHP5ObjectNoCollectionBuilder extends PHP5ObjectBuilder
 			\$row = \$stmt->fetch(PDO::FETCH_NUM);
 			\$stmt->closeCursor();";
 
-		if ($col->getType() === PropelTypes::CLOB && $this->getPlatform() instanceof OraclePlatform) {
+		if ($col->getType() === PropulsionTypes::CLOB && $this->getPlatform() instanceof OraclePlatform) {
 			// PDO_OCI returns a stream for CLOB objects, while other PDO adapters return a string...
 			$script .= "
 			\$this->$clo = stream_get_contents(\$row[0]);";
@@ -134,7 +134,7 @@ class PHP5ObjectNoCollectionBuilder extends PHP5ObjectBuilder
 		$script .= "
 			\$this->".$clo."_isLoaded = true;
 		} catch (Exception \$e) {
-			throw new PropelException(\"Error loading value for [$clo] column on demand.\", \$e);
+			throw new PropulsionException(\"Error loading value for [$clo] column on demand.\", \$e);
 		}";
 	}
 
@@ -292,11 +292,11 @@ class PHP5ObjectNoCollectionBuilder extends PHP5ObjectBuilder
 	protected function addDeleteBody(&$script) {
 		$script .= "
 		if (\$this->isDeleted()) {
-			throw new PropelException(\"This object has already been deleted.\");
+			throw new PropulsionException(\"This object has already been deleted.\");
 		}
 
 		if (\$con === null) {
-			\$con = Propel::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propel::CONNECTION_WRITE);
+			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
 		}
 
 		\$con->beginTransaction();
@@ -331,7 +331,7 @@ class PHP5ObjectNoCollectionBuilder extends PHP5ObjectBuilder
 		}
 
 		$script .= "
-		} catch (PropelException \$e) {
+		} catch (PropulsionException \$e) {
 			\$con->rollBack();
 			throw \$e;
 		}";
@@ -351,22 +351,22 @@ class PHP5ObjectNoCollectionBuilder extends PHP5ObjectBuilder
 	 * This will only work if the object has been saved and has a valid primary key set.
 	 *
 	 * @param      boolean \$deep (optional) Whether to also de-associated any related objects.
-	 * @param      PropelPDO \$con (optional) The PropelPDO connection to use.
+	 * @param      PropulsionPDO \$con (optional) The PropulsionPDO connection to use.
 	 * @return     void
-	 * @throws     PropelException - if this object is deleted, unsaved or doesn't have pk match in db
+	 * @throws     PropulsionException - if this object is deleted, unsaved or doesn't have pk match in db
 	 */
-	public function reload(\$deep = false, PropelPDO \$con = null)
+	public function reload(\$deep = false, PropulsionPDO \$con = null)
 	{
 		if (\$this->isDeleted()) {
-			throw new PropelException(\"Cannot reload a deleted object.\");
+			throw new PropulsionException(\"Cannot reload a deleted object.\");
 		}
 
 		if (\$this->isNew()) {
-			throw new PropelException(\"Cannot reload an unsaved object.\");
+			throw new PropulsionException(\"Cannot reload an unsaved object.\");
 		}
 
 		if (\$con === null) {
-			\$con = Propel::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propel::CONNECTION_READ);
+			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_READ);
 		}
 
 		// We don't need to alter the object instance pool; we're just modifying this instance
@@ -376,7 +376,7 @@ class PHP5ObjectNoCollectionBuilder extends PHP5ObjectBuilder
 		\$row = \$stmt->fetch(PDO::FETCH_NUM);
 		\$stmt->closeCursor();
 		if (!\$row) {
-			throw new PropelException('Cannot find matching row in the database to reload object values.');
+			throw new PropulsionException('Cannot find matching row in the database to reload object values.');
 		}
 		\$this->hydrate(\$row, 0, true); // rehydrate
 ";
@@ -494,11 +494,11 @@ class PHP5ObjectNoCollectionBuilder extends PHP5ObjectBuilder
 	/**
 	 * Get the associated $className object
 	 *
-	 * @param      PropelPDO Optional Connection object.
+	 * @param      PropulsionPDO Optional Connection object.
 	 * @return     $className The associated $className object.
-	 * @throws     PropelException
+	 * @throws     PropulsionException
 	 */
-	public function get".$this->getFKPhpNameAffix($fk, $plural = false)."(PropelPDO \$con = null)
+	public function get".$this->getFKPhpNameAffix($fk, $plural = false)."(PropulsionPDO \$con = null)
 	{";
 		$script .= "
 		if (\$this->$varName === null && ($conditional)) {";
@@ -702,7 +702,7 @@ class PHP5ObjectNoCollectionBuilder extends PHP5ObjectBuilder
 	 *
 	 * @param      $className \$l $className
 	 * @return     void
-	 * @throws     PropelException
+	 * @throws     PropulsionException
 	 */
 	public function add".$this->getRefFKPhpNameAffix($refFK, $plural = false)."($className \$l)
 	{
@@ -742,11 +742,11 @@ class PHP5ObjectNoCollectionBuilder extends PHP5ObjectBuilder
 	 *
 	 * @param      Criteria \$criteria
 	 * @param      boolean \$distinct
-	 * @param      PropelPDO \$con
+	 * @param      PropulsionPDO \$con
 	 * @return     int Count of related $className objects.
-	 * @throws     PropelException
+	 * @throws     PropulsionException
 	 */
-	public function count$relCol(Criteria \$criteria = null, \$distinct = false, PropelPDO \$con = null)
+	public function count$relCol(Criteria \$criteria = null, \$distinct = false, PropulsionPDO \$con = null)
 	{";
 
 		$script .= "
@@ -841,12 +841,12 @@ class PHP5ObjectNoCollectionBuilder extends PHP5ObjectBuilder
 	 * related $relCol from storage. If this ".$this->getObjectClassname()." is new, it will return
 	 * an empty collection or the current collection, the criteria is ignored on a new object.
 	 *
-	 * @param      PropelPDO \$con
+	 * @param      PropulsionPDO \$con
 	 * @param      Criteria \$criteria
 	 * @return     array {$className}[]
-	 * @throws     PropelException
+	 * @throws     PropulsionException
 	 */
-	public function get$relCol(\$criteria = null, PropelPDO \$con = null)
+	public function get$relCol(\$criteria = null, PropulsionPDO \$con = null)
 	{";
 
 		$script .= "
@@ -931,11 +931,11 @@ class PHP5ObjectNoCollectionBuilder extends PHP5ObjectBuilder
 	/**
 	 * Gets a single $className object, which is related to this object by a one-to-one relationship.
 	 *
-	 * @param      PropelPDO \$con
+	 * @param      PropulsionPDO \$con
 	 * @return     $className
-	 * @throws     PropelException
+	 * @throws     PropulsionException
 	 */
-	public function get".$this->getRefFKPhpNameAffix($refFK, $plural = false)."(PropelPDO \$con = null)
+	public function get".$this->getRefFKPhpNameAffix($refFK, $plural = false)."(PropulsionPDO \$con = null)
 	{
 ";
 		$script .= "

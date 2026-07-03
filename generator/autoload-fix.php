@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Autoloader fix for Phing 3.x compatibility with namespaced Propel classes
+ * Autoloader fix for Phing 3.x compatibility with namespaced Propulsion classes
  */
 
 // Try to load Composer autoloader
@@ -18,12 +18,12 @@ foreach ($autoloadPaths as $autoloadPath) {
     }
 }
 
-// Register custom autoloader for Propel Generator classes
+// Register custom autoloader for Propulsion Generator classes
 spl_autoload_register(function($class) {
     // Normalize leading backslash (autoload may pass class names with or without it)
     $normalized = ltrim($class, '\\');
 
-    // If it's a namespaced Propel Generator class, try to load from the bundled Lib/ tree
+    // If it's a namespaced Propulsion Generator class, try to load from the bundled Lib/ tree
     if (strpos($normalized, 'Propulsion\\Generator\\') === 0) {
         $file = str_replace('Propulsion\\Generator\\', '', $normalized);
         $file = str_replace('\\', '/', $file) . '.php';
@@ -42,7 +42,7 @@ spl_autoload_register(function($class) {
             'Project' => 'Phing\\Project',
             'PhingFile' => 'Phing\\File',
             'PDOException' => '\\PDOException',
-            'PropelSQLParser' => 'Propulsion\\Generator\\Util\\PropelSQLParser',
+            'PropulsionSQLParser' => 'Propulsion\\Generator\\Util\\PropulsionSQLParser',
         ];
 
         if (isset($externalMap[$short])) {
@@ -65,7 +65,7 @@ spl_autoload_register(function($class) {
         }
     }
 
-    // Support legacy dot-path classnames (e.g. "propel.generator.task.PropelMigrationTask")
+    // Support legacy dot-path classnames (e.g. "propel.generator.task.PropulsionMigrationTask")
     // Convert to a PSR-4 candidate and try to require the file from Lib/.
     if (strpos($class, '.') !== false) {
         $psr = implode('\\', array_map(function($p){
@@ -73,7 +73,7 @@ spl_autoload_register(function($class) {
             return ctype_lower($p) ? ucfirst($p) : $p;
         }, explode('.', ltrim($class, '.'))));
 
-        // Also try with initial segment capitalized (propel -> Propel)
+        // Also try with initial segment capitalized (propel -> Propulsion)
         $parts = explode('\\', $psr);
         if (count($parts) > 0) {
             $parts[0] = ucfirst($parts[0]);
@@ -92,19 +92,19 @@ spl_autoload_register(function($class) {
 
 // Force load the classes Phing will need for taskdef
 $taskClasses = [
-    '\\Propulsion\\Generator\\Task\\PropelOMTask',
-    '\\Propulsion\\Generator\\Task\\PropelDataDumpTask', 
-    '\\Propulsion\\Generator\\Task\\PropelDataSQLTask',
-    '\\Propulsion\\Generator\\Task\\PropelSQLTask',
-    '\\Propulsion\\Generator\\Task\\PropelSQLDiffTask',
-    '\\Propulsion\\Generator\\Task\\PropelSchemaReverseTask',
-    '\\Propulsion\\Generator\\Task\\PropelConvertConfTask',
-    '\\Propulsion\\Generator\\Task\\PropelDBD2PropelTask',
-    '\\Propulsion\\Generator\\Task\\PropelGraphvizTask',
-    '\\Propulsion\\Generator\\Task\\PropelMigrationTask',
-    '\\Propulsion\\Generator\\Task\\PropelMigrationStatusTask',
-    '\\Propulsion\\Generator\\Task\\PropelMigrationUpTask',
-    '\\Propulsion\\Generator\\Task\\PropelMigrationDownTask'
+    '\\Propulsion\\Generator\\Task\\PropulsionOMTask',
+    '\\Propulsion\\Generator\\Task\\PropulsionDataDumpTask', 
+    '\\Propulsion\\Generator\\Task\\PropulsionDataSQLTask',
+    '\\Propulsion\\Generator\\Task\\PropulsionSQLTask',
+    '\\Propulsion\\Generator\\Task\\PropulsionSQLDiffTask',
+    '\\Propulsion\\Generator\\Task\\PropulsionSchemaReverseTask',
+    '\\Propulsion\\Generator\\Task\\PropulsionConvertConfTask',
+    '\\Propulsion\\Generator\\Task\\PropulsionDBD2PropulsionTask',
+    '\\Propulsion\\Generator\\Task\\PropulsionGraphvizTask',
+    '\\Propulsion\\Generator\\Task\\PropulsionMigrationTask',
+    '\\Propulsion\\Generator\\Task\\PropulsionMigrationStatusTask',
+    '\\Propulsion\\Generator\\Task\\PropulsionMigrationUpTask',
+    '\\Propulsion\\Generator\\Task\\PropulsionMigrationDownTask'
 ];
 
 // Platform classes

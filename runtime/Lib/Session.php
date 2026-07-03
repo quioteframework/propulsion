@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -9,21 +9,21 @@
  */
 namespace Propulsion;
 
-use Propulsion\Connection\PropelPDO;
+use Propulsion\Connection\PropulsionPDO;
 
 /**
  * Request-scoped state (Propulsion worker-safety rework, phase 4a -- see
  * PROPULSION_WORKER_REWORK.md / KNOWN_ISSUES.md "Phase 4").
  *
  * In a persistent-worker environment a single PHP process serves many requests
- * over the lifetime of `Propel`'s process-wide statics, so anything that must
+ * over the lifetime of `Propulsion`'s process-wide statics, so anything that must
  * not leak from one request into the next needs a home that gets reset at each
  * request boundary. That's this class. Contrast with {@see ServiceContainer},
  * which owns state that's fine (indeed, desirable) to keep shared across
  * requests within the same worker process.
  *
  * Phase 4a moves exactly two pieces of state here: `forceMasterConnection`
- * (previously a `Propel` static) and the reset-on-request-boundary wiring
+ * (previously a `Propulsion` static) and the reset-on-request-boundary wiring
  * itself (instance pool clearing + dangling-transaction rollback). It does
  * NOT yet move connections/adapters/table maps anywhere, and does not yet
  * change any generated code -- see ServiceContainer's docblock and
@@ -33,7 +33,7 @@ class Session
 {
     /**
      * @var bool For replication, whether to always force the use of the master
-     *           connection. Moved here (off `Propel`) in phase 4a: this is
+     *           connection. Moved here (off `Propulsion`) in phase 4a: this is
      *           exactly the kind of state that must not bleed from one request
      *           to the next in a persistent worker.
      */
@@ -65,8 +65,8 @@ class Session
      * Order matters:
      *
      *  1. Force-rollback any dangling open transaction on every connection
-     *     `Propel` currently knows about. This is the same failure mode
-     *     `PropelPDO::forceRollBack()` was wired up to fix at *test*-teardown
+     *     `Propulsion` currently knows about. This is the same failure mode
+     *     `PropulsionPDO::forceRollBack()` was wired up to fix at *test*-teardown
      *     boundaries in commit 6f6b08e ("Fix the real driver of the ~300-error
      *     cascade: unrolled-back transactions") -- an uncommitted transaction
      *     left open past its boundary poisons the connection for whatever reuses
@@ -86,19 +86,19 @@ class Session
     public function reset(): void
     {
         $this->rollBackDanglingTransactions();
-        Propel::getServiceContainer()->clearInstancePools();
+        Propulsion::getServiceContainer()->clearInstancePools();
         $this->forceMasterConnection = false;
     }
 
     /**
-     * Force-rollback any connection Propel currently has open that's sitting in
+     * Force-rollback any connection Propulsion currently has open that's sitting in
      * an uncommitted transaction. Best-effort: forceRollBack() itself is a no-op
      * for a connection that isn't in a transaction.
      */
     private function rollBackDanglingTransactions(): void
     {
-        foreach (Propel::getOpenConnections() as $con) {
-            if ($con instanceof PropelPDO && $con->isInTransaction()) {
+        foreach (Propulsion::getOpenConnections() as $con) {
+            if ($con instanceof PropulsionPDO && $con->isInTransaction()) {
                 $con->forceRollBack();
             }
         }

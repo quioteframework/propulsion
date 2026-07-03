@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -25,13 +25,13 @@ namespace Propulsion\Map;
  * @package    propel.runtime.map
  */
 
- use Propulsion\Util\PropelColumnTypes;
- use Propulsion\Exception\PropelException;
+ use Propulsion\Util\PropulsionColumnTypes;
+ use Propulsion\Exception\PropulsionException;
  use Propulsion\Adapter\DBAdapter;
 class ColumnMap
 {
 
-  // Propel type of the column
+  // Propulsion type of the column
   protected $type;
 
   // Size of the column
@@ -143,9 +143,9 @@ class ColumnMap
   }
 
   /**
-   * Set the Propel type of this column.
+   * Set the Propulsion type of this column.
    *
-   * @param      string $type A string representing the Propel type (e.g. PropelColumnTypes::DATE).
+   * @param      string $type A string representing the Propulsion type (e.g. PropulsionColumnTypes::DATE).
    * @return     void
    */
   public function setType($type)
@@ -154,9 +154,9 @@ class ColumnMap
   }
 
   /**
-   * Get the Propel type of this column.
+   * Get the Propulsion type of this column.
    *
-   * @return     string A string representing the Propel type (e.g. PropelColumnTypes::DATE).
+   * @return     string A string representing the Propulsion type (e.g. PropulsionColumnTypes::DATE).
    */
   public function getType()
   {
@@ -170,7 +170,7 @@ class ColumnMap
    */
   public function getPdoType()
   {
-    return PropelColumnTypes::getPdoType($this->type);
+    return PropulsionColumnTypes::getPdoType($this->type);
   }
 
   /**
@@ -179,7 +179,7 @@ class ColumnMap
    */
   public function isLob()
   {
-    return ($this->type == PropelColumnTypes::BLOB || $this->type == PropelColumnTypes::VARBINARY || $this->type == PropelColumnTypes::LONGVARBINARY);
+    return ($this->type == PropulsionColumnTypes::BLOB || $this->type == PropulsionColumnTypes::VARBINARY || $this->type == PropulsionColumnTypes::LONGVARBINARY);
   }
 
   /**
@@ -190,7 +190,7 @@ class ColumnMap
    */
   public function isTemporal()
   {
-    return ($this->type == PropelColumnTypes::TIMESTAMP || $this->type == PropelColumnTypes::DATE || $this->type == PropelColumnTypes::TIME || $this->type == PropelColumnTypes::BU_DATE  || $this->type == PropelColumnTypes::BU_TIMESTAMP);
+    return ($this->type == PropulsionColumnTypes::TIMESTAMP || $this->type == PropulsionColumnTypes::DATE || $this->type == PropulsionColumnTypes::TIME || $this->type == PropulsionColumnTypes::BU_DATE  || $this->type == PropulsionColumnTypes::BU_TIMESTAMP);
   }
 
   /**
@@ -200,11 +200,11 @@ class ColumnMap
    * between epoch and pre-epoch timestamps.
    *
    * @return     boolean
-   * @deprecated Propel supports non-epoch dates
+   * @deprecated Propulsion supports non-epoch dates
    */
   public function isEpochTemporal()
   {
-    return ($this->type == PropelColumnTypes::TIMESTAMP || $this->type == PropelColumnTypes::DATE || $this->type == PropelColumnTypes::TIME);
+    return ($this->type == PropulsionColumnTypes::TIMESTAMP || $this->type == PropulsionColumnTypes::DATE || $this->type == PropulsionColumnTypes::TIME);
   }
 
   /**
@@ -213,7 +213,7 @@ class ColumnMap
    */
   public function isNumeric()
   {
-    return ($this->type == PropelColumnTypes::NUMERIC || $this->type == PropelColumnTypes::DECIMAL || $this->type == PropelColumnTypes::TINYINT || $this->type == PropelColumnTypes::SMALLINT || $this->type == PropelColumnTypes::INTEGER || $this->type == PropelColumnTypes::BIGINT || $this->type == PropelColumnTypes::REAL || $this->type == PropelColumnTypes::FLOAT || $this->type == PropelColumnTypes::DOUBLE);
+    return ($this->type == PropulsionColumnTypes::NUMERIC || $this->type == PropulsionColumnTypes::DECIMAL || $this->type == PropulsionColumnTypes::TINYINT || $this->type == PropulsionColumnTypes::SMALLINT || $this->type == PropulsionColumnTypes::INTEGER || $this->type == PropulsionColumnTypes::BIGINT || $this->type == PropulsionColumnTypes::REAL || $this->type == PropulsionColumnTypes::FLOAT || $this->type == PropulsionColumnTypes::DOUBLE);
   }
 
   /**
@@ -222,7 +222,7 @@ class ColumnMap
    */
   public function isText()
   {
-    return ($this->type == PropelColumnTypes::VARCHAR || $this->type == PropelColumnTypes::LONGVARCHAR || $this->type == PropelColumnTypes::CHAR);
+    return ($this->type == PropulsionColumnTypes::VARCHAR || $this->type == PropulsionColumnTypes::LONGVARCHAR || $this->type == PropulsionColumnTypes::CHAR);
   }
 
   /**
@@ -392,14 +392,14 @@ class ColumnMap
    * Get the TableMap object that this column is related to.
    *
    * @return     TableMap The related TableMap object
-   * @throws     PropelException when called on a column with no foreign key
+   * @throws     PropulsionException when called on a column with no foreign key
    */
   public function getRelatedTable()
   {
     if ($this->relatedTableName) {
       return $this->table->getDatabaseMap()->getTable($this->relatedTableName);
     } else {
-      throw new PropelException("Cannot fetch RelatedTable for column with no foreign key: " . $this->columnName);
+      throw new PropulsionException("Cannot fetch RelatedTable for column with no foreign key: " . $this->columnName);
     }
   }
 
@@ -407,7 +407,7 @@ class ColumnMap
    * Get the TableMap object that this column is related to.
    *
    * @return     ColumnMap The related ColumnMap object
-   * @throws     PropelException when called on a column with no foreign key
+   * @throws     PropulsionException when called on a column with no foreign key
    */
   public function getRelatedColumn()
   {

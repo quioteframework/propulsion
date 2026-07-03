@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -18,7 +18,7 @@ namespace Propulsion\Generator\Platform;
  */
 use Propulsion\Generator\Model\Domain;
 use Propulsion\Generator\Config\GeneratorConfig;
-use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\PropulsionTypes;
 use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Model\IDMethod;
@@ -27,17 +27,17 @@ use Propulsion\Generator\Model\Column;
 use Propulsion\Generator\Model\Index;
 use Propulsion\Generator\Model\Unique;
 use Propulsion\Generator\Model\ForeignKey;
-use Propulsion\Generator\Model\Diff\PropelDatabaseDiff;
-use Propulsion\Generator\Model\Diff\PropelTableDiff;
-use Propulsion\Generator\Model\Diff\PropelColumnDiff;
+use Propulsion\Generator\Model\Diff\PropulsionDatabaseDiff;
+use Propulsion\Generator\Model\Diff\PropulsionTableDiff;
+use Propulsion\Generator\Model\Diff\PropulsionColumnDiff;
 use \PDO;
-class DefaultPlatform implements PropelPlatformInterface
+class DefaultPlatform implements PropulsionPlatformInterface
 {
 
 	protected $generatorConfig;
 
 	/**
-	 * Mapping from Propel types to Domain objects.
+	 * Mapping from Propulsion types to Domain objects.
 	 *
 	 * @var        array
 	 */
@@ -111,15 +111,15 @@ class DefaultPlatform implements PropelPlatformInterface
 	protected function initialize()
 	{
 		$this->schemaDomainMap = array();
-		foreach (PropelTypes::getPropelTypes() as $type) {
+		foreach (PropulsionTypes::getPropulsionTypes() as $type) {
 			$this->schemaDomainMap[$type] = new Domain($type);
 		}
 		// BU_* no longer needed, so map these to the DATE/TIMESTAMP domains
-		$this->schemaDomainMap[PropelTypes::BU_DATE] = new Domain(PropelTypes::DATE);
-		$this->schemaDomainMap[PropelTypes::BU_TIMESTAMP] = new Domain(PropelTypes::TIMESTAMP);
+		$this->schemaDomainMap[PropulsionTypes::BU_DATE] = new Domain(PropulsionTypes::DATE);
+		$this->schemaDomainMap[PropulsionTypes::BU_TIMESTAMP] = new Domain(PropulsionTypes::TIMESTAMP);
 
 		// Boolean is a bit special, since typically it must be mapped to INT type.
-		$this->schemaDomainMap[PropelTypes::BOOLEAN] = new Domain(PropelTypes::BOOLEAN, "INTEGER");
+		$this->schemaDomainMap[PropulsionTypes::BOOLEAN] = new Domain(PropulsionTypes::BOOLEAN, "INTEGER");
 	}
 
 	/**
@@ -156,23 +156,23 @@ class DefaultPlatform implements PropelPlatformInterface
 	/**
 	 * Returns the native IdMethod (sequence|identity)
 	 *
-	 * @return     string The native IdMethod (PropelPlatformInterface:IDENTITY, PropelPlatformInterface::SEQUENCE).
+	 * @return     string The native IdMethod (PropulsionPlatformInterface:IDENTITY, PropulsionPlatformInterface::SEQUENCE).
 	 */
 	public function getNativeIdMethod()
 	{
-		return PropelPlatformInterface::IDENTITY;
+		return PropulsionPlatformInterface::IDENTITY;
 	}
 
 	/**
 	 * Returns the db specific domain for a propelType.
 	 *
-	 * @param      string $propelType the Propel type name.
+	 * @param      string $propelType the Propulsion type name.
 	 * @return     Domain The db specific domain.
 	 */
 	public function getDomainForType($propelType)
 	{
 		if (!isset($this->schemaDomainMap[$propelType])) {
-			throw new EngineException("Cannot map unknown Propel type " . var_export($propelType, true) . " to native database type.");
+			throw new EngineException("Cannot map unknown Propulsion type " . var_export($propelType, true) . " to native database type.");
 		}
 		return $this->schemaDomainMap[$propelType];
 	}
@@ -360,9 +360,9 @@ DROP TABLE " . $this->quoteIdentifier($table->getName()) . ";
 			} else {
 				if ($col->isTextType()) {
 					$default .= $this->quote($defaultValue->getValue());
-				} elseif ($col->getType() == PropelTypes::BOOLEAN || $col->getType() == PropelTypes::BOOLEAN_EMU) {
+				} elseif ($col->getType() == PropulsionTypes::BOOLEAN || $col->getType() == PropulsionTypes::BOOLEAN_EMU) {
 					$default .= $this->getBooleanString($defaultValue->getValue());
-				} elseif ($col->getType() == PropelTypes::ENUM) {
+				} elseif ($col->getType() == PropulsionTypes::ENUM) {
 					$default .= array_search($defaultValue->getValue(), $col->getValueSet());
 				} else {
 					$default .= $defaultValue->getValue();
@@ -632,11 +632,11 @@ ALTER TABLE %s DROP CONSTRAINT %s;
 
 	/**
 	 * Builds the DDL SQL to modify a database
-	 * based on a PropelDatabaseDiff instance
+	 * based on a PropulsionDatabaseDiff instance
 	 *
 	 * @return     string
 	 */
-	public function getModifyDatabaseDDL(PropelDatabaseDiff $databaseDiff)
+	public function getModifyDatabaseDDL(PropulsionDatabaseDiff $databaseDiff)
 	{
 		$ret = $this->getBeginDDL();
 
@@ -683,11 +683,11 @@ ALTER TABLE %s RENAME TO %s;
 
 	/**
 	 * Builds the DDL SQL to alter a table
-	 * based on a PropelTableDiff instance
+	 * based on a PropulsionTableDiff instance
 	 *
 	 * @return     string
 	 */
-	public function getModifyTableDDL(PropelTableDiff $tableDiff)
+	public function getModifyTableDDL(PropulsionTableDiff $tableDiff)
 	{
 		$ret = '';
 
@@ -748,11 +748,11 @@ ALTER TABLE %s RENAME TO %s;
 
 	/**
 	 * Builds the DDL SQL to alter a table
-	 * based on a PropelTableDiff instance
+	 * based on a PropulsionTableDiff instance
 	 *
 	 * @return     string
 	 */
-	public function getModifyTableColumnsDDL(PropelTableDiff $tableDiff)
+	public function getModifyTableColumnsDDL(PropulsionTableDiff $tableDiff)
 	{
 		$ret = '';
 
@@ -777,11 +777,11 @@ ALTER TABLE %s RENAME TO %s;
 
 	/**
 	 * Builds the DDL SQL to alter a table's primary key
-	 * based on a PropelTableDiff instance
+	 * based on a PropulsionTableDiff instance
 	 *
 	 * @return     string
 	 */
-	public function getModifyTablePrimaryKeyDDL(PropelTableDiff $tableDiff)
+	public function getModifyTablePrimaryKeyDDL(PropulsionTableDiff $tableDiff)
 	{
 		$ret = '';
 
@@ -795,11 +795,11 @@ ALTER TABLE %s RENAME TO %s;
 
 	/**
 	 * Builds the DDL SQL to alter a table's indices
-	 * based on a PropelTableDiff instance
+	 * based on a PropulsionTableDiff instance
 	 *
 	 * @return     string
 	 */
-	public function getModifyTableIndicesDDL(PropelTableDiff $tableDiff)
+	public function getModifyTableIndicesDDL(PropulsionTableDiff $tableDiff)
 	{
 		$ret = '';
 
@@ -822,11 +822,11 @@ ALTER TABLE %s RENAME TO %s;
 
 	/**
 	 * Builds the DDL SQL to alter a table's foreign keys
-	 * based on a PropelTableDiff instance
+	 * based on a PropulsionTableDiff instance
 	 *
 	 * @return     string
 	 */
-	public function getModifyTableForeignKeysDDL(PropelTableDiff $tableDiff)
+	public function getModifyTableForeignKeysDDL(PropulsionTableDiff $tableDiff)
 	{
 		$ret = '';
 
@@ -884,7 +884,7 @@ ALTER TABLE %s RENAME COLUMN %s TO %s;
 	 *
 	 * @return     string
 	 */
-	public function getModifyColumnDDL(PropelColumnDiff $columnDiff)
+	public function getModifyColumnDDL(PropulsionColumnDiff $columnDiff)
 	{
 		$toColumn = $columnDiff->getToColumn();
 		$pattern = "
@@ -1096,7 +1096,7 @@ ALTER TABLE %s ADD
 	 * Returns the boolean value for the RDBMS.
 	 *
 	 * This value should match the boolean value that is set
-	 * when using Propel's PreparedStatement::setBoolean().
+	 * when using Propulsion's PreparedStatement::setBoolean().
 	 *
 	 * This function is used to set default column values when building
 	 * SQL.

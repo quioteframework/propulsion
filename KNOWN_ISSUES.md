@@ -22,7 +22,7 @@ independent fix branches together transiently produced **285** errors, not
 called `$this->con->commit()` after `testComputeWithSchema()` hit a
 pre-existing not-null violation that aborted the Postgres transaction;
 committing an already-aborted transaction throws, which skipped
-`parent::tearDown()` (`SchemasTestBase`), which is what restores Propel's
+`parent::tearDown()` (`SchemasTestBase`), which is what restores Propulsion's
 process-global config from the `schemas` datasource back to `bookstore`
 after a schema test runs. Every subsequent test in the same PHPUnit process
 that assumed `bookstore` was configured (any `BookstoreTestBase` subclass —
@@ -36,11 +36,11 @@ whether the test body threw.
 The second, separate regression (285 → 44 fixed that, then 44 → 36 fixed
 this one): the cluster #8 fix to `ModelCriteria::doDeleteAll()` (passing
 `$con` as the sole positional arg instead of `null, $con`) assumed every
-generated Peer class has the single-`$con` `doDeleteAll(PropelPDO $con =
+generated Peer class has the single-`$con` `doDeleteAll(PropulsionPDO $con =
 null)` contract that `PHP5PeerBuilder` generates. `PHP84PeerBuilder`'s
 peers, however, `extends BasePeer` directly whenever no behavior
 `parentClass` is set, and its `doDeleteAll` override literally copied
-`BasePeer::doDeleteAll(?string $tableName = null, ?PropelPDO $con = null,
+`BasePeer::doDeleteAll(?string $tableName = null, ?PropulsionPDO $con = null,
 ?string $databaseName = null)`'s 3-arg signature — so passing `$con` first
 now threw a `TypeError` (or a fatal LSP-incompatibility error once the
 per-table signature was corrected back to match) for every namespaced/PHP84
@@ -51,7 +51,7 @@ to avoid forcing the per-table peer's simpler `doDeleteAll($con)` wrapper
 into signature-compatibility with `BasePeer`'s generic 3-arg version — but
 `PHP84PeerBuilder`'s copy of that same check dropped the `'BasePeer'`
 exclusion, so it always extended it. Fixed `PHP84PeerBuilder` to match
-`PHP5PeerBuilder`'s guard; the per-table peer's `doDeleteAll(?PropelPDO
+`PHP5PeerBuilder`'s guard; the per-table peer's `doDeleteAll(?PropulsionPDO
 $con = null)` signature is correct again and no longer conflicts with the
 one-argument call site.
 
@@ -74,10 +74,10 @@ isn't available.)
 ### Remaining failures, by cluster (highest count first)
 
 1. ~~**~30 "not null violation" errors**~~ — **fixed.** 40 test methods
-   across `PropelModelPagerTest`, `PropelObjectCollectionTest`,
-   `PropelObjectCollectionWithFixturesTest`, `PropelArrayFormatterWithTest`,
-   `PropelObjectFormatterWithTest`, `PropelOnDemandFormatterTest`,
-   `PropelOnDemandFormatterWithTest`, `BaseObjectSerializeTest`,
+   across `PropulsionModelPagerTest`, `PropulsionObjectCollectionTest`,
+   `PropulsionObjectCollectionWithFixturesTest`, `PropulsionArrayFormatterWithTest`,
+   `PropulsionObjectFormatterWithTest`, `PropulsionOnDemandFormatterTest`,
+   `PropulsionOnDemandFormatterWithTest`, `BaseObjectSerializeTest`,
    `ModelCriteriaTest`, `Ticket520Test`, and `GeneratedObjectTest`
    constructed `new Book()` / `new Author()` / `new Review()` with required
    columns (`isbn`, `first_name`, `last_name`, `reviewed_by`,
@@ -138,8 +138,8 @@ isn't available.)
    throw `SQLSTATE[42703]` "Undefined column", not the `42601` "syntax
    error" that the issue-2 malformed `FROM` clause actually produced — the
    two clusters never overlapped). Every one comes from hand-written raw
-   SQL in `PropelArrayFormatterTest`/`PropelObjectFormatterTest`/
-   `PropelOnDemandFormatterTest`/`PropelStatementFormatterTest`, e.g.
+   SQL in `PropulsionArrayFormatterTest`/`PropulsionObjectFormatterTest`/
+   `PropulsionOnDemandFormatterTest`/`PropulsionStatementFormatterTest`, e.g.
    `$con->query('SELECT * FROM book WHERE book.TITLE = "Quicksilver"')`.
    MySQL's non-standard extension treats double-quoted string literals
    as strings; standard SQL (and Postgres) treats `"..."` as a quoted
@@ -164,12 +164,12 @@ isn't available.)
    always matches on an unset prefix; `ConcreteInheritanceBehavior::
    parentClass()` matched builders by bare `get_class()` name instead of
    FQCN, so reparenting silently never fired; `OMBuilder::getPackagePath()`
-   had a malformed regex (`$i#` instead of `$#i`); `PropelCollection::
+   had a malformed regex (`$i#` instead of `$#i`); `PropulsionCollection::
    getIterator()` returned a detached `ArrayIterator` copy, so by-reference
    `foreach` mutation never persisted through `save()`. The remainder were
    genuine MySQL-backtick-vs-Postgres-unquoted expected-SQL literals (~89
    assertions across `ModelCriteriaTest`, `CriteriaMergeTest`, `SubQueryTest`,
-   `ModelCriteriaSelectTest`, `BasePeerTest`, `PropelPDOTest`) and a few
+   `ModelCriteriaSelectTest`, `BasePeerTest`, `PropulsionPDOTest`) and a few
    stale bare-vs-namespaced class-name literals.
 
 5. ~~**10 "This test did not perform any assertions"**~~ **8 of 10 fixed** —
@@ -201,14 +201,14 @@ isn't available.)
 8. ~~**~5 `aggregate_poll`/`aggregate_post` "lock timeout" errors**~~
    **Fixed.** `ModelCriteria::doDeleteAll()` passed an extra leading `null`
    to `Peer::doDeleteAll($con)`, silently shifting `$con` out of the call
-   so it always fell back to `Propel::getConnection()` — opening a second
+   so it always fell back to `Propulsion::getConnection()` — opening a second
    real connection/transaction against the same database instead of
    reusing the caller's, which deadlocked later cleanup.
 
 ### Structural/tooling gaps found but not fixed
 
 The five items below (schemas fixture wiring, namespaced-codegen casing,
-`QuickGeneratorConfig` hardcoded class names, `PropelStringReader`'s broken
+`QuickGeneratorConfig` hardcoded class names, `PropulsionStringReader`'s broken
 include, and CI) were fixed in a follow-up pass. Notes on what actually
 happened, since a couple had surprises:
 
@@ -218,7 +218,7 @@ happened, since a couple had surprises:
   template, and `SchemasTestBase` now calls it instead of just checking
   `file_exists()` on a conf file nothing ever wrote. One real bug had to be
   fixed to make the fixture buildable at all: the schema's tables use a
-  `schema="..."` attribute (Propel's multi-schema-per-database support), and
+  `schema="..."` attribute (Propulsion's multi-schema-per-database support), and
   on Postgres (unlike MySQL, where `schema` just becomes a cross-database
   reference) `Table::getName()` qualifies the real SQL identifier as
   `schema.table` whenever the platform's `supportsSchemas()` is true --
@@ -263,7 +263,7 @@ happened, since a couple had surprises:
   codegen time, independent of this class). Verified with a standalone
   script instantiating `QuickGeneratorConfig` outside the test suite's
   bootstrap, and the full suite still passes at the same baseline.
-- **`generator/Lib/Builder/Util/PropelStringReader.php`**: fixed. Deleted
+- **`generator/Lib/Builder/Util/PropulsionStringReader.php`**: fixed. Deleted
   the broken `include_once 'phing/system/io/Reader.php'` the same way
   commit `3b7c64d` did for the other three call sites -- the file already
   has `use Phing\Io\StringReader;` at the top, making the require both
@@ -298,14 +298,14 @@ happened, since a couple had surprises:
   `test/testsuite/generator/behavior/SoftDeleteBehaviorTest.php`,
   `.../aggregate_column/AggregateColumnBehaviorTest.php`,
   `.../sluggable/SluggableBehaviorTest.php`,
-  `test/testsuite/runtime/query/{PropelQueryTest,SubQueryTest}.php`,
+  `test/testsuite/runtime/query/{PropulsionQueryTest,SubQueryTest}.php`,
   `test/testsuite/generator/builder/om/QueryBuilderTest.php`, and
   `test/tools/helpers/bookstore/behavior/{BookstoreNestedSetTestBase,TestAuthor}.php`.
   Also found two files (`JoinTest.php`, `CriteriaCombineTest.php`) that call
-  `Propel::init(bookstore-conf.php)` unconditionally at file scope, and one
+  `Propulsion::init(bookstore-conf.php)` unconditionally at file scope, and one
   more root cause: `test/bootstrap.php` only triggered
-  `Propulsion\Propel`'s legacy bare-class-name aliasing (`PropelException`,
-  `PropelCollection`, `PropelArrayCollection`, ...) as a side effect of the
+  `Propulsion\Propulsion`'s legacy bare-class-name aliasing (`PropulsionException`,
+  `PropulsionCollection`, `PropulsionArrayCollection`, ...) as a side effect of the
   bookstore fixture build *succeeding*, so ordinary runtime tests with no
   fixture dependency at all fataled on missing bare names whenever
   `PROPULSION_SKIP_INTEGRATION=1` was set -- moved that trigger to always
@@ -382,7 +382,7 @@ fixture.
   `addUseFkQuery`, etc.) unchanged. Of those 8, two were **not** merged
   after inspection found they regress real functionality:
   `addFindPk()`'s composite-primary-key branch is a hardcoded
-  `throw new PropelException('...not yet implemented for PHP84QueryBuilder')`,
+  `throw new PropulsionException('...not yet implemented for PHP84QueryBuilder')`,
   and `addFilterByCol()` silently drops the ENUM/OBJECT column-type
   branches entirely (present in the merged-in base, absent from PHP84's
   override). Both are real, pre-existing PHP84-builder completeness gaps,
@@ -428,7 +428,7 @@ this phase — same pattern as commit `306ee1b`'s findings):
   from the PHP84 builders) had a `use`-import bug that only manifests when
   a builder's output target has no PHP namespace of its own: it either
   emitted the same `use Propulsion\Query\ModelCriteria;`-style import once
-  per class — fatal ("name is already in use") when `PropelQuickBuilder`
+  per class — fatal ("name is already in use") when `PropulsionQuickBuilder`
   concatenates many such flat classes into one `eval()`'d script with no
   namespace block between them — or, in an earlier fix attempt, skipped
   imports too broadly and broke genuinely namespaced projects (a bare
@@ -449,7 +449,7 @@ this phase — same pattern as commit `306ee1b`'s findings):
   parent class's signatures, since `PHP5NestedSetBuilder`-generated
   classes extend whatever `object` builder is configured.
 - `VersionableBehaviorObjectBuilderModifier::addVersion()` passed a
-  `PropelPDO` positionally into a collection getter's `$criteria`
+  `PropulsionPDO` positionally into a collection getter's `$criteria`
   parameter — silently tolerated by the old untyped `create()` (the
   `instanceof Criteria` check just evaluated false and did nothing) but a
   hard `TypeError` under the new typed one. That mistyped `$con` being
@@ -483,45 +483,45 @@ is already marked `@deprecated` in its own generated docblock).
 
 This is the actual motivating goal from `PROPULSION_WORKER_REWORK.md`
 (FrankenPHP/worker-mode safety — moving instance pools,
-`forceMasterConnection`, and dangling transactions off `Propel`'s
+`forceMasterConnection`, and dangling transactions off `Propulsion`'s
 process-global statics into a request-scoped `Session`, while keeping
 connections/adapters/maps process-scoped in a `ServiceContainer`). Phased
 as:
 
 - **4a**: **Done.** Introduced `Propulsion\ServiceContainer` and
-  `Propulsion\Session` behind `Propel::getServiceContainer()`/
-  `Propel::getSession()` (both lazily-created singletons, with
+  `Propulsion\Session` behind `Propulsion::getServiceContainer()`/
+  `Propulsion::getSession()` (both lazily-created singletons, with
   `setServiceContainer()`/`setSession()` escape hatches for tests or a
   worker integration that wants to swap in a fresh `Session` per request).
   Concretely:
   - `ServiceContainer::clearInstancePools()` is the interim pool-registry
     hack: since every generated Peer class has its own private `static
     $instances` array with no central registry, this walks every table in
-    every `DatabaseMap` Propel currently has loaded, resolves each table's
+    every `DatabaseMap` Propulsion currently has loaded, resolves each table's
     `PEER` classname, and calls the already-existing (per-class, generated)
     `clearInstancePool()` on each one. `registerInstancePoolClass()` also
     lets a class be cleared even if it's never been loaded into a
     `DatabaseMap` yet. Explicitly a stopgap — gets deleted in 4b once
     pooling delegates to `Session` directly instead of static arrays.
   - `Session::reset()` wires transaction-rollback-on-reset: it force-rolls-
-    back (via `PropelPDO::forceRollBack()`, the same mechanism added in
+    back (via `PropulsionPDO::forceRollBack()`, the same mechanism added in
     commit `6f6b08e` for test-teardown boundaries — this is the identical
     dangling-transaction failure mode, just at a request boundary instead)
-    every connection `Propel` currently has open, then clears instance
+    every connection `Propulsion` currently has open, then clears instance
     pools via `ServiceContainer`, then resets `forceMasterConnection` back
     to its default.
-  - `forceMasterConnection` moved off `Propel`'s statics onto `Session`.
-    `Propel::setForceMasterConnection()`/`getForceMasterConnection()` are
-    kept as thin proxies to `Propel::getSession()` for backwards
-    compatibility, and `Propel::getConnection()` now reads it from there.
+  - `forceMasterConnection` moved off `Propulsion`'s statics onto `Session`.
+    `Propulsion::setForceMasterConnection()`/`getForceMasterConnection()` are
+    kept as thin proxies to `Propulsion::getSession()` for backwards
+    compatibility, and `Propulsion::getConnection()` now reads it from there.
   - Instance pooling's default was checked and is **already on**
-    (`Propel::$instancePoolingEnabled` was already `true` by default) — no
+    (`Propulsion::$instancePoolingEnabled` was already `true` by default) — no
     code change was needed there, contrary to what reading the plan in
     isolation might suggest.
   - Deliberately NOT done in this pass (all still gated on Phase 3, per the
-    original phasing): `Propel`'s other process-global statics (connection
+    original phasing): `Propulsion`'s other process-global statics (connection
     map, adapter map, database maps) are untouched and still live on
-    `Propel` directly — `ServiceContainer` does not yet own them, it only
+    `Propulsion` directly — `ServiceContainer` does not yet own them, it only
     hosts the pool registry hack. No generated code (builder templates)
     changed at all. The full worker test matrix from the rework plan (no
     object bleed, transaction cleanup, connection persistence across
@@ -533,7 +533,7 @@ as:
     `SessionResetTransactionTest.php`): pool registration/clearing in
     isolation and via the `DatabaseMap` walk, `forceMasterConnection`
     default/get/set/reset and that it's genuinely per-`Session` rather than
-    shared global state, `Propel`'s delegation to both new classes, and
+    shared global state, `Propulsion`'s delegation to both new classes, and
     `Session::reset()` end-to-end against a real connection — force-rolling
     back a nested dangling transaction, being a no-op with nothing open,
     and clearing pools/forceMaster together.
@@ -552,7 +552,7 @@ as:
 - **4c**: Delete legacy `PHP5*` builders (gated on 4a/4b proving the new
   pool delegation works, and on Phase 3's TableMapBuilder inlining removing
   the last real dependency on PHP5 code).
-- **4d**: Quiote adapter integration (`PropelDatabase` wiring,
+- **4d**: Quiote adapter integration (`PropulsionDatabase` wiring,
   `ResetInterface`) — tracked in the Quiote-side doc, not this repo.
 
 Decision already made in an earlier conversation: instance pooling
@@ -594,9 +594,94 @@ worker test matrix was consulted beyond what's summarized here.
   `pgsql`), but that's incidental to fixing tests, not the same as
   actually making Postgres the documented/default choice for real
   projects: `generator/default.properties`'s `propel.database` is still
-  empty (matches upstream Propel's original "you must configure this"
+  empty (matches upstream Propulsion's original "you must configure this"
   stance), the README doesn't mention a recommended database, and
   `PgsqlPlatform` hasn't had a pass to check it's on equal footing with
   `MysqlPlatform` feature-wise (this session only found and fixed the two
   bugs that blocked fixture loading — `DROP TABLE`/`DROP SEQUENCE` missing
   `IF EXISTS`, commit `024cec0` — not a general audit).
+
+## `Propel*` -> `Propulsion*` class rename
+
+Completed a codebase-wide rename of every `Propel`-prefixed class,
+interface, and trait name to `Propulsion*` (the namespace was already
+`Propulsion\`; only the bare class basenames still said `Propel`), plus the
+main static facade `Propel` -> `Propulsion` (`Propulsion::getConnection()`,
+`Propulsion::init()`, etc.). This is a hard cutover: no `class_alias()` shims
+were added for any of the renamed classes themselves.
+
+Scope covered: `runtime/`, `generator/` (including the PHP string templates
+in `generator/Lib/Builder/**` and `generator/Lib/Behavior/**` that emit
+source for generated model/query classes — both the canonical
+`OM/{Object,Peer,Query,TableMap}Builder` templates and the still-supported
+legacy `PHP5*Builder` templates), `test/` (test classes, fixture
+`build.properties`/`runtime-conf.xml`/`schema.xml`, `phpunit.xml`,
+`test.xml`), file renames to match (e.g. `PropelPDO.php` ->
+`PropulsionPDO.php`), self-referential comments/docblocks ("This file is
+part of the Propel package" -> "... Propulsion package", `@package
+propel.*` tags left as-is since those are config-namespace strings, not
+class references), and `README.md`/`KNOWN_ISSUES.md`. Also removed ~35 dead
+`propel.phpdb.org/trac/ticket/NNN` links (old Trac tracker) from comments,
+deleting the whole comment/docblock where the link was its only content.
+
+Commits, in order: facade rename; runtime classes; generator classes and
+builder templates; test suite; docs; phpdb.org cleanup; a follow-up fix for
+a real bug the rename surfaced (see below).
+
+**Judgment calls:**
+- Author/contributor attribution lines crediting the historical upstream
+  Propel/Torque projects this codebase was forked from (e.g. `@author Hans
+  Lellelid <hans@xmpl.org> (Propel)`, `(Torque)`) were left exactly as-is —
+  these name a real project a real person contributed to, not this
+  codebase's own branding, so rewriting them would misrepresent history.
+  Verified there are no comments that were ambiguous between the two
+  categories; all ~140 occurrences found were either unambiguously
+  self-referential (rewritten) or unambiguously third-party attribution
+  (left alone).
+- `generator/resources/xsl/dbd2propel.xsl` has one remaining
+  `propel.phpdb.org` reference: a "Software: Propulsion:
+  http://propel.phpdb.org/" line in a credits header, listing the tool
+  this XSL was built against. This isn't a dead ticket link (the thing
+  Step 4 targeted); left it alone.
+- `runtime/Lib/legacy-class-map.php` and
+  `test/tools/helpers/generator-legacy-class-map.php` are a *pre-existing*
+  bare-global-name -> FQCN aliasing system, unrelated in origin to this
+  rename (it exists so old, already-generated, unnamespaced model code
+  that references runtime classes like bare `PropelException` keeps
+  working after the earlier `Propel\` -> `Propulsion\` *namespace*
+  migration). Per instructions, only the FQCN *values* were updated to the
+  new class basenames; the old bare *keys* (`PropelException`, ...) were
+  left untouched, since ~117 existing test files and any not-yet
+  regenerated external projects still reference them bare.
+- That said, this rename **did** surface a real, previously-latent bug in
+  that system: the generator now emits bare `PropulsionPDO`/
+  `PropulsionException`/etc. (per the explicit instruction to update
+  builder template string literals), but for **unnamespaced** generated
+  output (the default target, and the archived PHP5 builders) there is no
+  `use` import backing those bare references — they only resolve through
+  the legacy-class-map's `class_alias()` loop, which only had entries for
+  the *old* bare names. Freshly generated/regenerated fixtures (e.g.
+  `test/fixtures/bookstore`'s nested_set behavior classes) fataled with
+  `Class "PropulsionPDO" not found` until fixed. The fix: added a
+  parallel set of entries to both legacy-class-map files, keyed by the
+  *new* bare `Propulsion*` names, mapping to the same FQCNs — additive
+  only, the old bare keys are untouched. This isn't the kind of
+  "class_alias shim for a renamed class" the hard-cutover instruction
+  ruled out; it's the same pre-existing, purpose-built mechanism now
+  covering both spellings of the bare name it was always meant to cover.
+
+**Before/after test counts** (`test/phpunit.xml`, Docker/Postgres,
+`vendor/bin/phpunit -c phpunit.xml`, fixture `build/` dirs removed first):
+- Before (baseline on `main`, per prior pass): 2200 tests, 36 errors, 19
+  failures, 12 skipped, 2 risky.
+- After this rename: 2200 tests, 38 errors, 21 failures, 12 skipped, 2
+  risky. The +2/+2 delta was cross-checked against the failing test names:
+  all of them are pre-existing, already-documented flakiness clusters in
+  this file (`ModelCriteria*`, `SubQueryTest`, `BasePeerTest`,
+  `MssqlPlatformTest`, etc. — see "Remaining failures, by cluster" above),
+  just under their now-renamed test class names
+  (`PropulsionArrayFormatterTest`, `PropulsionPDOTest`, ...). No new
+  failure signature (e.g. a class-not-found for a `Propulsion*` name) was
+  present in either run's list. Given this suite's documented run-to-run
+  count flakiness of a few tests either way, this is within noise, not a
+  regression introduced by the rename.

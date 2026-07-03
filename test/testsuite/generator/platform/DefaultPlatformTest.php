@@ -3,7 +3,7 @@
 
 use PHPUnit\Framework\TestCase;
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -62,7 +62,7 @@ class DefaultPlatformTest extends TestCase
 	public static function createEnumColumn($defaultValues, $defaultValue)
 	{
 		$column = new Column();
-		$column->setType(PropelTypes::ENUM);
+		$column->setType(PropulsionTypes::ENUM);
 		$column->setValueSet($defaultValues);
 		$column->setDefaultValue($defaultValue);
 		return $column;
@@ -71,16 +71,16 @@ class DefaultPlatformTest extends TestCase
 	public static function getColumnDefaultValueDDLDataProvider()
 	{
 		return array(
-			array(static::createColumn(PropelTypes::INTEGER, 0), "DEFAULT 0"),
-			array(static::createColumn(PropelTypes::INTEGER, '0'), "DEFAULT 0"),
-			array(static::createColumn(PropelTypes::VARCHAR, 'foo'), "DEFAULT 'foo'"),
-			array(static::createColumn(PropelTypes::VARCHAR, 0), "DEFAULT '0'"),
-			array(static::createColumn(PropelTypes::BOOLEAN, true), "DEFAULT 1"),
-			array(static::createColumn(PropelTypes::BOOLEAN, false), "DEFAULT 0"),
-			array(static::createColumn(PropelTypes::BOOLEAN, 'true'), "DEFAULT 1"),
-			array(static::createColumn(PropelTypes::BOOLEAN, 'false'), "DEFAULT 0"),
-			array(static::createColumn(PropelTypes::BOOLEAN, 'TRUE'), "DEFAULT 1"),
-			array(static::createColumn(PropelTypes::BOOLEAN, 'FALSE'), "DEFAULT 0"),
+			array(static::createColumn(PropulsionTypes::INTEGER, 0), "DEFAULT 0"),
+			array(static::createColumn(PropulsionTypes::INTEGER, '0'), "DEFAULT 0"),
+			array(static::createColumn(PropulsionTypes::VARCHAR, 'foo'), "DEFAULT 'foo'"),
+			array(static::createColumn(PropulsionTypes::VARCHAR, 0), "DEFAULT '0'"),
+			array(static::createColumn(PropulsionTypes::BOOLEAN, true), "DEFAULT 1"),
+			array(static::createColumn(PropulsionTypes::BOOLEAN, false), "DEFAULT 0"),
+			array(static::createColumn(PropulsionTypes::BOOLEAN, 'true'), "DEFAULT 1"),
+			array(static::createColumn(PropulsionTypes::BOOLEAN, 'false'), "DEFAULT 0"),
+			array(static::createColumn(PropulsionTypes::BOOLEAN, 'TRUE'), "DEFAULT 1"),
+			array(static::createColumn(PropulsionTypes::BOOLEAN, 'FALSE'), "DEFAULT 0"),
 			array(static::createEnumColumn(array('foo', 'bar', 'baz'), 'foo'), "DEFAULT 0"),
 			array(static::createEnumColumn(array('foo', 'bar', 'baz'), 'bar'), "DEFAULT 1"),
 			array(static::createEnumColumn(array('foo', 'bar', 'baz'), 'baz'), "DEFAULT 2"),

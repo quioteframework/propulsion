@@ -1,7 +1,7 @@
 <?php
 namespace Propulsion\Generator\Model;
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -9,7 +9,7 @@ namespace Propulsion\Generator\Model;
  */
 
 use ReflectionObject;
-use Propulsion\Generator\Builder\Util\PropelTemplate;
+use Propulsion\Generator\Builder\Util\PropulsionTemplate;
 
 /**
  * Information about behaviors of a table.
@@ -182,7 +182,7 @@ class Behavior extends XMLElement
 	}
 
 	/**
-	 * Use Propel's simple templating system to render a PHP file
+	 * Use Propulsion's simple templating system to render a PHP file
 	 * using variables passed as arguments.
 	 *
 	 * @param string $filename    The template file name, relative to the behavior's dirname
@@ -204,7 +204,7 @@ class Behavior extends XMLElement
 				));
 			}
 		}
-		$template = new PropelTemplate();
+		$template = new PropulsionTemplate();
 		$template->setTemplateFile($filePath);
 		$vars = array_merge($vars, array('behavior' => $this));
 

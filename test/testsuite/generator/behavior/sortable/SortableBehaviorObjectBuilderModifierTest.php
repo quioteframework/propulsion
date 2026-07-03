@@ -2,7 +2,7 @@
 
 /*
  *	$Id: SortableBehaviorTest.php 1356 2009-12-11 16:36:55Z francois $
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -110,21 +110,21 @@ class SortableBehaviorObjectBuilderModifierTest extends BookstoreSortableTestBas
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testInsertAtNegativeRank()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$t = new Table11();
 		$t->insertAtRank(0);
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testInsertAtOverMaxRank()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$t = new Table11();
 		$t->insertAtRank(6);
 	}
@@ -171,31 +171,31 @@ class SortableBehaviorObjectBuilderModifierTest extends BookstoreSortableTestBas
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testMoveToNewObject()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$t = new Table11();
 		$t->moveToRank(2);
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testMoveToNegativeRank()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$t = Table11Peer::retrieveByRank(2);
 		$t->moveToRank(0);
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testMoveToOverMaxRank()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$t = Table11Peer::retrieveByRank(2);
 		$t->moveToRank(5);
 	}

@@ -2,7 +2,7 @@
 
 /*
  *	$Id$
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -127,7 +127,7 @@ class TimestampableBehaviorTest extends BookstoreTestBase
 	protected function populateUpdatedAt()
 	{
 		Table2Query::create()->deleteAll();
-		$ts = new PropelObjectCollection();
+		$ts = new PropulsionObjectCollection();
 		$ts->setModel('Table2');
 		for ($i=0; $i < 10; $i++) {
 			$t = new Table2();
@@ -142,7 +142,7 @@ class TimestampableBehaviorTest extends BookstoreTestBase
 	protected function populateCreatedAt()
 	{
 		Table2Query::create()->deleteAll();
-		$ts = new PropelObjectCollection();
+		$ts = new PropulsionObjectCollection();
 		$ts->setModel('Table2');
 		for ($i=0; $i < 10; $i++) {
 			$t = new Table2();

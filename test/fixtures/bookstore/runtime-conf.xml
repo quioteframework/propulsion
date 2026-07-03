@@ -11,7 +11,7 @@
 		<datasources default="bookstore">
 			<datasource id="bookstore">
 
-				<!-- the Propel adapter to use for this connection -->
+				<!-- the Propulsion adapter to use for this connection -->
 				<adapter>mysql</adapter>
 				<!-- Connection parameters. See PDO documentation for DSN format and available option constants. -->
 				<connection>

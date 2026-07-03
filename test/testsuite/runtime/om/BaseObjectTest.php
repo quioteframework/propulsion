@@ -3,7 +3,7 @@
 
 use PHPUnit\Framework\TestCase;
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -36,11 +36,11 @@ class BaseObjectTest extends TestCase
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testGetVirtualColumnWrongKey()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$b = new TestableBaseObject();
 		$b->getVirtualColumn('foo');
 	}

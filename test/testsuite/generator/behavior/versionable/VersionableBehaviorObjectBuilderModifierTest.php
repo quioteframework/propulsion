@@ -4,7 +4,7 @@
 use PHPUnit\Framework\TestCase;
 /*
  *	$Id: VersionableBehaviorTest.php 1460 2010-01-17 22:36:48Z francois $
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -66,7 +66,7 @@ class VersionableBehaviorObjectBuilderModifierTest extends TestCase
 
 </database>
 EOF;
-			PropelQuickBuilder::buildSchema($schema);
+			PropulsionQuickBuilder::buildSchema($schema);
 		}
 		if (!class_exists('VersionableBehaviorTest6')) {
 			$schema2 = <<<EOF
@@ -98,7 +98,7 @@ EOF;
 		</behavior>
 	</table>
 EOF;
-			PropelQuickBuilder::buildSchema($schema2);
+			PropulsionQuickBuilder::buildSchema($schema2);
 		}
 	}
 
@@ -336,11 +336,11 @@ EOF;
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testToVersionThrowsExceptionOnIncorrectVersion()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$o = new VersionableBehaviorTest1();
 		$o->setBar(123); // version 1
 		$o->save();
@@ -575,7 +575,7 @@ EOF;
 		$o->setBar(456); // version 2
 		$o->save();
 		$versions = $o->getAllVersions();
-		$this->assertTrue($versions instanceof PropelObjectCollection);
+		$this->assertTrue($versions instanceof PropulsionObjectCollection);
 		$this->assertEquals(2, $versions->count());
 		$this->assertEquals(1, $versions[0]->getVersion());
 		$this->assertEquals(123, $versions[0]->getBar());

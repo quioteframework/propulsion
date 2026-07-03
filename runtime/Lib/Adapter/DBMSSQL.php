@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -17,7 +17,7 @@ namespace Propulsion\Adapter;
  * @package    propel.runtime.adapter
  */
 use PDO;
-use Propulsion\Exception\PropelException;
+use Propulsion\Exception\PropulsionException;
 use Propulsion\Query\Criteria;
 use Propulsion\Map\DatabaseMap;
 
@@ -149,7 +149,7 @@ class DBMSSQL extends DBAdapter
 		// make sure offset and limit are numeric
 		if(! is_numeric($offset) || ! is_numeric($limit))
 		{
-			throw new PropelException('DBMSSQL::applyLimit() expects a number for argument 2 and 3');
+			throw new PropulsionException('DBMSSQL::applyLimit() expects a number for argument 2 and 3');
 		}
 
 		//split the select and from clauses out of the original query

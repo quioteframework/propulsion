@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -405,9 +405,9 @@ class Table extends ScopedElement implements IDMethod
 			$this->setIdMethod(IDMethod::NO_ID_METHOD);
 		}
 
-		// If there is no PK, then throw an error. Propel requires primary keys.
+		// If there is no PK, then throw an error. Propulsion requires primary keys.
 		if (!$this->hasPrimaryKey()) {
-			throw new EngineException(sprintf('Table "%s" does not have a primary key defined. Propel requires all tables to have a primary key.', $this->getName()));
+			throw new EngineException(sprintf('Table "%s" does not have a primary key defined. Propulsion requires all tables to have a primary key.', $this->getName()));
 		}
 
 	}

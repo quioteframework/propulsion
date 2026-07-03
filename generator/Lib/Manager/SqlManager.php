@@ -12,7 +12,7 @@ namespace Propulsion\Generator\Manager;
 use Propulsion\Generator\Exception\EngineException;
 
 /**
- * Plain-PHP replacement for the Phing-based PropelSQLTask: loads XML schema files
+ * Plain-PHP replacement for the Phing-based PropulsionSQLTask: loads XML schema files
  * and writes the platform's DDL for each database to a `.sql` file.
  *
  * One `.sql` file is written per distinct database *name* (not per schema file):

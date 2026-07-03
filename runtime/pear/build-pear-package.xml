@@ -15,13 +15,13 @@
 
 	<!-- some default properties -->
 	<property name="notes"><![CDATA[
-		This is a release of the 1.6 branch of the Propel Generator.
+		This is a release of the 1.6 branch of the Propulsion Generator.
 	]]></property>
 	<property name="state" value="stable"/>
 
 	<taskdef
     name="pear-package"
-    classname="BuildPropelPEARPackageTask" classpath="."/>
+    classname="BuildPropulsionPEARPackageTask" classpath="."/>
 
 	<fileset dir="${propel.home}/lib" id="classes">
 		<include name="**"/>
@@ -51,7 +51,7 @@
 		<echo message=" "/>
 		<echo message="-Dversion=1.0.0"/>
 		<echo message="====================================================="/>
-		<input propertyname="version" promptChar=":">Propel version for package</input>
+		<input propertyname="version" promptChar=":">Propulsion version for package</input>
 
 		<property name="pkgname" value="${phing.project.name}-${version}" override="true"/>
 		<property name="build.src.dir" value="${build.base.dir}/${pkgname}" override="true"/>

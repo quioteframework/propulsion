@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -28,7 +28,7 @@ use Propulsion\Generator\Builder\OM\AbstractObjectBuilder;
 use Propulsion\Generator\Config\GeneratorConfig;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Config\GeneratorConfigInterface;
-use Propulsion\Generator\Platform\PropelPlatformInterface;
+use Propulsion\Generator\Platform\PropulsionPlatformInterface;
 abstract class DataModelBuilder
 {
 
@@ -155,7 +155,7 @@ abstract class DataModelBuilder
 
 	/**
 	 * The platform class
-	 * @var 			PropelPlatformInterface
+	 * @var 			PropulsionPlatformInterface
 	 */
 	protected $platform;
 
@@ -546,7 +546,7 @@ abstract class DataModelBuilder
 
 	/**
 	 * Convenience method to returns the Platform class for this table (database).
-	 * @return     PropelPlatformInterface
+	 * @return     PropulsionPlatformInterface
 	 */
 	public function getPlatform()
 	{
@@ -562,9 +562,9 @@ abstract class DataModelBuilder
 	/**
 	 * Platform setter
 	 *
-	 * @param PropelPlatformInterface $platform
+	 * @param PropulsionPlatformInterface $platform
 	 */
-	public function setPlatform(PropelPlatformInterface $platform)
+	public function setPlatform(PropulsionPlatformInterface $platform)
 	{
 		$this->platform = $platform;
 	}

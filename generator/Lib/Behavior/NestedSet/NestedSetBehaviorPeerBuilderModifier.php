@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -120,10 +120,10 @@ const SCOPE_COL = '" . $tableName . '.' . $this->getColumnConstant('scope_column
 /**
  * Returns the root nodes for the tree
  *
- * @param      PropelPDO \$con	Connection to use.
- * @return     {$this->objectClassname}			Propel object for root node
+ * @param      PropulsionPDO \$con	Connection to use.
+ * @return     {$this->objectClassname}			Propulsion object for root node
  */
-public static function retrieveRoots(Criteria \$criteria = null, PropelPDO \$con = null)
+public static function retrieveRoots(Criteria \$criteria = null, PropulsionPDO \$con = null)
 {
 	if (\$criteria === null) {
 		\$criteria = new Criteria($peerClassname::DATABASE_NAME);
@@ -148,10 +148,10 @@ public static function retrieveRoots(Criteria \$criteria = null, PropelPDO \$con
  * @param      int \$scope		Scope to determine which root node to return";
  		}
  		$script .= "
- * @param      PropelPDO \$con	Connection to use.
- * @return     {$this->objectClassname}			Propel object for root node
+ * @param      PropulsionPDO \$con	Connection to use.
+ * @return     {$this->objectClassname}			Propulsion object for root node
  */
-public static function retrieveRoot(" . ($useScope ? "\$scope = null, " : "") . "PropelPDO \$con = null)
+public static function retrieveRoot(" . ($useScope ? "\$scope = null, " : "") . "PropulsionPDO \$con = null)
 {
 	\$c = new Criteria($peerClassname::DATABASE_NAME);
 	\$c->add($peerClassname::LEFT_COL, 1, Criteria::EQUAL);";
@@ -180,10 +180,10 @@ public static function retrieveRoot(" . ($useScope ? "\$scope = null, " : "") . 
  		}
  		$script .= "
  * @param      Criteria \$criteria	Optional Criteria to filter the query
- * @param      PropelPDO \$con	Connection to use.
- * @return     {$this->objectClassname}			Propel object for root node
+ * @param      PropulsionPDO \$con	Connection to use.
+ * @return     {$this->objectClassname}			Propulsion object for root node
  */
-public static function retrieveTree(" . ($useScope ? "\$scope = null, " : "") . "Criteria \$criteria = null, PropelPDO \$con = null)
+public static function retrieveTree(" . ($useScope ? "\$scope = null, " : "") . "Criteria \$criteria = null, PropulsionPDO \$con = null)
 {
 	if (\$criteria === null) {
 		\$criteria = new Criteria($peerClassname::DATABASE_NAME);
@@ -207,7 +207,7 @@ public static function retrieveTree(" . ($useScope ? "\$scope = null, " : "") . 
 /**
  * Tests if node is valid
  *
- * @param      $objectClassname \$node	Propel object for src node
+ * @param      $objectClassname \$node	Propulsion object for src node
  * @return     bool
  */
 public static function isValid($objectClassname \$node = null)
@@ -234,11 +234,11 @@ public static function isValid($objectClassname \$node = null)
  * @param      int \$scope		Scope to determine which tree to delete";
  		}
  		$script .= "
- * @param      PropelPDO \$con	Connection to use.
+ * @param      PropulsionPDO \$con	Connection to use.
  *
  * @return     int  The number of deleted nodes
  */
-public static function deleteTree(" . ($useScope ? "\$scope = null, " : "") . "PropelPDO \$con = null)
+public static function deleteTree(" . ($useScope ? "\$scope = null, " : "") . "PropulsionPDO \$con = null)
 {";
 		if($useScope) {
 			$script .= "
@@ -271,12 +271,12 @@ public static function deleteTree(" . ($useScope ? "\$scope = null, " : "") . "P
  * @param      int \$scope		Scope to use for the shift";
 		}
 		$script .= "
- * @param      PropelPDO \$con		Connection to use.
+ * @param      PropulsionPDO \$con		Connection to use.
  */
-public static function shiftRLValues(\$delta, \$first, \$last = null" . ($useScope ? ", \$scope = null" : ""). ", PropelPDO \$con = null)
+public static function shiftRLValues(\$delta, \$first, \$last = null" . ($useScope ? ", \$scope = null" : ""). ", PropulsionPDO \$con = null)
 {
 	if (\$con === null) {
-		\$con = Propel::getConnection($peerClassname::DATABASE_NAME, Propel::CONNECTION_WRITE);
+		\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
 	}
 
 	// Shift left column values
@@ -335,12 +335,12 @@ public static function shiftRLValues(\$delta, \$first, \$last = null" . ($useSco
  * @param      int \$scope		Scope to use for the shift";
 		}
 		$script .= "
- * @param      PropelPDO \$con		Connection to use.
+ * @param      PropulsionPDO \$con		Connection to use.
  */
-public static function shiftLevel(\$delta, \$first, \$last" . ($useScope ? ", \$scope = null" : ""). ", PropelPDO \$con = null)
+public static function shiftLevel(\$delta, \$first, \$last" . ($useScope ? ", \$scope = null" : ""). ", PropulsionPDO \$con = null)
 {
 	if (\$con === null) {
-		\$con = Propel::getConnection($peerClassname::DATABASE_NAME, Propel::CONNECTION_WRITE);
+		\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
 	}
 
 	\$whereCriteria = new Criteria($peerClassname::DATABASE_NAME);
@@ -369,11 +369,11 @@ public static function shiftLevel(\$delta, \$first, \$last" . ($useScope ? ", \$
  * Reload all already loaded nodes to sync them with updated db
  *
  * @param      $objectClassname \$prune		Object to prune from the update
- * @param      PropelPDO \$con		Connection to use.
+ * @param      PropulsionPDO \$con		Connection to use.
  */
-public static function updateLoadedNodes(\$prune = null, PropelPDO \$con = null)
+public static function updateLoadedNodes(\$prune = null, PropulsionPDO \$con = null)
 {
-	if (Propel::isInstancePoolingEnabled()) {
+	if (Propulsion::isInstancePoolingEnabled()) {
 		\$keys = array();
 		foreach ($peerClassname::\$instances as \$obj) {
 			if (!\$prune || !\$prune->equals(\$obj)) {
@@ -463,9 +463,9 @@ public static function updateLoadedNodes(\$prune = null, PropelPDO \$con = null)
  		}
  		$script .= "
  * @param      mixed \$prune	Object to prune from the shift
- * @param      PropelPDO \$con	Connection to use.
+ * @param      PropulsionPDO \$con	Connection to use.
  */
-public static function makeRoomForLeaf(\$left" . ($useScope ? ", \$scope" : ""). ", \$prune = null, PropelPDO \$con = null)
+public static function makeRoomForLeaf(\$left" . ($useScope ? ", \$scope" : ""). ", \$prune = null, PropulsionPDO \$con = null)
 {
 	// Update database nodes
 	$peerClassname::shiftRLValues(2, \$left, null" . ($useScope ? ", \$scope" : "") . ", \$con);
@@ -489,9 +489,9 @@ public static function makeRoomForLeaf(\$left" . ($useScope ? ", \$scope" : "").
  * @param      integer \$scope	scope column value";
  		}
  		$script .= "
- * @param      PropelPDO \$con	Connection to use.
+ * @param      PropulsionPDO \$con	Connection to use.
  */
-public static function fixLevels(" . ($useScope ? "\$scope, " : ""). "PropelPDO \$con = null)
+public static function fixLevels(" . ($useScope ? "\$scope, " : ""). "PropulsionPDO \$con = null)
 {
 	\$c = new Criteria();";
 		if ($useScope) {
@@ -534,7 +534,7 @@ public static function fixLevels(" . ($useScope ? "\$scope, " : ""). "PropelPDO 
 		}
 
 		// compute level
-		// Algorithm shamelessly stolen from sfPropelActAsNestedSetBehaviorPlugin
+		// Algorithm shamelessly stolen from sfPropulsionActAsNestedSetBehaviorPlugin
 		// Probably authored by Tristan Rivoallan
 		if (\$level === null) {
 			\$level = 0;

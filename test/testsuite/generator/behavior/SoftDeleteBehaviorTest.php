@@ -2,7 +2,7 @@
 
 /*
  *	$Id$
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -399,7 +399,7 @@ class SoftDeleteBehaviorTest extends BookstoreTestBase
 if (class_exists(Table4::class)) {
 	class UndeletableTable4 extends Table4
 	{
-		public function preDelete(PropelPDO $con = null)
+		public function preDelete(PropulsionPDO $con = null)
 		{
 			parent::preDelete($con);
 			$this->setTitle('foo');
@@ -409,7 +409,7 @@ if (class_exists(Table4::class)) {
 
 	class PostdeletehookedTable4 extends Table4
 	{
-		public function postDelete(PropelPDO $con = null)
+		public function postDelete(PropulsionPDO $con = null)
 		{
 			parent::postDelete($con);
 			$this->setTitle('post-deleted');

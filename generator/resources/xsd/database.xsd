@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-	<!-- XML Schema for the Propel schema file
+	<!-- XML Schema for the Propulsion schema file
       An additional xml schema: custom_datatypes.xsd is
 		  also included.  -->
 
@@ -369,7 +369,7 @@
 		<xs:attribute name="type" type="datatype" default="VARCHAR">
 			<xs:annotation>
 				<xs:documentation xml:lang="en">
-					Any of the Propel supported data types. These types are database-agnostic, and converted to the native database type according to the connection.
+					Any of the Propulsion supported data types. These types are database-agnostic, and converted to the native database type according to the connection.
 				</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
@@ -483,7 +483,7 @@
 		<xs:attribute name="primaryString" type="xs:boolean" default="false">
 			<xs:annotation>
 				<xs:documentation xml:lang="en">
-					 A column defined as primary string serves as default value for a `__toString()` method in the generated Propel object.
+					 A column defined as primary string serves as default value for a `__toString()` method in the generated Propulsion object.
 				</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
@@ -545,7 +545,7 @@
 		<xs:attribute name="defaultJoin" type="xs:string" use="optional">
 			<xs:annotation>
 				<xs:documentation xml:lang="en">
-					This affects the default join type used in the generated `joinXXX()` methods in the model query class. Propel uses an INNER JOIN for foreign keys attached to a required column, and a LEFT JOIN for foreign keys attached to a non-required column, but you can override this in the foreign key element.
+					This affects the default join type used in the generated `joinXXX()` methods in the model query class. Propulsion uses an INNER JOIN for foreign keys attached to a required column, and a LEFT JOIN for foreign keys attached to a non-required column, but you can override this in the foreign key element.
 				</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
@@ -554,7 +554,7 @@
 		<xs:attribute name="skipSql" type="xs:boolean" default="false">
 			<xs:annotation>
 				<xs:documentation xml:lang="en">
-					Instructs Propel not to generate DDL SQL for the specified foreign key. This can be used to support relationships in the model without an actual foreign key.
+					Instructs Propulsion not to generate DDL SQL for the specified foreign key. This can be used to support relationships in the model without an actual foreign key.
 				</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
@@ -692,14 +692,14 @@
 		<xs:attribute name="allowPkInsert" type="xs:boolean" default="false" use="optional">
 			<xs:annotation>
 				<xs:documentation xml:lang="en">
-					 Can be used if you want to define the primary key of a new object being inserted. By default if idMethod is "native", Propel would throw an exception. However, in some cases this feature is useful, for example if you do some replication of data in an master-master environment.
+					 Can be used if you want to define the primary key of a new object being inserted. By default if idMethod is "native", Propulsion would throw an exception. However, in some cases this feature is useful, for example if you do some replication of data in an master-master environment.
 				</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
 		<xs:attribute name="skipSql" type="xs:boolean" default="false">
 			<xs:annotation>
 				<xs:documentation xml:lang="en">
-					Instructs Propel not to generate DDL SQL for the specified table. This can be used together with readOnly for supporting VIEWS in Propel
+					Instructs Propulsion not to generate DDL SQL for the specified table. This can be used together with readOnly for supporting VIEWS in Propulsion
 				</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
@@ -720,14 +720,14 @@
 		<xs:attribute name="baseClass" type="php_class" use="optional">
 			<xs:annotation>
 				<xs:documentation xml:lang="en">
-					Allows you to specify a class that the generated Propel objects should extend (in place of propel.om.BaseObject)
+					Allows you to specify a class that the generated Propulsion objects should extend (in place of propel.om.BaseObject)
 				</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
 		<xs:attribute name="basePeer" type="php_class" use="optional">
 			<xs:annotation>
 				<xs:documentation xml:lang="en">
-					Instructs Propel to use a different SQL-generating BasePeer class (or sub-class of BasePeer).
+					Instructs Propulsion to use a different SQL-generating BasePeer class (or sub-class of BasePeer).
 				</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
@@ -792,7 +792,7 @@
 		<xs:attribute name="defaultStringFormat" type="xs:string" use="optional">
 			<xs:annotation>
 				<xs:documentation xml:lang="en">
-					The default format used to convert objects based on this table to strings. Propel supports by default the 'XML', 'YAML', 'JSON', and 'CSV' formats, but custom formats are also possible.
+					The default format used to convert objects based on this table to strings. Propulsion supports by default the 'XML', 'YAML', 'JSON', and 'CSV' formats, but custom formats are also possible.
 				</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
@@ -825,7 +825,7 @@
 		<xs:attribute name="name" type="xs:string" use="optional">
 			<xs:annotation>
 				<xs:documentation xml:lang="en">
-					The name of the table in the database. Propel advocates the use of singular table names.
+					The name of the table in the database. Propulsion advocates the use of singular table names.
 				</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
@@ -875,14 +875,14 @@
 		<xs:attribute name="baseClass" type="php_class" use="optional">
 			<xs:annotation>
 				<xs:documentation xml:lang="en">
-					Allows to specify a default base class that all generated Propel objects should extend (in place of propel.om.BaseObject)
+					Allows to specify a default base class that all generated Propulsion objects should extend (in place of propel.om.BaseObject)
 				</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
 		<xs:attribute name="basePeer" type="php_class" use="optional">
 			<xs:annotation>
 				<xs:documentation xml:lang="en">
-					Instructs Propel to use a different SQL-generating BasePeer class (or sub-class of BasePeer) for all generated objects
+					Instructs Propulsion to use a different SQL-generating BasePeer class (or sub-class of BasePeer) for all generated objects
 				</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
@@ -910,7 +910,7 @@
 		<xs:attribute name="defaultStringFormat" type="xs:string" use="optional">
 			<xs:annotation>
 				<xs:documentation xml:lang="en">
-					The default format used to convert objects based on this database to strings. Propel supports by default the 'XML', 'YAML', 'JSON', and 'CSV' formats, but custom formats are also possible.
+					The default format used to convert objects based on this database to strings. Propulsion supports by default the 'XML', 'YAML', 'JSON', and 'CSV' formats, but custom formats are also possible.
 				</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>

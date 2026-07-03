@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -138,7 +138,7 @@ class ModelCriteriaHooksTest extends BookstoreTestBase
 
 class ModelCriteriaWithPreSelectHook extends ModelCriteria
 {
-	public function preSelect(PropelPDO $con): mixed
+	public function preSelect(PropulsionPDO $con): mixed
 	{
 		$this->where($this->getModelAliasOrName() . '.Title = ?', 'Don Juan');
 	}
@@ -146,7 +146,7 @@ class ModelCriteriaWithPreSelectHook extends ModelCriteria
 
 class ModelCriteriaWithPreDeleteHook extends ModelCriteria
 {
-	public function preDelete(PropelPDO $con)
+	public function preDelete(PropulsionPDO $con)
 	{
 		return 12;
 	}
@@ -154,7 +154,7 @@ class ModelCriteriaWithPreDeleteHook extends ModelCriteria
 
 class ModelCriteriaWithPostDeleteHook extends ModelCriteria
 {
-	public function postDelete($affectedRows, PropelPDO $con)
+	public function postDelete($affectedRows, PropulsionPDO $con)
 	{
 		$con->lastAffectedRows = $affectedRows;
 	}
@@ -162,7 +162,7 @@ class ModelCriteriaWithPostDeleteHook extends ModelCriteria
 
 class ModelCriteriaWithPreAndPostDeleteHook extends ModelCriteriaWithPostDeleteHook
 {
-	public function preDelete(PropelPDO $con)
+	public function preDelete(PropulsionPDO $con)
 	{
 		return 12;
 	}
@@ -170,7 +170,7 @@ class ModelCriteriaWithPreAndPostDeleteHook extends ModelCriteriaWithPostDeleteH
 
 class ModelCriteriaWithPreUpdateHook extends ModelCriteria
 {
-	public function preUpdate(&$values, PropelPDO $con, $forceIndividualSaves = false)
+	public function preUpdate(&$values, PropulsionPDO $con, $forceIndividualSaves = false)
 	{
 		$values['ISBN'] = '1234';
 	}
@@ -178,7 +178,7 @@ class ModelCriteriaWithPreUpdateHook extends ModelCriteria
 
 class ModelCriteriaWithPostUpdateHook extends ModelCriteria
 {
-	public function postUpdate($affectedRows, PropelPDO $con)
+	public function postUpdate($affectedRows, PropulsionPDO $con)
 	{
 		$con->lastAffectedRows = $affectedRows;
 	}
@@ -186,7 +186,7 @@ class ModelCriteriaWithPostUpdateHook extends ModelCriteria
 
 class ModelCriteriaWithPreAndPostUpdateHook extends ModelCriteriaWithPostUpdateHook
 {
-	public function preUpdate(&$values, PropelPDO $con, $forceIndividualSaves = false)
+	public function preUpdate(&$values, PropulsionPDO $con, $forceIndividualSaves = false)
 	{
 		return 52;
 	}

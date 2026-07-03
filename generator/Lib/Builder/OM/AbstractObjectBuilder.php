@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -39,7 +39,7 @@ namespace Propulsion\Generator\Builder\OM;
  * @method void addTemporalMutator(string &$script, $col)
  */
 use Propulsion\Generator\Model\Table;
-use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\PropulsionTypes;
 
 abstract class AbstractObjectBuilder extends OMBuilder
 {
@@ -76,11 +76,11 @@ abstract class AbstractObjectBuilder extends OMBuilder
 		foreach ($table->getColumns() as $col) {
 
 			// if they're not using the DateTime class than we will generate "compatibility" accessor method
-			if ($col->getType() === PropelTypes::DATE || $col->getType() === PropelTypes::TIME || $col->getType() === PropelTypes::TIMESTAMP) {
+			if ($col->getType() === PropulsionTypes::DATE || $col->getType() === PropulsionTypes::TIME || $col->getType() === PropulsionTypes::TIMESTAMP) {
 				$this->addTemporalAccessor($script, $col);
-			} else if ($col->getType() === PropelTypes::OBJECT) {
+			} else if ($col->getType() === PropulsionTypes::OBJECT) {
 				$this->addObjectAccessor($script, $col);
-			} else if ($col->getType() === PropelTypes::PHP_ARRAY) {
+			} else if ($col->getType() === PropulsionTypes::PHP_ARRAY) {
 				$this->addArrayAccessor($script, $col);
 				if ($col->isNamePlural()) {
 					$this->addHasArrayElement($script, $col);
@@ -108,11 +108,11 @@ abstract class AbstractObjectBuilder extends OMBuilder
 		foreach ($this->getTable()->getColumns() as $col) {
 			if ($col->isLobType()) {
 				$this->addLobMutator($script, $col);
-			} elseif ($col->getType() === PropelTypes::DATE || $col->getType() === PropelTypes::TIME || $col->getType() === PropelTypes::TIMESTAMP) {
+			} elseif ($col->getType() === PropulsionTypes::DATE || $col->getType() === PropulsionTypes::TIME || $col->getType() === PropulsionTypes::TIMESTAMP) {
 				$this->addTemporalMutator($script, $col);
-			} else if ($col->getType() === PropelTypes::OBJECT) {
+			} else if ($col->getType() === PropulsionTypes::OBJECT) {
 				$this->addObjectMutator($script, $col);
-			} else if ($col->getType() === PropelTypes::PHP_ARRAY) {
+			} else if ($col->getType() === PropulsionTypes::PHP_ARRAY) {
 				$this->addArrayMutator($script, $col);
 				if ($col->isNamePlural()) {
 					$this->addAddArrayElement($script, $col);

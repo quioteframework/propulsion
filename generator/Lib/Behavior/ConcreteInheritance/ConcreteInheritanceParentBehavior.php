@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -85,7 +85,7 @@ public function getChildObject()
 		return null;
 	}
 	\$childObjectClass = \$this->" . $this->getColumnGetter() . "();
-	\$childObject = PropelQuery::from(\$childObjectClass)->findPk(\$this->getPrimaryKey());
+	\$childObject = PropulsionQuery::from(\$childObjectClass)->findPk(\$this->getPrimaryKey());
 	return \$childObject->hasChildObject() ? \$childObject->getChildObject() : \$childObject;
 }
 ";

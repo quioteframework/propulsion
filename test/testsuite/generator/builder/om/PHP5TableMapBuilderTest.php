@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -22,7 +22,7 @@ class PHP5TableMapBuilderTest extends BookstoreTestBase
   protected function setUp(): void
   {
   	parent::setUp();
-    $this->databaseMap = Propel::getDatabaseMap('bookstore');
+    $this->databaseMap = Propulsion::getDatabaseMap('bookstore');
   }
 
   public function testColumnDefaultValue()
@@ -130,7 +130,7 @@ class PHP5TableMapBuilderTest extends BookstoreTestBase
   {
     $bookTable = $this->databaseMap->getTableByPhpName('Book');
     $this->assertEquals($bookTable->getBehaviors(), array(), 'getBehaviors() returns an empty array when no behaviors are registered');
-    $tmap = Propel::getDatabaseMap(Table1Peer::DATABASE_NAME)->getTable(Table1Peer::TABLE_NAME);
+    $tmap = Propulsion::getDatabaseMap(Table1Peer::DATABASE_NAME)->getTable(Table1Peer::TABLE_NAME);
     $expectedBehaviorParams = array('timestampable' => array('create_column' => 'created_on', 'update_column' => 'updated_on'));
     $this->assertEquals($tmap->getBehaviors(), $expectedBehaviorParams, 'The map builder creates a getBehaviors() method to retrieve behaviors parameters when behaviors are registered');
   }

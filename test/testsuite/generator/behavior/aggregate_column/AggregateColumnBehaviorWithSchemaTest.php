@@ -2,7 +2,7 @@
 
 /*
  *	$Id: SoftDeleteBehaviorTest.php 1612 2010-03-16 22:56:21Z francois $
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -21,7 +21,7 @@ class AggregateColumnBehaviorWithSchemaTest extends SchemasTestBase
 	protected function setUp(): void
 	{
 		parent::setUp();
-		$this->con = Propel::getConnection(BookstoreSchemasBookstorePeer::DATABASE_NAME);
+		$this->con = Propulsion::getConnection(BookstoreSchemasBookstorePeer::DATABASE_NAME);
 		$this->con->beginTransaction();
 	}
 
@@ -31,7 +31,7 @@ class AggregateColumnBehaviorWithSchemaTest extends SchemasTestBase
 		// Postgres in an aborted-transaction state, in which a plain commit()
 		// throws -- see BookstoreTestBase::tearDown() for the same guard. Left
 		// unguarded, that exception would skip parent::tearDown() below, which
-		// is what restores the shared Propel configuration back to the
+		// is what restores the shared Propulsion configuration back to the
 		// bookstore datasource (SchemasTestBase::setUp() swaps it to the
 		// schemas datasource); every subsequent bookstore-fixture test running
 		// afterward in this process would then fail with "No connection

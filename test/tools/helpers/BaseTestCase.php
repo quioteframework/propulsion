@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -11,7 +11,7 @@
 use PHPUnit\Framework\TestCase;
 
 /**
- * Base functionality to be extended by all Propel test cases.  Test
+ * Base functionality to be extended by all Propulsion test cases.  Test
  * case implementations are used to automate unit testing via PHPUnit.
  *
  * @author     Hans Lellelid <hans@xmpl.org> (Propel)

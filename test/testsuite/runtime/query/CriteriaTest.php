@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -36,13 +36,13 @@ class CriteriaTest extends BookstoreTestBase
 	{
 		parent::setUp();
 		$this->c = new Criteria();
-		$this->savedAdapter = Propel::getDB(null);
-		Propel::setDB(null, new DBSQLite());
+		$this->savedAdapter = Propulsion::getDB(null);
+		Propulsion::setDB(null, new DBSQLite());
 	}
 
 	protected function tearDown(): void
 	{
-		Propel::setDB(null, $this->savedAdapter);
+		Propulsion::setDB(null, $this->savedAdapter);
 		parent::tearDown();
 	}
 
@@ -113,7 +113,7 @@ class CriteriaTest extends BookstoreTestBase
 		$this->assertEquals($expect_params, $params, 'addAnd() called on an existing column creates a combined criterion');
 	}
 
-	public function testAddAndSameColumnsPropel14Compatibility()
+	public function testAddAndSameColumnsPropulsion14Compatibility()
 	{
 		$table1 = "myTable1";
 		$column1 = "myColumn1";
@@ -207,7 +207,7 @@ class CriteriaTest extends BookstoreTestBase
 		$this->assertEquals($expect_params, $params, 'addOr() called on an existing column creates a combined criterion');
 	}
 
-	public function testAddAndOrColumnsPropel14Compatibility()
+	public function testAddAndOrColumnsPropulsion14Compatibility()
 	{
 		$table1 = "myTable1";
 		$column1 = "myColumn1";
@@ -301,14 +301,14 @@ class CriteriaTest extends BookstoreTestBase
 	 */
 	public function testCriterionIgnoreCase()
 	{
-		$originalDB = Propel::getDB();
+		$originalDB = Propulsion::getDB();
 		$adapters = array(new DBMySQL(), new DBPostgres());
 		$expectedIgnore = array("UPPER(TABLE.COLUMN) LIKE UPPER(:p1)", "TABLE.COLUMN ILIKE :p1");
 
 		$i =0;
 		foreach ($adapters as $adapter) {
 
-			Propel::setDB(null, $adapter);
+			Propulsion::setDB(null, $adapter);
 			$myCriteria = new Criteria();
 
 			$myCriterion = $myCriteria->getNewCriterion(
@@ -329,13 +329,13 @@ class CriteriaTest extends BookstoreTestBase
 			$this->assertEquals($expectedIgnore[$i], $sb);
 			$i++;
 		}
-		Propel::setDB(null, $originalDB);
+		Propulsion::setDB(null, $originalDB);
 	}
 
 	public function testOrderByIgnoreCase()
 	{
-		$originalDB = Propel::getDB();
-		Propel::setDB(null, new DBMySQL());
+		$originalDB = Propulsion::getDB();
+		Propulsion::setDB(null, new DBMySQL());
 
 		$criteria = new Criteria();
 		$criteria->setIgnoreCase(true);
@@ -346,7 +346,7 @@ class CriteriaTest extends BookstoreTestBase
 		$expectedSQL = 'SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID, UPPER(book.TITLE) FROM `book` ORDER BY UPPER(book.TITLE) ASC';
 		$this->assertEquals($expectedSQL, $sql);
 
-		Propel::setDB(null, $originalDB);
+		Propulsion::setDB(null, $originalDB);
 	}
 
 	/**
@@ -363,8 +363,8 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($this->c, $params);
-		} catch (PropelException $e) {
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+		} catch (PropulsionException $e) {
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 
 		$this->assertEquals($expect, $result, "Boolean test failed.");
@@ -384,9 +384,9 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($this->c, $params);
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			print $e->getTraceAsString();
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 
 		$this->assertEquals($expect, $result, "Current date test failed!");
@@ -406,9 +406,9 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($this->c, $params);
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			print $e->getTraceAsString();
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 
 		$this->assertEquals($expect, $result);
@@ -426,9 +426,9 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($c, $params);
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			print $e->getTraceAsString();
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 		$this->assertEquals($expect, $result);
 	}
@@ -444,9 +444,9 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($c, $params);
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			print $e->getTraceAsString();
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 		$this->assertEquals($expect, $result);
 	}
@@ -465,9 +465,9 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($c, $params);
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			print $e->getTraceAsString();
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 		$this->assertEquals($expect, $result);
 
@@ -516,9 +516,9 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($c, $params);
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			print $e->getTraceAsString();
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 		$this->assertEquals($expect, $result);
 	}
@@ -535,9 +535,9 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($c, $params);
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			print $e->getTraceAsString();
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 		$this->assertEquals($expect, $result);
 	}
@@ -553,9 +553,9 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($c, $params);
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			print $e->getTraceAsString();
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 		$this->assertEquals($expect, $result);
 	}
@@ -574,9 +574,9 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($c, $params);
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			print $e->getTraceAsString();
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 		$this->assertEquals($expect, $result);
 	}
@@ -591,9 +591,9 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($c, $params);
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			print $e->getTraceAsString();
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 		$this->assertEquals($expect, $result);
 	}
@@ -612,9 +612,9 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($c, $params);
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			print $e->getTraceAsString();
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 		$this->assertEquals($expect, $result);
 	}
@@ -629,9 +629,9 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($c, $params);
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			print $e->getTraceAsString();
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 		$this->assertEquals($expect, $result);
 	}
@@ -649,9 +649,9 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($c, $params);
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			print $e->getTraceAsString();
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 		$this->assertEquals($expect, $result);
 	}
@@ -674,9 +674,6 @@ class CriteriaTest extends BookstoreTestBase
 		$this->assertEquals($expect, $result);
 	}
 
-	/**
-	 * @link       http://propel.phpdb.org/trac/ticket/606
-	 */
 	public function testAddJoinArray()
 	{
 		$c = new Criteria();
@@ -690,9 +687,6 @@ class CriteriaTest extends BookstoreTestBase
 		$this->assertEquals($expect, $result);
 	}
 
-	/**
-	 * @link       http://propel.phpdb.org/trac/ticket/606
-	 */
 	public function testAddJoinArrayMultiple()
 	{
 		$c = new Criteria();
@@ -712,7 +706,6 @@ class CriteriaTest extends BookstoreTestBase
 	/**
 	 * Test the Criteria::addJoinMultiple() method with an implicit join
 	 *
-	 * @link       http://propel.phpdb.org/trac/ticket/606
 	 */
 	public function testAddJoinMultiple()
 	{
@@ -734,7 +727,6 @@ class CriteriaTest extends BookstoreTestBase
 	/**
 	 * Test the Criteria::addJoinMultiple() method with a value as second argument
 	 *
-	 * @link       http://propel.phpdb.org/trac/ticket/606
 	 */
 	public function testAddJoinMultipleValue()
 	{
@@ -756,7 +748,6 @@ class CriteriaTest extends BookstoreTestBase
 	/**
 	 * Test the Criteria::addJoinMultiple() method with a joinType
 	 *
-	 * @link       http://propel.phpdb.org/trac/ticket/606
 	 */
 	public function testAddJoinMultipleWithJoinType()
 	{
@@ -779,7 +770,6 @@ class CriteriaTest extends BookstoreTestBase
 	/**
 	 * Test the Criteria::addJoinMultiple() method with operator
 	 *
-	 * @link       http://propel.phpdb.org/trac/ticket/606
 	 */
 	public function testAddJoinMultipleWithOperator()
 	{
@@ -801,7 +791,6 @@ class CriteriaTest extends BookstoreTestBase
 	/**
 	 * Test the Criteria::addJoinMultiple() method with join type and operator
 	 *
-	 * @link       http://propel.phpdb.org/trac/ticket/606
 	 */
 	public function testAddJoinMultipleWithJoinTypeAndOperator()
 	{
@@ -838,7 +827,6 @@ class CriteriaTest extends BookstoreTestBase
 
 	/**
 	 * Tests adding duplicate joins.
-	 * @link       http://propel.phpdb.org/trac/ticket/613
 	 */
 	public function testAddJoin_Duplicate()
 	{
@@ -861,9 +849,6 @@ class CriteriaTest extends BookstoreTestBase
 
 	}
 
-	/**
-	 * @link       http://propel.phpdb.org/trac/ticket/634
-	 */
 	public function testHasSelectClause()
 	{
 		$c = new Criteria();
@@ -879,7 +864,6 @@ class CriteriaTest extends BookstoreTestBase
 
 	/**
 	 * Tests including aliases in criterion objects.
-	 * @link       http://propel.phpdb.org/trac/ticket/636
 	 */
 	public function testAliasInCriterion()
 	{
@@ -893,7 +877,6 @@ class CriteriaTest extends BookstoreTestBase
 
 	/**
 	 * Test whether GROUP BY is being respected in equals() check.
-	 * @link       http://propel.phpdb.org/trac/ticket/674
 	 */
 	public function testEqualsGroupBy()
 	{
@@ -914,7 +897,6 @@ class CriteriaTest extends BookstoreTestBase
 
 	/**
 	 * Test whether calling setDistinct twice puts in two distinct keywords or not.
-	 * @link       http://propel.phpdb.org/trac/ticket/716
 	 */
 	public function testDoubleSelectModifiers()
 	{

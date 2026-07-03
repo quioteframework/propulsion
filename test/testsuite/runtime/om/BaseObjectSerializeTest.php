@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -12,7 +12,7 @@
  * Test class for BaseObject serialization.
  *
  * @author     Francois Zaninotto
- * @version    $Id: PropelCollectionTest.php 1348 2009-12-03 21:49:00Z francois $
+ * @version    $Id: PropulsionCollectionTest.php 1348 2009-12-03 21:49:00Z francois $
  * @package    runtime.om
  */
 class BaseObjectSerializeTest extends BookstoreTestBase

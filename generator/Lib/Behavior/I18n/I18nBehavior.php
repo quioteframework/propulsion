@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -19,7 +19,7 @@ namespace Propulsion\Generator\Behavior\I18n;
 use Propulsion\Generator\Model\Behavior;
 use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\ForeignKey;
-use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\PropulsionTypes;
 
 class I18nBehavior extends Behavior
 {
@@ -121,7 +121,7 @@ class I18nBehavior extends Behavior
 		if (!$this->i18nTable->hasColumn($localeColumnName)) {
 			$this->i18nTable->addColumn(array(
 				'name'       => $localeColumnName,
-				'type'       => PropelTypes::VARCHAR,
+				'type'       => PropulsionTypes::VARCHAR,
 				'size'       => 5,
 				'default'    => $this->getDefaultLocale(),
 				'primaryKey' => 'true',

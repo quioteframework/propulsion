@@ -2,7 +2,7 @@
 
 /*
  *	$Id: NestedSetBehaviorQueryBuilderModifierTest.php 1347 2009-12-03 21:06:36Z francois $
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -298,7 +298,7 @@ class NestedSetBehaviorQueryBuilderModifierWithScopeTest extends BookstoreNested
 
 	protected function buildCollection($arr)
 	{
-		$coll = new PropelObjectCollection();
+		$coll = new PropulsionObjectCollection();
 		$coll->setData($arr);
 		$coll->setModel('Table10');
 

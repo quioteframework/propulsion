@@ -4,7 +4,7 @@
 use PHPUnit\Framework\TestCase;
 /*
  *	$Id: VersionableBehaviorTest.php 1460 2010-01-17 22:36:48Z francois $
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -48,8 +48,8 @@ class I18nBehaviorQueryBuilderModifierTest extends TestCase
 	</table>
 </database>
 EOF;
-			//PropelQuickBuilder::debugClassesForTable($schema, 'i18n_behavior_test_11');
-			PropelQuickBuilder::buildSchema($schema);
+			//PropulsionQuickBuilder::debugClassesForTable($schema, 'i18n_behavior_test_11');
+			PropulsionQuickBuilder::buildSchema($schema);
 		}
 	}
 
@@ -99,7 +99,7 @@ EOF;
 
 	public function testJoinI18nCreatesACorrectQuery()
 	{
-		$con = Propel::getConnection(I18nBehaviorTest11Peer::DATABASE_NAME);
+		$con = Propulsion::getConnection(I18nBehaviorTest11Peer::DATABASE_NAME);
 		$con->useDebug(true);
 		I18nBehaviorTest11Query::create()
 			->joinI18n('fr_FR')
@@ -139,7 +139,7 @@ EOF;
 
 	public function testUseI18nQueryCreatesACorrectQuery()
 	{
-		$con = Propel::getConnection(I18nBehaviorTest11Peer::DATABASE_NAME);
+		$con = Propulsion::getConnection(I18nBehaviorTest11Peer::DATABASE_NAME);
 		$con->useDebug(true);
 		I18nBehaviorTest11Query::create()
 			->useI18nQuery('fr_FR')
@@ -190,7 +190,7 @@ EOF;
 
 	public function testJoinWithI18nHydratesRelatedObject()
 	{
-		$con = Propel::getConnection(I18nBehaviorTest11Peer::DATABASE_NAME);
+		$con = Propulsion::getConnection(I18nBehaviorTest11Peer::DATABASE_NAME);
 		$con->useDebug(true);
 		I18nBehaviorTest11Query::create()->deleteAll();
 		I18nBehaviorTest11I18nQuery::create()->deleteAll();
@@ -239,7 +239,7 @@ EOF;
 			->joinWithI18n('en_EN')
 			->limit(2)
 			->find();
-		$this->assertInstanceOf('PropelObjectCollection', $res);
+		$this->assertInstanceOf('PropulsionObjectCollection', $res);
 	}
 
 	// This is not a desired behavior, but there is no way to overcome it
@@ -254,7 +254,7 @@ EOF;
 	public function testJoinWithI18nDoesNotExecuteAdditionalQueryWhenNoTranslationIsFound()
 	{
 		$this->markTestSkipped();
-		$con = Propel::getConnection(I18nBehaviorTest11Peer::DATABASE_NAME);
+		$con = Propulsion::getConnection(I18nBehaviorTest11Peer::DATABASE_NAME);
 		$con->useDebug(true);
 		I18nBehaviorTest11Query::create()->deleteAll();
 		I18nBehaviorTest11I18nQuery::create()->deleteAll();

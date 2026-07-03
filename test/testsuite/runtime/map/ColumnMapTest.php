@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -90,14 +90,14 @@ class ColumnMapTest extends BookstoreTestBase
     {
       $this->cmap->getRelatedTable();
       $this->fail('getRelatedTable throws an exception when called on a column with no foreign key');
-    } catch(PropelException $e) {
+    } catch(PropulsionException $e) {
       $this->assertTrue(true, 'getRelatedTable throws an exception when called on a column with no foreign key');
     }
     try
     {
       $this->cmap->getRelatedColumn();
       $this->fail('getRelatedColumn throws an exception when called on a column with no foreign key');
-    } catch(PropelException $e) {
+    } catch(PropulsionException $e) {
       $this->assertTrue(true, 'getRelatedColumn throws an exception when called on a column with no foreign key');
     }
     $relatedTmap = $this->dmap->addTable('foo2');

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -26,10 +26,10 @@ namespace Propulsion\Query;
  * @package    propel.runtime.query
  */
 
- use Propulsion\Propel;
- use Propulsion\Exception\PropelException;
+ use Propulsion\Propulsion;
+ use Propulsion\Exception\PropulsionException;
  use Propulsion\Util\BasePeer;
- use Propulsion\Util\PropelConditionalProxy;
+ use Propulsion\Util\PropulsionConditionalProxy;
  use \Exception;
 class Criteria implements \IteratorAggregate
 {
@@ -605,14 +605,14 @@ class Criteria implements \IteratorAggregate
 
 	/**
 	 * Set the DatabaseMap name.  If <code>null</code> is supplied, uses value
-	 * provided by <code>Propel::getDefaultDB()</code>.
+	 * provided by <code>Propulsion::getDefaultDB()</code>.
 	 *
 	 * @param      string $dbName The Database (Map) name.
 	 * @return     void
 	 */
 	public function setDbName($dbName = null)
 	{
-		$this->dbName = ($dbName === null ? Propel::getDefaultDB() : $dbName);
+		$this->dbName = ($dbName === null ? Propulsion::getDefaultDB() : $dbName);
 	}
 
 	/**
@@ -808,7 +808,7 @@ class Criteria implements \IteratorAggregate
 				$namedCriterions[]= $this->namedCriterions[$key];
 				unset($this->namedCriterions[$key]);
 			} else {
-				throw new PropelException('Cannot combine unknown condition ' . $key);
+				throw new PropulsionException('Cannot combine unknown condition ' . $key);
 			}
 		}
 		$firstCriterion = array_shift($namedCriterions);
@@ -878,8 +878,6 @@ class Criteria implements \IteratorAggregate
 	/**
 	 * Add a join with multiple conditions
 	 * @deprecated use Join::setJoinCondition($criterion) instead
-	 *
-	 * @see http://propel.phpdb.org/trac/ticket/167, http://propel.phpdb.org/trac/ticket/606
 	 *
 	 * Example usage:
 	 * $c->addMultipleJoin(array(
@@ -1133,7 +1131,7 @@ class Criteria implements \IteratorAggregate
 	/**
 	 * Set single record?  Set this to <code>true</code> if you expect the query
 	 * to result in only a single result record (the default behaviour is to
-	 * throw a PropelException if multiple records are returned when the query
+	 * throw a PropulsionException if multiple records are returned when the query
 	 * is executed).  This should be used in situations where returning multiple
 	 * rows would indicate an error of some sort.  If your query might return
 	 * multiple records but you are only interested in the first one then you
@@ -1523,7 +1521,7 @@ class Criteria implements \IteratorAggregate
 		// merge as columns
 		$commonAsColumns = array_intersect_key($this->getAsColumns(), $criteria->getAsColumns());
 		if (!empty($commonAsColumns)) {
-			throw new PropelException('The given criteria contains an AsColumn with an alias already existing in the current object');
+			throw new PropulsionException('The given criteria contains an AsColumn with an alias already existing in the current object');
 		}
 		$this->asColumns = array_merge($this->getAsColumns(), $criteria->getAsColumns());
 
@@ -1564,7 +1562,7 @@ class Criteria implements \IteratorAggregate
 		// merge alias
 		$commonAliases = array_intersect_key($this->getAliases(), $criteria->getAliases());
 		if (!empty($commonAliases)) {
-			throw new PropelException('The given criteria contains an alias already existing in the current object');
+			throw new PropulsionException('The given criteria contains an alias already existing in the current object');
 		}
 		$this->aliases = array_merge($this->getAliases(), $criteria->getAliases());
 
@@ -1597,7 +1595,7 @@ class Criteria implements \IteratorAggregate
 	}
 
 	/**
-	 * If a criterion for the requested column already exists, the condition is "AND"ed to the existing criterion (necessary for Propel 1.4 compatibility).
+	 * If a criterion for the requested column already exists, the condition is "AND"ed to the existing criterion (necessary for Propulsion 1.4 compatibility).
 	 * If no criterion for the requested column already exists, the condition is "AND"ed to the latest criterion.
 	 * If no criterion exist, the condition is added a new criterion
 	 *
@@ -1617,7 +1615,7 @@ class Criteria implements \IteratorAggregate
 		$key = $criterion->getTable() . '.' . $criterion->getColumn();
 		if ($preferColumnCondition && $this->containsKey($key)) {
 			// FIXME: addAnd() operates preferably on existing conditions on the same column
-			// this may cause unexpected results, but it's there for BC with Propel 14
+			// this may cause unexpected results, but it's there for BC with Propulsion 14
 			$this->getCriterion($key)->addAnd($criterion);
 		} else {
 			// simply add the condition to the list - this is the expected behavior
@@ -1628,7 +1626,7 @@ class Criteria implements \IteratorAggregate
 	}
 
 	/**
-	 * If a criterion for the requested column already exists, the condition is "OR"ed to the existing criterion (necessary for Propel 1.4 compatibility).
+	 * If a criterion for the requested column already exists, the condition is "OR"ed to the existing criterion (necessary for Propulsion 1.4 compatibility).
 	 * If no criterion for the requested column already exists, the condition is "OR"ed to the latest criterion.
 	 * If no criterion exist, the condition is added a new criterion
 	 *
@@ -1648,7 +1646,7 @@ class Criteria implements \IteratorAggregate
 		$key = $rightCriterion->getTable() . '.' . $rightCriterion->getColumn();
 		if ($preferColumnCondition && $this->containsKey($key)) {
 			// FIXME: addOr() operates preferably on existing conditions on the same column
-			// this may cause unexpected results, but it's there for BC with Propel 14
+			// this may cause unexpected results, but it's there for BC with Propulsion 14
 			$leftCriterion = $this->getCriterion($key);
 		} else {
 			// fallback to the latest condition - this is the expected behavior
@@ -1674,7 +1672,7 @@ class Criteria implements \IteratorAggregate
 	 * @param      mixed $value
 	 * @param      string $operator A String, like Criteria::EQUAL.
 	 * @param      boolean $preferColumnCondition If true, the condition is combined with an existing condition on the same column
-	*                      (necessary for Propel 1.4 compatibility).
+	*                      (necessary for Propulsion 1.4 compatibility).
 	 *                     If false, the condition is combined with the last existing condition.
 	 *
 	 * @return     Criteria A modified Criteria object.
@@ -1709,17 +1707,17 @@ class Criteria implements \IteratorAggregate
 
 	/**
 	 * Returns the current object if the condition is true,
-	 * or a PropelConditionalProxy instance otherwise.
+	 * or a PropulsionConditionalProxy instance otherwise.
 	 * Allows for conditional statements in a fluid interface.
 	 *
 	 * @param      bool $cond
 	 *
-	 * @return     PropelConditionalProxy|Criteria
+	 * @return     PropulsionConditionalProxy|Criteria
 	 */
 	public function _if($cond)
 	{
 		if ($this->isInIf) {
-			throw new PropelException('_if() statements cannot be nested');
+			throw new PropulsionException('_if() statements cannot be nested');
 		}
 		$this->isInIf = true;
 		$this->wasTrue = false;
@@ -1727,47 +1725,47 @@ class Criteria implements \IteratorAggregate
 			$this->wasTrue = true;
 			return $this;
 		} else {
-			return new PropelConditionalProxy($this);
+			return new PropulsionConditionalProxy($this);
 		}
 	}
 
 	/**
-	 * Returns a PropelConditionalProxy instance.
+	 * Returns a PropulsionConditionalProxy instance.
 	 * Allows for conditional statements in a fluid interface.
 	 *
 	 * @param      bool $cond ignored
 	 *
-	 * @return     PropelConditionalProxy|Criteria
+	 * @return     PropulsionConditionalProxy|Criteria
 	 */
 	public function _elseif($cond)
 	{
 		if (!$this->isInIf) {
-			throw new PropelException('_elseif() must be called after _if()');
+			throw new PropulsionException('_elseif() must be called after _if()');
 		}
 		if ($cond && !$this->wasTrue) {
 			$this->wasTrue = true;
 			return $this;
 		} else {
-			return new PropelConditionalProxy($this);
+			return new PropulsionConditionalProxy($this);
 		}
 	}
 
 	/**
-	 * Returns a PropelConditionalProxy instance.
+	 * Returns a PropulsionConditionalProxy instance.
 	 * Allows for conditional statements in a fluid interface.
 	 *
-	 * @return     PropelConditionalProxy|Criteria
+	 * @return     PropulsionConditionalProxy|Criteria
 	 */
 	public function _else()
 	{
 		if (!$this->isInIf) {
-			throw new PropelException('_else() must be called after _if()');
+			throw new PropulsionException('_else() must be called after _if()');
 		}
 		if (!$this->wasTrue) {
 			$this->wasTrue = true;
 			return $this;
 		} else {
-			return new PropelConditionalProxy($this);
+			return new PropulsionConditionalProxy($this);
 		}
 	}
 
@@ -1780,7 +1778,7 @@ class Criteria implements \IteratorAggregate
 	public function _endif()
 	{
 		if (!$this->isInIf) {
-			throw new PropelException('_endif() must be called after _if()');
+			throw new PropulsionException('_endif() must be called after _if()');
 		}
 		$this->isInIf = false;
 		return $this;

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -26,9 +26,9 @@ use PDO;
 use PDOStatement;
 use Propulsion\Query\Criteria;
 use Propulsion\Util\BasePeer;
-use Propulsion\Exception\PropelException;
+use Propulsion\Exception\PropulsionException;
 use Propulsion\Map\ColumnMap;
-use Propulsion\Util\PropelColumnTypes;
+use Propulsion\Util\PropulsionColumnTypes;
 
 class DBOracle extends DBAdapter
 {
@@ -156,13 +156,13 @@ class DBOracle extends DBAdapter
 	 * @param     PDO     $con
 	 * @param     string  $name
 	 *
-	 * @throws    PropelException
+	 * @throws    PropulsionException
 	 * @return    integer
 	 */
 	public function getId(PDO $con, $name = null)
 	{
 		if ($name === null) {
-			throw new PropelException("Unable to fetch next sequence ID without sequence name.");
+			throw new PropulsionException("Unable to fetch next sequence ID without sequence name.");
 		}
 
 		$stmt = $con->query("SELECT " . $name . ".nextval FROM dual");
@@ -184,7 +184,6 @@ class DBOracle extends DBAdapter
 	 * Ensures uniqueness of select column names by turning them all into aliases
 	 * This is necessary for queries on more than one table when the tables share a column name
 	 *
-	 * @see http://propel.phpdb.org/trac/ticket/795
 	 *
 	 * @param     Criteria  $criteria
 	 * @return    Criteria  The input, with Select columns replaced by aliases
@@ -234,7 +233,7 @@ class DBOracle extends DBAdapter
 	{
 		if ($cMap->isTemporal()) {
 			$value = $this->formatTemporalValue($value, $cMap);
-		} elseif ($cMap->getType() == PropelColumnTypes::CLOB_EMU) {
+		} elseif ($cMap->getType() == PropulsionColumnTypes::CLOB_EMU) {
 			return $stmt->bindParam(':p'.$position, $value, $cMap->getPdoType(), strlen($value));
 		} elseif (is_resource($value) && $cMap->isLob()) {
 			// we always need to make sure that the stream is rewound, otherwise nothing will

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -9,14 +9,14 @@
  */
 namespace Propulsion\Adapter;
 /**
- * DBAdapter</code> defines the interface for a Propel database adapter.
+ * DBAdapter</code> defines the interface for a Propulsion database adapter.
  *
  * <p>Support for new databases is added by subclassing
  * <code>DBAdapter</code> and implementing its abstract interface, and by
- * registering the new database adapter and corresponding Propel
+ * registering the new database adapter and corresponding Propulsion
  * driver in the private adapters map (array) in this class.</p>
  *
- * <p>The Propel database adapters exist to present a uniform
+ * <p>The Propulsion database adapters exist to present a uniform
  * interface to database access across all available databases.  Once
  * the necessary adapters have been written and configured,
  * transparent swapping of databases is theoretically supported with
@@ -30,11 +30,11 @@ namespace Propulsion\Adapter;
  * @version    $Revision$
  * @package    propel.runtime.adapter
  */
-use Propulsion\Exception\PropelException;
+use Propulsion\Exception\PropulsionException;
 use PDO;
 use Propulsion\Map\ColumnMap;
-use Propulsion\Util\PropelDateTime;
-use Propulsion\Util\PropelColumnTypes;
+use Propulsion\Util\PropulsionDateTime;
+use Propulsion\Util\PropulsionColumnTypes;
 use Propulsion\Query\Criteria;
 use Propulsion\Map\DatabaseMap;
 
@@ -45,7 +45,7 @@ abstract class DBAdapter
 	const ID_METHOD_SEQUENCE = 2;
 
 	/**
-	 * Propel driver to Propel adapter map.
+	 * Propulsion driver to Propulsion adapter map.
 	 * @var array
 	 */
 	private static $adapters = array(
@@ -62,13 +62,13 @@ abstract class DBAdapter
 
 	/**
 	 * Creates a new instance of the database adapter associated
-	 * with the specified Propel driver.
+	 * with the specified Propulsion driver.
 	 *
-	 * @param     string  $driver The name of the Propel driver to create a new adapter instance
+	 * @param     string  $driver The name of the Propulsion driver to create a new adapter instance
 	 *                            for or a shorter form adapter key.
 	 *
-	 * @throws    PropelException  If the adapter could not be instantiated.
-	 * @return    DBAdapter        An instance of a Propel database adapter.
+	 * @throws    PropulsionException  If the adapter could not be instantiated.
+	 * @return    DBAdapter        An instance of a Propulsion database adapter.
 	 */
 	public static function factory($driver) {
 		$adapterClass = isset(self::$adapters[$driver]) ? self::$adapters[$driver] : null;
@@ -76,7 +76,7 @@ abstract class DBAdapter
 			$a = new $adapterClass();
 			return $a;
 		} else {
-			throw new PropelException("Unsupported Propel driver: " . $driver . ": Check your configuration file");
+			throw new PropulsionException("Unsupported Propulsion driver: " . $driver . ": Check your configuration file");
 		}
 	}
 
@@ -282,18 +282,18 @@ abstract class DBAdapter
 	 */
 	protected function formatTemporalValue($value, ColumnMap $cMap)
 	{
-		/** @var $dt PropelDateTime */
-		if ($dt = PropelDateTime::newInstance($value)) {
+		/** @var $dt PropulsionDateTime */
+		if ($dt = PropulsionDateTime::newInstance($value)) {
 			switch($cMap->getType()) {
-			case PropelColumnTypes::TIMESTAMP:
-			case PropelColumnTypes::BU_TIMESTAMP:
+			case PropulsionColumnTypes::TIMESTAMP:
+			case PropulsionColumnTypes::BU_TIMESTAMP:
 				$value = $dt->format($this->getTimestampFormatter());
 				break;
-			case PropelColumnTypes::DATE:
-			case PropelColumnTypes::BU_DATE:
+			case PropulsionColumnTypes::DATE:
+			case PropulsionColumnTypes::BU_DATE:
 				$value = $dt->format($this->getDateFormatter());
 				break;
-			case PropelColumnTypes::TIME:
+			case PropulsionColumnTypes::TIME:
 				$value = $dt->format($this->getTimeFormatter());
 				break;
 			}
@@ -481,7 +481,6 @@ abstract class DBAdapter
 	 * This is necessary for queries on more than one table when the tables share a column name
 	 * Moved from BasePeer to DBAdapter and turned from static to non static
 	 *
-	 * @see http://propel.phpdb.org/trac/ticket/795
 	 *
 	 * @param     Criteria  $criteria
 	 * @return    Criteria  The input, with Select columns replaced by aliases
@@ -524,11 +523,11 @@ abstract class DBAdapter
 	 * values that should be substituted.
 	 *
 	 * <code>
-	 * $db = Propel::getDB($criteria->getDbName());
+	 * $db = Propulsion::getDB($criteria->getDbName());
 	 * $sql = BasePeer::createSelectSql($criteria, $params);
 	 * $stmt = $con->prepare($sql);
 	 * $params = array();
-	 * $db->populateStmtValues($stmt, $params, Propel::getDatabaseMap($critera->getDbName()));
+	 * $db->populateStmtValues($stmt, $params, Propulsion::getDatabaseMap($critera->getDbName()));
 	 * $stmt->execute();
 	 * </code>
 	 *
@@ -572,7 +571,7 @@ abstract class DBAdapter
 	public function bindValue(\PDOStatement $stmt, $parameter, $value, ColumnMap $cMap, $position = null)
 	{
 		if (is_array($value)) {
-			throw new \Propulsion\Exception\PropelException(
+			throw new \Propulsion\Exception\PropulsionException(
 				sprintf('Cannot bind array value for parameter %s. Use IN() criteria instead.', $parameter)
 			);
 		}

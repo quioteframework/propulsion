@@ -4,15 +4,15 @@
 <xsl:strip-space elements="*"/>
 
 <!--
-DB Designer XML to Propel Schema XML
+DB Designer XML to Propulsion Schema XML
 
 ==== Author: Jonathan Graham <jkgraham@gmail.com>
 ==== Version: 0.5 (2008-01-25) (http://blog.tooleshed.com/?p=6)
 ==== Description:
 This XSL will transform a DB Designer 4 database model XML file into a
-Propel database schema file.  This allows you to design your database
+Propulsion database schema file.  This allows you to design your database
 model using DB Designer 4 (models are saved in XML format) and then
-easily create the Propel database schema file.
+easily create the Propulsion database schema file.
 
 The PROPEL properties that this XSL will translate are listed below.
 
@@ -24,7 +24,7 @@ INDEX: index (not related to FK), unique, fulltext
 
 ==== Usage:
 - Simply feed this XSL into your favorite XSLT engine along with your DB Designer
-XML model.  The resulting output is a Propel database schema XML.
+XML model.  The resulting output is a Propulsion database schema XML.
 
 ==== Collaboration:
 Peter Banik <peter@froggle.org> - UNIQUE TAG
@@ -35,7 +35,7 @@ Michel D'HOOGE - FULLTEXT
 Oleg Marchuk <kingoleg@mail.ru> - version 0.5
 
 ==== Software:
-Propel: http://propel.phpdb.org/
+Propulsion: http://propel.phpdb.org/
 DB Designer 4: http://www.fabforce.net/dbdesigner4/
 
 ==== Copyright (c) 2004-2006, Jonathan Graham

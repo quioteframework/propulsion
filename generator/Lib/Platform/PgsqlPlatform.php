@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -10,7 +10,7 @@
 namespace Propulsion\Generator\Platform;
 
 /**
- * Postgresql PropelPlatformInterface implementation.
+ * Postgresql PropulsionPlatformInterface implementation.
  *
  * @author     Hans Lellelid <hans@xmpl.org> (Propel)
  * @author     Martin Poeschl <mpoeschl@marmot.at> (Torque)
@@ -19,13 +19,13 @@ namespace Propulsion\Generator\Platform;
  * @package    propel.generator.platform
  */
 use Propulsion\Generator\Model\Domain;
-use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\PropulsionTypes;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Model\IDMethod;
 use Propulsion\Generator\Model\Database;
 use Propulsion\Generator\Model\Column;
 use Propulsion\Generator\Model\Unique;
-use Propulsion\Generator\Model\Diff\PropelColumnDiff;
+use Propulsion\Generator\Model\Diff\PropulsionColumnDiff;
 use Propulsion\Generator\Model\Index;
 
 class PgsqlPlatform extends DefaultPlatform
@@ -37,27 +37,27 @@ class PgsqlPlatform extends DefaultPlatform
 	protected function initialize()
 	{
 		parent::initialize();
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::BOOLEAN, "BOOLEAN"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::TINYINT, "INT2"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::SMALLINT, "INT2"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::BIGINT, "INT8"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::REAL, "FLOAT"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::DOUBLE, "DOUBLE PRECISION"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::FLOAT, "DOUBLE PRECISION"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::LONGVARCHAR, "TEXT"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::BINARY, "BYTEA"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::VARBINARY, "BYTEA"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::LONGVARBINARY, "BYTEA"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::BLOB, "BYTEA"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::CLOB, "TEXT"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::OBJECT, "TEXT"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::PHP_ARRAY, "TEXT"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::ENUM, "INT2"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::BOOLEAN, "BOOLEAN"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::TINYINT, "INT2"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::SMALLINT, "INT2"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::BIGINT, "INT8"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::REAL, "FLOAT"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::DOUBLE, "DOUBLE PRECISION"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::FLOAT, "DOUBLE PRECISION"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::LONGVARCHAR, "TEXT"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::BINARY, "BYTEA"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::VARBINARY, "BYTEA"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::LONGVARBINARY, "BYTEA"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::BLOB, "BYTEA"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::CLOB, "TEXT"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::OBJECT, "TEXT"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::PHP_ARRAY, "TEXT"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::ENUM, "INT2"));
 	}
 
 	public function getNativeIdMethod()
 	{
-		return PropelPlatformInterface::SERIAL;
+		return PropulsionPlatformInterface::SERIAL;
 	}
 
 	public function getAutoIncrement()
@@ -311,7 +311,7 @@ DROP TABLE IF EXISTS %s CASCADE;
 		$sqlType = $domain->getSqlType();
 		$table = $col->getTable();
 		if ($col->isAutoIncrement() && $table && $table->getIdMethodParameters() == null) {
-			$sqlType = $col->getType() === PropelTypes::BIGINT ? 'bigserial' : 'serial';
+			$sqlType = $col->getType() === PropulsionTypes::BIGINT ? 'bigserial' : 'serial';
 		}
 		if ($this->hasSize($sqlType) && $col->isDefaultSqlType($this)) {
 			$ddl[] = $sqlType . $domain->printSize();
@@ -370,7 +370,7 @@ DROP TABLE IF EXISTS %s CASCADE;
 	 * @return     string
 	 * @see        DefaultPlatform::getModifyColumnDDL
 	 */
-	public function getModifyColumnDDL(PropelColumnDiff $columnDiff)
+	public function getModifyColumnDDL(PropulsionColumnDiff $columnDiff)
 	{
 		$ret = '';
 		$changedProperties = $columnDiff->getChangedProperties();
@@ -393,7 +393,7 @@ ALTER TABLE %s ALTER COLUMN %s;
 				case 'scale':
 					$sqlType = $toColumn->getDomain()->getSqlType();
 					if ($toColumn->isAutoIncrement() && $table && $table->getIdMethodParameters() == null) {
-						$sqlType = $toColumn->getType() === PropelTypes::BIGINT ? 'bigserial' : 'serial';
+						$sqlType = $toColumn->getType() === PropulsionTypes::BIGINT ? 'bigserial' : 'serial';
 					}
 					if ($this->hasSize($sqlType)) {
 						$sqlType .= $toColumn->getDomain()->printSize();

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -44,7 +44,7 @@ class DatabaseMapTest extends BookstoreTestBase
     {
       $this->databaseMap->getTable('foo');
       $this->fail('getTable() throws an exception when called on an inexistent table');
-    } catch(PropelException $e) {
+    } catch(PropulsionException $e) {
       $this->assertTrue(true, 'getTable() throws an exception when called on an inexistent table');
     }
     $tmap = $this->databaseMap->addTable('foo');
@@ -59,7 +59,7 @@ class DatabaseMapTest extends BookstoreTestBase
     {
       $this->databaseMap->getTable('foo2');
       $this->fail('getTable() throws an exception when called on a table with no builder');
-    } catch(PropelException $e) {
+    } catch(PropulsionException $e) {
       $this->assertTrue(true, 'getTable() throws an exception when called on a table with no builder');
     }
     $tmap = new TableMap('foo2');
@@ -75,7 +75,7 @@ class DatabaseMapTest extends BookstoreTestBase
     {
       $table2 = $this->databaseMap->getTable('baz');
       $this->assertEquals($table1, $table2, 'addTableFromMapClass() adds a table from a map class');
-    } catch(PropelException $e) {
+    } catch(PropulsionException $e) {
       $this->fail('addTableFromMapClass() adds a table from a map class');
     }
   }
@@ -86,7 +86,7 @@ class DatabaseMapTest extends BookstoreTestBase
     {
       $this->databaseMap->getColumn('foo.BAR');
       $this->fail('getColumn() throws an exception when called on column of an inexistent table');
-    } catch(PropelException $e) {
+    } catch(PropulsionException $e) {
       $this->assertTrue(true, 'getColumn() throws an exception when called on column of an inexistent table');
     }
     $tmap = $this->databaseMap->addTable('foo');
@@ -94,7 +94,7 @@ class DatabaseMapTest extends BookstoreTestBase
     {
       $this->databaseMap->getColumn('foo.BAR');
       $this->fail('getColumn() throws an exception when called on an inexistent column of an existent table');
-    } catch(PropelException $e) {
+    } catch(PropulsionException $e) {
       $this->assertTrue(true, 'getColumn() throws an exception when called on an inexistent column of an existent table');
     }
     $column = $tmap->addColumn('BAR', 'Bar', 'INTEGER');
@@ -107,7 +107,7 @@ class DatabaseMapTest extends BookstoreTestBase
     {
       $this->databaseMap->getTableByPhpName('Foo1');
       $this->fail('getTableByPhpName() throws an exception when called on an inexistent table');
-    } catch(PropelException $e) {
+    } catch(PropulsionException $e) {
       $this->assertTrue(true, 'getTableByPhpName() throws an exception when called on an inexistent table');
     }
     $tmap = $this->databaseMap->addTable('foo1');
@@ -115,7 +115,7 @@ class DatabaseMapTest extends BookstoreTestBase
     {
       $this->databaseMap->getTableByPhpName('Foo1');
       $this->fail('getTableByPhpName() throws an exception when called on a table with no phpName');
-    } catch(PropelException $e) {
+    } catch(PropulsionException $e) {
       $this->assertTrue(true, 'getTableByPhpName() throws an exception when called on a table with no phpName');
     }
     $tmap2 = new TableMap('foo2');
@@ -126,7 +126,7 @@ class DatabaseMapTest extends BookstoreTestBase
 
   public function testGetTableByPhpNameNotLoaded()
   {
-		$this->assertEquals('book', Propel::getDatabaseMap('bookstore')->getTableByPhpName('Book')->getName(), 'getTableByPhpName() can autoload a TableMap when the Peer class is generated and autoloaded');
+		$this->assertEquals('book', Propulsion::getDatabaseMap('bookstore')->getTableByPhpName('Book')->getName(), 'getTableByPhpName() can autoload a TableMap when the Peer class is generated and autoloaded');
   }
 
 }

@@ -85,7 +85,7 @@ class InitCommand extends Command
                     'connections' => [
                         'default' => [
                             'adapter' => $platform,
-                            'classname' => 'Propulsion\\Connection\\PropelPDO',
+                            'classname' => 'Propulsion\\Connection\\PropulsionPDO',
                             'dsn' => $this->generateDsn($platform, $projectName),
                             'user' => 'your_username',
                             'password' => 'your_password'

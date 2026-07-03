@@ -4,7 +4,7 @@
 use PHPUnit\Framework\TestCase;
 /*
  *	$Id: VersionableBehaviorTest.php 1460 2010-01-17 22:36:48Z francois $
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -36,7 +36,7 @@ class I18nBehaviorPeerBuilderModifierTest extends TestCase
 	</table>
 </database>
 EOF;
-		PropelQuickBuilder::buildSchema($schema);
+		PropulsionQuickBuilder::buildSchema($schema);
 		$this->assertEquals('en_EN', I18nBehaviorTest01Peer::DEFAULT_LOCALE);
 		$this->assertEquals('fr_FR', I18nBehaviorTest02Peer::DEFAULT_LOCALE);
 	}
@@ -56,7 +56,7 @@ EOF;
 	</table>
 </database>
 EOF;
-		PropelQuickBuilder::buildSchema($schema);
+		PropulsionQuickBuilder::buildSchema($schema);
 		$this->assertEquals(array(0, 1, 2), I18nBehaviorTest03Peer::getFieldNames(BasePeer::TYPE_NUM));
 	}
 

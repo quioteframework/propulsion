@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -23,7 +23,7 @@ namespace Propulsion\Generator\Builder\Util;
  * @package    propel.generator.builder.util
  */
 
- use Propulsion\Generator\Platform\PropelPlatformInterface;
+ use Propulsion\Generator\Platform\PropulsionPlatformInterface;
  use Propulsion\Generator\Model\AppData;
  use Propulsion\Generator\Config\GeneratorConfig;
  use Propulsion\Generator\Exception\SchemaException;
@@ -61,11 +61,11 @@ class XmlToAppData
 	/**
 	 * Creates a new instance for the specified database type.
 	 *
-	 * @param      PropelPlatformInterface $defaultPlatform The default database platform for the application.
+	 * @param      PropulsionPlatformInterface $defaultPlatform The default database platform for the application.
 	 * @param      string $defaultPackage the default PHP package used for the om
 	 * @param      string $encoding The database encoding.
 	 */
-	public function __construct(?PropelPlatformInterface $defaultPlatform = null, $defaultPackage = null, $encoding = 'iso-8859-1')
+	public function __construct(?PropulsionPlatformInterface $defaultPlatform = null, $defaultPackage = null, $encoding = 'iso-8859-1')
 	{
 		$this->app = new AppData($defaultPlatform);
 		$this->defaultPackage = $defaultPackage;

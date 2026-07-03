@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -42,7 +42,7 @@ class Domain extends XMLElement
 	private $scale;
 
 	/**
-	 * @var        int Propel type from schema
+	 * @var        int Propulsion type from schema
 	 */
 	private $propelType;
 
@@ -65,7 +65,7 @@ class Domain extends XMLElement
 	 * Creates a new Domain object.
 	 * If this domain needs a name, it must be specified manually.
 	 *
-	 * @param      string $type Propel type.
+	 * @param      string $type Propulsion type.
 	 * @param      string $sqlType SQL type.
 	 * @param      string $size
 	 * @param      string $scale
@@ -233,7 +233,7 @@ class Domain extends XMLElement
 	}
 
 	/**
-	 * @param      string $propelType The PropelTypes type to set.
+	 * @param      string $propelType The PropulsionTypes type to set.
 	 */
 	public function setType($propelType)
 	{
@@ -274,7 +274,7 @@ class Domain extends XMLElement
 			if ($this->defaultValue->isExpression()) {
 				throw new EngineException("Cannot get PHP version of default value for default value EXPRESSION.");
 			}
-			if ($this->propelType === PropelTypes::BOOLEAN || $this->propelType === PropelTypes::BOOLEAN_EMU) {
+			if ($this->propelType === PropulsionTypes::BOOLEAN || $this->propelType === PropulsionTypes::BOOLEAN_EMU) {
 				return $this->booleanValue($this->defaultValue->getValue());
 			} else {
 				return $this->defaultValue->getValue();

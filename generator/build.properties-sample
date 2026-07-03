@@ -6,7 +6,7 @@
 # This file contains some example properties.  Ideally properties
 # should be specified in the project-specific build.properties file;
 # however, this file can be used to specify non-default properties
-# that you would like to use accross all of your Propel projects.
+# that you would like to use accross all of your Propulsion projects.
 # -------------------------------------------------------------------
 #
 
@@ -17,10 +17,10 @@ propel.home = .
 #  P R O J E C T
 #
 # -------------------------------------------------------------------
-# This is the name of your Propel project. The name of your Propel
+# This is the name of your Propulsion project. The name of your Propulsion
 # project is used (by default) to determine where the generator will
 # find needed configuration files and will place resuilting build
-# files. E.g. if your project is named 'killerapp', Propel will
+# files. E.g. if your project is named 'killerapp', Propulsion will
 # look here for schema.xml and runtime-conf.xml files:
 #
 #   projects/killerapp/
@@ -38,7 +38,7 @@ propel.home = .
 #
 # -------------------------------------------------------------------
 # This is the target database, only considered when generating
-# the SQL for your Propel project. Your possible choices are:
+# the SQL for your Propulsion project. Your possible choices are:
 #
 #   mssql, mysql, oracle, pgsql, sqlite
 # -------------------------------------------------------------------
@@ -57,22 +57,22 @@ propel.home = .
 # Peer-based object model is created.
 # -------------------------------------------------------------------
 # addGenericAccessors
-#   If true, Propel adds methods to get database fields by name/position.
+#   If true, Propulsion adds methods to get database fields by name/position.
 #
 # addGenericMutators
-#   If true, Propel adds methods to set database fields by name/position.
+#   If true, Propulsion adds methods to set database fields by name/position.
 #
 # addSaveMethod
-#   If true, Propel adds tracking code to determine how to save objects.
+#   If true, Propulsion adds tracking code to determine how to save objects.
 #
 # addTimeStamp
-#   If true, Propel true puts time stamps in phpdoc of generated om files.
+#   If true, Propulsion true puts time stamps in phpdoc of generated om files.
 #
 # basePrefix
 #   A string to pre-pend to the file names of base data and peer objects.
 #
 # complexObjectModel
-#   If true, Propel generates data objects with collection support and
+#   If true, Propulsion generates data objects with collection support and
 #   methods to easily retreive foreign key relationships.
 #
 # targetPackage
@@ -80,11 +80,11 @@ propel.home = .
 #   "com.company.project.om".
 #
 # targetPlatform
-#   Sets whether Propel is building classes for php5 (default)
+#   Sets whether Propulsion is building classes for php5 (default)
 #   or php4 (experimental).
 #
 # packageObjectModel
-#   Sets whether Propel is packaging ObjectModel fro several
+#   Sets whether Propulsion is packaging ObjectModel fro several
 #   [package].schema.xml files. The <database package="packageName">
 #   attribute has to be set then. (warning: this is experimental!)
 #

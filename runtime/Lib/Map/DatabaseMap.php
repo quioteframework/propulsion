@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -26,9 +26,9 @@ namespace Propulsion\Map;
  * @package    propel.runtime.map
  */
 
- use Propulsion\Exception\PropelException;
+ use Propulsion\Exception\PropulsionException;
  use Propulsion\Adapter\DBAdapter;
- use Propulsion\Propel;
+ use Propulsion\Propulsion;
  
 class DatabaseMap
 {
@@ -124,12 +124,12 @@ class DatabaseMap
    *
    * @param      string $name Name of the table.
    * @return     TableMap A TableMap
-   * @throws     PropelException if the table is undefined
+   * @throws     PropulsionException if the table is undefined
    */
   public function getTable($name)
   {
     if (!isset($this->tables[$name])) {
-      throw new PropelException("Cannot fetch TableMap for undefined table: " . $name );
+      throw new PropulsionException("Cannot fetch TableMap for undefined table: " . $name );
     }
     return $this->tables[$name];
   }
@@ -150,7 +150,7 @@ class DatabaseMap
    *
    * @param      $qualifiedColumnName Name of the column.
    * @return     ColumnMap A TableMap
-   * @throws     PropelException if the table is undefined, or if the table is undefined
+   * @throws     PropulsionException if the table is undefined, or if the table is undefined
    */
   public function getColumn($qualifiedColumnName)
   {
@@ -200,16 +200,16 @@ class DatabaseMap
       return $this->addTableFromMapClass($tmClass);
     }
     
-    throw new PropelException("Cannot fetch TableMap for undefined table phpName: " . $phpName);
+    throw new PropulsionException("Cannot fetch TableMap for undefined table phpName: " . $phpName);
   }
 
   /**
-   * Convenience method to get the DBAdapter registered with Propel for this database.
+   * Convenience method to get the DBAdapter registered with Propulsion for this database.
    * @return  DBAdapter
-   * @see     Propel::getDB(string)
+   * @see     Propulsion::getDB(string)
    */
   public function getDBAdapter()
   {
-    return Propel::getDB($this->name);
+    return Propulsion::getDB($this->name);
   }
 }

@@ -2,7 +2,7 @@
 
 /*
  *	$Id: SortableBehaviorTest.php 1356 2009-12-11 16:36:55Z francois $
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -127,33 +127,33 @@ class SortableBehaviorObjectBuilderModifierWithScopeTest extends BookstoreSortab
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testInsertAtNegativeRank()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$t = new Table12();
 		$t->setScopeValue(1);
 		$t->insertAtRank(0);
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testInsertAtOverMaxRank()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$t = new Table12();
 		$t->setScopeValue(1);
 		$t->insertAtRank(6);
 	}
 
   /**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testInsertAtNoScope()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$t = new Table12();
 		$t->insertAtRank(3);
 	}
@@ -174,11 +174,11 @@ class SortableBehaviorObjectBuilderModifierWithScopeTest extends BookstoreSortab
 	}
 
   /**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testInsertAtBottomNoScope()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$t = new Table12();
 		$t->insertAtBottom();
 	}
@@ -218,31 +218,31 @@ class SortableBehaviorObjectBuilderModifierWithScopeTest extends BookstoreSortab
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testMoveToNewObject()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$t = new Table12();
 		$t->moveToRank(2);
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testMoveToNegativeRank()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$t = Table12Peer::retrieveByRank(2, 1);
 		$t->moveToRank(0);
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testMoveToOverMaxRank()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$t = Table12Peer::retrieveByRank(2, 1);
 		$t->moveToRank(5);
 	}

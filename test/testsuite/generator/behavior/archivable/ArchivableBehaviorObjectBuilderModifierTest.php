@@ -4,7 +4,7 @@
 use PHPUnit\Framework\TestCase;
 /*
  *	$Id$
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -77,7 +77,7 @@ class ArchivableBehaviorObjectBuilderModifierTest extends TestCase
 
 </database>
 EOF;
-			PropelQuickBuilder::buildSchema($schema);
+			PropulsionQuickBuilder::buildSchema($schema);
 		}
 	}
 
@@ -176,11 +176,11 @@ EOF;
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testArchiveThrowsExceptionOnNewObjects()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$a = new ArchivableTest10();
 		$a->archive();
 	}
@@ -191,11 +191,11 @@ EOF;
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testRestoreFromArchiveThrowsExceptionOnUnarchivedObjects()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$a = new ArchivableTest10();
 		$a->setTitle('foo');
 		$a->setAge(12);

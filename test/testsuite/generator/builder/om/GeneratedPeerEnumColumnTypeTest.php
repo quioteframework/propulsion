@@ -3,7 +3,7 @@
 
 use PHPUnit\Framework\TestCase;
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -29,7 +29,7 @@ class GeneratedPeerEnumColumnTypeTest extends TestCase
 	</table>
 </database>
 EOF;
-			PropelQuickBuilder::buildSchema($schema);
+			PropulsionQuickBuilder::buildSchema($schema);
 		}
 	}
 

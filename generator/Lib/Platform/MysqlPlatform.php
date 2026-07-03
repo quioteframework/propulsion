@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -10,7 +10,7 @@
 namespace Propulsion\Generator\Platform;
 
 /**
- * MySql PropelPlatformInterface implementation.
+ * MySql PropulsionPlatformInterface implementation.
  *
  * @author     Hans Lellelid <hans@xmpl.org> (Propel)
  * @author     Martin Poeschl <mpoeschl@marmot.at> (Torque)
@@ -18,7 +18,7 @@ namespace Propulsion\Generator\Platform;
  * @package    propel.generator.platform
  */
 use Propulsion\Generator\Model\Domain;
-use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\PropulsionTypes;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Model\ForeignKey;
 use Propulsion\Generator\Config\GeneratorConfig;
@@ -27,8 +27,8 @@ use Propulsion\Generator\Model\Column;
 use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\Index;
 use Propulsion\Generator\Model\Unique;
-use Propulsion\Generator\Model\Diff\PropelDatabaseDiff;
-use Propulsion\Generator\Model\Diff\PropelColumnDiff;
+use Propulsion\Generator\Model\Diff\PropulsionDatabaseDiff;
+use Propulsion\Generator\Model\Diff\PropulsionColumnDiff;
 class MysqlPlatform extends DefaultPlatform
 {
 
@@ -41,18 +41,18 @@ class MysqlPlatform extends DefaultPlatform
 	protected function initialize()
 	{
 		parent::initialize();
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::BOOLEAN, "TINYINT", 1));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::NUMERIC, "DECIMAL"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::LONGVARCHAR, "TEXT"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::BINARY, "BLOB"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::VARBINARY, "MEDIUMBLOB"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::LONGVARBINARY, "LONGBLOB"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::BLOB, "LONGBLOB"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::CLOB, "LONGTEXT"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::TIMESTAMP, "DATETIME"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::OBJECT, "TEXT"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::PHP_ARRAY, "TEXT"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::ENUM, "TINYINT"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::BOOLEAN, "TINYINT", 1));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::NUMERIC, "DECIMAL"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::LONGVARCHAR, "TEXT"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::BINARY, "BLOB"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::VARBINARY, "MEDIUMBLOB"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::LONGVARBINARY, "LONGBLOB"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::BLOB, "LONGBLOB"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::CLOB, "LONGTEXT"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::TIMESTAMP, "DATETIME"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::OBJECT, "TEXT"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::PHP_ARRAY, "TEXT"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::ENUM, "TINYINT"));
 	}
 
 	public function setGeneratorConfig(GeneratorConfig $generatorConfig)
@@ -271,7 +271,6 @@ DROP TABLE IF EXISTS " . $this->quoteIdentifier($table->getName()) . ";
 		$defaultSetting = $this->getColumnDefaultValueDDL($col);
 
 		// Special handling of TIMESTAMP/DATETIME types ...
-		// See: http://propel.phpdb.org/trac/ticket/538
 		if ($sqlType == 'DATETIME') {
 			$def = $domain->getDefaultValue();
 			if ($def && $def->isExpression()) { // DATETIME values can only have constant expressions
@@ -461,11 +460,11 @@ ALTER TABLE %s DROP FOREIGN KEY %s;
 
 	/**
 	 * Builds the DDL SQL to modify a database
-	 * based on a PropelDatabaseDiff instance
+	 * based on a PropulsionDatabaseDiff instance
 	 *
 	 * @return     string
 	 */
-	public function getModifyDatabaseDDL(PropelDatabaseDiff $databaseDiff)
+	public function getModifyDatabaseDDL(PropulsionDatabaseDiff $databaseDiff)
 	{
 		$ret = $this->getBeginDDL();
 
@@ -535,7 +534,7 @@ ALTER TABLE %s DROP %s;
 	 *
 	 * @return     string
 	 */
-	public function getModifyColumnDDL(PropelColumnDiff $columnDiff)
+	public function getModifyColumnDDL(PropulsionColumnDiff $columnDiff)
 	{
 		return $this->getChangeColumnDDL($columnDiff->getFromColumn(), $columnDiff->getToColumn());
 	}

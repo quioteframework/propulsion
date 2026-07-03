@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -21,7 +21,7 @@ namespace Propulsion\Adapter;
  */
 use PDO;
 use Propulsion\Query\Criteria;
-use Propulsion\Exception\PropelException;
+use Propulsion\Exception\PropulsionException;
 class DBPostgres extends DBAdapter
 {
 
@@ -106,7 +106,7 @@ class DBPostgres extends DBAdapter
 	public function getId(PDO $con, $name = null)
 	{
 		if ($name === null) {
-			throw new PropelException("Unable to fetch next sequence ID without sequence name.");
+			throw new PropulsionException("Unable to fetch next sequence ID without sequence name.");
 		}
 		$stmt = $con->query("SELECT nextval(".$con->quote($name).")");
 		$row = $stmt->fetch(PDO::FETCH_NUM);

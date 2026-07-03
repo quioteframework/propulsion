@@ -2,7 +2,7 @@
 
 /*
  *	$Id: SortableBehaviorTest.php 1356 2009-12-11 16:36:55Z francois $
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -78,7 +78,7 @@ class SortableBehaviorQueryBuilderModifierWithScopeTest extends BookstoreSortabl
 	public function testFindList()
 	{
 		$ts = Table12Query::create()->findList(1);
-		$this->assertTrue($ts instanceof PropelObjectCollection, 'findList() returns a collection of objects');
+		$this->assertTrue($ts instanceof PropulsionObjectCollection, 'findList() returns a collection of objects');
 		$this->assertEquals(4, count($ts), 'findList() filters the query by scope');
 		$this->assertEquals('row1', $ts[0]->getTitle(), 'findList() returns an ordered scoped list');
 		$this->assertEquals('row2', $ts[1]->getTitle(), 'findList() returns an ordered scoped list');

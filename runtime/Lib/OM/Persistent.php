@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -19,7 +19,7 @@ namespace Propulsion\OM;
  * @package    propel.runtime.om
  */
 
- use Propulsion\Connection\PropelPDO;
+ use Propulsion\Connection\PropulsionPDO;
 interface Persistent
 {
 
@@ -67,7 +67,7 @@ interface Persistent
 
 	/**
 	 * Setter for the isNew attribute.  This method will be called
-	 * by Propel-generated children and Peers.
+	 * by Propulsion-generated children and Peers.
 	 *
 	 * @param      boolean $b the state of the object.
 	 */
@@ -95,17 +95,17 @@ interface Persistent
 
 	/**
 	 * Deletes the object.
-	 * @param      PropelPDO $con
+	 * @param      PropulsionPDO $con
 	 * @return     void
 	 * @throws     Exception
 	 */
-	public function delete(?PropelPDO $con = null);
+	public function delete(?PropulsionPDO $con = null);
 
 	/**
 	 * Saves the object.
-	 * @param      PropelPDO $con
+	 * @param      PropulsionPDO $con
 	 * @return     void
 	 * @throws     Exception
 	 */
-	public function save(?PropelPDO $con = null);
+	public function save(?PropulsionPDO $con = null);
 }

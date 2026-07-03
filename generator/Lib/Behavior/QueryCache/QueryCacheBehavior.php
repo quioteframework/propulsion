@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -101,7 +101,7 @@ public function cacheContains(\$key)
 			case 'custom':
 			default:
 				$script .= "
-	throw new PropelException('You must override the cacheContains(), cacheStore(), and cacheFetch() methods to enable query cache');";
+	throw new PropulsionException('You must override the cacheContains(), cacheStore(), and cacheFetch() methods to enable query cache');";
 				break;
 
 		}
@@ -127,7 +127,7 @@ public function cacheStore(\$key, \$value, \$lifetime = " .$this->getParameter('
 			case 'custom':
 			default:
 				$script .= "
-	throw new PropelException('You must override the cacheContains(), cacheStore(), and cacheFetch() methods to enable query cache');";
+	throw new PropulsionException('You must override the cacheContains(), cacheStore(), and cacheFetch() methods to enable query cache');";
 				break;
 		}
 		$script .= "
@@ -152,7 +152,7 @@ public function cacheFetch(\$key)
 			case 'custom':
 			default:
 				$script .= "
-	throw new PropelException('You must override the cacheContains(), cacheStore(), and cacheFetch() methods to enable query cache');";
+	throw new PropulsionException('You must override the cacheContains(), cacheStore(), and cacheFetch() methods to enable query cache');";
 				break;
 		}
 		$script .= "
@@ -165,10 +165,10 @@ public function cacheFetch(\$key)
 		$script .= "
 protected function getSelectStatement(\$con = null)
 {
-	\$dbMap = Propel::getDatabaseMap(" . $this->peerClassname ."::DATABASE_NAME);
-	\$db = Propel::getDB(" . $this->peerClassname ."::DATABASE_NAME);
+	\$dbMap = Propulsion::getDatabaseMap(" . $this->peerClassname ."::DATABASE_NAME);
+	\$db = Propulsion::getDB(" . $this->peerClassname ."::DATABASE_NAME);
   if (\$con === null) {
-		\$con = Propel::getConnection(" . $this->peerClassname ."::DATABASE_NAME, Propel::CONNECTION_READ);
+		\$con = Propulsion::getConnection(" . $this->peerClassname ."::DATABASE_NAME, Propulsion::CONNECTION_READ);
 	}
 
 	if (!\$this->hasSelectClause() && !\$this->getPrimaryCriteria()) {
@@ -195,7 +195,7 @@ protected function getSelectStatement(\$con = null)
 		\$db->bindValues(\$stmt, \$params, \$dbMap);
 		\$stmt->execute();
 		\$con->commit();
-	} catch (PropelException \$e) {
+	} catch (PropulsionException \$e) {
 		\$con->rollback();
 		throw \$e;
 	}
@@ -210,10 +210,10 @@ protected function getSelectStatement(\$con = null)
 		$script .= "
 protected function getCountStatement(\$con = null)
 {
-	\$dbMap = Propel::getDatabaseMap(\$this->getDbName());
-	\$db = Propel::getDB(\$this->getDbName());
+	\$dbMap = Propulsion::getDatabaseMap(\$this->getDbName());
+	\$db = Propulsion::getDB(\$this->getDbName());
   if (\$con === null) {
-		\$con = Propel::getConnection(\$this->getDbName(), Propel::CONNECTION_READ);
+		\$con = Propulsion::getConnection(\$this->getDbName(), Propulsion::CONNECTION_READ);
 	}
 
 	\$con->beginTransaction();
@@ -236,7 +236,7 @@ protected function getCountStatement(\$con = null)
 			if (\$needsComplexCount) {
 				if (BasePeer::needsSelectAliases(\$this)) {
 					if (\$this->getHaving()) {
-						throw new PropelException('Propel cannot create a COUNT query when using HAVING and  duplicate column names in the SELECT part');
+						throw new PropulsionException('Propulsion cannot create a COUNT query when using HAVING and  duplicate column names in the SELECT part');
 					}
 					\$db->turnSelectColumnsToAliases(\$this);
 				}
@@ -255,7 +255,7 @@ protected function getCountStatement(\$con = null)
 		\$db->bindValues(\$stmt, \$params, \$dbMap);
 		\$stmt->execute();
 		\$con->commit();
-	} catch (PropelException \$e) {
+	} catch (PropulsionException \$e) {
 		\$con->rollback();
 		throw \$e;
 	}

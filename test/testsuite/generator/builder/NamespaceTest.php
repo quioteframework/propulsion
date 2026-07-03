@@ -3,7 +3,7 @@
 
 use PHPUnit\Framework\TestCase;
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -32,7 +32,7 @@ class NamespaceTest extends TestCase
 		}
 
 		set_include_path(get_include_path() . PATH_SEPARATOR . realpath(IntegrationDatabase::namespacedClassesDir()));
-		Propel::init(IntegrationDatabase::namespacedConfFile());
+		Propulsion::init(IntegrationDatabase::namespacedConfFile());
 	}
 
 	protected function tearDown(): void
@@ -40,7 +40,7 @@ class NamespaceTest extends TestCase
 		parent::tearDown();
 		try {
 			IntegrationDatabase::ensureReady();
-			Propel::init(IntegrationDatabase::confFile());
+			Propulsion::init(IntegrationDatabase::confFile());
 		} catch (\RuntimeException $e) {
 			// Bookstore fixtures aren't available either; nothing to restore.
 		}
@@ -253,7 +253,7 @@ class NamespaceTest extends TestCase
 		$this->assertEquals(1, $book2->countNamespacedBookClubs());
 		$nbRels = NamespacedBookListRelQuery::create()->count();
 		$this->assertEquals(3, $nbRels);
-		$con = Propel::getConnection(NamespacedBookListRelPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(NamespacedBookListRelPeer::DATABASE_NAME);
 		$books = \Foo\Bar\NamespacedBookQuery::create()
 			->orderByTitle()
 			->joinWith('NamespacedBookListRel')

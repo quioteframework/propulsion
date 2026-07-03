@@ -4,7 +4,7 @@
 use PHPUnit\Framework\TestCase;
 /*
  *	$Id$
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -98,7 +98,7 @@ class DelegateBehaviorTest extends TestCase
 
 </database>
 EOF;
-			PropelQuickBuilder::buildSchema($schema);
+			PropulsionQuickBuilder::buildSchema($schema);
 		}
 	}
 
@@ -169,11 +169,11 @@ EOF;
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testAModelCannotHaveCascadingDelegates()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$main = new DelegateMain();
 		$main->setSummary('bar');
 		$main->setBody('baz');

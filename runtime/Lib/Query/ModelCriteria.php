@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -27,20 +27,20 @@ namespace Propulsion\Query;
  * @package    propel.runtime.query
  */
 
- use Propulsion\Propel;
+ use Propulsion\Propulsion;
  use Propulsion\Map\TableMap;
- use Propulsion\Formatter\PropelFormatter;
- use Propulsion\Exception\PropelException;
+ use Propulsion\Formatter\PropulsionFormatter;
+ use Propulsion\Exception\PropulsionException;
  use Propulsion\Util\BasePeer;
  use Propulsion\Formatter\ModelWith;
  use Propulsion\Map\RelationMap;
  use Propulsion\Map\ColumnMap;
- use Propulsion\Connection\PropelPDO;
+ use Propulsion\Connection\PropulsionPDO;
  use Exception;
  use PDO;
-use Propulsion\Collection\PropelObjectCollection;
-use Propulsion\Collection\PropelCollection;
-use Propulsion\Util\PropelModelPager;
+use Propulsion\Collection\PropulsionObjectCollection;
+use Propulsion\Collection\PropulsionCollection;
+use Propulsion\Util\PropulsionModelPager;
 class ModelCriteria extends Criteria
 {
 	const MODEL_CLAUSE = "MODEL CLAUSE";
@@ -48,10 +48,10 @@ class ModelCriteria extends Criteria
 	const MODEL_CLAUSE_LIKE = "MODEL CLAUSE LIKE";
 	const MODEL_CLAUSE_SEVERAL = "MODEL CLAUSE SEVERAL";
 
-	const FORMAT_STATEMENT = 'Propulsion\\Formatter\\PropelStatementFormatter';
-	const FORMAT_ARRAY = 'Propulsion\\Formatter\\PropelArrayFormatter';
-	const FORMAT_OBJECT = 'Propulsion\\Formatter\\PropelObjectFormatter';
-	const FORMAT_ON_DEMAND = 'Propulsion\\Formatter\\PropelOnDemandFormatter';
+	const FORMAT_STATEMENT = 'Propulsion\\Formatter\\PropulsionStatementFormatter';
+	const FORMAT_ARRAY = 'Propulsion\\Formatter\\PropulsionArrayFormatter';
+	const FORMAT_OBJECT = 'Propulsion\\Formatter\\PropulsionObjectFormatter';
+	const FORMAT_ON_DEMAND = 'Propulsion\\Formatter\\PropulsionOnDemandFormatter';
 
 	protected $modelName;
 	protected $modelPeerName;
@@ -87,7 +87,7 @@ class ModelCriteria extends Criteria
 		$this->modelName = $modelName;
 		$this->modelPeerName = constant($this->modelName . '::PEER');
 		$this->modelAlias = $modelAlias;
-		$this->tableMap = Propel::getDatabaseMap($this->getDbName())->getTableByPhpName($this->modelName);
+		$this->tableMap = Propulsion::getDatabaseMap($this->getDbName())->getTableByPhpName($this->modelName);
 	}
 
 	/**
@@ -161,22 +161,22 @@ class ModelCriteria extends Criteria
 
 	/**
 	 * Sets the formatter to use for the find() output
-	 * Formatters must extend PropelFormatter
+	 * Formatters must extend PropulsionFormatter
 	 * Use the ModelCriteria constants for class names:
 	 * <code>
 	 * $c->setFormatter(ModelCriteria::FORMAT_ARRAY);
 	 * </code>
 	 *
-	 * @param     string|PropelFormatter $formatter a formatter class name, or a formatter instance
+	 * @param     string|PropulsionFormatter $formatter a formatter class name, or a formatter instance
 	 * @return    static The current object, for fluid interface
 	 */
-	public function setFormatter(string|PropelFormatter $formatter) : static
+	public function setFormatter(string|PropulsionFormatter $formatter) : static
 	{
 		if(is_string($formatter)) {
 			$formatter = new $formatter();
 		}
-		if (!$formatter instanceof PropelFormatter) {
-			throw new PropelException('setFormatter() only accepts classes extending PropelFormatter');
+		if (!$formatter instanceof PropulsionFormatter) {
+			throw new PropulsionException('setFormatter() only accepts classes extending PropulsionFormatter');
 		}
 		$this->formatter = $formatter;
 
@@ -185,11 +185,11 @@ class ModelCriteria extends Criteria
 
 	/**
 	 * Gets the formatter to use for the find() output
-	 * Defaults to an instance of ModelCriteria::$defaultFormatterClass, i.e. PropelObjectsFormatter
+	 * Defaults to an instance of ModelCriteria::$defaultFormatterClass, i.e. PropulsionObjectsFormatter
 	 *
-	 * @return PropelFormatter
+	 * @return PropulsionFormatter
 	 */
-	public function getFormatter() : PropelFormatter
+	public function getFormatter() : PropulsionFormatter
 	{
 		if (null === $this->formatter) {
 			$formatterClass = $this->defaultFormatterClass;
@@ -391,7 +391,7 @@ class ModelCriteria extends Criteria
 				$this->addDescendingOrderByColumn($realColumnName);
 				break;
 			default:
-				throw new PropelException('ModelCriteria::orderBy() only accepts Criteria::ASC or Criteria::DESC as argument');
+				throw new PropulsionException('ModelCriteria::orderBy() only accepts Criteria::ASC or Criteria::DESC as argument');
 		}
 
 		return $this;
@@ -439,7 +439,7 @@ class ModelCriteria extends Criteria
 			// column of a relations's model
 			$tableMap = $this->joins[$class]->getTableMap();
 		} else {
-			throw new PropelException('Unknown model or alias ' . $class);
+			throw new PropulsionException('Unknown model or alias ' . $class);
 		}
 		foreach ($tableMap->getColumns() as $column) {
 			if (isset($this->aliases[$class])) {
@@ -496,16 +496,16 @@ class ModelCriteria extends Criteria
 	}
 
 	/**
-	 * Makes the ModelCriteria return a string, array, or PropelArrayCollection
+	 * Makes the ModelCriteria return a string, array, or PropulsionArrayCollection
 	 * Examples:
 	 *   ArticleQuery::create()->select('Name')->find();
-	 *   => PropelArrayCollection Object ('Foo', 'Bar')
+	 *   => PropulsionArrayCollection Object ('Foo', 'Bar')
 	 *
 	 *   ArticleQuery::create()->select('Name')->findOne();
 	 *   => string 'Foo'
 	 *
 	 *   ArticleQuery::create()->select(array('Id', 'Name'))->find();
-	 *   => PropelArrayCollection Object (
+	 *   => PropulsionArrayCollection Object (
 	 *        array('Id' => 1, 'Name' => 'Foo'),
 	 *        array('Id' => 2, 'Name' => 'Bar')
 	 *      )
@@ -520,7 +520,7 @@ class ModelCriteria extends Criteria
 	public function select(array|string $columnArray) : static
 	{
 		if ((is_array($columnArray) && !count($columnArray)) || $columnArray == '') {
-			throw new PropelException('You must ask for at least one column');
+			throw new PropulsionException('You must ask for at least one column');
 		}
 
 		if ($columnArray == '*') {
@@ -553,8 +553,8 @@ class ModelCriteria extends Criteria
 			return;
 		}
 
-		// select() needs the PropelSimpleArrayFormatter
-		$this->setFormatter('Propulsion\\Formatter\\PropelSimpleArrayFormatter');
+		// select() needs the PropulsionSimpleArrayFormatter
+		$this->setFormatter('Propulsion\\Formatter\\PropulsionSimpleArrayFormatter');
 
 		// clear only the selectColumns, clearSelectColumns() clears asColumns too
 		$this->selectColumns = array();
@@ -615,7 +615,7 @@ class ModelCriteria extends Criteria
 	/**
 	 * Adds a JOIN clause to the query
 	 * Infers the ON clause from a relation name
-	 * Uses the Propel table maps, based on the schema, to guess the related columns
+	 * Uses the Propulsion table maps, based on the schema, to guess the related columns
 	 * Beware that the default JOIN operator is INNER JOIN, while Criteria defaults to WHERE
 	 * Examples:
 	 * <code>
@@ -653,14 +653,14 @@ class ModelCriteria extends Criteria
 				$previousJoin = $this->joins[$leftName];
 				$tableMap = $previousJoin->getTableMap();
 			} else {
-				throw new PropelException('Unknown table or alias ' . $leftName);
+				throw new PropulsionException('Unknown table or alias ' . $leftName);
 			}
 		}
 		$leftTableAlias = isset($this->aliases[$leftName]) ? $leftName : null;
 
 		// find the RelationMap in the TableMap using the $relationName
 		if(!$tableMap->hasRelation($relationName)) {
-			throw new PropelException('Unknown relation ' . $relationName . ' on the ' . $leftName .' table');
+			throw new PropulsionException('Unknown relation ' . $relationName . ' on the ' . $leftName .' table');
 		}
 		$relationMap = $tableMap->getRelation($relationName);
 
@@ -701,7 +701,7 @@ class ModelCriteria extends Criteria
 	public function addJoinCondition(string $name, string $clause, mixed $value = null, ?string $operator = null) : static
 	{
 		if (!isset($this->joins[$name])) {
-			throw new PropelException(sprintf('Adding a condition to a nonexistent join, %s. Try calling join() first.', $name));
+			throw new PropulsionException(sprintf('Adding a condition to a nonexistent join, %s. Try calling join() first.', $name));
 		}
 		$join = $this->joins[$name];
 		if (!$join->getJoinCondition() instanceof Criterion) {
@@ -733,14 +733,14 @@ class ModelCriteria extends Criteria
 	public function setJoinCondition(string $name, mixed $condition) : static
 	{
 		if (!isset($this->joins[$name])) {
-			throw new PropelException(sprintf('Setting a condition to a nonexistent join, %s. Try calling join() first.', $name));
+			throw new PropulsionException(sprintf('Setting a condition to a nonexistent join, %s. Try calling join() first.', $name));
 		}
 		if ($condition instanceof Criterion) {
 			$this->getJoin($name)->setJoinCondition($condition);
 		} elseif (isset($this->namedCriterions[$condition])) {
 			$this->getJoin($name)->setJoinCondition($this->namedCriterions[$condition]);
 		} else {
-			throw new PropelException(sprintf('Cannot add condition %s on join %s. setJoinCondition() expects either a Criterion, or a condition added by way of condition()', $condition, $name));
+			throw new PropulsionException(sprintf('Cannot add condition %s on join %s. setJoinCondition() expects either a Criterion, or a condition added by way of condition()', $condition, $name));
 		}
 		return $this;
 	}
@@ -810,11 +810,11 @@ class ModelCriteria extends Criteria
 	public function with(string $relation) : static
 	{
 		if (!isset($this->joins[$relation])) {
-			throw new PropelException('Unknown relation name or alias ' . $relation);
+			throw new PropulsionException('Unknown relation name or alias ' . $relation);
 		}
 		$join = $this->joins[$relation];
 		if ($join->getRelationMap()->getType() == RelationMap::MANY_TO_MANY) {
-			throw new PropelException('with() does not allow hydration for many-to-many relationships');
+			throw new PropulsionException('with() does not allow hydration for many-to-many relationships');
 		} elseif ($join->getRelationMap()->getType() == RelationMap::ONE_TO_MANY) {
 			// For performance reasons, the formatters will use a special routine in this case
 			$this->isWithOneToMany = true;
@@ -905,11 +905,11 @@ class ModelCriteria extends Criteria
     public function useQuery(string $relationName, ?string $secondaryCriteriaClass = null) : ModelCriteria
 	{
 		if (!isset($this->joins[$relationName])) {
-			throw new PropelException('Unknown class or alias ' . $relationName);
+			throw new PropulsionException('Unknown class or alias ' . $relationName);
 		}
 		$className = $this->joins[$relationName]->getTableMap()->getPhpName();
 		if (null === $secondaryCriteriaClass) {
-			$secondaryCriteria = PropelQuery::from($className);
+			$secondaryCriteria = PropulsionQuery::from($className);
 		} else {
 			$secondaryCriteria = new $secondaryCriteriaClass();
 		}
@@ -1128,14 +1128,14 @@ class ModelCriteria extends Criteria
 	/**
 	 * Code to execute before every SELECT statement
 	 *
-	 * @param     PropelPDO $con The connection object used by the query
+	 * @param     PropulsionPDO $con The connection object used by the query
 	 */
-	protected function basePreSelect(PropelPDO $con) : mixed
+	protected function basePreSelect(PropulsionPDO $con) : mixed
 	{
 		return $this->preSelect($con);
 	}
 
-	protected function preSelect(PropelPDO $con) : mixed
+	protected function preSelect(PropulsionPDO $con) : mixed
 	{
 		return null;
 	}
@@ -1143,14 +1143,14 @@ class ModelCriteria extends Criteria
 	/**
 	 * Issue a SELECT query based on the current ModelCriteria
 	 * and format the list of results with the current formatter
-	 * By default (with FORMAT_OBJECT formatter), returns a PropelObjectCollection (never null, empty collection if no results)
+	 * By default (with FORMAT_OBJECT formatter), returns a PropulsionObjectCollection (never null, empty collection if no results)
 	 * With other formatters, may return different types (array, statement, etc.) - use PHPDoc annotation if needed
 	 *
-	 * @param     PropelPDO $con an optional connection object
+	 * @param     PropulsionPDO $con an optional connection object
 	 *
-	* @return     PropelCollection the list of results (default formatter returns PropelObjectCollection or PropelArrayCollection, never null)
+	* @return     PropulsionCollection the list of results (default formatter returns PropulsionObjectCollection or PropulsionArrayCollection, never null)
 	*/
-    public function find(?PropelPDO $con = null) : PropelCollection
+    public function find(?PropulsionPDO $con = null) : PropulsionCollection
 	{
 		$criteria = $this->isKeepQuery() ? clone $this : $this;
 		$stmt = $criteria->getSelectStatement($con);
@@ -1164,11 +1164,11 @@ class ModelCriteria extends Criteria
 	 * By default (with FORMAT_OBJECT formatter), returns a BaseObject or null
 	 * With other formatters, may return different types - use PHPDoc annotation if needed
 	 *
-	 * @param     PropelPDO $con an optional connection object
+	 * @param     PropulsionPDO $con an optional connection object
 	 *
 	 * @return    ?\Propulsion\Om\BaseObject the result (null if no result found with default formatter)
 	 */
-	public function findOne(?PropelPDO $con = null) : mixed
+	public function findOne(?PropulsionPDO $con = null) : mixed
 	{
 		$criteria = $this->isKeepQuery() ? clone $this : $this;
 		$criteria->limit(1);
@@ -1183,11 +1183,11 @@ class ModelCriteria extends Criteria
 	 * By default (with FORMAT_OBJECT formatter), returns a BaseObject (creates new if not found, so never null)
 	 * With other formatters, may return different types - use PHPDoc annotation if needed
 	 *
-	 * @param     PropelPDO $con an optional connection object
+	 * @param     PropulsionPDO $con an optional connection object
 	 *
 	 * @return    \Propulsion\Om\BaseObject the result (never null with default formatter - creates new object if not found)
 	 */
-	public function findOneOrCreate(?PropelPDO $con = null) : mixed
+	public function findOneOrCreate(?PropulsionPDO $con = null) : mixed
 	{
 		$criteria = $this->isKeepQuery() ? clone $this : $this;
 		$criteria->limit(1);
@@ -1212,11 +1212,11 @@ class ModelCriteria extends Criteria
 	 * $bookOpinion = $c->findPk(array(34, 634), $con);
 	 * </code>
 	 * @param     mixed $key Primary key to use for the query
-	 * @param     PropelPDO $con an optional connection object
+	 * @param     PropulsionPDO $con an optional connection object
 	 *
 	 * @return    ?\Propulsion\Om\BaseObject the result (null if no result found with default formatter)
 	 */
-	public function findPk(mixed $key, ?PropelPDO $con = null) : mixed
+	public function findPk(mixed $key, ?PropulsionPDO $con = null) : mixed
 	{
 		$pkCols = $this->getTableMap()->getPrimaryKeys();
 		if (count($pkCols) == 1) {
@@ -1244,11 +1244,11 @@ class ModelCriteria extends Criteria
 	 * $bookOpinion = $c->findPks(array(array(34, 634), array(45, 518), array(34, 765)), $con);
 	 * </code>
 	 * @param     array $keys Primary keys to use for the query
-	 * @param     PropelPDO $con an optional connection object
+	 * @param     PropulsionPDO $con an optional connection object
 	 *
-	* @return    PropelCollection the list of results (default formatter returns PropelObjectCollection or PropelArrayCollection, never null)
+	* @return    PropulsionCollection the list of results (default formatter returns PropulsionObjectCollection or PropulsionArrayCollection, never null)
 	*/
-    public function findPks(mixed $keys, ?PropelPDO $con = null) : PropelCollection
+    public function findPks(mixed $keys, ?PropulsionPDO $con = null) : PropulsionCollection
 	{
 		$pkCols = $this->getTableMap()->getPrimaryKeys();
 		if (count($pkCols) == 1) {
@@ -1257,17 +1257,17 @@ class ModelCriteria extends Criteria
 			$this->add($pkCol->getFullyQualifiedName(), $keys, Criteria::IN);
 		} else {
 			// composite primary key
-			throw new PropelException('Multiple object retrieval is not implemented for composite primary keys');
+			throw new PropulsionException('Multiple object retrieval is not implemented for composite primary keys');
 		}
 		return $this->find($con);
 	}
 
-	protected function getSelectStatement(?PropelPDO $con = null) : \PDOStatement
+	protected function getSelectStatement(?PropulsionPDO $con = null) : \PDOStatement
 	{
-		$dbMap = Propel::getDatabaseMap($this->getDbName());
-		$db = Propel::getDB($this->getDbName());
+		$dbMap = Propulsion::getDatabaseMap($this->getDbName());
+		$db = Propulsion::getDB($this->getDbName());
 		if ($con === null) {
-			$con = Propel::getConnection($this->getDbName(), Propel::CONNECTION_READ);
+			$con = Propulsion::getConnection($this->getDbName(), Propulsion::CONNECTION_READ);
 		}
 
 		// check that the columns of the main class are already added (if this is the primary ModelCriteria)
@@ -1288,8 +1288,8 @@ class ModelCriteria extends Criteria
 			if (isset($stmt)) {
 				$stmt = null; // close
 			}
-			Propel::log($e->getMessage(), Propel::LOG_ERR);
-			throw new PropelException(sprintf('Unable to execute SELECT statement [%s]', $sql), $e);
+			Propulsion::log($e->getMessage(), Propulsion::LOG_ERR);
+			throw new PropulsionException(sprintf('Unable to execute SELECT statement [%s]', $sql), $e);
 		}
 
 		return $stmt;
@@ -1303,11 +1303,11 @@ class ModelCriteria extends Criteria
 	 *
 	 * @param     string    $column A string representing the column phpName, e.g. 'AuthorId'
 	 * @param     mixed     $value  A value for the condition
-	 * @param     PropelPDO $con    An optional connection object
+	 * @param     PropulsionPDO $con    An optional connection object
 	 *
 	 * @return    mixed the list of results, formatted by the current formatter
 	 */
-	public function findBy(string $column, mixed $value, ?PropelPDO $con = null) : mixed
+	public function findBy(string $column, mixed $value, ?PropulsionPDO $con = null) : mixed
 	{
 		$method = 'filterBy' . $column;
 		$this->$method($value);
@@ -1328,11 +1328,11 @@ class ModelCriteria extends Criteria
 	 * @see       find()
 	 *
 	 * @param     mixed $conditions An array of conditions, using column phpNames as key
-	 * @param     PropelPDO $con an optional connection object
+	 * @param     PropulsionPDO $con an optional connection object
 	 *
-	 * @return    PropelObjectCollection the list of results (default formatter returns PropelObjectCollection, never null)
+	 * @return    PropulsionObjectCollection the list of results (default formatter returns PropulsionObjectCollection, never null)
 	 */
-	public function findByArray($conditions, ?PropelPDO $con = null) : PropelObjectCollection
+	public function findByArray($conditions, ?PropulsionPDO $con = null) : PropulsionObjectCollection
 	{
 		$this->filterByArray($conditions);
 
@@ -1347,11 +1347,11 @@ class ModelCriteria extends Criteria
 	 *
 	 * @param     mixed $column A string representing thecolumn phpName, e.g. 'AuthorId'
 	 * @param     mixed  $value A value for the condition
-	 * @param     PropelPDO $con an optional connection object
+	 * @param     PropulsionPDO $con an optional connection object
 	 *
 	 * @return    ?\Propulsion\Om\BaseObject the result (null if no result found with default formatter)
 	 */
-	public function findOneBy(string $column, mixed $value, ?PropelPDO $con = null) : mixed
+	public function findOneBy(string $column, mixed $value, ?PropulsionPDO $con = null) : mixed
 	{
 		$method = 'filterBy' . $column;
 		$this->$method($value);
@@ -1372,11 +1372,11 @@ class ModelCriteria extends Criteria
 	 * @see       findOne()
 	 *
 	 * @param     mixed $conditions An array of conditions, using column phpNames as key
-	 * @param     PropelPDO $con an optional connection object
+	 * @param     PropulsionPDO $con an optional connection object
 	 *
 	 * @return    ?\Propulsion\Om\BaseObject the result (null if no result found with default formatter)
 	 */
-	public function findOneByArray($conditions, ?PropelPDO $con = null) : mixed
+	public function findOneByArray($conditions, ?PropulsionPDO $con = null) : mixed
 	{
 		$this->filterByArray($conditions);
 
@@ -1386,14 +1386,14 @@ class ModelCriteria extends Criteria
 	/**
 	 * Issue a SELECT COUNT(*) query based on the current ModelCriteria
 	 *
-	 * @param PropelPDO $con an optional connection object
+	 * @param PropulsionPDO $con an optional connection object
 	 *
 	 * @return integer the number of results
 	 */
-	public function count(?PropelPDO $con = null)
+	public function count(?PropulsionPDO $con = null)
 	{
 		if ($con === null) {
-			$con = Propel::getConnection($this->getDbName(), Propel::CONNECTION_READ);
+			$con = Propulsion::getConnection($this->getDbName(), Propulsion::CONNECTION_READ);
 		}
 
 		$criteria = $this->isKeepQuery() ? clone $this : $this;
@@ -1416,12 +1416,12 @@ class ModelCriteria extends Criteria
 		return $count;
 	}
 
-	protected function getCountStatement(?PropelPDO $con = null)
+	protected function getCountStatement(?PropulsionPDO $con = null)
 	{
-		$dbMap = Propel::getDatabaseMap($this->getDbName());
-		$db = Propel::getDB($this->getDbName());
+		$dbMap = Propulsion::getDatabaseMap($this->getDbName());
+		$db = Propulsion::getDB($this->getDbName());
 		if ($con === null) {
-			$con = Propel::getConnection($this->getDbName(), Propel::CONNECTION_READ);
+			$con = Propulsion::getConnection($this->getDbName(), Propulsion::CONNECTION_READ);
 		}
 
 		// check that the columns of the main class are already added (if this is the primary ModelCriteria)
@@ -1443,7 +1443,7 @@ class ModelCriteria extends Criteria
 			if ($needsComplexCount) {
 				if (BasePeer::needsSelectAliases($this)) {
 					if ($this->getHaving()) {
-						throw new PropelException('Propel cannot create a COUNT query when using HAVING and  duplicate column names in the SELECT part');
+						throw new PropulsionException('Propulsion cannot create a COUNT query when using HAVING and  duplicate column names in the SELECT part');
 					}
 					$db->turnSelectColumnsToAliases($this);
 				}
@@ -1457,12 +1457,12 @@ class ModelCriteria extends Criteria
 			$stmt = $con->prepare($sql);
 			$db->bindValues($stmt, $params, $dbMap);
 			$stmt->execute();
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			if ($stmt) {
 				$stmt = null; // close
 			}
-			Propel::log($e->getMessage(), Propel::LOG_ERR);
-			throw new PropelException(sprintf('Unable to execute COUNT statement [%s]', $sql), $e);
+			Propulsion::log($e->getMessage(), Propulsion::LOG_ERR);
+			throw new PropulsionException(sprintf('Unable to execute COUNT statement [%s]', $sql), $e);
 		}
 
 		return $stmt;
@@ -1475,14 +1475,14 @@ class ModelCriteria extends Criteria
 	 *
 	 * @param     int $page number of the page to start the pager on. Page 1 means no offset
 	 * @param     int $maxPerPage maximum number of results per page. Determines the limit
-	 * @param     PropelPDO $con an optional connection object
+	 * @param     PropulsionPDO $con an optional connection object
 	 *
-	 * @return    PropelModelPager a pager object, supporting iteration
+	 * @return    PropulsionModelPager a pager object, supporting iteration
 	 */
-	public function paginate(int $page = 1, int $maxPerPage = 10, ?PropelPDO $con = null)
+	public function paginate(int $page = 1, int $maxPerPage = 10, ?PropulsionPDO $con = null)
 	{
 		$criteria = $this->isKeepQuery() ? clone $this : $this;
-		$pager = new PropelModelPager($criteria, $maxPerPage);
+		$pager = new PropulsionModelPager($criteria, $maxPerPage);
 		$pager->setPage($page);
 		$pager->init($con);
 
@@ -1492,14 +1492,14 @@ class ModelCriteria extends Criteria
 	/**
 	 * Code to execute before every DELETE statement
 	 *
-	 * @param     PropelPDO $con The connection object used by the query
+	 * @param     PropulsionPDO $con The connection object used by the query
 	 */
-	protected function basePreDelete(PropelPDO $con)
+	protected function basePreDelete(PropulsionPDO $con)
 	{
 		return $this->preDelete($con);
 	}
 
-	protected function preDelete(PropelPDO $con)
+	protected function preDelete(PropulsionPDO $con)
 	{
 	}
 
@@ -1507,14 +1507,14 @@ class ModelCriteria extends Criteria
 	 * Code to execute after every DELETE statement
 	 *
 	 * @param     int $affectedRows the number of deleted rows
-	 * @param     PropelPDO $con The connection object used by the query
+	 * @param     PropulsionPDO $con The connection object used by the query
 	 */
-	protected function basePostDelete($affectedRows, PropelPDO $con)
+	protected function basePostDelete($affectedRows, PropulsionPDO $con)
 	{
 		return $this->postDelete($affectedRows, $con);
 	}
 
-	protected function postDelete($affectedRows, PropelPDO $con)
+	protected function postDelete($affectedRows, PropulsionPDO $con)
 	{
 	}
 
@@ -1522,18 +1522,18 @@ class ModelCriteria extends Criteria
 	 * Issue a DELETE query based on the current ModelCriteria
 	 * An optional hook on basePreDelete() can prevent the actual deletion
 	 *
-	 * @param PropelPDO $con an optional connection object
+	 * @param PropulsionPDO $con an optional connection object
 	 *
 	 * @return integer the number of deleted rows
 	 */
-	public function delete(?PropelPDO $con = null)
+	public function delete(?PropulsionPDO $con = null)
 	{
 		if (count($this->getMap()) == 0) {
-			throw new PropelException('delete() expects a Criteria with at least one condition. Use deleteAll() to delete all the rows of a table');
+			throw new PropulsionException('delete() expects a Criteria with at least one condition. Use deleteAll() to delete all the rows of a table');
 		}
 
 		if ($con === null) {
-			$con = Propel::getConnection($this->getDbName(), Propel::CONNECTION_WRITE);
+			$con = Propulsion::getConnection($this->getDbName(), Propulsion::CONNECTION_WRITE);
 		}
 
 		$criteria = $this->isKeepQuery() ? clone $this : $this;
@@ -1546,7 +1546,7 @@ class ModelCriteria extends Criteria
 			}
 			$criteria->basePostDelete($affectedRows, $con);
 			$con->commit();
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$con->rollback();
 			throw $e;
 		}
@@ -1558,11 +1558,11 @@ class ModelCriteria extends Criteria
 	 * Issue a DELETE query based on the current ModelCriteria
 	 * This method is called by ModelCriteria::delete() inside a transaction
 	 *
-	 * @param PropelPDO $con a connection object
+	 * @param PropulsionPDO $con a connection object
 	 *
 	 * @return integer the number of deleted rows
 	 */
-	public function doDelete(PropelPDO $con)
+	public function doDelete(PropulsionPDO $con)
 	{
 		$affectedRows = call_user_func(array($this->modelPeerName, 'doDelete'), $this, $con);
 
@@ -1573,14 +1573,14 @@ class ModelCriteria extends Criteria
 	 * Issue a DELETE query based on the current ModelCriteria deleting all rows in the table
 	 * An optional hook on basePreDelete() can prevent the actual deletion
 	 *
-	 * @param PropelPDO $con an optional connection object
+	 * @param PropulsionPDO $con an optional connection object
 	 *
 	 * @return integer the number of deleted rows
 	 */
-	public function deleteAll(?PropelPDO $con = null)
+	public function deleteAll(?PropulsionPDO $con = null)
 	{
 		if ($con === null) {
-			$con = Propel::getConnection($this->getDbName(), Propel::CONNECTION_WRITE);
+			$con = Propulsion::getConnection($this->getDbName(), Propulsion::CONNECTION_WRITE);
 		}
 		$con->beginTransaction();
 		try {
@@ -1590,7 +1590,7 @@ class ModelCriteria extends Criteria
 			$this->basePostDelete($affectedRows, $con);
 			$con->commit();
 			return $affectedRows;
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$con->rollBack();
 			throw $e;
 		}
@@ -1602,17 +1602,17 @@ class ModelCriteria extends Criteria
 	 * Issue a DELETE query based on the current ModelCriteria deleting all rows in the table
 	 * This method is called by ModelCriteria::deleteAll() inside a transaction
 	 *
-	 * @param PropelPDO $con a connection object
+	 * @param PropulsionPDO $con a connection object
 	 *
 	 * @return integer the number of deleted rows
 	 */
-	public function doDeleteAll(PropelPDO $con)
+	public function doDeleteAll(PropulsionPDO $con)
 	{
 		// NOTE: Peer::doDeleteAll() takes a single $con parameter (unlike doDelete(),
 		// which takes ($criteria, $con)). Passing an extra leading null here used to
 		// silently shift $con out of the call (PHP drops excess positional args to a
 		// non-variadic method), so the peer always saw $con === null and fell back to
-		// Propel::getConnection(PeerClass::DATABASE_NAME) -- a brand new, independent
+		// Propulsion::getConnection(PeerClass::DATABASE_NAME) -- a brand new, independent
 		// connection instead of the one the caller (and its surrounding transaction)
 		// was using. Harmless when that connection name happens to already be cached
 		// under the same name, but for datasources registered under a different name
@@ -1628,15 +1628,15 @@ class ModelCriteria extends Criteria
 	 * Code to execute before every UPDATE statement
 	 *
 	 * @param     array $values The associatiove array of columns and values for the update
-	 * @param     PropelPDO $con The connection object used by the query
+	 * @param     PropulsionPDO $con The connection object used by the query
 	 * @param      boolean $forceIndividualSaves If false (default), the resulting call is a BasePeer::doUpdate(), ortherwise it is a series of save() calls on all the found objects
 	 */
-	protected function basePreUpdate(array &$values, PropelPDO $con, $forceIndividualSaves = false)
+	protected function basePreUpdate(array &$values, PropulsionPDO $con, $forceIndividualSaves = false)
 	{
 		return $this->preUpdate($values, $con, $forceIndividualSaves);
 	}
 
-	protected function preUpdate(array &$values, PropelPDO $con, $forceIndividualSaves = false)
+	protected function preUpdate(array &$values, PropulsionPDO $con, $forceIndividualSaves = false)
 	{
 	}
 
@@ -1644,14 +1644,14 @@ class ModelCriteria extends Criteria
 	 * Code to execute after every UPDATE statement
 	 *
 	 * @param     int $affectedRows the number of updated rows
-	 * @param     PropelPDO $con The connection object used by the query
+	 * @param     PropulsionPDO $con The connection object used by the query
 	 */
-	protected function basePostUpdate(int $affectedRows, PropelPDO $con)
+	protected function basePostUpdate(int $affectedRows, PropulsionPDO $con)
 	{
 		return $this->postUpdate($affectedRows, $con);
 	}
 
-	protected function postUpdate(int $affectedRows, PropelPDO $con)
+	protected function postUpdate(int $affectedRows, PropulsionPDO $con)
 	{
 	}
 
@@ -1662,22 +1662,22 @@ class ModelCriteria extends Criteria
 	* will only be triggered if you force individual saves, i.e. if you pass true as second argument.
 	*
 	* @param      array $values Associative array of keys and values to replace
-	* @param      PropelPDO $con an optional connection object
+	* @param      PropulsionPDO $con an optional connection object
 	* @param      boolean $forceIndividualSaves If false (default), the resulting call is a BasePeer::doUpdate(), ortherwise it is a series of save() calls on all the found objects
 	*
 	* @return     int Number of updated rows
 	*/
-	public function update(array $values, ?PropelPDO $con = null, bool $forceIndividualSaves = false)
+	public function update(array $values, ?PropulsionPDO $con = null, bool $forceIndividualSaves = false)
 	{
 		if (!is_array($values)) {
-			throw new PropelException('set() expects an array as first argument');
+			throw new PropulsionException('set() expects an array as first argument');
 		}
 		if (count($this->getJoins())) {
-			throw new PropelException('set() does not support multitable updates, please do not use join()');
+			throw new PropulsionException('set() does not support multitable updates, please do not use join()');
 		}
 
 		if ($con === null) {
-			$con = Propel::getConnection($this->getDbName(), Propel::CONNECTION_WRITE);
+			$con = Propulsion::getConnection($this->getDbName(), Propulsion::CONNECTION_WRITE);
 		}
 
 		$criteria = $this->isKeepQuery() ? clone $this : $this;
@@ -1692,7 +1692,7 @@ class ModelCriteria extends Criteria
 			$criteria->basePostUpdate($affectedRows, $con);
 
 			$con->commit();
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$con->rollBack();
 			throw $e;
 		}
@@ -1705,12 +1705,12 @@ class ModelCriteria extends Criteria
 	* This method is called by ModelCriteria::update() inside a transaction.
 	*
 	* @param      array $values Associative array of keys and values to replace
-	* @param      PropelPDO $con a connection object
+	* @param      PropulsionPDO $con a connection object
 	* @param      boolean $forceIndividualSaves If false (default), the resulting call is a BasePeer::doUpdate(), ortherwise it is a series of save() calls on all the found objects
 	*
 	* @return     integer Number of updated rows
 	*/
-	public function doUpdate(array $values, PropelPDO $con, bool $forceIndividualSaves = false) : int
+	public function doUpdate(array $values, PropulsionPDO $con, bool $forceIndividualSaves = false) : int
 	{
 		if($forceIndividualSaves) {
 
@@ -1791,7 +1791,7 @@ class ModelCriteria extends Criteria
 		} else {
 			// no column match in clause, must be an expression like '1=1'
 			if (strpos($clause, '?') !== false) {
-				throw new PropelException("Cannot determine the column to bind to the parameter in clause '$clause'");
+				throw new PropulsionException("Cannot determine the column to bind to the parameter in clause '$clause'");
 			}
 			$criterion = new Criterion($this, null, $clause, Criteria::CUSTOM);
 		}
@@ -1828,7 +1828,7 @@ class ModelCriteria extends Criteria
 
 	/**
 	 * Replaces complete column names (like Article.AuthorId) in an SQL clause
-	 * by their exact Propel column fully qualified name (e.g. article.AUTHOR_ID)
+	 * by their exact Propulsion column fully qualified name (e.g. article.AUTHOR_ID)
 	 * but ignores the column names inside quotes
 	 * e.g. 'CONCAT(Book.Title, "Book.Title") = ?'
 	 *   => 'CONCAT(book.TITLE, "Book.Title") = ?'
@@ -1949,7 +1949,7 @@ class ModelCriteria extends Criteria
 		} elseif ($failSilently) {
 			return array(null, null);
 		} else {
-			throw new PropelException(sprintf('Unknown model or alias "%s"', $class));
+			throw new PropulsionException(sprintf('Unknown model or alias "%s"', $class));
 		}
 
 		if ($tableMap->hasColumnByPhpName($phpName)) {
@@ -1967,7 +1967,7 @@ class ModelCriteria extends Criteria
 		} elseif ($failSilently) {
 			return array(null, null);
 		} else {
-			throw new PropelException(sprintf('Unknown column "%s" on model or alias "%s"', $phpName, $class));
+			throw new PropulsionException(sprintf('Unknown column "%s" on model or alias "%s"', $phpName, $class));
 		}
 	}
 
@@ -1990,7 +1990,7 @@ class ModelCriteria extends Criteria
 		} elseif ($failSilently) {
 			return array(null, null);
 		} else {
-			throw new PropelException(sprintf('Unknown column "%s" in the subQuery with alias "%s"', $phpName, $class));
+			throw new PropulsionException(sprintf('Unknown column "%s" in the subQuery with alias "%s"', $phpName, $class));
 		}
 	}
 
@@ -2007,7 +2007,7 @@ class ModelCriteria extends Criteria
 	protected function getRealColumnName(string $columnName) : string
 	{
 		if (!$this->getTableMap()->hasColumnByPhpName($columnName)) {
-			throw new PropelException('Unkown column ' . $columnName . ' in model ' . $this->modelName);
+			throw new PropulsionException('Unkown column ' . $columnName . ' in model ' . $this->modelName);
 		}
 		if ($this->useAliasInSQL) {
 			return $this->modelAlias . '.' . $this->getTableMap()->getColumnByPhpName($columnName)->getName();
@@ -2061,7 +2061,7 @@ class ModelCriteria extends Criteria
 	public function getParams() : array
 	{
 		$params = array();
-		$dbMap = Propel::getDatabaseMap($this->getDbName());
+		$dbMap = Propulsion::getDatabaseMap($this->getDbName());
 
 		foreach ($this->getMap() as $criterion) {
 
@@ -2156,7 +2156,7 @@ class ModelCriteria extends Criteria
 			}
 		}
 
-		throw new PropelException(sprintf('Undefined method %s::%s()', __CLASS__, $name));
+		throw new PropulsionException(sprintf('Undefined method %s::%s()', __CLASS__, $name));
 	}
 
 	/**

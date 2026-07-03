@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -49,7 +49,7 @@ class GeneratedNestedSetTest extends CmsTestBase
 	 */
 	protected function addNewChildPage($parentId)
 	{
-		$db = Propel::getConnection(PagePeer::DATABASE_NAME);
+		$db = Propulsion::getConnection(PagePeer::DATABASE_NAME);
 
 		//$db->beginTransaction();
 
@@ -67,7 +67,7 @@ class GeneratedNestedSetTest extends CmsTestBase
 	 */
 	protected function assertPageTreeIntegrity()
 	{
-		$db = Propel::getConnection(PagePeer::DATABASE_NAME);
+		$db = Propulsion::getConnection(PagePeer::DATABASE_NAME);
 
 		$values = array();
 		$log = '';
@@ -97,7 +97,7 @@ class GeneratedNestedSetTest extends CmsTestBase
 	 */
 	public function testAdd()
 	{
-		$db = Propel::getConnection(PagePeer::DATABASE_NAME);
+		$db = Propulsion::getConnection(PagePeer::DATABASE_NAME);
 
 		// I'm not sure if the specific ID matters, but this should match original
 		// code.  The ID will change with subsequent runs (e.g. the first time it will be 11)

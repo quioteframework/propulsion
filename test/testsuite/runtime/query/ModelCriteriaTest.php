@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -41,29 +41,29 @@ class ModelCriteriaTest extends BookstoreTestBase
 	public function testFormatter()
 	{
 		$c = new ModelCriteria('bookstore', 'Book');
-		$this->assertTrue($c->getFormatter() instanceof PropelFormatter, 'getFormatter() returns a PropelFormatter instance');
+		$this->assertTrue($c->getFormatter() instanceof PropulsionFormatter, 'getFormatter() returns a PropulsionFormatter instance');
 
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->setFormatter(ModelCriteria::FORMAT_STATEMENT);
-		$this->assertTrue($c->getFormatter() instanceof PropelStatementFormatter, 'setFormatter() accepts the name of a PropelFormatter class');
+		$this->assertTrue($c->getFormatter() instanceof PropulsionStatementFormatter, 'setFormatter() accepts the name of a PropulsionFormatter class');
 
 		try {
 			$c->setFormatter('Book');
-			$this->fail('setFormatter() throws an exception when passed the name of a class not extending PropelFormatter');
-		} catch(PropelException $e) {
-			$this->assertTrue(true, 'setFormatter() throws an exception when passed the name of a class not extending PropelFormatter');
+			$this->fail('setFormatter() throws an exception when passed the name of a class not extending PropulsionFormatter');
+		} catch(PropulsionException $e) {
+			$this->assertTrue(true, 'setFormatter() throws an exception when passed the name of a class not extending PropulsionFormatter');
 		}
 		$c = new ModelCriteria('bookstore', 'Book');
-		$formatter = new PropelStatementFormatter();
+		$formatter = new PropulsionStatementFormatter();
 		$c->setFormatter($formatter);
-		$this->assertTrue($c->getFormatter() instanceof PropelStatementFormatter, 'setFormatter() accepts a PropelFormatter instance');
+		$this->assertTrue($c->getFormatter() instanceof PropulsionStatementFormatter, 'setFormatter() accepts a PropulsionFormatter instance');
 
 		try {
 			$formatter = new Book();
 			$c->setFormatter($formatter);
-			$this->fail('setFormatter() throws an exception when passed an object not extending PropelFormatter');
-		} catch(PropelException $e) {
-			$this->assertTrue(true, 'setFormatter() throws an exception when passedan object not extending PropelFormatter');
+			$this->fail('setFormatter() throws an exception when passed an object not extending PropulsionFormatter');
+		} catch(PropulsionException $e) {
+			$this->assertTrue(true, 'setFormatter() throws an exception when passedan object not extending PropulsionFormatter');
 		}
 
 	}
@@ -282,7 +282,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		try {
 			$c->where('b.Title = ?', 'foo');
 			$this->fail('where() throws an exception when it finds a ? but cannot determine a column');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->assertTrue(true, 'where() throws an exception when it finds a ? but cannot determine a column');
 		}
 	}
@@ -438,14 +438,14 @@ class ModelCriteriaTest extends BookstoreTestBase
 		try {
 			$c->orderBy('Book.Foo');
 			$this->fail('orderBy() throws an exception when called with an unkown column name');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->assertTrue(true, 'orderBy() throws an exception when called with an unkown column name');
 		}
 		$c = new ModelCriteria('bookstore', 'Book');
 		try {
 			$c->orderBy('Book.Title', 'foo');
 			$this->fail('orderBy() throws an exception when called with an unkown order');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->assertTrue(true, 'orderBy() throws an exception when called with an unkown order');
 		}
 	}
@@ -484,7 +484,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		try {
 			$c->groupBy('Book.Foo');
 			$this->fail('groupBy() throws an exception when called with an unkown column name');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->assertTrue(true, 'groupBy() throws an exception when called with an unkown column name');
 		}
 	}
@@ -511,11 +511,11 @@ class ModelCriteriaTest extends BookstoreTestBase
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testGroupByClassThrowsExceptionOnUnkownClass()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->groupByClass('Author');
 	}
@@ -623,7 +623,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		try {
 			$c->join('Book.Foo');
 			$this->fail('join() throws an exception when called with a non-existing relation');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->assertTrue(true, 'join() throws an exception when called with a non-existing relation');
 		}
 
@@ -648,7 +648,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testJoinQuery()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		BookstoreDataPopulator::depopulate($con);
 		BookstoreDataPopulator::populate($con);
 
@@ -778,7 +778,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'join() supports relation alias on main alias');
 
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$c = new ModelCriteria('bookstore', 'Book', 'b');
 		$c->join('b.Author a');
 		$c->where('a.FirstName = ?', 'Leo');
@@ -831,7 +831,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testJoinAliasQuery()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$c = new ModelCriteria('bookstore', 'Book', 'b');
 		$c->join('b.Author a');
 		$c->where('a.FirstName = ?', 'Leo');
@@ -850,7 +850,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testAddJoinConditionSimple()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->join('Book.Author', Criteria::INNER_JOIN);
 		$c->addJoinCondition('Author', 'Book.Title IS NOT NULL');
@@ -861,7 +861,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testAddJoinConditionBinding()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->join('Book.Author', Criteria::INNER_JOIN);
 		$c->addJoinCondition('Author', 'Book.Title = ?', 'foo');
@@ -872,7 +872,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testAddJoinConditionSeveral()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->join('Book.Author', Criteria::INNER_JOIN);
 		$c->addJoinCondition('Author', 'Book.Title = ?', 'foo');
@@ -884,7 +884,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testAddJoinConditionBindingAndWhere()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->where('Book.Title LIKE ?', 'foo%');
 		$c->join('Book.Author', Criteria::INNER_JOIN);
@@ -896,7 +896,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testAddJoinConditionAlias()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->join('Book.Author a', Criteria::INNER_JOIN);
 		$c->addJoinCondition('a', 'Book.Title IS NOT NULL');
@@ -907,7 +907,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testAddJoinConditionOperator()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->join('Book.Author', Criteria::INNER_JOIN);
 		$c->addJoinCondition('Author', 'Book.Title IS NOT NULL', null, Criteria::LOGICAL_OR);
@@ -918,7 +918,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testSetJoinConditionCriterion()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->join('Book.Author', Criteria::INNER_JOIN);
 		$criterion = $c->getNewCriterion(BookPeer::TITLE, BookPeer::TITLE . ' = ' . AuthorPeer::FIRST_NAME, Criteria::CUSTOM);
@@ -930,7 +930,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testSetJoinConditionNamedCondition()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->join('Book.Author', Criteria::INNER_JOIN);
 		$c->condition('cond1', 'Book.Title = Author.FirstName');
@@ -960,11 +960,11 @@ class ModelCriteriaTest extends BookstoreTestBase
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testWithThrowsExceptionWhenJoinLacks()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->with('Author');
 	}
@@ -979,11 +979,11 @@ class ModelCriteriaTest extends BookstoreTestBase
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testWithThrowsExceptionWhenNotUsingAlias()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->join('Book.Author a');
 		$c->with('Author');
@@ -1369,14 +1369,14 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c = new ModelCriteria('bookstore', 'Book', 'b');
 		$c->where('b.Title = ?', 'foo');
 		$books = $c->find();
-		$this->assertTrue($books instanceof PropelCollection, 'find() returns a collection by default');
+		$this->assertTrue($books instanceof PropulsionCollection, 'find() returns a collection by default');
 		$this->assertEquals(0, count($books), 'find() returns an empty array when the query returns no result');
 
 		$c = new ModelCriteria('bookstore', 'Book', 'b');
 		$c->join('b.Author a');
 		$c->where('a.FirstName = ?', 'Neal');
 		$books = $c->find();
-		$this->assertTrue($books instanceof PropelCollection, 'find() returns a collection by default');
+		$this->assertTrue($books instanceof PropulsionCollection, 'find() returns a collection by default');
 		$this->assertEquals(1, count($books), 'find() returns as many rows as the results in the query');
 		$book = $books->shift();
 		$this->assertTrue($book instanceof Book, 'find() returns an array of Model objects by default');
@@ -1385,7 +1385,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testFindAddsSelectColumns()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$c = new ModelCriteria('bookstore', 'Book');
 		$books = $c->find($con);
 		$sql = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book";
@@ -1394,7 +1394,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testFindTrueAliasAddsSelectColumns()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->setModelAlias('b', true);
 		$books = $c->find($con);
@@ -1462,7 +1462,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testFindOneOrCreateMakesOneQueryWhenRecordNotExists()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		BookQuery::create()->deleteAll($con);
 		$count = $con->getQueryCount();
 		$book = BookQuery::create('b')
@@ -1473,7 +1473,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testFindOneOrCreateMakesOneQueryWhenRecordExists()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		BookQuery::create()->deleteAll($con);
 		$book = new Book();
 		$book->setTitle('foo');
@@ -1563,7 +1563,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 		$c = new ModelCriteria('bookstore', 'Book');
 		$books = $c->findPks(array(765432, 434535));
-		$this->assertEquals($books instanceof PropelCollection, 'findPks() returns a PropelCollection');
+		$this->assertEquals($books instanceof PropulsionCollection, 'findPks() returns a PropulsionCollection');
 		$this->assertEquals(0, count($books), 'findPks() returns an empty collection when the primary keys are not found');
 
 		BookstoreDataPopulator::populate();
@@ -1587,7 +1587,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$bookListRel = $c->findPk(array(1, 2));
 		$this->assertNull($bookListRel, 'findPk() returns null when the composite primary key is not found');
 
-		Propel::enableInstancePooling();
+		Propulsion::enableInstancePooling();
 		BookstoreDataPopulator::populate();
 
 		// save all books to make sure related objects are also saved - BookstoreDataPopulator keeps some unsaved
@@ -1608,11 +1608,11 @@ class ModelCriteriaTest extends BookstoreTestBase
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testFindPksCompositeKey()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$c = new ModelCriteria('bookstore', 'BookListRel');
 		$bookListRel = $c->findPks(array(array(1, 2)));
 
@@ -1624,16 +1624,16 @@ class ModelCriteriaTest extends BookstoreTestBase
 			$c = new ModelCriteria('bookstore', 'Book');
 			$books = $c->findBy('Foo', 'Bar');
 			$this->fail('findBy() throws an exception when called on an unknown column name');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->assertTrue(true, 'findBy() throws an exception when called on an unknown column name');
 		}
 
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$c = new ModelCriteria('bookstore', 'Book');
 		$books = $c->findBy('Title', 'Don Juan', $con);
 		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book WHERE book.TITLE='Don Juan'";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'findBy() adds simple column conditions');
-		$this->assertTrue($books instanceof PropelCollection, 'findBy() issues a find()');
+		$this->assertTrue($books instanceof PropulsionCollection, 'findBy() issues a find()');
 		$this->assertEquals(1, count($books), 'findBy() adds simple column conditions');
 		$book = $books->shift();
 		$this->assertTrue($book instanceof Book, 'findBy() returns an array of Model objects by default');
@@ -1642,7 +1642,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testFindByArray()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$c = new ModelCriteria('bookstore', 'Book');
 		$books = $c->findByArray(array('Title' => 'Don Juan', 'ISBN' => 12345), $con);
 		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book WHERE book.TITLE='Don Juan' AND book.ISBN=12345";
@@ -1655,11 +1655,11 @@ class ModelCriteriaTest extends BookstoreTestBase
 			$c = new ModelCriteria('bookstore', 'Book');
 			$book = $c->findOneBy('Foo', 'Bar');
 			$this->fail('findOneBy() throws an exception when called on an unknown column name');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->assertTrue(true, 'findOneBy() throws an exception when called on an unknown column name');
 		}
 
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$c = new ModelCriteria('bookstore', 'Book');
 		$book = $c->findOneBy('Title', 'Don Juan', $con);
 		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book WHERE book.TITLE='Don Juan' LIMIT 1";
@@ -1670,7 +1670,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testFindOneByArray()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$c = new ModelCriteria('bookstore', 'Book');
 		$book = $c->findOneByArray(array('Title' => 'Don Juan', 'ISBN' => 12345), $con);
 		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book WHERE book.TITLE='Don Juan' AND book.ISBN=12345 LIMIT 1";
@@ -1699,7 +1699,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->join('b.Author a');
 		$c->where('a.FirstName = ?', 'Neal');
 		$books = $c->paginate(1, 5);
-		$this->assertTrue($books instanceof PropelModelPager, 'paginate() returns a PropelModelPager');
+		$this->assertTrue($books instanceof PropulsionModelPager, 'paginate() returns a PropulsionModelPager');
 		$this->assertEquals(1, count($books), 'paginate() returns a countable pager with the correct count');
 		foreach ($books as $book) {
 			$this->assertEquals('Neal', $book->getAuthor()->getFirstName(), 'paginate() returns an iterable pager');
@@ -1715,7 +1715,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		try {
 			$nbBooks = $c->delete();
 			$this->fail('delete() throws an exception when called on an empty Criteria');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->assertTrue(true, 'delete() throws an exception when called on an empty Criteria');
 		}
 
@@ -1738,7 +1738,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testDeleteUsingTableAlias()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->setModelAlias('b', false);
@@ -1776,7 +1776,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testUpdate()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		BookstoreDataPopulator::depopulate($con);
 		BookstoreDataPopulator::populate($con);
 
@@ -1809,7 +1809,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testUpdateUsingTableAlias()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->setModelAlias('b', false);
@@ -1828,7 +1828,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testUpdateOneByOne()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		BookstoreDataPopulator::depopulate($con);
 		BookstoreDataPopulator::populate($con);
 
@@ -1894,7 +1894,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testMagicJoin()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
 		$c = new ModelCriteria('bookstore', 'Book', 'b');
 		$c->leftJoin('b.Author a');
@@ -2017,7 +2017,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testMagicFind()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
 		$c = new ModelCriteria('bookstore', 'Book');
 		$books = $c->findByTitle('Don Juan');
@@ -2042,7 +2042,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testMagicFilterBy()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
 		$c = new ModelCriteria('bookstore', 'Book');
 		$books = $c->filterByTitle('Don Juan')->find($con);
@@ -2052,7 +2052,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testMagicOrderBy()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
 		$c = new ModelCriteria('bookstore', 'Book');
 		$books = $c->orderByTitle()->find($con);
@@ -2067,7 +2067,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testMagicGroupBy()
 	{
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
 		$c = new ModelCriteria('bookstore', 'Book');
 		$books = $c->groupByTitle()->find($con);
@@ -2093,7 +2093,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$this->assertTrue($c->thisIsMe, 'endUse() returns the Primary Criteria');
 		$this->assertEquals('Book', $c->getModelName(), 'endUse() returns the Primary Criteria');
 
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$c->find($con);
 		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` LEFT JOIN `author` ON (book.AUTHOR_ID=author.ID) WHERE book.TITLE = 'foo' AND author.FIRST_NAME = 'john' LIMIT 10, 5";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'useQuery() and endUse() allow to merge a secondary criteria');
@@ -2118,7 +2118,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$this->assertTrue($c->thisIsMe, 'endUse() returns the Primary Criteria');
 		$this->assertEquals('Book', $c->getModelName(), 'endUse() returns the Primary Criteria');
 
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$c->find($con);
 		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` LEFT JOIN `author` `a` ON (book.AUTHOR_ID=a.ID) WHERE book.TITLE = 'foo' AND a.FIRST_NAME = 'john' LIMIT 10, 5";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'useQuery() and endUse() allow to merge a secondary criteria');
@@ -2137,7 +2137,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c2->withNoName();
 		$c = $c2->endUse();
 
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$c->find($con);
 		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book LEFT JOIN author a ON (book.AUTHOR_ID=a.ID) WHERE book.TITLE = 'foo' AND a.FIRST_NAME IS NOT NULL  AND a.LAST_NAME IS NOT NULL LIMIT 10";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'useQuery() and endUse() allow to merge a custom secondary criteria');
@@ -2159,7 +2159,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 		$c = $c2->endUse();
 
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$c->find($con);
 		$expectedSQL = "SELECT review.ID, review.REVIEWED_BY, review.REVIEW_DATE, review.RECOMMENDED, review.STATUS, review.BOOK_ID, book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID, author.ID, author.FIRST_NAME, author.LAST_NAME, author.EMAIL, author.AGE FROM review INNER JOIN book ON (review.BOOK_ID=book.ID) INNER JOIN author ON (book.AUTHOR_ID=author.ID)";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'useQuery() and joinWith() can be used together and form a correct query');
@@ -2178,7 +2178,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c = $c2->endUse();
 		$this->assertEquals('BookstoreContest', $c->getModelName(), 'endUse() returns the Primary Criteria');
 
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$c->find($con);
 		$expectedSQL = "SELECT bookstore_contest.BOOKSTORE_ID, bookstore_contest.CONTEST_ID, bookstore_contest.PRIZE_BOOK_ID FROM bookstore_contest LEFT JOIN book ON (bookstore_contest.PRIZE_BOOK_ID=book.ID) WHERE book.TITLE = 'War And Peace'";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'useQuery() and endUse() allow to merge a secondary criteria');
@@ -2197,7 +2197,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c = $c2->endUse();
 		$this->assertEquals('BookstoreContest', $c->getModelName(), 'endUse() returns the Primary Criteria');
 
-		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$c->find($con);
 		$expectedSQL = "SELECT bookstore_contest.BOOKSTORE_ID, bookstore_contest.CONTEST_ID, bookstore_contest.PRIZE_BOOK_ID FROM bookstore_contest LEFT JOIN book w ON (bookstore_contest.PRIZE_BOOK_ID=w.ID) WHERE w.TITLE = 'War And Peace'";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'useQuery() and endUse() allow to merge a secondary criteria');

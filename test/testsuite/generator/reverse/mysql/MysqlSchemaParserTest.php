@@ -3,7 +3,7 @@
 
 use PHPUnit\Framework\TestCase;
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -28,21 +28,21 @@ class MysqlSchemaParserTest extends TestCase
 		$xmlDom = new DOMDocument();
 		$xmlDom->load(dirname(__FILE__) . '/../../../../fixtures/reverse/mysql/runtime-conf.xml');
 		$xml = simplexml_load_string($xmlDom->saveXML());
-		$phpconf = OpenedPropelConvertConfTask::simpleXmlToArray($xml);
+		$phpconf = OpenedPropulsionConvertConfTask::simpleXmlToArray($xml);
 
-		Propel::setConfiguration($phpconf);
-        Propel::initialize();
+		Propulsion::setConfiguration($phpconf);
+        Propulsion::initialize();
 	}
 
 	protected function tearDown(): void
 	{
 		parent::tearDown();
-		Propel::init(dirname(__FILE__) . '/../../../../fixtures/bookstore/build/conf/bookstore-conf.php');
+		Propulsion::init(dirname(__FILE__) . '/../../../../fixtures/bookstore/build/conf/bookstore-conf.php');
 	}
 
     public function testParse()
     {
-        $parser = new MysqlSchemaParser(Propel::getConnection('reverse-bookstore'));
+        $parser = new MysqlSchemaParser(Propulsion::getConnection('reverse-bookstore'));
         $parser->setGeneratorConfig(new QuickGeneratorConfig());
 
         $database = new Database();
@@ -59,7 +59,7 @@ class MysqlSchemaParserTest extends TestCase
     }
 }
 
-class OpenedPropelConvertConfTask extends PropelConvertConfTask
+class OpenedPropulsionConvertConfTask extends PropulsionConvertConfTask
 {
 	public static function simpleXmlToArray($xml)
 	{

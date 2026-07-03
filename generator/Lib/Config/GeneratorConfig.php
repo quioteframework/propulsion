@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the Propel package.
+ * This file is part of the Propulsion package.
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
@@ -20,7 +20,7 @@ namespace Propulsion\Generator\Config;
 
 use Propulsion\Generator\Exception\EngineException;
 use PDO;
-use Propulsion\Generator\Platform\PropelPlatformInterface;
+use Propulsion\Generator\Platform\PropulsionPlatformInterface;
 use Propulsion\Generator\Reverse\SchemaParser;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Builder\DataModelBuilder;
@@ -152,7 +152,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 	{
 		$this->buildProperties = array();
 
-		$renamedPropelProps = array();
+		$renamedPropulsionProps = array();
 		foreach ($props as $key => $propValue) {
 			if (strpos($key, "propel.") === 0) {
 				$newKey = substr($key, strlen("propel."));
@@ -304,7 +304,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 	 * Creates and configures a new Platform class.
 	 *
 	 * @param      PDO $con
-	 * @return     PropelPlatformInterface
+	 * @return     PropulsionPlatformInterface
 	 */
 	public function getConfiguredPlatform(?\PDO $con = null, $database = null)
 	{
@@ -319,8 +319,8 @@ class GeneratorConfig implements GeneratorConfigInterface
 		}
 		$platform = new $clazz();
 
-		if (!$platform instanceof PropelPlatformInterface) {
-			throw new EngineException("Specified platform class ($clazz) does not implement the PropelPlatformInterface interface.");
+		if (!$platform instanceof PropulsionPlatformInterface) {
+			throw new EngineException("Specified platform class ($clazz) does not implement the PropulsionPlatformInterface interface.");
 		}
 
 		$platform->setConnection($con);
