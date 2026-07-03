@@ -94,6 +94,7 @@ class PropelArrayFormatterWithTest extends BookstoreEmptyTestBase
 		// save a book with no author
 		$b = new Book();
 		$b->setTitle('Foo');
+		$b->setISBN('0000000000');
 		$b->save();
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->setFormatter(ModelCriteria::FORMAT_ARRAY);
@@ -131,13 +132,16 @@ class PropelArrayFormatterWithTest extends BookstoreEmptyTestBase
 		AuthorPeer::doDeleteAll();
 		$auth = new Author();
 		$auth->setFirstName('John');
+		$auth->setLastName('Doe');
 		$auth->save();
 		$book1 = new Book();
 		$book1->setTitle('Hello');
+		$book1->setISBN('0000000001');
 		$book1->setAuthor($auth);
 		$book1->save();
 		$book2 = new Book();
 		$book2->setTitle('World');
+		$book2->setISBN('0000000002');
 		$book2->setAuthor($auth);
 		$book2->save();
 		BookPeer::clearInstancePool();
@@ -161,9 +165,11 @@ class PropelArrayFormatterWithTest extends BookstoreEmptyTestBase
 		EssayPeer::doDeleteAll();
 		$auth1 = new Author();
 		$auth1->setFirstName('John');
+		$auth1->setLastName('Doe');
 		$auth1->save();
 		$auth2 = new Author();
 		$auth2->setFirstName('Jack');
+		$auth2->setLastName('Doe');
 		$auth2->save();
 		$essay = new Essay();
 		$essay->setTitle('Foo');
@@ -271,18 +277,23 @@ class PropelArrayFormatterWithTest extends BookstoreEmptyTestBase
 	{
 		$author1 = new Author();
 		$author1->setFirstName('AA');
+		$author1->setLastName('AA');
 		$author2 = new Author();
 		$author2->setFirstName('BB');
+		$author2->setLastName('BB');
 		$book1 = new Book();
 		$book1->setTitle('Aaa');
+		$book1->setISBN('0000000003');
 		$book1->setAuthor($author1);
 		$book1->save();
 		$book2 = new Book();
 		$book2->setTitle('Bbb');
+		$book2->setISBN('0000000004');
 		$book2->setAuthor($author2);
 		$book2->save();
 		$book3 = new Book();
 		$book3->setTitle('Ccc');
+		$book3->setISBN('0000000005');
 		$book3->setAuthor($author1);
 		$book3->save();
 		$authors = AuthorQuery::create()
@@ -367,6 +378,8 @@ class PropelArrayFormatterWithTest extends BookstoreEmptyTestBase
 		AuthorPeer::clearInstancePool();
 		ReviewPeer::clearInstancePool();
 		$review = new Review();
+		$review->setReviewedBy('Washington Post');
+		$review->setRecommended(true);
 		$review->save($this->con);
 		$c = new ModelCriteria('bookstore', 'Review');
 		$c->setFormatter(ModelCriteria::FORMAT_ARRAY);

@@ -100,6 +100,7 @@ class PropelOnDemandFormatterWithTest extends BookstoreEmptyTestBase
 		// save a book with no author
 		$b = new Book();
 		$b->setTitle('Foo');
+		$b->setISBN('0000000000');
 		$b->save();
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->setFormatter(ModelCriteria::FORMAT_ON_DEMAND);
@@ -143,9 +144,11 @@ class PropelOnDemandFormatterWithTest extends BookstoreEmptyTestBase
 		EssayPeer::doDeleteAll();
 		$auth1 = new Author();
 		$auth1->setFirstName('John');
+		$auth1->setLastName('Doe');
 		$auth1->save();
 		$auth2 = new Author();
 		$auth2->setFirstName('Jack');
+		$auth2->setLastName('Doe');
 		$auth2->save();
 		$essay = new Essay();
 		$essay->setTitle('Foo');
@@ -251,6 +254,8 @@ class PropelOnDemandFormatterWithTest extends BookstoreEmptyTestBase
 		AuthorPeer::clearInstancePool();
 		ReviewPeer::clearInstancePool();
 		$review = new Review();
+		$review->setReviewedBy('Washington Post');
+		$review->setRecommended(true);
 		$review->save($this->con);
 		$c = new ModelCriteria('bookstore', 'Review');
 		$c->setFormatter(ModelCriteria::FORMAT_ON_DEMAND);

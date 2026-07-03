@@ -642,6 +642,7 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
     {
         $a = new Author();
         $a->setFirstName('Foo');
+        $a->setLastName('Bar');
         $a->save();
         $this->assertFalse($a->isModified());
     }

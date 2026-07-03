@@ -60,6 +60,7 @@ class BaseObjectSerializeTest extends BookstoreTestBase
 	{
 		$author = new Author();
 		$author->setFirstName('John');
+		$author->setLastName('Doe');
 		$book = new Book();
 		$book->setTitle('Foo4');
 		$book->setISBN('1234');
@@ -81,6 +82,7 @@ class BaseObjectSerializeTest extends BookstoreTestBase
 		$book2->setISBN('1234');
 		$author = new Author();
 		$author->setFirstName('JAne');
+		$author->setLastName('Doe');
 		$author->addBook($book1);
 		$author->addBook($book2);
 		$author->save();

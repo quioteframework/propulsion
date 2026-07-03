@@ -7,7 +7,7 @@ scoping conversation, before it detoured into fixing tests).
 
 ## Current test suite state
 
-2135 tests, **128 errors, 174 failures**, 27 skipped, 10 risky, out of a
+2135 tests, **88 errors, 174 failures**, 27 skipped, 10 risky, out of a
 suite that couldn't run a single test at the start of this work (bootstrap
 was completely broken) and had 1137+ errors once it could run at all. See
 git log on `main` for the detailed fix history — each commit message
@@ -26,17 +26,20 @@ tests that need it, if Docker isn't available.)
 
 ### Remaining failures, by cluster (highest count first)
 
-1. **~30 "not null violation" errors** — scattered across many individual
-   test methods (`PropelModelPagerTest`, `PropelObjectCollectionTest`,
-   `PropelArrayFormatterWithTest`, `PropelOnDemandFormatterTest`, others)
-   that construct `new Book()` / `new Author()` with required columns
-   (`isbn`, `first_name`, `last_name`) left unset. MySQL's non-strict mode
-   silently coerced this to empty strings; Postgres correctly rejects it.
-   Same root cause as the two tests already fixed in
-   `GeneratedObjectTest.php` (commit `6f6b08e`) — no shared fix point, each
-   needs its own required-field populated. Mechanical but has to be done
-   test-by-test; a good task to batch with an agent given the pattern is
-   now well understood.
+1. ~~**~30 "not null violation" errors**~~ — **fixed.** 40 test methods
+   across `PropelModelPagerTest`, `PropelObjectCollectionTest`,
+   `PropelObjectCollectionWithFixturesTest`, `PropelArrayFormatterWithTest`,
+   `PropelObjectFormatterWithTest`, `PropelOnDemandFormatterTest`,
+   `PropelOnDemandFormatterWithTest`, `BaseObjectSerializeTest`,
+   `ModelCriteriaTest`, `Ticket520Test`, and `GeneratedObjectTest`
+   constructed `new Book()` / `new Author()` / `new Review()` with required
+   columns (`isbn`, `first_name`, `last_name`, `reviewed_by`,
+   `recommended`) left unset. MySQL's non-strict mode silently coerced this
+   to empty strings; Postgres correctly rejects it. Same root cause as the
+   two tests already fixed in `GeneratedObjectTest.php` (commit `6f6b08e`)
+   — populated the missing required field(s) in each test, following the
+   same value conventions already used elsewhere in each file. No behavior
+   or assertions changed. Dropped the suite's error count from 128 to 88.
 
 2. **1 real runtime bug**: `Join::getLeftTableAliasOrName(): string` throws
    `TypeError: ... none returned` — `leftTableName` is never populated for

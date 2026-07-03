@@ -80,6 +80,7 @@ class PropelOnDemandFormatterTest extends BookstoreEmptyTestBase
 		for ($i=0; $i < $nbBooks; $i++) {
 			$book->clear();
 			$book->setTitle('BookTest' . $i);
+			$book->setISBN('0000000000');
 			$book->save($con);
 		}
 

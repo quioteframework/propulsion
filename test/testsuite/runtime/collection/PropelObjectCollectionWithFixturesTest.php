@@ -63,8 +63,8 @@ class PropelObjectCollectionWithFixturesTest extends BookstoreEmptyTestBase
 		$author->setLastName('Austen');
 		$author->save();
 		$books = array(
-			array('Title' => 'Mansfield Park', 'AuthorId' => $author->getId()),
-			array('Title' => 'Pride And PRejudice', 'AuthorId' => $author->getId())
+			array('Title' => 'Mansfield Park', 'ISBN' => '9780141439808', 'AuthorId' => $author->getId()),
+			array('Title' => 'Pride And PRejudice', 'ISBN' => '9780141439518', 'AuthorId' => $author->getId())
 		);
 		$col = new PropelObjectCollection();
 		$col->setModel('Book');

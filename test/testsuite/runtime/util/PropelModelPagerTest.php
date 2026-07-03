@@ -28,6 +28,7 @@ class PropelModelPagerTest extends BookstoreEmptyTestBase
 		for ($i=0; $i < $nb; $i++) {
 			$b = new Book();
 			$b->setTitle('Book' . $i);
+			$b->setISBN('12345' . $i);
 			$books[]= $b;
 		}
 		$books->save($con);

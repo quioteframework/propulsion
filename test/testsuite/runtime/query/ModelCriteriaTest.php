@@ -1447,6 +1447,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		BookQuery::create()->deleteAll();
 		$book = new Book();
 		$book->setTitle('foo');
+		$book->setISBN('0000000000');
 		$book->setPrice(125);
 		$book->save();
 		$book = BookQuery::create('b')
@@ -1475,6 +1476,8 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$con = Propel::getConnection(BookPeer::DATABASE_NAME);
 		BookQuery::create()->deleteAll($con);
 		$book = new Book();
+		$book->setTitle('foo');
+		$book->setISBN('0000000000');
 		$book->setPrice(125);
 		$book->save($con);
 		$count = $con->getQueryCount();

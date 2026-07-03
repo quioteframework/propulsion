@@ -67,6 +67,7 @@ class PropelObjectCollectionTest extends BookstoreTestBase
 		for ($i=0; $i < 4; $i++) {
 			$book = new Book();
 			$book->setTitle('Title' . $i);
+			$book->setISBN('0140422161');
 			$book->save($this->con);
 			$books []= $book;
 		}
@@ -126,6 +127,7 @@ class PropelObjectCollectionTest extends BookstoreTestBase
 	public function testPopulateRelationOneToManyWithEmptyCollection()
 	{
 		$author = new Author();
+		$author->setFirstName('Anonymous');
 		$author->setLastName('I who never wrote');
 		$author->save($this->con);
 		AuthorPeer::clearInstancePool();
