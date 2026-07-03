@@ -40,7 +40,7 @@ class PHP84ObjectBuilder extends ObjectBuilder
 	 */
 	public function getPackage()
 	{
-		return parent::getPackage() . ".OM";
+		return parent::getPackage() . ".om";
 	}
 
 	public function getNamespace()

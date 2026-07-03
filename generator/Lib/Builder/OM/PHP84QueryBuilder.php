@@ -29,7 +29,7 @@ class PHP84QueryBuilder extends QueryBuilder
 		if (!$pkg) {
 			$pkg = $this->getBuildProperty('targetPackage');
 		}
-		return $pkg . ".OM";
+		return $pkg . ".om";
          
 	}
 
