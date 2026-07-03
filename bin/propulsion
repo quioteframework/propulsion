@@ -10,8 +10,8 @@ use Propulsion\Generator\Command\InitCommand;
 
 $application = new Application('Propulsion', '2.0.0-dev');
 
-$application->add(new ModelBuildCommand());
-$application->add(new SqlBuildCommand());
-$application->add(new InitCommand());
+$application->addCommand(new ModelBuildCommand());
+$application->addCommand(new SqlBuildCommand());
+$application->addCommand(new InitCommand());
 
 $application->run();
