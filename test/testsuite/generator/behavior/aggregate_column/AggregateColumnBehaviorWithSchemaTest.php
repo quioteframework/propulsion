@@ -27,7 +27,20 @@ class AggregateColumnBehaviorWithSchemaTest extends SchemasTestBase
 
 	protected function tearDown(): void
 	{
-		$this->con->commit();
+		// A failing test (e.g. a constraint violation mid-transaction) leaves
+		// Postgres in an aborted-transaction state, in which a plain commit()
+		// throws -- see BookstoreTestBase::tearDown() for the same guard. Left
+		// unguarded, that exception would skip parent::tearDown() below, which
+		// is what restores the shared Propel configuration back to the
+		// bookstore datasource (SchemasTestBase::setUp() swaps it to the
+		// schemas datasource); every subsequent bookstore-fixture test running
+		// afterward in this process would then fail with "No connection
+		// information ... for datasource [bookstore]".
+		if ($this->con && $this->con->isCommitable()) {
+			$this->con->commit();
+		} elseif ($this->con && $this->con->isInTransaction()) {
+			$this->con->forceRollBack();
+		}
 		parent::tearDown();
 	}
 
