@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
- namespace Propel\Generator\Model;
+ namespace Propulsion\Generator\Model;
 
 /**
  * Information about indices of a table.
@@ -17,7 +17,7 @@
  * @version    $Revision$
  * @package    propel.generator.model
  */
-use Propel\Generator\Exception\EngineException;
+use Propulsion\Generator\Exception\EngineException;
 class Index extends XMLElement
 {
 

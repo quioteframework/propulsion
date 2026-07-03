@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Formatter;
+namespace Propulsion\Formatter;
 
 /**
  * Object formatter for Propel query
@@ -18,12 +18,12 @@ namespace Propel\Formatter;
  * @package    propel.runtime.formatter
  */
 
- use Propel\Exception\PropelException;
+ use Propulsion\Exception\PropelException;
  use PDOStatement;
  use PDO;
 class PropelObjectFormatter extends PropelFormatter
 {
-	protected $collectionName = 'Propel\\Collection\\PropelObjectCollection';
+	protected $collectionName = 'Propulsion\\Collection\\PropelObjectCollection';
 
 	public function format(PDOStatement $stmt)
 	{
@@ -84,7 +84,7 @@ class PropelObjectFormatter extends PropelFormatter
 	 *  @param    array  $row associative array indexed by column number,
 	 *                   as returned by PDOStatement::fetch(PDO::FETCH_NUM)
 	 *
-	 * @return    \Propel\Om\BaseObject
+	 * @return    \Propulsion\Om\BaseObject
 	 */
 	public function getAllObjectsFromRow($row)
 	{

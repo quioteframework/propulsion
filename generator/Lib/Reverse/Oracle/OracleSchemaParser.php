@@ -8,7 +8,7 @@
  * @license    MIT License
  */
 
-namespace Propel\Generator\Reverse\Oracle;
+namespace Propulsion\Generator\Reverse\Oracle;
 
 /**
  * Oracle database schema parser.
@@ -18,15 +18,15 @@ namespace Propel\Generator\Reverse\Oracle;
  * @version    $Revision$
  * @package    propel.generator.reverse.oracle
  */
-use Propel\Generator\Reverse\BaseSchemaParser;
-use Propel\Generator\Model\PropelTypes;
-use Propel\Generator\Model\Database;
-use Propel\Generator\Model\Table;
-use Propel\Generator\Model\Column;
-use Propel\Generator\Model\ColumnDefaultValue;
-use Propel\Generator\Model\ForeignKey;
-use Propel\Generator\Model\Index;
-use Propel\Generator\Model\IdMethodParameter;
+use Propulsion\Generator\Reverse\BaseSchemaParser;
+use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\Database;
+use Propulsion\Generator\Model\Table;
+use Propulsion\Generator\Model\Column;
+use Propulsion\Generator\Model\ColumnDefaultValue;
+use Propulsion\Generator\Model\ForeignKey;
+use Propulsion\Generator\Model\Index;
+use Propulsion\Generator\Model\IdMethodParameter;
 use Phing\Task;
 use Phing\Project;
 use \PDO;

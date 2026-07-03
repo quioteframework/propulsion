@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Behavior\Versionable;
+namespace Propulsion\Generator\Behavior\Versionable;
 
 /**
  * Behavior to add versionable columns and abilities

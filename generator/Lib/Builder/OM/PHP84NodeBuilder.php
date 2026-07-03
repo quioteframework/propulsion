@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Builder\OM;
+namespace Propulsion\Generator\Builder\OM;
 
 /**
  * Generates a PHP 8.4 tree node Object class for user object model (OM).

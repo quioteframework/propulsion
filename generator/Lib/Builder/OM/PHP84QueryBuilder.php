@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Builder\OM;
+namespace Propulsion\Generator\Builder\OM;
 
 /**
  * Generates a PHP 8.4 base Query class for user object model (OM).
@@ -18,8 +18,8 @@ namespace Propel\Generator\Builder\OM;
  * @author     Modernized for PHP 8.4
  * @package    propel.generator.builder.om
  */
-use Propel\Generator\Model\PropelTypes;
-use Propel\Generator\Model\ForeignKey;
+use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\ForeignKey;
 
 class PHP84QueryBuilder extends QueryBuilder
 {
@@ -103,9 +103,9 @@ class PHP84QueryBuilder extends QueryBuilder
  * @method     $queryClass rightJoin(string \$relation) Adds a RIGHT JOIN clause to the query
  * @method     $queryClass innerJoin(string \$relation) Adds a INNER JOIN clause to the query
  * @method     $queryClass joinWith(string \$relation, ?string \$joinType = null) Adds a join with the columns of the related table
- * @method     $queryClass addJoinObject(\\Propel\\Query\\ModelJoin \$join, ?string \$name = null) Adds a join object to the query
+ * @method     $queryClass addJoinObject(\\Propulsion\\Query\\ModelJoin \$join, ?string \$name = null) Adds a join object to the query
  * @method     $queryClass useQuery(string \$relationName, ?string \$secondTableAlias = null) Use the relation as sub query
- * @method     $queryClass mergeWith(\\Propel\\Query\\Criteria \$criteria) Merge the conditions of another Criteria into this one
+ * @method     $queryClass mergeWith(\\Propulsion\\Query\\Criteria \$criteria) Merge the conditions of another Criteria into this one
  * @method     $queryClass addUsingAlias(string \$column, mixed \$value, ?string \$comparison = null) Add a condition using a column alias
  *";
 
@@ -137,7 +137,7 @@ class PHP84QueryBuilder extends QueryBuilder
  * @method     ?$modelClass findPk(mixed \$key, ?PropelPDO \$con = null) Return the $modelClass matching the primary key
  * @method     PropelObjectCollection<$modelClass> findPks(mixed \$keys, ?PropelPDO \$con = null) Return $modelClass objects matching the primary keys
  * @method     int count(?PropelPDO \$con = null) Count the number of matching records
- * @method     \\Propel\\Util\\PropelModelPager paginate(int \$page = 1, int \$maxPerPage = 10, ?PropelPDO \$con = null) Paginate the results
+ * @method     \\Propulsion\\Util\\PropelModelPager paginate(int \$page = 1, int \$maxPerPage = 10, ?PropelPDO \$con = null) Paginate the results
  * @method     int delete(?PropelPDO \$con = null) Delete matching records
  * @method     int update(array \$values, ?PropelPDO \$con = null, bool \$forceIndividualSaves = false) Update matching records
  *";
@@ -201,12 +201,12 @@ class PHP84QueryBuilder extends QueryBuilder
  * @method     $queryClass addAnd(string \$column, mixed \$value = null, ?string \$comparison = null) Add an AND condition
  * @method     $queryClass where(string|array \$clause, mixed \$value = null) Add a WHERE clause to the query
  * @method     $queryClass condition(string \$conditionName, string \$clause, mixed \$value = null) Add a named condition
- * @method     $queryClass mergeWith(\\Propel\\Query\\Criteria \$criteria) Merge conditions from another Criteria object
+ * @method     $queryClass mergeWith(\\Propulsion\\Query\\Criteria \$criteria) Merge conditions from another Criteria object
  * @method     $queryClass addJoin(string \$left, string \$right, ?string \$joinType = null) Add a join condition
  * @method     $queryClass addGroupByColumn(string \$column) Add a GROUP BY column
  * @method     $queryClass addSelectColumn(string \$column) Add a column to the SELECT clause
  * @method     $queryClass addSelfSelectColumns() Add the columns of the current table to the SELECT clause
- * @method     $queryClass addHaving(\\Propel\\Query\\Criterion \$having) Add a HAVING condition
+ * @method     $queryClass addHaving(\\Propulsion\\Query\\Criterion \$having) Add a HAVING condition
  * @method     $queryClass addAscendingOrderByColumn(string \$column) Add ascending order by column
  * @method     $queryClass addDescendingOrderByColumn(string \$column) Add descending order by column
  * @method     $queryClass setIgnoreCase(bool \$ignoreCase) Set ignore case flag for string comparisons
@@ -451,14 +451,14 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
     protected function addClassBody(&$script): void
     {
         // Declare essential classes for Base*Query classes with proper namespaces
-        $this->declareClass('Propel\Query\ModelCriteria');
-        $this->declareClass('Propel\Connection\PropelPDO');
-        $this->declareClass('Propel\Query\Criteria');
-        $this->declareClass('Propel\Exception\PropelException');
-        $this->declareClass('Propel\Collection\PropelCollection');
-        $this->declareClass('Propel\Collection\PropelObjectCollection');
-        $this->declareClass('Propel\Query\ModelJoin');
-        $this->declareClass('Propel\Propel');
+        $this->declareClass('Propulsion\Query\ModelCriteria');
+        $this->declareClass('Propulsion\Connection\PropelPDO');
+        $this->declareClass('Propulsion\Query\Criteria');
+        $this->declareClass('Propulsion\Exception\PropelException');
+        $this->declareClass('Propulsion\Collection\PropelCollection');
+        $this->declareClass('Propulsion\Collection\PropelObjectCollection');
+        $this->declareClass('Propulsion\Query\ModelJoin');
+        $this->declareClass('Propulsion\Propel');
         
         // Declare related builders for type hints and relationships
         $this->declareClassFromBuilder($this->getStubPeerBuilder());
@@ -485,17 +485,17 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         // Build a map of class names to their preferred fully qualified names
         $classMap = [];
         $preferredNamespaces = [
-            'PropelException' => 'Propel\\Exception\\PropelException',
-            'BasePeer' => 'Propel\\Util\\BasePeer',
-            'Criteria' => 'Propel\\Query\\Criteria',
-            'ModelCriteria' => 'Propel\\Query\\ModelCriteria',
-            'ModelJoin' => 'Propel\\Query\\ModelJoin',
-            'PropelPDO' => 'Propel\\Connection\\PropelPDO',
-            'PropelCollection' => 'Propel\\Collection\\PropelCollection',
-            'PropelObjectCollection' => 'Propel\\Collection\\PropelObjectCollection',
-            'Propel' => 'Propel\\Propel',
-            'BaseObject' => 'Propel\\OM\\BaseObject',
-            'Persistent' => 'Propel\\OM\\Persistent'
+            'PropelException' => 'Propulsion\\Exception\\PropelException',
+            'BasePeer' => 'Propulsion\\Util\\BasePeer',
+            'Criteria' => 'Propulsion\\Query\\Criteria',
+            'ModelCriteria' => 'Propulsion\\Query\\ModelCriteria',
+            'ModelJoin' => 'Propulsion\\Query\\ModelJoin',
+            'PropelPDO' => 'Propulsion\\Connection\\PropelPDO',
+            'PropelCollection' => 'Propulsion\\Collection\\PropelCollection',
+            'PropelObjectCollection' => 'Propulsion\\Collection\\PropelObjectCollection',
+            'Propel' => 'Propulsion\\Propel',
+            'BaseObject' => 'Propulsion\\OM\\BaseObject',
+            'Persistent' => 'Propulsion\\OM\\Persistent'
         ];
         
         // Collect all classes and prefer properly namespaced versions
@@ -870,14 +870,14 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * @param string \$name The method name
      * @param array \$arguments The method arguments
      * @return mixed
-     * @throws \\Propel\\Exception\\PropelException
+     * @throws \\Propulsion\\Exception\\PropelException
      */
     public function __call(\$name, \$arguments)
     {
         // Try to handle it via the parent's __call first (for standard magic methods)
         try {
             return parent::__call(\$name, \$arguments);
-        } catch (\\Propel\\Exception\\PropelException \$e) {
+        } catch (\\Propulsion\\Exception\\PropelException \$e) {
             // If it's a filterBy* method that failed, try delegating to the related table
             if (str_starts_with(\$name, 'filterBy')) {
                 // Attempt to delegate to the related query

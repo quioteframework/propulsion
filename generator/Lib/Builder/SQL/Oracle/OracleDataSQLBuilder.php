@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Builder\SQL\Oracle;;
+namespace Propulsion\Generator\Builder\SQL\Oracle;;
 
 /**
  * Oracle class for building data dump SQL.
@@ -15,7 +15,7 @@ namespace Propel\Generator\Builder\SQL\Oracle;;
  * @author     Hans Lellelid <hans@xmpl.org>
  * @package    propel.generator.builder.sql.oracle
  */
-use Propel\Generator\Builder\SQL\DataSQLBuilder;
+use Propulsion\Generator\Builder\SQL\DataSQLBuilder;
 
 class OracleDataSQLBuilder extends DataSQLBuilder
 {

@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Query;
+namespace Propulsion\Query;
 
 /**
  * Factory for model queries
@@ -16,7 +16,7 @@ namespace Propel\Query;
  * @version    $Revision$
  * @package    propel.runtime.query
  */
-use Propel\Exception\PropelException;
+use Propulsion\Exception\PropelException;
 class PropelQuery
 {
 	public static function from($queryClassAndAlias)

@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Platform;
+namespace Propulsion\Generator\Platform;
 
 /**
  * SQLite PropelPlatformInterface implementation.
@@ -16,10 +16,10 @@ namespace Propel\Generator\Platform;
  * @version    $Revision$
  * @package    propel.generator.platform
  */
-use Propel\Generator\Model\Domain;
-use Propel\Generator\Model\PropelTypes;
-use Propel\Generator\Model\Table;
-use Propel\Generator\Model\ForeignKey;
+use Propulsion\Generator\Model\Domain;
+use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\Table;
+use Propulsion\Generator\Model\ForeignKey;
 class SqlitePlatform extends DefaultPlatform
 {
 

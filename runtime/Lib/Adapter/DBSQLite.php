@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Adapter;
+namespace Propulsion\Adapter;
 
 /**
  * This is used in order to connect to a SQLite database.
@@ -17,7 +17,7 @@ namespace Propel\Adapter;
  * @package    propel.runtime.adapter
  */
 use PDO;
-use Propel\Exception\PropelException;
+use Propulsion\Exception\PropelException;
 class DBSQLite extends DBAdapter
 {
 

@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Behavior\NestedSet;
+namespace Propulsion\Generator\Behavior\NestedSet;
 
 /**
  * Behavior to adds nested set tree structure columns and abilities

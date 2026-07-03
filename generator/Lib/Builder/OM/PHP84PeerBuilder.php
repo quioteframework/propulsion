@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Builder\OM;
+namespace Propulsion\Generator\Builder\OM;
 
 /**
  * Generates a PHP 8.4 base Peer class for user object model (OM).
@@ -23,12 +23,12 @@ namespace Propel\Generator\Builder\OM;
  * @author     GitHub Copilot
  * @package    propel.generator.builder.om
  */
-use Propel\Generator\Model\ForeignKey;
-use Propel\Generator\Exception\EngineException;
-use Propel\Generator\Model\Table;
-use Propel\Generator\Model\Column;
-use Propel\Generator\Model\PropelTypes;
-use Propel\Generator\Model\IDMethod;
+use Propulsion\Generator\Model\ForeignKey;
+use Propulsion\Generator\Exception\EngineException;
+use Propulsion\Generator\Model\Table;
+use Propulsion\Generator\Model\Column;
+use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\IDMethod;
 
 class PHP84PeerBuilder extends PeerBuilder
 {
@@ -246,13 +246,13 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		// Declare essential classes for Base*Peer classes
 		$this->declareClassFromBuilder($this->getStubPeerBuilder());
 		$this->declareClassFromBuilder($this->getStubObjectBuilder());
-		$this->declareClass('Propel\\OM\\BaseObject');
-		$this->declareClass('Propel\\OM\\Persistent');
-		$this->declareClass('Propel\\Exception\\PropelException');
-		$this->declareClass('Propel\\Util\\BasePeer');
-		$this->declareClass('Propel\\Connection\\PropelPDO');
-		$this->declareClass('Propel\\Query\\Criteria');
-		$this->declareClass('Propel\\Propel');
+		$this->declareClass('Propulsion\\OM\\BaseObject');
+		$this->declareClass('Propulsion\\OM\\Persistent');
+		$this->declareClass('Propulsion\\Exception\\PropelException');
+		$this->declareClass('Propulsion\\Util\\BasePeer');
+		$this->declareClass('Propulsion\\Connection\\PropelPDO');
+		$this->declareClass('Propulsion\\Query\\Criteria');
+		$this->declareClass('Propulsion\\Propel');
 		$this->declareClass('\\DateTime');
 		$this->declareClass('\\DateTimeInterface');
 		$this->declareClass('\\Exception');
@@ -275,16 +275,16 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		// Build a map of class names to their preferred fully qualified names
 		$classMap = [];
 		$preferredNamespaces = [
-			'PropelException' => 'Propel\\Exception\\PropelException',
-			'BasePeer' => 'Propel\\Util\\BasePeer',
-			'Criteria' => 'Propel\\Query\\Criteria',
-			'ModelCriteria' => 'Propel\\Query\\ModelCriteria',
-			'ModelJoin' => 'Propel\\Query\\ModelJoin',
-			'PropelPDO' => 'Propel\\Connection\\PropelPDO',
-			'PropelCollection' => 'Propel\\Collection\\PropelCollection',
-			'Propel' => 'Propel\\Propel',
-			'BaseObject' => 'Propel\\OM\\BaseObject',
-			'Persistent' => 'Propel\\OM\\Persistent'
+			'PropelException' => 'Propulsion\\Exception\\PropelException',
+			'BasePeer' => 'Propulsion\\Util\\BasePeer',
+			'Criteria' => 'Propulsion\\Query\\Criteria',
+			'ModelCriteria' => 'Propulsion\\Query\\ModelCriteria',
+			'ModelJoin' => 'Propulsion\\Query\\ModelJoin',
+			'PropelPDO' => 'Propulsion\\Connection\\PropelPDO',
+			'PropelCollection' => 'Propulsion\\Collection\\PropelCollection',
+			'Propel' => 'Propulsion\\Propel',
+			'BaseObject' => 'Propulsion\\OM\\BaseObject',
+			'Persistent' => 'Propulsion\\OM\\Persistent'
 		];
 		
 		// Collect all classes and prefer properly namespaced versions
@@ -652,7 +652,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Returns the TableMap related to this peer.
 	 * This method is not needed for general use but a specific application could have a need.
-	 * @return     \Propel\Map\TableMap
+	 * @return     \Propulsion\Map\TableMap
 	 * @throws     PropelException Any exceptions caught during processing will be
 	 *		 rethrown wrapped into a PropelException.
 	 */

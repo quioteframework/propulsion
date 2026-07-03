@@ -1,5 +1,5 @@
 <?php
-namespace Propel\Generator\Behavior\Versionable;
+namespace Propulsion\Generator\Behavior\Versionable;
 
 /**
  * This file is part of the Propel package.

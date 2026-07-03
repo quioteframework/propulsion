@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Platform;
+namespace Propulsion\Generator\Platform;
 
 /**
  * Postgresql PropelPlatformInterface implementation.
@@ -18,15 +18,15 @@ namespace Propel\Generator\Platform;
  * @version    $Revision$
  * @package    propel.generator.platform
  */
-use Propel\Generator\Model\Domain;
-use Propel\Generator\Model\PropelTypes;
-use Propel\Generator\Model\Table;
-use Propel\Generator\Model\IDMethod;
-use Propel\Generator\Model\Database;
-use Propel\Generator\Model\Column;
-use Propel\Generator\Model\Unique;
-use Propel\Generator\Model\Diff\PropelColumnDiff;
-use Propel\Generator\Model\Index;
+use Propulsion\Generator\Model\Domain;
+use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\Table;
+use Propulsion\Generator\Model\IDMethod;
+use Propulsion\Generator\Model\Database;
+use Propulsion\Generator\Model\Column;
+use Propulsion\Generator\Model\Unique;
+use Propulsion\Generator\Model\Diff\PropelColumnDiff;
+use Propulsion\Generator\Model\Index;
 
 class PgsqlPlatform extends DefaultPlatform
 {

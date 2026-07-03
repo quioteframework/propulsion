@@ -7,14 +7,14 @@
  *
  * @license		 MIT License
  */
-namespace Propel\Generator\Config;
+namespace Propulsion\Generator\Config;
 
 /**
  *
  * @package      propel.generator.config
  */
 
-use Propel\Generator\Model\Table;
+use Propulsion\Generator\Model\Table;
 
 interface GeneratorConfigInterface
 {

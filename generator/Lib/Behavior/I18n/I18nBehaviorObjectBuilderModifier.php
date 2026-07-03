@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Behavior\I18n;
+namespace Propulsion\Generator\Behavior\I18n;
 
 /**
  * Allows translation of text columns through transparent one-to-many relationship.
@@ -18,8 +18,8 @@ namespace Propel\Generator\Behavior\I18n;
  * @package    propel.generator.behavior.i18n
  */
 
- use Propel\Generator\Model\Column;
- use Propel\Generator\Model\PropelTypes;
+ use Propulsion\Generator\Model\Column;
+ use Propulsion\Generator\Model\PropelTypes;
 class I18nBehaviorObjectBuilderModifier
 {
 	protected $behavior, $table, $builder;

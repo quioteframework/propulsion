@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Builder\Util;
+namespace Propulsion\Generator\Builder\Util;
 
 /**
  * The default Enlglish pluralizer class.

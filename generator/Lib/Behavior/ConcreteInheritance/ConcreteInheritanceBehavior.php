@@ -8,7 +8,7 @@
  * @license    MIT License
  */
 
- namespace Propel\Generator\Behavior\ConcreteInheritance;
+ namespace Propulsion\Generator\Behavior\ConcreteInheritance;
 
 /**
  * Makes a model inherit another one. The model with this behavior gets a copy
@@ -22,8 +22,8 @@
  * @package    propel.generator.behavior.concrete_inheritance
  */
 
-use Propel\Generator\Model\Behavior;
-use Propel\Generator\Model\ForeignKey;
+use Propulsion\Generator\Model\Behavior;
+use Propulsion\Generator\Model\ForeignKey;
 
 class ConcreteInheritanceBehavior extends Behavior
 {

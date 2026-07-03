@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Task;
+namespace Propulsion\Generator\Task;
 
 /**
  * This Task lists the migrations yet to be executed
@@ -20,7 +20,7 @@ use Phing\Io\File;
 use Phing\Project;
 use Phing\Io\IOException;
 use Phing\Exception\BuildException;
-use Propel\Generator\Config\GeneratorConfig;
+use Propulsion\Generator\Config\GeneratorConfig;
 abstract class BasePropelMigrationTask extends Task
 {
 	/**

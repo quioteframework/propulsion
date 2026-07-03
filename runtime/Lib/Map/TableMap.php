@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Map;
+namespace Propulsion\Map;
 
 /**
  * TableMap is used to model a table in a database.
@@ -26,7 +26,7 @@ namespace Propel\Map;
  * @package    propel.runtime.map
  */
 
- use Propel\Exception\PropelException;
+ use Propulsion\Exception\PropelException;
 class TableMap
 {
 

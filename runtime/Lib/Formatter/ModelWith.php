@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Formatter;
+namespace Propulsion\Formatter;
 /**
  * Data object to describe a joined hydration in a Model Query
  * ModelWith objects are used by formatters to hydrate related objects
@@ -16,8 +16,8 @@ namespace Propel\Formatter;
  * @package    propel.runtime.query
  */
 
- use Propel\Query\ModelJoin;
- use Propel\Map\RelationMap;
+ use Propulsion\Query\ModelJoin;
+ use Propulsion\Map\RelationMap;
 class ModelWith
 {
 	protected $modelName = '';

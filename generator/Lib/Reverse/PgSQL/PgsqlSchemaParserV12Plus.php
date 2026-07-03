@@ -8,7 +8,7 @@
  * @license    MIT License
  */
 
-namespace Propel\Generator\Reverse\PgSQL;
+namespace Propulsion\Generator\Reverse\PgSQL;
 
 /**
  * Postgresql database schema parser for PostgreSQL V12 and up
@@ -17,16 +17,16 @@ namespace Propel\Generator\Reverse\PgSQL;
  * @version    $Revision$
  * @package    propel.generator.reverse.pgsql
  */
-use Propel\Generator\Reverse\BaseSchemaParser;
-use Propel\Generator\Model\PropelTypes;
-use Propel\Generator\Model\Database;
-use Propel\Generator\Model\Table;
-use Propel\Generator\Model\Column;
-use Propel\Generator\Model\ColumnDefaultValue;
-use Propel\Generator\Model\ForeignKey;
-use Propel\Generator\Model\Index;
-use Propel\Generator\Model\Unique;
-use Propel\Generator\Exception\EngineException;
+use Propulsion\Generator\Reverse\BaseSchemaParser;
+use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\Database;
+use Propulsion\Generator\Model\Table;
+use Propulsion\Generator\Model\Column;
+use Propulsion\Generator\Model\ColumnDefaultValue;
+use Propulsion\Generator\Model\ForeignKey;
+use Propulsion\Generator\Model\Index;
+use Propulsion\Generator\Model\Unique;
+use Propulsion\Generator\Exception\EngineException;
 
 use Phing\Task;
 use Phing\Project;

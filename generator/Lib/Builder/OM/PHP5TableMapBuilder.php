@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Builder\OM;
+namespace Propulsion\Generator\Builder\OM;
 
 /**
  * Generates the PHP5 table map class for user object model (OM).
@@ -15,9 +15,9 @@ namespace Propel\Generator\Builder\OM;
  * @author     Hans Lellelid <hans@xmpl.org>
  * @package    propel.generator.builder.om
  */
-use Propel\Generator\Model\IDMethod;
-use Propel\Generator\Platform\PropelPlatformInterface;
-use Propel\Generator\Model\Validator;
+use Propulsion\Generator\Model\IDMethod;
+use Propulsion\Generator\Platform\PropelPlatformInterface;
+use Propulsion\Generator\Model\Validator;
 class PHP5TableMapBuilder extends OMBuilder
 {
 

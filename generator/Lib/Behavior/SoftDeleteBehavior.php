@@ -1,5 +1,5 @@
 <?php
-namespace Propel\Generator\Behavior;
+namespace Propulsion\Generator\Behavior;
 
 /**
  * This file is part of the Propel package.
@@ -19,7 +19,7 @@ namespace Propel\Generator\Behavior;
  * @package    propel.generator.behavior
  */
 
- use Propel\Generator\Model\Behavior;
+ use Propulsion\Generator\Model\Behavior;
 class SoftDeleteBehavior extends Behavior
 {
 	// default parameters value

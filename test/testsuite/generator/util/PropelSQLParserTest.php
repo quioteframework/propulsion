@@ -2,7 +2,7 @@
 
 
 use PHPUnit\Framework\TestCase;
-use Propel\Generator\Util\PropelSQLParser;
+use Propulsion\Generator\Util\PropelSQLParser;
 
 /**
  * This file is part of the Propel package.

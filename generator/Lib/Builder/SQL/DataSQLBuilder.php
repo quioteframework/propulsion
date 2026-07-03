@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Builder\SQL;
+namespace Propulsion\Generator\Builder\SQL;
 
 /**
  * Baseclass for SQL data dump SQL building classes.
@@ -15,9 +15,9 @@ namespace Propel\Generator\Builder\SQL;
  * @author     Hans Lellelid <hans@xmpl.org>
  * @package    propel.generator.builder.sql
  */
-use Propel\Generator\Builder\DataModelBuilder;
-use Propel\Generator\Builder\Util\DataRow;
-use Propel\Generator\Builder\Util\ColumnValue;
+use Propulsion\Generator\Builder\DataModelBuilder;
+use Propulsion\Generator\Builder\Util\DataRow;
+use Propulsion\Generator\Builder\Util\ColumnValue;
 abstract class DataSQLBuilder extends DataModelBuilder
 {
 

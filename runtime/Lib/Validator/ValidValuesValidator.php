@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Validator;
+namespace Propulsion\Validator;
 
 /**
  * A validator for valid values (e.g. for enum fields)
@@ -25,7 +25,7 @@ namespace Propel\Validator;
  * @package    propel.runtime.validator
  */
 
-use Propel\Map\ValidatorMap;
+use Propulsion\Map\ValidatorMap;
 
 class ValidValuesValidator implements BasicValidator
 {

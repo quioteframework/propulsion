@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Reverse;
+namespace Propulsion\Generator\Reverse;
 
 /**
  * Interface for reverse engineering schema parsers.
@@ -17,8 +17,8 @@ namespace Propel\Generator\Reverse;
  * @package    propel.generator.reverse
  */
 
- use Propel\Generator\Config\GeneratorConfigInterface;
- use Propel\Generator\Model\Database;
+ use Propulsion\Generator\Config\GeneratorConfigInterface;
+ use Propulsion\Generator\Model\Database;
  use Phing\Task;
 interface SchemaParser
 {

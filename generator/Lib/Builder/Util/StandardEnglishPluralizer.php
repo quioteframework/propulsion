@@ -8,7 +8,7 @@
  * @license    MIT License
  */
 
-namespace Propel\Generator\Builder\Util;
+namespace Propulsion\Generator\Builder\Util;
 
 /**
  * Standard replacement English pluralizer class. Based on the links below

@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Util;
+namespace Propulsion\Util;
 
 /**
  * Proxy for conditional statements in a fluid interface.

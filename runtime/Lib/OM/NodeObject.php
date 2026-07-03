@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\OM;
+namespace Propulsion\OM;
 
 /**
  * This interface defines methods that must be implemented by all
@@ -17,8 +17,8 @@ namespace Propel\OM;
  * @version    $Revision$
  * @package    propel.runtime.om
  */
-use Propel\Connection\PropelPDO;
-use Propel\Exception\PropelException;
+use Propulsion\Connection\PropelPDO;
+use Propulsion\Exception\PropelException;
 
 interface NodeObject extends \IteratorAggregate
 {

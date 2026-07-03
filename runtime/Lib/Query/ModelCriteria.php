@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Query;
+namespace Propulsion\Query;
 
 /**
  * This class extends the Criteria by adding runtime introspection abilities
@@ -27,20 +27,20 @@ namespace Propel\Query;
  * @package    propel.runtime.query
  */
 
- use Propel\Propel;
- use Propel\Map\TableMap;
- use Propel\Formatter\PropelFormatter;
- use Propel\Exception\PropelException;
- use Propel\Util\BasePeer;
- use Propel\Formatter\ModelWith;
- use Propel\Map\RelationMap;
- use Propel\Map\ColumnMap;
- use Propel\Connection\PropelPDO;
+ use Propulsion\Propel;
+ use Propulsion\Map\TableMap;
+ use Propulsion\Formatter\PropelFormatter;
+ use Propulsion\Exception\PropelException;
+ use Propulsion\Util\BasePeer;
+ use Propulsion\Formatter\ModelWith;
+ use Propulsion\Map\RelationMap;
+ use Propulsion\Map\ColumnMap;
+ use Propulsion\Connection\PropelPDO;
  use Exception;
  use PDO;
-use Propel\Collection\PropelObjectCollection;
-use Propel\Collection\PropelCollection;
-use Propel\Util\PropelModelPager;
+use Propulsion\Collection\PropelObjectCollection;
+use Propulsion\Collection\PropelCollection;
+use Propulsion\Util\PropelModelPager;
 class ModelCriteria extends Criteria
 {
 	const MODEL_CLAUSE = "MODEL CLAUSE";
@@ -48,10 +48,10 @@ class ModelCriteria extends Criteria
 	const MODEL_CLAUSE_LIKE = "MODEL CLAUSE LIKE";
 	const MODEL_CLAUSE_SEVERAL = "MODEL CLAUSE SEVERAL";
 
-	const FORMAT_STATEMENT = 'Propel\\Formatter\\PropelStatementFormatter';
-	const FORMAT_ARRAY = 'Propel\\Formatter\\PropelArrayFormatter';
-	const FORMAT_OBJECT = 'Propel\\Formatter\\PropelObjectFormatter';
-	const FORMAT_ON_DEMAND = 'Propel\\Formatter\\PropelOnDemandFormatter';
+	const FORMAT_STATEMENT = 'Propulsion\\Formatter\\PropelStatementFormatter';
+	const FORMAT_ARRAY = 'Propulsion\\Formatter\\PropelArrayFormatter';
+	const FORMAT_OBJECT = 'Propulsion\\Formatter\\PropelObjectFormatter';
+	const FORMAT_ON_DEMAND = 'Propulsion\\Formatter\\PropelOnDemandFormatter';
 
 	protected $modelName;
 	protected $modelPeerName;
@@ -554,7 +554,7 @@ class ModelCriteria extends Criteria
 		}
 
 		// select() needs the PropelSimpleArrayFormatter
-		$this->setFormatter('Propel\\Formatter\\PropelSimpleArrayFormatter');
+		$this->setFormatter('Propulsion\\Formatter\\PropelSimpleArrayFormatter');
 
 		// clear only the selectColumns, clearSelectColumns() clears asColumns too
 		$this->selectColumns = array();
@@ -1166,7 +1166,7 @@ class ModelCriteria extends Criteria
 	 *
 	 * @param     PropelPDO $con an optional connection object
 	 *
-	 * @return    ?\Propel\Om\BaseObject the result (null if no result found with default formatter)
+	 * @return    ?\Propulsion\Om\BaseObject the result (null if no result found with default formatter)
 	 */
 	public function findOne(?PropelPDO $con = null) : mixed
 	{
@@ -1185,7 +1185,7 @@ class ModelCriteria extends Criteria
 	 *
 	 * @param     PropelPDO $con an optional connection object
 	 *
-	 * @return    \Propel\Om\BaseObject the result (never null with default formatter - creates new object if not found)
+	 * @return    \Propulsion\Om\BaseObject the result (never null with default formatter - creates new object if not found)
 	 */
 	public function findOneOrCreate(?PropelPDO $con = null) : mixed
 	{
@@ -1214,7 +1214,7 @@ class ModelCriteria extends Criteria
 	 * @param     mixed $key Primary key to use for the query
 	 * @param     PropelPDO $con an optional connection object
 	 *
-	 * @return    ?\Propel\Om\BaseObject the result (null if no result found with default formatter)
+	 * @return    ?\Propulsion\Om\BaseObject the result (null if no result found with default formatter)
 	 */
 	public function findPk(mixed $key, ?PropelPDO $con = null) : mixed
 	{
@@ -1349,7 +1349,7 @@ class ModelCriteria extends Criteria
 	 * @param     mixed  $value A value for the condition
 	 * @param     PropelPDO $con an optional connection object
 	 *
-	 * @return    ?\Propel\Om\BaseObject the result (null if no result found with default formatter)
+	 * @return    ?\Propulsion\Om\BaseObject the result (null if no result found with default formatter)
 	 */
 	public function findOneBy(string $column, mixed $value, ?PropelPDO $con = null) : mixed
 	{
@@ -1374,7 +1374,7 @@ class ModelCriteria extends Criteria
 	 * @param     mixed $conditions An array of conditions, using column phpNames as key
 	 * @param     PropelPDO $con an optional connection object
 	 *
-	 * @return    ?\Propel\Om\BaseObject the result (null if no result found with default formatter)
+	 * @return    ?\Propulsion\Om\BaseObject the result (null if no result found with default formatter)
 	 */
 	public function findOneByArray($conditions, ?PropelPDO $con = null) : mixed
 	{

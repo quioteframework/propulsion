@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Parser;
+namespace Propulsion\Parser;
 
 /**
  * XML parser. Converts data between associative array and XML formats

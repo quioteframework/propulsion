@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Adapter;
+namespace Propulsion\Adapter;
 
 /**
  * This is used in order to connect to a MySQL database.
@@ -22,9 +22,9 @@ namespace Propel\Adapter;
 use PDO;
 use PDOStatement;
 use Exception;
-use Propel\Exception\PropelException;
-use Propel\Map\ColumnMap;
-use Propel\Map\DatabaseMap;
+use Propulsion\Exception\PropelException;
+use Propulsion\Map\ColumnMap;
+use Propulsion\Map\DatabaseMap;
 class DBMySQL extends DBAdapter
 {
 	/**

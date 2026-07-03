@@ -8,7 +8,7 @@
  * @license    MIT License
  */
 
-namespace Propel\Generator\Builder\Util;
+namespace Propulsion\Generator\Builder\Util;
 /**
  * Simple templating system to ease behavior writing
  *

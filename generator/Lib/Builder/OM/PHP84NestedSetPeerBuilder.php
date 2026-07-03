@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Builder\OM;
+namespace Propulsion\Generator\Builder\OM;
 
 /**
  * Generates a PHP 8.4 tree nested set Peer class for user object model (OM).
@@ -22,7 +22,7 @@ namespace Propel\Generator\Builder\OM;
  * @author     GitHub Copilot
  * @package    propel.generator.builder.om
  */
-use Propel\Generator\Exception\EngineException;
+use Propulsion\Generator\Exception\EngineException;
 
 class PHP84NestedSetPeerBuilder extends PeerBuilder
 {

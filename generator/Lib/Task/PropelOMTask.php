@@ -7,13 +7,13 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Task;
+namespace Propulsion\Generator\Task;
 
 use Phing\Io\File as PhingFile;
 use Phing\Exception\BuildException;
 use Phing\Project;
-use Propel\Generator\Builder\DataModelBuilder;
-use Propel\Generator\Builder\OM\QueryInheritanceBuilder;
+use Propulsion\Generator\Builder\DataModelBuilder;
+use Propulsion\Generator\Builder\OM\QueryInheritanceBuilder;
 
 /**
  * This Task creates the OM classes based on the XML schema file.

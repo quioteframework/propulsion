@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Query;
+namespace Propulsion\Query;
 
 /**
  * Class that implements SPL Iterator interface.  This allows foreach () to

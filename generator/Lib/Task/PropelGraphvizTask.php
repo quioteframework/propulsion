@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Task;
+namespace Propulsion\Generator\Task;
 
 use Phing\Io\File;
 use \Exception;

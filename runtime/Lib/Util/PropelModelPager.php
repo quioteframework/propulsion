@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Util;
+namespace Propulsion\Util;
 
 /**
  * Implements a pager based on a ModelCriteria
@@ -19,7 +19,7 @@ namespace Propel\Util;
  * @package		 propel.runtime.query
  */
 
- use Propel\Query\ModelCriteria;
+ use Propulsion\Query\ModelCriteria;
 class PropelModelPager implements \IteratorAggregate, \Countable
 {
 	protected

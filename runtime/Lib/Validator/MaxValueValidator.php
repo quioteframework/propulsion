@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Validator;
+namespace Propulsion\Validator;
 
 /**
  * A validator for maximum values.
@@ -28,7 +28,7 @@ namespace Propel\Validator;
  * @package    propel.runtime.validator
  */
 
-use Propel\Map\ValidatorMap;
+use Propulsion\Map\ValidatorMap;
 class MaxValueValidator implements BasicValidator
 {
 	/**

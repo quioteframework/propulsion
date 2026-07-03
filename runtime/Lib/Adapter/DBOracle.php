@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Adapter;
+namespace Propulsion\Adapter;
 
 /**
  * Oracle adapter.
@@ -24,11 +24,11 @@ namespace Propel\Adapter;
 
 use PDO;
 use PDOStatement;
-use Propel\Query\Criteria;
-use Propel\Util\BasePeer;
-use Propel\Exception\PropelException;
-use Propel\Map\ColumnMap;
-use Propel\Util\PropelColumnTypes;
+use Propulsion\Query\Criteria;
+use Propulsion\Util\BasePeer;
+use Propulsion\Exception\PropelException;
+use Propulsion\Map\ColumnMap;
+use Propulsion\Util\PropelColumnTypes;
 
 class DBOracle extends DBAdapter
 {

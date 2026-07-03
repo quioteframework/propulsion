@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Util;
+namespace Propulsion\Util;
 
 /**
  * DateTime subclass which supports serialization.
@@ -25,7 +25,7 @@ namespace Propel\Util;
 use DateTimeImmutable;
 use \DateTimeZone;
  use \Exception;
- use Propel\Exception\PropelException;
+ use Propulsion\Exception\PropelException;
 class PropelDateTime extends DateTime
 {
 

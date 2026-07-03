@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Validator;
+namespace Propulsion\Validator;
 
 
 /**

@@ -9,7 +9,7 @@
  */
 
 use PHPUnit\Framework\TestCase;
-use Propel\Propel;
+use Propulsion\Propel;
 
 set_include_path(get_include_path() . PATH_SEPARATOR . realpath(dirname(__FILE__) . '/../../../fixtures/bookstore/build/classes'));
 Propel::init(dirname(__FILE__) . '/../../../fixtures/bookstore/build/conf/bookstore-conf.php');

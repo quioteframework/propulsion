@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Behavior\ConcreteInheritance;
+namespace Propulsion\Generator\Behavior\ConcreteInheritance;
 
 /**
  * Symmetrical behavior of the concrete_inheritance. When model A extends model B,
@@ -19,7 +19,7 @@ namespace Propel\Generator\Behavior\ConcreteInheritance;
  * @package    propel.generator.behavior.concrete_inheritance
  */
 
- use Propel\Generator\Model\Behavior;
+ use Propulsion\Generator\Model\Behavior;
 
 class ConcreteInheritanceParentBehavior extends Behavior
 {

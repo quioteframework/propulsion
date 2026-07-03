@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Platform;
+namespace Propulsion\Generator\Platform;
 
 /**
  * Oracle PropelPlatformInterface implementation.
@@ -19,14 +19,14 @@ namespace Propel\Generator\Platform;
  * @package    propel.generator.platform
  */
 
- use Propel\Generator\Model\Domain;
- use Propel\Generator\Model\PropelTypes;
- use Propel\Generator\Model\Table;
- use Propel\Generator\Model\ForeignKey;
- use Propel\Generator\Model\Database;
- use Propel\Generator\Model\IDMethod;
- use Propel\Generator\Model\Unique;
- use Propel\Generator\Model\Index;
+ use Propulsion\Generator\Model\Domain;
+ use Propulsion\Generator\Model\PropelTypes;
+ use Propulsion\Generator\Model\Table;
+ use Propulsion\Generator\Model\ForeignKey;
+ use Propulsion\Generator\Model\Database;
+ use Propulsion\Generator\Model\IDMethod;
+ use Propulsion\Generator\Model\Unique;
+ use Propulsion\Generator\Model\Index;
 class OraclePlatform extends DefaultPlatform
 {
 

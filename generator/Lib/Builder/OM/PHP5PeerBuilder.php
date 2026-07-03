@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Builder\OM;
+namespace Propulsion\Generator\Builder\OM;
 
 /**
  * Generates a PHP5 base Peer class for user object model (OM).
@@ -18,9 +18,9 @@ namespace Propel\Generator\Builder\OM;
  * @author     Hans Lellelid <hans@xmpl.org>
  * @package    propel.generator.builder.om
  */
-use Propel\Generator\Model\ForeignKey;
-use Propel\Generator\Exception\EngineException;
-use Propel\Generator\Model\Table;
+use Propulsion\Generator\Model\ForeignKey;
+use Propulsion\Generator\Exception\EngineException;
+use Propulsion\Generator\Model\Table;
 class PHP5PeerBuilder extends PeerBuilder
 {
 

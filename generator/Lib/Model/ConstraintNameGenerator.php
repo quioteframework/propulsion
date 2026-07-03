@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
- namespace Propel\Generator\Model;
+ namespace Propulsion\Generator\Model;
 
 /**
  * A <code>NameGenerator</code> implementation for table-specific
@@ -19,7 +19,7 @@
  * @version    $Revision$
  * @package    propel.generator.model
  */
-use Propel\Generator\Exception\EngineException;
+use Propulsion\Generator\Exception\EngineException;
 
 class ConstraintNameGenerator implements NameGenerator
 {

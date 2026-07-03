@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Util;
+namespace Propulsion\Util;
 /**
  * This is a utility class for all generated Peer classes in the system.
  *
@@ -28,14 +28,14 @@ namespace Propel\Util;
  * @package    propel.runtime.util
  */
 
- use Propel\Query\Criteria;
- use Propel\Exception\PropelException;
- use Propel\Connection\PropelPDO;
- use Propel\Propel;
+ use Propulsion\Query\Criteria;
+ use Propulsion\Exception\PropelException;
+ use Propulsion\Connection\PropelPDO;
+ use Propulsion\Propel;
  use \Exception;
  use \PDOStatement;
- use Propel\Map\ColumnMap;
- use Propel\Validator\ValidationFailed;
+ use Propulsion\Map\ColumnMap;
+ use Propulsion\Validator\ValidationFailed;
 class BasePeer
 {
 

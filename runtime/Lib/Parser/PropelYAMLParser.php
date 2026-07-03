@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Parser;
+namespace Propulsion\Parser;
 
 if (!class_exists('sfYaml')) {
 	require_once dirname(__FILE__) . '/yaml/sfYaml.php';

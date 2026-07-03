@@ -8,7 +8,7 @@
  * @license    MIT License
  */
 
-namespace Propel\Generator\Builder\Util;
+namespace Propulsion\Generator\Builder\Util;
 
 /**
  * A Class that is used to parse an data dump XML file and create SQL using a DataSQLBuilder class.
@@ -25,10 +25,10 @@ use Phing\Exception\BuildException;
 use Phing\Io\BufferedReader;
 use Phing\Parser\ExpatParser
 ;
-use Propel\Generator\Model\Database;
-use Propel\Generator\Config\GeneratorConfig;
-use Propel\Generator\Model\Column;
-use Propel\Generator\Model\Table;
+use Propulsion\Generator\Model\Database;
+use Propulsion\Generator\Config\GeneratorConfig;
+use Propulsion\Generator\Model\Column;
+use Propulsion\Generator\Model\Table;
 
 use \Exception;
 class XmlToDataSQL extends AbstractHandler

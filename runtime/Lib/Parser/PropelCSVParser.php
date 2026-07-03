@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Parser;
+namespace Propulsion\Parser;
 
 /**
  * CSV parser. Converts data between associative array and CSV formats.

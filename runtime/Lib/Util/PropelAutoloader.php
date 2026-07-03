@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Util;
+namespace Propulsion\Util;
 
 use \Exception;
 /**

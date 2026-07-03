@@ -8,7 +8,7 @@
  * @license    MIT License
  */
 
-namespace Propel\Generator\Builder\OM;
+namespace Propulsion\Generator\Builder\OM;
 
 /**
  * Generates the PHP 8.4 table map class for user object model (OM).
@@ -19,9 +19,9 @@ namespace Propel\Generator\Builder\OM;
  * @author     Modernized for PHP 8.4
  * @package    propel.generator.builder.om
  */
-use Propel\Generator\Model\IDMethod;
-use Propel\Generator\Platform\PropelPlatformInterface;
-use Propel\Generator\Model\Validator;
+use Propulsion\Generator\Model\IDMethod;
+use Propulsion\Generator\Platform\PropelPlatformInterface;
+use Propulsion\Generator\Model\Validator;
 
 class PHP84TableMapBuilder extends PHP5TableMapBuilder
 {
@@ -76,7 +76,7 @@ class PHP84TableMapBuilder extends PHP5TableMapBuilder
  *
  * @package    propel.generator.".$this->getPackage()."
  */
-class ".$this->getClassname()." extends \Propel\Map\TableMap
+class ".$this->getClassname()." extends \Propulsion\Map\TableMap
 {
 ";
     }
@@ -88,10 +88,10 @@ class ".$this->getClassname()." extends \Propel\Map\TableMap
     protected function addClassBody(&$script): void
     {
         // Declare all required Propel classes with proper namespaces
-        $this->declareClass('Propel\\Map\\TableMap');
-        $this->declareClass('Propel\\Map\\RelationMap');
-        $this->declareClass('Propel\\Propel');
-        $this->declareClass('Propel\\Exception\\PropelException');
+        $this->declareClass('Propulsion\\Map\\TableMap');
+        $this->declareClass('Propulsion\\Map\\RelationMap');
+        $this->declareClass('Propulsion\\Propel');
+        $this->declareClass('Propulsion\\Exception\\PropelException');
         $this->declareClass('\\PDO');
         
         $this->addConstants($script);

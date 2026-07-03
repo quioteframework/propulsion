@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Builder\OM;
+namespace Propulsion\Generator\Builder\OM;
 
 /**
  * Generates a PHP5 base Query class for user object model (OM).
@@ -18,8 +18,8 @@ namespace Propel\Generator\Builder\OM;
  * @author     Francois Zaninotto
  * @package    propel.generator.builder.om
  */
-use Propel\Generator\Model\PropelTypes;
-use Propel\Generator\Model\ForeignKey;
+use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\ForeignKey;
 class QueryBuilder extends OMBuilder
 {
 
@@ -175,7 +175,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
     protected function addClassBody(&$script)
     {
         // namespaces
-        $this->declareClasses('Propel\Query\ModelCriteria', 'Propel\Query\Criteria', 'Propel\Query\ModelJoin');
+        $this->declareClasses('Propulsion\Query\ModelCriteria', 'Propulsion\Query\Criteria', 'Propulsion\Query\ModelJoin');
         $this->declareClassFromBuilder($this->getStubQueryBuilder());
         $this->declareClassFromBuilder($this->getStubPeerBuilder());
 
@@ -434,7 +434,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      */
     protected function addFindPks(&$script)
     {
-        $this->declareClasses('PropelPDO', 'Propel\\Collection\\PropelObjectCollection');
+        $this->declareClasses('PropelPDO', 'Propulsion\\Collection\\PropelObjectCollection');
         $table = $this->getTable();
         $pks = $table->getPrimaryKey();
         $count = count($pks);

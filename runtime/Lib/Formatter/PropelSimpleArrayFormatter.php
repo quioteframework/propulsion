@@ -7,11 +7,11 @@
  *
  * @license    MIT License
  */
-namespace Propel\Formatter;
+namespace Propulsion\Formatter;
 
 use PDOStatement;
 use PDO;
-use Propel\Exception\PropelException;
+use Propulsion\Exception\PropelException;
 /**
  * Array formatter for Propel select query
  * format() returns a PropelArrayCollection of associative arrays, a string,
@@ -22,7 +22,7 @@ use Propel\Exception\PropelException;
  * @package    propel.runtime.formatter
  */
 class PropelSimpleArrayFormatter extends PropelFormatter {
-	protected $collectionName = 'Propel\\Collection\\PropelArrayCollection';
+	protected $collectionName = 'Propulsion\\Collection\\PropelArrayCollection';
 
 	public function format(PDOStatement $stmt) {
 		$this->checkInit ();

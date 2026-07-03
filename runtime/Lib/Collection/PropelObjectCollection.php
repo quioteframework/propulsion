@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Collection;
+namespace Propulsion\Collection;
 
 /**
  * Class for iterating over a list of Propel objects
@@ -16,14 +16,14 @@ namespace Propel\Collection;
  * @package    propel.runtime.collection
  */
 
- use Propel\Connection\PropelPDO;
- use Propel\Exception\PropelException;
- use Propel\Propel;
- use Propel\Query\Criteria;
- use Propel\Query\PropelQuery;
- use Propel\Map\RelationMap;
-use Propel\OM\BaseObject;
-use Propel\Util\BasePeer;
+ use Propulsion\Connection\PropelPDO;
+ use Propulsion\Exception\PropelException;
+ use Propulsion\Propel;
+ use Propulsion\Query\Criteria;
+ use Propulsion\Query\PropelQuery;
+ use Propulsion\Map\RelationMap;
+use Propulsion\OM\BaseObject;
+use Propulsion\Util\BasePeer;
 class PropelObjectCollection extends PropelCollection
 {
 

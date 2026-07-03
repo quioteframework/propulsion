@@ -8,7 +8,7 @@
  * @license    MIT License
  */
 
-namespace Propel\Generator\Builder;
+namespace Propulsion\Generator\Builder;
 /**
  * This is the base class for any builder class that is using the data model.
  *
@@ -24,11 +24,11 @@ namespace Propel\Generator\Builder;
  * @package    propel.generator.builder
  */
 
-use Propel\Generator\Builder\OM\ObjectBuilder;
-use Propel\Generator\Config\GeneratorConfig;
-use Propel\Generator\Model\Table;
-use Propel\Generator\Config\GeneratorConfigInterface;
-use Propel\Generator\Platform\PropelPlatformInterface;
+use Propulsion\Generator\Builder\OM\ObjectBuilder;
+use Propulsion\Generator\Config\GeneratorConfig;
+use Propulsion\Generator\Model\Table;
+use Propulsion\Generator\Config\GeneratorConfigInterface;
+use Propulsion\Generator\Platform\PropelPlatformInterface;
 abstract class DataModelBuilder
 {
 

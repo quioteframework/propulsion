@@ -8,7 +8,7 @@
  * @license    MIT License
  */
 
- namespace Propel\Generator\Model;
+ namespace Propulsion\Generator\Model;
 
 /**
  * Data about a table used in an application.
@@ -23,7 +23,7 @@
  * @version    $Revision$
  * @package    propel.generator.model
  */
-use Propel\Generator\Exception\EngineException;
+use Propulsion\Generator\Exception\EngineException;
 use Phing\Exception\BuildException;
 
 class Table extends ScopedElement implements IDMethod

@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Model;
+namespace Propulsion\Generator\Model;
 
 /**
  * Information related to an ID method.

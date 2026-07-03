@@ -1,5 +1,5 @@
 <?php
-namespace Propel\Generator\Behavior\AggregateColumn;
+namespace Propulsion\Generator\Behavior\AggregateColumn;
 /**
  * This file is part of the Propel package.
  * For the full copyright and license information, please view the LICENSE
@@ -16,7 +16,7 @@ namespace Propel\Generator\Behavior\AggregateColumn;
  * @package    propel.generator.behavior.aggregate_column
  */
 
-use Propel\Generator\Model\Behavior;
+use Propulsion\Generator\Model\Behavior;
 
 class AggregateColumnRelationBehavior extends Behavior
 {

@@ -7,20 +7,20 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Task;
+namespace Propulsion\Generator\Task;
 
 use Phing\Io\IOException;
 use Phing\Util\Properties;
 use Phing\Io\File as PhingFile;
 use Phing\Exception\BuildException;
 use Phing\Project;
-use Propel\Generator\Model\Database;
-use Propel\Generator\Platform\PropelPlatformInterface;
-use Propel\Generator\Model\ForeignKey;
-use Propel\Generator\Platform\MssqlPlatform;
-use Propel\Generator\Platform\OraclePlatform;
-use Propel\Generator\Model\PropelTypes;
-use Propel\Generator\Model\AppData;
+use Propulsion\Generator\Model\Database;
+use Propulsion\Generator\Platform\PropelPlatformInterface;
+use Propulsion\Generator\Model\ForeignKey;
+use Propulsion\Generator\Platform\MssqlPlatform;
+use Propulsion\Generator\Platform\OraclePlatform;
+use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\AppData;
 
 /**
  * The task for building SQL DDL based on the XML datamodel.

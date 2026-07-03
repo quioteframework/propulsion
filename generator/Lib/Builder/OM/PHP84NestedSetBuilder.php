@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Builder\OM;
+namespace Propulsion\Generator\Builder\OM;
 
 /**
  * Generates a PHP 8.4 tree node Object class for user object model (OM) using Nested Set approach.
@@ -100,7 +100,7 @@ class PHP84NestedSetBuilder extends ObjectBuilder
  * @deprecated  Since Propel 1.5. Use the nested_set behavior instead of the NestedSet treeMode
  * @package    propel.generator.".$this->getPackage()."
  */
-abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->getClassname()." implements Propel\OM\NodeObject
+abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->getClassname()." implements Propulsion\OM\NodeObject
 {
 ";
 	}

@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Connection;
+namespace Propulsion\Connection;
 
 use \PDO;
 /**
@@ -96,9 +96,9 @@ class DebugPDOStatement extends \PDOStatement
 			$return = parent::execute($input_parameters);
 		} catch (\Throwable $e) {
 			// Transparent reconnect on dropped connections
-			if ($e instanceof \PDOException && \Propel\Propel::isConnectionDropped($e)) {
+			if ($e instanceof \PDOException && \Propulsion\Propel::isConnectionDropped($e)) {
 				error_log('[DebugPDOStatement::execute] connection dropped, reconnecting and retrying');
-				\Propel\Propel::forceReconnect();
+				\Propulsion\Propel::forceReconnect();
 				try {
 					$return = parent::execute($input_parameters);
 				} catch (\Throwable $retryE) {

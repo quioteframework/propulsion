@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Task;
+namespace Propulsion\Generator\Task;
 
 use PDO;
 use PDOException;
@@ -18,8 +18,8 @@ use Phing\Io\IOException;
 use Phing\Project;
 use Phing\Task;
 use Phing\Util\Properties;
-use Propel\Generator\Config\GeneratorConfig;
-use Propel\Generator\Util\PropelSQLParser;
+use Propulsion\Generator\Config\GeneratorConfig;
+use Propulsion\Generator\Util\PropelSQLParser;
 
 /**
  * Executes all SQL files referenced in the sqldbmap file against their mapped databases.

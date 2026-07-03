@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Behavior\QueryCache;;
+namespace Propulsion\Generator\Behavior\QueryCache;;
 
 /**
  * Speeds up queries on a model by caching the query
@@ -16,7 +16,7 @@ namespace Propel\Generator\Behavior\QueryCache;;
  * @version    $Revision$
  * @package    propel.generator.behavior.cacheable
  */
-use Propel\Generator\Model\Behavior;
+use Propulsion\Generator\Model\Behavior;
 class QueryCacheBehavior extends Behavior
 {
 	// default parameters value

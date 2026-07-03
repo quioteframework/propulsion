@@ -7,7 +7,7 @@
  *
  * @license     MIT License
  */
-namespace Propel\Generator\Model\Diff;
+namespace Propulsion\Generator\Model\Diff;
 
 /**
  * Service class for comparing Index objects

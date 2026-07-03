@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Behavior\I18n;
+namespace Propulsion\Generator\Behavior\I18n;
 
 /**
  * Allows translation of text columns through transparent one-to-many relationship.

@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Formatter;
+namespace Propulsion\Formatter;
 
 /**
  * Abstract class for query formatter
@@ -17,10 +17,10 @@ namespace Propel\Formatter;
  * @package    propel.runtime.formatter
  */
 
- use Propel\Query\ModelCriteria;
- use Propel\Om\BaseObject;
- use Propel\Propel;
- use Propel\Exception\PropelException;
+ use Propulsion\Query\ModelCriteria;
+ use Propulsion\Om\BaseObject;
+ use Propulsion\Propel;
+ use Propulsion\Exception\PropelException;
  use PDOStatement;
 abstract class PropelFormatter
 {

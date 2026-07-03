@@ -7,15 +7,15 @@
  *
  * @license    MIT License
  */
-namespace Propel\Collection;
+namespace Propulsion\Collection;
 
-use Propel\Formatter\PropelObjectFormatter;
+use Propulsion\Formatter\PropelObjectFormatter;
 use \Iterator;
 use \PDOStatement;
-use Propel\Om\BaseObject;
-use Propel\Propel;
-use Propel\Formatter\PropelFormatter;
-use Propel\Exception\PropelException;
+use Propulsion\Om\BaseObject;
+use Propulsion\Propel;
+use Propulsion\Formatter\PropelFormatter;
+use Propulsion\Exception\PropelException;
 use PDO;
 /**
  * Class for iterating over a statement and returning one Propel object at a time

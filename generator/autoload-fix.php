@@ -24,8 +24,8 @@ spl_autoload_register(function($class) {
     $normalized = ltrim($class, '\\');
 
     // If it's a namespaced Propel Generator class, try to load from the bundled Lib/ tree
-    if (strpos($normalized, 'Propel\\Generator\\') === 0) {
-        $file = str_replace('Propel\\Generator\\', '', $normalized);
+    if (strpos($normalized, 'Propulsion\\Generator\\') === 0) {
+        $file = str_replace('Propulsion\\Generator\\', '', $normalized);
         $file = str_replace('\\', '/', $file) . '.php';
         $path = __DIR__ . '/Lib/' . $file;
         if (file_exists($path)) {
@@ -34,7 +34,7 @@ spl_autoload_register(function($class) {
         }
 
         // If requested class looks like a generator-local reference to an external class
-        // (for example "Propel\Generator\Task\Project"), try to map common
+        // (for example "Propulsion\Generator\Task\Project"), try to map common
         // external short names to their real classes and create an alias so legacy
         // code that uses unqualified names still works.
     $short = substr($normalized, strrpos($normalized, '\\') + 1);
@@ -42,7 +42,7 @@ spl_autoload_register(function($class) {
             'Project' => 'Phing\\Project',
             'PhingFile' => 'Phing\\File',
             'PDOException' => '\\PDOException',
-            'PropelSQLParser' => 'Propel\\Generator\\Util\\PropelSQLParser',
+            'PropelSQLParser' => 'Propulsion\\Generator\\Util\\PropelSQLParser',
         ];
 
         if (isset($externalMap[$short])) {
@@ -92,35 +92,35 @@ spl_autoload_register(function($class) {
 
 // Force load the classes Phing will need for taskdef
 $taskClasses = [
-    '\\Propel\\Generator\\Task\\PropelOMTask',
-    '\\Propel\\Generator\\Task\\PropelDataDumpTask', 
-    '\\Propel\\Generator\\Task\\PropelDataSQLTask',
-    '\\Propel\\Generator\\Task\\PropelSQLTask',
-    '\\Propel\\Generator\\Task\\PropelSQLDiffTask',
-    '\\Propel\\Generator\\Task\\PropelSchemaReverseTask',
-    '\\Propel\\Generator\\Task\\PropelConvertConfTask',
-    '\\Propel\\Generator\\Task\\PropelDBD2PropelTask',
-    '\\Propel\\Generator\\Task\\PropelGraphvizTask',
-    '\\Propel\\Generator\\Task\\PropelMigrationTask',
-    '\\Propel\\Generator\\Task\\PropelMigrationStatusTask',
-    '\\Propel\\Generator\\Task\\PropelMigrationUpTask',
-    '\\Propel\\Generator\\Task\\PropelMigrationDownTask'
+    '\\Propulsion\\Generator\\Task\\PropelOMTask',
+    '\\Propulsion\\Generator\\Task\\PropelDataDumpTask', 
+    '\\Propulsion\\Generator\\Task\\PropelDataSQLTask',
+    '\\Propulsion\\Generator\\Task\\PropelSQLTask',
+    '\\Propulsion\\Generator\\Task\\PropelSQLDiffTask',
+    '\\Propulsion\\Generator\\Task\\PropelSchemaReverseTask',
+    '\\Propulsion\\Generator\\Task\\PropelConvertConfTask',
+    '\\Propulsion\\Generator\\Task\\PropelDBD2PropelTask',
+    '\\Propulsion\\Generator\\Task\\PropelGraphvizTask',
+    '\\Propulsion\\Generator\\Task\\PropelMigrationTask',
+    '\\Propulsion\\Generator\\Task\\PropelMigrationStatusTask',
+    '\\Propulsion\\Generator\\Task\\PropelMigrationUpTask',
+    '\\Propulsion\\Generator\\Task\\PropelMigrationDownTask'
 ];
 
 // Platform classes
 $platformClasses = [
-    '\\Propel\\Generator\\Platform\\MysqlPlatform',
-    '\\Propel\\Generator\\Platform\\PgsqlPlatform',
-    '\\Propel\\Generator\\Platform\\SqlitePlatform',
-    '\\Propel\\Generator\\Platform\\OraclePlatform',
-    '\\Propel\\Generator\\Platform\\MssqlPlatform',
-    '\\Propel\\Generator\\Platform\\SqlsrvPlatform',
-    '\\Propel\\Generator\\Platform\\DefaultPlatform'
+    '\\Propulsion\\Generator\\Platform\\MysqlPlatform',
+    '\\Propulsion\\Generator\\Platform\\PgsqlPlatform',
+    '\\Propulsion\\Generator\\Platform\\SqlitePlatform',
+    '\\Propulsion\\Generator\\Platform\\OraclePlatform',
+    '\\Propulsion\\Generator\\Platform\\MssqlPlatform',
+    '\\Propulsion\\Generator\\Platform\\SqlsrvPlatform',
+    '\\Propulsion\\Generator\\Platform\\DefaultPlatform'
 ];
 
 foreach (array_merge($taskClasses, $platformClasses) as $class) {
     if (!class_exists($class, false)) {
-        $file = str_replace(['\\Propel\\Generator\\', '\\'], ['', '/'], $class) . '.php';
+        $file = str_replace(['\\Propulsion\\Generator\\', '\\'], ['', '/'], $class) . '.php';
         $path = __DIR__ . '/Lib/' . $file;
         if (file_exists($path)) {
             require_once $path;

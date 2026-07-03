@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Config;
+namespace Propulsion\Config;
 /**
  * PropelConfigurationIterator is used internally by PropelConfiguration to
  * build a flat array from nesting configuration arrays.

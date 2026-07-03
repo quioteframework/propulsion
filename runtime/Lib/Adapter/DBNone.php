@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Adapter;
+namespace Propulsion\Adapter;
 
 /**
  * This adapter  is used when you do not have a database installed.

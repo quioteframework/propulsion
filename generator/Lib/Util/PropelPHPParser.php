@@ -8,7 +8,7 @@
  * @license    MIT License
  */
 
-namespace Propel\Generator\Util;
+namespace Propulsion\Generator\Util;
 
 if (!defined('T_ML_COMMENT')) {
 	define('T_ML_COMMENT', T_COMMENT);

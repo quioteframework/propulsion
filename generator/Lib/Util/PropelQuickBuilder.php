@@ -8,19 +8,19 @@
  * @license    MIT License
  */
 
-namespace Propel\Generator\Util;
+namespace Propulsion\Generator\Util;
 
-use Propel\Generator\Config\GeneratorConfigInterface;
+use Propulsion\Generator\Config\GeneratorConfigInterface;
 use \PDO;
 use PDOStatement;
-use Propel\Adapter\DBSQLite;
-use \Propel\Connection\PropelPDO;
-use Propel\Generator\Builder\Util\XmlToAppData;
-use Propel\Generator\Config\QuickGeneratorConfig;
-use Propel\Generator\Model\Table;
-use Propel\Generator\Platform\PropelPlatformInterface;
-use Propel\Generator\Platform\SqlitePlatform;
-use \Propel\Propel;
+use Propulsion\Adapter\DBSQLite;
+use \Propulsion\Connection\PropelPDO;
+use Propulsion\Generator\Builder\Util\XmlToAppData;
+use Propulsion\Generator\Config\QuickGeneratorConfig;
+use Propulsion\Generator\Model\Table;
+use Propulsion\Generator\Platform\PropelPlatformInterface;
+use Propulsion\Generator\Platform\SqlitePlatform;
+use \Propulsion\Propel;
 
 class PropelQuickBuilder
 {

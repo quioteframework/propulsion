@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Collection;
+namespace Propulsion\Collection;
 
 /**
  * Class for iterating over a list of Propel elements
@@ -27,15 +27,15 @@ namespace Propel\Collection;
  * @package    propel.runtime.collection
  */
 
- use Propel\Formatter\PropelFormatter;
- use Propel\Exception\PropelException;
+ use Propulsion\Formatter\PropelFormatter;
+ use Propulsion\Exception\PropelException;
  use ArrayIterator;
  use Iterator;
- use Propel\Connection\PropelPDO;
- use Propel\Propel;
- use Propel\Om\BaseObject;
- use Propel\Parser\PropelParser;
- use Propel\Util\BasePeer;
+ use Propulsion\Connection\PropelPDO;
+ use Propulsion\Propel;
+ use Propulsion\Om\BaseObject;
+ use Propulsion\Parser\PropelParser;
+ use Propulsion\Util\BasePeer;
 
 class PropelCollection extends \ArrayObject implements \Serializable
 {

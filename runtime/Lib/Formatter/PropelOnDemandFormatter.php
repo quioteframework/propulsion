@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Formatter;
+namespace Propulsion\Formatter;
 
 /**
  * Object formatter for Propel query
@@ -19,15 +19,15 @@ namespace Propel\Formatter;
  * @package    propel.runtime.formatter
  */
 
- use Propel\Query\ModelCriteria;
+ use Propulsion\Query\ModelCriteria;
  use PDOStatement;
- use Propel\Exception\PropelException;
- use Propel\Om\BaseObject;
+ use Propulsion\Exception\PropelException;
+ use Propulsion\Om\BaseObject;
  use ReflectionClass;
  
 class PropelOnDemandFormatter extends PropelObjectFormatter
 {
-	protected $collectionName = 'Propel\\Collection\\PropelOnDemandCollection';
+	protected $collectionName = 'Propulsion\\Collection\\PropelOnDemandCollection';
 	protected $isSingleTableInheritance = false;
 
 	public function init(ModelCriteria $criteria)

@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Map;
+namespace Propulsion\Map;
 
 /**
  * DatabaseMap is used to model a database.
@@ -26,9 +26,9 @@ namespace Propel\Map;
  * @package    propel.runtime.map
  */
 
- use Propel\Exception\PropelException;
- use Propel\Adapter\DBAdapter;
- use Propel\Propel;
+ use Propulsion\Exception\PropelException;
+ use Propulsion\Adapter\DBAdapter;
+ use Propulsion\Propel;
  
 class DatabaseMap
 {

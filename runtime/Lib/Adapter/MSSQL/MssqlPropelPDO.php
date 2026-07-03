@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Adapter\MSSQL;
+namespace Propulsion\Adapter\MSSQL;
 
 
 /**
@@ -15,8 +15,8 @@ namespace Propel\Adapter\MSSQL;
  *
  * @package    propel.runtime.adapter.MSSQL
  */
-use Propel\Connection\PropelPDO;
-use Propel\Exception\PropelException;
+use Propulsion\Connection\PropelPDO;
+use Propulsion\Exception\PropelException;
 
 class MssqlPropelPDO extends PropelPDO
 {

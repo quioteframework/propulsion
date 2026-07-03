@@ -1,5 +1,5 @@
 <?php
-namespace Propel\Generator\Behavior;
+namespace Propulsion\Generator\Behavior;
 /**
  * This file is part of the Propel package.
  * For the full copyright and license information, please view the LICENSE
@@ -14,8 +14,8 @@ namespace Propel\Generator\Behavior;
  * @author     François Zaninotto
  * @package    propel.generator.behavior
  */
-use Propel\Generator\Model\Behavior;
-use Propel\Generator\Model\ForeignKey;
+use Propulsion\Generator\Model\Behavior;
+use Propulsion\Generator\Model\ForeignKey;
 class DelegateBehavior extends Behavior
 {
 	const ONE_TO_ONE = 1;

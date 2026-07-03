@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Query;
+namespace Propulsion\Query;
 
 /**
  * This is an "inner" class that describes an object in the criteria.
@@ -17,9 +17,9 @@ namespace Propel\Query;
  * @package    propel.runtime.query
  */
 
- use Propel\Map\ColumnMap;
- use Propel\Adapter\DBPostgres;
- use Propel\Exception\PropelException;
+ use Propulsion\Map\ColumnMap;
+ use Propulsion\Adapter\DBPostgres;
+ use Propulsion\Exception\PropelException;
 class ModelCriterion extends Criterion
 {
 	protected $clause = '';

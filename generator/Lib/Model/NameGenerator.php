@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
- namespace Propel\Generator\Model;
+ namespace Propulsion\Generator\Model;
 
 /**
  * The generic interface to a name generation algorithm.

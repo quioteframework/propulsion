@@ -7,7 +7,7 @@
  *
  * @license     MIT License
  */
-namespace Propel\Generator\Model\Diff;
+namespace Propulsion\Generator\Model\Diff;
 
 /**
  * Service class for comparing Database objects
@@ -16,7 +16,7 @@ namespace Propel\Generator\Model\Diff;
  *
  * @package     propel.generator.model.diff
  */
-use Propel\Generator\Model\Database;
+use Propulsion\Generator\Model\Database;
 class PropelDatabaseComparator
 {
 	protected $databaseDiff;

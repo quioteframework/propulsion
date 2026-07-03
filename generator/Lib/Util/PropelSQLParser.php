@@ -8,7 +8,7 @@
  * @license    MIT License
  */
 
-namespace Propel\Generator\Util;
+namespace Propulsion\Generator\Util;
 /**
  * Service class for parsing a large SQL string into an array of SQL statements
  *

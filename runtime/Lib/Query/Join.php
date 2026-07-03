@@ -8,7 +8,7 @@
  * @license    MIT License
  */
 
-namespace Propel\Query;
+namespace Propulsion\Query;
 
 /**
  * Data object to describe a join between two tables, for example
@@ -27,8 +27,8 @@ namespace Propel\Query;
  * @author     Sam Joseph <sam@neurogrid.com> (Torque)
  * @package    propel.runtime.query
  */
-use Propel\Exception\PropelException;
-use Propel\Adapter\DBAdapter;
+use Propulsion\Exception\PropelException;
+use Propulsion\Adapter\DBAdapter;
 class Join
 {
   // default comparison type

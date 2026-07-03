@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Builder\OM;
+namespace Propulsion\Generator\Builder\OM;
 
 /**
  * Generates a PHP5 base Object class for user object model (OM).
@@ -18,14 +18,14 @@ namespace Propel\Generator\Builder\OM;
  * @author     Hans Lellelid <hans@xmpl.org>
  * @package    propel.generator.builder.om
  */
-use Propel\Generator\Exception\EngineException;
-use Propel\Generator\Model\Column;
-use Propel\Generator\Model\PropelTypes;
-use Propel\Generator\Model\ForeignKey;
-use Propel\Generator\Platform\MysqlPlatform;
-use Propel\Generator\Platform\OraclePlatform;
-use Propel\Generator\Platform\SqlsrvPlatform;
-use Propel\Generator\Model\IDMethod;
+use Propulsion\Generator\Exception\EngineException;
+use Propulsion\Generator\Model\Column;
+use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\ForeignKey;
+use Propulsion\Generator\Platform\MysqlPlatform;
+use Propulsion\Generator\Platform\OraclePlatform;
+use Propulsion\Generator\Platform\SqlsrvPlatform;
+use Propulsion\Generator\Model\IDMethod;
 
 use \DateTime;
 use \Exception;

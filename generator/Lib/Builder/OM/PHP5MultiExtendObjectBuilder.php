@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Builder\OM;
+namespace Propulsion\Generator\Builder\OM;
 
 /**
  * Generates the empty PHP5 stub object class for use with inheritance in the user object model (OM).
@@ -18,7 +18,7 @@ namespace Propel\Generator\Builder\OM;
  * @author     Hans Lellelid <hans@xmpl.org>
  * @package    propel.generator.builder.om
  */
-use Propel\Generator\Model\Inheritance;
+use Propulsion\Generator\Model\Inheritance;
 use Phing\Exception\BuildException;
 class PHP5MultiExtendObjectBuilder extends ObjectBuilder
 {

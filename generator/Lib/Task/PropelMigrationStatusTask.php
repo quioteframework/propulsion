@@ -7,8 +7,8 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Task;
-use Propel\Generator\Util\PropelMigrationManager;
+namespace Propulsion\Generator\Task;
+use Propulsion\Generator\Util\PropelMigrationManager;
 use Phing\Project;
 use PDOException;
 

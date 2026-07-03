@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\OM;
+namespace Propulsion\OM;
 
 /**
  * Pre-order node iterator for Node objects.

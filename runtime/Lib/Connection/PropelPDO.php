@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Connection;
+namespace Propulsion\Connection;
 /**
  * PDO connection subclass that provides the basic fixes to PDO that are required by Propel.
  *
@@ -27,10 +27,10 @@ namespace Propel\Connection;
  * @since      2006-09-22
  * @package    propel.runtime.connection
  */
-use Propel\Logger\BasicLogger;
-use Propel\Propel;
-use Propel\Config\PropelConfiguration;
-use Propel\Exception\PropelException;
+use Propulsion\Logger\BasicLogger;
+use Propulsion\Propel;
+use Propulsion\Config\PropelConfiguration;
+use Propulsion\Exception\PropelException;
 
 class PropelPDO extends \PDO
 {
@@ -93,7 +93,7 @@ class PropelPDO extends \PDO
 	/**
 	 * Configured BasicLogger (or compatible) logger.
 	 *
-	 * @var       \Propel\Logger\BasicLogger
+	 * @var       \Propulsion\Logger\BasicLogger
 	 */
 	protected $logger;
 
@@ -120,9 +120,9 @@ class PropelPDO extends \PDO
 		'PropelPDO::exec',                     // legacy (pre-namespace) identifier
 		'PropelPDO::query',                    // legacy identifier
 		'DebugPDOStatement::execute',          // legacy identifier
-		'Propel\\Connection\\PropelPDO::exec',    // namespaced runtime __METHOD__ form
-		'Propel\\Connection\\PropelPDO::query',   // namespaced runtime __METHOD__ form
-		'Propel\\Connection\\DebugPDOStatement::execute', // namespaced runtime __METHOD__ form
+		'Propulsion\\Connection\\PropelPDO::exec',    // namespaced runtime __METHOD__ form
+		'Propulsion\\Connection\\PropelPDO::query',   // namespaced runtime __METHOD__ form
+		'Propulsion\\Connection\\DebugPDOStatement::execute', // namespaced runtime __METHOD__ form
 	);
 
 	/**
@@ -149,7 +149,7 @@ class PropelPDO extends \PDO
 
 		if ($this->useDebug) {
 			// Use fully-qualified statement class to satisfy PDO strict validation
-			$this->configureStatementClass('\\Propel\\Connection\\DebugPDOStatement', true);
+			$this->configureStatementClass('\\Propulsion\\Connection\\DebugPDOStatement', true);
 			$this->log('Opening connection', null, __METHOD__, $debug);
 		}
 	}
@@ -419,9 +419,9 @@ class PropelPDO extends \PDO
 		try {
 			$return = parent::exec($sql);
 		} catch (\PDOException $e) {
-			if (\Propel\Propel::isConnectionDropped($e)) {
+			if (\Propulsion\Propel::isConnectionDropped($e)) {
 				error_log('[PropelPDO::exec] connection dropped, reconnecting and retrying');
-				\Propel\Propel::forceReconnect();
+				\Propulsion\Propel::forceReconnect();
 				$return = parent::exec($sql);
 			} else {
 				throw $e;
@@ -458,9 +458,9 @@ class PropelPDO extends \PDO
 		try {
 			$return = parent::query($query, $fetchMode, ...$args);
 		} catch (\PDOException $e) {
-			if (\Propel\Propel::isConnectionDropped($e)) {
+			if (\Propulsion\Propel::isConnectionDropped($e)) {
 				error_log('[PropelPDO::query] connection dropped, reconnecting and retrying');
-				\Propel\Propel::forceReconnect();
+				\Propulsion\Propel::forceReconnect();
 				$return = parent::query($query, $fetchMode, ...$args);
 			} else {
 				throw $e;
@@ -495,7 +495,7 @@ class PropelPDO extends \PDO
 	protected function configureStatementClass($class = 'PDOStatement', $suppressError = true)
 	{
 		// If a short (unqualified) class name was provided, attempt to resolve it within
-		// the current namespace (Propel\Connection) before handing it to PDO. This fixes
+		// the current namespace (Propulsion\Connection) before handing it to PDO. This fixes
 		// usage like configureStatementClass('DebugPDOStatement') under PHP 8.2+ where
 		// PDO::ATTR_STATEMENT_CLASS now performs stricter validation and requires the
 		// fully-qualified, autoloadable class name.
@@ -574,7 +574,7 @@ class PropelPDO extends \PDO
 	{
 		if ($value) {
 			// Use fully-qualified statement class to satisfy PDO strict validation
-			$this->configureStatementClass('\\Propel\\Connection\\DebugPDOStatement', true);
+			$this->configureStatementClass('\\Propulsion\\Connection\\DebugPDOStatement', true);
 		} else {
 			// reset query logging
 			$this->setAttribute(\PDO::ATTR_STATEMENT_CLASS, array('PDOStatement'));

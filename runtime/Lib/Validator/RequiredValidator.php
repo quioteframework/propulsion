@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Validator;
+namespace Propulsion\Validator;
 
 /**
  * A validator for required fields.
@@ -27,7 +27,7 @@ namespace Propel\Validator;
  * @package    propel.runtime.validator
  */
 
-use Propel\Map\ValidatorMap;
+use Propulsion\Map\ValidatorMap;
 class RequiredValidator implements BasicValidator
 {
 	/**

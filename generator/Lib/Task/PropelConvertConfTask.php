@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Task;
+namespace Propulsion\Generator\Task;
 
 use Phing\Project;
 use Phing\Io\File as PhingFile;
@@ -15,8 +15,8 @@ use Phing\Exception\BuildException;
 use \DOMDocument;
 use \Exception;
 use Phing\Io\FileWriter;
-use Propel\Generator\Builder\OM\ClassTools;
-use Propel\Generator\Model\AppData;
+use Propulsion\Generator\Builder\OM\ClassTools;
+use Propulsion\Generator\Model\AppData;
 
 /**
  * This Task converts the XML runtime configuration file into a PHP array for faster performance.
@@ -304,7 +304,7 @@ class PropelConvertConfTask extends AbstractPropelDataModelTask
 						// (this code is based on PropelOMTask)
 
 						foreach (array('tablemap', 'peerstub', 'objectstub', 'querystub', 'peer', 'object', 'query') as $target) {
-							/** @var \Propel\Generator\Builder\OM\OMBuilder $builder */
+							/** @var \Propulsion\Generator\Builder\OM\OMBuilder $builder */
 							$builder = $generatorConfig->getConfiguredBuilder($table, $target);
 							$classMap[$builder->getFullyQualifiedClassname()] = $builder->getClassFilePath();
 						}
@@ -319,7 +319,7 @@ class PropelConvertConfTask extends AbstractPropelDataModelTask
 							if ($col->isEnumeratedClasses()) {
 								foreach ($col->getChildren() as $child) {
 									foreach (array('objectmultiextend', 'queryinheritance', 'queryinheritancestub') as $target) {
-											/** @var \Propel\Generator\Builder\OM\QueryInheritanceBuilder $builder */
+											/** @var \Propulsion\Generator\Builder\OM\QueryInheritanceBuilder $builder */
 											$builder = $generatorConfig->getConfiguredBuilder($table, $target);
 											$builder->setChild($child);
 											$classMap[$builder->getFullyQualifiedClassname()] = $builder->getClassFilePath();
@@ -355,7 +355,7 @@ class PropelConvertConfTask extends AbstractPropelDataModelTask
 						// ----------------------------------------------
 
 						if ($table->getInterface()) {
-							/** @var \Propel\Generator\Builder\OM\OMBuilder $builder */
+							/** @var \Propulsion\Generator\Builder\OM\OMBuilder $builder */
 							$builder = $generatorConfig->getConfiguredBuilder($table, 'interface');
 							$classMap[$builder->getFullyQualifiedClassname()] = $builder->getClassFilePath();
 						}
@@ -366,14 +366,14 @@ class PropelConvertConfTask extends AbstractPropelDataModelTask
 
 						if ($table->treeMode() == 'MaterializedPath') {
 							foreach (array('nodepeerstub', 'nodestub', 'nodepeer', 'node') as $target) {
-								/** @var \Propel\Generator\Builder\OM\OMBuilder $builder */
+								/** @var \Propulsion\Generator\Builder\OM\OMBuilder $builder */
 								$builder = $generatorConfig->getConfiguredBuilder($table, $target);
 								$classMap[$builder->getFullyQualifiedClassname()] = $builder->getClassFilePath();
 							}
 						}
 						if ($table->treeMode() == 'NestedSet') {
 							foreach (array('nestedset', 'nestedsetpeer') as $target) {
-								/** @var \Propel\Generator\Builder\OM\OMBuilder $builder */
+								/** @var \Propulsion\Generator\Builder\OM\OMBuilder $builder */
 								$builder = $generatorConfig->getConfiguredBuilder($table, $target);
 								$classMap[$builder->getFullyQualifiedClassname()] = $builder->getClassFilePath();
 							}

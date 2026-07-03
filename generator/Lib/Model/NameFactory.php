@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
- namespace Propel\Generator\Model;
+ namespace Propulsion\Generator\Model;
 
 /**
  * A name generation factory.
@@ -23,12 +23,12 @@ class NameFactory
 	/**
 	 * The class name of the PHP name generator.
 	 */
-	const PHP_GENERATOR = 'Propel\\Generator\\Model\\PhpNameGenerator';
+	const PHP_GENERATOR = 'Propulsion\\Generator\\Model\\PhpNameGenerator';
 
 	/**
 	 * The fully qualified class name of the constraint name generator.
 	 */
-	const CONSTRAINT_GENERATOR = 'Propel\\Generator\\Model\\ConstraintNameGenerator';
+	const CONSTRAINT_GENERATOR = 'Propulsion\\Generator\\Model\\ConstraintNameGenerator';
 
 	/**
 	 * The single instance of this class.

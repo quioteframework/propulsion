@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Validator;
+namespace Propulsion\Validator;
 
 /**
  * A validator for unique column names.
@@ -25,8 +25,8 @@ namespace Propel\Validator;
  * @package    propel.runtime.validator
  */
 
-use Propel\Map\ValidatorMap;
-use Propel\Query\Criteria;
+use Propulsion\Map\ValidatorMap;
+use Propulsion\Query\Criteria;
 
 class UniqueValidator implements BasicValidator
 {

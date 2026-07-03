@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
- namespace Propel\Generator\Model;
+ namespace Propulsion\Generator\Model;
 
 /**
  * A class for holding data about a domain used in the schema.
@@ -17,7 +17,7 @@
  * @version    $Revision$
  * @package    propel.generator.model
  */
-use Propel\Generator\Exception\EngineException;
+use Propulsion\Generator\Exception\EngineException;
 class Domain extends XMLElement
 {
 

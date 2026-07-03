@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Model;
+namespace Propulsion\Generator\Model;
 /**
  * Interface for various ID retrieval method types
  * (i.e. auto-increment, sequence, ID broker, etc.).

@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Util;
+namespace Propulsion\Util;
 
 /**
  * This is a utility interface for all generated NodePeer classes in the system.
@@ -16,8 +16,8 @@ namespace Propel\Util;
  * @version    $Revision$
  * @package    propel.runtime.util
  */
-use Propel\Connection\PropelPDO;
-use Propel\Om\NodeObject;
+use Propulsion\Connection\PropelPDO;
+use Propulsion\Om\NodeObject;
 
 interface NodePeer
 {

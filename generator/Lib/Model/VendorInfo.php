@@ -1,6 +1,6 @@
 <?php
 
-namespace Propel\Generator\Model;
+namespace Propulsion\Generator\Model;
 
 /**
  * Object to hold vendor-specific info.

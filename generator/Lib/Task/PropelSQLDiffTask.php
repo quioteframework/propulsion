@@ -7,18 +7,18 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Task;
-use Propel\Generator\Util\PropelMigrationManager;
+namespace Propulsion\Generator\Task;
+use Propulsion\Generator\Util\PropelMigrationManager;
 use Phing\Project;
 use \PDOException;
 use Phing\Io\File as PhingFile;
 use Phing\Exception\BuildException;
-use Propel\Generator\Model\AppData;
-use Propel\Generator\Model\Database;
-use Propel\Generator\Model\IDMethod;
-use Propel\Generator\Platform\PropelPlatformInterface;
-use Propel\Generator\Model\PropelTypes;
-use Propel\Generator\Model\Diff\PropelDatabaseComparator;
+use Propulsion\Generator\Model\AppData;
+use Propulsion\Generator\Model\Database;
+use Propulsion\Generator\Model\IDMethod;
+use Propulsion\Generator\Platform\PropelPlatformInterface;
+use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\Diff\PropelDatabaseComparator;
 use \Exception;
 
 /**
@@ -163,7 +163,7 @@ class PropelSQLDiffTask extends AbstractPropelDataModelTask
 			}
 
 			$this->log(sprintf('Structure of database was modified in datasource "%s": %s', $name, $databaseDiff->getDescription()));
-			/** @var \Propel\Generator\Platform\PlatformInterface $platform */
+			/** @var \Propulsion\Generator\Platform\PlatformInterface $platform */
 			$platform = $generatorConfig->getConfiguredPlatform(null, $name);
 			$migrationsUp[$name] = $platform->getModifyDatabaseDDL($databaseDiff);
 			$migrationsDown[$name] = $platform->getModifyDatabaseDDL($databaseDiff->getReverseDiff());

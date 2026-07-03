@@ -1,6 +1,6 @@
 <?php
 
-namespace Propel\Generator\Command;
+namespace Propulsion\Generator\Command;
 
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -85,7 +85,7 @@ class InitCommand extends Command
                     'connections' => [
                         'default' => [
                             'adapter' => $platform,
-                            'classname' => 'Propel\\Connection\\PropelPDO',
+                            'classname' => 'Propulsion\\Connection\\PropelPDO',
                             'dsn' => $this->generateDsn($platform, $projectName),
                             'user' => 'your_username',
                             'password' => 'your_password'

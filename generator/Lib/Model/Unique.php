@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Model;
+namespace Propulsion\Generator\Model;
 
 /**
  * Information about unique columns of a table.  This class assumes

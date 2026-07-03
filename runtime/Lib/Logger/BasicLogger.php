@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Logger;
+namespace Propulsion\Logger;
 /**
  * This is a minimalistic interface that any logging class must implement for Propel.
  *

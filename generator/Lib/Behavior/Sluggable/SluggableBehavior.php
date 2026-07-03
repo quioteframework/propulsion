@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Behavior\Sluggable;
+namespace Propulsion\Generator\Behavior\Sluggable;
 /**
  * Adds a slug column
  *
@@ -16,8 +16,8 @@ namespace Propel\Generator\Behavior\Sluggable;
  * @version		$Revision$
  * @package		propel.generator.behavior.sluggable
  */
-use Propel\Generator\Model\Behavior;
-use Propel\Generator\Model\Unique;
+use Propulsion\Generator\Model\Behavior;
+use Propulsion\Generator\Model\Unique;
 class SluggableBehavior extends Behavior
 {
 	// default parameters value

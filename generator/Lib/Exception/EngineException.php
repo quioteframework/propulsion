@@ -1,6 +1,6 @@
 <?php
 
-namespace Propel\Generator\Exception;
+namespace Propulsion\Generator\Exception;
 
 /**
  * This file is part of the Propel package.

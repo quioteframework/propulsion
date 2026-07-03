@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Model;
+namespace Propulsion\Generator\Model;
 
 /**
  * Data about an element with a name and optional namespace/schema/package attributes

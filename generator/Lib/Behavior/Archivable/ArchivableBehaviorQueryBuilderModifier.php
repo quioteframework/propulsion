@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Behavior\Archivable;
+namespace Propulsion\Generator\Behavior\Archivable;
 /**
  * Keeps tracks of an ActiveRecord object, even after deletion
  *

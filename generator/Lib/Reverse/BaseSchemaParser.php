@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Reverse;
+namespace Propulsion\Generator\Reverse;
 
 /**
  * Base class for reverse engineering a database schema.
@@ -17,8 +17,8 @@ namespace Propel\Generator\Reverse;
  * @package    propel.generator.reverse
  * @method     void setMigrationTable(string $migrationTable)
  */
-use Propel\Generator\Config\GeneratorConfigInterface;
-use Propel\Generator\Model\VendorInfo;
+use Propulsion\Generator\Config\GeneratorConfigInterface;
+use Propulsion\Generator\Model\VendorInfo;
 
 abstract class BaseSchemaParser implements SchemaParser
 {

@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Task;
+namespace Propulsion\Generator\Task;
 
 /**
  * An abstract base Propel task to perform work related to the XML schema file.
@@ -29,9 +29,9 @@ namespace Propel\Generator\Task;
  use Phing\Type\Mapper;
  use Phing\Io\FileSystem;
 
- use Propel\Generator\Exception\EngineException;
- use Propel\Generator\Builder\Util\XmlToAppData;
- use Propel\Generator\Config\GeneratorConfig;
+ use Propulsion\Generator\Exception\EngineException;
+ use Propulsion\Generator\Builder\Util\XmlToAppData;
+ use Propulsion\Generator\Config\GeneratorConfig;
 
 use \PDO;
 use \PDOException;

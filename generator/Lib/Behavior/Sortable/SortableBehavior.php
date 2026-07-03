@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Behavior\Sortable;
+namespace Propulsion\Generator\Behavior\Sortable;
 
 /**
  * Gives a model class the ability to be ordered
@@ -17,7 +17,7 @@ namespace Propel\Generator\Behavior\Sortable;
  * @version     $Revision$
  * @package     propel.generator.behavior.sortable
  */
-use Propel\Generator\Model\Behavior;
+use Propulsion\Generator\Model\Behavior;
 class SortableBehavior extends Behavior
 {
 	// default parameters value

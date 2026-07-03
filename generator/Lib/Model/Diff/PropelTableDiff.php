@@ -7,7 +7,7 @@
  *
  * @license     MIT License
  */
-namespace Propel\Generator\Model\Diff;
+namespace Propulsion\Generator\Model\Diff;
 
 /**
  * Value object for storing Table object diffs
@@ -16,10 +16,10 @@ namespace Propel\Generator\Model\Diff;
  *
  * @package    propel.generator.model.diff
  */
-use Propel\Generator\Model\Table;
-use Propel\Generator\Model\Column;
-use Propel\Generator\Model\Index;
-use Propel\Generator\Model\ForeignKey;
+use Propulsion\Generator\Model\Table;
+use Propulsion\Generator\Model\Column;
+use Propulsion\Generator\Model\Index;
+use Propulsion\Generator\Model\ForeignKey;
 class PropelTableDiff
 {
 	protected $fromTable;

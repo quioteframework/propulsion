@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Builder\SQL\PgSQL;;
+namespace Propulsion\Generator\Builder\SQL\PgSQL;;
 
 /**
  * PostgreSQL class for building data dump SQL.
@@ -15,10 +15,10 @@ namespace Propel\Generator\Builder\SQL\PgSQL;;
  * @author     Hans Lellelid <hans@xmpl.org>
  * @package    propel.generator.builder.sql.pgsql
  */
-use Propel\Generator\Builder\SQL\DataSQLBuilder;
-use Propel\Generator\Model\Table;
-use Propel\Generator\Builder\Util\DataRow;
-use Propel\Generator\Model\IDMethod;
+use Propulsion\Generator\Builder\SQL\DataSQLBuilder;
+use Propulsion\Generator\Model\Table;
+use Propulsion\Generator\Builder\Util\DataRow;
+use Propulsion\Generator\Model\IDMethod;
 class PgsqlDataSQLBuilder extends DataSQLBuilder
 {
 

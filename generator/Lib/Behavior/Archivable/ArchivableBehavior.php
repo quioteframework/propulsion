@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Behavior\Archivable;
+namespace Propulsion\Generator\Behavior\Archivable;
 
 /**
  * Keeps tracks of an ActiveRecord object, even after deletion
@@ -17,7 +17,7 @@ namespace Propel\Generator\Behavior\Archivable;
  * @package		propel.generator.archivable
  */
 
-use Propel\Generator\Model\Behavior;
+use Propulsion\Generator\Model\Behavior;
 use \InvalidArgumentException;
 
 class ArchivableBehavior extends Behavior

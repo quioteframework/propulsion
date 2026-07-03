@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Behavior\NestedSet;
+namespace Propulsion\Generator\Behavior\NestedSet;
 
 /**
  * Behavior to adds nested set tree structure columns and abilities
@@ -15,8 +15,8 @@ namespace Propel\Generator\Behavior\NestedSet;
  * @author     François Zaninotto
  * @package    propel.generator.behavior.nestedset
  */
-use Propel\Generator\Model\Behavior;
-use Propel\Generator\Model\Table;
+use Propulsion\Generator\Model\Behavior;
+use Propulsion\Generator\Model\Table;
 class NestedSetBehavior extends Behavior
 {
 	// default parameters value

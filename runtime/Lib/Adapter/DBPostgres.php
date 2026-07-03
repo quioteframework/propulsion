@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Adapter;
+namespace Propulsion\Adapter;
 
 /**
  * This is used to connect to PostgresQL databases.
@@ -20,8 +20,8 @@ namespace Propel\Adapter;
  * @package    propel.runtime.adapter
  */
 use PDO;
-use Propel\Query\Criteria;
-use Propel\Exception\PropelException;
+use Propulsion\Query\Criteria;
+use Propulsion\Exception\PropelException;
 class DBPostgres extends DBAdapter
 {
 

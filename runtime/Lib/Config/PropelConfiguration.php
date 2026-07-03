@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Config;
+namespace Propulsion\Config;
 /**
  * PropelConfiguration is a container for all Propel's runtime configuration data.
  *
@@ -21,7 +21,7 @@ namespace Propel\Config;
  * @package    propel.runtime.config
  */
 
-use Propel\Exception\PropelException;
+use Propulsion\Exception\PropelException;
 class PropelConfiguration implements \ArrayAccess
 {
 	const TYPE_ARRAY = 1;

@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Formatter;
+namespace Propulsion\Formatter;
 
 /**
  * Array formatter for Propel query
@@ -20,11 +20,11 @@ namespace Propel\Formatter;
 
  use \PDO;
  use \PDOStatement;
- use Propel\Exception\PropelException;
- use Propel\Om\BaseObject;
+ use Propulsion\Exception\PropelException;
+ use Propulsion\Om\BaseObject;
 class PropelArrayFormatter extends PropelFormatter
 {
-	protected $collectionName = 'Propel\\Collection\\PropelArrayCollection';
+	protected $collectionName = 'Propulsion\\Collection\\PropelArrayCollection';
 	protected $alreadyHydratedObjects = array();
 	protected $emptyVariable;
 

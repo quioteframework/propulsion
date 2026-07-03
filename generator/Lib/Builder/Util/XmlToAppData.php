@@ -8,7 +8,7 @@
  * @license    MIT License
  */
 
-namespace Propel\Generator\Builder\Util;
+namespace Propulsion\Generator\Builder\Util;
 
 /**
  * A class that is used to parse an input xml schema file and creates an AppData
@@ -23,10 +23,10 @@ namespace Propel\Generator\Builder\Util;
  * @package    propel.generator.builder.util
  */
 
- use Propel\Generator\Platform\PropelPlatformInterface;
- use Propel\Generator\Model\AppData;
- use Propel\Generator\Config\GeneratorConfig;
- use Propel\Exception\SchemaException;
+ use Propulsion\Generator\Platform\PropelPlatformInterface;
+ use Propulsion\Generator\Model\AppData;
+ use Propulsion\Generator\Config\GeneratorConfig;
+ use Propulsion\Exception\SchemaException;
 class XmlToAppData
 {
 

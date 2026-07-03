@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Util;
+namespace Propulsion\Util;
 
 /**
  *  PropelPager
@@ -91,7 +91,7 @@ namespace Propel\Util;
  * @copyright  Copyright (c) 2004 Rob Halff: LGPL - See LICENCE
  * @package    propel.runtime.util
  */
-use Propel\Query\Criteria;
+use Propulsion\Query\Criteria;
 
 class PropelPager implements \Countable, \Iterator
 {

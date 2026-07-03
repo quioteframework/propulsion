@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Map;
+namespace Propulsion\Map;
 
 /**
  * ColumnMap is used to model a column of a table in a database.
@@ -25,9 +25,9 @@ namespace Propel\Map;
  * @package    propel.runtime.map
  */
 
- use Propel\Util\PropelColumnTypes;
- use Propel\Exception\PropelException;
- use Propel\Adapter\DBAdapter;
+ use Propulsion\Util\PropelColumnTypes;
+ use Propulsion\Exception\PropelException;
+ use Propulsion\Adapter\DBAdapter;
 class ColumnMap
 {
 

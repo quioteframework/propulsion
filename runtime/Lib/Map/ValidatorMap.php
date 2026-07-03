@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Map;
+namespace Propulsion\Map;
 
 /**
  * ValidatorMap is used to model a column validator.

@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Parser;
+namespace Propulsion\Parser;
 
 /**
  * JSON parser. Converts data between associative array and JSON formats

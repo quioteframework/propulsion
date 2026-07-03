@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Model;
+namespace Propulsion\Generator\Model;
 
 /**
  * A Class for information about foreign keys of a table.

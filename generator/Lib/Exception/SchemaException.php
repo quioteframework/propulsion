@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Exception;
+namespace Propulsion\Generator\Exception;
 
 /**
  * Class for exceptions thrown during schema parsing

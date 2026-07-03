@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Task;
+namespace Propulsion\Generator\Task;
 
 use Phing\Project;
 use Phing\Io\File as PhingFile;
@@ -18,8 +18,8 @@ use \Exception;
 use Phing\Util\Properties;
 use Phing\Io\IOException;
 use PDOException;
-use Propel\Generator\Model\Database;
-use Propel\Generator\Platform\PropelPlatformInterface;
+use Propulsion\Generator\Model\Database;
+use Propulsion\Generator\Platform\PropelPlatformInterface;
 
 /**
  * Dumps the contenst of selected databases to XML data dump file.

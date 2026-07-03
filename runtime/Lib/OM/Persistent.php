@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\OM;
+namespace Propulsion\OM;
 
 /**
  * This interface defines methods related to saving an object
@@ -19,7 +19,7 @@ namespace Propel\OM;
  * @package    propel.runtime.om
  */
 
- use Propel\Connection\PropelPDO;
+ use Propulsion\Connection\PropelPDO;
 interface Persistent
 {
 

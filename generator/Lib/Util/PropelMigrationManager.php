@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Util;
+namespace Propulsion\Generator\Util;
 
 /**
  * Service class for preparing and executing migrations
@@ -17,9 +17,9 @@ namespace Propel\Generator\Util;
  * @package    propel.generator.util
  */
 
- use Propel\Generator\Model\Column;
- use Propel\Generator\Model\Table;
- use Propel\Generator\Model\Database;
+ use Propulsion\Generator\Model\Column;
+ use Propulsion\Generator\Model\Table;
+ use Propulsion\Generator\Model\Database;
  use \Exception;
  use \PDO;
 
@@ -88,10 +88,10 @@ class PropelMigrationManager
 				$adapterClass
 		);
 
-		// Prefer the namespaced class if it exists (Propel\Generator\Platform\{Adapter}Platform),
+		// Prefer the namespaced class if it exists (Propulsion\Generator\Platform\{Adapter}Platform),
 		// fall back to a global class name (legacy). This handles both modern PSR-4 files
 		// that declare a namespace and older files that declare classes in the global space.
-		$namespaced = 'Propel\\Generator\\Platform\\' . $adapterClass;
+		$namespaced = 'Propulsion\\Generator\\Platform\\' . $adapterClass;
 		if (class_exists($namespaced, false) || class_exists($namespaced)) {
 			return new $namespaced();
 		}

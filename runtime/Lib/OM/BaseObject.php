@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\OM;
+namespace Propulsion\OM;
 
 /**
  * This class contains attributes and methods that are used by all
@@ -29,11 +29,11 @@ namespace Propel\OM;
  * @package    propel.runtime.om
  */
 
- use Propel\Connection\PropelPDO;
- use Propel\Exception\PropelException;
- use Propel\Propel;
- use Propel\Parser\PropelParser;
- use Propel\Util\BasePeer;
+ use Propulsion\Connection\PropelPDO;
+ use Propulsion\Exception\PropelException;
+ use Propulsion\Propel;
+ use Propulsion\Parser\PropelParser;
+ use Propulsion\Util\BasePeer;
 abstract class BaseObject
 {
 

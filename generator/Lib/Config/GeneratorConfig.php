@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Config;
+namespace Propulsion\Generator\Config;
 
 // Phing dependencies
 
@@ -22,10 +22,10 @@ namespace Propel\Generator\Config;
  use Phing\Exception\BuildException;
 use Phing\Phing;
 use PDO;
-use Propel\Generator\Platform\PropelPlatformInterface;
-use Propel\Generator\Reverse\SchemaParser;
-use Propel\Generator\Model\Table;
-use Propel\Generator\Builder\DataModelBuilder;
+use Propulsion\Generator\Platform\PropelPlatformInterface;
+use Propulsion\Generator\Reverse\SchemaParser;
+use Propulsion\Generator\Model\Table;
+use Propulsion\Generator\Builder\DataModelBuilder;
 
 class GeneratorConfig implements GeneratorConfigInterface
 {
@@ -155,9 +155,9 @@ class GeneratorConfig implements GeneratorConfigInterface
 			return $classpath;
 		}
 
-		// Try mapping dot-notation to a PSR-4 namespaced class under Propel\Generator\
-		// e.g. 'platform.mysql.MysqlPlatform' -> 'Propel\Generator\platform\mysql\MysqlPlatform'
-		$nsCandidate = 'Propel\\Generator\\' . str_replace('.', '\\', $classpath);
+		// Try mapping dot-notation to a PSR-4 namespaced class under Propulsion\Generator\
+		// e.g. 'platform.mysql.MysqlPlatform' -> 'Propulsion\Generator\platform\mysql\MysqlPlatform'
+		$nsCandidate = 'Propulsion\\Generator\\' . str_replace('.', '\\', $classpath);
 		if (class_exists($nsCandidate)) {
 			return $nsCandidate;
 		}
@@ -166,7 +166,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 		$parts = explode('.', $classpath);
 		$last = array_pop($parts);
 		$parts[] = ucfirst($last);
-		$nsCandidateUc = 'Propel\\Generator\\' . str_replace('.', '\\', implode('.', $parts));
+		$nsCandidateUc = 'Propulsion\\Generator\\' . str_replace('.', '\\', implode('.', $parts));
 		if (class_exists($nsCandidateUc)) {
 			return $nsCandidateUc;
 		}
@@ -210,7 +210,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 	{
 		$buildConnection = $this->getBuildConnection($database);
 		if (null !== $buildConnection['adapter']) {
-			$clazz = 'Propel\\Generator\\Platform\\' . ucfirst($buildConnection['adapter']) . 'Platform';
+			$clazz = 'Propulsion\\Generator\\Platform\\' . ucfirst($buildConnection['adapter']) . 'Platform';
 		} elseif ($this->getBuildProperty('platformClass')) {
 			// propel.platform.class = platform.${propel.database}Platform by default
 			$clazz = $this->getClassname('platformClass');

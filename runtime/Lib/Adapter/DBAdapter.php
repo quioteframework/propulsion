@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Adapter;
+namespace Propulsion\Adapter;
 /**
  * DBAdapter</code> defines the interface for a Propel database adapter.
  *
@@ -30,13 +30,13 @@ namespace Propel\Adapter;
  * @version    $Revision$
  * @package    propel.runtime.adapter
  */
-use Propel\Exception\PropelException;
+use Propulsion\Exception\PropelException;
 use PDO;
-use Propel\Map\ColumnMap;
-use Propel\Util\PropelDateTime;
-use Propel\Util\PropelColumnTypes;
-use Propel\Query\Criteria;
-use Propel\Map\DatabaseMap;
+use Propulsion\Map\ColumnMap;
+use Propulsion\Util\PropelDateTime;
+use Propulsion\Util\PropelColumnTypes;
+use Propulsion\Query\Criteria;
+use Propulsion\Map\DatabaseMap;
 
 abstract class DBAdapter
 {
@@ -49,15 +49,15 @@ abstract class DBAdapter
 	 * @var array
 	 */
 	private static $adapters = array(
-		'mysql'  => 'Propel\Adapter\DBMySQL',
-		'mysqli' => 'Propel\Adapter\DBMySQLi',
-		'mssql'  => 'Propel\Adapter\DBMSSQL',
-		'sqlsrv' => 'Propel\Adapter\DBSQLSRV',
-		'oracle' => 'Propel\Adapter\DBOracle',
-		'oci'    => 'Propel\Adapter\DBOracle',
-		'pgsql'  => 'Propel\Adapter\DBPostgres',
-		'sqlite' => 'Propel\Adapter\DBSQLite',
-		''       => 'Propel\Adapter\DBNone',
+		'mysql'  => 'Propulsion\Adapter\DBMySQL',
+		'mysqli' => 'Propulsion\Adapter\DBMySQLi',
+		'mssql'  => 'Propulsion\Adapter\DBMSSQL',
+		'sqlsrv' => 'Propulsion\Adapter\DBSQLSRV',
+		'oracle' => 'Propulsion\Adapter\DBOracle',
+		'oci'    => 'Propulsion\Adapter\DBOracle',
+		'pgsql'  => 'Propulsion\Adapter\DBPostgres',
+		'sqlite' => 'Propulsion\Adapter\DBSQLite',
+		''       => 'Propulsion\Adapter\DBNone',
 	);
 
 	/**
@@ -572,7 +572,7 @@ abstract class DBAdapter
 	public function bindValue(\PDOStatement $stmt, $parameter, $value, ColumnMap $cMap, $position = null)
 	{
 		if (is_array($value)) {
-			throw new \Propel\Exception\PropelException(
+			throw new \Propulsion\Exception\PropelException(
 				sprintf('Cannot bind array value for parameter %s. Use IN() criteria instead.', $parameter)
 			);
 		}

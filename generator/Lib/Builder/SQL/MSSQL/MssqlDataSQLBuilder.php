@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Builder\SQL\MSSQL;
+namespace Propulsion\Generator\Builder\SQL\MSSQL;
 
 /**
  * MS SQL Server class for building data dump SQL.
@@ -15,7 +15,7 @@ namespace Propel\Generator\Builder\SQL\MSSQL;
  * @author     Hans Lellelid <hans@xmpl.org>
  * @package    propel.generator.builder.sql.mssql
  */
-use Propel\Generator\Builder\SQL\DataSQLBuilder;
+use Propulsion\Generator\Builder\SQL\DataSQLBuilder;
 class MssqlDataSQLBuilder extends DataSQLBuilder
 {
 

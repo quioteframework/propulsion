@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Builder\OM;
+namespace Propulsion\Generator\Builder\OM;
 
 /**
  * Generates the empty PHP5 stub query class for use with single table inheritance.
@@ -19,7 +19,7 @@ namespace Propel\Generator\Builder\OM;
  * @author     François Zaninotto
  * @package    propel.generator.builder.om
  */
-use Propel\Generator\Model\Inheritance;
+use Propulsion\Generator\Model\Inheritance;
 use Phing\Exception\BuildException;
 
 class ExtensionQueryInheritanceBuilder extends OMBuilder

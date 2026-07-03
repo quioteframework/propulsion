@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
- namespace Propel\Generator\Model;
+ namespace Propulsion\Generator\Model;
 
 /**
  * A class for holding application data structures.
@@ -21,8 +21,8 @@
  * @version    $Revision$
  * @package    propel.generator.model
  */
-use Propel\Generator\Exception\EngineException;
-use Propel\Generator\Platform\PropelPlatformInterface;
+use Propulsion\Generator\Exception\EngineException;
+use Propulsion\Generator\Platform\PropelPlatformInterface;
 class Database extends ScopedElement
 {
 

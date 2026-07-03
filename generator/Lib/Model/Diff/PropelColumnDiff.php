@@ -7,7 +7,7 @@
  *
  * @license     MIT License
  */
-namespace Propel\Generator\Model\Diff;
+namespace Propulsion\Generator\Model\Diff;
 
 /**
  * Value object for storing Column object diffs.
@@ -16,7 +16,7 @@ namespace Propel\Generator\Model\Diff;
  *
  * @package    propel.generator.model.diff
  */
-use Propel\Generator\Model\Column;
+use Propulsion\Generator\Model\Column;
 class PropelColumnDiff
 {
 	protected $changedProperties = array();

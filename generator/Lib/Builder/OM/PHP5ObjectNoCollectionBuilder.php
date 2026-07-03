@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Builder\OM;
+namespace Propulsion\Generator\Builder\OM;
 
 /**
  * Generates a PHP5 base Object class for user object model (OM).
@@ -31,11 +31,11 @@ namespace Propel\Generator\Builder\OM;
  * @package    propel.generator.builder.om
  */
 
- use Propel\Generator\Model\Column;
- use Propel\Generator\Model\PropelTypes;
- use Propel\Generator\Platform\OraclePlatform;
- use Propel\Generator\Model\ForeignKey;
- use Propel\Generator\Exception\EngineException;
+ use Propulsion\Generator\Model\Column;
+ use Propulsion\Generator\Model\PropelTypes;
+ use Propulsion\Generator\Platform\OraclePlatform;
+ use Propulsion\Generator\Model\ForeignKey;
+ use Propulsion\Generator\Exception\EngineException;
 class PHP5ObjectNoCollectionBuilder extends PHP5ObjectBuilder
 {
 

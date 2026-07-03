@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Validator;
+namespace Propulsion\Validator;
 
 /**
  * Basic Validator interface.
@@ -20,7 +20,7 @@ namespace Propel\Validator;
  * @version    $Revision$
  * @package    propel.runtime.validator
  */
- use Propel\Map\ValidatorMap;
+ use Propulsion\Map\ValidatorMap;
 interface BasicValidator
 {
 	/**

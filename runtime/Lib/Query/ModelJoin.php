@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Query;
+namespace Propulsion\Query;
 
 /**
  * A ModelJoin is a Join object tied to a RelationMap object
@@ -16,8 +16,8 @@ namespace Propel\Query;
  * @package    propel.runtime.query
  */
 
- use Propel\Map\RelationMap;
- use Propel\Map\TableMap;
+ use Propulsion\Map\RelationMap;
+ use Propulsion\Map\TableMap;
 
 class ModelJoin extends Join
 {

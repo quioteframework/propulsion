@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Validator;
+namespace Propulsion\Validator;
 
 /**
  * A validator for validating the (PHP) type of the value submitted.
@@ -25,8 +25,8 @@ namespace Propel\Validator;
  * @package    propel.runtime.validator
  */
 
-use Propel\Map\ValidatorMap;
-use Propel\Exception\PropelException;
+use Propulsion\Map\ValidatorMap;
+use Propulsion\Exception\PropelException;
 
 class TypeValidator implements BasicValidator
 {

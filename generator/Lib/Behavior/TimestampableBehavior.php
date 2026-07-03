@@ -1,5 +1,5 @@
 <?php
-namespace Propel\Generator\Behavior;
+namespace Propulsion\Generator\Behavior;
 
 /**
  * This file is part of the Propel package.
@@ -17,7 +17,7 @@ namespace Propel\Generator\Behavior;
  * @version    $Revision$
  * @package    propel.generator.behavior
  */
-use Propel\Generator\Model\Behavior;
+use Propulsion\Generator\Model\Behavior;
 class TimestampableBehavior extends Behavior
 {
 	// default parameters value

@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Builder\OM;
+namespace Propulsion\Generator\Builder\OM;
 
 /**
  * Baseclass for OM-building classes.
@@ -19,10 +19,10 @@ namespace Propel\Generator\Builder\OM;
  * @author     Hans Lellelid <hans@xmpl.org>
  * @package    propel.generator.builder.om
  */
-use Propel\Generator\Builder\DataModelBuilder;
+use Propulsion\Generator\Builder\DataModelBuilder;
 use \Exception;
-use Propel\Generator\Model\Table;
-use Propel\Generator\Model\ForeignKey;
+use Propulsion\Generator\Model\Table;
+use Propulsion\Generator\Model\ForeignKey;
 abstract class OMBuilder extends DataModelBuilder
 {
 	/**

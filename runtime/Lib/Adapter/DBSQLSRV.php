@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Adapter;
+namespace Propulsion\Adapter;
 
 /**
  * This is used to connect to a MSSQL database using pdo_sqlsrv driver.
@@ -18,10 +18,10 @@ namespace Propel\Adapter;
  */
 use PDO;
 use PDOStatement;
-use Propel\Query\Criteria;
-use Propel\Exception\PropelException;
-use Propel\Map\ColumnMap;
-use Propel\Map\DatabaseMap;
+use Propulsion\Query\Criteria;
+use Propulsion\Exception\PropelException;
+use Propulsion\Map\ColumnMap;
+use Propulsion\Map\DatabaseMap;
 
 class DBSQLSRV extends DBMSSQL
 {

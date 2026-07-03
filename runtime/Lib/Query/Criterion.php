@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Query;
+namespace Propulsion\Query;
 
 /**
  * This is an "inner" class that describes an object in the criteria.
@@ -18,10 +18,10 @@ namespace Propel\Query;
  * @version    $Revision$
  * @package    propel.runtime.query
  */
- use Propel\Propel;
- use Propel\Adapter\DBAdapter;
- use Propel\Exception\PropelException;
- use Propel\Adapter\DBPostgres;
+ use Propulsion\Propel;
+ use Propulsion\Adapter\DBAdapter;
+ use Propulsion\Exception\PropelException;
+ use Propulsion\Adapter\DBPostgres;
  use \Exception;
 class Criterion
 {

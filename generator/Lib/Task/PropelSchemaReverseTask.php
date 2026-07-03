@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Task;
+namespace Propulsion\Generator\Task;
 
 use Phing\Task\System\Pdo\PDOTask;
 use Phing\Io\File as PhingFile;
@@ -15,14 +15,14 @@ use Phing\Project;
 use Phing\Exception\BuildException;
 use \DOMDocument;
 use \Exception;
-use Propel\Generator\Model\Database;
-use Propel\Generator\Model\Column;
-use Propel\Generator\Model\Rule;
-use Propel\Generator\Model\Validator;
-use Propel\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\Database;
+use Propulsion\Generator\Model\Column;
+use Propulsion\Generator\Model\Rule;
+use Propulsion\Generator\Model\Validator;
+use Propulsion\Generator\Model\PropelTypes;
 use Phing\Io\FileWriter;
-use Propel\Generator\Config\GeneratorConfig;
-use Propel\Generator\Model\IDMethod;
+use Propulsion\Generator\Config\GeneratorConfig;
+use Propulsion\Generator\Model\IDMethod;
 
 /**
  * This class generates an XML schema of an existing database from

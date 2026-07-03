@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
- namespace Propel\Generator\Model;
+ namespace Propulsion\Generator\Model;
 
 /**
  * A class for holding application data structures.
@@ -19,8 +19,8 @@
  * @version    $Revision$
  * @package    propel.generator.model
  */
-use Propel\Generator\Platform\PropelPlatformInterface;
-use Propel\Generator\Config\GeneratorConfig;
+use Propulsion\Generator\Platform\PropelPlatformInterface;
+use Propulsion\Generator\Config\GeneratorConfig;
 class AppData
 {
 

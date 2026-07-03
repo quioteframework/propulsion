@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Exception;
+namespace Propulsion\Exception;
 /**
  * The base class of all exceptions thrown by Propel.
  * @author     Hans Lellelid <hans@xmpl.org>

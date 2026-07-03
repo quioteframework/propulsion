@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Builder\OM;
+namespace Propulsion\Generator\Builder\OM;
 
 /**
  * Base class for Peer-building classes.
@@ -55,9 +55,9 @@ namespace Propel\Generator\Builder\OM;
  * @method void addGetOMClass_NoInheritance_Abstract(string &$script)
  * @method void addGetOMClass_NoInheritance(string &$script)
  */
-use Propel\Generator\Model\Table;
-use Propel\Generator\Model\ForeignKey;
-use Propel\Generator\Model\Column;
+use Propulsion\Generator\Model\Table;
+use Propulsion\Generator\Model\ForeignKey;
+use Propulsion\Generator\Model\Column;
 abstract class PeerBuilder extends OMBuilder
 {
 

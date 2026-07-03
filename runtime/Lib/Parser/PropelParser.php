@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Parser;
+namespace Propulsion\Parser;
 
 /**
  * Base class for all parsers. A parser converts data from and to an associative array.
@@ -16,7 +16,7 @@ namespace Propel\Parser;
  * @author     Jonathan H. Wage <jwage@mac.com> (Doctrine_Parser)
  * @package    propel.runtime.parser
  */
-use Propel\Exception\PropelException;
+use Propulsion\Exception\PropelException;
 abstract class PropelParser
 {
 	/**
@@ -92,7 +92,7 @@ abstract class PropelParser
 	 */
 	static public function getParser($type = 'XML')
 	{
-		$class = sprintf('Propel\\Parser\\Propel%sParser', $type);
+		$class = sprintf('Propulsion\\Parser\\Propel%sParser', $type);
 		if (!class_exists($class)) {
 			throw new PropelException(sprintf('Unknown parser class "%s"', $class));
 		}

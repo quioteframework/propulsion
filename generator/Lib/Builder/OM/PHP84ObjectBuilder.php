@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Builder\OM;
+namespace Propulsion\Generator\Builder\OM;
 
 /**
  * Generates a PHP 8.4 base Object class
@@ -24,12 +24,12 @@ namespace Propel\Generator\Builder\OM;
  * @author     GitHub Copilot
  * @package    propel.generator.builder.om
  */
-use Propel\Generator\Exception\EngineException;
-use Propel\Generator\Model\Column;
-use Propel\Generator\Model\PropelTypes;
-use Propel\Generator\Model\ForeignKey;
-use Propel\Generator\Model\IDMethod;
-use Propel\Generator\Platform\MysqlPlatform;
+use Propulsion\Generator\Exception\EngineException;
+use Propulsion\Generator\Model\Column;
+use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\ForeignKey;
+use Propulsion\Generator\Model\IDMethod;
+use Propulsion\Generator\Platform\MysqlPlatform;
 
 class PHP84ObjectBuilder extends ObjectBuilder
 {
@@ -370,17 +370,17 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	protected function addClassBody(&$script)
 	{
 		// Declare essential classes for Base object classes
-		$this->declareClass('Propel\\OM\\BaseObject');
-		$this->declareClass('Propel\\OM\\Persistent');
-		$this->declareClass('Propel\\Exception\\PropelException');
-		$this->declareClass('Propel\\Util\\BasePeer');
+		$this->declareClass('Propulsion\\OM\\BaseObject');
+		$this->declareClass('Propulsion\\OM\\Persistent');
+		$this->declareClass('Propulsion\\Exception\\PropelException');
+		$this->declareClass('Propulsion\\Util\\BasePeer');
 		$this->declareClass('\\DateTime');
 		$this->declareClass('\\DateTimeInterface');
 		$this->declareClass('\\Exception');
-		$this->declareClass('Propel\\Propel');
-		$this->declareClass('Propel\\Query\\Criteria');
-		$this->declareClass('Propel\\Collection\\PropelCollection');
-		$this->declareClass('Propel\\Collection\\PropelObjectCollection');
+		$this->declareClass('Propulsion\\Propel');
+		$this->declareClass('Propulsion\\Query\\Criteria');
+		$this->declareClass('Propulsion\\Collection\\PropelCollection');
+		$this->declareClass('Propulsion\\Collection\\PropelObjectCollection');
 		
 		// Declare related builders for type hints and relationships
 		$this->declareClassFromBuilder($this->getStubPeerBuilder());
@@ -1247,8 +1247,8 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	protected function addDelete(&$script)
 	{
-		$this->declareClass('Propel\Connection\PropelPDO');
-		$this->declareClass('Propel\Exception\PropelException');
+		$this->declareClass('Propulsion\Connection\PropelPDO');
+		$this->declareClass('Propulsion\Exception\PropelException');
 		
 		$script .= "
 
@@ -1288,8 +1288,8 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	protected function addSave(&$script)
 	{
-		$this->declareClass('Propel\Connection\PropelPDO');
-		$this->declareClass('Propel\Exception\PropelException');
+		$this->declareClass('Propulsion\Connection\PropelPDO');
+		$this->declareClass('Propulsion\Exception\PropelException');
 		
 		$table = $this->getTable();
 		$reloadOnUpdate = $table->isReloadOnUpdate();
@@ -1343,8 +1343,8 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	protected function addDoSave(&$script)
 	{
-		$this->declareClass('Propel\Connection\PropelPDO');
-		$this->declareClass('Propel\Exception\PropelException');
+		$this->declareClass('Propulsion\Connection\PropelPDO');
+		$this->declareClass('Propulsion\Exception\PropelException');
 		
 		$table = $this->getTable();
 		$reloadOnUpdate = $table->isReloadOnUpdate();
@@ -1484,8 +1484,8 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	protected function addReload(&$script)
 	{
-		$this->declareClass('Propel\Connection\PropelPDO');
-		$this->declareClass('Propel\Exception\PropelException');
+		$this->declareClass('Propulsion\Connection\PropelPDO');
+		$this->declareClass('Propulsion\Exception\PropelException');
 		$this->declareClass('\PDO');
 		
 		$script .= "

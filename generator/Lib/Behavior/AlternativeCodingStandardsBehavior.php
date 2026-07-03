@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Behavior;
+namespace Propulsion\Generator\Behavior;
 
 /**
  * Changes the coding standard of Propel generated Model classes
@@ -38,7 +38,7 @@ namespace Propel\Generator\Behavior;
  * @package    propel.generator.behavior
  */
 
- use Propel\Generator\Model\Behavior;
+ use Propulsion\Generator\Model\Behavior;
 class AlternativeCodingStandardsBehavior extends Behavior
 {
 	// default parameters value

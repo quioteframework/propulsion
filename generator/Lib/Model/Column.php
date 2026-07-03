@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
- namespace Propel\Generator\Model;
+ namespace Propulsion\Generator\Model;
 
 /**
  * A Class for holding data about a column used in an Application.
@@ -23,8 +23,8 @@
  * @package    propel.generator.model
  */
 
- use Propel\Generator\Platform\PropelPlatformInterface;
- use Propel\Generator\Exception\EngineException;
+ use Propulsion\Generator\Platform\PropelPlatformInterface;
+ use Propulsion\Generator\Exception\EngineException;
 class Column extends XMLElement
 {
 

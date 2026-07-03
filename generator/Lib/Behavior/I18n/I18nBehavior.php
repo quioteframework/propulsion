@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Behavior\I18n;
+namespace Propulsion\Generator\Behavior\I18n;
 
 /**
  * Allows translation of text columns through transparent one-to-many relationship
@@ -16,10 +16,10 @@ namespace Propel\Generator\Behavior\I18n;
  * @version		$Revision$
  * @package		propel.generator.behavior.i18n
  */
-use Propel\Generator\Model\Behavior;
-use Propel\Generator\Exception\EngineException;
-use Propel\Generator\Model\ForeignKey;
-use Propel\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\Behavior;
+use Propulsion\Generator\Exception\EngineException;
+use Propulsion\Generator\Model\ForeignKey;
+use Propulsion\Generator\Model\PropelTypes;
 
 class I18nBehavior extends Behavior
 {

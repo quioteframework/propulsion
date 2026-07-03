@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Behavior\Sortable;
+namespace Propulsion\Generator\Behavior\Sortable;
 
 /**
  * Behavior to add sortable query methods

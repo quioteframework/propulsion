@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Adapter;
+namespace Propulsion\Adapter;
 
 /**
  * This is used to connect to a MSSQL database.
@@ -17,9 +17,9 @@ namespace Propel\Adapter;
  * @package    propel.runtime.adapter
  */
 use PDO;
-use Propel\Exception\PropelException;
-use Propel\Query\Criteria;
-use Propel\Map\DatabaseMap;
+use Propulsion\Exception\PropelException;
+use Propulsion\Query\Criteria;
+use Propulsion\Map\DatabaseMap;
 
 class DBMSSQL extends DBAdapter
 {

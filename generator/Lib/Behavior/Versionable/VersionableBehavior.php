@@ -1,5 +1,5 @@
 <?php
-namespace Propel\Generator\Behavior\Versionable;
+namespace Propulsion\Generator\Behavior\Versionable;
 
 /**
  * This file is part of the Propel package.
@@ -16,8 +16,8 @@ namespace Propel\Generator\Behavior\Versionable;
  * @version		$Revision$
  * @package		propel.generator.behavior.versionable
  */
-use Propel\Generator\Model\Behavior;
-use Propel\Generator\Model\ForeignKey;
+use Propulsion\Generator\Model\Behavior;
+use Propulsion\Generator\Model\ForeignKey;
 
 class VersionableBehavior extends Behavior
 {

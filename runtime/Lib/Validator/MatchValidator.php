@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Validator;
+namespace Propulsion\Validator;
 
 /**
  * A validator for regular expressions.
@@ -38,7 +38,7 @@ namespace Propel\Validator;
  * @version    $Revision$
  * @package    propel.runtime.validator
  */
-use Propel\Map\ValidatorMap;
+use Propulsion\Map\ValidatorMap;
 class MatchValidator implements BasicValidator
 {
 	/**

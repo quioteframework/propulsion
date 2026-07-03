@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Builder\OM;
+namespace Propulsion\Generator\Builder\OM;
 
 /**
  * Generates the empty PHP 8.4 stub node peer class for user object model (OM).
@@ -120,8 +120,8 @@ class " . $this->getClassname() . " extends $baseClassname
      * 
      * public static function findByCustomCriteria(
      *     array $criteria = [],
-     *     ?\\Propel\\Runtime\\Connection\\ConnectionInterface \$con = null
-     * ): \\Propel\\Runtime\\Collection\\ObjectCollection {
+     *     ?\\Propulsion\\Runtime\\Connection\\ConnectionInterface \$con = null
+     * ): \\Propulsion\\Runtime\\Collection\\ObjectCollection {
      *     \$query = static::createQuery();
      *     
      *     foreach (\$criteria as \$field => \$value) {

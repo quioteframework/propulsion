@@ -1,6 +1,6 @@
 <?php
 
-namespace Propel\Generator\Command;
+namespace Propulsion\Generator\Command;
 
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -9,8 +9,8 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Propel\Generator\Manager\ModelManager;
-use Propel\Generator\Config\PropelConfiguration;
+use Propulsion\Generator\Manager\ModelManager;
+use Propulsion\Generator\Config\PropelConfiguration;
 
 #[AsCommand(
     name: 'model:build',

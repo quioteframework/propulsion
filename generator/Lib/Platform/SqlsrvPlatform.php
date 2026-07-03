@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Platform;
+namespace Propulsion\Generator\Platform;
 
 /**
  * MS SQL Server using pdo_sqlsrv implementation.

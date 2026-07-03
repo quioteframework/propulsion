@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Formatter;
+namespace Propulsion\Formatter;
 
 use PDOStatement;
 /**
@@ -18,7 +18,7 @@ use PDOStatement;
  * @version    $Revision$
  * @package    propel.runtime.formatter
  */
-use Propel\Exception\PropelException;
+use Propulsion\Exception\PropelException;
 class PropelStatementFormatter extends PropelFormatter
 {
 	public function format(PDOStatement $stmt)

@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Task;
+namespace Propulsion\Generator\Task;
 
 use Phing\Project;
 use Phing\Io\File as PhingFile;
@@ -15,11 +15,11 @@ use Phing\Exception\BuildException;
 use Phing\Io\IOException;
 use Phing\Util\Properties;
 use Phing\Io\FileWriter;
-use Propel\Generator\Builder\Util\XmlToDataSQL;
-use Propel\Generator\Model\Database;
-use Propel\Generator\Model\AppData;
-use Propel\Generator\Model\PropelTypes;
-use Propel\Generator\Platform\PropelPlatformInterface;
+use Propulsion\Generator\Builder\Util\XmlToDataSQL;
+use Propulsion\Generator\Model\Database;
+use Propulsion\Generator\Model\AppData;
+use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Platform\PropelPlatformInterface;
 
 /**
  * Task that transforms XML datadump files into files containing SQL INSERT statements.

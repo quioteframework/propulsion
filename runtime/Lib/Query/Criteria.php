@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Query;
+namespace Propulsion\Query;
 
 /**
  * This is a utility class for holding criteria information for a query.
@@ -26,10 +26,10 @@ namespace Propel\Query;
  * @package    propel.runtime.query
  */
 
- use Propel\Propel;
- use Propel\Exception\PropelException;
- use Propel\Util\BasePeer;
- use Propel\Util\PropelConditionalProxy;
+ use Propulsion\Propel;
+ use Propulsion\Exception\PropelException;
+ use Propulsion\Util\BasePeer;
+ use Propulsion\Util\PropelConditionalProxy;
  use \Exception;
 class Criteria implements \IteratorAggregate
 {

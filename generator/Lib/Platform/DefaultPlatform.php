@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Platform;
+namespace Propulsion\Generator\Platform;
 
 /**
  * Default implementation for the Platform interface.
@@ -16,20 +16,20 @@ namespace Propel\Generator\Platform;
  * @version    $Revision$
  * @package    propel.generator.platform
  */
-use Propel\Generator\Model\Domain;
-use Propel\Generator\Config\GeneratorConfig;
-use Propel\Generator\Model\PropelTypes;
-use Propel\Generator\Exception\EngineException;
-use Propel\Generator\Model\Table;
-use Propel\Generator\Model\IDMethod;
-use Propel\Generator\Model\Database;
-use Propel\Generator\Model\Column;
-use Propel\Generator\Model\Index;
-use Propel\Generator\Model\Unique;
-use Propel\Generator\Model\ForeignKey;
-use Propel\Generator\Model\Diff\PropelDatabaseDiff;
-use Propel\Generator\Model\Diff\PropelTableDiff;
-use Propel\Generator\Model\Diff\PropelColumnDiff;
+use Propulsion\Generator\Model\Domain;
+use Propulsion\Generator\Config\GeneratorConfig;
+use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Exception\EngineException;
+use Propulsion\Generator\Model\Table;
+use Propulsion\Generator\Model\IDMethod;
+use Propulsion\Generator\Model\Database;
+use Propulsion\Generator\Model\Column;
+use Propulsion\Generator\Model\Index;
+use Propulsion\Generator\Model\Unique;
+use Propulsion\Generator\Model\ForeignKey;
+use Propulsion\Generator\Model\Diff\PropelDatabaseDiff;
+use Propulsion\Generator\Model\Diff\PropelTableDiff;
+use Propulsion\Generator\Model\Diff\PropelColumnDiff;
 use \PDO;
 class DefaultPlatform implements PropelPlatformInterface
 {
@@ -421,7 +421,7 @@ DROP TABLE " . $this->quoteIdentifier($table->getName()) . ";
 	/**
 	 * Builds the DDL SQL to drop the primary key of a table.
 	 *
-	 * @param      \Propel\Generator\Model\Table $table
+	 * @param      \Propulsion\Generator\Model\Table $table
 	 * @return     string
 	 */
 	public function getDropPrimaryKeyDDL(Table $table)

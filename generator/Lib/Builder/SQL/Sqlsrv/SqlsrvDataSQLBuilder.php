@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Builder\SQL\Sqlsrv;
+namespace Propulsion\Generator\Builder\SQL\Sqlsrv;
 
 /**
  * MS SQL Server using pdo_sqlsrv driver class for building data dump SQL.
@@ -16,7 +16,7 @@ namespace Propel\Generator\Builder\SQL\Sqlsrv;
  * @version    $Revision$
  * @package    propel.generator.builder.sql.sqlsrv
  */
-use Propel\Generator\Builder\SQL\DataSQLBuilder;
+use Propulsion\Generator\Builder\SQL\DataSQLBuilder;
 class SqlsrvDataSQLBuilder extends DataSQLBuilder
 {
 }

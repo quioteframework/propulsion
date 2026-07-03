@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Builder\OM;
+namespace Propulsion\Generator\Builder\OM;
 
 /**
  * Generates the empty PHP 8.4 stub object class for use with inheritance in the user object model (OM).
@@ -22,7 +22,7 @@ namespace Propel\Generator\Builder\OM;
  * @author     GitHub Copilot
  * @package    propel.generator.builder.om
  */
-use Propel\Generator\Model\Inheritance;
+use Propulsion\Generator\Model\Inheritance;
 use Phing\Exception\BuildException;
 
 class PHP84MultiExtendObjectBuilder extends ObjectBuilder

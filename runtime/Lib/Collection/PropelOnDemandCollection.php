@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Collection;
+namespace Propulsion\Collection;
 
 /**
  * Class for iterating over a statement and returning one Propel object at a time
@@ -16,10 +16,10 @@ namespace Propel\Collection;
  * @package    propel.runtime.collection
  */
 use PDOStatement;
-use Propel\Exception\PropelException;
-use Propel\Formatter\PropelFormatter;
-use Propel\OM\BaseObject;
-use Propel\Util\BasePeer;
+use Propulsion\Exception\PropelException;
+use Propulsion\Formatter\PropelFormatter;
+use Propulsion\OM\BaseObject;
+use Propulsion\Util\BasePeer;
 class PropelOnDemandCollection extends PropelCollection
 {
 	/**

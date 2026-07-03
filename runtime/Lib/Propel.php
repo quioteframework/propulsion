@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel;
+namespace Propulsion;
 
 /**
  * Propel's main resource pool and initialization & configuration class.
@@ -26,14 +26,14 @@ namespace Propel;
  * @version    $Revision$
  * @package    propel.runtime
  */
-use Propel\Config\PropelConfiguration;
-use Propel\Exception\PropelException;
-use Propel\Util\PropelAutoloader;
-use Propel\Map\DatabaseMap;
-use Propel\Connection\PropelPDO;
+use Propulsion\Config\PropelConfiguration;
+use Propulsion\Exception\PropelException;
+use Propulsion\Util\PropelAutoloader;
+use Propulsion\Map\DatabaseMap;
+use Propulsion\Connection\PropelPDO;
 use PDO;
 use PDOException;
-use Propel\Adapter\DBAdapter;
+use Propulsion\Adapter\DBAdapter;
 
 class Propel
 {
@@ -143,14 +143,14 @@ class Propel
 	private static $isInit = false;
 
 	/**
-	 * @var        \Propel\Logger\BasicLogger|null optional logger
+	 * @var        \Propulsion\Logger\BasicLogger|null optional logger
 	 */
 	private static $logger = null;
 
 	/**
 	 * @var        string The name of the database mapper class
 	 */
-	private static $databaseMapClass = 'Propel\Map\DatabaseMap';
+	private static $databaseMapClass = 'Propulsion\Map\DatabaseMap';
 
 	/**
 	 * @var        bool Whether the object instance pooling is enabled
@@ -314,7 +314,7 @@ class Propel
 	/**
 	 * Get the configured logger.
 	 *
-	 * @return     \Propel\Logger\BasicLogger Configured log class ([PEAR] Log or BasicLogger).
+	 * @return     \Propulsion\Logger\BasicLogger Configured log class ([PEAR] Log or BasicLogger).
 	 */
 	public static function logger()
 	{
@@ -695,7 +695,7 @@ class Propel
 			if (is_string($option) && strpos($option, '::') !== false) {
 				$key = $option;
 			} elseif (is_string($option)) {
-				$key = 'Propel\\Connection\\PropelPDO::' . $option;
+				$key = 'Propulsion\\Connection\\PropelPDO::' . $option;
 			}
 			if (!defined($key)) {
 				throw new PropelException("Invalid PDO option/attribute name specified: ".$key);

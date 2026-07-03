@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Builder\OM;
+namespace Propulsion\Generator\Builder\OM;
 /**
  * Tools to support class & package inclusion and referencing.
  *
@@ -16,7 +16,7 @@ namespace Propel\Generator\Builder\OM;
  * @package    propel.generator.builder.om
  */
 
- use Propel\Generator\Model\Table;
+ use Propulsion\Generator\Model\Table;
 class ClassTools
 {
 

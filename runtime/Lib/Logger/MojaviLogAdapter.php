@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Logger;
+namespace Propulsion\Logger;
 /**
  * Mojavi logging adapter for propel
  *

@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Builder\OM;
+namespace Propulsion\Generator\Builder\OM;
 
 /**
  * Base class for Peer-building classes.
@@ -38,8 +38,8 @@ namespace Propel\Generator\Builder\OM;
  * @method void addDefaultAccessor(string &$script, $col)
  * @method void addTemporalMutator(string &$script, $col)
  */
-use Propel\Generator\Model\Table;
-use Propel\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\Table;
+use Propulsion\Generator\Model\PropelTypes;
 
 abstract class ObjectBuilder extends OMBuilder
 {

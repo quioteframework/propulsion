@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Map;
+namespace Propulsion\Map;
 
 /**
  * RelationMap is used to model a database relationship.

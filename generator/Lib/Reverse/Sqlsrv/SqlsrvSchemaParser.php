@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Reverse\Sqlsrv;
+namespace Propulsion\Generator\Reverse\Sqlsrv;
 
 /**
  * Microsoft SQL Server database schema parser.
@@ -16,6 +16,6 @@ namespace Propel\Generator\Reverse\Sqlsrv;
  * @version    $Revision$
  * @package    propel.generator.reverse.sqlsrv
  */
-use Propel\Generator\Reverse\MSSQL\MssqlSchemaParser;
+use Propulsion\Generator\Reverse\MSSQL\MssqlSchemaParser;
 
 class SqlsrvSchemaParser extends MssqlSchemaParser {}

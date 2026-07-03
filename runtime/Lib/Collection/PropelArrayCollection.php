@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Collection;
+namespace Propulsion\Collection;
 /**
  * Class for iterating over a list of Propel objects stored as arrays
  *
@@ -15,11 +15,11 @@ namespace Propel\Collection;
  * @package    propel.runtime.collection
  */
 
-use Propel\Connection\PropelPDO;
-use Propel\Exception\PropelException;
-use Propel\Propel;
-use Propel\Om\BaseObject;
-use Propel\Util\BasePeer;
+use Propulsion\Connection\PropelPDO;
+use Propulsion\Exception\PropelException;
+use Propulsion\Propel;
+use Propulsion\Om\BaseObject;
+use Propulsion\Util\BasePeer;
 
 class PropelArrayCollection extends PropelCollection
 {

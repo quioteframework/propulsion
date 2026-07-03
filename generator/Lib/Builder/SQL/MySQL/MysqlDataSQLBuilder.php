@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propel\Generator\Builder\SQL\MySQL;
+namespace Propulsion\Generator\Builder\SQL\MySQL;
 
 /**
  * MySQL class for building data dump SQL.
@@ -15,6 +15,6 @@ namespace Propel\Generator\Builder\SQL\MySQL;
  * @author     Hans Lellelid <hans@xmpl.org>
  * @package    propel.generator.builder.sql.mysql
  */
-use Propel\Generator\Builder\SQL\DataSQLBuilder;
+use Propulsion\Generator\Builder\SQL\DataSQLBuilder;
 
 class MysqlDataSQLBuilder extends DataSQLBuilder {}

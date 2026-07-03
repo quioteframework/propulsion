@@ -8,7 +8,7 @@
  * @license    MIT License
  */
 
-namespace Propel\Generator\Builder\Util;
+namespace Propulsion\Generator\Builder\Util;
 /**
  * The generic interface to create a plural form of a name.
  *

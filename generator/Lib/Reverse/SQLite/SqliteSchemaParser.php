@@ -8,7 +8,7 @@
  * @license    MIT License
  */
 
-namespace Propel\Generator\Reverse\SQLite;
+namespace Propulsion\Generator\Reverse\SQLite;
 
 /**
  * SQLite database schema parser.
@@ -17,13 +17,13 @@ namespace Propel\Generator\Reverse\SQLite;
  * @version    $Revision$
  * @package    propel.generator.reverse.sqlite
  */
-use Propel\Generator\Reverse\BaseSchemaParser;
-use Propel\Generator\Model\PropelTypes;
-use Propel\Generator\Model\Database;
-use Propel\Generator\Model\Table;
-use Propel\Generator\Model\Column;
-use Propel\Generator\Model\ColumnDefaultValue;
-use Propel\Generator\Model\Index;
+use Propulsion\Generator\Reverse\BaseSchemaParser;
+use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\Database;
+use Propulsion\Generator\Model\Table;
+use Propulsion\Generator\Model\Column;
+use Propulsion\Generator\Model\ColumnDefaultValue;
+use Propulsion\Generator\Model\Index;
 use Phing\Task;
 use \PDO;
 class SqliteSchemaParser extends BaseSchemaParser

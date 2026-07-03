@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
- namespace Propel\Generator\Platform;
+ namespace Propulsion\Generator\Platform;
 /**
  * Interface for RDBMS platform specific behaviour.
  *
@@ -17,10 +17,10 @@
  * @package    propel.generator.platform
  */
 
- use Propel\Generator\Config\GeneratorConfig;
- use Propel\Generator\Model\Domain;
- use Propel\Generator\Model\Column;
- use Propel\Generator\Model\Table;
+ use Propulsion\Generator\Config\GeneratorConfig;
+ use Propulsion\Generator\Model\Domain;
+ use Propulsion\Generator\Model\Column;
+ use Propulsion\Generator\Model\Table;
 interface PropelPlatformInterface
 {
 
