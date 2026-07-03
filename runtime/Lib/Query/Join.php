@@ -325,7 +325,7 @@ class Join
 		return null !== $this->leftTableAlias;
 	}
 
-	public function getLeftTableAliasOrName(): string
+	public function getLeftTableAliasOrName(): ?string
 	{
 		return $this->leftTableAlias ? $this->leftTableAlias : $this->leftTableName;
 	}
