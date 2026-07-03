@@ -271,7 +271,6 @@ DROP TABLE IF EXISTS " . $this->quoteIdentifier($table->getName()) . ";
 		$defaultSetting = $this->getColumnDefaultValueDDL($col);
 
 		// Special handling of TIMESTAMP/DATETIME types ...
-		// See: http://propel.phpdb.org/trac/ticket/538
 		if ($sqlType == 'DATETIME') {
 			$def = $domain->getDefaultValue();
 			if ($def && $def->isExpression()) { // DATETIME values can only have constant expressions

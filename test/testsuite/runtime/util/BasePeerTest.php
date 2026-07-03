@@ -18,9 +18,6 @@
 class BasePeerTest extends BookstoreTestBase
 {
 
-	/**
-	 * @link       http://propel.phpdb.org/trac/ticket/425
-	 */
 	public function testMultipleFunctionInCriteria()
 	{
 		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);

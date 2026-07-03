@@ -101,8 +101,6 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
     /**
      * Tests the use of default expressions and the reloadOnInsert and reloadOnUpdate attributes.
      *
-     * @link       http://propel.phpdb.org/trac/ticket/378
-     * @link       http://propel.phpdb.org/trac/ticket/555
      */
     public function testDefaultExpresions()
     {
@@ -145,8 +143,6 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
     /**
      * Tests the use of default expressions and the reloadOnInsert attribute.
      *
-     * @link       http://propel.phpdb.org/trac/ticket/378
-     * @link       http://propel.phpdb.org/trac/ticket/555
      */
     public function testDefaultExpresions_ReloadOnInsert()
     {
@@ -185,8 +181,6 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
     /**
      * Tests the overriding reloadOnInsert at runtime.
      *
-     * @link       http://propel.phpdb.org/trac/ticket/378
-     * @link       http://propel.phpdb.org/trac/ticket/555
      */
     public function testDefaultExpresions_ReloadOnInsert_Override()
     {
@@ -224,7 +218,6 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
     /**
      * Tests the use of default expressions and the reloadOnUpdate attribute.
      *
-     * @link       http://propel.phpdb.org/trac/ticket/555
      */
     public function testDefaultExpresions_ReloadOnUpdate()
     {
@@ -250,8 +243,6 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
     /**
      * Tests the overriding reloadOnUpdate at runtime.
      *
-     * @link       http://propel.phpdb.org/trac/ticket/378
-     * @link       http://propel.phpdb.org/trac/ticket/555
      */
     public function testDefaultExpresions_ReloadOnUpdate_Override()
     {
@@ -571,7 +562,6 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
 
     /**
      * This is a test for expected exceptions when saving UNIQUE.
-     * See http://propel.phpdb.org/trac/ticket/2
      */
     public function testSaveUnique()
     {
@@ -742,7 +732,6 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
 
     /**
      * Test checking for non-default values.
-     * @see        http://propel.phpdb.org/trac/ticket/331
      */
     public function testHasOnlyDefaultValues()
     {
@@ -871,7 +860,6 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
 
     /**
      * Test copying when an object has composite primary key.
-     * @link http://propel.phpdb.org/trac/ticket/618
      */
     public function testCopy_CompositePK()
     {
@@ -943,7 +931,6 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
 
     /**
      * Test the toArray() method with new lazyLoad param.
-     * @link       http://propel.phpdb.org/trac/ticket/527
      */
     public function testToArrayLazyLoad()
     {
@@ -1040,7 +1027,6 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
 
     /**
      * Test regexp validator for ticket:542
-     * @link       http://propel.phpdb.org/trac/ticket/542
      */
     public function testRegexValidator()
     {
@@ -1115,7 +1101,6 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
 
     /**
      * Test foreign key relationships based on references to unique cols but not PK.
-     * @link       http://propel.phpdb.org/trac/ticket/691
      */
     public function testUniqueFkRel()
     {

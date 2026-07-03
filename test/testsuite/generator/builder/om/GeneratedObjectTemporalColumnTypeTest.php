@@ -46,9 +46,6 @@ EOF;
 		$this->assertNull($r->getBar1());
 	}
 
-	/**
-	 * @link       http://propel.phpdb.org/trac/ticket/586
-	 */
 	public function testEmptyValue()
 	{
 		$r = new ComplexColumnTypeEntity5();

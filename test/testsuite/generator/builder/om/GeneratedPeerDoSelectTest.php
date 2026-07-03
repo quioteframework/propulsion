@@ -276,7 +276,6 @@ class GeneratedPeerDoSelectTest extends BookstoreEmptyTestBase
 
 	/**
 	 * Test hydration of joined rows that contain lazy load columns.
-	 * @link       http://propel.phpdb.org/trac/ticket/464
 	 */
 	public function testHydrationJoinLazyLoad()
 	{
@@ -308,7 +307,6 @@ class GeneratedPeerDoSelectTest extends BookstoreEmptyTestBase
 
 	/**
 	 * Testing foreign keys with multiple referrer columns.
-	 * @link       http://propel.phpdb.org/trac/ticket/606
 	 */
 	public function testMultiColFk()
 	{
@@ -347,7 +345,6 @@ class GeneratedPeerDoSelectTest extends BookstoreEmptyTestBase
 
 	/**
 	 * Testing foreign keys with multiple referrer columns.
-	 * @link       http://propel.phpdb.org/trac/ticket/606
 	 */
 	public function testMultiColJoin()
 	{

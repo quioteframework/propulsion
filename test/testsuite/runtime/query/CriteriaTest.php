@@ -674,9 +674,6 @@ class CriteriaTest extends BookstoreTestBase
 		$this->assertEquals($expect, $result);
 	}
 
-	/**
-	 * @link       http://propel.phpdb.org/trac/ticket/606
-	 */
 	public function testAddJoinArray()
 	{
 		$c = new Criteria();
@@ -690,9 +687,6 @@ class CriteriaTest extends BookstoreTestBase
 		$this->assertEquals($expect, $result);
 	}
 
-	/**
-	 * @link       http://propel.phpdb.org/trac/ticket/606
-	 */
 	public function testAddJoinArrayMultiple()
 	{
 		$c = new Criteria();
@@ -712,7 +706,6 @@ class CriteriaTest extends BookstoreTestBase
 	/**
 	 * Test the Criteria::addJoinMultiple() method with an implicit join
 	 *
-	 * @link       http://propel.phpdb.org/trac/ticket/606
 	 */
 	public function testAddJoinMultiple()
 	{
@@ -734,7 +727,6 @@ class CriteriaTest extends BookstoreTestBase
 	/**
 	 * Test the Criteria::addJoinMultiple() method with a value as second argument
 	 *
-	 * @link       http://propel.phpdb.org/trac/ticket/606
 	 */
 	public function testAddJoinMultipleValue()
 	{
@@ -756,7 +748,6 @@ class CriteriaTest extends BookstoreTestBase
 	/**
 	 * Test the Criteria::addJoinMultiple() method with a joinType
 	 *
-	 * @link       http://propel.phpdb.org/trac/ticket/606
 	 */
 	public function testAddJoinMultipleWithJoinType()
 	{
@@ -779,7 +770,6 @@ class CriteriaTest extends BookstoreTestBase
 	/**
 	 * Test the Criteria::addJoinMultiple() method with operator
 	 *
-	 * @link       http://propel.phpdb.org/trac/ticket/606
 	 */
 	public function testAddJoinMultipleWithOperator()
 	{
@@ -801,7 +791,6 @@ class CriteriaTest extends BookstoreTestBase
 	/**
 	 * Test the Criteria::addJoinMultiple() method with join type and operator
 	 *
-	 * @link       http://propel.phpdb.org/trac/ticket/606
 	 */
 	public function testAddJoinMultipleWithJoinTypeAndOperator()
 	{
@@ -838,7 +827,6 @@ class CriteriaTest extends BookstoreTestBase
 
 	/**
 	 * Tests adding duplicate joins.
-	 * @link       http://propel.phpdb.org/trac/ticket/613
 	 */
 	public function testAddJoin_Duplicate()
 	{
@@ -861,9 +849,6 @@ class CriteriaTest extends BookstoreTestBase
 
 	}
 
-	/**
-	 * @link       http://propel.phpdb.org/trac/ticket/634
-	 */
 	public function testHasSelectClause()
 	{
 		$c = new Criteria();
@@ -879,7 +864,6 @@ class CriteriaTest extends BookstoreTestBase
 
 	/**
 	 * Tests including aliases in criterion objects.
-	 * @link       http://propel.phpdb.org/trac/ticket/636
 	 */
 	public function testAliasInCriterion()
 	{
@@ -893,7 +877,6 @@ class CriteriaTest extends BookstoreTestBase
 
 	/**
 	 * Test whether GROUP BY is being respected in equals() check.
-	 * @link       http://propel.phpdb.org/trac/ticket/674
 	 */
 	public function testEqualsGroupBy()
 	{
@@ -914,7 +897,6 @@ class CriteriaTest extends BookstoreTestBase
 
 	/**
 	 * Test whether calling setDistinct twice puts in two distinct keywords or not.
-	 * @link       http://propel.phpdb.org/trac/ticket/716
 	 */
 	public function testDoubleSelectModifiers()
 	{

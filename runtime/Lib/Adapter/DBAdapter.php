@@ -481,7 +481,6 @@ abstract class DBAdapter
 	 * This is necessary for queries on more than one table when the tables share a column name
 	 * Moved from BasePeer to DBAdapter and turned from static to non static
 	 *
-	 * @see http://propel.phpdb.org/trac/ticket/795
 	 *
 	 * @param     Criteria  $criteria
 	 * @return    Criteria  The input, with Select columns replaced by aliases

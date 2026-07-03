@@ -109,7 +109,6 @@ class GeneratedPeerDoDeleteTest extends BookstoreEmptyTestBase
 
 	/**
 	 * Test that cascading deletes are happening correctly for composite pk.
-	 * @link       http://propel.phpdb.org/trac/ticket/544
 	 */
 	public function testDoDelete_Cascade_CompositePK()
 	{
@@ -302,9 +301,6 @@ class GeneratedPeerDoDeleteTest extends BookstoreEmptyTestBase
 		$this->assertEquals(0, count(BookPeer::doSelect($c)), "Expect all book.author_id columns to be NULL.");
 	}
 
-	/**
-	 * @link       http://propel.phpdb.org/trac/ticket/519
-	 */
 	public function testDoDeleteCompositePK()
 	{
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
@@ -475,7 +471,6 @@ class GeneratedPeerDoDeleteTest extends BookstoreEmptyTestBase
 
 	/**
 	 * Test doCountJoin*() methods with ORDER BY columns in Criteria.
-	 * @link http://propel.phpdb.org/trac/ticket/627
 	 */
 	public function testDoCountJoinWithOrderBy()
 	{

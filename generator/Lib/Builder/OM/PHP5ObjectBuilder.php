@@ -98,7 +98,6 @@ class PHP5ObjectBuilder extends AbstractObjectBuilder
 		// Check foreign keys to see if there are any foreign keys that
 		// are also matched with an inversed referencing foreign key
 		// (this is currently unsupported behavior)
-		// see: http://propel.phpdb.org/trac/ticket/549
 
 		foreach ($table->getForeignKeys() as $fk) {
 			if ($fk->isMatchedByInverseFK()) {
@@ -661,7 +660,6 @@ abstract class ".$this->getClassname()." extends ".$parentClass." ";
 	protected function addApplyDefaultValuesBody(&$script) {
 		$table = $this->getTable();
 		// FIXME - Apply support for PHP default expressions here
-		// see: http://propel.phpdb.org/trac/ticket/378
 
 		$colsWithDefaults = array();
 		foreach ($table->getColumns() as $col) {
@@ -4573,7 +4571,6 @@ abstract class ".$this->getClassname()." extends ".$parentClass." ";
 			\$copyObj->setNew(true);";
 
 		// Note: we're no longer resetting non-autoincrement primary keys to default values
-		// due to: http://propel.phpdb.org/trac/ticket/618
 		foreach ($autoIncCols as $col) {
 				$coldefval = $col->getPhpDefaultValue();
 				$coldefval = var_export($coldefval, true);

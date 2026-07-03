@@ -109,7 +109,6 @@ class GeneratedObjectLobTest extends BookstoreEmptyTestBase
 	 *
 	 * This does test the rewind-after-save functionality, however.
 	 *
-	 * @link       http://propel.phpdb.org/trac/ticket/531
 	 */
 	public function testLobRepeatRead()
 	{

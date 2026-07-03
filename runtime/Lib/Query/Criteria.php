@@ -879,8 +879,6 @@ class Criteria implements \IteratorAggregate
 	 * Add a join with multiple conditions
 	 * @deprecated use Join::setJoinCondition($criterion) instead
 	 *
-	 * @see http://propel.phpdb.org/trac/ticket/167, http://propel.phpdb.org/trac/ticket/606
-	 *
 	 * Example usage:
 	 * $c->addMultipleJoin(array(
 	 *     array(LeftPeer::LEFT_COLUMN, RightPeer::RIGHT_COLUMN),  // if no third argument, defaults to Criteria::EQUAL

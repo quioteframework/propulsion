@@ -139,9 +139,6 @@ class PropulsionPDOTest extends TestCase
 		$this->assertNotNull($at2, "Committed transaction is persisted in database");
 	}
 
-	/**
-	 * @link       http://propel.phpdb.org/trac/ticket/699
-	 */
 	public function testNestedTransactionRollBackRethrow()
 	{
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
@@ -185,9 +182,6 @@ class PropulsionPDOTest extends TestCase
 		$this->assertNull($at, "Rolled back transaction is not persisted in database");
 	}
 
-	/**
-	 * @link       http://propel.phpdb.org/trac/ticket/699
-	 */
 	public function testNestedTransactionRollBackSwallow()
 	{
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);

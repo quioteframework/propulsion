@@ -598,7 +598,6 @@ class ForeignKey extends XMLElement
 	 *
 	 * @param      ForeignKey $fk
 	 * @return     boolean
-	 * @link       http://propel.phpdb.org/trac/ticket/549
 	 */
 	public function isMatchedByInverseFK()
 	{
