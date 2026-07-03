@@ -7,11 +7,20 @@ scoping conversation, before it detoured into fixing tests).
 
 ## Current test suite state
 
-2135 tests, **128 errors, 174 failures**, 27 skipped, 10 risky, out of a
-suite that couldn't run a single test at the start of this work (bootstrap
-was completely broken) and had 1137+ errors once it could run at all. See
-git log on `main` for the detailed fix history — each commit message
-documents the specific root cause found and fixed.
+With Docker (full suite, `fixtures/schemas` now included since it's wired
+up -- see below): 2133 tests, **133 errors, 173 failures**, 12 skipped, 10
+risky, out of a suite that couldn't run a single test at the start of this
+work (bootstrap was completely broken) and had 1137+ errors once it could
+run at all. See git log on `main` for the detailed fix history — each
+commit message documents the specific root cause found and fixed. (The
+error count went up slightly and the skip count down versus the previous
+128/174/27 status line, entirely because the 5 `*WithSchema(s)Test` classes
+now actually build and run instead of being unconditionally skipped -- 3 of
+the 5 pass, 2 hit pre-existing failure clusters #1 and the `ModelCriteria`
+protected-property issue; see "Structural/tooling gaps" below.)
+
+Without Docker (`PROPULSION_SKIP_INTEGRATION=1`, now genuinely supported --
+see below): 2187 tests, 127 errors, 37 failures, 1135 skipped.
 
 Reproduce with:
 ```
@@ -21,8 +30,8 @@ rm -rf fixtures/bookstore/build fixtures/schemas/build fixtures/namespaced/build
 ```
 (First run pulls a `postgres:latest` image and builds fixtures into a
 testcontainer — expect it to take a few minutes. Set
-`PROPULSION_SKIP_INTEGRATION=1` to skip the ~63 Bookstore/Cms/Namespace
-tests that need it, if Docker isn't available.)
+`PROPULSION_SKIP_INTEGRATION=1` to skip every test that needs it, if Docker
+isn't available.)
 
 ### Remaining failures, by cluster (highest count first)
 
@@ -90,48 +99,121 @@ tests that need it, if Docker isn't available.)
 
 ### Structural/tooling gaps found but not fixed
 
-- **`test/fixtures/schemas/` project is not wired up** — 5 tests
-  (`ModelCriteriaWithSchemaTest`, `GeneratedRelationMapWithSchemasTest`,
-  `RelatedMapSymmetricalWithSchemasTest`,
-  `AggregateColumnBehaviorWithSchemaTest`,
-  `ConcreteInheritanceBehaviorWithSchemaTest`) extend `SchemasTestBase`,
-  which already has correct lazy-skip behavior
-  (`test/tools/helpers/schemas/SchemasTestBase.php`) but nothing builds
-  `test/fixtures/schemas/build/`. Same pattern as the `bookstore` and
-  `namespaced` projects (see `IntegrationDatabase::ensureNamespacedReady()`
-  in commit `306ee1b` for the template to copy) — a third
-  `ensureSchemasReady()` method plus a database on the same container.
-- **Directory casing inconsistency in namespaced-project codegen**: the
-  namespaced fixture's generated files end up split across `Foo/Bar/om/`
-  and `Foo/Bar/OM/` (both actually used, by different builders, for
-  logically the same "base classes" subfolder) — cosmetically messy and
-  fragile on case-sensitive filesystems, though the classmap autoloader
-  added in commit `306ee1b` works around it by parsing each file's actual
-  `namespace`/`class` declaration rather than relying on directory
-  layout. Worth tracking down which builder(s) disagree on the casing and
-  fixing at the source if `bin/propulsion` is ever used against a
-  namespaced schema for real (not just in this test harness).
-- **`QuickGeneratorConfig` still hardcodes `PHP5*Builder` class names**
-  (`generator/Lib/Config/QuickGeneratorConfig.php`) and its
-  `getConfiguredBuilder()` instantiates them via a bare (non-namespaced)
-  string, which only resolves correctly in this test suite because
-  `test/bootstrap.php` eagerly aliases every generator class to its bare
-  name (commit `8071c32`). Outside a context that does that aliasing
-  (e.g. real production use of `PropelQuickBuilder`), `new $class(...)`
-  with a bare class name will fail to resolve. Low priority since
-  `PropelQuickBuilder` is a dev/test-time convenience, but worth fixing
-  properly if it's ever used outside this test suite.
-- **`generator/Lib/Builder/Util/PropelStringReader.php`** still has a
-  broken `include_once 'phing/system/io/Reader.php'` (old lowercase path,
-  same class of bug fixed elsewhere in `PropelQuickBuilder`/
-  `QuickGeneratorConfig` in commit `3b7c64d`) — not hit by the current
-  test run so it was never surfaced/fixed. Worth a proactive check.
-- **No CI configuration exists** to actually run this suite automatically
-  (no `.github/workflows/`). Everything in this document was found by
-  running PHPUnit manually. Setting up CI (even just "run the unit tier,
-  skip integration if Docker unavailable, or run integration in a
-  Docker-in-Docker runner") would catch regressions going forward instead
-  of relying on someone remembering to run this by hand.
+The five items below (schemas fixture wiring, namespaced-codegen casing,
+`QuickGeneratorConfig` hardcoded class names, `PropelStringReader`'s broken
+include, and CI) were fixed in a follow-up pass. Notes on what actually
+happened, since a couple had surprises:
+
+- **`test/fixtures/schemas/` project wiring**: fixed.
+  `IntegrationDatabase::ensureSchemasReady()` (+ `schemasConfFile()` /
+  `schemasClassesDir()`) was added following the `ensureNamespacedReady()`
+  template, and `SchemasTestBase` now calls it instead of just checking
+  `file_exists()` on a conf file nothing ever wrote. One real bug had to be
+  fixed to make the fixture buildable at all: the schema's tables use a
+  `schema="..."` attribute (Propel's multi-schema-per-database support), and
+  on Postgres (unlike MySQL, where `schema` just becomes a cross-database
+  reference) `Table::getName()` qualifies the real SQL identifier as
+  `schema.table` whenever the platform's `supportsSchemas()` is true --
+  requiring an actual `CREATE SCHEMA`, which the generator's own
+  `PgsqlPlatform::getAddSchemasDDL()` only emits for pgsql *vendor-info*
+  parameters, not this attribute. Fixed at the test-harness level
+  (`IntegrationDatabase::schemaNamesUsedBy()` parses the schema.xml's
+  `schema="..."` attributes and issues `CREATE SCHEMA IF NOT EXISTS` before
+  loading the generated DDL) rather than teaching the generator a new
+  implicit-schema code path. Also had to add a `<unique>` constraint on
+  `bookstore_contest(bookstore_id, id)` in `schema.xml` --
+  `bookstore_contest_entry`'s composite FK targets those two columns, which
+  MySQL tolerates (it only requires an index on FK target columns, not
+  uniqueness) but Postgres rejects outright without a real unique
+  constraint. Result: 3 of the 5 tests
+  (`GeneratedRelationMapWithSchemasTest`, `RelatedMapSymmetricalWithSchemasTest`,
+  `ConcreteInheritanceBehaviorWithSchemaTest`) pass cleanly now.
+  `AggregateColumnBehaviorWithSchemaTest` and `ModelCriteriaWithSchemaTest`
+  build and run but still fail -- on the exact same not-null-violation and
+  protected-property-visibility bug clusters documented above (#1 and the
+  fix already applied to the non-schema `ModelCriteriaTest` twin in commit
+  `0186ecb`), left alone here since other work was in progress on those
+  clusters in parallel.
+- **Directory casing inconsistency in namespaced-project codegen**: fixed.
+  `PHP84ObjectBuilder::getPackage()` and `PHP84PeerBuilder::getPackage()`
+  appended `.OM` while `QueryBuilder`/`PHP84QueryBuilder`/
+  `QueryInheritanceBuilder` (and the PHP5 builders) all appended lowercase
+  `.om` -- the single-table-inheritance builders
+  (`PHP84NodeBuilder`/`PHP84NodePeerBuilder`/`PHP84NestedSetBuilder`/
+  `PHP84NestedSetPeerBuilder`) had the same `.OM` typo. All six switched to
+  lowercase `.om` to match the majority convention. Verified: rebuilding the
+  `namespaced` fixture now produces a single `Foo/Bar/om/` per package (no
+  more `OM/` sibling), and `NamespaceTest` (12/12) still passes. The
+  classmap-autoloader workaround from commit `306ee1b` is untouched and can
+  stay regardless.
+- **`QuickGeneratorConfig` hardcoded `PHP5*Builder` class names**: fixed.
+  The `$builders` map now references the proper `Propulsion\Generator\Builder\OM\*`
+  classes via `::class` instead of bare strings, so `getConfiguredBuilder()`
+  no longer depends on `test/bootstrap.php`'s bare-name aliasing hack to
+  resolve. That aliasing hack itself is untouched (still needed for
+  generated *code*, which declares bare `use ModelCriteria;`-style imports at
+  codegen time, independent of this class). Verified with a standalone
+  script instantiating `QuickGeneratorConfig` outside the test suite's
+  bootstrap, and the full suite still passes at the same baseline.
+- **`generator/Lib/Builder/Util/PropelStringReader.php`**: fixed. Deleted
+  the broken `include_once 'phing/system/io/Reader.php'` the same way
+  commit `3b7c64d` did for the other three call sites -- the file already
+  has `use Phing\Io\StringReader;` at the top, making the require both
+  broken and redundant. Verified by instantiating the class directly via
+  the composer autoloader.
+- **No CI configuration**: added `.github/workflows/tests.yml` with two
+  jobs. `unit` runs on every push/PR with `PROPULSION_SKIP_INTEGRATION=1`
+  and no Docker; `integration` runs the full suite with the real
+  testcontainer-backed Postgres (Docker is available by default on
+  `ubuntu-latest` runners). Both are `continue-on-error: true` for now,
+  since the suite has known, tracked failures independent of CI itself
+  (see above) -- flip to blocking once those clusters are fixed.
+
+  Getting the `unit` job to actually finish (rather than crash PHPUnit
+  entirely) required fixing a real, previously-undiscovered bug:
+  `PROPULSION_SKIP_INTEGRATION=1` was already documented (in this file's
+  own "Reproduce" section) as the way to skip Docker-dependent tests when
+  Docker isn't available, but it never actually worked standalone --
+  several `*Test.php` files declare auxiliary classes at *file scope* that
+  extend generated bookstore-fixture classes (e.g.
+  `class UndeletableTable4 extends Table4` in `SoftDeleteBehaviorTest.php`,
+  or `PublicTable9 extends Table9` in `BookstoreNestedSetTestBase.php`).
+  PHP evaluates `class X extends Y` the moment the file is `require`d, not
+  lazily on first use, and PHPUnit's `TestSuiteLoader` requires every test
+  file up front during suite discovery -- so an undefined `Y` (fixtures not
+  built) fatals the *entire* PHPUnit process before a single test runs,
+  rather than the individual test skipping gracefully. `test/bootstrap.php`
+  even had a comment acknowledging this ("an inherent constraint of this
+  suite's structure, not something a lazier build step could fix").
+  Fixed the specific instances found by wrapping each fixture-dependent
+  file-scope class declaration in `if (class_exists(FixtureClass::class))`:
+  `test/testsuite/generator/behavior/SoftDeleteBehaviorTest.php`,
+  `.../aggregate_column/AggregateColumnBehaviorTest.php`,
+  `.../sluggable/SluggableBehaviorTest.php`,
+  `test/testsuite/runtime/query/{PropelQueryTest,SubQueryTest}.php`,
+  `test/testsuite/generator/builder/om/QueryBuilderTest.php`, and
+  `test/tools/helpers/bookstore/behavior/{BookstoreNestedSetTestBase,TestAuthor}.php`.
+  Also found two files (`JoinTest.php`, `CriteriaCombineTest.php`) that call
+  `Propel::init(bookstore-conf.php)` unconditionally at file scope, and one
+  more root cause: `test/bootstrap.php` only triggered
+  `Propulsion\Propel`'s legacy bare-class-name aliasing (`PropelException`,
+  `PropelCollection`, `PropelArrayCollection`, ...) as a side effect of the
+  bookstore fixture build *succeeding*, so ordinary runtime tests with no
+  fixture dependency at all fataled on missing bare names whenever
+  `PROPULSION_SKIP_INTEGRATION=1` was set -- moved that trigger to always
+  run, unconditionally, near the top of bootstrap. With all of the above,
+  `PROPULSION_SKIP_INTEGRATION=1` now runs the full 2187-test suite to
+  completion with zero Docker access: ~1135 tests skip themselves via
+  `markTestSkipped()` as designed, and the rest run and pass/fail normally
+  (127 errors/37 failures at the time of this writeup, all pre-existing and
+  unrelated to this fix -- e.g. `TableMapTest`'s column-name-casing
+  failures are part of cluster #4 above). This was a wider fix than
+  originally scoped ("just add a CI file"), but was necessary for the
+  requested `PROPULSION_SKIP_INTEGRATION=1`-based unit job to produce any
+  signal at all instead of a single opaque crash. It is very likely *not*
+  exhaustive -- only the file-scope patterns actually hit during this pass
+  were found and fixed; another currently-untriggered one may exist
+  elsewhere in the ~2000 remaining test files.
 - **testcontainers cleanup**: `IntegrationDatabase` registers
   `register_shutdown_function()` to stop its container, which works for a
   normal PHPUnit exit but not for `kill -9` or `timeout`-killed processes
