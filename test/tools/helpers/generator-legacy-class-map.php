@@ -104,7 +104,7 @@ return [
     'ObjectBuilder' => 'Propulsion\\Generator\\Builder\\OM\\ObjectBuilder',
     'PeerBuilder' => 'Propulsion\\Generator\\Builder\\OM\\PeerBuilder',
     'PHP84QueryBuilder' => 'Propulsion\\Generator\\Builder\\OM\\PHP84QueryBuilder',
-    'PHP84TableMapBuilder' => 'Propulsion\\Generator\\Builder\\OM\\PHP84TableMapBuilder',
+    'TableMapBuilder' => 'Propulsion\\Generator\\Builder\\OM\\TableMapBuilder',
     'AbstractPeerBuilder' => 'Propulsion\\Generator\\Builder\\OM\\AbstractPeerBuilder',
     'PgsqlDataSQLBuilder' => 'Propulsion\\Generator\\Builder\\SQL\\PgSQL\\PgsqlDataSQLBuilder',
     'PgsqlPlatform' => 'Propulsion\\Generator\\Platform\\PgsqlPlatform',

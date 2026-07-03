@@ -23,7 +23,7 @@ use Propulsion\Generator\Model\IDMethod;
 use Propulsion\Generator\Platform\PropelPlatformInterface;
 use Propulsion\Generator\Model\Validator;
 
-class PHP84TableMapBuilder extends PHP5TableMapBuilder
+class TableMapBuilder extends OMBuilder
 {
 
     /**
@@ -37,6 +37,61 @@ class PHP84TableMapBuilder extends PHP5TableMapBuilder
 			$pkg = $this->getBuildProperty('targetPackage');
 		}
 		return $pkg . ".Map";
+    }
+
+    /**
+     * Returns the name of the current class being built.
+     * Inlined from the legacy PHP5TableMapBuilder base -- this class no
+     * longer extends it (see KNOWN_ISSUES.md Phase 3).
+     * @return     string
+     */
+    public function getUnprefixedClassname()
+    {
+        return $this->getTable()->getPhpName() . 'TableMap';
+    }
+
+    /**
+     * Adds the include() statements for files that this class depends on or utilizes.
+     * Inlined from the legacy PHP5TableMapBuilder base.
+     * @param      string &$script The script will be modified in this method.
+     */
+    protected function addIncludes(&$script = null)
+    {
+    } // addIncludes()
+
+    /**
+     * Closes class.
+     * Inlined from the legacy PHP5TableMapBuilder base.
+     * @param      string &$script The script will be modified in this method.
+     */
+    protected function addClassClose(&$script)
+    {
+        $script .= "
+} // " . $this->getClassname() . "
+";
+        $this->applyBehaviorModifier('tableMapFilter', $script, "");
+    }
+
+    /**
+     * Checks whether any registered behavior on that table has a modifier for a hook.
+     * Inlined from the legacy PHP5TableMapBuilder base.
+     * @param string $hookName The name of the hook as called from one of this class methods, e.g. "preSave"
+     * @return boolean
+     */
+    public function hasBehaviorModifier($hookName, $modifier = null)
+    {
+        return parent::hasBehaviorModifier($hookName, 'TableMapBuilderModifier');
+    }
+
+    /**
+     * Checks whether any registered behavior on that table has a modifier for a hook.
+     * Inlined from the legacy PHP5TableMapBuilder base.
+     * @param string $hookName The name of the hook as called from one of this class methods, e.g. "preSave"
+     * @param string &$script The script will be modified in this method.
+     */
+    public function applyBehaviorModifier($hookName, &$script, $tab = "\t\t")
+    {
+        return $this->applyBehaviorModifierBase($hookName, 'TableMapBuilderModifier', $script, $tab);
     }
 
     /**
