@@ -13,7 +13,7 @@ use Symfony\Component\Console\Question\ChoiceQuestion;
 
 #[AsCommand(
     name: 'init',
-    description: 'Initialize a new Propel project'
+    description: 'Initialize a new Propulsion project'
 )]
 class InitCommand extends Command
 {
@@ -21,14 +21,14 @@ class InitCommand extends Command
     {
         $this
             ->addArgument('name', InputArgument::OPTIONAL, 'Project name')
-            ->setHelp('Initialize a new Propel project with basic structure and configuration');
+            ->setHelp('Initialize a new Propulsion project with basic structure and configuration');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
         
-        $io->title('Propel Project Initializer');
+        $io->title('Propulsion Project Initializer');
         
         // Get project name
         $projectName = $input->getArgument('name');

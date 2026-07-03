@@ -50,6 +50,87 @@ class GeneratorConfig implements GeneratorConfigInterface
 	}
 
 	/**
+	 * Builds a GeneratorConfig from the generator's default.properties file, an
+	 * optional user-supplied properties file (Phing/Ant-style `key = value` lines,
+	 * one per line), and an array of ad-hoc overrides -- without requiring Phing.
+	 *
+	 * @param      string $defaultPropertiesFile Path to generator/default.properties.
+	 * @param      string|null $overridePropertiesFile Path to a user build.properties file.
+	 * @param      array<string,mixed> $overrides Raw `propel.*`-prefixed overrides, e.g. ['propel.targetPlatform' => 'php84'].
+	 */
+	public static function createFromPropertiesFile(string $defaultPropertiesFile, ?string $overridePropertiesFile = null, array $overrides = []): self
+	{
+		$props = self::parsePropertiesFile($defaultPropertiesFile);
+
+		if ($overridePropertiesFile !== null) {
+			$props = array_merge($props, self::parsePropertiesFile($overridePropertiesFile));
+		}
+
+		$props = array_merge($props, $overrides);
+		$props = self::resolvePlaceholders($props);
+
+		return new self($props);
+	}
+
+	/**
+	 * @return array<string,mixed>
+	 */
+	private static function parsePropertiesFile(string $filepath): array
+	{
+		$properties = array();
+		$lines = @file($filepath);
+		if ($lines === false) {
+			throw new BuildException("Unable to parse contents of $filepath");
+		}
+		foreach ($lines as $line) {
+			$line = trim($line);
+			if ($line === '' || $line[0] === '#' || $line[0] === ';') {
+				continue;
+			}
+			$pos = strpos($line, '=');
+			if ($pos === false) {
+				continue;
+			}
+			$property = trim(substr($line, 0, $pos));
+			$value = trim(substr($line, $pos + 1));
+			$properties[$property] = $value;
+		}
+		return $properties;
+	}
+
+	/**
+	 * Resolves Ant/Phing-style `${propel.some.key}` placeholders against the
+	 * properties themselves, innermost-first, so e.g.
+	 * `propel.platform.class = ${propel.platform.${propel.database}.class}`
+	 * resolves in two passes once `propel.database` is set.
+	 *
+	 * @param      array<string,mixed> $props
+	 * @return     array<string,mixed>
+	 */
+	private static function resolvePlaceholders(array $props): array
+	{
+		for ($i = 0; $i < 10; $i++) {
+			$changed = false;
+			foreach ($props as $key => $value) {
+				if (!is_string($value)) {
+					continue;
+				}
+				$resolved = preg_replace_callback('/\$\{([^{}]+)\}/', function ($m) use ($props) {
+					return $props[$m[1]] ?? $m[0];
+				}, $value);
+				if ($resolved !== $value) {
+					$props[$key] = $resolved;
+					$changed = true;
+				}
+			}
+			if (!$changed) {
+				break;
+			}
+		}
+		return $props;
+	}
+
+	/**
 	 * Gets the build properties.
 	 * @return     array
 	 */

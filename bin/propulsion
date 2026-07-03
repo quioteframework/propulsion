@@ -6,17 +6,12 @@ require_once __DIR__ . '/../vendor/autoload.php';
 use Symfony\Component\Console\Application;
 use Propulsion\Generator\Command\ModelBuildCommand;
 use Propulsion\Generator\Command\SqlBuildCommand;
-use Propulsion\Generator\Command\SqlInsertCommand;
-use Propulsion\Generator\Command\ReverseCommand;
 use Propulsion\Generator\Command\InitCommand;
 
-$application = new Application('Propel', '1.6.2-dev');
+$application = new Application('Propulsion', '2.0.0-dev');
 
-// Add commands
 $application->add(new ModelBuildCommand());
 $application->add(new SqlBuildCommand());
-$application->add(new SqlInsertCommand());
-$application->add(new ReverseCommand());
 $application->add(new InitCommand());
 
 $application->run();
