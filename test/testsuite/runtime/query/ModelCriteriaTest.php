@@ -2342,6 +2342,10 @@ class TestableModelCriteria extends ModelCriteria
 {
 	public $joins = array();
 
+	// Widened to public so tests can inspect it directly; ModelCriteria itself
+	// declares this protected.
+	public $replacedColumns;
+
 	public function replaceNames(string &$clause): bool
 	{
 		return parent::replaceNames($clause);
