@@ -404,7 +404,13 @@ class PropelCollection extends \ArrayObject implements \Serializable
 	 */
 	public function getIterator(): Iterator
 	{
-		$this->iterator = new ArrayIterator($this->getArrayCopy());
+		// Use the ArrayObject-native iterator (bound to this object's own
+		// storage) rather than `new ArrayIterator($this->getArrayCopy())`,
+		// which iterates a disconnected copy: modifying an element via
+		// `foreach ($collection as &$item) { ... }` would silently be lost
+		// (never written back to the collection) since PHP arrays are
+		// value types and getArrayCopy() detaches from the original data.
+		$this->iterator = parent::getIterator();
 		return $this->iterator;
 	}
 

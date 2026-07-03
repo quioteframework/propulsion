@@ -73,6 +73,7 @@ EOF;
 		$parser = new PropelPHPParser($code);
 		$expected = <<<EOF
 
+
 	public function bar1()
 	{
 		// this is bar1
@@ -90,6 +91,7 @@ EOF;
 		$parser = new PropelPHPParser($code);
 		$expected = <<<EOF
 
+
 	public function bar2()
 	{
 		// this is bar2
@@ -106,6 +108,7 @@ EOF;
 	{
 		$parser = new PropelPHPParser($code);
 		$expected = <<<EOF
+
 
 	/**
 	 * This is the bar3 method
@@ -126,6 +129,7 @@ EOF;
 	{
 		$parser = new PropelPHPParser($code);
 		$expected = <<<EOF
+
 
 	public function bar4()
 	{
@@ -154,6 +158,7 @@ EOF;
 	{
 		$parser = new PropelPHPParser($code);
 		$expected = <<<EOF
+
 
 	public function bar1()
 	{
@@ -221,6 +226,7 @@ EOF;
 		$parser = new PropelPHPParser($code);
 		$expected = <<<EOF
 
+
 	public function bar1()
 	{
 		// this is bar1
@@ -237,6 +243,7 @@ EOF;
 	{
 		$parser = new PropelPHPParser($code);
 		$newCode = <<<EOF
+
 
 	public function bar1prime()
 	{

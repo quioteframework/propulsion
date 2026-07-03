@@ -174,7 +174,7 @@ abstract class OMBuilder extends DataModelBuilder
 		$pkg = $this->getPackage();
 
 		if (strpos($pkg, '/') !== false) {
-			return preg_replace('#\.(map|om)$i#', '/\1', $pkg);
+			return preg_replace('#\.(map|om)$#i', '/\1', $pkg);
 		}
 
 		return strtr($pkg, '.', '/');
