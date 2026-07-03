@@ -20,7 +20,7 @@ namespace Propulsion\Generator\Builder\OM;
  */
 use Propulsion\Generator\Model\Inheritance;
 use Propulsion\Generator\Exception\EngineException;
-class PHP5MultiExtendObjectBuilder extends ObjectBuilder
+class PHP5MultiExtendObjectBuilder extends AbstractObjectBuilder
 {
 
 	/**
@@ -168,7 +168,7 @@ class ".$this->getClassname()." extends ".$this->getParentClassname()." {
 	 * By default there are no methods for the empty stub classes; override this method
 	 * if you want to change that behavior.
 	 *
-	 * @see        ObjectBuilder::addClassBody()
+	 * @see        AbstractObjectBuilder::addClassBody()
 	 */
 	protected function addClassBody(&$script)
 	{

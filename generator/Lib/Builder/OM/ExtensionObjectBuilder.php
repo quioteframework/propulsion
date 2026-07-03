@@ -18,7 +18,7 @@ namespace Propulsion\Generator\Builder\OM;
  * @author     Modernized for PHP 8.4
  * @package    propel.generator.builder.om
  */
-class PHP84ExtensionObjectBuilder extends PHP5ExtensionObjectBuilder
+class ExtensionObjectBuilder extends PHP5ExtensionObjectBuilder
 {
 
     protected function addIncludes(&$script = null)

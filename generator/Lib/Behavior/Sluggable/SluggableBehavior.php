@@ -72,7 +72,7 @@ class SluggableBehavior extends Behavior
 	}
 
 	/**
-	 * Add code in ObjectBuilder::preSave
+	 * Add code in AbstractObjectBuilder::preSave
 	 *
 	 * @return string The code to put at the hook
 	 */

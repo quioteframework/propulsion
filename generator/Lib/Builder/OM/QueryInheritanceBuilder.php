@@ -164,7 +164,7 @@ class "  .$this->getClassname() . " extends " . $baseClassname . " {
 	 * By default there are no methods for the empty stub classes; override this method
 	 * if you want to change that behavior.
 	 *
-	 * @see        ObjectBuilder::addClassBody()
+	 * @see        AbstractObjectBuilder::addClassBody()
 	 */
 	protected function addClassBody(&$script)
 	{

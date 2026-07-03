@@ -18,7 +18,7 @@ namespace Propulsion\Generator\Builder\OM;
  * @author     Heltem <heltem@o2php.com>
  * @package    propel.generator.builder.om
  */
-class PHP5NestedSetBuilder extends ObjectBuilder
+class PHP5NestedSetBuilder extends AbstractObjectBuilder
 {
 
 	/**
@@ -93,7 +93,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	/**
 	 * Specifies the methods that are added as part of the basic OM class.
 	 * This can be overridden by subclasses that wish to add more methods.
-	 * @see        ObjectBuilder::addClassBody()
+	 * @see        AbstractObjectBuilder::addClassBody()
 	 */
 	protected function addClassBody(&$script)
 	{

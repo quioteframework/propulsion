@@ -24,7 +24,7 @@ namespace Propulsion\Generator\Builder;
  * @package    propel.generator.builder
  */
 
-use Propulsion\Generator\Builder\OM\ObjectBuilder;
+use Propulsion\Generator\Builder\OM\AbstractObjectBuilder;
 use Propulsion\Generator\Config\GeneratorConfig;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Config\GeneratorConfigInterface;
@@ -170,7 +170,7 @@ abstract class DataModelBuilder
 
 	/**
 	 * Returns new or existing Peer builder class for this table.
-	 * @return     PeerBuilder
+	 * @return     AbstractPeerBuilder
 	 */
 	public function getPeerBuilder()
 	{
@@ -194,7 +194,7 @@ abstract class DataModelBuilder
 
 	/**
 	 * Returns new or existing stub Peer builder class for this table.
-	 * @return     PeerBuilder
+	 * @return     AbstractPeerBuilder
 	 */
 	public function getStubPeerBuilder()
 	{
@@ -206,7 +206,7 @@ abstract class DataModelBuilder
 
 	/**
 	 * Returns new or existing Object builder class for this table.
-	 * @return     ObjectBuilder
+	 * @return     AbstractObjectBuilder
 	 */
 	public function getObjectBuilder()
 	{
@@ -218,7 +218,7 @@ abstract class DataModelBuilder
 
 	/**
 	 * Returns new or existing stub Object builder class for this table.
-	 * @return     ObjectBuilder
+	 * @return     AbstractObjectBuilder
 	 */
 	public function getStubObjectBuilder()
 	{
@@ -230,7 +230,7 @@ abstract class DataModelBuilder
 
 	/**
 	 * Returns new or existing Query builder class for this table.
-	 * @return     ObjectBuilder
+	 * @return     AbstractObjectBuilder
 	 */
 	public function getQueryBuilder()
 	{
@@ -242,7 +242,7 @@ abstract class DataModelBuilder
 
 	/**
 	 * Returns new or existing stub Query builder class for this table.
-	 * @return     ObjectBuilder
+	 * @return     AbstractObjectBuilder
 	 */
 	public function getStubQueryBuilder()
 	{
@@ -254,7 +254,7 @@ abstract class DataModelBuilder
 
 	/**
 	 * Returns new or existing Object builder class for this table.
-	 * @return     ObjectBuilder
+	 * @return     AbstractObjectBuilder
 	 */
 	public function getTableMapBuilder()
 	{
@@ -266,7 +266,7 @@ abstract class DataModelBuilder
 
 	/**
 	 * Returns new or existing stub Interface builder class for this table.
-	 * @return     ObjectBuilder
+	 * @return     AbstractObjectBuilder
 	 */
 	public function getInterfaceBuilder()
 	{
@@ -278,7 +278,7 @@ abstract class DataModelBuilder
 
 	/**
 	 * Returns new or existing stub child object builder class for this table.
-	 * @return     ObjectBuilder
+	 * @return     AbstractObjectBuilder
 	 */
 	public function getMultiExtendObjectBuilder()
 	{
@@ -290,7 +290,7 @@ abstract class DataModelBuilder
 
 	/**
 	 * Returns new or existing node Object builder class for this table.
-	 * @return     ObjectBuilder
+	 * @return     AbstractObjectBuilder
 	 */
 	public function getNodeBuilder()
 	{
@@ -302,7 +302,7 @@ abstract class DataModelBuilder
 
 	/**
 	 * Returns new or existing node Peer builder class for this table.
-	 * @return     PeerBuilder
+	 * @return     AbstractPeerBuilder
 	 */
 	public function getNodePeerBuilder()
 	{
@@ -314,7 +314,7 @@ abstract class DataModelBuilder
 
 	/**
 	 * Returns new or existing stub node Object builder class for this table.
-	 * @return     ObjectBuilder
+	 * @return     AbstractObjectBuilder
 	 */
 	public function getStubNodeBuilder()
 	{
@@ -326,7 +326,7 @@ abstract class DataModelBuilder
 
 	/**
 	 * Returns new or existing stub node Peer builder class for this table.
-	 * @return     PeerBuilder
+	 * @return     AbstractPeerBuilder
 	 */
 	public function getStubNodePeerBuilder()
 	{
@@ -338,7 +338,7 @@ abstract class DataModelBuilder
 
 	/**
 	 * Returns new or existing nested set object builder class for this table.
-	 * @return     ObjectBuilder
+	 * @return     AbstractObjectBuilder
 	 */
 	public function getNestedSetBuilder()
 	{
@@ -350,7 +350,7 @@ abstract class DataModelBuilder
 
 	/**
 	 * Returns new or existing nested set Peer builder class for this table.
-	 * @return     PeerBuilder
+	 * @return     AbstractPeerBuilder
 	 */
 	public function getNestedSetPeerBuilder()
 	{
@@ -393,7 +393,7 @@ abstract class DataModelBuilder
 	 * a peer builder for a RELATED table.
 	 *
 	 * @param      Table $table
-	 * @return     PeerBuilder
+	 * @return     AbstractPeerBuilder
 	 */
 	public function getNewPeerBuilder(Table $table)
 	{
@@ -407,7 +407,7 @@ abstract class DataModelBuilder
 	 * a peer builder for a RELATED table.
 	 *
 	 * @param      Table $table
-	 * @return     PeerBuilder
+	 * @return     AbstractPeerBuilder
 	 */
 	public function getNewStubPeerBuilder(Table $table)
 	{
@@ -421,7 +421,7 @@ abstract class DataModelBuilder
 	 * an object builder for a RELATED table.
 	 *
 	 * @param      Table $table
-	 * @return     ObjectBuilder
+	 * @return     AbstractObjectBuilder
 	 */
 	public function getNewObjectBuilder(Table $table)
 	{
@@ -435,7 +435,7 @@ abstract class DataModelBuilder
 	 * an object builder for a RELATED table.
 	 *
 	 * @param      Table $table
-	 * @return     ObjectBuilder
+	 * @return     AbstractObjectBuilder
 	 */
 	public function getNewStubObjectBuilder(Table $table)
 	{
@@ -472,7 +472,7 @@ abstract class DataModelBuilder
 
 	/**
 	 * Returns new Query Inheritance builder class for this table.
-	 * @return     ObjectBuilder
+	 * @return     AbstractObjectBuilder
 	 */
 	public function getNewQueryInheritanceBuilder($child)
 	{
@@ -483,7 +483,7 @@ abstract class DataModelBuilder
 
 	/**
 	 * Returns new stub Query Inheritance builder class for this table.
-	 * @return     ObjectBuilder
+	 * @return     AbstractObjectBuilder
 	 */
 	public function getNewStubQueryInheritanceBuilder($child)
 	{

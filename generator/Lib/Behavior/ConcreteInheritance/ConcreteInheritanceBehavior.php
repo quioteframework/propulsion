@@ -24,9 +24,9 @@
 
 use Propulsion\Generator\Model\Behavior;
 use Propulsion\Generator\Model\ForeignKey;
-use Propulsion\Generator\Builder\OM\ObjectBuilder;
+use Propulsion\Generator\Builder\OM\AbstractObjectBuilder;
 use Propulsion\Generator\Builder\OM\QueryBuilder;
-use Propulsion\Generator\Builder\OM\PeerBuilder;
+use Propulsion\Generator\Builder\OM\AbstractPeerBuilder;
 
 class ConcreteInheritanceBehavior extends Behavior
 {
@@ -152,12 +152,12 @@ class ConcreteInheritanceBehavior extends Behavior
 			$builder->declareClass($queryBuilder->getFullyQualifiedClassname());
 			return $queryBuilder->getClassname();
 		}
-		if ($builder instanceof ObjectBuilder) {
+		if ($builder instanceof AbstractObjectBuilder) {
 			$objectBuilder = $builder->getNewStubObjectBuilder($parentTable);
 			$builder->declareClass($objectBuilder->getFullyQualifiedClassname());
 			return $objectBuilder->getClassname();
 		}
-		if ($builder instanceof PeerBuilder) {
+		if ($builder instanceof AbstractPeerBuilder) {
 			$peerBuilder = $builder->getNewStubPeerBuilder($parentTable);
 			$builder->declareClass($peerBuilder->getFullyQualifiedClassname());
 			return $peerBuilder->getClassname();

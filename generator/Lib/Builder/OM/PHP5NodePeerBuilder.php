@@ -18,7 +18,7 @@ namespace Propulsion\Generator\Builder\OM;
  * @author     Hans Lellelid <hans@xmpl.org>
  * @package    propel.generator.builder.om
  */
-class PHP5NodePeerBuilder extends PeerBuilder
+class PHP5NodePeerBuilder extends AbstractPeerBuilder
 {
 
 	/**
@@ -89,7 +89,7 @@ abstract class ".$this->getClassname()." {
 	/**
 	 * Specifies the methods that are added as part of the basic OM class.
 	 * This can be overridden by subclasses that wish to add more methods.
-	 * @see        ObjectBuilder::addClassBody()
+	 * @see        AbstractObjectBuilder::addClassBody()
 	 */
 	protected function addClassBody(&$script)
 	{

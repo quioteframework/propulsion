@@ -19,7 +19,7 @@ namespace Propulsion\Generator\Builder\OM;
  * @package    propel.generator.builder.om
  */
 use Propulsion\Generator\Exception\EngineException;
-class PHP5NestedSetPeerBuilder extends PeerBuilder
+class PHP5NestedSetPeerBuilder extends AbstractPeerBuilder
 {
 
 	/**
@@ -94,7 +94,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 	/**
 	 * Specifies the methods that are added as part of the basic OM class.
 	 * This can be overridden by subclasses that wish to add more methods.
-	 * @see        ObjectBuilder::addClassBody()
+	 * @see        AbstractObjectBuilder::addClassBody()
 	 */
 	protected function addClassBody(&$script)
 	{

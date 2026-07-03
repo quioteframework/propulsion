@@ -68,7 +68,7 @@ namespace Propulsion\Generator\Builder\OM;
  * @method void addAddArrayElement(string &$script, $col)
  * @method void addRemoveArrayElement(string &$script, $col)
  */
-class PHP5ExtensionNodeBuilder extends ObjectBuilder
+class PHP5ExtensionNodeBuilder extends AbstractObjectBuilder
 {
 
 	/**
@@ -143,7 +143,7 @@ class ".$this->getClassname()." extends $baseClassname {
 	 * By default there are no methods for the empty stub classes; override this method
 	 * if you want to change that behavior.
 	 *
-	 * @see        ObjectBuilder::addClassBody()
+	 * @see        AbstractObjectBuilder::addClassBody()
 	 */
 	protected function addClassBody(&$script)
 	{

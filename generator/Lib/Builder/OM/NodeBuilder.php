@@ -23,7 +23,7 @@ namespace Propulsion\Generator\Builder\OM;
  * @author     GitHub Copilot
  * @package    propel.generator.builder.om
  */
-class PHP84NodeBuilder extends ObjectBuilder
+class NodeBuilder extends AbstractObjectBuilder
 {
 
 	/**
@@ -107,7 +107,7 @@ abstract class ".$this->getClassname()." implements \\IteratorAggregate
 	/**
 	 * Specifies the methods that are added as part of the basic OM class.
 	 * This can be overridden by subclasses that wish to add more methods.
-	 * @see        ObjectBuilder::addClassBody()
+	 * @see        AbstractObjectBuilder::addClassBody()
 	 */
 	protected function addClassBody(&$script): void
 	{
