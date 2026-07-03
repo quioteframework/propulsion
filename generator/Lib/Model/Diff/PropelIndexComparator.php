@@ -9,6 +9,8 @@
  */
 namespace Propulsion\Generator\Model\Diff;
 
+use Propulsion\Generator\Model\Index;
+
 /**
  * Service class for comparing Index objects
  * Heavily inspired by Doctrine2's Migrations

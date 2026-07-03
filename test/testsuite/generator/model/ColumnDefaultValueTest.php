@@ -18,7 +18,7 @@ use PHPUnit\Framework\TestCase;
  */
 class ColumnDefaultValueTest extends TestCase
 {
-	public function equalsProvider()
+	public static function equalsProvider()
 	{
 		return array(
 			array(new ColumnDefaultValue('foo', 'bar'), new ColumnDefaultValue('foo', 'bar'), true),

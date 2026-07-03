@@ -26,7 +26,7 @@ class PropelQuickBuilderTest extends TestCase
 		$this->assertTrue($builder->getPLatform() instanceof SqlitePlatform);
 	}
 
-	public function simpleSchemaProvider()
+	public static function simpleSchemaProvider()
 	{
 		$schema = <<<EOF
 <database name="test_quick_build_2">

@@ -15,7 +15,7 @@
 abstract class PlatformMigrationTestProvider extends PlatformTestBase
 {
 
-	public function providerForTestGetModifyDatabaseDDL()
+	public static function providerForTestGetModifyDatabaseDDL()
 	{
 		$schema1 = <<<EOF
 <database name="test">
@@ -58,12 +58,12 @@ EOF;
 		return array(array(PropelDatabaseComparator::computeDiff($d1, $d2)));
 	}
 
-	public function providerForTestGetRenameTableDDL()
+	public static function providerForTestGetRenameTableDDL()
 	{
 		return array(array('foo1', 'foo2'));
 	}
 
-	public function providerForTestGetModifyTableDDL()
+	public static function providerForTestGetModifyTableDDL()
 	{
 		$schema1 = <<<EOF
 <database name="test">
@@ -121,7 +121,7 @@ EOF;
 		return array(array(PropelTableComparator::computeDiff($t1,$t2)));
 	}
 
-	public function providerForTestGetModifyTableColumnsDDL()
+	public static function providerForTestGetModifyTableColumnsDDL()
 	{
 		$schema1 = <<<EOF
 <database name="test">
@@ -151,7 +151,7 @@ EOF;
 		return array(array($tc->getTableDiff()));
 	}
 
-	public function providerForTestGetModifyTablePrimaryKeysDDL()
+	public static function providerForTestGetModifyTablePrimaryKeysDDL()
 	{
 		$schema1 = <<<EOF
 <database name="test">
@@ -180,7 +180,7 @@ EOF;
 		return array(array($tc->getTableDiff()));
 	}
 
-	public function providerForTestGetModifyTableIndicesDDL()
+	public static function providerForTestGetModifyTableIndicesDDL()
 	{
 		$schema1 = <<<EOF
 <database name="test">
@@ -224,7 +224,7 @@ EOF;
 		return array(array($tc->getTableDiff()));
 	}
 
-	public function providerForTestGetModifyTableForeignKeysDDL()
+	public static function providerForTestGetModifyTableForeignKeysDDL()
 	{
 		$schema1 = <<<EOF
 <database name="test">
@@ -277,7 +277,7 @@ EOF;
 		return array(array($tc->getTableDiff()));
 	}
 
-	public function providerForTestGetModifyTableForeignKeysSkipSqlDDL()
+	public static function providerForTestGetModifyTableForeignKeysSkipSqlDDL()
 	{
 		$schema1 = <<<EOF
 <database name="test">
@@ -318,7 +318,7 @@ EOF;
 		return array(array($tc->getTableDiff()));
 	}
 
-	public function providerForTestGetModifyTableForeignKeysSkipSql2DDL()
+	public static function providerForTestGetModifyTableForeignKeysSkipSql2DDL()
 	{
 		$schema1 = <<<EOF
 <database name="test">
@@ -356,7 +356,7 @@ EOF;
 		return array(array($tc->getTableDiff()));
 	}
 
-	public function providerForTestGetRemoveColumnDDL()
+	public static function providerForTestGetRemoveColumnDDL()
 	{
 		$table = new Table('foo');
 		$column = new Column('bar');
@@ -364,7 +364,7 @@ EOF;
 		return array(array($column));
 	}
 
-	public function providerForTestGetRenameColumnDDL()
+	public static function providerForTestGetRenameColumnDDL()
 	{
 		$t1 = new Table('foo');
 		$c1 = new Column('bar1');
@@ -381,7 +381,7 @@ EOF;
 		return array(array($c1, $c2));
 	}
 
-	public function providerForTestGetModifyColumnDDL()
+	public static function providerForTestGetModifyColumnDDL()
 	{
 		$t1 = new Table('foo');
 		$c1 = new Column('bar');
@@ -396,7 +396,7 @@ EOF;
 		return array(array(PropelColumnComparator::computeDiff($c1, $c2)));
 	}
 
-	public function providerForTestGetModifyColumnsDDL()
+	public static function providerForTestGetModifyColumnsDDL()
 	{
 		$t1 = new Table('foo');
 		$c1 = new Column('bar1');
@@ -423,7 +423,7 @@ EOF;
 		)));
 	}
 
-	public function providerForTestGetAddColumnDDL()
+	public static function providerForTestGetAddColumnDDL()
 	{
 		$schema = <<<EOF
 <database name="test">
@@ -437,7 +437,7 @@ EOF;
 		return array(array($column));
 	}
 
-	public function providerForTestGetAddColumnsDDL()
+	public static function providerForTestGetAddColumnsDDL()
 	{
 		$schema = <<<EOF
 <database name="test">
@@ -452,7 +452,7 @@ EOF;
 		return array(array(array($table->getColumn('bar1'), $table->getColumn('bar2'))));
 	}
 
-	public function providerForTestGetModifyColumnRemoveDefaultValueDDL()
+	public static function providerForTestGetModifyColumnRemoveDefaultValueDDL()
 	{
 	    $t1 = new Table('test');
 	    $c1 = new Column();
@@ -468,7 +468,7 @@ EOF;
 	    return array(array(PropelColumnComparator::computeDiff($c1, $c2)));
 	}
 
-	public function providerForTestGetModifyTableForeignKeysSkipSql3DDL()
+	public static function providerForTestGetModifyTableForeignKeysSkipSql3DDL()
 	{
 		$schema1 = <<<EOF
 <database name="test">
@@ -501,7 +501,7 @@ EOF;
 		return array(array($diff));
 	}
 
-	public function providerForTestGetModifyTableForeignKeysSkipSql4DDL()
+	public static function providerForTestGetModifyTableForeignKeysSkipSql4DDL()
 	{
 		$schema1 = <<<EOF
 <database name="test">

@@ -9,6 +9,9 @@
  */
 namespace Propulsion\Generator\Model\Diff;
 
+use Propulsion\Generator\Model\Table;
+use Propulsion\Generator\Model\Column;
+
 /**
  * Service class for comparing Table objects
  * Heavily inspired by Doctrine2's Migrations

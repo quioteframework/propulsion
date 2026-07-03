@@ -21,7 +21,7 @@ class OMBuilderRelatedByTest extends TestCase
 {
 	static $database;
 
-	public function setUp()
+	public function setUp(): void
 	{
 		// run only once to save execution time
 		if (null == self::$database) {
@@ -76,4 +76,9 @@ class TestableOMBuilder extends OMBuilder
 	}
 
 	public function getUnprefixedClassname() {}
+
+	protected function addIncludes(&$includes = null) {}
+	protected function addClassOpen(&$script) {}
+	protected function addClassBody(&$script) {}
+	protected function addClassClose(&$script) {}
 }

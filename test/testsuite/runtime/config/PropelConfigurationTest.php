@@ -18,7 +18,7 @@ use PHPUnit\Framework\TestCase;
  */
 class PropelConfigurationTest extends TestCase
 {
-	static public function configurationProvider()
+	public static function configurationProvider()
 	{
 		$initialConf = array(
 			'foo' => 'bar0',

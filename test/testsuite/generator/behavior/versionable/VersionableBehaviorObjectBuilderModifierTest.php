@@ -21,7 +21,7 @@ use PHPUnit\Framework\TestCase;
 class VersionableBehaviorObjectBuilderModifierTest extends TestCase
 {
 
-	public function setUp()
+	public function setUp(): void
 	{
 		if (!class_exists('VersionableBehaviorTest1')) {
 			$schema = <<<EOF
@@ -128,7 +128,7 @@ EOF;
 
 	}
 
-	public function providerForNewActiveRecordTests()
+	public static function providerForNewActiveRecordTests()
 	{
 		return array(
 			array('VersionableBehaviorTest1'),

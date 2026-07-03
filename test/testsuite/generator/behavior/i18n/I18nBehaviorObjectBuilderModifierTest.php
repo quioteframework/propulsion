@@ -20,7 +20,7 @@ use PHPUnit\Framework\TestCase;
  */
 class I18nBehaviorObjectBuilderModifierTest extends TestCase
 {
-	public function setUp()
+	public function setUp(): void
 	{
 		if (!class_exists('I18nBehaviorTest1')) {
 			$schema = <<<EOF

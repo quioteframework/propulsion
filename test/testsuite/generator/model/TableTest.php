@@ -137,7 +137,7 @@ EOF;
 		$appData = $xmlToAppData->parseString($schema);
 	}
 
-	public function providerForTestHasColumn()
+	public static function providerForTestHasColumn()
 	{
 		$table = new Table();
 		$column = new Column('Foo');

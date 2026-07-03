@@ -16,7 +16,7 @@ use PHPUnit\Framework\TestCase;
  */
 class PropelPHPParserTest extends TestCase
 {
-	public function basicClassCodeProvider()
+	public static function basicClassCodeProvider()
 	{
 		$code = <<<EOF
 <?php

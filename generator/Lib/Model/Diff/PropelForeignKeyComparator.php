@@ -9,6 +9,8 @@
  */
 namespace Propulsion\Generator\Model\Diff;
 
+use Propulsion\Generator\Model\ForeignKey;
+
 /**
  * Service class for comparing ForeignKey objects
  * Heavily inspired by Doctrine2's Migrations

@@ -1160,7 +1160,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      *
      * @param     PropelPDO \$con The connection object used by the query
      */
-    protected function basePreSelect(PropelPDO \$con)
+    protected function basePreSelect(PropelPDO \$con): mixed
     {" . $behaviorCode . "
 
         return \$this->preSelect(\$con);

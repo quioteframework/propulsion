@@ -169,7 +169,7 @@ class PropelDateTimeTest extends TestCase
 		$dt = PropelDateTime::newInstance('some string');
 	}
 
-	public function provideValidNewInstanceValues()
+	public static function provideValidNewInstanceValues()
 	{
 		return array(
 			'Y-m-d'           => array('2011-08-10', '2011-08-10 00:00:00'),
@@ -182,7 +182,7 @@ class PropelDateTimeTest extends TestCase
 		);
 	}
 
-	public function provideValidNewInstanceValuesGmt1()
+	public static function provideValidNewInstanceValuesGmt1()
 	{
 		return array(
 			// "1312960848" : Wed, 10 Aug 2011 07:20:48 GMT

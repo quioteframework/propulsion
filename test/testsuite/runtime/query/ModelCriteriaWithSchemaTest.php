@@ -64,7 +64,7 @@ class TestableModelCriteriaWithSchema extends ModelCriteria
 {
 	public $joins = array();
 
-	public function replaceNames(&$clause)
+	public function replaceNames(string &$clause): bool
 	{
 		return parent::replaceNames($clause);
 	}

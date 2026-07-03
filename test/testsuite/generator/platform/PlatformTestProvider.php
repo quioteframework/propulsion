@@ -15,7 +15,7 @@
 abstract class PlatformTestProvider extends PlatformTestBase
 {
 
-	public function providerForTestGetAddTablesDDL()
+	public static function providerForTestGetAddTablesDDL()
 	{
 		$schema = <<<EOF
 <database name="test">
@@ -40,7 +40,7 @@ EOF;
 		return array(array($schema));
 	}
 
-	public function providerForTestGetAddTablesDDLSchema()
+	public static function providerForTestGetAddTablesDDLSchema()
 	{
 		$schema = <<<EOF
 <database name="test" schema="x">
@@ -73,7 +73,7 @@ EOF;
 		return array(array($schema));
 	}
 
-	public function providerForTestGetAddTablesSkipSQLDDL()
+	public static function providerForTestGetAddTablesSkipSQLDDL()
 	{
 		$schema = <<<EOF
 <database name="test">
@@ -98,7 +98,7 @@ EOF;
 		return array(array($schema));
 	}
 
-	public function providerForTestGetAddTableDDLSimplePK()
+	public static function providerForTestGetAddTableDDLSimplePK()
 	{
 		$schema = <<<EOF
 <database name="test">
@@ -111,7 +111,7 @@ EOF;
 		return array(array($schema));
 	}
 
-	public function providerForTestGetAddTableDDLCompositePK()
+	public static function providerForTestGetAddTableDDLCompositePK()
 	{
 		$schema = <<<EOF
 <database name="test">
@@ -125,7 +125,7 @@ EOF;
 		return array(array($schema));
 	}
 
-	public function providerForTestGetAddTableDDLUniqueIndex()
+	public static function providerForTestGetAddTableDDLUniqueIndex()
 	{
 		$schema = <<<EOF
 <database name="test">
@@ -141,7 +141,7 @@ EOF;
 		return array(array($schema));
 	}
 
-	public function providerForTestGetAddTableDDLSchema()
+	public static function providerForTestGetAddTableDDLSchema()
 	{
 		$schema = <<<EOF
 <database name="test">
@@ -154,7 +154,7 @@ EOF;
 		return array(array($schema));
 	}
 
-	public function providerForTestGetUniqueDDL()
+	public static function providerForTestGetUniqueDDL()
 	{
 		$table = new Table('foo');
 		$column1 = new Column('bar1');
@@ -173,7 +173,7 @@ EOF;
 		);
 	}
 
-	public function providerForTestGetIndicesDDL()
+	public static function providerForTestGetIndicesDDL()
 	{
 		$table = new Table('foo');
 		$column1 = new Column('bar1');
@@ -195,7 +195,7 @@ EOF;
 		);
 	}
 
-	public function providerForTestGetIndexDDL()
+	public static function providerForTestGetIndexDDL()
 	{
 		$table = new Table('foo');
 		$column1 = new Column('bar1');
@@ -214,7 +214,7 @@ EOF;
 		);
 	}
 
-	public function providerForTestPrimaryKeyDDL()
+	public static function providerForTestPrimaryKeyDDL()
 	{
 		$table = new Table('foo');
 		$column = new Column('bar');
@@ -225,7 +225,7 @@ EOF;
 		);
 	}
 
-	public function providerForTestGetForeignKeyDDL()
+	public static function providerForTestGetForeignKeyDDL()
 	{
 		$table1 = new Table('foo');
 		$column1 = new Column('bar_id');
@@ -245,7 +245,7 @@ EOF;
 		);
 	}
 
-	public function providerForTestGetForeignKeySkipSqlDDL()
+	public static function providerForTestGetForeignKeySkipSqlDDL()
 	{
 		$arr = self::providerForTestGetForeignKeyDDL();
 		$fk = $arr[0][0];
@@ -255,7 +255,7 @@ EOF;
 		);
 	}
 
-	public function providerForTestGetForeignKeysDDL()
+	public static function providerForTestGetForeignKeysDDL()
 	{
 		$table1 = new Table('foo');
 

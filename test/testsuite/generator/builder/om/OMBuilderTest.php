@@ -72,7 +72,7 @@ EOF;
 		$this->assertEquals($expectedPath, $builder->getPackagePath());
 	}
 
-	public function dataGetPackagePath()
+	public static function dataGetPackagePath()
 	{
 		return array(
 			array('', ''),
@@ -118,4 +118,9 @@ class OMBuilderMock extends OMBuilder
 	public function getUnprefixedClassname()
 	{
 	}
+
+	protected function addIncludes(&$includes = null) {}
+	protected function addClassOpen(&$script) {}
+	protected function addClassBody(&$script) {}
+	protected function addClassClose(&$script) {}
 }

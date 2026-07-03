@@ -53,3 +53,51 @@ foreach ($testBaseFiles as $file) {
         require_once $file;
     }
 }
+
+// Test helper base classes that live alongside the test cases that use them
+// (under test/testsuite/, not test/tools/helpers/) rather than as *Test.php
+// files -- PHPUnit's own directory-based suite discovery only picks up
+// *Test.php, so these need to be required explicitly too, in dependency order.
+$platformTestHelperFiles = [
+    __DIR__ . '/testsuite/generator/platform/PlatformTestBase.php',
+    __DIR__ . '/testsuite/generator/platform/PlatformTestProvider.php',
+    __DIR__ . '/testsuite/generator/platform/PlatformMigrationTestProvider.php',
+];
+
+foreach ($platformTestHelperFiles as $file) {
+    if (file_exists($file)) {
+        require_once $file;
+    }
+}
+
+// Some test files declare auxiliary classes at file scope that extend generated
+// Bookstore fixture classes (e.g. `class UndeletableTable4 extends Table4`).
+// PHPUnit's TestSuiteLoader requires every test file up front during suite
+// discovery, before any test's setUp() runs -- so the fixtures (and the classmap
+// autoloader for their unnamespaced generated classes) must exist *before* that,
+// not lazily on first use. If this fails (e.g. no Docker), leave a clear message;
+// individual Bookstore/Cms tests will still fail during setUp()'s own
+// ensureReady() call, but anything referencing a generated class at file scope
+// will fatal here instead of skipping cleanly -- an inherent constraint of this
+// suite's structure, not something a lazier build step could fix.
+try {
+    IntegrationDatabase::ensureReady();
+} catch (\RuntimeException $e) {
+    fwrite(STDERR, "\nWarning: bookstore fixtures not built (" . $e->getMessage() . ")\n"
+        . "Tests that reference generated fixture classes at file scope will fatal during suite discovery.\n\n");
+}
+
+// Same file-scope-declaration constraint as above, for test helpers (not test
+// classes themselves) that declare classes extending generated fixture classes --
+// these must be required only after ensureReady() has built the fixtures.
+$fixtureDependentHelperFiles = [
+    __DIR__ . '/tools/helpers/bookstore/behavior/BookstoreNestedSetTestBase.php',
+    __DIR__ . '/tools/helpers/bookstore/behavior/BookstoreSortableTestBase.php',
+    __DIR__ . '/tools/helpers/bookstore/behavior/TestAuthor.php',
+];
+
+foreach ($fixtureDependentHelperFiles as $file) {
+    if (file_exists($file)) {
+        require_once $file;
+    }
+}

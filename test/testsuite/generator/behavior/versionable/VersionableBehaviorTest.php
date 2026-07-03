@@ -20,7 +20,7 @@ use PHPUnit\Framework\TestCase;
  */
 class VersionableBehaviorTest extends TestCase
 {
-	public function basicSchemaDataProvider()
+	public static function basicSchemaDataProvider()
 	{
 		$schema = <<<EOF
 <database name="versionable_behavior_test_0">
@@ -120,7 +120,7 @@ EOF;
 		$this->assertStringContainsString($expected, $builder->getSQL());
 	}
 
-	public function foreignTableSchemaDataProvider()
+	public static function foreignTableSchemaDataProvider()
 	{
 		$schema = <<<EOF
 <database name="versionable_behavior_test_0">
@@ -348,7 +348,7 @@ EOF;
 		$this->assertEquals($expected, $builder->getSQL());
 	}
 
-	public function logSchemaDataProvider()
+	public static function logSchemaDataProvider()
 	{
 		$schema = <<<EOF
 <database name="versionable_behavior_test_0">

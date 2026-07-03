@@ -17,7 +17,7 @@ use PHPUnit\Framework\TestCase;
  */
 class GeneratedPeerLazyLoadTest extends TestCase
 {
-	public function setUp()
+	public function setUp(): void
 	{
 		if (!class_exists('LazyLoadActiveRecord2')) {
 			$schema = <<<EOF

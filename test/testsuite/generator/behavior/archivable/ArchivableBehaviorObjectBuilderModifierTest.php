@@ -20,7 +20,7 @@ use PHPUnit\Framework\TestCase;
  */
 class ArchivableBehaviorObjectBuilderModifierTest extends TestCase
 {
-	public function setUp()
+	public function setUp(): void
 	{
 		if (!class_exists('ArchivableTest10')) {
 			$schema = <<<EOF

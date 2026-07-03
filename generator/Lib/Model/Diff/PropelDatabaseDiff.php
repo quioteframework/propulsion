@@ -9,6 +9,8 @@
  */
 namespace Propulsion\Generator\Model\Diff;
 
+use Propulsion\Generator\Model\Table;
+
 /**
  * Value object for storing Database object diffs
  * Heavily inspired by Doctrine2's Migrations

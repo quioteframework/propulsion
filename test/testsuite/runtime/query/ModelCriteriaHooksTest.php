@@ -138,7 +138,7 @@ class ModelCriteriaHooksTest extends BookstoreTestBase
 
 class ModelCriteriaWithPreSelectHook extends ModelCriteria
 {
-	public function preSelect(PropelPDO $con)
+	public function preSelect(PropelPDO $con): mixed
 	{
 		$this->where($this->getModelAliasOrName() . '.Title = ?', 'Don Juan');
 	}

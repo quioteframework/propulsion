@@ -19,7 +19,7 @@ use PHPUnit\Framework\TestCase;
  */
 class DatabaseTest extends TestCase
 {
-	public function providerForTestHasTable()
+	public static function providerForTestHasTable()
 	{
 		$database = new Database();
 		$table = new Table('Foo');

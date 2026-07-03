@@ -221,7 +221,7 @@ class "  .$this->getClassname() . " extends " . $baseClassname . " {
 	/**
 	 * Filters the query to target only " . $child->getClassname() . " objects.
 	 */
-	public function preSelect(PropelPDO \$con)
+	public function preSelect(PropelPDO \$con): mixed
 	{
 		" . $this->getClassKeyCondition() . "
 	}

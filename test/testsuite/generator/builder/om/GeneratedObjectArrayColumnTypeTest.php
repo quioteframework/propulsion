@@ -18,7 +18,7 @@ use PHPUnit\Framework\TestCase;
  */
 class GeneratedObjectArrayColumnTypeTest extends TestCase
 {
-	public function setUp()
+	public function setUp(): void
 	{
 		if (!class_exists('ComplexColumnTypeEntity2')) {
 			$schema = <<<EOF

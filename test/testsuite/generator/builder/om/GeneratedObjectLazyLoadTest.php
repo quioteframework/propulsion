@@ -17,7 +17,7 @@ use PHPUnit\Framework\TestCase;
  */
 class GeneratedObjectLazyLoadTest extends TestCase
 {
-	public function setUp()
+	public function setUp(): void
 	{
 		if (!class_exists('LazyLoadActiveRecord')) {
 			$schema = <<<EOF

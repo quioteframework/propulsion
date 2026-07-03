@@ -20,7 +20,7 @@ use PHPUnit\Framework\TestCase;
  */
 class AlternativeCodingStandardsBehaviorTest extends TestCase
 {
-	public function convertBracketsNewlineDataProvider()
+	public static function convertBracketsNewlineDataProvider()
 	{
 		return array(
 			array("class Foo {

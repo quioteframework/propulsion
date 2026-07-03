@@ -18,7 +18,7 @@ use PHPUnit\Framework\TestCase;
  */
 class DefaultEnglishPluralizerTest extends TestCase
 {
-	public function getPluralFormDataProvider()
+	public static function getPluralFormDataProvider()
 	{
 		return array(
 			array('', 's'),

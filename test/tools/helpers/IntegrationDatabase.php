@@ -91,6 +91,14 @@ class IntegrationDatabase
             throw new \RuntimeException(self::$skipReason);
         }
 
+        // Force Propulsion\Propel to load now, which eagerly registers its own
+        // legacy-class-map aliases (BaseObject, TableMap, PropelException, ...).
+        // Generated fixture classes (BaseTable4 extends BaseObject, etc.) need
+        // those bare aliases to already exist the moment the classmap autoloader
+        // below pulls them in -- which can happen as early as PHPUnit's test suite
+        // discovery, well before anything else would have triggered Propel::init().
+        class_exists(\Propulsion\Propel::class);
+
         self::registerClassmapAutoloader();
     }
 

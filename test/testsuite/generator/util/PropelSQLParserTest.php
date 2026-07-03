@@ -18,7 +18,7 @@ use Propulsion\Generator\Util\PropelSQLParser;
  */
 class PropelSQLParserTest extends TestCase
 {
-	public function stripSqlCommentsDataProvider()
+	public static function stripSqlCommentsDataProvider()
 	{
 		return array(
 			array('', ''),
@@ -46,7 +46,7 @@ class PropelSQLParserTest extends TestCase
 		$this->assertEquals($output, $parser->getSQL());
 	}
 
-	public function convertLineFeedsToUnixStyleDataProvider()
+	public static function convertLineFeedsToUnixStyleDataProvider()
 	{
 		return array(
 			array('', ''),
@@ -69,7 +69,7 @@ class PropelSQLParserTest extends TestCase
 		$this->assertEquals($output, $parser->getSQL());
 	}
 
-	public function explodeIntoStatementsDataProvider()
+	public static function explodeIntoStatementsDataProvider()
 	{
 		return array(
 			array('', array()),

@@ -86,7 +86,7 @@ EOF;
 		$this->assertStringContainsString($expected, $builder->getSQL());
 	}
 
-	public function schemaDataProvider()
+	public static function schemaDataProvider()
 	{
 		$schema1 = <<<EOF
 <database name="i18n_behavior_test_0">

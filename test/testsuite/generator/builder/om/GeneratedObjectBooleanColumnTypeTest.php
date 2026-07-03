@@ -18,7 +18,7 @@ use PHPUnit\Framework\TestCase;
  */
 class GeneratedObjectBooleanColumnTypeTest extends TestCase
 {
-	public function setUp()
+	public function setUp(): void
 	{
 		if (!class_exists('ComplexColumnTypeEntity4')) {
 			$schema = <<<EOF
@@ -35,7 +35,7 @@ EOF;
 		}
 	}
 
-	public function providerForSetter()
+	public static function providerForSetter()
 	{
 		return array(
 			array(true, true),

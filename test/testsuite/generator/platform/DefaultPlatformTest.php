@@ -68,7 +68,7 @@ class DefaultPlatformTest extends TestCase
 		return $column;
 	}
 
-	public function getColumnDefaultValueDDLDataProvider()
+	public static function getColumnDefaultValueDDLDataProvider()
 	{
 		return array(
 			array($this->createColumn(PropelTypes::INTEGER, 0), "DEFAULT 0"),
