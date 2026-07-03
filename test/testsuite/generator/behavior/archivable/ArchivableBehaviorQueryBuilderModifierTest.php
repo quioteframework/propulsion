@@ -77,7 +77,7 @@ class ArchivableBehaviorQueryBuilderModifierTest extends TestCase
 
 </database>
 EOF;
-			PropelQuickBuilder::buildSchema($schema);
+			PropulsionQuickBuilder::buildSchema($schema);
 		}
 	}
 

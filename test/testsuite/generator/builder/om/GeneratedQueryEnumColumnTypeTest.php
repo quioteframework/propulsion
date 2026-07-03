@@ -30,7 +30,7 @@ class GeneratedQueryEnumColumnTest extends TestCase
 	</table>
 </database>
 EOF;
-			PropelQuickBuilder::buildSchema($schema);
+			PropulsionQuickBuilder::buildSchema($schema);
 			$e0 = new ComplexColumnTypeEntity13();
 			$e0->save();
 			$e1 = new ComplexColumnTypeEntity13();

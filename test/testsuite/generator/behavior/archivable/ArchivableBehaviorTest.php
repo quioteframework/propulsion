@@ -79,7 +79,7 @@ class ArchivableBehaviorTest extends TestCase
 
 </database>
 EOF;
-			$builder = new PropelQuickBuilder();
+			$builder = new PropulsionQuickBuilder();
 			$builder->setSchema($schema);
 			self::$generatedSQL = $builder->getSQL();
 			$builder->build();

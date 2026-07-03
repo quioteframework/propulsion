@@ -262,7 +262,7 @@ ALTER TABLE \"foo\" ALTER COLUMN \"bar\" TYPE DOUBLE PRECISION;
 		$c2->getDomain()->replaceSize(3);
 		$c2->getDomain()->setDefaultValue(new ColumnDefaultValue(-100, ColumnDefaultValue::TYPE_VALUE));
 		$t2->addColumn($c2);
-		$columnDiff = PropelColumnComparator::computeDiff($c1, $c2);
+		$columnDiff = PropulsionColumnComparator::computeDiff($c1, $c2);
 		$expected = <<<END
 
 ALTER TABLE "foo" ALTER COLUMN "bar" TYPE DOUBLE PRECISION;
@@ -338,7 +338,7 @@ EOF;
 
 		$table = $this->getDatabaseFromSchema($schema)->getTable('foo');
 		$c2 = $table->getColumn('bar');
-		$columnDiff = PropelColumnComparator::computeDiff($c1, $c2);
+		$columnDiff = PropulsionColumnComparator::computeDiff($c1, $c2);
 		$expected = false;
 		$this->assertSame($expected, $columnDiff);
 	}
@@ -367,7 +367,7 @@ EOF;
 		$db = $appData->getDatabase();
 		$table = $db->getTable('foo');
 		$c2 = $table->getColumn('bar');
-		$columnDiff = PropelColumnComparator::computeDiff($c1, $c2);
+		$columnDiff = PropulsionColumnComparator::computeDiff($c1, $c2);
 		$expected = false;
 		$this->assertSame($expected, $columnDiff);
 	}

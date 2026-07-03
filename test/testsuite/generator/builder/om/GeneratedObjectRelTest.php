@@ -145,7 +145,7 @@ class GeneratedObjectRelTest extends BookstoreEmptyTestBase
 	{
 		$blc1 = new BookClubList();
 		$books = $blc1->getBooks();
-		$this->assertTrue($books instanceof PropelObjectCollection, 'getCrossRefFK() returns a Propulsion collection');
+		$this->assertTrue($books instanceof PropulsionObjectCollection, 'getCrossRefFK() returns a Propulsion collection');
 		$this->assertEquals('Book', $books->getModel(), 'getCrossRefFK() returns a collection of the correct model');
 		$this->assertEquals(0, count($books), 'getCrossRefFK() returns an empty list for new objects');
 		$query = BookQuery::create()
@@ -159,7 +159,7 @@ class GeneratedObjectRelTest extends BookstoreEmptyTestBase
 		BookstoreDataPopulator::populate();
 		$blc1 = BookClubListQuery::create()->findOneByGroupLeader('Crazyleggs');
 		$books = $blc1->getBooks();
-		$this->assertTrue($books instanceof PropelObjectCollection, 'getCrossRefFK() returns a Propulsion collection');
+		$this->assertTrue($books instanceof PropulsionObjectCollection, 'getCrossRefFK() returns a Propulsion collection');
 		$this->assertEquals('Book', $books->getModel(), 'getCrossRefFK() returns a collection of the correct model');
 		$this->assertEquals(2, count($books), 'getCrossRefFK() returns the correct list of objects');
 		$query = BookQuery::create()
@@ -219,7 +219,7 @@ class GeneratedObjectRelTest extends BookstoreEmptyTestBase
 		$list->clearBookListRels();
 		$list->clearBooks();
 		$books = $list->getBooks();
-		$expected = new PropelObjectCollection(array($book));
+		$expected = new PropulsionObjectCollection(array($book));
 		$expected->setModel('Book');
 		$this->assertEquals($expected, $books, 'addCrossFk() adds the object properly');
 		$this->assertEquals(1, $list->countBookListRels());

@@ -30,8 +30,8 @@ class GeneratedObjectLazyLoadTest extends TestCase
 	</table>
 </database>
 EOF;
-			//PropelQuickBuilder::debugClassesForTable($schema, 'lazy_load_active_record');
-			PropelQuickBuilder::buildSchema($schema);
+			//PropulsionQuickBuilder::debugClassesForTable($schema, 'lazy_load_active_record');
+			PropulsionQuickBuilder::buildSchema($schema);
 		}
 	}
 

@@ -29,7 +29,7 @@ class GeneratedPeerEnumColumnTypeTest extends TestCase
 	</table>
 </database>
 EOF;
-			PropelQuickBuilder::buildSchema($schema);
+			PropulsionQuickBuilder::buildSchema($schema);
 		}
 	}
 

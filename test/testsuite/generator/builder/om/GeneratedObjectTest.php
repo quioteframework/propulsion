@@ -488,7 +488,7 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
             $book->setTitle("Will Fail");
             $book->save();
             $this->fail("Expect an exception to be thrown when attempting to save() a deleted object.");
-        } catch (PropelException $e) {}
+        } catch (PropulsionException $e) {}
 
             // 4) make sure that it doesn't exist in db
             $book = BookPeer::retrieveByPK($bookId);
@@ -592,17 +592,17 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
 
         try {
             $acct2->save();
-            $this->fail("Expected PropelException in first attempt to save object with duplicate value for UNIQUE constraint.");
+            $this->fail("Expected PropulsionException in first attempt to save object with duplicate value for UNIQUE constraint.");
         } catch (Exception $x) {
-            $this->assertInstanceOf('PropelException', $x, "Expected PropelException in first attempt to save object with duplicate value for UNIQUE constraint.");
+            $this->assertInstanceOf('PropulsionException', $x, "Expected PropulsionException in first attempt to save object with duplicate value for UNIQUE constraint.");
             try {
                 // attempt to save it again
                 $acct3 = $acct->copy();
                 $acct3->save();
-                $this->fail("Expected PropelException in second attempt to save object with duplicate value for UNIQUE constraint.");
+                $this->fail("Expected PropulsionException in second attempt to save object with duplicate value for UNIQUE constraint.");
             } catch (Exception $x) {
                 // this is expected.
-                $this->assertInstanceOf('PropelException', $x, "Expected PropelException in second attempt to save object with duplicate value for UNIQUE constraint.");
+                $this->assertInstanceOf('PropulsionException', $x, "Expected PropulsionException in second attempt to save object with duplicate value for UNIQUE constraint.");
             }
             // now let's double check that it can succeed if we're not violating the constraint.
             $acct3->setLogin("foo2");
@@ -1065,7 +1065,7 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
             $b->save();
             $this->fail("Expected setting auto-increment primary key to result in Exception");
         } catch (Exception $x) {
-            $this->assertInstanceOf('PropelException', $x);
+            $this->assertInstanceOf('PropulsionException', $x);
         }
 
         // ... but we should silently ignore NULL values, since these are really
@@ -1314,11 +1314,11 @@ EOF;
     }
 
     /**
-     * @expectedException PropelException
+     * @expectedException PropulsionException
      */
     public function testMagicCallUndefined()
     {
-    	$this->expectException(PropelException::class);
+    	$this->expectException(PropulsionException::class);
         $book = new Book();
         $book->fooMethodName();
     }

@@ -273,7 +273,7 @@ class NestedSetBehaviorQueryBuilderModifierTest extends BookstoreNestedSetTestBa
 
 	protected function buildCollection($arr)
 	{
-		$coll = new PropelObjectCollection();
+		$coll = new PropulsionObjectCollection();
 		$coll->setData($arr);
 		$coll->setModel('Table9');
 

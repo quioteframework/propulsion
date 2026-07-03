@@ -32,7 +32,7 @@ class GeneratedObjectTemporalColumnTypeTest extends TestCase
 	</table>
 </database>
 EOF;
-			PropelQuickBuilder::buildSchema($schema);
+			PropulsionQuickBuilder::buildSchema($schema);
 		}
 	}
 
@@ -68,11 +68,11 @@ EOF;
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
-	public function testInvalidValueThrowsPropelException()
+	public function testInvalidValueThrowsPropulsionException()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$r = new ComplexColumnTypeEntity5();
 		$r->setBar1("Invalid Date");
 	}

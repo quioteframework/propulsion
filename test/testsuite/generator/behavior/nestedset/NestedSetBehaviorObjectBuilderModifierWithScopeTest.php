@@ -26,11 +26,11 @@ class NestedSetBehaviorObjectBuilderModifierWithScopeTest extends BookstoreNeste
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testSaveRootInTreeWithExistingRootWithSameScope()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		Table10Peer::doDeleteAll();
 		$t1 = new Table10();
 		$t1->setScopeValue(1);
@@ -111,7 +111,7 @@ class NestedSetBehaviorObjectBuilderModifierWithScopeTest extends BookstoreNeste
 		try {
 			$t2->isDescendantOf($t8);
 			$this->fail('isDescendantOf() throws an exception when comparing two nodes of different trees');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->assertTrue(true, 'isDescendantOf() throws an exception when comparing two nodes of different trees');
 		}
 	}
@@ -548,13 +548,13 @@ class NestedSetBehaviorObjectBuilderModifierWithScopeTest extends BookstoreNeste
 		try {
 			$t8->moveToFirstChildOf($t3);
 			$this->fail('moveToFirstChildOf() throws an exception when the target is in a different tree');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->assertTrue(true, 'moveToFirstChildOf() throws an exception when the target is in a different tree');
 		}
 		try {
 			$t5->moveToLastChildOf($t2);
 			$this->assertTrue(true, 'moveToFirstChildOf() does not throw an exception when the target is in the same tree');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->fail('moveToFirstChildOf() does not throw an exception when the target is in the same tree');
 		}
 		$expected = array(
@@ -585,13 +585,13 @@ class NestedSetBehaviorObjectBuilderModifierWithScopeTest extends BookstoreNeste
 		try {
 			$t8->moveToLastChildOf($t3);
 			$this->fail('moveToLastChildOf() throws an exception when the target is in a different tree');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->assertTrue(true, 'moveToLastChildOf() throws an exception when the target is in a different tree');
 		}
 		try {
 			$t5->moveToLastChildOf($t2);
 			$this->assertTrue(true, 'moveToLastChildOf() does not throw an exception when the target is in the same tree');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->fail('moveToLastChildOf() does not throw an exception when the target is in the same tree');
 		}
 		$expected = array(
@@ -622,13 +622,13 @@ class NestedSetBehaviorObjectBuilderModifierWithScopeTest extends BookstoreNeste
 		try {
 			$t8->moveToPrevSiblingOf($t3);
 			$this->fail('moveToPrevSiblingOf() throws an exception when the target is in a different tree');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->assertTrue(true, 'moveToPrevSiblingOf() throws an exception when the target is in a different tree');
 		}
 		try {
 			$t5->moveToPrevSiblingOf($t2);
 			$this->assertTrue(true, 'moveToPrevSiblingOf() does not throw an exception when the target is in the same tree');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->fail('moveToPrevSiblingOf() does not throw an exception when the target is in the same tree');
 		}
 		$expected = array(
@@ -659,13 +659,13 @@ class NestedSetBehaviorObjectBuilderModifierWithScopeTest extends BookstoreNeste
 		try {
 			$t8->moveToNextSiblingOf($t3);
 			$this->fail('moveToNextSiblingOf() throws an exception when the target is in a different tree');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->assertTrue(true, 'moveToNextSiblingOf() throws an exception when the target is in a different tree');
 		}
 		try {
 			$t5->moveToNextSiblingOf($t2);
 			$this->assertTrue(true, 'moveToNextSiblingOf() does not throw an exception when the target is in the same tree');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->fail('moveToNextSiblingOf() does not throw an exception when the target is in the same tree');
 		}
 		$expected = array(

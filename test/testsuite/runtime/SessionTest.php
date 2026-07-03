@@ -77,7 +77,7 @@ class SessionTest extends TestCase
         $this->assertFalse($b->getForceMasterConnection());
     }
 
-    public function testPropelDelegatesForceMasterConnectionToItsSession()
+    public function testPropulsionDelegatesForceMasterConnectionToItsSession()
     {
         Propulsion::setForceMasterConnection(true);
 
@@ -89,7 +89,7 @@ class SessionTest extends TestCase
         $this->assertFalse(Propulsion::getForceMasterConnection());
     }
 
-    public function testPropelSetSessionSwapsTheActiveSession()
+    public function testPropulsionSetSessionSwapsTheActiveSession()
     {
         $original = Propulsion::getSession();
         $custom = new Session();

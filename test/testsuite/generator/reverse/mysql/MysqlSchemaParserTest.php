@@ -28,7 +28,7 @@ class MysqlSchemaParserTest extends TestCase
 		$xmlDom = new DOMDocument();
 		$xmlDom->load(dirname(__FILE__) . '/../../../../fixtures/reverse/mysql/runtime-conf.xml');
 		$xml = simplexml_load_string($xmlDom->saveXML());
-		$phpconf = OpenedPropelConvertConfTask::simpleXmlToArray($xml);
+		$phpconf = OpenedPropulsionConvertConfTask::simpleXmlToArray($xml);
 
 		Propulsion::setConfiguration($phpconf);
         Propulsion::initialize();
@@ -59,7 +59,7 @@ class MysqlSchemaParserTest extends TestCase
     }
 }
 
-class OpenedPropelConvertConfTask extends PropelConvertConfTask
+class OpenedPropulsionConvertConfTask extends PropulsionConvertConfTask
 {
 	public static function simpleXmlToArray($xml)
 	{

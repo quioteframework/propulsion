@@ -164,8 +164,8 @@ class CriteriaCombineTest extends BaseTestCase
     try {
       $params = array();
       $result = BasePeer::createSelectSql($this->c, $params);
-    } catch (PropelException $e) {
-      $this->fail("PropelException thrown in BasePeer.createSelectSql(): ".$e->getMessage());
+    } catch (PropulsionException $e) {
+      $this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ".$e->getMessage());
     }
 
     $this->assertEquals($expect, $result);
@@ -197,8 +197,8 @@ class CriteriaCombineTest extends BaseTestCase
     try {
       $params=array();
       $result = BasePeer::createSelectSql($this->c, $params);
-    } catch (PropelException $e) {
-      $this->fail("PropelException thrown in BasePeer::createSelectSql()");
+    } catch (PropulsionException $e) {
+      $this->fail("PropulsionException thrown in BasePeer::createSelectSql()");
     }
 
     $this->assertEquals($expect, $result);

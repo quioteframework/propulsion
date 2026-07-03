@@ -218,7 +218,7 @@ class SubQueryTest extends BookstoreTestBase
 	}
 }
 
-// See PropelQueryTest.php's myBookQuery for why this is guarded.
+// See PropulsionQueryTest.php's myBookQuery for why this is guarded.
 if (class_exists(BookQuery::class)) {
 	class TestableBookQuery extends BookQuery
 	{

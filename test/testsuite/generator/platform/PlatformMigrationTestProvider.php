@@ -55,7 +55,7 @@ EOF;
 EOF;
 		$d1 = static::getDatabaseFromSchema($schema1);
 		$d2 = static::getDatabaseFromSchema($schema2);
-		return array(array(PropelDatabaseComparator::computeDiff($d1, $d2)));
+		return array(array(PropulsionDatabaseComparator::computeDiff($d1, $d2)));
 	}
 
 	public static function providerForTestGetRenameTableDDL()
@@ -118,7 +118,7 @@ EOF;
 EOF;
 		$t1 = static::getDatabaseFromSchema($schema1)->getTable('foo');
 		$t2 = static::getDatabaseFromSchema($schema2)->getTable('foo');
-		return array(array(PropelTableComparator::computeDiff($t1,$t2)));
+		return array(array(PropulsionTableComparator::computeDiff($t1,$t2)));
 	}
 
 	public static function providerForTestGetModifyTableColumnsDDL()
@@ -144,7 +144,7 @@ EOF;
 EOF;
 		$t1 = static::getDatabaseFromSchema($schema1)->getTable('foo');
 		$t2 = static::getDatabaseFromSchema($schema2)->getTable('foo');
-		$tc = new PropelTableComparator();
+		$tc = new PropulsionTableComparator();
 		$tc->setFromTable($t1);
 		$tc->setToTable($t2);
 		$tc->compareColumns();
@@ -173,7 +173,7 @@ EOF;
 EOF;
 		$t1 = static::getDatabaseFromSchema($schema1)->getTable('foo');
 		$t2 = static::getDatabaseFromSchema($schema2)->getTable('foo');
-		$tc = new PropelTableComparator();
+		$tc = new PropulsionTableComparator();
 		$tc->setFromTable($t1);
 		$tc->setToTable($t2);
 		$tc->comparePrimaryKeys();
@@ -217,7 +217,7 @@ EOF;
 EOF;
 		$t1 = static::getDatabaseFromSchema($schema1)->getTable('foo');
 		$t2 = static::getDatabaseFromSchema($schema2)->getTable('foo');
-		$tc = new PropelTableComparator();
+		$tc = new PropulsionTableComparator();
 		$tc->setFromTable($t1);
 		$tc->setToTable($t2);
 		$tc->compareIndices();
@@ -270,7 +270,7 @@ EOF;
 EOF;
 		$t1 = static::getDatabaseFromSchema($schema1)->getTable('foo1');
 		$t2 = static::getDatabaseFromSchema($schema2)->getTable('foo1');
-		$tc = new PropelTableComparator();
+		$tc = new PropulsionTableComparator();
 		$tc->setFromTable($t1);
 		$tc->setToTable($t2);
 		$tc->compareForeignKeys();
@@ -311,7 +311,7 @@ EOF;
 EOF;
 		$t1 = static::getDatabaseFromSchema($schema1)->getTable('foo1');
 		$t2 = static::getDatabaseFromSchema($schema2)->getTable('foo1');
-		$tc = new PropelTableComparator();
+		$tc = new PropulsionTableComparator();
 		$tc->setFromTable($t1);
 		$tc->setToTable($t2);
 		$tc->compareForeignKeys();
@@ -349,7 +349,7 @@ EOF;
 EOF;
 		$t1 = static::getDatabaseFromSchema($schema1)->getTable('foo1');
 		$t2 = static::getDatabaseFromSchema($schema2)->getTable('foo1');
-		$tc = new PropelTableComparator();
+		$tc = new PropulsionTableComparator();
 		$tc->setFromTable($t1);
 		$tc->setToTable($t2);
 		$tc->compareForeignKeys();
@@ -393,7 +393,7 @@ EOF;
 		$c2->getDomain()->copy(static::getPlatform()->getDomainForType('DOUBLE'));
 		$c2->getDomain()->replaceSize(3);
 		$t2->addColumn($c2);
-		return array(array(PropelColumnComparator::computeDiff($c1, $c2)));
+		return array(array(PropulsionColumnComparator::computeDiff($c1, $c2)));
 	}
 
 	public static function providerForTestGetModifyColumnsDDL()
@@ -418,8 +418,8 @@ EOF;
 		$c4->setNotNull(true);
 		$t2->addColumn($c4);
 		return array(array(array(
-			PropelColumnComparator::computeDiff($c1, $c3),
-			PropelColumnComparator::computeDiff($c2, $c4)
+			PropulsionColumnComparator::computeDiff($c1, $c3),
+			PropulsionColumnComparator::computeDiff($c2, $c4)
 		)));
 	}
 
@@ -465,7 +465,7 @@ EOF;
 	    $c2->setName('test');
 	    $c2->getDomain()->setType('INTEGER');
 	    $t2->addColumn($c2);
-	    return array(array(PropelColumnComparator::computeDiff($c1, $c2)));
+	    return array(array(PropulsionColumnComparator::computeDiff($c1, $c2)));
 	}
 
 	public static function providerForTestGetModifyTableForeignKeysSkipSql3DDL()
@@ -497,7 +497,7 @@ EOF;
 EOF;
 		$d1 = static::getDatabaseFromSchema($schema1);
 		$d2 = static::getDatabaseFromSchema($schema2);
-		$diff = PropelDatabaseComparator::computeDiff($d1, $d2);
+		$diff = PropulsionDatabaseComparator::computeDiff($d1, $d2);
 		return array(array($diff));
 	}
 
@@ -530,7 +530,7 @@ EOF;
 EOF;
 		$d1 = static::getDatabaseFromSchema($schema1);
 		$d2 = static::getDatabaseFromSchema($schema2);
-		$diff = PropelDatabaseComparator::computeDiff($d2, $d1);
+		$diff = PropulsionDatabaseComparator::computeDiff($d2, $d1);
 		return array(array($diff));
 	}
 

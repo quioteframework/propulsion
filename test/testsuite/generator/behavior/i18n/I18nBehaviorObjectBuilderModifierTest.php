@@ -48,7 +48,7 @@ class I18nBehaviorObjectBuilderModifierTest extends TestCase
 	</table>
 </database>
 EOF;
-			PropelQuickBuilder::buildSchema($schema);
+			PropulsionQuickBuilder::buildSchema($schema);
 		}
 	}
 

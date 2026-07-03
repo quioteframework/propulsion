@@ -62,17 +62,17 @@ class ConcreteInheritanceBehaviorTest extends BookstoreTestBase
 		try {
 			ConcreteArticlePeer::doInsert($c);
 			$this->assertTrue(true, 'modifyTable() removed autoIncrement from copied Primary keys');
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			$this->fail('modifyTable() removed autoIncrement from copied Primary keys');
 		}
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testModifyTableNoCopyDataKeepsAutoIncrement()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$content = new ConcreteContent();
 		$content->save();
 		$c = new Criteria;

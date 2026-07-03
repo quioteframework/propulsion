@@ -36,7 +36,7 @@ class I18nBehaviorPeerBuilderModifierTest extends TestCase
 	</table>
 </database>
 EOF;
-		PropelQuickBuilder::buildSchema($schema);
+		PropulsionQuickBuilder::buildSchema($schema);
 		$this->assertEquals('en_EN', I18nBehaviorTest01Peer::DEFAULT_LOCALE);
 		$this->assertEquals('fr_FR', I18nBehaviorTest02Peer::DEFAULT_LOCALE);
 	}
@@ -56,7 +56,7 @@ EOF;
 	</table>
 </database>
 EOF;
-		PropelQuickBuilder::buildSchema($schema);
+		PropulsionQuickBuilder::buildSchema($schema);
 		$this->assertEquals(array(0, 1, 2), I18nBehaviorTest03Peer::getFieldNames(BasePeer::TYPE_NUM));
 	}
 

@@ -83,7 +83,7 @@ class IntegrationDatabase
         }
 
         // Force Propulsion\Propulsion to load now, which eagerly registers its own
-        // legacy-class-map aliases (BaseObject, TableMap, PropelException, ...).
+        // legacy-class-map aliases (BaseObject, TableMap, PropulsionException, ...).
         // Generated fixture classes (BaseTable4 extends BaseObject, etc.) need
         // those bare aliases to already exist the moment the classmap autoloader
         // below pulls them in -- which can happen as early as PHPUnit's test suite

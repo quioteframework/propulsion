@@ -30,7 +30,7 @@ class GeneratedQueryArrayColumnTypeTest extends TestCase
 	</table>
 </database>
 EOF;
-			PropelQuickBuilder::buildSchema($schema);
+			PropulsionQuickBuilder::buildSchema($schema);
 			$e0 = new ComplexColumnTypeEntity11();
 			$e0->save();
 			$e1 = new ComplexColumnTypeEntity11();

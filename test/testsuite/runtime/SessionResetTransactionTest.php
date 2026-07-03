@@ -23,7 +23,7 @@ class SessionResetTransactionTest extends BookstoreTestBase
      * $this->con. Nest another one on top to simulate mid-request work, then
      * call Session::reset() to simulate a worker request boundary -- it must
      * force-rollback regardless of nesting depth, the same way
-     * PropelPDO::forceRollBack() already does for test teardown (commit
+     * PropulsionPDO::forceRollBack() already does for test teardown (commit
      * 6f6b08e).
      */
     public function testResetForceRollsBackDanglingTransaction()

@@ -32,8 +32,8 @@ try {
 }
 
 // Trigger runtime/Lib/legacy-class-map.php's equivalent bare-name aliasing for
-// runtime classes (BaseObject, TableMap, PropelException, PropelCollection,
-// PropelArrayCollection, ...), which runs automatically whenever Propulsion\Propulsion
+// runtime classes (BaseObject, TableMap, PropulsionException, PropulsionCollection,
+// PropulsionArrayCollection, ...), which runs automatically whenever Propulsion\Propulsion
 // is loaded. This used to only happen as a side effect of IntegrationDatabase's
 // bookstore-fixture build succeeding below -- meaning any Docker-less run
 // (PROPULSION_SKIP_INTEGRATION=1, or no Docker) fataled on ordinary runtime tests

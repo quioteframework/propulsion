@@ -33,7 +33,7 @@ class BasePeerTest extends BookstoreTestBase
 				$this->markTestSkipped();
 			}
 			$stmt = BookPeer::doSelectStmt( $c );
-		} catch (PropelException $x) {
+		} catch (PropulsionException $x) {
 			$this->fail("Paring of nested functions failed: " . $x->getMessage());
 		}
 	}
@@ -225,22 +225,22 @@ class BasePeerTest extends BookstoreTestBase
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testDoDeleteNoCondition()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$con = Propulsion::getConnection();
 		$c = new Criteria(BookPeer::DATABASE_NAME);
 		BasePeer::doDelete($c, $con);
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testDoDeleteJoin()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$con = Propulsion::getConnection();
 		$c = new Criteria(BookPeer::DATABASE_NAME);
 		$c->add(BookPeer::TITLE, 'War And Peace');

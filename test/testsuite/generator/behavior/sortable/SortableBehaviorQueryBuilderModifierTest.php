@@ -50,18 +50,18 @@ class SortableBehaviorQueryBuilderModifierTest extends BookstoreSortableTestBase
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testOrderByRankIncorrectDirection()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		Table11Query::create()->orderByRank('foo');
 	}
 
 	public function testFindList()
 	{
 		$ts = Table11Query::create()->findList();
-		$this->assertTrue($ts instanceof PropelObjectCollection, 'findList() returns a collection of objects');
+		$this->assertTrue($ts instanceof PropulsionObjectCollection, 'findList() returns a collection of objects');
 		$this->assertEquals(4, count($ts), 'findList() does not filter the query');
 		$this->assertEquals('row1', $ts[0]->getTitle(), 'findList() returns an ordered list');
 		$this->assertEquals('row2', $ts[1]->getTitle(), 'findList() returns an ordered list');

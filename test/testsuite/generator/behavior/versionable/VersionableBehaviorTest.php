@@ -40,7 +40,7 @@ EOF;
 	#[\PHPUnit\Framework\Attributes\DataProvider('basicSchemaDataProvider')]
 	public function testModifyTableAddsVersionColumn($schema)
 	{
-		$builder = new PropelQuickBuilder();
+		$builder = new PropulsionQuickBuilder();
 		$builder->setSchema($schema);
 		$expected = <<<EOF
 -----------------------------------------------------------------------
@@ -72,7 +72,7 @@ EOF;
 	</table>
 </database>
 EOF;
-		$builder = new PropelQuickBuilder();
+		$builder = new PropulsionQuickBuilder();
 		$builder->setSchema($schema);
 		$expected = <<<EOF
 -----------------------------------------------------------------------
@@ -102,7 +102,7 @@ EOF;
 	</table>
 </database>
 EOF;
-		$builder = new PropelQuickBuilder();
+		$builder = new PropulsionQuickBuilder();
 		$builder->setSchema($schema);
 		$expected = <<<EOF
 -----------------------------------------------------------------------
@@ -150,7 +150,7 @@ EOF;
 	#[\PHPUnit\Framework\Attributes\DataProvider('foreignTableSchemaDataProvider')]
 	public function testModifyTableAddsVersionColumnForForeignKeysIfForeignTableIsVersioned($schema)
 	{
-		$builder = new PropelQuickBuilder();
+		$builder = new PropulsionQuickBuilder();
 		$builder->setSchema($schema);
 		$expected = <<<EOF
 -----------------------------------------------------------------------
@@ -198,7 +198,7 @@ EOF;
 	#[\PHPUnit\Framework\Attributes\DataProvider('foreignTableSchemaDataProvider')]
 	public function testModifyTableAddsVersionColumnForReferrersIfForeignTableIsVersioned($schema)
 	{
-		$builder = new PropelQuickBuilder();
+		$builder = new PropulsionQuickBuilder();
 		$builder->setSchema($schema);
 		$expected = <<<EOF
 -----------------------------------------------------------------------
@@ -245,7 +245,7 @@ EOF;
 	#[\PHPUnit\Framework\Attributes\DataProvider('basicSchemaDataProvider')]
 	public function testModifyTableAddsVersionTable($schema)
 	{
-		$builder = new PropelQuickBuilder();
+		$builder = new PropulsionQuickBuilder();
 		$builder->setSchema($schema);
 		$expected = <<<EOF
 -----------------------------------------------------------------------
@@ -281,7 +281,7 @@ EOF;
 	</table>
 </database>
 EOF;
-		$builder = new PropelQuickBuilder();
+		$builder = new PropulsionQuickBuilder();
 		$builder->setSchema($schema);
 		$expected = <<<EOF
 -----------------------------------------------------------------------
@@ -319,7 +319,7 @@ EOF;
 	</table>
 </database>
 EOF;
-		$builder = new PropelQuickBuilder();
+		$builder = new PropulsionQuickBuilder();
 		$builder->setSchema($schema);
 		$expected = <<<EOF
 
@@ -376,7 +376,7 @@ EOF;
 	#[\PHPUnit\Framework\Attributes\DataProvider('logSchemaDataProvider')]
 	public function testModifyTableAddsLogColumns($schema)
 	{
-		$builder = new PropelQuickBuilder();
+		$builder = new PropulsionQuickBuilder();
 		$builder->setSchema($schema);
 		$expected = <<<EOF
 -----------------------------------------------------------------------
@@ -404,7 +404,7 @@ EOF;
 	#[\PHPUnit\Framework\Attributes\DataProvider('logSchemaDataProvider')]
 	public function testModifyTableAddsVersionTableLogColumns($schema)
 	{
-		$builder = new PropelQuickBuilder();
+		$builder = new PropulsionQuickBuilder();
 		$builder->setSchema($schema);
 		$expected = <<<EOF
 -----------------------------------------------------------------------

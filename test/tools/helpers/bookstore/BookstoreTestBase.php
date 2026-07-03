@@ -50,7 +50,7 @@ abstract class BookstoreTestBase extends TestCase
 		parent::tearDown();
 		// Only commit if the transaction hasn't failed.
 		// This is because tearDown() is also executed on a failed tests,
-		// and we don't want to call PropelPDO::commit() in that case
+		// and we don't want to call PropulsionPDO::commit() in that case
 		// since it will trigger an exception on its own
 		// ('Cannot commit because a nested transaction was rolled back')
 		if (!$this->con) {

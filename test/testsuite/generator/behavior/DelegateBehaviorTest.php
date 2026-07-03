@@ -98,7 +98,7 @@ class DelegateBehaviorTest extends TestCase
 
 </database>
 EOF;
-			PropelQuickBuilder::buildSchema($schema);
+			PropulsionQuickBuilder::buildSchema($schema);
 		}
 	}
 
@@ -169,11 +169,11 @@ EOF;
 	}
 
 	/**
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testAModelCannotHaveCascadingDelegates()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$main = new DelegateMain();
 		$main->setSummary('bar');
 		$main->setBody('baz');

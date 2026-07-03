@@ -206,7 +206,7 @@ if (class_exists(AggregateComment::class) && class_exists(AggregateCommentQuery:
 	class TestableComment extends AggregateComment
 	{
 		// overrides the parent save() to bypass behavior hooks
-		public function save(PropelPDO $con = null)
+		public function save(PropulsionPDO $con = null)
 		{
 			$con->beginTransaction();
 			try {
@@ -214,14 +214,14 @@ if (class_exists(AggregateComment::class) && class_exists(AggregateCommentQuery:
 				AggregateCommentPeer::addInstanceToPool($this);
 				$con->commit();
 				return $affectedRows;
-			} catch (PropelException $e) {
+			} catch (PropulsionException $e) {
 				$con->rollBack();
 				throw $e;
 			}
 		}
 
 		// overrides the parent delete() to bypass behavior hooks
-		public function delete(PropelPDO $con = null)
+		public function delete(PropulsionPDO $con = null)
 		{
 			$con->beginTransaction();
 			try {
@@ -230,7 +230,7 @@ if (class_exists(AggregateComment::class) && class_exists(AggregateCommentQuery:
 					->delete($con);
 				$con->commit();
 				$this->setDeleted(true);
-			} catch (PropelException $e) {
+			} catch (PropulsionException $e) {
 				$con->rollBack();
 				throw $e;
 			}
@@ -249,13 +249,13 @@ if (class_exists(AggregateComment::class) && class_exists(AggregateCommentQuery:
 		}
 
 		// overrides the parent basePreDelete() to bypass behavior hooks
-		protected function basePreDelete(PropelPDO $con)
+		protected function basePreDelete(PropulsionPDO $con)
 		{
 			return $this->preDelete($con);
 		}
 
 		// overrides the parent basePostDelete() to bypass behavior hooks
-		protected function basePostDelete($affectedRows, PropelPDO $con)
+		protected function basePostDelete($affectedRows, PropulsionPDO $con)
 		{
 			return $this->postDelete($affectedRows, $con);
 		}

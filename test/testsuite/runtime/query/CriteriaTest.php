@@ -113,7 +113,7 @@ class CriteriaTest extends BookstoreTestBase
 		$this->assertEquals($expect_params, $params, 'addAnd() called on an existing column creates a combined criterion');
 	}
 
-	public function testAddAndSameColumnsPropel14Compatibility()
+	public function testAddAndSameColumnsPropulsion14Compatibility()
 	{
 		$table1 = "myTable1";
 		$column1 = "myColumn1";
@@ -207,7 +207,7 @@ class CriteriaTest extends BookstoreTestBase
 		$this->assertEquals($expect_params, $params, 'addOr() called on an existing column creates a combined criterion');
 	}
 
-	public function testAddAndOrColumnsPropel14Compatibility()
+	public function testAddAndOrColumnsPropulsion14Compatibility()
 	{
 		$table1 = "myTable1";
 		$column1 = "myColumn1";
@@ -363,8 +363,8 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($this->c, $params);
-		} catch (PropelException $e) {
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+		} catch (PropulsionException $e) {
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 
 		$this->assertEquals($expect, $result, "Boolean test failed.");
@@ -384,9 +384,9 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($this->c, $params);
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			print $e->getTraceAsString();
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 
 		$this->assertEquals($expect, $result, "Current date test failed!");
@@ -406,9 +406,9 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($this->c, $params);
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			print $e->getTraceAsString();
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 
 		$this->assertEquals($expect, $result);
@@ -426,9 +426,9 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($c, $params);
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			print $e->getTraceAsString();
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 		$this->assertEquals($expect, $result);
 	}
@@ -444,9 +444,9 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($c, $params);
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			print $e->getTraceAsString();
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 		$this->assertEquals($expect, $result);
 	}
@@ -465,9 +465,9 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($c, $params);
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			print $e->getTraceAsString();
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 		$this->assertEquals($expect, $result);
 
@@ -516,9 +516,9 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($c, $params);
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			print $e->getTraceAsString();
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 		$this->assertEquals($expect, $result);
 	}
@@ -535,9 +535,9 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($c, $params);
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			print $e->getTraceAsString();
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 		$this->assertEquals($expect, $result);
 	}
@@ -553,9 +553,9 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($c, $params);
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			print $e->getTraceAsString();
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 		$this->assertEquals($expect, $result);
 	}
@@ -574,9 +574,9 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($c, $params);
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			print $e->getTraceAsString();
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 		$this->assertEquals($expect, $result);
 	}
@@ -591,9 +591,9 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($c, $params);
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			print $e->getTraceAsString();
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 		$this->assertEquals($expect, $result);
 	}
@@ -612,9 +612,9 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($c, $params);
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			print $e->getTraceAsString();
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 		$this->assertEquals($expect, $result);
 	}
@@ -629,9 +629,9 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($c, $params);
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			print $e->getTraceAsString();
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 		$this->assertEquals($expect, $result);
 	}
@@ -649,9 +649,9 @@ class CriteriaTest extends BookstoreTestBase
 		try {
 			$params = array();
 			$result = BasePeer::createSelectSql($c, $params);
-		} catch (PropelException $e) {
+		} catch (PropulsionException $e) {
 			print $e->getTraceAsString();
-			$this->fail("PropelException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
+			$this->fail("PropulsionException thrown in BasePeer.createSelectSql(): ". $e->getMessage());
 		}
 		$this->assertEquals($expect, $result);
 	}

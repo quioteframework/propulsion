@@ -35,12 +35,12 @@ class DBMySQLTest extends BookstoreTestBase
 
 	/**
 	 * @dataProvider getConParams
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	#[\PHPUnit\Framework\Attributes\DataProvider('getConParams')]
 	public function testPrepareParamsThrowsException($conparams)
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		if (version_compare(PHP_VERSION, '5.3.6', '>=')) {
 			$this->markTestSkipped('PHP_VERSION >= 5.3.6, no need to throw an exception.');
 		}

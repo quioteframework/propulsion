@@ -131,11 +131,11 @@ class GeneratedNestedSetObjectTest extends CmsTestBase
 
 	/**
 	 * Test xxxNestedSet::makeRoot() exception
-	 * @expectedException PropelException
+	 * @expectedException PropulsionException
 	 */
 	public function testObjectMakeRootException()
 	{
-		$this->expectException(PropelException::class);
+		$this->expectException(PropulsionException::class);
 		$c = new Criteria();
 		$c->add(PagePeer::TITLE, 'home', Criteria::EQUAL);
 

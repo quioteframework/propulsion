@@ -28,7 +28,7 @@ class GeneratedObjectObjectColumnTypeTest extends TestCase
 	</table>
 </database>
 EOF;
-		PropelQuickBuilder::buildSchema($schema);
+		PropulsionQuickBuilder::buildSchema($schema);
 		$e = new ComplexColumnTypeEntity1();
 		$this->assertNull($e->getBar(), 'object columns are null by default');
 		$c = new FooColumnValue();

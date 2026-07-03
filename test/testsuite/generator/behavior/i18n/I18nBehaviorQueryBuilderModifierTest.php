@@ -48,8 +48,8 @@ class I18nBehaviorQueryBuilderModifierTest extends TestCase
 	</table>
 </database>
 EOF;
-			//PropelQuickBuilder::debugClassesForTable($schema, 'i18n_behavior_test_11');
-			PropelQuickBuilder::buildSchema($schema);
+			//PropulsionQuickBuilder::debugClassesForTable($schema, 'i18n_behavior_test_11');
+			PropulsionQuickBuilder::buildSchema($schema);
 		}
 	}
 
@@ -239,7 +239,7 @@ EOF;
 			->joinWithI18n('en_EN')
 			->limit(2)
 			->find();
-		$this->assertInstanceOf('PropelObjectCollection', $res);
+		$this->assertInstanceOf('PropulsionObjectCollection', $res);
 	}
 
 	// This is not a desired behavior, but there is no way to overcome it

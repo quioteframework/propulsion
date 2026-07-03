@@ -510,7 +510,7 @@ DROP SEQUENCE IF EXISTS \"foo_sequence\";
 		$table->setIdMethod(IDMethod::NATIVE);
 		$database->addTable($table);
 		$column = new Column('foo');
-		$column->getDomain()->copy($this->getPlatform()->getDomainForType(PropelTypes::BIGINT));
+		$column->getDomain()->copy($this->getPlatform()->getDomainForType(PropulsionTypes::BIGINT));
 		$column->setAutoIncrement(true);
 		$table->addColumn($column);
 		$expected = '"foo" bigserial';
