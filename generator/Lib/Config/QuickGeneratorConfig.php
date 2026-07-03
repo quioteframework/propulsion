@@ -82,7 +82,6 @@ class QuickGeneratorConfig implements GeneratorConfigInterface
 	public function getConfiguredBuilder($table, $type)
 	{
 		$class = $this->builders[$type];
-		require_once dirname(__FILE__) . '/../builder/om/' . $class . '.php';
 		$builder = new $class($table);
 		$builder->setGeneratorConfig($this);
 		return $builder;
@@ -95,7 +94,6 @@ class QuickGeneratorConfig implements GeneratorConfigInterface
 	*/
 	public function getConfiguredPluralizer()
 	{
-		require_once dirname(__FILE__) . '/../builder/util/DefaultEnglishPluralizer.php';
 		return new DefaultEnglishPluralizer();
 	}
 

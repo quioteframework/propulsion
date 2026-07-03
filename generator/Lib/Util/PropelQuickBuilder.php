@@ -49,7 +49,6 @@ class PropelQuickBuilder
 	public function getPlatform()
 	{
 		if (null === $this->platform) {
-			require_once dirname(__FILE__) . '/../platform/SqlitePlatform.php';
 			$this->platform = new SqlitePlatform();
 		}
 		return $this->platform;
@@ -73,7 +72,6 @@ class PropelQuickBuilder
 	public function getConfig()
 	{
 		if (null === $this->config) {
-			require_once dirname(__FILE__) . '/../config/QuickGeneratorConfig.php';
 			$this->config = new QuickGeneratorConfig();
 		}
 		return $this->config;

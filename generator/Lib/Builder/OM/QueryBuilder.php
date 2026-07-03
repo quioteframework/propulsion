@@ -175,7 +175,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
     protected function addClassBody(&$script)
     {
         // namespaces
-        $this->declareClasses('Propulsion\Query\ModelCriteria', 'Propulsion\Query\Criteria', 'Propulsion\Query\ModelJoin');
+        $this->declareClasses('ModelCriteria', 'Criteria', 'ModelJoin');
         $this->declareClassFromBuilder($this->getStubQueryBuilder());
         $this->declareClassFromBuilder($this->getStubPeerBuilder());
 
@@ -434,7 +434,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      */
     protected function addFindPks(&$script)
     {
-        $this->declareClasses('PropelPDO', 'Propulsion\\Collection\\PropelObjectCollection');
+        $this->declareClasses('PropelPDO', 'PropelObjectCollection');
         $table = $this->getTable();
         $pks = $table->getPrimaryKey();
         $count = count($pks);
