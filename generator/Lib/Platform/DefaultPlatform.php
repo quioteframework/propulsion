@@ -138,7 +138,7 @@ class DefaultPlatform implements PropelPlatformInterface
 	 */
 	public function getDatabaseType()
 	{
-		$clazz = get_class($this);
+		$clazz = (new \ReflectionClass($this))->getShortName();
 		$pos = strpos($clazz, 'Platform');
 		return strtolower(substr($clazz,0,$pos));
 	}

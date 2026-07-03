@@ -1064,16 +1064,34 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         $foreignTable = $crossFK->getForeignTable();
         $fkPhpName =  $foreignTable->getPhpName();
         $crossTableName = $crossRefTable->getName();
-        $relName = $this->getFKPhpNameAffix($crossFK, $plural = false) . 'ViaCrossReference';
+        $directRelName = $this->getFKPhpNameAffix($crossFK, $plural = false);
+        $relName = $directRelName . 'ViaCrossReference';
         $objectName = '$' . $foreignTable->getStudlyPhpName();
         $relationName = $this->getRefFKPhpNameAffix($refFK, $plural = false);
-        
-        // DEBUG: Log specifically for UserDepartment case
-        if ($this->getTable()->getName() == 'mdi.mdi_user' && $fkPhpName == 'UserDepartment') {
-            error_log("PROPEL DEBUG MdiUser-UserDepartment: crossTableName='$crossTableName', relName='$relName', relationName='$relationName'");
-            error_log("PROPEL DEBUG MdiUser-UserDepartment: Generated method will be: public function filterBy{$relName}");
-        }
-        
+
+        // Generate the DIRECT filter method (this is what generated getters/counters on the
+        // related object call, e.g. BaseBookClubList::getBooks() calls filterByBookClubList())
+        $script .= "
+    /**
+     * Filter the query by a related $fkPhpName object
+     * using the $crossTableName table as cross reference
+     *
+     * @param     $fkPhpName $objectName the related object to use as filter
+     * @param     string \$comparison Operator to use for the column comparison, defaults to Criteria::EQUAL
+     *
+     * @return    $queryClass The current query, for fluid interface
+     */
+    public function filterBy{$directRelName}($objectName, \$comparison = Criteria::EQUAL)
+    {
+        return \$this
+            ->use{$relationName}Query()
+            ->filterBy{$directRelName}($objectName, \$comparison)
+            ->endUse();
+    }
+";
+
+        // Generate the explicit cross-reference filter method (an alias, for callers that
+        // want to be unambiguous about which relation is being filtered on).
         $script .= "
     /**
      * Filter the query by a related $fkPhpName object
@@ -1088,7 +1106,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
     {
         return \$this
             ->use{$relationName}Query()
-            ->filterBy{$relName}($objectName, \$comparison)
+            ->filterBy{$directRelName}($objectName, \$comparison)
             ->endUse();
     }
 ";

@@ -53,8 +53,8 @@ EOF;
 	</table>
 </database>
 EOF;
-		$d1 = $this->getDatabaseFromSchema($schema1);
-		$d2 = $this->getDatabaseFromSchema($schema2);
+		$d1 = static::getDatabaseFromSchema($schema1);
+		$d2 = static::getDatabaseFromSchema($schema2);
 		return array(array(PropelDatabaseComparator::computeDiff($d1, $d2)));
 	}
 
@@ -116,8 +116,8 @@ EOF;
 	</table>
 </database>
 EOF;
-		$t1 = $this->getDatabaseFromSchema($schema1)->getTable('foo');
-		$t2 = $this->getDatabaseFromSchema($schema2)->getTable('foo');
+		$t1 = static::getDatabaseFromSchema($schema1)->getTable('foo');
+		$t2 = static::getDatabaseFromSchema($schema2)->getTable('foo');
 		return array(array(PropelTableComparator::computeDiff($t1,$t2)));
 	}
 
@@ -142,8 +142,8 @@ EOF;
 	</table>
 </database>
 EOF;
-		$t1 = $this->getDatabaseFromSchema($schema1)->getTable('foo');
-		$t2 = $this->getDatabaseFromSchema($schema2)->getTable('foo');
+		$t1 = static::getDatabaseFromSchema($schema1)->getTable('foo');
+		$t2 = static::getDatabaseFromSchema($schema2)->getTable('foo');
 		$tc = new PropelTableComparator();
 		$tc->setFromTable($t1);
 		$tc->setToTable($t2);
@@ -171,8 +171,8 @@ EOF;
 	</table>
 </database>
 EOF;
-		$t1 = $this->getDatabaseFromSchema($schema1)->getTable('foo');
-		$t2 = $this->getDatabaseFromSchema($schema2)->getTable('foo');
+		$t1 = static::getDatabaseFromSchema($schema1)->getTable('foo');
+		$t2 = static::getDatabaseFromSchema($schema2)->getTable('foo');
 		$tc = new PropelTableComparator();
 		$tc->setFromTable($t1);
 		$tc->setToTable($t2);
@@ -215,8 +215,8 @@ EOF;
 	</table>
 </database>
 EOF;
-		$t1 = $this->getDatabaseFromSchema($schema1)->getTable('foo');
-		$t2 = $this->getDatabaseFromSchema($schema2)->getTable('foo');
+		$t1 = static::getDatabaseFromSchema($schema1)->getTable('foo');
+		$t2 = static::getDatabaseFromSchema($schema2)->getTable('foo');
 		$tc = new PropelTableComparator();
 		$tc->setFromTable($t1);
 		$tc->setToTable($t2);
@@ -268,8 +268,8 @@ EOF;
 	</table>
 </database>
 EOF;
-		$t1 = $this->getDatabaseFromSchema($schema1)->getTable('foo1');
-		$t2 = $this->getDatabaseFromSchema($schema2)->getTable('foo1');
+		$t1 = static::getDatabaseFromSchema($schema1)->getTable('foo1');
+		$t2 = static::getDatabaseFromSchema($schema2)->getTable('foo1');
 		$tc = new PropelTableComparator();
 		$tc->setFromTable($t1);
 		$tc->setToTable($t2);
@@ -309,8 +309,8 @@ EOF;
 	</table>
 </database>
 EOF;
-		$t1 = $this->getDatabaseFromSchema($schema1)->getTable('foo1');
-		$t2 = $this->getDatabaseFromSchema($schema2)->getTable('foo1');
+		$t1 = static::getDatabaseFromSchema($schema1)->getTable('foo1');
+		$t2 = static::getDatabaseFromSchema($schema2)->getTable('foo1');
 		$tc = new PropelTableComparator();
 		$tc->setFromTable($t1);
 		$tc->setToTable($t2);
@@ -347,8 +347,8 @@ EOF;
 	</table>
 </database>
 EOF;
-		$t1 = $this->getDatabaseFromSchema($schema1)->getTable('foo1');
-		$t2 = $this->getDatabaseFromSchema($schema2)->getTable('foo1');
+		$t1 = static::getDatabaseFromSchema($schema1)->getTable('foo1');
+		$t2 = static::getDatabaseFromSchema($schema2)->getTable('foo1');
 		$tc = new PropelTableComparator();
 		$tc->setFromTable($t1);
 		$tc->setToTable($t2);
@@ -385,12 +385,12 @@ EOF;
 	{
 		$t1 = new Table('foo');
 		$c1 = new Column('bar');
-		$c1->getDomain()->copy($this->getPlatform()->getDomainForType('DOUBLE'));
+		$c1->getDomain()->copy(static::getPlatform()->getDomainForType('DOUBLE'));
 		$c1->getDomain()->replaceSize(2);
 		$t1->addColumn($c1);
 		$t2 = new Table('foo');
 		$c2 = new Column('bar');
-		$c2->getDomain()->copy($this->getPlatform()->getDomainForType('DOUBLE'));
+		$c2->getDomain()->copy(static::getPlatform()->getDomainForType('DOUBLE'));
 		$c2->getDomain()->replaceSize(3);
 		$t2->addColumn($c2);
 		return array(array(PropelColumnComparator::computeDiff($c1, $c2)));
@@ -400,7 +400,7 @@ EOF;
 	{
 		$t1 = new Table('foo');
 		$c1 = new Column('bar1');
-		$c1->getDomain()->copy($this->getPlatform()->getDomainForType('DOUBLE'));
+		$c1->getDomain()->copy(static::getPlatform()->getDomainForType('DOUBLE'));
 		$c1->getDomain()->replaceSize(2);
 		$t1->addColumn($c1);
 		$c2 = new Column('bar2');
@@ -409,7 +409,7 @@ EOF;
 		$t1->addColumn($c2);
 		$t2 = new Table('foo');
 		$c3 = new Column('bar1');
-		$c3->getDomain()->copy($this->getPlatform()->getDomainForType('DOUBLE'));
+		$c3->getDomain()->copy(static::getPlatform()->getDomainForType('DOUBLE'));
 		$c3->getDomain()->replaceSize(3);
 		$t2->addColumn($c3);
 		$c4 = new Column('bar2');
@@ -433,7 +433,7 @@ EOF;
 	</table>
 </database>
 EOF;
-		$column = $this->getDatabaseFromSchema($schema)->getTable('foo')->getColumn('bar');
+		$column = static::getDatabaseFromSchema($schema)->getTable('foo')->getColumn('bar');
 		return array(array($column));
 	}
 
@@ -448,7 +448,7 @@ EOF;
 	</table>
 </database>
 EOF;
-		$table = $this->getDatabaseFromSchema($schema)->getTable('foo');
+		$table = static::getDatabaseFromSchema($schema)->getTable('foo');
 		return array(array(array($table->getColumn('bar1'), $table->getColumn('bar2'))));
 	}
 
@@ -495,8 +495,8 @@ EOF;
   </table>
 </database>
 EOF;
-		$d1 = $this->getDatabaseFromSchema($schema1);
-		$d2 = $this->getDatabaseFromSchema($schema2);
+		$d1 = static::getDatabaseFromSchema($schema1);
+		$d2 = static::getDatabaseFromSchema($schema2);
 		$diff = PropelDatabaseComparator::computeDiff($d1, $d2);
 		return array(array($diff));
 	}
@@ -528,8 +528,8 @@ EOF;
   </table>
 </database>
 EOF;
-		$d1 = $this->getDatabaseFromSchema($schema1);
-		$d2 = $this->getDatabaseFromSchema($schema2);
+		$d1 = static::getDatabaseFromSchema($schema1);
+		$d2 = static::getDatabaseFromSchema($schema2);
 		$diff = PropelDatabaseComparator::computeDiff($d2, $d1);
 		return array(array($diff));
 	}
