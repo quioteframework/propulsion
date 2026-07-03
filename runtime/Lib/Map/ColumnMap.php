@@ -474,9 +474,9 @@ class ColumnMap
   }
 
   /**
-   * Normalizes the column name, removing table prefix and converting to lowercase.
+   * Normalizes the column name, removing table prefix and uppercasing.
    *
-   * article.first_name becomes first_name
+   * article.first_name becomes FIRST_NAME
    *
    * @param      string $name
    * @return     string Normalized column name.
@@ -486,7 +486,7 @@ class ColumnMap
     if (false !== ($pos = strrpos($name, '.'))) {
       $name = substr($name, $pos + 1);
     }
-    $name = strtolower($name);
+    $name = strtoupper($name);
     return $name;
   }
 

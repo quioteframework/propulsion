@@ -380,7 +380,7 @@ class ".$this->getClassname()." extends \Propulsion\Map\TableMap
         foreach ($this->getTable()->getForeignKeys() as $fkey) {
             $columnMapping = 'array(';
             foreach ($fkey->getLocalForeignMapping() as $key => $value) {
-                $columnMapping .= "'$key' => '$value', ";
+                $columnMapping .= "'" . strtoupper($key) . "' => '" . strtoupper($value) . "', ";
             }
             $columnMapping .= ')';
             $onDelete = $fkey->hasOnDelete() ? "'" . $fkey->getOnDelete() . "'" : 'null';
@@ -393,7 +393,7 @@ class ".$this->getClassname()." extends \Propulsion\Map\TableMap
             $relationName = $this->getRefFKPhpNameAffix($fkey);
             $columnMapping = 'array(';
             foreach ($fkey->getForeignLocalMapping() as $key => $value) {
-                $columnMapping .= "'$key' => '$value', ";
+                $columnMapping .= "'" . strtoupper($key) . "' => '" . strtoupper($value) . "', ";
             }
             $columnMapping .= ')';
             $onDelete = $fkey->hasOnDelete() ? "'" . $fkey->getOnDelete() . "'" : 'null';
