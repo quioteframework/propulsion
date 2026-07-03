@@ -600,3 +600,88 @@ worker test matrix was consulted beyond what's summarized here.
   `MysqlPlatform` feature-wise (this session only found and fixed the two
   bugs that blocked fixture loading — `DROP TABLE`/`DROP SEQUENCE` missing
   `IF EXISTS`, commit `024cec0` — not a general audit).
+
+## `Propel*` -> `Propulsion*` class rename
+
+Completed a codebase-wide rename of every `Propel`-prefixed class,
+interface, and trait name to `Propulsion*` (the namespace was already
+`Propulsion\`; only the bare class basenames still said `Propel`), plus the
+main static facade `Propel` -> `Propulsion` (`Propulsion::getConnection()`,
+`Propulsion::init()`, etc.). This is a hard cutover: no `class_alias()` shims
+were added for any of the renamed classes themselves.
+
+Scope covered: `runtime/`, `generator/` (including the PHP string templates
+in `generator/Lib/Builder/**` and `generator/Lib/Behavior/**` that emit
+source for generated model/query classes — both the canonical
+`OM/{Object,Peer,Query,TableMap}Builder` templates and the still-supported
+legacy `PHP5*Builder` templates), `test/` (test classes, fixture
+`build.properties`/`runtime-conf.xml`/`schema.xml`, `phpunit.xml`,
+`test.xml`), file renames to match (e.g. `PropelPDO.php` ->
+`PropulsionPDO.php`), self-referential comments/docblocks ("This file is
+part of the Propel package" -> "... Propulsion package", `@package
+propel.*` tags left as-is since those are config-namespace strings, not
+class references), and `README.md`/`KNOWN_ISSUES.md`. Also removed ~35 dead
+`propel.phpdb.org/trac/ticket/NNN` links (old Trac tracker) from comments,
+deleting the whole comment/docblock where the link was its only content.
+
+Commits, in order: facade rename; runtime classes; generator classes and
+builder templates; test suite; docs; phpdb.org cleanup; a follow-up fix for
+a real bug the rename surfaced (see below).
+
+**Judgment calls:**
+- Author/contributor attribution lines crediting the historical upstream
+  Propel/Torque projects this codebase was forked from (e.g. `@author Hans
+  Lellelid <hans@xmpl.org> (Propel)`, `(Torque)`) were left exactly as-is —
+  these name a real project a real person contributed to, not this
+  codebase's own branding, so rewriting them would misrepresent history.
+  Verified there are no comments that were ambiguous between the two
+  categories; all ~140 occurrences found were either unambiguously
+  self-referential (rewritten) or unambiguously third-party attribution
+  (left alone).
+- `generator/resources/xsl/dbd2propel.xsl` has one remaining
+  `propel.phpdb.org` reference: a "Software: Propulsion:
+  http://propel.phpdb.org/" line in a credits header, listing the tool
+  this XSL was built against. This isn't a dead ticket link (the thing
+  Step 4 targeted); left it alone.
+- `runtime/Lib/legacy-class-map.php` and
+  `test/tools/helpers/generator-legacy-class-map.php` are a *pre-existing*
+  bare-global-name -> FQCN aliasing system, unrelated in origin to this
+  rename (it exists so old, already-generated, unnamespaced model code
+  that references runtime classes like bare `PropelException` keeps
+  working after the earlier `Propel\` -> `Propulsion\` *namespace*
+  migration). Per instructions, only the FQCN *values* were updated to the
+  new class basenames; the old bare *keys* (`PropelException`, ...) were
+  left untouched, since ~117 existing test files and any not-yet
+  regenerated external projects still reference them bare.
+- That said, this rename **did** surface a real, previously-latent bug in
+  that system: the generator now emits bare `PropulsionPDO`/
+  `PropulsionException`/etc. (per the explicit instruction to update
+  builder template string literals), but for **unnamespaced** generated
+  output (the default target, and the archived PHP5 builders) there is no
+  `use` import backing those bare references — they only resolve through
+  the legacy-class-map's `class_alias()` loop, which only had entries for
+  the *old* bare names. Freshly generated/regenerated fixtures (e.g.
+  `test/fixtures/bookstore`'s nested_set behavior classes) fataled with
+  `Class "PropulsionPDO" not found` until fixed. The fix: added a
+  parallel set of entries to both legacy-class-map files, keyed by the
+  *new* bare `Propulsion*` names, mapping to the same FQCNs — additive
+  only, the old bare keys are untouched. This isn't the kind of
+  "class_alias shim for a renamed class" the hard-cutover instruction
+  ruled out; it's the same pre-existing, purpose-built mechanism now
+  covering both spellings of the bare name it was always meant to cover.
+
+**Before/after test counts** (`test/phpunit.xml`, Docker/Postgres,
+`vendor/bin/phpunit -c phpunit.xml`, fixture `build/` dirs removed first):
+- Before (baseline on `main`, per prior pass): 2200 tests, 36 errors, 19
+  failures, 12 skipped, 2 risky.
+- After this rename: 2200 tests, 38 errors, 21 failures, 12 skipped, 2
+  risky. The +2/+2 delta was cross-checked against the failing test names:
+  all of them are pre-existing, already-documented flakiness clusters in
+  this file (`ModelCriteria*`, `SubQueryTest`, `BasePeerTest`,
+  `MssqlPlatformTest`, etc. — see "Remaining failures, by cluster" above),
+  just under their now-renamed test class names
+  (`PropulsionArrayFormatterTest`, `PropulsionPDOTest`, ...). No new
+  failure signature (e.g. a class-not-found for a `Propulsion*` name) was
+  present in either run's list. Given this suite's documented run-to-run
+  count flakiness of a few tests either way, this is within noise, not a
+  regression introduced by the rename.
