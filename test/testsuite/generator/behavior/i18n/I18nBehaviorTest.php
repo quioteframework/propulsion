@@ -123,6 +123,7 @@ EOF;
 	/**
 	 * @dataProvider schemaDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('schemaDataProvider')]
 	public function testModifyTableAddsI18nTable($schema)
 	{
 		$builder = new PropelQuickBuilder();
@@ -142,6 +143,7 @@ EOF;
 	/**
 	 * @dataProvider schemaDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('schemaDataProvider')]
 	public function testModifyTableRelatesI18nTableToMainTable($schema)
 	{
 		$builder = new PropelQuickBuilder();
@@ -155,6 +157,7 @@ EOF;
 	/**
 	 * @dataProvider schemaDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('schemaDataProvider')]
 	public function testModifyTableAddsLocaleColumnToI18n($schema)
 	{
 		$builder = new PropelQuickBuilder();
@@ -171,6 +174,7 @@ EOF;
 	/**
 	 * @dataProvider schemaDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('schemaDataProvider')]
 	public function testModifyTableMovesI18nColumns($schema)
 	{
 		$builder = new PropelQuickBuilder();
@@ -190,6 +194,7 @@ EOF;
 	/**
 	 * @dataProvider schemaDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('schemaDataProvider')]
 	public function testModifyTableDoesNotMoveNonI18nColumns($schema)
 	{
 		$builder = new PropelQuickBuilder();

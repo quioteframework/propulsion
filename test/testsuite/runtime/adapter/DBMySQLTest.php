@@ -37,6 +37,7 @@ class DBMySQLTest extends BookstoreTestBase
 	 * @dataProvider getConParams
 	 * @expectedException PropelException
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('getConParams')]
 	public function testPrepareParamsThrowsException($conparams)
 	{
 		if (version_compare(PHP_VERSION, '5.3.6', '>=')) {
@@ -50,6 +51,7 @@ class DBMySQLTest extends BookstoreTestBase
 	/**
 	 * @dataProvider getConParams
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('getConParams')]
 	public function testPrepareParams($conparams)
 	{
 		if (version_compare(PHP_VERSION, '5.3.6', '<')) {
@@ -67,6 +69,7 @@ class DBMySQLTest extends BookstoreTestBase
 	/**
 	 * @dataProvider getConParams
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('getConParams')]
 	public function testNoSetNameQueryExecuted($conparams)
 	{
 		if (version_compare(PHP_VERSION, '5.3.6', '<')) {

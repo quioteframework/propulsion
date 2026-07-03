@@ -89,6 +89,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 	/**
 	 * @dataProvider conditionsForTestReplaceNames
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('conditionsForTestReplaceNames')]
 	public function testReplaceNames($origClause, $columnPhpName = false, $modifiedClause)
 	{
 		$c = new TestableModelCriteria('bookstore', 'Book');
@@ -118,6 +119,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 	/**
 	 * @dataProvider conditionsForTestReplaceMultipleNames
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('conditionsForTestReplaceMultipleNames')]
 	public function testReplaceMultipleNames($origClause, $expectedColumns, $modifiedClause)
 	{
 		$c = new TestableModelCriteria('bookstore', 'Book');
@@ -203,6 +205,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 	/**
 	 * @dataProvider conditionsForTestWhere
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('conditionsForTestWhere')]
 	public function testWhere($clause, $value, $sql, $params)
 	{
 		$c = new ModelCriteria('bookstore', 'Book');
@@ -1221,6 +1224,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 	/**
 	 * @dataProvider conditionsForTestWithColumn
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('conditionsForTestWithColumn')]
 	public function testWithColumn($clause, $alias, $selectTranslation)
 	{
 		$c = new ModelCriteria('bookstore', 'Book');
@@ -1249,6 +1253,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 	/**
 	 * @dataProvider conditionsForTestWithColumnAndQuotes
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('conditionsForTestWithColumnAndQuotes')]
 	public function testWithColumnAndQuotes($clause, $alias, $selectTranslation)
 	{
 		$c = new ModelCriteria('bookstore', 'Author');
@@ -1874,6 +1879,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 	/**
 	 * @dataProvider conditionsForTestGetRelationName
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('conditionsForTestGetRelationName')]
 	public function testGetRelationName($relation, $relationName)
 	{
 		$this->assertEquals($relationName, ModelCriteria::getrelationName($relation));

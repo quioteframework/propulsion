@@ -44,6 +44,7 @@ EOF;
 	/**
 	 * @dataProvider simpleSchemaProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('simpleSchemaProvider')]
 	public function testGetDatabase($builder)
 	{
 		$database = $builder->getDatabase();
@@ -55,6 +56,7 @@ EOF;
 	/**
 	 * @dataProvider simpleSchemaProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('simpleSchemaProvider')]
 	public function testGetSQL($builder)
 	{
 		$expected = <<<EOF
@@ -78,6 +80,7 @@ EOF;
 	/**
 	 * @dataProvider simpleSchemaProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('simpleSchemaProvider')]
 	public function testGetClasses($builder)
 	{
 		$script = $builder->getClasses();
@@ -92,6 +95,7 @@ EOF;
 	/**
 	 * @dataProvider simpleSchemaProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('simpleSchemaProvider')]
 	public function testBuildClasses($builder)
 	{
 		$builder->buildClasses();

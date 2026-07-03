@@ -74,6 +74,7 @@ EOF;
 	/**
 	 * @dataProvider toXmlDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('toXmlDataProvider')]
 	public function testToXML($expected)
 	{
 		$this->assertEquals($expected, $this->book->toXML());
@@ -82,6 +83,7 @@ EOF;
 	/**
 	 * @dataProvider toXmlDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('toXmlDataProvider')]
 	public function testFromXML($expected)
 	{
 		$book = new Book();
@@ -129,6 +131,7 @@ EOF;
 	/**
 	 * @dataProvider toYamlDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('toYamlDataProvider')]
 	public function testToYAML($expected)
 	{
 		$this->assertEquals($expected, $this->book->toYAML());
@@ -137,6 +140,7 @@ EOF;
 	/**
 	 * @dataProvider toYamlDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('toYamlDataProvider')]
 	public function testFromYAML($expected)
 	{
 		$book = new Book();
@@ -165,6 +169,7 @@ EOF;
 	/**
 	 * @dataProvider toJsonDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('toJsonDataProvider')]
 	public function testToJSON($expected)
 	{
 		$this->assertEquals($expected, $this->book->toJSON());
@@ -173,6 +178,7 @@ EOF;
 	/**
 	 * @dataProvider toJsonDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('toJsonDataProvider')]
 	public function testfromJSON($expected)
 	{
 		$book = new Book();
@@ -200,6 +206,7 @@ EOF;
 	/**
 	 * @dataProvider toCsvDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('toCsvDataProvider')]
 	public function testToCSV($expected)
 	{
 		$this->assertEquals($expected, $this->book->toCSV());
@@ -208,6 +215,7 @@ EOF;
 	/**
 	 * @dataProvider toCsvDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('toCsvDataProvider')]
 	public function testfromCSV($expected)
 	{
 		$book = new Book();

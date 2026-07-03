@@ -84,6 +84,7 @@ class SluggableBehaviorTest extends BookstoreTestBase
 	/**
 	 * @dataProvider cleanupSlugProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('cleanupSlugProvider')]
 	public function testObjectCleanupSlugPart($in, $out)
 	{
 		$t = new TestableTable13();
@@ -106,6 +107,7 @@ class SluggableBehaviorTest extends BookstoreTestBase
 	/**
 	 * @dataProvider limitSlugSizeProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('limitSlugSizeProvider')]
 	public function testObjectLimitSlugSize($in, $out)
 	{
 		$t = new TestableTable14();

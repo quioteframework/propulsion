@@ -46,6 +46,7 @@ else
 	/**
 	 * @dataProvider convertBracketsNewlineDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('convertBracketsNewlineDataProvider')]
 	public function testConvertBracketsNewline($input, $output)
 	{
 		$b = new TestableAlternativeCodingStandardsBehavior();

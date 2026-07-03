@@ -37,6 +37,7 @@ class DefaultEnglishPluralizerTest extends TestCase
 	/**
 	 * @dataProvider getPluralFormDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('getPluralFormDataProvider')]
 	public function testgetPluralForm($input, $output)
 	{
 		$pluralizer = new DefaultEnglishPluralizer();

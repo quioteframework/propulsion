@@ -38,6 +38,7 @@ class PropelConfigurationTest extends TestCase
 	/**
 	 * @dataProvider configurationProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('configurationProvider')]
 	public function testConstructorArrayAccess($c)
 	{
 		$this->assertEquals('bar0', $c['foo']);
@@ -48,6 +49,7 @@ class PropelConfigurationTest extends TestCase
 	/**
 	 * @dataProvider configurationProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('configurationProvider')]
 	public function testConstructorFlastAccess($c)
 	{
 		$this->assertEquals('bar0', $c->getParameter('foo'));
@@ -172,6 +174,7 @@ class PropelConfigurationTest extends TestCase
 	/**
 	 * @dataProvider configurationProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('configurationProvider')]
 	public function testGetParameters($c)
 	{
 		$expected = array(
@@ -191,6 +194,7 @@ class PropelConfigurationTest extends TestCase
 	/**
 	 * @dataProvider configurationProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('configurationProvider')]
 	public function testGetFlattenedParameters($c)
 	{
 		$expected = array(

@@ -81,6 +81,7 @@ class PropelXMLParserTest extends TestCase
 	/**
 	 * @dataProvider arrayXmlConversionDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('arrayXmlConversionDataProvider')]
 	public function testFromArray($arrayData, $xmlData, $type)
 	{
 		$parser = new PropelXMLParser();
@@ -90,6 +91,7 @@ class PropelXMLParserTest extends TestCase
 	/**
 	 * @dataProvider arrayXmlConversionDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('arrayXmlConversionDataProvider')]
 	public function testToXML($arrayData, $xmlData, $type)
 	{
 		$parser = new PropelXMLParser();
@@ -99,6 +101,7 @@ class PropelXMLParserTest extends TestCase
 	/**
 	 * @dataProvider arrayXmlConversionDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('arrayXmlConversionDataProvider')]
 	public function testToArray($arrayData, $xmlData, $type)
 	{
 		$parser = new PropelXMLParser();
@@ -108,6 +111,7 @@ class PropelXMLParserTest extends TestCase
 	/**
 	 * @dataProvider arrayXmlConversionDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('arrayXmlConversionDataProvider')]
 	public function testFromXML($arrayData, $xmlData, $type)
 	{
 		$parser = new PropelXMLParser();
@@ -179,6 +183,7 @@ EOF;
 	/**
 	 * @dataProvider listToXMLDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('listToXMLDataProvider')]
 	public function testListToXML($list, $xml)
 	{
 		$parser = new PropelXMLParser();
@@ -188,6 +193,7 @@ EOF;
 	/**
 	 * @dataProvider listToXMLDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('listToXMLDataProvider')]
 	public function testXMLToList($list, $xml)
 	{
 		$parser = new PropelXMLParser();

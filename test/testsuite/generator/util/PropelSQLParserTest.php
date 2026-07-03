@@ -38,6 +38,7 @@ class PropelSQLParserTest extends TestCase
 	/**
 	 * @dataProvider stripSqlCommentsDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('stripSqlCommentsDataProvider')]
 	public function testStripSQLComments($input, $output)
 	{
 		$parser = new PropelSQLParser();
@@ -61,6 +62,7 @@ class PropelSQLParserTest extends TestCase
 	/**
 	 * @dataProvider convertLineFeedsToUnixStyleDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('convertLineFeedsToUnixStyleDataProvider')]
 	public function testConvertLineFeedsToUnixStyle($input, $output)
 	{
 		$parser = new PropelSQLParser();
@@ -87,6 +89,7 @@ class PropelSQLParserTest extends TestCase
 	/**
 	 * @dataProvider explodeIntoStatementsDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('explodeIntoStatementsDataProvider')]
 	public function testExplodeIntoStatements($input, $output)
 	{
 		$parser = new PropelSQLParser();

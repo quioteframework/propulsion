@@ -52,6 +52,7 @@ class PHP5ObjectBuilderTest extends TestCase
 	/**
 	 * @dataProvider getDefaultValueStringProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('getDefaultValueStringProvider')]
 	public function testGetDefaultValueString($column, $value)
 	{
 		$this->assertEquals($value, $this->builder->getDefaultValueString($column));

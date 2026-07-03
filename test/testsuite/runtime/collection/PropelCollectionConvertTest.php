@@ -71,6 +71,7 @@ EOF;
 	/**
 	 * @dataProvider toXmlDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('toXmlDataProvider')]
 	public function testToXML($expected)
 	{
 		$this->assertEquals($expected, $this->coll->toXML());
@@ -79,6 +80,7 @@ EOF;
 	/**
 	 * @dataProvider toXmlDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('toXmlDataProvider')]
 	public function testFromXML($expected)
 	{
 		$coll = new PropelObjectCollection();
@@ -117,6 +119,7 @@ EOF;
 	/**
 	 * @dataProvider toYamlDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('toYamlDataProvider')]
 	public function testToYAML($expected)
 	{
 		$this->assertEquals($expected, $this->coll->toYAML());
@@ -125,6 +128,7 @@ EOF;
 	/**
 	 * @dataProvider toYamlDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('toYamlDataProvider')]
 	public function testFromYAML($expected)
 	{
 		$coll = new PropelObjectCollection();
@@ -149,6 +153,7 @@ EOF;
 	/**
 	 * @dataProvider toJsonDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('toJsonDataProvider')]
 	public function testToJSON($expected)
 	{
 		$this->assertEquals($expected, $this->coll->toJSON());
@@ -157,6 +162,7 @@ EOF;
 	/**
 	 * @dataProvider toJsonDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('toJsonDataProvider')]
 	public function testfromJSON($expected)
 	{
 		$coll = new PropelObjectCollection();
@@ -179,6 +185,7 @@ EOF;
 	/**
 	 * @dataProvider toCsvDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('toCsvDataProvider')]
 	public function testToCSV($expected)
 	{
 		$this->assertEquals($expected, $this->coll->toCSV());
@@ -187,6 +194,7 @@ EOF;
 	/**
 	 * @dataProvider toCsvDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('toCsvDataProvider')]
 	public function testfromCSV($expected)
 	{
 		$coll = new PropelObjectCollection();
@@ -203,6 +211,7 @@ EOF;
 	/**
 	 * @dataProvider toYamlDataProvider
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('toYamlDataProvider')]
 	public function testToStringUsesDefaultStringFormat($expected)
 	{
 		$this->assertEquals($expected, (string) $this->coll, 'PropelCollection::__toString() uses the YAML representation by default');

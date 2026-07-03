@@ -1325,6 +1325,7 @@ EOF;
     /**
      * @dataProvider conditionsForTestReadOnly
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('conditionsForTestReadOnly')]
     public function testReadOnly($method)
     {
         $cv = new ContestView();
