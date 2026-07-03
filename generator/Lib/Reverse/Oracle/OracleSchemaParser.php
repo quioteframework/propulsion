@@ -19,7 +19,7 @@ namespace Propulsion\Generator\Reverse\Oracle;
  * @package    propel.generator.reverse.oracle
  */
 use Propulsion\Generator\Reverse\BaseSchemaParser;
-use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\PropulsionTypes;
 use Propulsion\Generator\Model\Database;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Model\Column;
@@ -51,21 +51,21 @@ class OracleSchemaParser extends BaseSchemaParser
 	 * @var        array
 	 */
 	private static $oracleTypeMap = array(
-		'BLOB'		=> PropelTypes::BLOB,
-		'CHAR'		=> PropelTypes::CHAR,
-		'CLOB'		=> PropelTypes::CLOB,
-		'DATE'		=> PropelTypes::TIMESTAMP,
-		'BIGINT'	=> PropelTypes::BIGINT,
-		'DECIMAL'	=> PropelTypes::DECIMAL,
-		'DOUBLE'	=> PropelTypes::DOUBLE,
-		'FLOAT'		=> PropelTypes::FLOAT,
-		'LONG'		=> PropelTypes::LONGVARCHAR,
-		'NCHAR'		=> PropelTypes::CHAR,
-		'NCLOB'		=> PropelTypes::CLOB,
-		'NUMBER'	=> PropelTypes::INTEGER,
-		'NVARCHAR2'	=> PropelTypes::VARCHAR,
-		'TIMESTAMP'	=> PropelTypes::TIMESTAMP,
-		'VARCHAR2'	=> PropelTypes::VARCHAR,
+		'BLOB'		=> PropulsionTypes::BLOB,
+		'CHAR'		=> PropulsionTypes::CHAR,
+		'CLOB'		=> PropulsionTypes::CLOB,
+		'DATE'		=> PropulsionTypes::TIMESTAMP,
+		'BIGINT'	=> PropulsionTypes::BIGINT,
+		'DECIMAL'	=> PropulsionTypes::DECIMAL,
+		'DOUBLE'	=> PropulsionTypes::DOUBLE,
+		'FLOAT'		=> PropulsionTypes::FLOAT,
+		'LONG'		=> PropulsionTypes::LONGVARCHAR,
+		'NCHAR'		=> PropulsionTypes::CHAR,
+		'NCLOB'		=> PropulsionTypes::CLOB,
+		'NUMBER'	=> PropulsionTypes::INTEGER,
+		'NVARCHAR2'	=> PropulsionTypes::VARCHAR,
+		'TIMESTAMP'	=> PropulsionTypes::TIMESTAMP,
+		'VARCHAR2'	=> PropulsionTypes::VARCHAR,
 	);
 
 	/**
@@ -179,7 +179,7 @@ class OracleSchemaParser extends BaseSchemaParser
 				$scale = null;
 			}
 
-			$propelType = $this->getMappedPropelType($type);
+			$propelType = $this->getMappedPropulsionType($type);
 			if (!$propelType) {
 				$propelType = Column::DEFAULT_TYPE;
 				$this->warn("Column [" . $table->getName() . "." . $row['COLUMN_NAME']. "] has a column type (".$row["DATA_TYPE"].") that Propulsion does not support.");

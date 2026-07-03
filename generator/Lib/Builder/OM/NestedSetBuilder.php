@@ -224,9 +224,9 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 
 	protected function addGetLevel(&$script): void
 	{
-		// Must accept an optional PropelPDO connection and lazily compute the level via the
+		// Must accept an optional PropulsionPDO connection and lazily compute the level via the
 		// Peer if not already set, to match the Propulsion\OM\NodeObject interface signature
-		// (getLevel(?PropelPDO $con = null)) -- a naive property-only getter here fatals with
+		// (getLevel(?PropulsionPDO $con = null)) -- a naive property-only getter here fatals with
 		// "Declaration ... must be compatible" the moment this builder is actually used, which
 		// (being the PHP84 builder, promoted to canonical in Phase 3, see KNOWN_ISSUES.md) it
 		// hadn't been until this phase's nested-set-behavior tests exercised it end-to-end.
@@ -235,7 +235,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	/**
 	 * Get the level of the node in the tree if set, otherwise calculates and returns it.
 	 */
-	public function getLevel(?PropelPDO \$con = null): ?int
+	public function getLevel(?PropulsionPDO \$con = null): ?int
 	{
 		if (\$this->level === null) {
 			\$this->level = $peerClassname::getLevel(\$this, \$con);

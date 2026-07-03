@@ -18,7 +18,7 @@ namespace Propulsion\Generator\Reverse\MSSQL;
  * @package    propel.generator.reverse.mssql
  */
 use Propulsion\Generator\Reverse\BaseSchemaParser;
-use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\PropulsionTypes;
 use Propulsion\Generator\Model\Database;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Model\Column;
@@ -35,43 +35,43 @@ class MssqlSchemaParser extends BaseSchemaParser
 	 * @var        array
 	 */
 	private static $mssqlTypeMap = array(
-		"binary" => PropelTypes::BINARY,
-		"bit" => PropelTypes::BOOLEAN,
-		"char" => PropelTypes::CHAR,
-		"datetime" => PropelTypes::TIMESTAMP,
-		"decimal() identity"  => PropelTypes::DECIMAL,
-		"decimal"  => PropelTypes::DECIMAL,
-		"image" => PropelTypes::LONGVARBINARY,
-		"int" => PropelTypes::INTEGER,
-		"int identity" => PropelTypes::INTEGER,
-		"integer" => PropelTypes::INTEGER,
-		"money" => PropelTypes::DECIMAL,
-		"nchar" => PropelTypes::CHAR,
-		"ntext" => PropelTypes::LONGVARCHAR,
-		"numeric() identity" => PropelTypes::NUMERIC,
-		"numeric" => PropelTypes::NUMERIC,
-		"nvarchar" => PropelTypes::VARCHAR,
-		"real" => PropelTypes::REAL,
-		"float" => PropelTypes::FLOAT,
-		"smalldatetime" => PropelTypes::TIMESTAMP,
-		"smallint" => PropelTypes::SMALLINT,
-		"smallint identity" => PropelTypes::SMALLINT,
-		"smallmoney" => PropelTypes::DECIMAL,
-		"sysname" => PropelTypes::VARCHAR,
-		"text" => PropelTypes::LONGVARCHAR,
-		"timestamp" => PropelTypes::BINARY,
-		"tinyint identity" => PropelTypes::TINYINT,
-		"tinyint" => PropelTypes::TINYINT,
-		"uniqueidentifier" => PropelTypes::CHAR,
-		"varbinary" => PropelTypes::VARBINARY,
-		"varbinary(max)" => PropelTypes::CLOB,
-		"varchar" => PropelTypes::VARCHAR,
-		"varchar(max)" => PropelTypes::CLOB,
-		"uniqueidentifier" => PropelTypes::CHAR,
+		"binary" => PropulsionTypes::BINARY,
+		"bit" => PropulsionTypes::BOOLEAN,
+		"char" => PropulsionTypes::CHAR,
+		"datetime" => PropulsionTypes::TIMESTAMP,
+		"decimal() identity"  => PropulsionTypes::DECIMAL,
+		"decimal"  => PropulsionTypes::DECIMAL,
+		"image" => PropulsionTypes::LONGVARBINARY,
+		"int" => PropulsionTypes::INTEGER,
+		"int identity" => PropulsionTypes::INTEGER,
+		"integer" => PropulsionTypes::INTEGER,
+		"money" => PropulsionTypes::DECIMAL,
+		"nchar" => PropulsionTypes::CHAR,
+		"ntext" => PropulsionTypes::LONGVARCHAR,
+		"numeric() identity" => PropulsionTypes::NUMERIC,
+		"numeric" => PropulsionTypes::NUMERIC,
+		"nvarchar" => PropulsionTypes::VARCHAR,
+		"real" => PropulsionTypes::REAL,
+		"float" => PropulsionTypes::FLOAT,
+		"smalldatetime" => PropulsionTypes::TIMESTAMP,
+		"smallint" => PropulsionTypes::SMALLINT,
+		"smallint identity" => PropulsionTypes::SMALLINT,
+		"smallmoney" => PropulsionTypes::DECIMAL,
+		"sysname" => PropulsionTypes::VARCHAR,
+		"text" => PropulsionTypes::LONGVARCHAR,
+		"timestamp" => PropulsionTypes::BINARY,
+		"tinyint identity" => PropulsionTypes::TINYINT,
+		"tinyint" => PropulsionTypes::TINYINT,
+		"uniqueidentifier" => PropulsionTypes::CHAR,
+		"varbinary" => PropulsionTypes::VARBINARY,
+		"varbinary(max)" => PropulsionTypes::CLOB,
+		"varchar" => PropulsionTypes::VARCHAR,
+		"varchar(max)" => PropulsionTypes::CLOB,
+		"uniqueidentifier" => PropulsionTypes::CHAR,
 	// SQL Server 2000 only
-		"bigint identity" => PropelTypes::BIGINT,
-		"bigint" => PropelTypes::BIGINT,
-		"sql_variant" => PropelTypes::VARCHAR,
+		"bigint identity" => PropulsionTypes::BIGINT,
+		"bigint" => PropulsionTypes::BIGINT,
+		"sql_variant" => PropulsionTypes::VARCHAR,
 	);
 
   /**
@@ -140,7 +140,7 @@ class MssqlSchemaParser extends BaseSchemaParser
 				$autoincrement = true;
 			}
 
-			$propelType = $this->getMappedPropelType($type);
+			$propelType = $this->getMappedPropulsionType($type);
 			if (!$propelType) {
 				$propelType = Column::DEFAULT_TYPE;
 				$this->warn("Column [" . $table->getName() . "." . $name. "] has a column type (".$type.") that Propulsion does not support.");

@@ -101,7 +101,7 @@ public function cacheContains(\$key)
 			case 'custom':
 			default:
 				$script .= "
-	throw new PropelException('You must override the cacheContains(), cacheStore(), and cacheFetch() methods to enable query cache');";
+	throw new PropulsionException('You must override the cacheContains(), cacheStore(), and cacheFetch() methods to enable query cache');";
 				break;
 
 		}
@@ -127,7 +127,7 @@ public function cacheStore(\$key, \$value, \$lifetime = " .$this->getParameter('
 			case 'custom':
 			default:
 				$script .= "
-	throw new PropelException('You must override the cacheContains(), cacheStore(), and cacheFetch() methods to enable query cache');";
+	throw new PropulsionException('You must override the cacheContains(), cacheStore(), and cacheFetch() methods to enable query cache');";
 				break;
 		}
 		$script .= "
@@ -152,7 +152,7 @@ public function cacheFetch(\$key)
 			case 'custom':
 			default:
 				$script .= "
-	throw new PropelException('You must override the cacheContains(), cacheStore(), and cacheFetch() methods to enable query cache');";
+	throw new PropulsionException('You must override the cacheContains(), cacheStore(), and cacheFetch() methods to enable query cache');";
 				break;
 		}
 		$script .= "
@@ -195,7 +195,7 @@ protected function getSelectStatement(\$con = null)
 		\$db->bindValues(\$stmt, \$params, \$dbMap);
 		\$stmt->execute();
 		\$con->commit();
-	} catch (PropelException \$e) {
+	} catch (PropulsionException \$e) {
 		\$con->rollback();
 		throw \$e;
 	}
@@ -236,7 +236,7 @@ protected function getCountStatement(\$con = null)
 			if (\$needsComplexCount) {
 				if (BasePeer::needsSelectAliases(\$this)) {
 					if (\$this->getHaving()) {
-						throw new PropelException('Propulsion cannot create a COUNT query when using HAVING and  duplicate column names in the SELECT part');
+						throw new PropulsionException('Propulsion cannot create a COUNT query when using HAVING and  duplicate column names in the SELECT part');
 					}
 					\$db->turnSelectColumnsToAliases(\$this);
 				}
@@ -255,7 +255,7 @@ protected function getCountStatement(\$con = null)
 		\$db->bindValues(\$stmt, \$params, \$dbMap);
 		\$stmt->execute();
 		\$con->commit();
-	} catch (PropelException \$e) {
+	} catch (PropulsionException \$e) {
 		\$con->rollback();
 		throw \$e;
 	}

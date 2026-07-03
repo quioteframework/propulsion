@@ -47,43 +47,43 @@
 
   <taskdef
     name="propel-om"
-    classname="Propulsion\Generator\Task\PropelOMTask" classpathRef="propelclasses"/>
+    classname="Propulsion\Generator\Task\PropulsionOMTask" classpathRef="propelclasses"/>
   <taskdef
     name="propel-data-dump"
-    classname="Propulsion\Generator\Task\PropelDataDumpTask" classpathRef="propelclasses"/>
+    classname="Propulsion\Generator\Task\PropulsionDataDumpTask" classpathRef="propelclasses"/>
   <taskdef
     name="propel-data-sql"
-    classname="Propulsion\Generator\Task\PropelDataSQLTask" classpathRef="propelclasses"/>
+    classname="Propulsion\Generator\Task\PropulsionDataSQLTask" classpathRef="propelclasses"/>
    <taskdef
     name="propel-schema-reverse"
-    classname="Propulsion\Generator\Task\PropelSchemaReverseTask" classpathRef="propelclasses"/>
+    classname="Propulsion\Generator\Task\PropulsionSchemaReverseTask" classpathRef="propelclasses"/>
   <taskdef
     name="propel-sql"
-    classname="Propulsion\Generator\Task\PropelSQLTask" classpathRef="propelclasses"/>
+    classname="Propulsion\Generator\Task\PropulsionSQLTask" classpathRef="propelclasses"/>
   <taskdef
     name="propel-sql-diff"
-    classname="Propulsion\Generator\Task\PropelSQLDiffTask" classpathRef="propelclasses"/>
+    classname="Propulsion\Generator\Task\PropulsionSQLDiffTask" classpathRef="propelclasses"/>
   <taskdef
     name="propel-migration-status"
-    classname="Propulsion\Generator\Task\PropelMigrationStatusTask" classpathRef="propelclasses"/>
+    classname="Propulsion\Generator\Task\PropulsionMigrationStatusTask" classpathRef="propelclasses"/>
   <taskdef
     name="propel-migration-up"
-    classname="Propulsion\Generator\Task\PropelMigrationUpTask" classpathRef="propelclasses"/>
+    classname="Propulsion\Generator\Task\PropulsionMigrationUpTask" classpathRef="propelclasses"/>
   <taskdef
     name="propel-migration-down"
-    classname="Propulsion\Generator\Task\PropelMigrationDownTask" classpathRef="propelclasses"/>
+    classname="Propulsion\Generator\Task\PropulsionMigrationDownTask" classpathRef="propelclasses"/>
   <taskdef
     name="propel-migration"
-    classname="Propulsion\Generator\Task\PropelMigrationTask" classpathRef="propelclasses"/>
+    classname="Propulsion\Generator\Task\PropulsionMigrationTask" classpathRef="propelclasses"/>
   <taskdef
     name="propel-sql-exec"
-    classname="Propulsion\Generator\Task\PropelSQLExec" classpathRef="propelclasses"/>
+    classname="Propulsion\Generator\Task\PropulsionSQLExec" classpathRef="propelclasses"/>
   <taskdef
     name="propel-graphviz"
-    classname="Propulsion\Generator\Task\PropelGraphvizTask" classpathRef="propelclasses"/>
+    classname="Propulsion\Generator\Task\PropulsionGraphvizTask" classpathRef="propelclasses"/>
   <taskdef
     name="propel-convert-conf"
-    classname="Propulsion\Generator\Task\PropelConvertConfTask" classpathRef="propelclasses"/>
+    classname="Propulsion\Generator\Task\PropulsionConvertConfTask" classpathRef="propelclasses"/>
 
   <!-- ================================================================ -->
   <!-- M A I N  T A R G E T                                             -->

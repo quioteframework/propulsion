@@ -322,7 +322,7 @@ public function filterBySlug(\$slug)
  * Find one object based on its slug
  *
  * @param     string \$slug The value to use as filter.
- * @param     PropelPDO \$con The optional connection object
+ * @param     PropulsionPDO \$con The optional connection object
  *
  * @return    " . $this->builder->getStubObjectBuilder()->getClassname() . " the result, formatted by the current formatter
  */

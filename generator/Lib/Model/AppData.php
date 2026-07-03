@@ -19,7 +19,7 @@
  * @version    $Revision$
  * @package    propel.generator.model
  */
-use Propulsion\Generator\Platform\PropelPlatformInterface;
+use Propulsion\Generator\Platform\PropulsionPlatformInterface;
 use Propulsion\Generator\Config\GeneratorConfig;
 class AppData
 {
@@ -57,9 +57,9 @@ class AppData
 	/**
 	 * Creates a new instance for the specified database type.
 	 *
-	 * @param      PropelPlatformInterface $platform The default platform object to use for any databases added to this application model.
+	 * @param      PropulsionPlatformInterface $platform The default platform object to use for any databases added to this application model.
 	 */
-	public function __construct(?PropelPlatformInterface $defaultPlatform = null)
+	public function __construct(?PropulsionPlatformInterface $defaultPlatform = null)
 	{
 		if (null !== $defaultPlatform) {
 			$this->platform = $defaultPlatform;
@@ -69,9 +69,9 @@ class AppData
 	/**
 	 * Sets the platform object to use for any databases added to this application model.
 	 *
-	 * @param PropelPlatformInterface $defaultPlatform
+	 * @param PropulsionPlatformInterface $defaultPlatform
 	 */
-	public function setPlatform(PropelPlatformInterface $defaultPlatform)
+	public function setPlatform(PropulsionPlatformInterface $defaultPlatform)
 	{
 		$this->platform = $defaultPlatform;
 	}

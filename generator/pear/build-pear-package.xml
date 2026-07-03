@@ -26,7 +26,7 @@
 
 	<taskdef
     name="pear-package"
-    classname="BuildPropelGenPEARPackageTask" classpath="."/>
+    classname="BuildPropulsionGenPEARPackageTask" classpath="."/>
 
 	<fileset dir="${propelgen.home}/lib" id="lib">
 		<include name="**"/>

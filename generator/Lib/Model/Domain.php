@@ -233,7 +233,7 @@ class Domain extends XMLElement
 	}
 
 	/**
-	 * @param      string $propelType The PropelTypes type to set.
+	 * @param      string $propelType The PropulsionTypes type to set.
 	 */
 	public function setType($propelType)
 	{
@@ -274,7 +274,7 @@ class Domain extends XMLElement
 			if ($this->defaultValue->isExpression()) {
 				throw new EngineException("Cannot get PHP version of default value for default value EXPRESSION.");
 			}
-			if ($this->propelType === PropelTypes::BOOLEAN || $this->propelType === PropelTypes::BOOLEAN_EMU) {
+			if ($this->propelType === PropulsionTypes::BOOLEAN || $this->propelType === PropulsionTypes::BOOLEAN_EMU) {
 				return $this->booleanValue($this->defaultValue->getValue());
 			} else {
 				return $this->defaultValue->getValue();

@@ -48,7 +48,7 @@ abstract class BaseSchemaParser implements SchemaParser
 	 * (Override in subclasses.)
 	 * @var        array
 	 */
-	protected $nativeToPropelTypeMap;
+	protected $nativeToPropulsionTypeMap;
 
 	/**
 	 * Map to hold reverse type mapping (initialized on-demand).
@@ -180,13 +180,13 @@ abstract class BaseSchemaParser implements SchemaParser
 	 * @param      string $nativeType
 	 * @return     string The mapped Propulsion type.
 	 */
-	protected function getMappedPropelType($nativeType)
+	protected function getMappedPropulsionType($nativeType)
 	{
-		if ($this->nativeToPropelTypeMap === null) {
-			$this->nativeToPropelTypeMap = $this->getTypeMapping();
+		if ($this->nativeToPropulsionTypeMap === null) {
+			$this->nativeToPropulsionTypeMap = $this->getTypeMapping();
 		}
-		if (isset($this->nativeToPropelTypeMap[$nativeType])) {
-			return $this->nativeToPropelTypeMap[$nativeType];
+		if (isset($this->nativeToPropulsionTypeMap[$nativeType])) {
+			return $this->nativeToPropulsionTypeMap[$nativeType];
 		}
 		return null;
 	}

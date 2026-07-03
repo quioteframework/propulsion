@@ -22,7 +22,7 @@
  * @package    propel.generator.model
  */
 use Propulsion\Generator\Exception\EngineException;
-use Propulsion\Generator\Platform\PropelPlatformInterface;
+use Propulsion\Generator\Platform\PropulsionPlatformInterface;
 class Database extends ScopedElement
 {
 
@@ -89,9 +89,9 @@ class Database extends ScopedElement
 	}
 
 	/**
-	 * Returns the PropelPlatformInterface implementation for this database.
+	 * Returns the PropulsionPlatformInterface implementation for this database.
 	 *
-	 * @return     PropelPlatformInterface a Platform implementation
+	 * @return     PropulsionPlatformInterface a Platform implementation
 	 */
 	public function getPlatform()
 	{
@@ -99,9 +99,9 @@ class Database extends ScopedElement
 	}
 
 	/**
-	 * Sets the PropelPlatformInterface implementation for this database.
+	 * Sets the PropulsionPlatformInterface implementation for this database.
 	 *
-	 * @param      PropelPlatformInterface $platform A Platform implementation
+	 * @param      PropulsionPlatformInterface $platform A Platform implementation
 	 */
 	public function setPlatform($platform)
 	{

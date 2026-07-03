@@ -254,12 +254,12 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	 * Saves modified object data to the datastore.
 	 * If object is saved without left/right values, set them as undefined (0)
 	 *
-	 * @param      PropelPDO Connection to use.
+	 * @param      PropulsionPDO Connection to use.
 	 * @return     int The number of rows affected by this insert/update and any referring fk objects' save() operations.
 	 *                 May be unreliable with parent/children/brother changes
-	 * @throws     PropelException
+	 * @throws     PropulsionException
 	 */
-	public function save(?PropelPDO \$con = null): int
+	public function save(?PropulsionPDO \$con = null): int
 	{
 		\$left = \$this->getLeftValue();
 		\$right = \$this->getRightValue();
@@ -280,11 +280,11 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	/**
 	 * Removes this object and all descendants from datastore.
 	 *
-	 * @param      PropelPDO Connection to use.
+	 * @param      PropulsionPDO Connection to use.
 	 * @return     void
-	 * @throws     PropelException
+	 * @throws     PropulsionException
 	 */
-	public function delete(?PropelPDO \$con = null): void
+	public function delete(?PropulsionPDO \$con = null): void
 	{
 		// delete node first
 		parent::delete(\$con);
@@ -304,7 +304,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	 * Sets node properties to make it a root node.
 	 *
 	 * @return     $objectClassName The current object (for fluent API support)
-	 * @throws     PropelException
+	 * @throws     PropulsionException
 	 */
 	public function makeRoot()
 	{
@@ -321,10 +321,10 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	/**
 	 * Gets the level if set, otherwise calculates this and returns it
 	 *
-	 * @param      PropelPDO Connection to use.
+	 * @param      PropulsionPDO Connection to use.
 	 * @return     int
 	 */
-	public function getLevel(PropelPDO \$con = null)
+	public function getLevel(PropulsionPDO \$con = null)
 	{
 		if (null === \$this->level) {
 			\$this->level = $peerClassname::getLevel(\$this, \$con);
@@ -436,10 +436,10 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	/**
 	 * Get the path to the node in the tree
 	 *
-	 * @param      PropelPDO Connection to use.
+	 * @param      PropulsionPDO Connection to use.
 	 * @return     array
 	 */
-	public function getPath(PropelPDO \$con = null)
+	public function getPath(PropulsionPDO \$con = null)
 	{
 		return $peerClassname::getPath(\$this, \$con);
 	}
@@ -453,10 +453,10 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	/**
 	 * Gets the number of children for the node (direct descendants)
 	 *
-	 * @param      PropelPDO Connection to use.
+	 * @param      PropulsionPDO Connection to use.
 	 * @return     int
 	 */
-	public function getNumberOfChildren(PropelPDO \$con = null)
+	public function getNumberOfChildren(PropulsionPDO \$con = null)
 	{
 		return $peerClassname::getNumberOfChildren(\$this, \$con);
 	}
@@ -470,10 +470,10 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	/**
 	 * Gets the total number of descendants for the node
 	 *
-	 * @param      PropelPDO Connection to use.
+	 * @param      PropulsionPDO Connection to use.
 	 * @return     int
 	 */
-	public function getNumberOfDescendants(PropelPDO \$con = null)
+	public function getNumberOfDescendants(PropulsionPDO \$con = null)
 	{
 		return $peerClassname::getNumberOfDescendants(\$this, \$con);
 	}
@@ -487,10 +487,10 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	/**
 	 * Gets the children for the node
 	 *
-	 * @param      PropelPDO Connection to use.
+	 * @param      PropulsionPDO Connection to use.
 	 * @return     array
 	 */
-	public function getChildren(PropelPDO \$con = null)
+	public function getChildren(PropulsionPDO \$con = null)
 	{
 		\$this->getLevel();
 
@@ -510,10 +510,10 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	/**
 	 * Gets the descendants for the node
 	 *
-	 * @param      PropelPDO Connection to use.
+	 * @param      PropulsionPDO Connection to use.
 	 * @return     array
 	 */
-	public function getDescendants(PropelPDO \$con = null)
+	public function getDescendants(PropulsionPDO \$con = null)
 	{
 		\$this->getLevel();
 
@@ -578,10 +578,10 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	/**
 	 * Tests if object has an ancestor
 	 *
-	 * @param      PropelPDO \$con Connection to use.
+	 * @param      PropulsionPDO \$con Connection to use.
 	 * @return     bool
 	 */
-	public function hasParent(PropelPDO \$con = null)
+	public function hasParent(PropulsionPDO \$con = null)
 	{
 		if (null === \$this->hasParentNode) {
 			$peerClassname::hasParent(\$this, \$con);
@@ -614,10 +614,10 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	/**
 	 * Determines if the node has previous sibling
 	 *
-	 * @param      PropelPDO \$con Connection to use.
+	 * @param      PropulsionPDO \$con Connection to use.
 	 * @return     bool
 	 */
-	public function hasPrevSibling(PropelPDO \$con = null)
+	public function hasPrevSibling(PropulsionPDO \$con = null)
 	{
 		if (null === \$this->hasPrevSibling) {
 			$peerClassname::hasPrevSibling(\$this, \$con);
@@ -634,10 +634,10 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	/**
 	 * Determines if the node has next sibling
 	 *
-	 * @param      PropelPDO \$con Connection to use.
+	 * @param      PropulsionPDO \$con Connection to use.
 	 * @return     bool
 	 */
-	public function hasNextSibling(PropelPDO \$con = null)
+	public function hasNextSibling(PropulsionPDO \$con = null)
 	{
 		if (null === \$this->hasNextSibling) {
 			$peerClassname::hasNextSibling(\$this, \$con);
@@ -654,10 +654,10 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	/**
 	 * Gets ancestor for the given node if it exists
 	 *
-	 * @param      PropelPDO \$con Connection to use.
+	 * @param      PropulsionPDO \$con Connection to use.
 	 * @return     mixed 		Propulsion object if exists else false
 	 */
-	public function retrieveParent(PropelPDO \$con = null)
+	public function retrieveParent(PropulsionPDO \$con = null)
 	{
 		if (null === \$this->hasParentNode) {
 			\$this->parentNode = $peerClassname::retrieveParent(\$this, \$con);
@@ -675,10 +675,10 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	/**
 	 * Gets first child if it exists
 	 *
-	 * @param      PropelPDO \$con Connection to use.
+	 * @param      PropulsionPDO \$con Connection to use.
 	 * @return     mixed 		Propulsion object if exists else false
 	 */
-	public function retrieveFirstChild(PropelPDO \$con = null)
+	public function retrieveFirstChild(PropulsionPDO \$con = null)
 	{
 		if (\$this->hasChildren(\$con)) {
 			if (is_array(\$this->_children)) {
@@ -699,10 +699,10 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	/**
 	 * Gets last child if it exists
 	 *
-	 * @param      PropelPDO \$con Connection to use.
+	 * @param      PropulsionPDO \$con Connection to use.
 	 * @return     mixed 		Propulsion object if exists else false
 	 */
-	public function retrieveLastChild(PropelPDO \$con = null)
+	public function retrieveLastChild(PropulsionPDO \$con = null)
 	{
 		if (\$this->hasChildren(\$con)) {
 			if (is_array(\$this->_children)) {
@@ -723,10 +723,10 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	/**
 	 * Gets prev sibling for the given node if it exists
 	 *
-	 * @param      PropelPDO \$con Connection to use.
+	 * @param      PropulsionPDO \$con Connection to use.
 	 * @return     mixed 		Propulsion object if exists else false
 	 */
-	public function retrievePrevSibling(PropelPDO \$con = null)
+	public function retrievePrevSibling(PropulsionPDO \$con = null)
 	{
 		if (\$this->hasPrevSibling(\$con)) {
 			return \$this->prevSibling;
@@ -742,10 +742,10 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	/**
 	 * Gets next sibling for the given node if it exists
 	 *
-	 * @param      PropelPDO \$con Connection to use.
+	 * @param      PropulsionPDO \$con Connection to use.
 	 * @return     mixed 		Propulsion object if exists else false
 	 */
-	public function retrieveNextSibling(PropelPDO \$con = null)
+	public function retrieveNextSibling(PropulsionPDO \$con = null)
 	{
 		if (\$this->hasNextSibling(\$con)) {
 			return \$this->nextSibling;
@@ -764,15 +764,15 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	 * Inserts as first child of given destination node \$parent
 	 *
 	 * @param      $objectClassName \$parent	Propulsion object for destination node
-	 * @param      PropelPDO \$con Connection to use.
+	 * @param      PropulsionPDO \$con Connection to use.
 	 * @return     $objectClassName The current object (for fluent API support)
-	 * @throws     PropelException - if this object already exists
+	 * @throws     PropulsionException - if this object already exists
 	 */
-	public function insertAsFirstChildOf(NodeObject \$parent, PropelPDO \$con = null)
+	public function insertAsFirstChildOf(NodeObject \$parent, PropulsionPDO \$con = null)
 	{
 		if (!\$this->isNew())
 		{
-			throw new PropelException(\"$objectClassName must be new.\");
+			throw new PropulsionException(\"$objectClassName must be new.\");
 		}
 		$peerClassname::insertAsFirstChildOf(\$this, \$parent, \$con);
 		return \$this;
@@ -789,15 +789,15 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	 * Inserts as last child of given destination node \$parent
 	 *
 	 * @param      $objectClassName \$parent	Propulsion object for destination node
-	 * @param      PropelPDO \$con Connection to use.
+	 * @param      PropulsionPDO \$con Connection to use.
 	 * @return     $objectClassName The current object (for fluent API support)
-	 * @throws     PropelException - if this object already exists
+	 * @throws     PropulsionException - if this object already exists
 	 */
-	public function insertAsLastChildOf(NodeObject \$parent, PropelPDO \$con = null)
+	public function insertAsLastChildOf(NodeObject \$parent, PropulsionPDO \$con = null)
 	{
 		if (!\$this->isNew())
 		{
-			throw new PropelException(\"$objectClassName must be new.\");
+			throw new PropulsionException(\"$objectClassName must be new.\");
 		}
 		$peerClassname::insertAsLastChildOf(\$this, \$parent, \$con);
 		return \$this;
@@ -814,15 +814,15 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	 * Inserts \$node as previous sibling to given destination node \$dest
 	 *
 	 * @param      $objectClassName \$dest	Propulsion object for destination node
-	 * @param      PropelPDO \$con Connection to use.
+	 * @param      PropulsionPDO \$con Connection to use.
 	 * @return     $objectClassName The current object (for fluent API support)
-	 * @throws     PropelException - if this object already exists
+	 * @throws     PropulsionException - if this object already exists
 	 */
-	public function insertAsPrevSiblingOf(NodeObject \$dest, PropelPDO \$con = null)
+	public function insertAsPrevSiblingOf(NodeObject \$dest, PropulsionPDO \$con = null)
 	{
 		if (!\$this->isNew())
 		{
-			throw new PropelException(\"$objectClassName must be new.\");
+			throw new PropulsionException(\"$objectClassName must be new.\");
 		}
 		$peerClassname::insertAsPrevSiblingOf(\$this, \$dest, \$con);
 		return \$this;
@@ -839,15 +839,15 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	 * Inserts \$node as next sibling to given destination node \$dest
 	 *
 	 * @param      $objectClassName \$dest	Propulsion object for destination node
-	 * @param      PropelPDO \$con Connection to use.
+	 * @param      PropulsionPDO \$con Connection to use.
 	 * @return     $objectClassName The current object (for fluent API support)
-	 * @throws     PropelException - if this object already exists
+	 * @throws     PropulsionException - if this object already exists
 	 */
-	public function insertAsNextSiblingOf(NodeObject \$dest, PropelPDO \$con = null)
+	public function insertAsNextSiblingOf(NodeObject \$dest, PropulsionPDO \$con = null)
 	{
 		if (!\$this->isNew())
 		{
-			throw new PropelException(\"$objectClassName must be new.\");
+			throw new PropulsionException(\"$objectClassName must be new.\");
 		}
 		$peerClassname::insertAsNextSiblingOf(\$this, \$dest, \$con);
 		return \$this;
@@ -864,14 +864,14 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	 * Moves node to be first child of \$parent
 	 *
 	 * @param      $objectClassName \$parent	Propulsion object for destination node
-	 * @param      PropelPDO \$con Connection to use.
+	 * @param      PropulsionPDO \$con Connection to use.
 	 * @return     $objectClassName The current object (for fluent API support)
 	 */
-	public function moveToFirstChildOf(NodeObject \$parent, PropelPDO \$con = null)
+	public function moveToFirstChildOf(NodeObject \$parent, PropulsionPDO \$con = null)
 	{
 		if (\$this->isNew())
 		{
-			throw new PropelException(\"$objectClassName must exist in tree.\");
+			throw new PropulsionException(\"$objectClassName must exist in tree.\");
 		}
 		$peerClassname::moveToFirstChildOf(\$parent, \$this, \$con);
 		return \$this;
@@ -888,14 +888,14 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	 * Moves node to be last child of \$parent
 	 *
 	 * @param      $objectClassName \$parent	Propulsion object for destination node
-	 * @param      PropelPDO \$con Connection to use.
+	 * @param      PropulsionPDO \$con Connection to use.
 	 * @return     $objectClassName The current object (for fluent API support)
 	 */
-	public function moveToLastChildOf(NodeObject \$parent, PropelPDO \$con = null)
+	public function moveToLastChildOf(NodeObject \$parent, PropulsionPDO \$con = null)
 	{
 		if (\$this->isNew())
 		{
-			throw new PropelException(\"$objectClassName must exist in tree.\");
+			throw new PropulsionException(\"$objectClassName must exist in tree.\");
 		}
 		$peerClassname::moveToLastChildOf(\$parent, \$this, \$con);
 		return \$this;
@@ -912,14 +912,14 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	 * Moves node to be prev sibling to \$dest
 	 *
 	 * @param      $objectClassName \$dest	Propulsion object for destination node
-	 * @param      PropelPDO \$con Connection to use.
+	 * @param      PropulsionPDO \$con Connection to use.
 	 * @return     $objectClassName The current object (for fluent API support)
 	 */
-	public function moveToPrevSiblingOf(NodeObject \$dest, PropelPDO \$con = null)
+	public function moveToPrevSiblingOf(NodeObject \$dest, PropulsionPDO \$con = null)
 	{
 		if (\$this->isNew())
 		{
-			throw new PropelException(\"$objectClassName must exist in tree.\");
+			throw new PropulsionException(\"$objectClassName must exist in tree.\");
 		}
 		$peerClassname::moveToPrevSiblingOf(\$dest, \$this, \$con);
 		return \$this;
@@ -936,14 +936,14 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	 * Moves node to be next sibling to \$dest
 	 *
 	 * @param      $objectClassName \$dest	Propulsion object for destination node
-	 * @param      PropelPDO \$con Connection to use.
+	 * @param      PropulsionPDO \$con Connection to use.
 	 * @return     $objectClassName The current object (for fluent API support)
 	 */
-	public function moveToNextSiblingOf(NodeObject \$dest, PropelPDO \$con = null)
+	public function moveToNextSiblingOf(NodeObject \$dest, PropulsionPDO \$con = null)
 	{
 		if (\$this->isNew())
 		{
-			throw new PropelException(\"$objectClassName must exist in tree.\");
+			throw new PropulsionException(\"$objectClassName must exist in tree.\");
 		}
 		$peerClassname::moveToNextSiblingOf(\$dest, \$this, \$con);
 		return \$this;
@@ -960,10 +960,10 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	 * Inserts node as parent of given node.
 	 *
 	 * @param      $objectClassName \$node Propulsion object for destination node
-	 * @param      PropelPDO \$con	Connection to use.
+	 * @param      PropulsionPDO \$con	Connection to use.
 	 * @return     $objectClassName The current object (for fluent API support)
 	 */
-	public function insertAsParentOf(NodeObject \$node, PropelPDO \$con = null)
+	public function insertAsParentOf(NodeObject \$node, PropulsionPDO \$con = null)
 	{
 		$peerClassname::insertAsParentOf(\$this, \$node, \$con);
 		return \$this;

@@ -14,7 +14,7 @@ use Propulsion\Generator\Config\GeneratorConfig;
 use Propulsion\Generator\Exception\EngineException;
 
 /**
- * Plain-PHP replacement for the Phing-based PropelOMTask/AbstractPropelDataModelTask
+ * Plain-PHP replacement for the Phing-based PropulsionOMTask/AbstractPropulsionDataModelTask
  * pair: loads XML schema files into a data model and writes the generated Object
  * Model classes (Peer/Object/TableMap/Query and friends) to disk.
  *

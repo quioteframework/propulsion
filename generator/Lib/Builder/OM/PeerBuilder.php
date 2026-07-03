@@ -27,7 +27,7 @@ use Propulsion\Generator\Model\ForeignKey;
 use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Model\Column;
-use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\PropulsionTypes;
 use Propulsion\Generator\Model\IDMethod;
 
 class PeerBuilder extends AbstractPeerBuilder
@@ -248,9 +248,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		$this->declareClassFromBuilder($this->getStubObjectBuilder());
 		$this->declareClass('Propulsion\\OM\\BaseObject');
 		$this->declareClass('Propulsion\\OM\\Persistent');
-		$this->declareClass('Propulsion\\Exception\\PropelException');
+		$this->declareClass('Propulsion\\Exception\\PropulsionException');
 		$this->declareClass('Propulsion\\Util\\BasePeer');
-		$this->declareClass('Propulsion\\Connection\\PropelPDO');
+		$this->declareClass('Propulsion\\Connection\\PropulsionPDO');
 		$this->declareClass('Propulsion\\Query\\Criteria');
 		$this->declareClass('Propulsion\\Propulsion');
 		$this->declareClass('\\DateTime');
@@ -278,19 +278,19 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		// reference to e.g. `Criteria` only resolves correctly on its own for a class with
 		// no namespace of its own -- inside a real `namespace Foo\Bar;` block, it would
 		// resolve relative to that namespace instead, so it still needs a real `use` import
-		// there. PropelQuickBuilder also concatenates many flat/non-namespaced generated
+		// there. PropulsionQuickBuilder also concatenates many flat/non-namespaced generated
 		// classes into a single eval()'d script with no namespace block between them, so
 		// unconditionally emitting `use Fully\Qualified\Name;` once per such class (as
 		// addClassBody()'s FQCN declareClass() calls would otherwise cause) is fatal.
 		$classMap = [];
 		$preferredNamespaces = [
-			'PropelException' => 'Propulsion\\Exception\\PropelException',
+			'PropulsionException' => 'Propulsion\\Exception\\PropulsionException',
 			'BasePeer' => 'Propulsion\\Util\\BasePeer',
 			'Criteria' => 'Propulsion\\Query\\Criteria',
 			'ModelCriteria' => 'Propulsion\\Query\\ModelCriteria',
 			'ModelJoin' => 'Propulsion\\Query\\ModelJoin',
-			'PropelPDO' => 'Propulsion\\Connection\\PropelPDO',
-			'PropelCollection' => 'Propulsion\\Collection\\PropelCollection',
+			'PropulsionPDO' => 'Propulsion\\Connection\\PropulsionPDO',
+			'PropulsionCollection' => 'Propulsion\\Collection\\PropulsionCollection',
 			'Propulsion' => 'Propulsion\\Propulsion',
 			'BaseObject' => 'Propulsion\\OM\\BaseObject',
 			'Persistent' => 'Propulsion\\OM\\Persistent'
@@ -570,7 +570,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
     static public function getFieldNames(string \$type = BasePeer::TYPE_PHPNAME)
 	{
 		if (!array_key_exists(\$type, self::\$fieldNames)) {
-			throw new PropelException('Method getFieldNames() expects the parameter \$type to be one of the class constants BasePeer::TYPE_PHPNAME, BasePeer::TYPE_STUDLYPHPNAME, BasePeer::TYPE_COLNAME, BasePeer::TYPE_FIELDNAME, BasePeer::TYPE_NUM. ' . \$type . ' was given.');
+			throw new PropulsionException('Method getFieldNames() expects the parameter \$type to be one of the class constants BasePeer::TYPE_PHPNAME, BasePeer::TYPE_STUDLYPHPNAME, BasePeer::TYPE_COLNAME, BasePeer::TYPE_FIELDNAME, BasePeer::TYPE_NUM. ' . \$type . ' was given.');
 		}
 		return self::\$fieldNames[\$type];
 	}
@@ -671,8 +671,8 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * Returns the TableMap related to this peer.
 	 * This method is not needed for general use but a specific application could have a need.
 	 * @return     \Propulsion\Map\TableMap
-	 * @throws     PropelException Any exceptions caught during processing will be
-	 *		 rethrown wrapped into a PropelException.
+	 * @throws     PropulsionException Any exceptions caught during processing will be
+	 *		 rethrown wrapped into a PropulsionException.
 	 */
 	public static function getTableMap()
 	{
@@ -736,12 +736,12 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * Performs an INSERT on the database, given a ".$this->getObjectClassname()." or Criteria object.
 	 *
 	 * @param      mixed \$values Criteria or ".$this->getObjectClassname()." object containing data that is used to create the INSERT statement.
-	 * @param      PropelPDO \$con the PropelPDO connection to use
+	 * @param      PropulsionPDO \$con the PropulsionPDO connection to use
 	 * @return     mixed The new primary key.
-	 * @throws     PropelException Any exceptions caught during processing will be
-	 *		 rethrown wrapped into a PropelException.
+	 * @throws     PropulsionException Any exceptions caught during processing will be
+	 *		 rethrown wrapped into a PropulsionException.
 	 */
-	public static function doInsert(\$values, ?PropelPDO \$con = null)
+	public static function doInsert(\$values, ?PropulsionPDO \$con = null)
 	{
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(self::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
@@ -759,7 +759,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			if ($col->isPrimaryKey() && $col->isAutoIncrement() && $table->getIdMethod() != "none" && !$table->isAllowPkInsert()) {
 				$script .= "
 		if (\$criteria->containsKey(".$this->getColumnConstant($col).") && \$criteria->keyContainsValue(" . $this->getColumnConstant($col) . ") ) {
-			throw new PropelException('Cannot insert a value for auto-increment primary key ('.".$this->getColumnConstant($col).".')');
+			throw new PropulsionException('Cannot insert a value for auto-increment primary key ('.".$this->getColumnConstant($col).".')');
 		}
 ";
 				if (!$this->getPlatform()->supportsInsertNullPk()) {
@@ -788,7 +788,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			\$con->beginTransaction();
 			\$pk = ".$this->basePeerClassname."::doInsert(\$criteria, \$con);
 			\$con->commit();
-		} catch(PropelException \$e) {
+		} catch(PropulsionException \$e) {
 			\$con->rollBack();
 			throw \$e;
 		}
@@ -808,14 +808,14 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
      *                         BasePeer::TYPE_COLNAME, BasePeer::TYPE_FIELDNAME, BasePeer::TYPE_NUM
      * @param      string \$toType   One of the class type constants
      * @return     string translated name of the field.
-     * @throws     PropelException - if the specified name could not be found in the fieldname mappings.
+     * @throws     PropulsionException - if the specified name could not be found in the fieldname mappings.
      */
     static public function translateFieldName(string \$name, string \$fromType, string \$toType)
 	{
 		\$toNames = self::getFieldNames(\$toType);
 		\$key = isset(self::\$fieldKeys[\$fromType][\$name]) ? self::\$fieldKeys[\$fromType][\$name] : null;
 		if (\$key === null) {
-			throw new PropelException(\"'\$name' could not be found in the field names of type '\$fromType'. These are: \" . print_r(self::\$fieldKeys[\$fromType], true));
+			throw new PropulsionException(\"'\$name' could not be found in the field names of type '\$fromType'. These are: \" . print_r(self::\$fieldKeys[\$fromType], true));
 		}
 		return \$toNames[\$key];
 	}
@@ -834,12 +834,12 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * This method is renamed from doUpdate to avoid LSP violations in PHP 8.4.
 	 *
 	 * @param      mixed \$values Criteria or ".$this->getObjectClassname()." object containing data that is used to create the UPDATE statement.
-	 * @param      PropelPDO \$con The connection to use (specify PropelPDO connection object to exert more control over transactions).
+	 * @param      PropulsionPDO \$con The connection to use (specify PropulsionPDO connection object to exert more control over transactions).
 	 * @return     int The number of affected rows (if supported by underlying database driver).
-	 * @throws     PropelException Any exceptions caught during processing will be
-	 *		 rethrown wrapped into a PropelException.
+	 * @throws     PropulsionException Any exceptions caught during processing will be
+	 *		 rethrown wrapped into a PropulsionException.
 	 */
-	public static function doUpdateThis(\$values, ?PropelPDO \$con = null)
+	public static function doUpdateThis(\$values, ?PropulsionPDO \$con = null)
 	{
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(self::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
@@ -887,12 +887,12 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * Selects several row from the DB.
 	 *
 	 * @param      Criteria \$criteria The Criteria object used to build the SELECT statement.
-	 * @param      PropelPDO \$con
+	 * @param      PropulsionPDO \$con
 	 * @return     array Array of selected Objects
-	 * @throws     PropelException Any exceptions caught during processing will be
-	 *		 rethrown wrapped into a PropelException.
+	 * @throws     PropulsionException Any exceptions caught during processing will be
+	 *		 rethrown wrapped into a PropulsionException.
 	 */
-	public static function doSelect(Criteria \$criteria, ?PropelPDO \$con = null)
+	public static function doSelect(Criteria \$criteria, ?PropulsionPDO \$con = null)
 	{
 		return ".$this->getPeerClassname()."::populateObjects(".$this->getPeerClassname()."::doSelectStmt(\$criteria, \$con));
 	}";
@@ -908,12 +908,12 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * Selects one object from the DB.
 	 *
 	 * @param      Criteria \$criteria object used to create the SELECT statement.
-	 * @param      PropelPDO \$con
+	 * @param      PropulsionPDO \$con
 	 * @return     ".$this->getObjectClassname()."
-	 * @throws     PropelException Any exceptions caught during processing will be
-	 *		 rethrown wrapped into a PropelException.
+	 * @throws     PropulsionException Any exceptions caught during processing will be
+	 *		 rethrown wrapped into a PropulsionException.
 	 */
-	public static function doSelectOne(Criteria \$criteria, ?PropelPDO \$con = null)
+	public static function doSelectOne(Criteria \$criteria, ?PropulsionPDO \$con = null)
 	{
 		\$critcopy = clone \$criteria;
 		\$critcopy->setLimit(1);
@@ -938,13 +938,13 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * to perform your own object hydration).
 	 *
 	 * @param      Criteria \$criteria The Criteria object used to build the SELECT statement.
-	 * @param      PropelPDO \$con The connection to use
-	 * @throws     PropelException Any exceptions caught during processing will be
-	 *		 rethrown wrapped into a PropelException.
+	 * @param      PropulsionPDO \$con The connection to use
+	 * @throws     PropulsionException Any exceptions caught during processing will be
+	 *		 rethrown wrapped into a PropulsionException.
 	 * @return     PDOStatement The executed PDOStatement object.
 	 * @see        ".$this->basePeerClassname."::doSelect()
 	 */
-	public static function doSelectStmt(Criteria \$criteria, ?PropelPDO \$con = null)
+	public static function doSelectStmt(Criteria \$criteria, ?PropulsionPDO \$con = null)
 	{
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_READ);
@@ -980,10 +980,10 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 *
 	 * @param      Criteria \$criteria
 	 * @param      boolean \$distinct Whether to select only distinct columns; deprecated: use Criteria->setDistinct() instead.
-	 * @param      PropelPDO \$con
+	 * @param      PropulsionPDO \$con
 	 * @return     int Number of matching rows.
 	 */
-	public static function doCount(Criteria \$criteria, \$distinct = false, ?PropelPDO \$con = null)
+	public static function doCount(Criteria \$criteria, \$distinct = false, ?PropulsionPDO \$con = null)
 	{
 		return self::doCountThis(\$criteria, \$distinct, \$con);
 	}
@@ -993,10 +993,10 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 *
 	 * @param      Criteria \$criteria
 	 * @param      bool \$distinct Whether to select only distinct columns; deprecated: use Criteria->setDistinct() instead.
-	 * @param      PropelPDO|null \$con
+	 * @param      PropulsionPDO|null \$con
 	 * @return     int Number of matching rows.
 	 */
-	public static function doCountThis(Criteria \$criteria, bool \$distinct = false, ?PropelPDO \$con = null)
+	public static function doCountThis(Criteria \$criteria, bool \$distinct = false, ?PropulsionPDO \$con = null)
 	{
 		// we may modify criteria, so copy it first
 		\$criteria = clone \$criteria;
@@ -1051,7 +1051,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 *
 	 * @param \\PDOStatement \$stmt
 	 * @return array
-	 * @throws PropelException Any exceptions caught during processing will be rethrown wrapped into a PropelException.
+	 * @throws PropulsionException Any exceptions caught during processing will be rethrown wrapped into a PropulsionException.
 	 */
 	public static function populateObjects(\\PDOStatement \$stmt): array
 	{
@@ -1116,7 +1116,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 *
 	 * @param Criteria \$criteria object containing the columns to add.
 	 * @param ?string \$alias optional table alias
-	 * @throws PropelException Any exceptions caught during processing will be rethrown wrapped into a PropelException.
+	 * @throws PropulsionException Any exceptions caught during processing will be rethrown wrapped into a PropulsionException.
 	 */
 	public static function addSelectColumns(Criteria \$criteria, ?string \$alias = null): void
 	{
@@ -1236,7 +1236,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		$script .= "
 				\$key = " . $this->getInstancePoolKeySnippet($php) . ";
 			} else {
-				\$e = new PropelException(\"Invalid value passed to removeInstanceFromPool().  Expected primary key or " . $objectClass . " object; got \" . (is_object(\$value) ? get_class(\$value) . ' object.' : var_export(\$value,true)));
+				\$e = new PropulsionException(\"Invalid value passed to removeInstanceFromPool().  Expected primary key or " . $objectClass . " object; got \" . (is_object(\$value) ? get_class(\$value) . ' object.' : var_export(\$value,true)));
 				throw \$e;
 			}
 
@@ -1295,7 +1295,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Retrieves a string version of the primary key from the DB resultset row that can be used to uniquely identify a row in this table.
 	 *
-	 * @param array \$row PropelPDO resultset row.
+	 * @param array \$row PropulsionPDO resultset row.
 	 * @param int \$startcol The 0-based offset for reading from the resultset row.
 	 * @return ?string A string version of PK or null if the components of primary key in result array are all null.
 	 */
@@ -1382,11 +1382,11 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * Retrieves an object by primary key.
 	 *
 	 * @param $pkType \$pk Primary key value
-	 * @param ?PropelPDO \$con Database connection
+	 * @param ?PropulsionPDO \$con Database connection
 	 * @return \\" . $objectClass . " The object or null if not found
-	 * @throws PropelException
+	 * @throws PropulsionException
 	 */
-	public static function retrieveByPK($pkType \$pk, ?PropelPDO \$con = null): \\" . $objectClass . "|null
+	public static function retrieveByPK($pkType \$pk, ?PropulsionPDO \$con = null): \\" . $objectClass . "|null
 	{
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(self::getDatabaseName(), Propulsion::CONNECTION_READ);
@@ -1447,10 +1447,10 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * Retrieves multiple objects by primary keys.
 	 *
 	 * @param array \$pks Array of primary key values
-	 * @param ?PropelPDO \$con Database connection
+	 * @param ?PropulsionPDO \$con Database connection
 	 * @return array Array of objects
 	 */
-	public static function retrieveByPKs(array \$pks, ?PropelPDO \$con = null): array
+	public static function retrieveByPKs(array \$pks, ?PropulsionPDO \$con = null): array
 	{
 		if (empty(\$pks)) {
 			return [];
@@ -1555,13 +1555,13 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 *
 	 * @param      mixed \$values Criteria or ".$this->getObjectClassname()." object or primary key or array of primary keys
 	 *              which is used to create the DELETE statement
-	 * @param      PropelPDO \$con the connection to use
+	 * @param      PropulsionPDO \$con the connection to use
 	 * @return     int 	The number of affected rows (if supported by underlying database driver).  This includes CASCADE-related rows
 	 *				if supported by native driver or if emulated using Propulsion.
-	 * @throws     PropelException Any exceptions caught during processing will be
-	 *		 rethrown wrapped into a PropelException.
+	 * @throws     PropulsionException Any exceptions caught during processing will be
+	 *		 rethrown wrapped into a PropulsionException.
 	 */
-	 public static function doDelete(\$values, ?PropelPDO \$con = null)
+	 public static function doDelete(\$values, ?PropulsionPDO \$con = null)
 	 {
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
@@ -1693,7 +1693,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			".$this->getPeerClassname()."::clearRelatedInstancePool();
 			\$con->commit();
 			return \$affectedRows;
-		} catch (PropelException \$e) {
+		} catch (PropulsionException \$e) {
 			\$con->rollBack();
 			throw \$e;
 		}
@@ -1788,7 +1788,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * For tables with a single-column primary key, that simple pkey value will be returned.  For tables with
 	 * a multi-column primary key, an array of the primary key columns will be returned.
 	 *
-	 * @param      array \$row PropelPDO resultset row.
+	 * @param      array \$row PropulsionPDO resultset row.
 	 * @param      int \$startcol The 0-based offset for reading from the resultset row.
 	 * @return     mixed The primary key of the row
 	 */
@@ -1834,10 +1834,10 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Populates an object of the default type or an object that inherit from the default.
 	 *
-	 * @param      array \$row PropelPDO resultset row.
+	 * @param      array \$row PropulsionPDO resultset row.
 	 * @param      int \$startcol The 0-based offset for reading from the resultset row.
-	 * @throws     PropelException Any exceptions caught during processing will be
-	 *		 rethrown wrapped into a PropelException.
+	 * @throws     PropulsionException Any exceptions caught during processing will be
+	 *		 rethrown wrapped into a PropulsionException.
 	 * @return     array (" . $this->getStubObjectBuilder()->getClassName(). " object, last column rank)
 	 */
 	public static function populateObject(array \$row, int \$startcol = 0)
@@ -1887,11 +1887,11 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * The returned Class will contain objects of the default type or
 	 * objects that inherit from the default.
 	 *
-	 * @param      array \$row PropelPDO result row.
+	 * @param      array \$row PropulsionPDO result row.
 	 * @param      int \$colnum Column to examine for OM class information (first is 0).
 	 * @param      boolean \$withPrefix Whether or not to return the path with the class name
-	 * @throws     PropelException Any exceptions caught during processing will be
-	 *		 rethrown wrapped into a PropelException.
+	 * @throws     PropulsionException Any exceptions caught during processing will be
+	 *		 rethrown wrapped into a PropulsionException.
 	 */
 	public static function getOMClass(\$row, \$colnum, bool \$withPrefix = true)
 	{
@@ -1929,7 +1929,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		}
 		$script .= "
 		} catch (Exception \$e) {
-			throw new PropelException('Unable to get OM class.', \$e);
+			throw new PropulsionException('Unable to get OM class.', \$e);
 		}
 		return \$omClass;
 	}
@@ -1989,10 +1989,10 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Deletes all rows from the ".$table->getName()." table.
 	 *
-	 * @param      PropelPDO \$con the connection to use
+	 * @param      PropulsionPDO \$con the connection to use
 	 * @return     int The number of affected rows (if supported by underlying database driver).
 	 */
-	public static function doDeleteAll(?PropelPDO \$con = null)
+	public static function doDeleteAll(?PropulsionPDO \$con = null)
 	{
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
@@ -2019,7 +2019,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			".$this->getPeerClassname()."::clearRelatedInstancePool();
 			\$con->commit();
 			return \$affectedRows;
-		} catch (PropelException \$e) {
+		} catch (PropulsionException \$e) {
 			\$con->rollBack();
 			throw \$e;
 		}
@@ -2042,10 +2042,10 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * Retrieve a single object by pkey.
 	 *
 	 * @param      ".$col->getPhpType()." \$pk the primary key.
-	 * @param      ?PropelPDO \$con the connection to use
+	 * @param      ?PropulsionPDO \$con the connection to use
 	 * @return     " .$this->getObjectClassname(). "
 	 */
-	public static function ".$this->getRetrieveMethodName()."(".$col->getPhpType(). " \$pk, ?PropelPDO \$con = null)
+	public static function ".$this->getRetrieveMethodName()."(".$col->getPhpType(). " \$pk, ?PropulsionPDO \$con = null)
 	{
 
 		if (null !== (\$obj = ".$this->getPeerClassname()."::getInstanceFromPool(".$this->getInstancePoolKeySnippet('$pk')."))) {
@@ -2078,11 +2078,11 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * Retrieve multiple objects by pkey.
 	 *
 	 * @param      array \$pks List of primary keys
-	 * @param      ?PropelPDO \$con the connection to use
-	 * @throws     PropelException Any exceptions caught during processing will be
-	 *		 rethrown wrapped into a PropelException.
+	 * @param      ?PropulsionPDO \$con the connection to use
+	 * @throws     PropulsionException Any exceptions caught during processing will be
+	 *		 rethrown wrapped into a PropulsionException.
 	 */
-	public static function ".$this->getRetrieveMethodName()."s(\$pks, ?PropelPDO \$con = null)
+	public static function ".$this->getRetrieveMethodName()."s(\$pks, ?PropulsionPDO \$con = null)
 	{
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_READ);
@@ -2121,7 +2121,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * @param      $cptype $".$clo;
 		}
 		$script .= "
-	 * @param      PropelPDO \$con
+	 * @param      PropulsionPDO \$con
 	 * @return     ".$this->getObjectClassname()."
 	 */
 	public static function ".$this->getRetrieveMethodName()."(";
@@ -2137,7 +2137,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 		$script .= implode(', ', $php);
 
-		$script .= ", ?PropelPDO \$con = null) {
+		$script .= ", ?PropulsionPDO \$con = null) {
 		\$_instancePoolKey = ".$this->getInstancePoolKeySnippet($vars).";";
  		$script .= "
  		if (null !== (\$obj = ".$this->getPeerClassname()."::getInstanceFromPool(\$_instancePoolKey))) {
@@ -2178,10 +2178,10 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * This method should be used within a transaction if possible.
 	 *
 	 * @param      Criteria \$criteria
-	 * @param      ?PropelPDO \$con
+	 * @param      ?PropulsionPDO \$con
 	 * @return     int The number of affected rows (if supported by underlying database driver).
 	 */
-	protected static function doOnDeleteCascade(Criteria \$criteria, ?PropelPDO \$con)
+	protected static function doOnDeleteCascade(Criteria \$criteria, ?PropulsionPDO \$con)
 	{
 		// initialize var to track total num of affected rows
 		\$affectedRows = 0;
@@ -2257,10 +2257,10 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * This method should be used within a transaction if possible.
 	 *
 	 * @param      Criteria \$criteria
-	 * @param      ?PropelPDO \$con
+	 * @param      ?PropulsionPDO \$con
 	 * @return     void
 	 */
-	protected static function doOnDeleteSetNull(Criteria \$criteria, ?PropelPDO \$con)
+	protected static function doOnDeleteSetNull(Criteria \$criteria, ?PropulsionPDO \$con)
 	{
 
 		// first find the objects that are implicated by the \$criteria

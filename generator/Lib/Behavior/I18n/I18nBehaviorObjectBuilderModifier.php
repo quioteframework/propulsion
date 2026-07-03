@@ -19,7 +19,7 @@ namespace Propulsion\Generator\Behavior\I18n;
  */
 
  use Propulsion\Generator\Model\Column;
- use Propulsion\Generator\Model\PropelTypes;
+ use Propulsion\Generator\Model\PropulsionTypes;
 class I18nBehaviorObjectBuilderModifier
 {
 	protected $behavior, $table, $builder;
@@ -148,7 +148,7 @@ class I18nBehaviorObjectBuilderModifier
 		$objectBuilder = $this->builder->getNewObjectBuilder($this->behavior->getI18nTable());
 		$comment = '';
 		$functionStatement = '';
-		if ($column->getType() === PropelTypes::DATE || $column->getType() === PropelTypes::TIME || $column->getType() === PropelTypes::TIMESTAMP) {
+		if ($column->getType() === PropulsionTypes::DATE || $column->getType() === PropulsionTypes::TIME || $column->getType() === PropulsionTypes::TIMESTAMP) {
 			$objectBuilder->addTemporalAccessorComment($comment, $column);
 			$objectBuilder->addTemporalAccessorOpen($functionStatement, $column);
 		} else {
@@ -175,7 +175,7 @@ class I18nBehaviorObjectBuilderModifier
 		$objectBuilder = $this->builder->getNewObjectBuilder($this->behavior->getI18nTable());
 		$comment = '';
 		$functionStatement = '';
-		if ($column->getType() === PropelTypes::DATE || $column->getType() === PropelTypes::TIME || $column->getType() === PropelTypes::TIMESTAMP) {
+		if ($column->getType() === PropulsionTypes::DATE || $column->getType() === PropulsionTypes::TIME || $column->getType() === PropulsionTypes::TIMESTAMP) {
 			$objectBuilder->addTemporalMutatorComment($comment, $column);
 			$objectBuilder->addMutatorOpenOpen($functionStatement, $column);
 		} else {

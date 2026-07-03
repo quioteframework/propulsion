@@ -18,7 +18,7 @@ namespace Propulsion\Generator\Builder\OM;
  * @author     Francois Zaninotto
  * @package    propel.generator.builder.om
  */
-use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\PropulsionTypes;
 use Propulsion\Generator\Model\ForeignKey;
 class PHP5QueryBuilder extends OMBuilder
 {
@@ -139,8 +139,8 @@ class PHP5QueryBuilder extends OMBuilder
 
         // override the signature of ModelCriteria::findOne() to specify the class of the returned object, for IDE completion
         $script .= "
- * @method     $modelClass findOne(PropelPDO \$con = null) Return the first $modelClass matching the query
- * @method     $modelClass findOneOrCreate(PropelPDO \$con = null) Return the first $modelClass matching the query, or a new $modelClass object populated from the query conditions when no match is found
+ * @method     $modelClass findOne(PropulsionPDO \$con = null) Return the first $modelClass matching the query
+ * @method     $modelClass findOneOrCreate(PropulsionPDO \$con = null) Return the first $modelClass matching the query, or a new $modelClass object populated from the query conditions when no match is found
  *";
 
         // magic findBy() methods, for IDE completion
@@ -189,7 +189,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         $this->addFilterByPrimaryKeys($script);
         foreach ($this->getTable()->getColumns() as $col) {
             $this->addFilterByCol($script, $col);
-            if ($col->getType() === PropelTypes::PHP_ARRAY && $col->isNamePlural()) {
+            if ($col->getType() === PropulsionTypes::PHP_ARRAY && $col->isNamePlural()) {
                 $this->addFilterByArrayCol($script, $col);
             }
         }
@@ -372,7 +372,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         $table = $this->getTable();
         $pks = $table->getPrimaryKey();
         $class = $class = $this->getStubObjectBuilder()->getClassname();
-        $this->declareClasses('PropelPDO');
+        $this->declareClasses('PropulsionPDO');
         $script .= "
     /**
      * Find object by primary key";
@@ -396,11 +396,11 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         $script .= "
      * </code>
      * @param     " . $pkType . " \$key Primary key to use for the query
-     * @param     PropelPDO \$con an optional connection object
+     * @param     PropulsionPDO \$con an optional connection object
      *
      * @return    mixed the result, formatted by the current formatter (null if not found)
      */
-    public function findPk(mixed \$key, ?PropelPDO \$con = null) : mixed
+    public function findPk(mixed \$key, ?PropulsionPDO \$con = null) : mixed
     {";
         if (count($pks) === 1) {
             $poolKeyHashParams = '$key';
@@ -434,7 +434,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      */
     protected function addFindPks(&$script)
     {
-        $this->declareClasses('PropelPDO', 'PropelObjectCollection');
+        $this->declareClasses('PropulsionPDO', 'PropulsionObjectCollection');
         $table = $this->getTable();
         $pks = $table->getPrimaryKey();
         $count = count($pks);
@@ -452,11 +452,11 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         $script .= "
      * </code>
      * @param     array \$keys Primary keys to use for the query
-     * @param     PropelPDO \$con an optional connection object
+     * @param     PropulsionPDO \$con an optional connection object
      *
-     * @return    PropelObjectCollection the list of results, formatted by the current formatter
+     * @return    PropulsionObjectCollection the list of results, formatted by the current formatter
      */
-    public function findPks(mixed \$keys, ?PropelPDO \$con = null) : PropelObjectCollection
+    public function findPks(mixed \$keys, ?PropulsionPDO \$con = null) : PropulsionObjectCollection
     {
         \$criteria = \$this->isKeepQuery() ? clone \$this : \$this;
         return \$this
@@ -612,7 +612,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      *              Use scalar values for equality.
      *              Use array values for in_array() equivalent.
      *              Use associative array('min' => \$minValue, 'max' => \$maxValue) for intervals.";
-        } elseif ($col->getType() == PropelTypes::PHP_ARRAY) {
+        } elseif ($col->getType() == PropulsionTypes::PHP_ARRAY) {
             $script .= "
      * @param     array \$$variableName The values to use as filter.";
         } elseif ($col->isTextType()) {
@@ -649,7 +649,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      */
     public function filterBy$colPhpName(\$$variableName = null, \$comparison = null)
     {";
-        if ($col->isPrimaryKey() && ($col->getType() == PropelTypes::INTEGER || $col->getType() == PropelTypes::BIGINT)) {
+        if ($col->isPrimaryKey() && ($col->getType() == PropulsionTypes::INTEGER || $col->getType() == PropulsionTypes::BIGINT)) {
             $script .= "
         if (is_array(\$$variableName) && null === \$comparison) {
             \$comparison = Criteria::IN;
@@ -673,12 +673,12 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
                 \$comparison = Criteria::IN;
             }
         }";
-        } elseif ($col->getType() == PropelTypes::OBJECT) {
+        } elseif ($col->getType() == PropulsionTypes::OBJECT) {
             $script .= "
         if (is_object(\$$variableName)) {
             \$$variableName = serialize(\$$variableName);
         }";
-        } elseif ($col->getType() == PropelTypes::PHP_ARRAY) {
+        } elseif ($col->getType() == PropulsionTypes::PHP_ARRAY) {
             $script .= "
         \$key = \$this->getAliasedColName($qualifiedName);
         if (null === \$comparison || \$comparison == Criteria::CONTAINS_ALL) {
@@ -713,19 +713,19 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
             \$this->addOr(\$key, null, Criteria::ISNULL);
             return \$this;
         }";
-        } elseif ($col->getType() == PropelTypes::ENUM) {
+        } elseif ($col->getType() == PropulsionTypes::ENUM) {
             $script .= "
         \$valueSet = " . $this->getPeerClassname() . "::getValueSet(" . $this->getColumnConstant($col) . ");
         if (is_scalar(\$$variableName)) {
             if (!in_array(\$$variableName, \$valueSet)) {
-                throw new PropelException(sprintf('Value \"%s\" is not accepted in this enumerated column', \$$variableName));
+                throw new PropulsionException(sprintf('Value \"%s\" is not accepted in this enumerated column', \$$variableName));
             }
             \$$variableName = array_search(\$$variableName, \$valueSet);
         } elseif (is_array(\$$variableName)) {
             \$convertedValues = array();
             foreach (\$$variableName as \$value) {
                 if (!in_array(\$value, \$valueSet)) {
-                    throw new PropelException(sprintf('Value \"%s\" is not accepted in this enumerated column', \$value));
+                    throw new PropulsionException(sprintf('Value \"%s\" is not accepted in this enumerated column', \$value));
                 }
                 \$convertedValues []= array_search(\$value, \$valueSet);
             }
@@ -805,7 +805,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      */
     protected function addFilterByFk(&$script, $fk)
     {
-        $this->declareClasses('PropelObjectCollection', 'PropelException');
+        $this->declareClasses('PropulsionObjectCollection', 'PropulsionException');
         $table = $this->getTable();
         $queryClass = $this->getStubQueryBuilder()->getClassname();
         $fkTable = $fk->getForeignTable();
@@ -823,7 +823,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * @param     $fkPhpName $objectName The related object to use as filter";
         } else {
             $script .= "
-     * @param     $fkPhpName|PropelObjectCollection $objectName The related object(s) to use as filter";
+     * @param     $fkPhpName|PropulsionObjectCollection $objectName The related object(s) to use as filter";
         }
         $script .= "
      * @param     string \$comparison Operator to use for the column comparison, defaults to Criteria::EQUAL
@@ -845,7 +845,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
             $localColumnConstant = $this->getColumnConstant($fk->getLocalColumn());
             $foreignColumnName = $fk->getForeignColumn()->getPhpName();
             $script .= "
-        } elseif ($objectName instanceof PropelObjectCollection) {
+        } elseif ($objectName instanceof PropulsionObjectCollection) {
             if (null === \$comparison) {
                 \$comparison = Criteria::IN;
             }
@@ -856,10 +856,10 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         } else {";
         if ($fk->isComposite()) {
             $script .= "
-            throw new PropelException('filterBy$relationName() only accepts arguments of type $fkPhpName');";
+            throw new PropulsionException('filterBy$relationName() only accepts arguments of type $fkPhpName');";
         } else {
             $script .= "
-            throw new PropelException('filterBy$relationName() only accepts arguments of type $fkPhpName or PropelObjectCollection');";
+            throw new PropulsionException('filterBy$relationName() only accepts arguments of type $fkPhpName or PropulsionObjectCollection');";
         }
         $script .= "
         }
@@ -873,7 +873,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      */
     protected function addFilterByRefFk(&$script, $fk)
     {
-        $this->declareClasses('PropelObjectCollection', 'PropelException');
+        $this->declareClasses('PropulsionObjectCollection', 'PropulsionException');
         $table = $this->getTable();
         $queryClass = $this->getStubQueryBuilder()->getClassname();
         $fkTable = $this->getTable()->getDatabase()->getTable($fk->getTableName());
@@ -904,7 +904,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         $script .= ";";
         if (!$fk->isComposite()) {
             $script .= "
-        } elseif ($objectName instanceof PropelObjectCollection) {
+        } elseif ($objectName instanceof PropulsionObjectCollection) {
             return \$this
                 ->use{$relationName}Query()
                 ->filterByPrimaryKeys({$objectName}->getPrimaryKeys())
@@ -914,10 +914,10 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         } else {";
         if ($fk->isComposite()) {
             $script .= "
-            throw new PropelException('filterBy$relationName() only accepts arguments of type $fkPhpName');";
+            throw new PropulsionException('filterBy$relationName() only accepts arguments of type $fkPhpName');";
         } else {
             $script .= "
-            throw new PropelException('filterBy$relationName() only accepts arguments of type $fkPhpName or PropelObjectCollection');";
+            throw new PropulsionException('filterBy$relationName() only accepts arguments of type $fkPhpName or PropulsionObjectCollection');";
         }
         $script .= "
         }
@@ -1176,9 +1176,9 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
     /**
      * Code to execute before every SELECT statement
      *
-     * @param     PropelPDO \$con The connection object used by the query
+     * @param     PropulsionPDO \$con The connection object used by the query
      */
-    protected function basePreSelect(PropelPDO \$con): mixed
+    protected function basePreSelect(PropulsionPDO \$con): mixed
     {" . $behaviorCode . "
 
         return \$this->preSelect(\$con);
@@ -1201,9 +1201,9 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
     /**
      * Code to execute before every DELETE statement
      *
-     * @param     PropelPDO \$con The connection object used by the query
+     * @param     PropulsionPDO \$con The connection object used by the query
      */
-    protected function basePreDelete(PropelPDO \$con)
+    protected function basePreDelete(PropulsionPDO \$con)
     {" . $behaviorCode . "
 
         return \$this->preDelete(\$con);
@@ -1227,9 +1227,9 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Code to execute after every DELETE statement
      *
      * @param     int \$affectedRows the number of deleted rows
-     * @param     PropelPDO \$con The connection object used by the query
+     * @param     PropulsionPDO \$con The connection object used by the query
      */
-    protected function basePostDelete(\$affectedRows, PropelPDO \$con)
+    protected function basePostDelete(\$affectedRows, PropulsionPDO \$con)
     {" . $behaviorCode . "
 
         return \$this->postDelete(\$affectedRows, \$con);
@@ -1253,10 +1253,10 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Code to execute before every UPDATE statement
      *
      * @param     array \$values The associatiove array of columns and values for the update
-     * @param     PropelPDO \$con The connection object used by the query
+     * @param     PropulsionPDO \$con The connection object used by the query
      * @param     boolean \$forceIndividualSaves If false (default), the resulting call is a BasePeer::doUpdate(), ortherwise it is a series of save() calls on all the found objects
      */
-    protected function basePreUpdate(&\$values, PropelPDO \$con, \$forceIndividualSaves = false)
+    protected function basePreUpdate(&\$values, PropulsionPDO \$con, \$forceIndividualSaves = false)
     {" . $behaviorCode . "
 
         return \$this->preUpdate(\$values, \$con, \$forceIndividualSaves);
@@ -1280,9 +1280,9 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Code to execute after every UPDATE statement
      *
      * @param     int \$affectedRows the number of udated rows
-     * @param     PropelPDO \$con The connection object used by the query
+     * @param     PropulsionPDO \$con The connection object used by the query
      */
-    protected function basePostUpdate(\$affectedRows, PropelPDO \$con)
+    protected function basePostUpdate(\$affectedRows, PropulsionPDO \$con)
     {" . $behaviorCode . "
 
         return \$this->postUpdate(\$affectedRows, \$con);

@@ -20,7 +20,7 @@ namespace Propulsion\Generator\Builder\OM;
  * @package    propel.generator.builder.om
  */
 use Propulsion\Generator\Model\IDMethod;
-use Propulsion\Generator\Platform\PropelPlatformInterface;
+use Propulsion\Generator\Platform\PropulsionPlatformInterface;
 use Propulsion\Generator\Model\Validator;
 
 class TableMapBuilder extends OMBuilder
@@ -151,7 +151,7 @@ class ".$this->getClassname()." extends \Propulsion\Map\TableMap
         $this->declareClass('Propulsion\\Map\\TableMap');
         $this->declareClass('Propulsion\\Map\\RelationMap');
         $this->declareClass('Propulsion\\Propulsion');
-        $this->declareClass('Propulsion\\Exception\\PropelException');
+        $this->declareClass('Propulsion\\Exception\\PropulsionException');
         $this->declareClass('\\PDO');
         
         $this->addConstants($script);
@@ -323,7 +323,7 @@ class ".$this->getClassname()." extends \Propulsion\Map\TableMap
                 $imp = $params[0];
                 $script .= "
         \$this->setPrimaryKeyMethodInfo('" . $imp->getValue() . "');";
-            } elseif ($platform->getNativeIdMethod() == PropelPlatformInterface::SEQUENCE || $platform->getNativeIdMethod() == PropelPlatformInterface::SERIAL) {
+            } elseif ($platform->getNativeIdMethod() == PropulsionPlatformInterface::SEQUENCE || $platform->getNativeIdMethod() == PropulsionPlatformInterface::SERIAL) {
                 $script .= "
         \$this->setPrimaryKeyMethodInfo('" . $platform->getSequenceName($table) . "');";
             }

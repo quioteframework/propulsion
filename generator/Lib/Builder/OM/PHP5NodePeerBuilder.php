@@ -189,11 +189,11 @@ abstract class ".$this->getClassname()." {
 	 * Use at your own risk!
 	 *
 	 * @param      $objectClassname Object wrapped by new node.
-	 * @param      PropelPDO Connection to use.
+	 * @param      PropulsionPDO Connection to use.
 	 * @return     $nodeObjectClassname
-	 * @throws     PropelException
+	 * @throws     PropulsionException
 	 */
-	public static function createNewRootNode(\$obj, PropelPDO \$con = null)
+	public static function createNewRootNode(\$obj, PropulsionPDO \$con = null)
 	{
 		if (\$con === null)
 			\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
@@ -209,7 +209,7 @@ abstract class ".$this->getClassname()." {
 			\$obj->save(\$con);
 
 			\$con->commit();
-		} catch (PropelException \$e) {
+		} catch (PropulsionException \$e) {
 			\$con->rollBack();
 			throw \$e;
 		}
@@ -234,11 +234,11 @@ abstract class ".$this->getClassname()." {
 	 * safer alternative to createNewRootNode().
 	 *
 	 * @param      $objectClassname Object wrapped by new node.
-	 * @param      PropelPDO Connection to use.
+	 * @param      PropulsionPDO Connection to use.
 	 * @return     $nodeObjectClassname
-	 * @throws     PropelException
+	 * @throws     PropulsionException
 	 */
-	public static function insertNewRootNode(\$obj, PropelPDO \$con = null)
+	public static function insertNewRootNode(\$obj, PropulsionPDO \$con = null)
 	{
 		if (\$con === null)
 			\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
@@ -258,7 +258,7 @@ abstract class ".$this->getClassname()." {
 			$nodePeerClassname::moveNodeSubTree('0', '1' . self::NPATH_SEP . '1', \$con);
 
 			\$con->commit();
-		} catch (PropelException \$e) {
+		} catch (PropulsionException \$e) {
 			\$con->rollBack();
 			throw \$e;
 		}
@@ -293,10 +293,10 @@ abstract class ".$this->getClassname()." {
 	 * @param      Criteria Criteria to use.
 	 * @param      boolean True if ancestors should also be retrieved.
 	 * @param      boolean True if descendants should also be retrieved.
-	 * @param      PropelPDO Connection to use.
+	 * @param      PropulsionPDO Connection to use.
 	 * @return     array Array of root nodes.
 	 */
-	public static function retrieveNodes(\$criteria, \$ancestors = false, \$descendants = false, PropelPDO \$con = null)
+	public static function retrieveNodes(\$criteria, \$ancestors = false, \$descendants = false, PropulsionPDO \$con = null)
 	{
 		\$criteria = $nodePeerClassname::buildFamilyCriteria(\$criteria, \$ancestors, \$descendants);
 		\$stmt = ".$this->getStubPeerBuilder()->getClassname()."::doSelectStmt(\$criteria, \$con);
@@ -321,12 +321,12 @@ abstract class ".$this->getClassname()." {
 	 * @param      mixed $objectClassname primary key (array for composite keys)
 	 * @param      boolean True if ancestors should also be retrieved.
 	 * @param      boolean True if descendants should also be retrieved.
-	 * @param      PropelPDO Connection to use.
+	 * @param      PropulsionPDO Connection to use.
 	 * @return     $nodeObjectClassname
 	 */
-	public static function retrieveNodeByPK(\$pk, \$ancestors = false, \$descendants = false, PropelPDO \$con = null)
+	public static function retrieveNodeByPK(\$pk, \$ancestors = false, \$descendants = false, PropulsionPDO \$con = null)
 	{
-		throw new PropelException('retrieveNodeByPK() not implemented yet.');
+		throw new PropulsionException('retrieveNodeByPK() not implemented yet.');
 	}
 ";
 	}
@@ -347,10 +347,10 @@ abstract class ".$this->getClassname()." {
 	 * @param      string Node path to retrieve.
 	 * @param      boolean True if ancestors should also be retrieved.
 	 * @param      boolean True if descendants should also be retrieved.
-	 * @param      PropelPDO Connection to use.
+	 * @param      PropulsionPDO Connection to use.
 	 * @return     $objectClassname
 	 */
-	public static function retrieveNodeByNP(\$np, \$ancestors = false, \$descendants = false, PropelPDO \$con = null)
+	public static function retrieveNodeByNP(\$np, \$ancestors = false, \$descendants = false, PropulsionPDO \$con = null)
 	{
 		\$criteria = new Criteria($peerClassname::DATABASE_NAME);
 		\$criteria->add(self::NPATH_COLNAME, \$np, Criteria::EQUAL);
@@ -370,10 +370,10 @@ abstract class ".$this->getClassname()." {
 	 *
 	 * @param      string Node path to retrieve.
 	 * @param      boolean True if descendants should also be retrieved.
-	 * @param      PropelPDO Connection to use.
+	 * @param      PropulsionPDO Connection to use.
 	 * @return     ".$this->getStubNodeBuilder()->getClassname()."
 	 */
-	public static function retrieveRootNode(\$descendants = false, PropelPDO \$con = null)
+	public static function retrieveRootNode(\$descendants = false, PropulsionPDO \$con = null)
 	{
 		return self::retrieveNodeByNP('1', false, \$descendants, \$con);
 	}
@@ -399,18 +399,18 @@ abstract class ".$this->getClassname()." {
 	 *
 	 * @param      string Source node path to move (root of the src subtree).
 	 * @param      string Destination node path to move to (root of the dst subtree).
-	 * @param      PropelPDO Connection to use.
+	 * @param      PropulsionPDO Connection to use.
 	 * @return     void
-	 * @throws     PropelException
+	 * @throws     PropulsionException
 	 * @todo       This is currently broken for simulated 'onCascadeDelete's.
 	 * @todo       Need to abstract the SQL better. The CONCAT sql function doesn't
 	 *       seem to be standardized (i.e. mssql), so maybe it needs to be moved
 	 *       to DBAdapter.
 	 */
-	public static function moveNodeSubTree(\$srcPath, \$dstPath, PropelPDO \$con = null)
+	public static function moveNodeSubTree(\$srcPath, \$dstPath, PropulsionPDO \$con = null)
 	{
 		if (substr(\$dstPath, 0, strlen(\$srcPath)) == \$srcPath)
-			throw new PropelException('Cannot move a node subtree within itself.');
+			throw new PropulsionException('Cannot move a node subtree within itself.');
 
 		if (\$con === null)
 			\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
@@ -475,12 +475,12 @@ abstract class ".$this->getClassname()." {
 	 * Deletes the node subtree at the specified node path from the database.
 	 *
 	 * @param      string Node path to delete
-	 * @param      PropelPDO Connection to use.
+	 * @param      PropulsionPDO Connection to use.
 	 * @return     void
-	 * @throws     PropelException
+	 * @throws     PropulsionException
 	 * @todo       This is currently broken for simulated 'onCascadeDelete's.
 	 */
-	public static function deleteNodeSubTree(\$nodePath, PropelPDO \$con = null)
+	public static function deleteNodeSubTree(\$nodePath, PropulsionPDO \$con = null)
 	{
 		if (\$con === null)
 			\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME, Propulsion::CONNECTION_WRITE);

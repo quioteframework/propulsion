@@ -126,7 +126,7 @@ class QuickGeneratorConfig implements GeneratorConfigInterface
 	{
 		$this->buildProperties = array();
 
-		$renamedPropelProps = array();
+		$renamedPropulsionProps = array();
 		foreach ($props as $key => $propValue) {
 			if (strpos($key, "propel.") === 0) {
 				$newKey = substr($key, strlen("propel."));

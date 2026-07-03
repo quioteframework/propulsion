@@ -210,14 +210,14 @@ abstract class ".$this->getClassname()." implements IteratorAggregate {
 	 * @param      string Method name to call on wrapped object.
 	 * @param      mixed Parameter accepted by wrapped object set method.
 	 * @return     mixed Return value of wrapped object method.
-	 * @throws     PropelException Fails if method is not defined for wrapped object.
+	 * @throws     PropulsionException Fails if method is not defined for wrapped object.
 	 */
 	public function __call(\$name, \$parms)
 	{
 		if (method_exists(\$this->obj, \$name))
 			return call_user_func_array(array(\$this->obj, \$name), \$parms);
 		else
-			throw new PropelException('get method not defined: \$name');
+			throw new PropulsionException('get method not defined: \$name');
 	}
 ";
 	}
@@ -370,10 +370,10 @@ abstract class ".$this->getClassname()." implements IteratorAggregate {
 	 *
 	 * @param      int One-based child node index.
 	 * @param      boolean True if child should be retrieved from database.
-	 * @param      PropelPDO Connection to use if retrieving from database.
+	 * @param      PropulsionPDO Connection to use if retrieving from database.
 	 * @return     ".$this->getStubNodeBuilder()->getClassname()."
 	 */
-	public function getChildNodeAt(\$i, \$querydb = false, PropelPDO \$con = null)
+	public function getChildNodeAt(\$i, \$querydb = false, PropulsionPDO \$con = null)
 	{
 		if (\$querydb &&
 			!\$this->obj->isNew() &&
@@ -399,10 +399,10 @@ abstract class ".$this->getClassname()." implements IteratorAggregate {
 	 * Returns first child node (if any). Retrieves from database if not loaded yet.
 	 *
 	 * @param      boolean True if child should be retrieved from database.
-	 * @param      PropelPDO Connection to use if retrieving from database.
+	 * @param      PropulsionPDO Connection to use if retrieving from database.
 	 * @return     ".$this->getStubNodeBuilder()->getClassname()."
 	 */
-	public function getFirstChildNode(\$querydb = false, PropelPDO \$con = null)
+	public function getFirstChildNode(\$querydb = false, PropulsionPDO \$con = null)
 	{
 		return \$this->getChildNodeAt(1, \$querydb, \$con);
 	}
@@ -419,9 +419,9 @@ abstract class ".$this->getClassname()." implements IteratorAggregate {
 	 * Returns last child node (if any).
 	 *
 	 * @param      boolean True if child should be retrieved from database.
-	 * @param      PropelPDO Connection to use if retrieving from database.
+	 * @param      PropulsionPDO Connection to use if retrieving from database.
 	 */
-	public function getLastChildNode(\$querydb = false, PropelPDO \$con = null)
+	public function getLastChildNode(\$querydb = false, PropulsionPDO \$con = null)
 	{
 		\$lastNode = null;
 
@@ -453,7 +453,7 @@ abstract class ".$this->getClassname()." implements IteratorAggregate {
 				if (\$endNode)
 				{
 					if (\$endNode->getNodePath() > \$lastNode->getNodePath())
-						throw new PropelException('Cached child node inconsistent with database.');
+						throw new PropulsionException('Cached child node inconsistent with database.');
 					else if (\$endNode->getNodePath() == \$lastNode->getNodePath())
 						\$lastNode = \$endNode;
 					else
@@ -480,10 +480,10 @@ abstract class ".$this->getClassname()." implements IteratorAggregate {
 	 *
 	 * @param      boolean True if previous sibling should be returned.
 	 * @param      boolean True if sibling should be retrieved from database.
-	 * @param      PropelPDO Connection to use if retrieving from database.
+	 * @param      PropulsionPDO Connection to use if retrieving from database.
 	 * @return     ".$this->getStubNodeBuilder()->getClassname()."
 	 */
-	public function getSiblingNode(\$prev = false, \$querydb = false, PropelPDO \$con = null)
+	public function getSiblingNode(\$prev = false, \$querydb = false, PropulsionPDO \$con = null)
 	{
 		\$nidx = \$this->getNodeIndex();
 
@@ -519,10 +519,10 @@ abstract class ".$this->getClassname()." implements IteratorAggregate {
 	 * Returns parent node. Loads from database if not cached yet.
 	 *
 	 * @param      boolean True if parent should be retrieved from database.
-	 * @param      PropelPDO Connection to use if retrieving from database.
+	 * @param      PropulsionPDO Connection to use if retrieving from database.
 	 * @return     ".$this->getStubNodeBuilder()->getClassname()."
 	 */
-	public function getParentNode(\$querydb = true, PropelPDO \$con = null)
+	public function getParentNode(\$querydb = true, PropulsionPDO \$con = null)
 	{
 		if (\$querydb &&
 			\$this->parentNode === null &&
@@ -557,10 +557,10 @@ abstract class ".$this->getClassname()." implements IteratorAggregate {
 	 * first.
 	 *
 	 * @param      boolean True if ancestors should be retrieved from database.
-	 * @param      PropelPDO Connection to use if retrieving from database.
+	 * @param      PropulsionPDO Connection to use if retrieving from database.
 	 * @return     array
 	 */
-	public function getAncestors(\$querydb = false, PropelPDO \$con = null)
+	public function getAncestors(\$querydb = false, PropulsionPDO \$con = null)
 	{
 		\$ancestors = array();
 		\$parentNode = \$this;
@@ -636,21 +636,21 @@ abstract class ".$this->getClassname()." implements IteratorAggregate {
 	 *
 	 * @param      ".$this->getStubNodeBuilder()->getClassname()." Node to add.
 	 * @param      ".$this->getStubNodeBuilder()->getClassname()." Node to insert before.
-	 * @param      PropelPDO Connection to use.
+	 * @param      PropulsionPDO Connection to use.
 	 */
-	public function addChildNode(\$node, \$beforeNode = null, PropelPDO \$con = null)
+	public function addChildNode(\$node, \$beforeNode = null, PropulsionPDO \$con = null)
 	{
 		if (\$this->obj->isNew() && !\$node->obj->isNew())
-			throw new PropelException('Cannot add stored nodes to a new node.');
+			throw new PropulsionException('Cannot add stored nodes to a new node.');
 
 		if (\$this->obj->isDeleted() || \$node->obj->isDeleted())
-			throw new PropelException('Cannot add children in a deleted state.');
+			throw new PropulsionException('Cannot add children in a deleted state.');
 
 		if (\$this->hasChildNode(\$node))
-			throw new PropelException('Node is already a child of this node.');
+			throw new PropulsionException('Node is already a child of this node.');
 
 		if (\$beforeNode && !\$this->hasChildNode(\$beforeNode))
-			throw new PropelException('Invalid beforeNode.');
+			throw new PropulsionException('Invalid beforeNode.');
 
 		if (\$con === null)
 			\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
@@ -712,7 +712,7 @@ abstract class ".$this->getClassname()." implements IteratorAggregate {
 
 		} catch (SQLException \$e) {
 			if (!\$this->obj->isNew()) \$con->rollBack();
-			throw new PropelException(\$e);
+			throw new PropulsionException(\$e);
 		}
 	}
 ";
@@ -726,12 +726,12 @@ abstract class ".$this->getClassname()." implements IteratorAggregate {
 	 *
 	 * @param      ".$this->getStubNodeBuilder()->getClassname()." Node to move.
 	 * @param      int Number of spaces to move among siblings (may be negative).
-	 * @param      PropelPDO Connection to use.
-	 * @throws     PropelException
+	 * @param      PropulsionPDO Connection to use.
+	 * @throws     PropulsionException
 	 */
-	public function moveChildNode(\$node, \$direction, PropelPDO \$con = null)
+	public function moveChildNode(\$node, \$direction, PropulsionPDO \$con = null)
 	{
-		throw new PropelException('moveChildNode() not implemented yet.');
+		throw new PropulsionException('moveChildNode() not implemented yet.');
 	}
 ";
 	}
@@ -745,18 +745,18 @@ abstract class ".$this->getClassname()." implements IteratorAggregate {
 	 * Saves modified object data to the datastore.
 	 *
 	 * @param      boolean If true, descendants will be saved as well.
-	 * @param      PropelPDO Connection to use.
+	 * @param      PropulsionPDO Connection to use.
 	 */
-	public function save(\$recurse = false, PropelPDO \$con = null)
+	public function save(\$recurse = false, PropulsionPDO \$con = null)
 	{
 		if (\$this->obj->isDeleted())
-			throw new PropelException('Cannot save deleted node.');
+			throw new PropulsionException('Cannot save deleted node.');
 
 		if (substr(\$this->getNodePath(), 0, 1) == '0')
-			throw new PropelException('Cannot save unattached node.');
+			throw new PropulsionException('Cannot save unattached node.');
 
 		if (\$this->obj->isColumnModified($nodePeerClassname::NPATH_COLNAME))
-			throw new PropelException('Cannot save manually modified node path.');
+			throw new PropulsionException('Cannot save manually modified node path.');
 
 		\$this->obj->save(\$con);
 
@@ -777,14 +777,14 @@ abstract class ".$this->getClassname()." implements IteratorAggregate {
 	/**
 	 * Removes this object and all descendants from datastore.
 	 *
-	 * @param      PropelPDO Connection to use.
+	 * @param      PropulsionPDO Connection to use.
 	 * @return     void
-	 * @throws     PropelException
+	 * @throws     PropulsionException
 	 */
-	public function delete(PropelPDO \$con = null)
+	public function delete(PropulsionPDO \$con = null)
 	{
 		if (\$this->obj->isDeleted()) {
-			throw new PropelException('This node has already been deleted.');
+			throw new PropulsionException('This node has already been deleted.');
 		}
 
 		if (\$con === null) {
@@ -840,12 +840,12 @@ abstract class ".$this->getClassname()." implements IteratorAggregate {
 	 *
 	 * @param      $nodeClassname Parent node to attach.
 	 * @return     void
-	 * @throws     PropelException
+	 * @throws     PropulsionException
 	 */
 	public function attachParentNode(\$node)
 	{
 		if (!\$node->hasChildNode(\$this, true))
-			throw new PropelException('Failed to attach parent node for non-child.');
+			throw new PropulsionException('Failed to attach parent node for non-child.');
 
 		\$this->parentNode = \$node;
 	}
@@ -864,24 +864,24 @@ abstract class ".$this->getClassname()." implements IteratorAggregate {
 	 *
 	 * @param      $nodeClassname Child node to attach.
 	 * @return     void
-	 * @throws     PropelException
+	 * @throws     PropulsionException
 	 */
 	public function attachChildNode(\$node)
 	{
 		if (\$this->hasChildNode(\$node))
-			throw new PropelException('Failed to attach child node. Node already exists.');
+			throw new PropulsionException('Failed to attach child node. Node already exists.');
 
 		if (\$this->obj->isDeleted() || \$node->obj->isDeleted())
-			throw new PropelException('Failed to attach node in deleted state.');
+			throw new PropulsionException('Failed to attach node in deleted state.');
 
 		if (\$this->obj->isNew() && !\$node->obj->isNew())
-			throw new PropelException('Failed to attach non-new child to new node.');
+			throw new PropulsionException('Failed to attach non-new child to new node.');
 
 		if (!\$this->obj->isNew() && \$node->obj->isNew())
-			throw new PropelException('Failed to attach new child to non-new node.');
+			throw new PropulsionException('Failed to attach new child to non-new node.');
 
 		if (\$this->getNodePath() . $nodePeerClassname::NPATH_SEP . \$node->getNodeIndex() != \$node->getNodePath())
-			throw new PropelException('Failed to attach child node. Node path mismatch.');
+			throw new PropulsionException('Failed to attach child node. Node path mismatch.');
 
 		\$this->childNodes[\$node->getNodeIndex()] = \$node;
 		ksort(\$this->childNodes);
@@ -900,12 +900,12 @@ abstract class ".$this->getClassname()." implements IteratorAggregate {
 	 * the link to this node's parent.
 	 * @param      $nodeClassname Parent node to detach from.
 	 * @return     void
-	 * @throws     PropelException
+	 * @throws     PropulsionException
 	 */
 	public function detachParentNode(\$node)
 	{
 		if (!\$node->hasChildNode(\$this, true))
-			throw new PropelException('Failed to detach parent node from non-child.');
+			throw new PropulsionException('Failed to detach parent node from non-child.');
 
 		unset(\$node->childNodes[\$this->getNodeIndex()]);
 		\$this->parentNode = null;
@@ -921,12 +921,12 @@ abstract class ".$this->getClassname()." implements IteratorAggregate {
 	 * the link to this between this node and the specified child.
 	 * @param      ".$this->getStubNodeBuilder()->getClassname()." Child node to detach.
 	 * @return     void
-	 * @throws     PropelException
+	 * @throws     PropulsionException
 	 */
 	public function detachChildNode(\$node)
 	{
 		if (!\$this->hasChildNode(\$node, true))
-			throw new PropelException('Failed to detach non-existent child node.');
+			throw new PropulsionException('Failed to detach non-existent child node.');
 
 		unset(\$this->childNodes[\$node->getNodeIndex()]);
 		\$node->parentNode = null;
@@ -947,14 +947,14 @@ abstract class ".$this->getClassname()." implements IteratorAggregate {
 	 *
 	 * @param      int Direction/# spaces to shift. 1=leftshift, 1=rightshift
 	 * @param      int Node index to start shift at.
-	 * @param      PropelPDO The connection to be used.
+	 * @param      PropulsionPDO The connection to be used.
 	 * @return     void
-	 * @throws     PropelException
+	 * @throws     PropulsionException
 	 */
-	protected function shiftChildNodes(\$direction, \$offsetIdx, PropelPDO \$con)
+	protected function shiftChildNodes(\$direction, \$offsetIdx, PropulsionPDO \$con)
 	{
 		if (\$this->obj->isDeleted())
-			throw new PropelException('Cannot shift nodes for deleted object');
+			throw new PropulsionException('Cannot shift nodes for deleted object');
 
 		\$lastNode = \$this->getLastChildNode(true, \$con);
 		\$lastIdx = (\$lastNode !== null ? \$lastNode->getNodeIndex() : 0);
@@ -989,7 +989,7 @@ abstract class ".$this->getClassname()." implements IteratorAggregate {
 
 			} catch (SQLException \$e) {
 				\$con->rollBack();
-				throw new PropelException(\$e);
+				throw new PropulsionException(\$e);
 			}
 		}
 
@@ -1031,13 +1031,13 @@ abstract class ".$this->getClassname()." implements IteratorAggregate {
 	 *
 	 * @param      $nodeClassname Node to insert.
 	 * @param      int One-based child index to insert at.
-	 * @param      PropelPDO Connection to use.
+	 * @param      PropulsionPDO Connection to use.
 	 * @param      void
 	 */
-	protected function insertNewChildNode(\$node, \$childIdx, PropelPDO \$con)
+	protected function insertNewChildNode(\$node, \$childIdx, PropulsionPDO \$con)
 	{
 		if (!\$node->obj->isNew())
-			throw new PropelException('Failed to insert non-new node.');
+			throw new PropulsionException('Failed to insert non-new node.');
 
 		\$setNodePath = 'set' . $nodePeerClassname::NPATH_PHPNAME;
 

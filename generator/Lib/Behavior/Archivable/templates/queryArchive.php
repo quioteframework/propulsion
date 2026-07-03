@@ -6,8 +6,8 @@
  * is updated and not duplicated.
  * Warning: This termination methods issues 2n+1 queries.
  *
- * @param      PropelPDO $con	Connection to use.
- * @param      Boolean $useLittleMemory	Whether or not to use PropelOnDemandFormatter to retrieve objects.
+ * @param      PropulsionPDO $con	Connection to use.
+ * @param      Boolean $useLittleMemory	Whether or not to use PropulsionOnDemandFormatter to retrieve objects.
  *               Set to false if the identity map matters.
  *               Set to true (default) to use less memory.
  *
@@ -33,7 +33,7 @@ public function archive($con = null, $useLittleMemory = true)
 			$totalArchivedObjects++;
 		}
 		$con->commit();
-	} catch (PropelException $e) {
+	} catch (PropulsionException $e) {
 		$con->rollBack();
 		throw $e;
 	}

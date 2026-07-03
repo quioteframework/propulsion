@@ -85,7 +85,7 @@ public function getChildObject()
 		return null;
 	}
 	\$childObjectClass = \$this->" . $this->getColumnGetter() . "();
-	\$childObject = PropelQuery::from(\$childObjectClass)->findPk(\$this->getPrimaryKey());
+	\$childObject = PropulsionQuery::from(\$childObjectClass)->findPk(\$this->getPrimaryKey());
 	return \$childObject->hasChildObject() ? \$childObject->getChildObject() : \$childObject;
 }
 ";

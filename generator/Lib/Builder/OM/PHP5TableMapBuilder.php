@@ -16,7 +16,7 @@ namespace Propulsion\Generator\Builder\OM;
  * @package    propel.generator.builder.om
  */
 use Propulsion\Generator\Model\IDMethod;
-use Propulsion\Generator\Platform\PropelPlatformInterface;
+use Propulsion\Generator\Platform\PropulsionPlatformInterface;
 use Propulsion\Generator\Model\Validator;
 class PHP5TableMapBuilder extends OMBuilder
 {
@@ -165,7 +165,7 @@ class ".$this->getClassname()." extends TableMap
 	 * Relations are not initialized by this method since they are lazy loaded
 	 *
 	 * @return     void
-	 * @throws     PropelException
+	 * @throws     PropulsionException
 	 */
 	public function initialize()
 	{
@@ -187,7 +187,7 @@ class ".$this->getClassname()." extends TableMap
 			$imp = $params[0];
 			$script .= "
 		\$this->setPrimaryKeyMethodInfo('".$imp->getValue()."');";
-		} elseif ($table->getIdMethod() == IDMethod::NATIVE && ($platform->getNativeIdMethod() == PropelPlatformInterface::SEQUENCE || $platform->getNativeIdMethod() == PropelPlatformInterface::SERIAL)) {
+		} elseif ($table->getIdMethod() == IDMethod::NATIVE && ($platform->getNativeIdMethod() == PropulsionPlatformInterface::SEQUENCE || $platform->getNativeIdMethod() == PropulsionPlatformInterface::SERIAL)) {
 			$script .= "
 		\$this->setPrimaryKeyMethodInfo('".$platform->getSequenceName($table)."');";
 		}

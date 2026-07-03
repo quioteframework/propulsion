@@ -169,7 +169,7 @@ class "  .$this->getClassname() . " extends " . $baseClassname . " {
 	protected function addClassBody(&$script)
 	{
 		$this->declareClassFromBuilder($this->getStubPeerBuilder());
-		$this->declareClasses('PropelPDO', 'Criteria');
+		$this->declareClasses('PropulsionPDO', 'Criteria');
 		$this->addFactory($script);
 		$this->addPreSelect($script);
 		$this->addPreUpdate($script);
@@ -233,7 +233,7 @@ class "  .$this->getClassname() . " extends " . $baseClassname . " {
 	/**
 	 * Filters the query to target only " . $child->getClassname() . " objects.
 	 */
-	public function preSelect(PropelPDO \$con): mixed
+	public function preSelect(PropulsionPDO \$con): mixed
 	{
 		" . $this->getClassKeyCondition() . "
 		return null;
@@ -250,7 +250,7 @@ class "  .$this->getClassname() . " extends " . $baseClassname . " {
 	/**
 	 * Filters the query to target only " . $child->getClassname() . " objects.
 	 */
-	public function preUpdate(&\$values, PropelPDO \$con, \$forceIndividualSaves = false)
+	public function preUpdate(&\$values, PropulsionPDO \$con, \$forceIndividualSaves = false)
 	{
 		" . $this->getClassKeyCondition() . "
 	}
@@ -266,7 +266,7 @@ class "  .$this->getClassname() . " extends " . $baseClassname . " {
 	/**
 	 * Filters the query to target only " . $child->getClassname() . " objects.
 	 */
-	public function preDelete(PropelPDO \$con)
+	public function preDelete(PropulsionPDO \$con)
 	{
 		" . $this->getClassKeyCondition() . "
 	}
@@ -290,7 +290,7 @@ class "  .$this->getClassname() . " extends " . $baseClassname . " {
 	 * Having the " . $child->getClassname() . " class.
 	 * This method is called by ModelCriteria::deleteAll() inside a transaction
 	 *
-	 * @param PropelPDO \$con a connection object
+	 * @param PropulsionPDO \$con a connection object
 	 *
 	 * @return integer the number of deleted rows
 	 */

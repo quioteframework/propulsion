@@ -18,7 +18,7 @@ namespace Propulsion\Generator\Reverse\SQLite;
  * @package    propel.generator.reverse.sqlite
  */
 use Propulsion\Generator\Reverse\BaseSchemaParser;
-use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\PropulsionTypes;
 use Propulsion\Generator\Model\Database;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Model\Column;
@@ -38,35 +38,35 @@ class SqliteSchemaParser extends BaseSchemaParser
 	 * @var        array
 	 */
 	private static $sqliteTypeMap = array(
-		'tinyint' => PropelTypes::TINYINT,
-		'smallint' => PropelTypes::SMALLINT,
-		'mediumint' => PropelTypes::SMALLINT,
-		'int' => PropelTypes::INTEGER,
-		'integer' => PropelTypes::INTEGER,
-		'bigint' => PropelTypes::BIGINT,
-		'int24' => PropelTypes::BIGINT,
-		'real' => PropelTypes::REAL,
-		'float' => PropelTypes::FLOAT,
-		'decimal' => PropelTypes::DECIMAL,
-		'numeric' => PropelTypes::NUMERIC,
-		'double' => PropelTypes::DOUBLE,
-		'char' => PropelTypes::CHAR,
-		'varchar' => PropelTypes::VARCHAR,
-		'date' => PropelTypes::DATE,
-		'time' => PropelTypes::TIME,
-		'year' => PropelTypes::INTEGER,
-		'datetime' => PropelTypes::TIMESTAMP,
-		'timestamp' => PropelTypes::TIMESTAMP,
-		'tinyblob' => PropelTypes::BINARY,
-		'blob' => PropelTypes::BLOB,
-		'mediumblob' => PropelTypes::BLOB,
-		'longblob' => PropelTypes::BLOB,
-		'longtext' => PropelTypes::CLOB,
-		'tinytext' => PropelTypes::VARCHAR,
-		'mediumtext' => PropelTypes::LONGVARCHAR,
-		'text' => PropelTypes::LONGVARCHAR,
-		'enum' => PropelTypes::CHAR,
-		'set' => PropelTypes::CHAR,
+		'tinyint' => PropulsionTypes::TINYINT,
+		'smallint' => PropulsionTypes::SMALLINT,
+		'mediumint' => PropulsionTypes::SMALLINT,
+		'int' => PropulsionTypes::INTEGER,
+		'integer' => PropulsionTypes::INTEGER,
+		'bigint' => PropulsionTypes::BIGINT,
+		'int24' => PropulsionTypes::BIGINT,
+		'real' => PropulsionTypes::REAL,
+		'float' => PropulsionTypes::FLOAT,
+		'decimal' => PropulsionTypes::DECIMAL,
+		'numeric' => PropulsionTypes::NUMERIC,
+		'double' => PropulsionTypes::DOUBLE,
+		'char' => PropulsionTypes::CHAR,
+		'varchar' => PropulsionTypes::VARCHAR,
+		'date' => PropulsionTypes::DATE,
+		'time' => PropulsionTypes::TIME,
+		'year' => PropulsionTypes::INTEGER,
+		'datetime' => PropulsionTypes::TIMESTAMP,
+		'timestamp' => PropulsionTypes::TIMESTAMP,
+		'tinyblob' => PropulsionTypes::BINARY,
+		'blob' => PropulsionTypes::BLOB,
+		'mediumblob' => PropulsionTypes::BLOB,
+		'longblob' => PropulsionTypes::BLOB,
+		'longtext' => PropulsionTypes::CLOB,
+		'tinytext' => PropulsionTypes::VARCHAR,
+		'mediumtext' => PropulsionTypes::LONGVARCHAR,
+		'text' => PropulsionTypes::LONGVARCHAR,
+		'enum' => PropulsionTypes::CHAR,
+		'set' => PropulsionTypes::CHAR,
 	);
 
 	/**
@@ -149,7 +149,7 @@ class SqliteSchemaParser extends BaseSchemaParser
 			$not_null = $row['notnull'];
 			$default = $row['dflt_value'];
 
-			$propelType = $this->getMappedPropelType(strtolower($type));
+			$propelType = $this->getMappedPropulsionType(strtolower($type));
 			if (!$propelType) {
 				$propelType = Column::DEFAULT_TYPE;
 				$this->warn("Column [" . $table->getName() . "." . $name. "] has a column type (".$type.") that Propulsion does not support.");

@@ -9,7 +9,7 @@ namespace Propulsion\Generator\Model;
  */
 
 use ReflectionObject;
-use Propulsion\Generator\Builder\Util\PropelTemplate;
+use Propulsion\Generator\Builder\Util\PropulsionTemplate;
 
 /**
  * Information about behaviors of a table.
@@ -204,7 +204,7 @@ class Behavior extends XMLElement
 				));
 			}
 		}
-		$template = new PropelTemplate();
+		$template = new PropulsionTemplate();
 		$template->setTemplateFile($filePath);
 		$vars = array_merge($vars, array('behavior' => $this));
 

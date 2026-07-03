@@ -10,14 +10,14 @@
 namespace Propulsion\Generator\Platform;
 
 /**
- * SQLite PropelPlatformInterface implementation.
+ * SQLite PropulsionPlatformInterface implementation.
  *
  * @author     Hans Lellelid <hans@xmpl.org>
  * @version    $Revision$
  * @package    propel.generator.platform
  */
 use Propulsion\Generator\Model\Domain;
-use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\PropulsionTypes;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Model\ForeignKey;
 class SqlitePlatform extends DefaultPlatform
@@ -29,17 +29,17 @@ class SqlitePlatform extends DefaultPlatform
 	protected function initialize()
 	{
 		parent::initialize();
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::NUMERIC, "DECIMAL"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::LONGVARCHAR, "MEDIUMTEXT"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::DATE, "DATETIME"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::BINARY, "BLOB"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::VARBINARY, "MEDIUMBLOB"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::LONGVARBINARY, "LONGBLOB"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::BLOB, "LONGBLOB"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::CLOB, "LONGTEXT"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::OBJECT, "MEDIUMTEXT"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::PHP_ARRAY, "MEDIUMTEXT"));
-		$this->setSchemaDomainMapping(new Domain(PropelTypes::ENUM, "TINYINT"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::NUMERIC, "DECIMAL"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::LONGVARCHAR, "MEDIUMTEXT"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::DATE, "DATETIME"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::BINARY, "BLOB"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::VARBINARY, "MEDIUMBLOB"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::LONGVARBINARY, "LONGBLOB"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::BLOB, "LONGBLOB"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::CLOB, "LONGTEXT"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::OBJECT, "MEDIUMTEXT"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::PHP_ARRAY, "MEDIUMTEXT"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::ENUM, "TINYINT"));
 	}
 
 	/**

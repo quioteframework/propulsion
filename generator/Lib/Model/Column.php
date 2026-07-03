@@ -23,7 +23,7 @@
  * @package    propel.generator.model
  */
 
- use Propulsion\Generator\Platform\PropelPlatformInterface;
+ use Propulsion\Generator\Platform\PropulsionPlatformInterface;
  use Propulsion\Generator\Exception\EngineException;
 class Column extends XMLElement
 {
@@ -111,7 +111,7 @@ class Column extends XMLElement
 	 * a list of <code>String</code> objects with column names.
 	 * @deprecated Use the Platform::getColumnListDDL() method instead
 	 */
-	public static function makeList($columns, PropelPlatformInterface $platform)
+	public static function makeList($columns, PropulsionPlatformInterface $platform)
 	{
 		$list = array();
 		foreach ($columns as $col) {
@@ -818,7 +818,7 @@ class Column extends XMLElement
 	public function setType($propelType)
 	{
 		$this->getDomain()->setType($propelType);
-		if ($propelType == PropelTypes::VARBINARY|| $propelType == PropelTypes::LONGVARBINARY || $propelType == PropelTypes::BLOB) {
+		if ($propelType == PropulsionTypes::VARBINARY|| $propelType == PropulsionTypes::LONGVARBINARY || $propelType == PropulsionTypes::BLOB) {
 			$this->needsTransactionInPostgres = true;
 		}
 	}
@@ -839,18 +839,18 @@ class Column extends XMLElement
 	 */
 	public function getPDOType()
 	{
-		return PropelTypes::getPDOType($this->getType());
+		return PropulsionTypes::getPDOType($this->getType());
 	}
 
 	/**
 	 * Returns the column type as given in the schema as an object
 	 */
-	public function getPropelType()
+	public function getPropulsionType()
 	{
 		return $this->getType();
 	}
 
-	public function isDefaultSqlType(?PropelPlatformInterface $platform = null)
+	public function isDefaultSqlType(?PropulsionPlatformInterface $platform = null)
 	{
 		if (null === $this->domain || null === $this->domain->getSqlType() || null === $platform) {
 			return true;
@@ -868,7 +868,7 @@ class Column extends XMLElement
 	 */
 	public function isLobType()
 	{
-		return PropelTypes::isLobType($this->getType());
+		return PropulsionTypes::isLobType($this->getType());
 	}
 
 	/**
@@ -876,7 +876,7 @@ class Column extends XMLElement
 	 */
 	public function isTextType()
 	{
-		return PropelTypes::isTextType($this->getType());
+		return PropulsionTypes::isTextType($this->getType());
 	}
 
 	/**
@@ -885,7 +885,7 @@ class Column extends XMLElement
 	 */
 	public function isNumericType()
 	{
-		return PropelTypes::isNumericType($this->getType());
+		return PropulsionTypes::isNumericType($this->getType());
 	}
 
 	/**
@@ -894,7 +894,7 @@ class Column extends XMLElement
 	 */
 	public function isBooleanType()
 	{
-		return PropelTypes::isBooleanType($this->getType());
+		return PropulsionTypes::isBooleanType($this->getType());
 	}
 
 	/**
@@ -903,7 +903,7 @@ class Column extends XMLElement
 	 */
 	public function isTemporalType()
 	{
-		return PropelTypes::isTemporalType($this->getType());
+		return PropulsionTypes::isTemporalType($this->getType());
 	}
 
 	/**
@@ -912,7 +912,7 @@ class Column extends XMLElement
 	 */
 	public function isEnumType()
 	{
-		return $this->getType() == PropelTypes::ENUM;
+		return $this->getType() == PropulsionTypes::ENUM;
 	}
 
 	/**
@@ -1076,7 +1076,7 @@ class Column extends XMLElement
 				$dflt = (float) $defaultValue->getValue();
 			} elseif ($this->isTextType() || $this->getDefaultValue()->isExpression()) {
 				$dflt = "'" . str_replace("'", "\'", $defaultValue->getValue()) . "'";
-			} elseif ($this->getType() == PropelTypes::BOOLEAN) {
+			} elseif ($this->getType() == PropulsionTypes::BOOLEAN) {
 				$dflt = $this->booleanValue($defaultValue->getValue()) ? 'true' : 'false';
 			} else {
 				$dflt = "'" . $defaultValue->getValue() . "'";
@@ -1184,19 +1184,19 @@ class Column extends XMLElement
 		}
 
 		if (strpos($tn, "CHAR") !== false) {
-			$this->domain->setType(PropelTypes::VARCHAR);
+			$this->domain->setType(PropulsionTypes::VARCHAR);
 		} elseif (strpos($tn, "INT") !== false) {
-			$this->domain->setType(PropelTypes::INTEGER);
+			$this->domain->setType(PropulsionTypes::INTEGER);
 		} elseif (strpos($tn, "FLOAT") !== false) {
-			$this->domain->setType(PropelTypes::FLOAT);
+			$this->domain->setType(PropulsionTypes::FLOAT);
 		} elseif (strpos($tn, "DATE") !== false) {
-			$this->domain->setType(PropelTypes::DATE);
+			$this->domain->setType(PropulsionTypes::DATE);
 		} elseif (strpos($tn, "TIME") !== false) {
-			$this->domain->setType(PropelTypes::TIMESTAMP);
+			$this->domain->setType(PropulsionTypes::TIMESTAMP);
 		} else if (strpos($tn, "BINARY") !== false) {
-			$this->domain->setType(PropelTypes::LONGVARBINARY);
+			$this->domain->setType(PropulsionTypes::LONGVARBINARY);
 		} else {
-			$this->domain->setType(PropelTypes::VARCHAR);
+			$this->domain->setType(PropulsionTypes::VARCHAR);
 		}
 	}
 
@@ -1208,43 +1208,43 @@ class Column extends XMLElement
 	 */
 	public function getPhpNative()
 	{
-		return PropelTypes::getPhpNative($this->getType());
+		return PropulsionTypes::getPhpNative($this->getType());
 	}
 
 	/**
 	 * Returns true if the column's PHP native type is an boolean, int, long, float, double, string.
 	 * @return		 boolean
-	 * @see				 PropelTypes::isPhpPrimitiveType()
+	 * @see				 PropulsionTypes::isPhpPrimitiveType()
 	 */
 	public function isPhpPrimitiveType()
 	{
-		return PropelTypes::isPhpPrimitiveType($this->getPhpType());
+		return PropulsionTypes::isPhpPrimitiveType($this->getPhpType());
 	}
 
 	/**
 	 * Return true if column's PHP native type is an boolean, int, long, float, double.
 	 * @return		 boolean
-	 * @see				 PropelTypes::isPhpPrimitiveNumericType()
+	 * @see				 PropulsionTypes::isPhpPrimitiveNumericType()
 	 */
 	public function isPhpPrimitiveNumericType()
 	{
-		return PropelTypes::isPhpPrimitiveNumericType($this->getPhpType());
+		return PropulsionTypes::isPhpPrimitiveNumericType($this->getPhpType());
 	}
 
 	/**
 	 * Returns true if the column's PHP native type is a class name.
 	 * @return		 boolean
-	 * @see				 PropelTypes::isPhpObjectType()
+	 * @see				 PropulsionTypes::isPhpObjectType()
 	 */
 	public function isPhpObjectType()
 	{
-		return PropelTypes::isPhpObjectType($this->getPhpType());
+		return PropulsionTypes::isPhpObjectType($this->getPhpType());
 	}
 
 	/**
 	 * Get the platform/adapter impl.
 	 *
-	 * @return		 PropelPlatformInterface
+	 * @return		 PropulsionPlatformInterface
 	 */
 	public function getPlatform()
 	{

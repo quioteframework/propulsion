@@ -18,7 +18,7 @@ namespace Propulsion\Generator\Reverse\PgSQL;
  * @package    propel.generator.reverse.pgsql
  */
 use Propulsion\Generator\Reverse\BaseSchemaParser;
-use Propulsion\Generator\Model\PropelTypes;
+use Propulsion\Generator\Model\PropulsionTypes;
 use Propulsion\Generator\Model\Database;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Model\Column;
@@ -42,40 +42,40 @@ class PgsqlSchemaParserV12Plus extends BaseSchemaParser
 	 */
 	 /** Map MySQL native types to Propulsion (JDBC) types. */
 	private static $pgsqlTypeMap = array(
-				'bool' => PropelTypes::BOOLEAN,
-				'boolean' => PropelTypes::BOOLEAN,
-				'tinyint' => PropelTypes::TINYINT,
-				'smallint' => PropelTypes::SMALLINT,
-				'mediumint' => PropelTypes::SMALLINT,
-				'int2' => PropelTypes::SMALLINT,
-				'int' => PropelTypes::INTEGER,
-				'int4' => PropelTypes::INTEGER,
-				'serial4' => PropelTypes::INTEGER,
-				'integer' => PropelTypes::INTEGER,
-				'int8' => PropelTypes::BIGINT,
-				'bigint' => PropelTypes::BIGINT,
-				'bigserial' => PropelTypes::BIGINT,
-				'serial8' => PropelTypes::BIGINT,
-				'int24' => PropelTypes::BIGINT,
-				'real' => PropelTypes::REAL,
-				'float' => PropelTypes::FLOAT,
-				'float4' => PropelTypes::FLOAT,
-				'decimal' => PropelTypes::DECIMAL,
-				'numeric' => PropelTypes::DECIMAL,
-				'double' => PropelTypes::DOUBLE,
-				'float8' => PropelTypes::DOUBLE,
-				'char' => PropelTypes::CHAR,
-				'character' => PropelTypes::CHAR,
-				'varchar' => PropelTypes::VARCHAR,
-				'date' => PropelTypes::DATE,
-				'time' => PropelTypes::TIME,
-				'timetz' => PropelTypes::TIME,
-				//'year' => PropelTypes::YEAR,  PropelTypes::YEAR does not exist... does this need to be mapped to a different propel type?
-				'datetime' => PropelTypes::TIMESTAMP,
-				'timestamp' => PropelTypes::TIMESTAMP,
-				'timestamptz' => PropelTypes::TIMESTAMP,
-				'bytea' => PropelTypes::BLOB,
-				'text' => PropelTypes::LONGVARCHAR,
+				'bool' => PropulsionTypes::BOOLEAN,
+				'boolean' => PropulsionTypes::BOOLEAN,
+				'tinyint' => PropulsionTypes::TINYINT,
+				'smallint' => PropulsionTypes::SMALLINT,
+				'mediumint' => PropulsionTypes::SMALLINT,
+				'int2' => PropulsionTypes::SMALLINT,
+				'int' => PropulsionTypes::INTEGER,
+				'int4' => PropulsionTypes::INTEGER,
+				'serial4' => PropulsionTypes::INTEGER,
+				'integer' => PropulsionTypes::INTEGER,
+				'int8' => PropulsionTypes::BIGINT,
+				'bigint' => PropulsionTypes::BIGINT,
+				'bigserial' => PropulsionTypes::BIGINT,
+				'serial8' => PropulsionTypes::BIGINT,
+				'int24' => PropulsionTypes::BIGINT,
+				'real' => PropulsionTypes::REAL,
+				'float' => PropulsionTypes::FLOAT,
+				'float4' => PropulsionTypes::FLOAT,
+				'decimal' => PropulsionTypes::DECIMAL,
+				'numeric' => PropulsionTypes::DECIMAL,
+				'double' => PropulsionTypes::DOUBLE,
+				'float8' => PropulsionTypes::DOUBLE,
+				'char' => PropulsionTypes::CHAR,
+				'character' => PropulsionTypes::CHAR,
+				'varchar' => PropulsionTypes::VARCHAR,
+				'date' => PropulsionTypes::DATE,
+				'time' => PropulsionTypes::TIME,
+				'timetz' => PropulsionTypes::TIME,
+				//'year' => PropulsionTypes::YEAR,  PropulsionTypes::YEAR does not exist... does this need to be mapped to a different propel type?
+				'datetime' => PropulsionTypes::TIMESTAMP,
+				'timestamp' => PropulsionTypes::TIMESTAMP,
+				'timestamptz' => PropulsionTypes::TIMESTAMP,
+				'bytea' => PropulsionTypes::BLOB,
+				'text' => PropulsionTypes::LONGVARCHAR,
 	);
 
 	/**
@@ -250,7 +250,7 @@ class PgsqlSchemaParserV12Plus extends BaseSchemaParser
 				$default = null;
 			}
 
-			$propelType = $this->getMappedPropelType($type);
+			$propelType = $this->getMappedPropulsionType($type);
 			if (!$propelType) {
 				$propelType = Column::DEFAULT_TYPE;
 				$this->warn("Column [" . $table->getName() . "." . $name. "] has a column type (".$type.") that Propulsion does not support.");
@@ -291,7 +291,7 @@ class PgsqlSchemaParserV12Plus extends BaseSchemaParser
 		} // if ($intTypmod == -1)
 
 		// Numeric Datatype?
-		if ($strName == $this->getMappedNativeType(PropelTypes::NUMERIC)) {
+		if ($strName == $this->getMappedNativeType(PropulsionTypes::NUMERIC)) {
 			$intLen = ($intTypmod - 4) >> 16;
 			$intPrec = ($intTypmod - 4) & 0xffff;
 			$intLen = sprintf ("%ld", $intLen);
@@ -301,9 +301,9 @@ class PgsqlSchemaParserV12Plus extends BaseSchemaParser
 			} // if ($intPrec)
 			$arrRetVal['length'] = $intLen;
 			$arrRetVal['scale'] = $intPrec;
-		} // if ($strName == $this->getMappedNativeType(PropelTypes::NUMERIC))
-		elseif ($strName == $this->getMappedNativeType(PropelTypes::TIME) || $strName == 'timetz'
-			|| $strName == $this->getMappedNativeType(PropelTypes::TIMESTAMP) || $strName == 'timestamptz'
+		} // if ($strName == $this->getMappedNativeType(PropulsionTypes::NUMERIC))
+		elseif ($strName == $this->getMappedNativeType(PropulsionTypes::TIME) || $strName == 'timetz'
+			|| $strName == $this->getMappedNativeType(PropulsionTypes::TIMESTAMP) || $strName == 'timestamptz'
 			|| $strName == 'interval' || $strName == 'bit')
 		{
 			$arrRetVal['length'] = sprintf ("%ld", $intTypmod);
