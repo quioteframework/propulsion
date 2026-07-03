@@ -31,6 +31,16 @@ try {
     restore_error_handler();
 }
 
+// Trigger runtime/Lib/legacy-class-map.php's equivalent bare-name aliasing for
+// runtime classes (BaseObject, TableMap, PropelException, PropelCollection,
+// PropelArrayCollection, ...), which runs automatically whenever Propulsion\Propel
+// is loaded. This used to only happen as a side effect of IntegrationDatabase's
+// bookstore-fixture build succeeding below -- meaning any Docker-less run
+// (PROPULSION_SKIP_INTEGRATION=1, or no Docker) fataled on ordinary runtime tests
+// referencing these bare legacy names, unrelated to any actual fixture/Docker
+// dependency of theirs. Trigger it unconditionally, up front, instead.
+class_exists(\Propulsion\Propel::class);
+
 // Include the base test case
 require_once __DIR__ . '/tools/helpers/BaseTestCase.php';
 require_once __DIR__ . '/tools/helpers/SchemaPlatformFixtures.php';
@@ -76,21 +86,27 @@ foreach ($platformTestHelperFiles as $file) {
 // PHPUnit's TestSuiteLoader requires every test file up front during suite
 // discovery, before any test's setUp() runs -- so the fixtures (and the classmap
 // autoloader for their unnamespaced generated classes) must exist *before* that,
-// not lazily on first use. If this fails (e.g. no Docker), leave a clear message;
-// individual Bookstore/Cms tests will still fail during setUp()'s own
-// ensureReady() call, but anything referencing a generated class at file scope
-// will fatal here instead of skipping cleanly -- an inherent constraint of this
-// suite's structure, not something a lazier build step could fix.
+// not lazily on first use. If this fails (e.g. no Docker, or
+// PROPULSION_SKIP_INTEGRATION=1), leave a clear message; individual Bookstore/Cms
+// tests will fail during setUp()'s own ensureReady() call and markTestSkipped()
+// themselves, same as always.
 try {
     IntegrationDatabase::ensureReady();
 } catch (\RuntimeException $e) {
     fwrite(STDERR, "\nWarning: bookstore fixtures not built (" . $e->getMessage() . ")\n"
-        . "Tests that reference generated fixture classes at file scope will fatal during suite discovery.\n\n");
+        . "Individual Bookstore/Cms/Namespace/Schemas tests will markTestSkipped() themselves.\n\n");
 }
 
 // Same file-scope-declaration constraint as above, for test helpers (not test
-// classes themselves) that declare classes extending generated fixture classes --
-// these must be required only after ensureReady() has built the fixtures.
+// classes themselves) that declare classes extending generated fixture classes.
+// Each of these files guards its own fixture-dependent class declarations with
+// `if (class_exists(...))` internally (rather than being skipped wholesale here),
+// because several *Test.php files elsewhere declare their test class itself as
+// `extends BookstoreNestedSetTestBase` / `extends BookstoreSortableTestBase` --
+// those base classes (unlike the fixture classes they reference in method bodies)
+// must always be defined so PHPUnit can find them and let the inherited
+// BookstoreTestBase::setUp() skip gracefully, instead of fataling on an undefined
+// parent class during suite discovery.
 $fixtureDependentHelperFiles = [
     __DIR__ . '/tools/helpers/bookstore/behavior/BookstoreNestedSetTestBase.php',
     __DIR__ . '/tools/helpers/bookstore/behavior/BookstoreSortableTestBase.php',

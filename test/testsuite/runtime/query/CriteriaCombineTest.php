@@ -8,7 +8,15 @@
  * @license    MIT License
  */
 
-Propel::init(dirname(__FILE__) . '/../../../fixtures/bookstore/build/conf/bookstore-conf.php');
+// Guarded (rather than an unconditional top-level call) so a Docker-less run
+// (PROPULSION_SKIP_INTEGRATION=1, no bookstore fixtures built) fatals PHPUnit's
+// suite discovery on a missing conf file instead of letting this file's tests run
+// (and fail on their own, individually, same as any other unmet dependency) or be
+// skipped by other Bookstore-fixture-aware tests elsewhere in the suite.
+$bookstoreConfFile = dirname(__FILE__) . '/../../../fixtures/bookstore/build/conf/bookstore-conf.php';
+if (file_exists($bookstoreConfFile)) {
+	Propel::init($bookstoreConfFile);
+}
 
 /**
  * Test class for Criteria combinations.

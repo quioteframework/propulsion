@@ -127,18 +127,29 @@ abstract class BookstoreNestedSetTestBase extends BookstoreTestBase
 }
 
 // we need this class to test protected methods
-class PublicTable9 extends Table9
-{
-	public $hasParentNode = null;
-	public $parentNode = null;
-	public $hasPrevSibling = null;
-	public $prevSibling = null;
-	public $hasNextSibling = null;
-	public $nextSibling = null;
+//
+// Table9/Table10 only exist once the bookstore fixtures are built (needs the
+// shared Postgres testcontainer -- IntegrationDatabase::ensureReady()); this file
+// itself is always required by bootstrap.php (so the many *Test classes that
+// extend BookstoreNestedSetTestBase above can find their base class and skip
+// gracefully via the inherited BookstoreTestBase::setUp()), so these two
+// fixture-dependent helper classes need their own guard.
+if (class_exists(Table9::class)) {
+	class PublicTable9 extends Table9
+	{
+		public $hasParentNode = null;
+		public $parentNode = null;
+		public $hasPrevSibling = null;
+		public $prevSibling = null;
+		public $hasNextSibling = null;
+		public $nextSibling = null;
+	}
 }
 
-class PublicTable10 extends Table10
-{
-	public $hasParentNode = null;
-	public $parentNode = null;
+if (class_exists(Table10::class)) {
+	class PublicTable10 extends Table10
+	{
+		public $hasParentNode = null;
+		public $parentNode = null;
+	}
 }

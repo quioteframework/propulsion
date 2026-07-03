@@ -32,7 +32,7 @@ class PHP84NodeBuilder extends ObjectBuilder
 	 */
 	public function getPackage(): string
 	{
-		return parent::getPackage() . ".OM";
+		return parent::getPackage() . ".om";
 	}
 
 	public function getNamespace(): ?string

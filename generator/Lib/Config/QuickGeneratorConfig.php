@@ -16,27 +16,44 @@ namespace Propulsion\Generator\Config;
 
  use Propulsion\Generator\Model\Table;
  use Propulsion\Generator\Builder\Util\DefaultEnglishPluralizer;
- 
+ use Propulsion\Generator\Builder\OM\PHP5PeerBuilder;
+ use Propulsion\Generator\Builder\OM\PHP5ObjectBuilder;
+ use Propulsion\Generator\Builder\OM\PHP5ExtensionObjectBuilder;
+ use Propulsion\Generator\Builder\OM\PHP5ExtensionPeerBuilder;
+ use Propulsion\Generator\Builder\OM\PHP5MultiExtendObjectBuilder;
+ use Propulsion\Generator\Builder\OM\PHP5TableMapBuilder;
+ use Propulsion\Generator\Builder\OM\QueryBuilder;
+ use Propulsion\Generator\Builder\OM\ExtensionQueryBuilder;
+ use Propulsion\Generator\Builder\OM\QueryInheritanceBuilder;
+ use Propulsion\Generator\Builder\OM\ExtensionQueryInheritanceBuilder;
+ use Propulsion\Generator\Builder\OM\PHP5InterfaceBuilder;
+ use Propulsion\Generator\Builder\OM\PHP5NodeBuilder;
+ use Propulsion\Generator\Builder\OM\PHP5NodePeerBuilder;
+ use Propulsion\Generator\Builder\OM\PHP5ExtensionNodeBuilder;
+ use Propulsion\Generator\Builder\OM\PHP5ExtensionNodePeerBuilder;
+ use Propulsion\Generator\Builder\OM\PHP5NestedSetBuilder;
+ use Propulsion\Generator\Builder\OM\PHP5NestedSetPeerBuilder;
+
 class QuickGeneratorConfig implements GeneratorConfigInterface
 {
 	protected $builders = array(
-		'peer'					=> 'PHP5PeerBuilder',
-		'object'				=> 'PHP5ObjectBuilder',
-		'objectstub'		=> 'PHP5ExtensionObjectBuilder',
-		'peerstub'			=> 'PHP5ExtensionPeerBuilder',
-		'objectmultiextend' => 'PHP5MultiExtendObjectBuilder',
-		'tablemap'			=> 'PHP5TableMapBuilder',
-		'query'					=> 'QueryBuilder',
-		'querystub'			=> 'ExtensionQueryBuilder',
-		'queryinheritance' => 'QueryInheritanceBuilder',
-		'queryinheritancestub' => 'ExtensionQueryInheritanceBuilder',
-		'interface'			=> 'PHP5InterfaceBuilder',
-		'node'					=> 'PHP5NodeBuilder',
-		'nodepeer'			=> 'PHP5NodePeerBuilder',
-		'nodestub'			=> 'PHP5ExtensionNodeBuilder',
-		'nodepeerstub'	=> 'PHP5ExtensionNodePeerBuilder',
-		'nestedset'			=> 'PHP5NestedSetBuilder',
-		'nestedsetpeer' => 'PHP5NestedSetPeerBuilder',
+		'peer'					=> PHP5PeerBuilder::class,
+		'object'				=> PHP5ObjectBuilder::class,
+		'objectstub'		=> PHP5ExtensionObjectBuilder::class,
+		'peerstub'			=> PHP5ExtensionPeerBuilder::class,
+		'objectmultiextend' => PHP5MultiExtendObjectBuilder::class,
+		'tablemap'			=> PHP5TableMapBuilder::class,
+		'query'					=> QueryBuilder::class,
+		'querystub'			=> ExtensionQueryBuilder::class,
+		'queryinheritance' => QueryInheritanceBuilder::class,
+		'queryinheritancestub' => ExtensionQueryInheritanceBuilder::class,
+		'interface'			=> PHP5InterfaceBuilder::class,
+		'node'					=> PHP5NodeBuilder::class,
+		'nodepeer'			=> PHP5NodePeerBuilder::class,
+		'nodestub'			=> PHP5ExtensionNodeBuilder::class,
+		'nodepeerstub'	=> PHP5ExtensionNodePeerBuilder::class,
+		'nestedset'			=> PHP5NestedSetBuilder::class,
+		'nestedsetpeer' => PHP5NestedSetPeerBuilder::class,
 	);
 
 	protected $buildProperties = array();

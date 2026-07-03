@@ -390,22 +390,30 @@ class SoftDeleteBehaviorTest extends BookstoreTestBase
 	}
 }
 
-class UndeletableTable4 extends Table4
-{
-	public function preDelete(PropelPDO $con = null)
+// Table4 only exists once the bookstore fixtures have actually been built (needs
+// the shared Postgres testcontainer -- see IntegrationDatabase::ensureReady()).
+// PHPUnit requires this whole file up front during test-suite discovery, well
+// before SoftDeleteBehaviorTest's own setUp() gets a chance to markTestSkipped(),
+// so without this guard a Docker-less run (PROPULSION_SKIP_INTEGRATION=1) would
+// fatal here instead of skipping gracefully.
+if (class_exists(Table4::class)) {
+	class UndeletableTable4 extends Table4
 	{
-		parent::preDelete($con);
-		$this->setTitle('foo');
-		return false;
+		public function preDelete(PropelPDO $con = null)
+		{
+			parent::preDelete($con);
+			$this->setTitle('foo');
+			return false;
+		}
 	}
-}
 
-class PostdeletehookedTable4 extends Table4
-{
-	public function postDelete(PropelPDO $con = null)
+	class PostdeletehookedTable4 extends Table4
 	{
-		parent::postDelete($con);
-		$this->setTitle('post-deleted');
-		$this->save($con);
+		public function postDelete(PropelPDO $con = null)
+		{
+			parent::postDelete($con);
+			$this->setTitle('post-deleted');
+			$this->save($con);
+		}
 	}
 }

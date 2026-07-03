@@ -77,6 +77,14 @@
 		<foreign-key foreignTable="bookstore" foreignSchema="bookstore_schemas" onDelete="cascade">
 			<reference local="bookstore_id" foreign="id" />
 		</foreign-key>
+		<!-- bookstore_contest_entry below has a composite FK to (bookstore_id, id):
+		     harmless/redundant on MySQL (which only requires an index on FK target
+		     columns, not a uniqueness guarantee), but Postgres requires an actual
+		     UNIQUE/PK constraint on any column set a foreign key references. -->
+		<unique>
+			<unique-column name="bookstore_id" />
+			<unique-column name="id" />
+		</unique>
 	</table>
 
 	<table name="second_hand_book" schema="second_hand_books">

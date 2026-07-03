@@ -39,7 +39,7 @@ class PHP84PeerBuilder extends PeerBuilder
 	 */
 	public function getPackage(): string
 	{
-		return parent::getPackage() . ".OM";
+		return parent::getPackage() . ".om";
 	}
 
 	public function getNamespace(): string
