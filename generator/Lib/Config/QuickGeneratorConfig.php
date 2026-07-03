@@ -79,7 +79,7 @@ class QuickGeneratorConfig implements GeneratorConfigInterface
 	 * @param			 string $type The type of builder ('ddl', 'sql', etc.)
 	 * @return		 DataModelBuilder
 	 */
-	public function getConfiguredBuilder(Table $table, $type)
+	public function getConfiguredBuilder($table, $type)
 	{
 		$class = $this->builders[$type];
 		require_once dirname(__FILE__) . '/../builder/om/' . $class . '.php';

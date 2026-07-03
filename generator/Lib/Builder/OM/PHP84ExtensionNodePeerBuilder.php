@@ -54,7 +54,7 @@ if (!class_exists('{$this->getNodePeerBuilder()->getClassname()}')) {
 	/**
 	 * Adds class phpdoc comment and opening of class with modern PHP 8.4 syntax.
 	 */
-	protected function addClassOpen(string &$script): void
+	protected function addClassOpen(&$script): void
 	{
 		$table = $this->getTable();
 		$tableName = $table->getName();
@@ -110,7 +110,7 @@ class " . $this->getClassname() . " extends $baseClassname
 	 *
 	 * Modern PHP 8.4 implementation with proper typing.
 	 */
-	protected function addClassBody(string &$script): void
+	protected function addClassBody(&$script): void
 	{
 		$script .= "
     /**
@@ -137,7 +137,7 @@ class " . $this->getClassname() . " extends $baseClassname
 	/**
 	 * Closes class with modern PHP 8.4 syntax.
 	 */
-	protected function addClassClose(string &$script): void
+	protected function addClassClose(&$script): void
 	{
 		$script .= "
 } // " . $this->getClassname() . "
@@ -147,7 +147,7 @@ class " . $this->getClassname() . " extends $baseClassname
 	/**
 	 * Gets the node peer builder instance with proper typing.
 	 */
-	protected function getNodePeerBuilder(): PeerBuilder
+	public function getNodePeerBuilder(): PeerBuilder
 	{
 		return $this->getDatabase()->getTable($this->getTable()->getName())->getNodePeerBuilder();
 	}
@@ -155,7 +155,7 @@ class " . $this->getClassname() . " extends $baseClassname
 	/**
 	 * Gets the stub node builder instance with proper typing.
 	 */
-	protected function getStubNodeBuilder(): ObjectBuilder
+	public function getStubNodeBuilder(): ObjectBuilder
 	{
 		return $this->getDatabase()->getTable($this->getTable()->getName())->getStubNodeBuilder();
 	}
