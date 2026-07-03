@@ -684,7 +684,8 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 			if ($col->isEnumeratedClasses()) {
 				foreach ($col->getChildren() as $child) {
-					$childBuilder = $this->getNewObjectBuilder($child->getAncestor());
+					$childBuilder = $this->getMultiExtendObjectBuilder();
+					$childBuilder->setChild($child);
 					$script .= "
 	/** A key representing a particular subclass */
 	const CLASSKEY_".strtoupper($child->getKey())." = '" . $child->getKey() . "';
@@ -699,7 +700,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 					$script .= "
 	/** A class that can be returned by this peer. */
-	const CLASSNAME_".strtoupper($child->getKey())." = '". $childBuilder->getFullyQualifiedClassname() . "';
+	const CLASSNAME_".strtoupper($child->getKey())." = '". $childBuilder->getClasspath() . "';
 ";
 				}
 			}
@@ -1857,6 +1858,67 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	}
 
 	/**
+	 * Adds a getOMClass() for tables that use single-table inheritance.
+	 * @param      string &$script The script will be modified in this method.
+	 */
+	protected function addGetOMClass_Inheritance(&$script)
+	{
+		$col = $this->getTable()->getChildrenColumn();
+		$script .= "
+	/**
+	 * The returned Class will contain objects of the default type or
+	 * objects that inherit from the default.
+	 *
+	 * @param      array \$row PropelPDO result row.
+	 * @param      int \$colnum Column to examine for OM class information (first is 0).
+	 * @param      boolean \$withPrefix Whether or not to return the path with the class name
+	 * @throws     PropelException Any exceptions caught during processing will be
+	 *		 rethrown wrapped into a PropelException.
+	 */
+	public static function getOMClass(\$row, \$colnum, bool \$withPrefix = true)
+	{
+		try {
+";
+		if ($col->isEnumeratedClasses()) {
+			$script .= "
+			\$omClass = null;
+			\$classKey = \$row[\$colnum + " . ($col->getPosition() - 1) . "];
+
+			switch(\$classKey) {
+";
+			foreach ($col->getChildren() as $child) {
+				$script .= "
+				case self::CLASSKEY_".strtoupper($child->getKey()).":
+					\$omClass = self::CLASSNAME_".strtoupper($child->getKey()).";
+					break;
+";
+			} /* foreach */
+			$script .= "
+				default:
+					\$omClass = self::CLASS_DEFAULT;
+";
+			$script .= "
+			} // switch
+			if (!\$withPrefix) {
+				\$omClass = substr('.'.\$omClass, strrpos('.'.\$omClass, '.') + 1);
+			}
+";
+		} else { /* if not enumerated */
+			$script .= "
+			\$omClass = \$row[\$colnum + ".($col->getPosition()-1)."];
+			\$omClass = substr('.'.\$omClass, strrpos('.'.\$omClass, '.') + 1);
+";
+		}
+		$script .= "
+		} catch (Exception \$e) {
+			throw new PropelException('Unable to get OM class.', \$e);
+		}
+		return \$omClass;
+	}
+";
+	}
+
+	/**
 	 * Adds a getOMClass() for non-abstract tables that do note use inheritance.
 	 * @param      string &$script The script will be modified in this method.
 	 */
@@ -1878,6 +1940,23 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	{
 		return \$withPrefix ? ".$this->getPeerClassname()."::CLASS_DEFAULT : ".$this->getPeerClassname()."::OM_CLASS;
 	}
+";
+	}
+
+	/**
+	 * Adds a getOMClass() signature for abstract tables that do not have inheritance.
+	 * @param      string &$script The script will be modified in this method.
+	 */
+	protected function addGetOMClass_NoInheritance_Abstract(&$script)
+	{
+		$script .= "
+	/**
+	 * The class that the Peer will make instances of.
+	 *
+	 * This method must be overridden by the stub subclass, because
+	 * ".$this->getObjectClassname()." is declared abstract in the schema.
+	 */
+	abstract public static function getOMClass(bool \$withPrefix = true);
 ";
 	}
 

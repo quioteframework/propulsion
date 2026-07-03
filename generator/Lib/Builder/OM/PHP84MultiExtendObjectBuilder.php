@@ -51,18 +51,6 @@ class PHP84MultiExtendObjectBuilder extends ObjectBuilder
 		return $this->child?->getPackage() ?: parent::getPackage();
 	}
 
-	public function getNamespace(): ?string
-	{
-		if ($namespace = parent::getNamespace()) {
-			if ($this->getGeneratorConfig() && $omns = $this->getGeneratorConfig()->getBuildProperty('namespaceOm')) {
-				return $namespace . '\\' . $omns;
-			} else {
-				return $namespace;
-			}
-		}
-		return null;
-	}
-
 	/**
 	 * Set the child object that we're operating on currently.
 	 * @param      Inheritance $child
@@ -167,14 +155,32 @@ class ".$this->getClassname()." extends ".$this->getParentClassname()."
 	/**
 	 * Specifies the methods that are added as part of the stub object class.
 	 *
-	 * By default there are no methods for the empty stub classes; override this method
-	 * if you want to change that behavior.
+	 * Adds a constructor that sets the single-table-inheritance discriminator
+	 * column to this child's CLASSKEY_* value -- without it, every instance
+	 * (regardless of which child class was instantiated) would persist with
+	 * the column's schema default, and querying for a specific child class
+	 * would never match any row.
 	 *
 	 * @see        ObjectBuilder::addClassBody()
 	 */
 	protected function addClassBody(&$script): void
 	{
-		// Stub class body is intentionally empty
+		$this->declareClassFromBuilder($this->getStubPeerBuilder());
+		$child = $this->getChild();
+		$col = $child->getColumn();
+		$cfc = $col->getPhpName();
+		$const = "CLASSKEY_" . strtoupper($child->getKey());
+
+		$script .= "
+	/**
+	 * Constructs a new " . $this->getChild()->getClassname() . " class, setting the " . $col->getName() . " column to " . $this->getPeerClassname() . "::$const.
+	 */
+	public function __construct()
+	{
+		parent::__construct();
+		\$this->set$cfc(" . $this->getPeerClassname() . "::CLASSKEY_" . strtoupper($child->getKey()) . ");
+	}
+";
 	}
 
 	/**

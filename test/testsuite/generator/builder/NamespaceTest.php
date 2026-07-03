@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
  * @license    MIT License
  */
 
-set_include_path(get_include_path() . PATH_SEPARATOR . realpath(dirname(__FILE__) . '/../../../fixtures/namespaced/build/classes'));
+require_once dirname(__FILE__) . '/../../../tools/helpers/IntegrationDatabase.php';
 
 /**
  * Tests for Namespaces in generated classes class
@@ -23,17 +23,27 @@ class NamespaceTest extends TestCase
 {
 	protected function setUp(): void
 	{
-		if (version_compare(PHP_VERSION, '5.3.0') < 0) {
-			$this->markTestSkipped('Namespace support requires PHP 5.3');
-		}
 		parent::setUp();
-		Propel::init(dirname(__FILE__) . '/../../../fixtures/namespaced/build/conf/bookstore_namespaced-conf.php');
+
+		try {
+			IntegrationDatabase::ensureNamespacedReady();
+		} catch (\RuntimeException $e) {
+			$this->markTestSkipped($e->getMessage());
+		}
+
+		set_include_path(get_include_path() . PATH_SEPARATOR . realpath(IntegrationDatabase::namespacedClassesDir()));
+		Propel::init(IntegrationDatabase::namespacedConfFile());
 	}
 
 	protected function tearDown(): void
 	{
 		parent::tearDown();
-		Propel::init(dirname(__FILE__) . '/../../../fixtures/bookstore/build/conf/bookstore-conf.php');
+		try {
+			IntegrationDatabase::ensureReady();
+			Propel::init(IntegrationDatabase::confFile());
+		} catch (\RuntimeException $e) {
+			// Bookstore fixtures aren't available either; nothing to restore.
+		}
 	}
 
 	public function testInsert()

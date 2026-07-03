@@ -34,6 +34,9 @@ class IntegrationDatabase
     private static bool $attempted = false;
     private static ?string $skipReason = null;
 
+    private static bool $namespacedAttempted = false;
+    private static ?string $namespacedSkipReason = null;
+
     public static function confFile(): string
     {
         return dirname(__DIR__, 2) . '/fixtures/bookstore/build/conf/bookstore-conf.php';
@@ -62,27 +65,12 @@ class IntegrationDatabase
         }
         self::$attempted = true;
 
-        if (getenv('PROPULSION_SKIP_INTEGRATION')) {
-            self::$skipReason = 'PROPULSION_SKIP_INTEGRATION is set.';
-            throw new \RuntimeException(self::$skipReason);
-        }
-
-        self::workaroundBrokenDockerCredentialHelper();
-
         try {
-            self::$container = (new PostgresContainer())
-                ->withPostgresUser('propulsion')
-                ->withPostgresPassword('propulsion')
-                ->withPostgresDatabase('propulsion_test')
-                ->start();
+            self::ensureContainerStarted();
         } catch (\Throwable $e) {
-            self::$skipReason = 'Could not start the Postgres testcontainer (is Docker running?): ' . $e->getMessage();
+            self::$skipReason = $e->getMessage();
             throw new \RuntimeException(self::$skipReason);
         }
-
-        register_shutdown_function(static function () {
-            self::$container?->stop();
-        });
 
         try {
             self::buildFixtures(self::$container->getHost(), self::$container->getFirstMappedPort());
@@ -102,22 +90,190 @@ class IntegrationDatabase
         self::registerClassmapAutoloader();
     }
 
+    public static function namespacedConfFile(): string
+    {
+        return dirname(__DIR__, 2) . '/fixtures/namespaced/build/conf/bookstore_namespaced-conf.php';
+    }
+
+    public static function namespacedClassesDir(): string
+    {
+        return dirname(__DIR__, 2) . '/fixtures/namespaced/build/classes';
+    }
+
+    /**
+     * Same idea as ensureReady(), for the separate "namespaced" fixture project
+     * (test/fixtures/namespaced/schema.xml) used by NamespaceTest: its tables
+     * declare a `namespace="..."` attribute, which only the PHP84 builders honor,
+     * so this targets that platform explicitly (ensureReady()'s bookstore fixtures
+     * stay on the default PHP5 target). Reuses the same running container as
+     * ensureReady() (starting one if neither has run yet) but a separate database,
+     * since both fixture projects define tables named book/author/publisher.
+     */
+    public static function ensureNamespacedReady(): void
+    {
+        if (self::$namespacedAttempted) {
+            if (self::$namespacedSkipReason !== null) {
+                throw new \RuntimeException(self::$namespacedSkipReason);
+            }
+            return;
+        }
+        self::$namespacedAttempted = true;
+
+        try {
+            self::ensureContainerStarted();
+        } catch (\Throwable $e) {
+            self::$namespacedSkipReason = $e->getMessage();
+            throw new \RuntimeException(self::$namespacedSkipReason);
+        }
+
+        try {
+            self::buildNamespacedFixtures(self::$container->getHost(), self::$container->getFirstMappedPort());
+        } catch (\Throwable $e) {
+            self::$namespacedSkipReason = 'Could not build namespaced fixtures: ' . $e->getMessage();
+            throw new \RuntimeException(self::$namespacedSkipReason);
+        }
+
+        class_exists(\Propulsion\Propel::class);
+        self::registerClassmapAutoloader(self::namespacedClassesDir());
+    }
+
+    private static function ensureContainerStarted(): void
+    {
+        if (self::$container !== null) {
+            return;
+        }
+
+        if (getenv('PROPULSION_SKIP_INTEGRATION')) {
+            throw new \RuntimeException('PROPULSION_SKIP_INTEGRATION is set.');
+        }
+
+        self::workaroundBrokenDockerCredentialHelper();
+
+        try {
+            self::$container = (new PostgresContainer())
+                ->withPostgresUser('propulsion')
+                ->withPostgresPassword('propulsion')
+                ->withPostgresDatabase('propulsion_test')
+                ->start();
+        } catch (\Throwable $e) {
+            throw new \RuntimeException('Could not start the Postgres testcontainer (is Docker running?): ' . $e->getMessage());
+        }
+
+        register_shutdown_function(static function () {
+            self::$container?->stop();
+        });
+    }
+
+    private static function buildNamespacedFixtures(string $host, int $port): void
+    {
+        $fixtureDir = dirname(__DIR__, 2) . '/fixtures/namespaced';
+        $repoRoot = dirname(__DIR__, 3);
+        $classesDir = self::namespacedClassesDir();
+
+        if (!is_dir($classesDir) && !mkdir($classesDir, 0777, true) && !is_dir($classesDir)) {
+            throw new \RuntimeException("Unable to create $classesDir");
+        }
+
+        $config = GeneratorConfig::createFromPropertiesFile(
+            $repoRoot . '/generator/default.properties',
+            [$fixtureDir . '/build.properties'],
+            ['propel.database' => 'pgsql', 'propel.targetPlatform' => 'php84']
+        );
+
+        $schemas = glob($fixtureDir . '/*schema.xml');
+        sort($schemas);
+
+        $sqlDir = sys_get_temp_dir() . '/propulsion-test-sql-namespaced';
+        if (!is_dir($sqlDir)) {
+            mkdir($sqlDir, 0777, true);
+        }
+
+        $previousCwd = getcwd();
+        chdir($repoRoot);
+        try {
+            (new ModelManager($config, $classesDir))->generate($schemas);
+            (new SqlManager($config, $sqlDir))->generate($schemas);
+        } finally {
+            chdir($previousCwd);
+        }
+
+        $adminDsn = "pgsql:host=$host;port=$port;dbname=propulsion_test";
+        $admin = new \PDO($adminDsn, 'propulsion', 'propulsion');
+        $admin->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+        if (!$admin->query("SELECT 1 FROM pg_database WHERE datname = 'propulsion_test_namespaced'")->fetchColumn()) {
+            $admin->exec('CREATE DATABASE propulsion_test_namespaced');
+        }
+
+        $dsn = "pgsql:host=$host;port=$port;dbname=propulsion_test_namespaced";
+        $pdo = new \PDO($dsn, 'propulsion', 'propulsion');
+        $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+        foreach (glob($sqlDir . '/*.sql') as $sqlFile) {
+            $pdo->exec((string) file_get_contents($sqlFile));
+        }
+
+        self::writeNamespacedRuntimeConf($dsn);
+    }
+
+    private static function writeNamespacedRuntimeConf(string $dsn): void
+    {
+        $config = [
+            'datasources' => [
+                'default' => 'bookstore_namespaced',
+                'bookstore_namespaced' => [
+                    'adapter' => 'pgsql',
+                    'connection' => [
+                        'dsn' => $dsn,
+                        'user' => 'propulsion',
+                        'password' => 'propulsion',
+                        'classname' => 'DebugPDO',
+                        'settings' => [
+                            'queries' => [
+                                'SET lock_timeout = 5000',
+                                'SET statement_timeout = 15000',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $confDir = dirname(self::namespacedConfFile());
+        if (!is_dir($confDir) && !mkdir($confDir, 0777, true) && !is_dir($confDir)) {
+            throw new \RuntimeException("Unable to create $confDir");
+        }
+
+        file_put_contents(self::namespacedConfFile(), "<?php\nreturn " . var_export($config, true) . ";\n");
+    }
+
     /**
      * The bookstore fixtures are generated with the PHP5 builder (flat, unnamespaced
      * classes -- BookPeer, Author, etc.), which composer's PSR-4 autoloading can't
-     * find. Historically this relied on a plain "search the include path" autoloader
-     * that PHP dropped along with __autoload(); build an equivalent classmap here by
-     * scanning the generated classes directory once.
+     * find; the namespaced fixtures use real `namespace Foo\Bar;` declarations, but
+     * not in a PSR-4-compatible directory layout composer could map either.
+     * Historically this relied on a plain "search the include path" autoloader that
+     * PHP dropped along with __autoload(); build an equivalent classmap here instead,
+     * scanning each generated file's actual namespace + class declaration once
+     * (not just its filename, so this works for both flat and namespaced output).
      */
-    private static function registerClassmapAutoloader(): void
+    private static function registerClassmapAutoloader(?string $classesDir = null): void
     {
         $classmap = [];
         $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator(self::classesDir(), \FilesystemIterator::SKIP_DOTS)
+            new \RecursiveDirectoryIterator($classesDir ?? self::classesDir(), \FilesystemIterator::SKIP_DOTS)
         );
         foreach ($iterator as $file) {
-            if ($file->getExtension() === 'php') {
-                $classmap[$file->getBasename('.php')] = $file->getPathname();
+            if ($file->getExtension() !== 'php') {
+                continue;
+            }
+            $source = file_get_contents($file->getPathname());
+            $namespace = '';
+            if (preg_match('/^\s*namespace\s+([\w\\\\]+)\s*;/m', $source, $m)) {
+                $namespace = $m[1] . '\\';
+            }
+            if (preg_match_all('/^\s*(?:abstract\s+)?(?:final\s+)?class\s+(\w+)/m', $source, $cm)) {
+                foreach ($cm[1] as $cls) {
+                    $classmap[$namespace . $cls] = $file->getPathname();
+                }
             }
         }
 
