@@ -674,14 +674,25 @@ a real bug the rename surfaced (see below).
 `vendor/bin/phpunit -c phpunit.xml`, fixture `build/` dirs removed first):
 - Before (baseline on `main`, per prior pass): 2200 tests, 36 errors, 19
   failures, 12 skipped, 2 risky.
-- After this rename: 2200 tests, 38 errors, 21 failures, 12 skipped, 2
-  risky. The +2/+2 delta was cross-checked against the failing test names:
-  all of them are pre-existing, already-documented flakiness clusters in
-  this file (`ModelCriteria*`, `SubQueryTest`, `BasePeerTest`,
-  `MssqlPlatformTest`, etc. — see "Remaining failures, by cluster" above),
-  just under their now-renamed test class names
-  (`PropulsionArrayFormatterTest`, `PropulsionPDOTest`, ...). No new
-  failure signature (e.g. a class-not-found for a `Propulsion*` name) was
-  present in either run's list. Given this suite's documented run-to-run
-  count flakiness of a few tests either way, this is within noise, not a
-  regression introduced by the rename.
+- After this rename: 2200 tests, 38 errors, 20-21 failures, 12 skipped, 2
+  risky (fluctuates by 1 run-to-run). Independently re-verified (not just
+  the rename agent's own report) by diffing the full failing-test-name list
+  against the pre-rename baseline with `Propel*` normalized to `Propulsion*`:
+  every renamed-test-class failure matches an already-documented flakiness
+  cluster above under its old name. Two failures were genuinely new by name
+  (`BookstoreTest::testScenario`, `DatabaseMapTest::testAddTableObject`),
+  but both pass cleanly when run in isolation (`--filter`) — they're the
+  same class of order-dependent global-state flakiness already documented
+  elsewhere in this file (stale `DatabaseMap`/LOB-stream state bleeding
+  across tests in the same process), just newly surfaced because renaming
+  ~470 files changed PHPUnit's alphabetical test-discovery order, not
+  because the rename introduced a new bug. No class-not-found or
+  otherwise-novel failure signature appeared in either run.
+
+During this rename, a worktree agent's *uncommitted* working tree also
+contained an unrelated, unrequested refactor (moving the legacy `PHP5*`
+builders into an `archaeology/php5-builders/` directory) — apparently
+speculative Phase 4c work, which is explicitly gated on 4a/4b completing
+first per the Phase 4 plan above and hadn't been asked for. It was never
+committed and was discarded before merging; flagging here only so nobody
+wonders where that idea came from if it resurfaces.
