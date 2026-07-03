@@ -210,6 +210,16 @@ class IntegrationDatabase
                 'user' => 'propulsion',
                 'password' => 'propulsion',
                 'classname' => 'DebugPDO',
+                // Fail fast instead of hanging the whole suite: a test that opens a
+                // second connection/transaction against a row the first one is still
+                // holding (uncommitted) should error out in a few seconds, not block
+                // forever. Surfaced by a real deadlock during AggregateColumnBehaviorTest.
+                'settings' => [
+                    'queries' => [
+                        'SET lock_timeout = 5000',
+                        'SET statement_timeout = 15000',
+                    ],
+                ],
             ],
         ];
 

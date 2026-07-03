@@ -15,9 +15,11 @@ use Propulsion\Generator\Exception\EngineException;
  * Plain-PHP replacement for the Phing-based PropelSQLTask: loads XML schema files
  * and writes the platform's DDL for each database to a `.sql` file.
  *
- * One `.sql` file is written per schema file (named after the schema's database),
- * unlike the Phing task's Mapper-driven naming -- multi-schema packaging is not
- * yet supported here.
+ * One `.sql` file is written per distinct database *name* (not per schema file):
+ * several schema files commonly share a <database name="..."> (e.g. a project's
+ * behavior-*-schema.xml files all targeting the same "bookstore-behavior"
+ * database), and their DDL is concatenated into a single file rather than the
+ * last one processed overwriting the others'.
  */
 class SqlManager extends AbstractSchemaManager
 {
@@ -41,7 +43,8 @@ class SqlManager extends AbstractSchemaManager
         }
 
         $dataModels = $this->loadDataModels($schemaFiles);
-        $written = 0;
+        $ddlByDatabase = [];
+        $platformByDatabase = [];
 
         foreach ($dataModels as $dataModel) {
             foreach ($dataModel->getDatabases() as $database) {
@@ -51,21 +54,27 @@ class SqlManager extends AbstractSchemaManager
                     $platform->setIdentifierQuoting(false);
                 }
 
-                $outFile = $this->outputDir . DIRECTORY_SEPARATOR . $database->getName() . '.sql';
-                $ddl = $platform->getAddTablesDDL($database);
-
-                if (is_file($outFile) && $ddl === file_get_contents($outFile)) {
-                    $this->logger->debug('(unchanged) {file}', ['file' => $outFile]);
-                    continue;
-                }
-
-                $this->logger->info('Writing SQL file: {file} (platform: {platform})', [
-                    'file' => $outFile,
-                    'platform' => $platform::class,
-                ]);
-                file_put_contents($outFile, $ddl);
-                $written++;
+                $name = $database->getName();
+                $ddlByDatabase[$name] = ($ddlByDatabase[$name] ?? '') . $platform->getAddTablesDDL($database);
+                $platformByDatabase[$name] = $platform;
             }
+        }
+
+        $written = 0;
+        foreach ($ddlByDatabase as $name => $ddl) {
+            $outFile = $this->outputDir . DIRECTORY_SEPARATOR . $name . '.sql';
+
+            if (is_file($outFile) && $ddl === file_get_contents($outFile)) {
+                $this->logger->debug('(unchanged) {file}', ['file' => $outFile]);
+                continue;
+            }
+
+            $this->logger->info('Writing SQL file: {file} (platform: {platform})', [
+                'file' => $outFile,
+                'platform' => $platformByDatabase[$name]::class,
+            ]);
+            file_put_contents($outFile, $ddl);
+            $written++;
         }
 
         return $written;
