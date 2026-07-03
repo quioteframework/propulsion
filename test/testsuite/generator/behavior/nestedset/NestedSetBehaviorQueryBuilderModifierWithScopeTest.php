@@ -195,7 +195,8 @@ class NestedSetBehaviorQueryBuilderModifierWithScopeTest extends BookstoreNested
 			->ancestorsOf($t5)
 			->orderByBranch()
 			->find();
-		$coll = $this->buildCollection(array($t1, $t3), 'ancestorsOf() filters by ancestors of the same scope');
+		$coll = $this->buildCollection(array($t1, $t3));
+		$this->assertEquals($coll, $objs, 'ancestorsOf() filters by ancestors of the same scope');
 	}
 
 	public function testRootsOf()
@@ -219,7 +220,8 @@ class NestedSetBehaviorQueryBuilderModifierWithScopeTest extends BookstoreNested
 			->rootsOf($t5)
 			->orderByBranch()
 			->find();
-		$coll = $this->buildCollection(array($t1, $t3, $t5), 'rootsOf() filters by ancestors of the same scope');
+		$coll = $this->buildCollection(array($t1, $t3, $t5));
+		$this->assertEquals($coll, $objs, 'rootsOf() filters by ancestors of the same scope');
 	}
 
 	public function testFindRoot()

@@ -917,7 +917,7 @@ class Table extends ScopedElement implements IDMethod
 				}
 			}
 
-			if ($this->getDatabase()->getPlatform() instanceof MysqlPLatform) {
+			if ($this->getDatabase()->getPlatform() instanceof \Propulsion\Generator\Platform\MysqlPlatform) {
 				$this->addExtraIndices();
 			}
 		} // foreach foreign keys

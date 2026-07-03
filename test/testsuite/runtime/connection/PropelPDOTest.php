@@ -294,7 +294,7 @@ class PropelPDOTest extends TestCase
 		$c = new Criteria();
 		$c->add(BookPeer::ID, array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1), Criteria::IN);
 		$books = BookPeer::doSelect($c, $con);
-		$expected = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` WHERE book.ID IN (1,1,1,1,1,1,1,1,1,1,1,1)";
+		$expected = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book WHERE book.ID IN (1,1,1,1,1,1,1,1,1,1,1,1)";
 		$this->assertEquals($expected, $con->getLastExecutedQuery(), 'PropelPDO correctly replaces arguments in queries');
 	}
 
@@ -312,7 +312,7 @@ class PropelPDOTest extends TestCase
 		$con->useDebug(false);
 		$this->assertEquals(array('PDOStatement'), $con->getAttribute(PDO::ATTR_STATEMENT_CLASS), 'Statement is PDOStatement when debug is false');
 		$con->useDebug(true);
-		$this->assertEquals(array('DebugPDOStatement', array($con)), $con->getAttribute(PDO::ATTR_STATEMENT_CLASS), 'statement is DebugPDOStament when debug is true');
+		$this->assertEquals(array('Propulsion\Connection\DebugPDOStatement', array($con)), $con->getAttribute(PDO::ATTR_STATEMENT_CLASS), 'statement is DebugPDOStament when debug is true');
 	}
 
 	public function testDebugLatestQuery()
@@ -336,7 +336,7 @@ class PropelPDOTest extends TestCase
 		$this->assertEquals($latestExecutedQuery, $con->getLastExecutedQuery(), 'PropelPDO updates the last executed query when useLogging is true');
 
 		BookPeer::doDeleteAll($con);
-		$latestExecutedQuery = "DELETE FROM `book`";
+		$latestExecutedQuery = "DELETE FROM book";
 		$this->assertEquals($latestExecutedQuery, $con->getLastExecutedQuery(), 'PropelPDO updates the last executed query on delete operations');
 
 		$sql = 'DELETE FROM book WHERE 1=1';

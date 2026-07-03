@@ -24,6 +24,9 @@
 
 use Propulsion\Generator\Model\Behavior;
 use Propulsion\Generator\Model\ForeignKey;
+use Propulsion\Generator\Builder\OM\ObjectBuilder;
+use Propulsion\Generator\Builder\OM\QueryBuilder;
+use Propulsion\Generator\Builder\OM\PeerBuilder;
 
 class ConcreteInheritanceBehavior extends Behavior
 {
@@ -140,26 +143,26 @@ class ConcreteInheritanceBehavior extends Behavior
 	public function parentClass($builder)
 	{
 		$parentTable = $this->getParentTable();
-		switch (get_class($builder)) {
-			case 'PHP5ObjectBuilder':
-				$objectBuilder = $builder->getNewStubObjectBuilder($parentTable);
-				$builder->declareClass($objectBuilder->getFullyQualifiedClassname());
-				return $objectBuilder->getClassname();
-				break;
-			case 'QueryBuilder':
-				$queryBuilder = $builder->getNewStubQueryBuilder($parentTable);
-				$builder->declareClass($queryBuilder->getFullyQualifiedClassname());
-				return $queryBuilder->getClassname();
-				break;
-			case 'PHP5PeerBuilder':
-				$peerBuilder = $builder->getNewStubPeerBuilder($parentTable);
-				$builder->declareClass($peerBuilder->getFullyQualifiedClassname());
-				return $peerBuilder->getClassname();
-				break;
-			default:
-				return null;
-				break;
+		// Match against the builder base classes (via instanceof) rather than
+		// get_class(), since the concrete builder class name may be a bare
+		// (test bootstrap-aliased) or fully-qualified name depending on the
+		// active GeneratorConfig, and may be a PHP5* or PHP84* variant.
+		if ($builder instanceof QueryBuilder) {
+			$queryBuilder = $builder->getNewStubQueryBuilder($parentTable);
+			$builder->declareClass($queryBuilder->getFullyQualifiedClassname());
+			return $queryBuilder->getClassname();
 		}
+		if ($builder instanceof ObjectBuilder) {
+			$objectBuilder = $builder->getNewStubObjectBuilder($parentTable);
+			$builder->declareClass($objectBuilder->getFullyQualifiedClassname());
+			return $objectBuilder->getClassname();
+		}
+		if ($builder instanceof PeerBuilder) {
+			$peerBuilder = $builder->getNewStubPeerBuilder($parentTable);
+			$builder->declareClass($peerBuilder->getFullyQualifiedClassname());
+			return $peerBuilder->getClassname();
+		}
+		return null;
 	}
 
 	public function preSave($script)

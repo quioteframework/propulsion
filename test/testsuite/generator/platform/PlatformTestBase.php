@@ -17,18 +17,18 @@ use PHPUnit\Framework\TestCase;
 abstract class PlatformTestBase extends TestCase
 {
 
-	abstract protected function getPlatform();
+	abstract protected static function getPlatform();
 
-	protected function getDatabaseFromSchema($schema)
+	protected static function getDatabaseFromSchema($schema)
 	{
-		$xtad = new XmlToAppData($this->getPlatform());
+		$xtad = new XmlToAppData(static::getPlatform());
 		$appData = $xtad->parseString($schema);
 		return $appData->getDatabase();
 	}
 
-	protected function getTableFromSchema($schema, $tableName = 'foo')
+	protected static function getTableFromSchema($schema, $tableName = 'foo')
 	{
-		return $this->getDatabaseFromSchema($schema)->getTable($tableName);
+		return static::getDatabaseFromSchema($schema)->getTable($tableName);
 	}
 
 }

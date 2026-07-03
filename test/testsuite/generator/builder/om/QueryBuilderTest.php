@@ -62,7 +62,7 @@ class QueryBuilderTest extends BookstoreTestBase
 	public function testBasePreSelect()
 	{
 		$method = new ReflectionMethod('Table2Query', 'basePreSelect');
-		$this->assertEquals('ModelCriteria', $method->getDeclaringClass()->getName(), 'BaseQuery does not override basePreSelect() by default');
+		$this->assertEquals('Propulsion\\Query\\ModelCriteria', $method->getDeclaringClass()->getName(), 'BaseQuery does not override basePreSelect() by default');
 
 		$method = new ReflectionMethod('Table3Query', 'basePreSelect');
 		$this->assertEquals('BaseTable3Query', $method->getDeclaringClass()->getName(), 'BaseQuery overrides basePreSelect() when a behavior is registered');
@@ -71,7 +71,7 @@ class QueryBuilderTest extends BookstoreTestBase
 	public function testBasePreDelete()
 	{
 		$method = new ReflectionMethod('Table2Query', 'basePreDelete');
-		$this->assertEquals('ModelCriteria', $method->getDeclaringClass()->getName(), 'BaseQuery does not override basePreDelete() by default');
+		$this->assertEquals('Propulsion\\Query\\ModelCriteria', $method->getDeclaringClass()->getName(), 'BaseQuery does not override basePreDelete() by default');
 
 		$method = new ReflectionMethod('Table3Query', 'basePreDelete');
 		$this->assertEquals('BaseTable3Query', $method->getDeclaringClass()->getName(), 'BaseQuery overrides basePreDelete() when a behavior is registered');
@@ -80,7 +80,7 @@ class QueryBuilderTest extends BookstoreTestBase
 	public function testBasePostDelete()
 	{
 		$method = new ReflectionMethod('Table2Query', 'basePostDelete');
-		$this->assertEquals('ModelCriteria', $method->getDeclaringClass()->getName(), 'BaseQuery does not override basePostDelete() by default');
+		$this->assertEquals('Propulsion\\Query\\ModelCriteria', $method->getDeclaringClass()->getName(), 'BaseQuery does not override basePostDelete() by default');
 
 		$method = new ReflectionMethod('Table3Query', 'basePostDelete');
 		$this->assertEquals('BaseTable3Query', $method->getDeclaringClass()->getName(), 'BaseQuery overrides basePostDelete() when a behavior is registered');
@@ -89,7 +89,7 @@ class QueryBuilderTest extends BookstoreTestBase
 	public function testBasePreUpdate()
 	{
 		$method = new ReflectionMethod('Table2Query', 'basePreUpdate');
-		$this->assertEquals('ModelCriteria', $method->getDeclaringClass()->getName(), 'BaseQuery does not override basePreUpdate() by default');
+		$this->assertEquals('Propulsion\\Query\\ModelCriteria', $method->getDeclaringClass()->getName(), 'BaseQuery does not override basePreUpdate() by default');
 
 		$method = new ReflectionMethod('Table3Query', 'basePreUpdate');
 		$this->assertEquals('BaseTable3Query', $method->getDeclaringClass()->getName(), 'BaseQuery overrides basePreUpdate() when a behavior is registered');
@@ -98,7 +98,7 @@ class QueryBuilderTest extends BookstoreTestBase
 	public function testBasePostUpdate()
 	{
 		$method = new ReflectionMethod('Table2Query', 'basePostUpdate');
-		$this->assertEquals('ModelCriteria', $method->getDeclaringClass()->getName(), 'BaseQuery does not override basePostUpdate() by default');
+		$this->assertEquals('Propulsion\\Query\\ModelCriteria', $method->getDeclaringClass()->getName(), 'BaseQuery does not override basePostUpdate() by default');
 
 		$method = new ReflectionMethod('Table3Query', 'basePostUpdate');
 		$this->assertEquals('BaseTable3Query', $method->getDeclaringClass()->getName(), 'BaseQuery overrides basePostUpdate() when a behavior is registered');

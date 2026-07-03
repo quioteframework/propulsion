@@ -19,7 +19,7 @@ class MssqlPlatformTest extends PlatformTestProvider
 	 *
 	 * @return     Platform
 	 */
-	protected function getPlatform()
+	protected static function getPlatform()
 	{
 		return new MssqlPlatform();
 	}

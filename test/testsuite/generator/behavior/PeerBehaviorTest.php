@@ -19,13 +19,13 @@ class PeerBehaviorTest extends BookstoreTestBase
   public function testStaticAttributes()
   {
     $this->assertEquals(Table3Peer::$customStaticAttribute, 1, 'staticAttributes hook is called when adding attributes');
-    $this->assertEquals(Table3Peer::$staticAttributeBuilder, 'PHP5PeerBuilder', 'staticAttributes hook is called with the peer builder as parameter');
+    $this->assertEquals(Table3Peer::$staticAttributeBuilder, 'Propulsion\\Generator\\Builder\\OM\\PHP5PeerBuilder', 'staticAttributes hook is called with the peer builder as parameter');
   }
 
   public function testStaticMethods()
   {
     $this->assertTrue(method_exists('Table3Peer', 'hello'), 'staticMethods hook is called when adding methods');
-    $this->assertEquals(Table3Peer::hello(), 'PHP5PeerBuilder', 'staticMethods hook is called with the peer builder as parameter');
+    $this->assertEquals(Table3Peer::hello(), 'Propulsion\\Generator\\Builder\\OM\\PHP5PeerBuilder', 'staticMethods hook is called with the peer builder as parameter');
   }
 
   public function testPreSelect()
@@ -47,13 +47,13 @@ class PeerBehaviorTest extends BookstoreTestBase
 
     $con->preSelect = 0;
     Table3Peer::doSelect(new Criteria, $con);
-    $this->assertEquals($con->preSelect, 'PHP5PeerBuilder', 'preSelect hook is called with the peer builder as parameter');
+    $this->assertEquals($con->preSelect, 'Propulsion\\Generator\\Builder\\OM\\PHP5PeerBuilder', 'preSelect hook is called with the peer builder as parameter');
   }
 
   public function testPeerFilter()
   {
     Table3Peer::TABLE_NAME;
     $this->assertTrue(class_exists('testPeerFilter'), 'peerFilter hook allows complete manipulation of the generated script');
-    $this->assertEquals(testPeerFilter::FOO, 'PHP5PeerBuilder', 'peerFilter hook is called with the peer builder as parameter');
+    $this->assertEquals(testPeerFilter::FOO, 'Propulsion\\Generator\\Builder\\OM\\PHP5PeerBuilder', 'peerFilter hook is called with the peer builder as parameter');
   }
 }

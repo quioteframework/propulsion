@@ -19,7 +19,7 @@ class OraclePlatformMigrationTest extends PlatformMigrationTestProvider
 	 *
 	 * @return     Platform
 	 */
-	protected function getPlatform()
+	protected static function getPlatform()
 	{
 		return new OraclePlatform();
 	}

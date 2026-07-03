@@ -479,10 +479,12 @@ class GeneratedPeerDoDeleteTest extends BookstoreEmptyTestBase
 	 */
 	public function testDoCountJoinWithOrderBy()
 	{
+		// None of these should throw an exception; that's what's being tested here.
+		$this->expectNotToPerformAssertions();
+
 		$c = new Criteria(BookPeer::DATABASE_NAME);
 		$c->addAscendingOrderByColumn(BookPeer::ID);
 
-		// None of these should not throw an exception!
 		BookPeer::doCountJoinAll($c);
 		BookPeer::doCountJoinAllExceptAuthor($c);
 		BookPeer::doCountJoinAuthor($c);
@@ -493,7 +495,9 @@ class GeneratedPeerDoDeleteTest extends BookstoreEmptyTestBase
 	 */
 	public function testRemoveInstanceFromPool_Null()
 	{
-		// if it throws an exception, then it's broken.
+		// if it throws an exception, then it's broken; that's what's being tested here.
+		$this->expectNotToPerformAssertions();
+
 		try {
 			BookPeer::removeInstanceFromPool(null);
 		} catch (Exception $x) {
