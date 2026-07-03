@@ -23,7 +23,7 @@ namespace Propulsion\Generator\Builder\OM;
  * @author     GitHub Copilot
  * @package    propel.generator.builder.om
  */
-class PHP84NestedSetBuilder extends ObjectBuilder
+class NestedSetBuilder extends AbstractObjectBuilder
 {
 
 	/**
@@ -108,7 +108,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	/**
 	 * Specifies the methods that are added as part of the basic OM class.
 	 * This can be overridden by subclasses that wish to add more methods.
-	 * @see        ObjectBuilder::addClassBody()
+	 * @see        AbstractObjectBuilder::addClassBody()
 	 */
 	protected function addClassBody(&$script): void
 	{
@@ -224,12 +224,22 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 
 	protected function addGetLevel(&$script): void
 	{
+		// Must accept an optional PropelPDO connection and lazily compute the level via the
+		// Peer if not already set, to match the Propulsion\OM\NodeObject interface signature
+		// (getLevel(?PropelPDO $con = null)) -- a naive property-only getter here fatals with
+		// "Declaration ... must be compatible" the moment this builder is actually used, which
+		// (being the PHP84 builder, promoted to canonical in Phase 3, see KNOWN_ISSUES.md) it
+		// hadn't been until this phase's nested-set-behavior tests exercised it end-to-end.
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
 	/**
-	 * Get the level of the node in the tree
+	 * Get the level of the node in the tree if set, otherwise calculates and returns it.
 	 */
-	public function getLevel(): ?int
+	public function getLevel(?PropelPDO \$con = null): ?int
 	{
+		if (\$this->level === null) {
+			\$this->level = $peerClassname::getLevel(\$this, \$con);
+		}
 		return \$this->level;
 	}
 ";
@@ -237,11 +247,17 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 
 	protected function addSetLevel(&$script): void
 	{
+		// No return type here: Propulsion\OM\NodeObject::setLevel($level) is untyped, and
+		// (for reasons that only surface once this builder is actually used to build a class
+		// loaded through a nested autoloader callback, as the test suite's classmap
+		// autoloader does) declaring ": static" here trips PHP's interface-compatibility
+		// check with a nonsensical "must be compatible with ...: <unrelated class>" fatal.
+		// Matching the interface's lack of a return type sidesteps it entirely.
 		$script .= "
 	/**
 	 * Set the level of the node in the tree
 	 */
-	public function setLevel(?int \$level): static
+	public function setLevel(\$level)
 	{
 		\$this->level = \$level;
 		return \$this;

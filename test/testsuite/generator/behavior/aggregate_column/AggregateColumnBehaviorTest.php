@@ -240,7 +240,10 @@ if (class_exists(AggregateComment::class) && class_exists(AggregateCommentQuery:
 
 	class TestableAggregateCommentQuery extends AggregateCommentQuery
 	{
-		public static function create($modelAlias = null, $criteria = null)
+		// QueryBuilder (promoted from PHP84QueryBuilder, see KNOWN_ISSUES.md Phase 3)
+		// generates a typed create(?string, ?Criteria): self signature on the base
+		// query class; match it here or PHP fatals on an incompatible override.
+		public static function create(?string $modelAlias = null, ?Criteria $criteria = null): static
 		{
 			return new TestableAggregateCommentQuery();
 		}

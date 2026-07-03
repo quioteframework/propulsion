@@ -18,7 +18,7 @@ namespace Propulsion\Generator\Builder\OM;
  * @author     Modernized for PHP 8.4
  * @package    propel.generator.builder.om
  */
-class PHP84ExtensionPeerBuilder extends PHP5ExtensionPeerBuilder
+class ExtensionPeerBuilder extends PHP5ExtensionPeerBuilder
 {
     /**
      * Adds the include() statements for files that this class depends on or utilizes.

@@ -247,8 +247,8 @@ happened, since a couple had surprises:
   appended `.OM` while `QueryBuilder`/`PHP84QueryBuilder`/
   `QueryInheritanceBuilder` (and the PHP5 builders) all appended lowercase
   `.om` -- the single-table-inheritance builders
-  (`PHP84NodeBuilder`/`PHP84NodePeerBuilder`/`PHP84NestedSetBuilder`/
-  `PHP84NestedSetPeerBuilder`) had the same `.OM` typo. All six switched to
+  (`NodeBuilder`/`NodePeerBuilder`/`NestedSetBuilder`/
+  `NestedSetPeerBuilder`) had the same `.OM` typo. All six switched to
   lowercase `.om` to match the majority convention. Verified: rebuilding the
   `namespaced` fixture now produces a single `Foo/Bar/om/` per package (no
   more `OM/` sibling), and `NamespaceTest` (12/12) still passes. The
@@ -340,39 +340,144 @@ logging). Everything below is not started, in priority order:
 
 ### Phase 3 — Promote PHP84 builders to canonical, flip the default
 
-Not started. Currently `generator/default.properties` still defaults
-`propel.targetPlatform = php5` (confirmed still true as of this writeup),
-meaning **the generator's out-of-the-box behavior is still the legacy PHP5
-codegen path**, not the modern PHP84 one this session did substantial work
-fixing and validating (single-table-inheritance support, namespace
-handling, etc.). Concretely, still needed:
+**Done, partially** — see deviations below. `generator/default.properties`
+no longer defaults `propel.targetPlatform = php5`; the unsuffixed
+`propel.builder.*.class` keys now point at the promoted (formerly PHP84)
+builders for **query and tablemap only** (see "Deviations" below for why
+peer/object and node/nestedset were deliberately left on the legacy PHP5
+builders). Verified via `cd test && rm -rf fixtures/*/build && ../vendor/bin/phpunit
+-c phpunit.xml`: **2184 tests, 36 errors, 19 failures, 12 skipped, 2
+risky** — identical to the pre-Phase-3 baseline (confirmed against `main`
+at `90404e6` in a throwaway worktree), i.e. this phase is not a net
+regression despite touching the generator's default output for every
+fixture.
 
-- Rename the collision-prone classes as scoped in the original planning
-  conversation: `AbstractPeerBuilder`/`AbstractObjectBuilder` for the two
-  abstract bases, promote `PHP84PeerBuilder`→`PeerBuilder`,
-  `PHP84ObjectBuilder`→`ObjectBuilder`, merge `PHP84QueryBuilder`'s
-  additions into `QueryBuilder` (not a rename — `QueryBuilder` is already
-  a concrete, non-abstract class today), `PHP84TableMapBuilder`→
-  `TableMapBuilder` (after resolving the fact that it currently `extends
-  PHP5TableMapBuilder` — needs its still-needed logic inlined first, or
-  it isn't safe to treat PHP5 as pure archaeology).
-- Straight prefix-drop rename for the rest (no naming collisions):
-  `PHP84ExtensionObjectBuilder`, `PHP84ExtensionPeerBuilder`,
-  `PHP84ExtensionNodeBuilder`, `PHP84ExtensionNodePeerBuilder`,
-  `PHP84InterfaceBuilder`, `PHP84MultiExtendObjectBuilder`,
-  `PHP84NestedSetBuilder`, `PHP84NestedSetPeerBuilder`, `PHP84NodeBuilder`,
-  `PHP84NodePeerBuilder`.
-- Flip `default.properties`: unsuffixed `propel.builder.*.class` keys
-  become the promoted (formerly PHP84) classes; add `.php5.class`
-  overrides for the now-demoted legacy path; change the default
-  `targetPlatform` away from `php5`.
-- Update the worker-safety rework doc's references to `PHP84PeerBuilder`
-  once it's renamed.
-- This session's PHP84-builder bug fixes (commit `306ee1b` especially)
-  make this phase considerably safer to do now than before — the
-  single-table-inheritance path that this rename would promote to default
-  is now actually tested and working, whereas before this session it had
-  never been exercised end-to-end.
+**What actually happened, vs. the plan's assumptions:**
+
+- The plan assumed the existing abstract bases were named
+  `AbstractPeerBuilder`/`AbstractObjectBuilder`. They weren't — the
+  abstract bases were already named plain `PeerBuilder`/`ObjectBuilder`
+  (that *was* the actual collision with promoting `PHP84PeerBuilder`/
+  `PHP84ObjectBuilder`). Renamed the abstract bases to
+  `AbstractPeerBuilder`/`AbstractObjectBuilder` first, then promoted
+  `PHP84PeerBuilder`→`PeerBuilder`, `PHP84ObjectBuilder`→`ObjectBuilder`.
+  Missed two files in the first pass (`PHP5ExtensionObjectBuilder`,
+  `PHP5ExtensionPeerBuilder` still said `extends ObjectBuilder`/
+  `extends PeerBuilder`, i.e. the newly-promoted concrete classes instead
+  of the newly-renamed abstract ones) — caught immediately by running
+  `testsuite/generator/builder/om/` right after, fixed in a follow-up
+  commit.
+- `PHP84TableMapBuilder extends PHP5TableMapBuilder` only to inherit
+  `getUnprefixedClassname()`, `addIncludes()`, `addClassClose()`, and the
+  `TableMapBuilderModifier`-aware `hasBehaviorModifier()`/
+  `applyBehaviorModifier()` — none customized. Inlined all five verbatim;
+  the promoted `TableMapBuilder` now extends `OMBuilder` directly with no
+  PHP5 dependency.
+- `QueryBuilder`/`PHP84QueryBuilder` needed a real merge, not a rename, as
+  the plan anticipated — but the merge was smaller than it looked:
+  `PHP84QueryBuilder extends QueryBuilder` and only overrode ~8 methods
+  (`getPackage`, `addClassOpen`, `addClassBody`, `addConstructor`,
+  `addFactory`, `addFilterByCol`, `addFilterByCrossFK`, `addFindPk`),
+  inheriting everything else (`addFilterByFk`, `addJoinFk`,
+  `addUseFkQuery`, etc.) unchanged. Of those 8, two were **not** merged
+  after inspection found they regress real functionality:
+  `addFindPk()`'s composite-primary-key branch is a hardcoded
+  `throw new PropelException('...not yet implemented for PHP84QueryBuilder')`,
+  and `addFilterByCol()` silently drops the ENUM/OBJECT column-type
+  branches entirely (present in the merged-in base, absent from PHP84's
+  override). Both are real, pre-existing PHP84-builder completeness gaps,
+  not something introduced by this merge — left unmerged (i.e. the
+  promoted `QueryBuilder` keeps the base's correct, complete versions of
+  those two methods) and flagged here rather than silently reintroducing
+  the regression.
+- The straight prefix-drop renames went as scoped, no surprises.
+
+**Deviations from "flip everything" — left on legacy PHP5 builders:**
+
+- **`peer`, `object`, `objectstub`, `peerstub`, `objectmultiextend`**:
+  flipping these surfaced a temporal-column-default bug in the promoted
+  `ObjectBuilder` (assigned raw date strings to typed `?DateTimeInterface`
+  properties, both illegally as a property-declaration default and as a
+  runtime type error in `applyDefaultValues()` — fixed), immediately
+  followed by a cascade of further failures and, on one fixture-table
+  combination, an actual PHP engine segfault. Auditing and fixing the
+  promoted `ObjectBuilder`/`PeerBuilder` to the same completeness bar as
+  `query`/`tablemap` is real work beyond a rename/promotion phase's scope
+  — left as explicit follow-up. The renamed classes (`PeerBuilder`,
+  `ObjectBuilder`) exist and are reachable via `.php84.class`; they're
+  just not the default yet.
+- **`node`, `nodepeer`, `nodestub`, `nodepeerstub`, `nestedset`,
+  `nestedsetpeer`**: turned out to be unfinished stubs, not
+  feature-complete ports — dozens of methods across `NestedSetBuilder`,
+  `NestedSetPeerBuilder`, `NodeBuilder`, `NodePeerBuilder` are literal
+  `protected function addX(&$script): void { /* Implementation */ }`
+  no-ops. Attempting to flip `nestedset`/`nestedsetpeer` by default
+  immediately fataled with `Class Page contains 32 abstract methods` the
+  moment a table using the deprecated "NestedSet treeMode" (distinct from
+  the actively-maintained `nested_set` *behavior*) was loaded. Completing
+  ~40 methods of real B-tree/nested-set manipulation logic is out of scope
+  here; left on the legacy (complete) PHP5 builders by default.
+- Both deviations are called out explicitly in `generator/default.properties`
+  itself, next to the relevant keys.
+
+**Other real bugs found and fixed along the way** (all previously dormant
+because nothing exercised the promoted builders as the *default* before
+this phase — same pattern as commit `306ee1b`'s findings):
+
+- `QueryBuilder`/`PeerBuilder`'s `getUseStatements()` (inherited verbatim
+  from the PHP84 builders) had a `use`-import bug that only manifests when
+  a builder's output target has no PHP namespace of its own: it either
+  emitted the same `use Propulsion\Query\ModelCriteria;`-style import once
+  per class — fatal ("name is already in use") when `PropelQuickBuilder`
+  concatenates many such flat classes into one `eval()`'d script with no
+  namespace block between them — or, in an earlier fix attempt, skipped
+  imports too broadly and broke genuinely namespaced projects (a bare
+  class reference inside a real `namespace Foo\Bar;` block resolves
+  *relative to that namespace*, not globally, so it still needs a real
+  `use` import there). Fixed to key off whether the *generated* class
+  itself has a real namespace, not blanket rules.
+- `TableMapBuilder`'s promoted `addInitialize()` never called
+  `setSingleTableInheritance(true)` for tables using single-table
+  inheritance, unlike `PHP5TableMapBuilder` (caught by
+  `PHP5TableMapBuilderTest::testSingleTableInheritance`, which despite its
+  name exercises whichever `tablemap` builder is configured by default).
+- `NestedSetBuilder`/`NodeBuilder` generated `setLevel(?int $level)`,
+  narrower than `Propulsion\OM\NodeObject`'s untyped interface method —
+  PHP rejects narrowing a parameter type as a contravariance violation.
+  `PHP5NestedSetBuilder`'s `save()`/`delete()` overrides also needed
+  updating to match the (now default) typed `ObjectBuilder`-generated
+  parent class's signatures, since `PHP5NestedSetBuilder`-generated
+  classes extend whatever `object` builder is configured.
+- `VersionableBehaviorObjectBuilderModifier::addVersion()` passed a
+  `PropelPDO` positionally into a collection getter's `$criteria`
+  parameter — silently tolerated by the old untyped `create()` (the
+  `instanceof Criteria` check just evaluated false and did nothing) but a
+  hard `TypeError` under the new typed one. That mistyped `$con` being
+  non-null was also accidentally load-bearing: it forced the getter to
+  bypass its in-memory collection cache and re-query fresh from the
+  database, which `addVersion()` actually needs to snapshot current state
+  correctly. Fixed by passing an explicit empty `Criteria` object, which
+  forces the same fresh-query behavior correctly instead of by accident.
+- Two test fixtures needed updating to match the new default codegen
+  shape (custom `Query` subclasses overriding `create()` with the old
+  untyped signature), and two tests hardcoded `require_once()` paths using
+  the legacy lowercase `.../map/...` directory name — `TableMapBuilder`
+  (and `ObjectBuilder`/`PeerBuilder`/`QueryBuilder`'s `.om` package,
+  unchanged by this phase) intentionally capitalizes its output package to
+  `Map`/`OM`, for PSR-4-friendly `<SchemaName>/Map` and `<SchemaName>/OM`
+  directory naming — not a bug to revert.
+
+**Still needed for a fully-flipped Phase 3** (tracked here rather than a
+separate phase, since it's the same rename/promotion effort, just
+incomplete): audit and fix the promoted `ObjectBuilder`/`PeerBuilder` to
+the same completeness bar demonstrated above for `QueryBuilder`/
+`TableMapBuilder`, then flip `propel.builder.peer.class`/
+`propel.builder.object.class`/etc.; separately, either finish porting
+`NestedSetBuilder`/`NestedSetPeerBuilder`/`NodeBuilder`/`NodePeerBuilder`'s
+~40 stubbed methods or formally deprecate/remove the "NestedSet treeMode"
+and "node" (`MaterializedPath`) builder types instead (their PHP5
+equivalents are the only complete implementations and the treeMode itself
+is already marked `@deprecated` in its own generated docblock).
 
 ### Phase 4 — Worker-safety rework (ServiceContainer/Session split)
 

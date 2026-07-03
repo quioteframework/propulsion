@@ -23,7 +23,7 @@ namespace Propulsion\Generator\Builder\OM;
  * @author     GitHub Copilot
  * @package    propel.generator.builder.om
  */
-class PHP84NodeBuilder extends ObjectBuilder
+class NodeBuilder extends AbstractObjectBuilder
 {
 
 	/**
@@ -107,7 +107,7 @@ abstract class ".$this->getClassname()." implements \\IteratorAggregate
 	/**
 	 * Specifies the methods that are added as part of the basic OM class.
 	 * This can be overridden by subclasses that wish to add more methods.
-	 * @see        ObjectBuilder::addClassBody()
+	 * @see        AbstractObjectBuilder::addClassBody()
 	 */
 	protected function addClassBody(&$script): void
 	{
@@ -272,11 +272,14 @@ abstract class ".$this->getClassname()." implements \\IteratorAggregate
 	 */
 	protected function addSetLevel(&$script): void
 	{
+		// See NestedSetBuilder::addSetLevel() for why this deliberately has no return
+		// type: it would otherwise fatal wherever it ends up implementing
+		// Propulsion\OM\NodeObject::setLevel($level), which is untyped.
 		$script .= "
 	/**
 	 * Set the level of the node in the tree
 	 */
-	public function setLevel(?int \$level): static
+	public function setLevel(\$level)
 	{
 		\$this->level = \$level;
 		return \$this;

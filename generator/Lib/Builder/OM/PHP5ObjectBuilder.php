@@ -30,7 +30,7 @@ use Propulsion\Generator\Model\IDMethod;
 use \DateTime;
 use \Exception;
 
-class PHP5ObjectBuilder extends ObjectBuilder
+class PHP5ObjectBuilder extends AbstractObjectBuilder
 {
 
 	/**
@@ -232,7 +232,7 @@ abstract class ".$this->getClassname()." extends ".$parentClass." ";
 	/**
 	 * Specifies the methods that are added as part of the basic OM class.
 	 * This can be overridden by subclasses that wish to add more methods.
-	 * @see        ObjectBuilder::addClassBody()
+	 * @see        AbstractObjectBuilder::addClassBody()
 	 */
 	protected function addClassBody(&$script)
 	{

@@ -25,7 +25,7 @@ namespace Propulsion\Generator\Builder\OM;
 use Propulsion\Generator\Model\Inheritance;
 use Propulsion\Generator\Exception\EngineException;
 
-class PHP84MultiExtendObjectBuilder extends ObjectBuilder
+class MultiExtendObjectBuilder extends AbstractObjectBuilder
 {
 
 	/**
@@ -68,7 +68,7 @@ class PHP84MultiExtendObjectBuilder extends ObjectBuilder
 	public function getChild(): Inheritance
 	{
 		if (!$this->child) {
-			throw new EngineException("The PHP84MultiExtendObjectBuilder needs to be told which child class to build (via setChild() method) before it can build the stub class.");
+			throw new EngineException("The MultiExtendObjectBuilder needs to be told which child class to build (via setChild() method) before it can build the stub class.");
 		}
 		return $this->child;
 	}
@@ -161,7 +161,7 @@ class ".$this->getClassname()." extends ".$this->getParentClassname()."
 	 * the column's schema default, and querying for a specific child class
 	 * would never match any row.
 	 *
-	 * @see        ObjectBuilder::addClassBody()
+	 * @see        AbstractObjectBuilder::addClassBody()
 	 */
 	protected function addClassBody(&$script): void
 	{

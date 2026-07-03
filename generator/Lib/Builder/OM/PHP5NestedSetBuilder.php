@@ -18,7 +18,7 @@ namespace Propulsion\Generator\Builder\OM;
  * @author     Heltem <heltem@o2php.com>
  * @package    propel.generator.builder.om
  */
-class PHP5NestedSetBuilder extends ObjectBuilder
+class PHP5NestedSetBuilder extends AbstractObjectBuilder
 {
 
 	/**
@@ -93,7 +93,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	/**
 	 * Specifies the methods that are added as part of the basic OM class.
 	 * This can be overridden by subclasses that wish to add more methods.
-	 * @see        ObjectBuilder::addClassBody()
+	 * @see        AbstractObjectBuilder::addClassBody()
 	 */
 	protected function addClassBody(&$script)
 	{
@@ -259,7 +259,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	 *                 May be unreliable with parent/children/brother changes
 	 * @throws     PropelException
 	 */
-	public function save(PropelPDO \$con = null)
+	public function save(?PropelPDO \$con = null): int
 	{
 		\$left = \$this->getLeftValue();
 		\$right = \$this->getRightValue();
@@ -284,7 +284,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	 * @return     void
 	 * @throws     PropelException
 	 */
-	public function delete(PropelPDO \$con = null)
+	public function delete(?PropelPDO \$con = null): void
 	{
 		// delete node first
 		parent::delete(\$con);

@@ -21,7 +21,7 @@ namespace Propulsion\Generator\Builder\OM;
 use Propulsion\Generator\Model\ForeignKey;
 use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\Table;
-class PHP5PeerBuilder extends PeerBuilder
+class PHP5PeerBuilder extends AbstractPeerBuilder
 {
 
 	/**
@@ -2020,7 +2020,7 @@ abstract class ".$this->getClassname(). $extendingPeerClass . " {
 	/**
 	 * Adds the complex OM methods to the base addSelectMethods() function.
 	 * @param      string &$script The script will be modified in this method.
-	 * @see        PeerBuilder::addSelectMethods()
+	 * @see        AbstractPeerBuilder::addSelectMethods()
 	 */
 	protected function addSelectMethods(&$script)
 	{

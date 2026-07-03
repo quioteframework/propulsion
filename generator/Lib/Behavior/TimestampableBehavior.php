@@ -62,7 +62,7 @@ class TimestampableBehavior extends Behavior
 	}
 
 	/**
-	 * Add code in ObjectBuilder::preUpdate
+	 * Add code in AbstractObjectBuilder::preUpdate
 	 *
 	 * @return    string The code to put at the hook
 	 */
@@ -74,7 +74,7 @@ class TimestampableBehavior extends Behavior
 	}
 
 	/**
-	 * Add code in ObjectBuilder::preInsert
+	 * Add code in AbstractObjectBuilder::preInsert
 	 *
 	 * @return    string The code to put at the hook
 	 */

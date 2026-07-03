@@ -24,7 +24,7 @@ namespace Propulsion\Generator\Builder\OM;
  * @author     GitHub Copilot
  * @package    propel.generator.builder.om
  */
-class PHP84ExtensionNodePeerBuilder extends PeerBuilder
+class ExtensionNodePeerBuilder extends AbstractPeerBuilder
 {
 
 	/**
@@ -147,7 +147,7 @@ class " . $this->getClassname() . " extends $baseClassname
 	/**
 	 * Gets the node peer builder instance with proper typing.
 	 */
-	public function getNodePeerBuilder(): PeerBuilder
+	public function getNodePeerBuilder(): AbstractPeerBuilder
 	{
 		return $this->getDatabase()->getTable($this->getTable()->getName())->getNodePeerBuilder();
 	}
@@ -155,9 +155,9 @@ class " . $this->getClassname() . " extends $baseClassname
 	/**
 	 * Gets the stub node builder instance with proper typing.
 	 */
-	public function getStubNodeBuilder(): ObjectBuilder
+	public function getStubNodeBuilder(): AbstractObjectBuilder
 	{
 		return $this->getDatabase()->getTable($this->getTable()->getName())->getStubNodeBuilder();
 	}
 
-} // PHP84ExtensionNodePeerBuilder
+} // ExtensionNodePeerBuilder

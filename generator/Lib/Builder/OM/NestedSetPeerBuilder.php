@@ -10,9 +10,9 @@
 namespace Propulsion\Generator\Builder\OM;
 
 /**
- * Generates a PHP 8.4 tree node Peer class for user object model (OM).
+ * Generates a PHP 8.4 tree nested set Peer class for user object model (OM).
  *
- * This class produces the base tree node peer class (e.g. BaseMyTablePeer) which contains all
+ * This class produces the base tree nested set peer class (e.g. BaseMyTableNestedSetPeer) which contains all
  * the custom-built query and manipulation methods with modern PHP 8.4 features:
  * - Static typed methods for tree operations
  * - Proper return types and parameter types
@@ -24,7 +24,7 @@ namespace Propulsion\Generator\Builder\OM;
  */
 use Propulsion\Generator\Exception\EngineException;
 
-class PHP84NodePeerBuilder extends PeerBuilder
+class NestedSetPeerBuilder extends AbstractPeerBuilder
 {
 
 	/**
@@ -54,7 +54,7 @@ class PHP84NodePeerBuilder extends PeerBuilder
 	 */
 	public function getUnprefixedClassname(): string
 	{
-		return $this->getBuildProperty('basePrefix') . $this->getStubNodePeerBuilder()->getUnprefixedClassname();
+		return $this->getBuildProperty('basePrefix') . $this->getStubObjectBuilder()->getUnprefixedClassname() . 'NestedSetPeer';
 	}
 
 	/**
@@ -78,7 +78,7 @@ class PHP84NodePeerBuilder extends PeerBuilder
 
 		$script .= "
 /**
- * Base static class for performing query operations on tree nodes from the '$tableName' table.
+ * Base static class for performing query operations on the tree contained by the '$tableName' table.
  *
  * $tableDesc
  *";
@@ -98,9 +98,10 @@ class PHP84NodePeerBuilder extends PeerBuilder
  *";
 		}
 		$script .= "
+ * @deprecated  Since Propel 1.5. Use the nested_set behavior instead of the NestedSet treeMode
  * @package    propel.generator.".$this->getPackage()."
  */
-abstract class ".$this->getClassname()."
+abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getClassName()." implements NodePeer
 {
 ";
 	}
@@ -108,21 +109,23 @@ abstract class ".$this->getClassname()."
 	/**
 	 * Specifies the methods that are added as part of the basic OM class.
 	 * This can be overridden by subclasses that wish to add more methods.
-	 * @see        ObjectBuilder::addClassBody()
+	 * @see        AbstractObjectBuilder::addClassBody()
 	 */
 	protected function addClassBody(&$script): void
 	{
-		$this->addRetrieveTree($script);
+		$this->addConstants($script);
+		$this->addGetTree($script);
 		$this->addRetrieveRoot($script);
-		$this->addRetrieveParent($script);
-		$this->addRetrieveChildren($script);
-		$this->addRetrieveDescendants($script);
-		$this->addRetrieveSiblings($script);
-		$this->addRetrievePrevSibling($script);
-		$this->addRetrieveNextSibling($script);
-		$this->addRetrieveFirstChild($script);
-		$this->addRetrieveLastChild($script);
+		$this->addRetrieveTree($script);
+		$this->addIsValid($script);
 		$this->addDeleteTree($script);
+		$this->addShiftLevel($script);
+		$this->addShiftRLValues($script);
+		$this->addShiftRLRange($script);
+		$this->addMakeRoomForLeaf($script);
+		$this->addFixLevels($script);
+		$this->addGetMaxRight($script);
+		$this->addGetLastScope($script);
 	}
 
 	/**
@@ -137,16 +140,33 @@ abstract class ".$this->getClassname()."
 	}
 
 	/**
-	 * Adds retrieveTree method with modern PHP 8.4 features.
+	 * Adds class constants for tree operations.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addRetrieveTree(&$script): void
+	protected function addConstants(&$script): void
 	{
 		$script .= "
 	/**
-	 * Retrieve the tree structure as an array
+	 * Tree structure operation constants
 	 */
-	public static function retrieveTree(?int \$scope = null): array
+	public const MOVE_UP = 1;
+	public const MOVE_DOWN = 2;
+	public const MOVE_LEFT = 3;
+	public const MOVE_RIGHT = 4;
+";
+	}
+
+	/**
+	 * Adds getTree method with modern PHP 8.4 features.
+	 * @param      string &$script The script will be modified in this method.
+	 */
+	protected function addGetTree(&$script): void
+	{
+		$script .= "
+	/**
+	 * Get the tree structure as an array
+	 */
+	public static function getTree(?int \$scope = null): array
 	{
 		\$criteria = new Criteria();
 		if (\$scope !== null) {
@@ -159,38 +179,17 @@ abstract class ".$this->getClassname()."
 ";
 	}
 
-	/**
-	 * Adds retrieveRoot method.
-	 * @param      string &$script The script will be modified in this method.
-	 */
-	protected function addRetrieveRoot(&$script): void
-	{
-		$script .= "
-	/**
-	 * Retrieve the root node of the tree
-	 */
-	public static function retrieveRoot(?int \$scope = null): ?object
-	{
-		\$criteria = new \\Criteria();
-		\$criteria->add(static::LEFT_COL, 1);
-		if (\$scope !== null) {
-			\$criteria->add(static::SCOPE_COL, \$scope);
-		}
-		
-		return static::doSelectOne(\$criteria);
-	}
-";
-	}
-
 	// Placeholder methods - in a complete implementation, these would contain
 	// the full modernized logic from the PHP5 version
-	protected function addRetrieveParent(&$script): void { /* Implementation */ }
-	protected function addRetrieveChildren(&$script): void { /* Implementation */ }
-	protected function addRetrieveDescendants(&$script): void { /* Implementation */ }
-	protected function addRetrieveSiblings(&$script): void { /* Implementation */ }
-	protected function addRetrievePrevSibling(&$script): void { /* Implementation */ }
-	protected function addRetrieveNextSibling(&$script): void { /* Implementation */ }
-	protected function addRetrieveFirstChild(&$script): void { /* Implementation */ }
-	protected function addRetrieveLastChild(&$script): void { /* Implementation */ }
+	protected function addRetrieveRoot(&$script): void { /* Implementation */ }
+	protected function addRetrieveTree(&$script): void { /* Implementation */ }
+	protected function addIsValid(&$script): void { /* Implementation */ }
 	protected function addDeleteTree(&$script): void { /* Implementation */ }
+	protected function addShiftLevel(&$script): void { /* Implementation */ }
+	protected function addShiftRLValues(&$script): void { /* Implementation */ }
+	protected function addShiftRLRange(&$script): void { /* Implementation */ }
+	protected function addMakeRoomForLeaf(&$script): void { /* Implementation */ }
+	protected function addFixLevels(&$script): void { /* Implementation */ }
+	protected function addGetMaxRight(&$script): void { /* Implementation */ }
+	protected function addGetLastScope(&$script): void { /* Implementation */ }
 }

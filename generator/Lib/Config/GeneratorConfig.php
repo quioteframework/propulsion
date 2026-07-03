@@ -280,15 +280,21 @@ class GeneratorConfig implements GeneratorConfigInterface
 	public function getBuilderClassname($type)
 	{
 		$platform = $this->getBuildProperty('targetPlatform');
-		
-		// Check for platform-specific builder first
-		if ($platform && $platform !== 'php5') {
+
+		// Check for platform-specific builder first. 'php5' used to be special-cased
+		// here to always skip straight to the unsuffixed default -- back when the
+		// unsuffixed propel.builder.*.class keys *were* the PHP5 builders. Since
+		// Phase 3 (see KNOWN_ISSUES.md) promoted the modern (formerly PHP84) builders
+		// to the unsuffixed defaults, 'php5' now needs the same platform-specific
+		// override lookup as any other explicit targetPlatform value, so that
+		// propel.builder.*.php5.class overrides remain reachable.
+		if ($platform) {
 			$platformPropname = 'builder' . ucfirst(strtolower($type)) . ucfirst($platform) . 'Class';
 			if ($this->getBuildProperty($platformPropname)) {
 				return $this->getClassname($platformPropname);
 			}
 		}
-		
+
 		// Fall back to default builder
 		$propname = 'builder' . ucfirst(strtolower($type)) . 'Class';
 		return $this->getClassname($propname);
