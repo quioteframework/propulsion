@@ -11,8 +11,7 @@
 use PHPUnit\Framework\TestCase;
 use Propulsion\Propel;
 
-set_include_path(get_include_path() . PATH_SEPARATOR . realpath(dirname(__FILE__) . '/../../../fixtures/bookstore/build/classes'));
-Propel::init(dirname(__FILE__) . '/../../../fixtures/bookstore/build/conf/bookstore-conf.php');
+require_once dirname(__FILE__) . '/../IntegrationDatabase.php';
 
 /**
  * Base class contains some methods shared by subclass test cases.
@@ -27,6 +26,18 @@ abstract class BookstoreTestBase extends TestCase
 	protected function setUp(): void
 	{
 		parent::setUp();
+
+		try {
+			IntegrationDatabase::ensureReady();
+		} catch (\RuntimeException $e) {
+			$this->markTestSkipped($e->getMessage());
+		}
+
+		if (!Propel::isInit()) {
+			set_include_path(get_include_path() . PATH_SEPARATOR . realpath(IntegrationDatabase::classesDir()));
+			Propel::init(IntegrationDatabase::confFile());
+		}
+
 		$this->con = Propel::getConnection(BookPeer::DATABASE_NAME);
 		$this->con->beginTransaction();
 	}
@@ -42,7 +53,7 @@ abstract class BookstoreTestBase extends TestCase
 		// and we don't want to call PropelPDO::commit() in that case
 		// since it will trigger an exception on its own
 		// ('Cannot commit because a nested transaction was rolled back')
-		if ($this->con->isCommitable()) {
+		if ($this->con && $this->con->isCommitable()) {
 			$this->con->commit();
 		}
 	}

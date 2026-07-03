@@ -25,7 +25,7 @@ class SqlBuildCommand extends Command
         $this
             ->addArgument('schema', InputArgument::OPTIONAL, 'Schema file or directory', './schema')
             ->addOption('output-dir', 'o', InputOption::VALUE_REQUIRED, 'Output directory for SQL files', './generated-sql')
-            ->addOption('config', 'c', InputOption::VALUE_REQUIRED, 'Build properties file overriding generator/default.properties')
+            ->addOption('config', 'c', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Build properties file overriding generator/default.properties (repeatable; later files win)', [])
             ->addOption('database', 'd', InputOption::VALUE_REQUIRED, 'Target database adapter (mysql, pgsql, sqlite, ...)');
     }
 

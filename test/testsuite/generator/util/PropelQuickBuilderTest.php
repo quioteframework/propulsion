@@ -81,12 +81,12 @@ EOF;
 	public function testGetClasses($builder)
 	{
 		$script = $builder->getClasses();
-		$this->assertContains('class QuickBuildFoo1 extends BaseQuickBuildFoo1', $script);
-		$this->assertContains('class QuickBuildFoo1Peer extends BaseQuickBuildFoo1Peer', $script);
-		$this->assertContains('class QuickBuildFoo1Query extends BaseQuickBuildFoo1Query', $script);
-		$this->assertContains('class BaseQuickBuildFoo1 extends BaseObject', $script);
-		$this->assertContains('class BaseQuickBuildFoo1Peer', $script);
-		$this->assertContains('class BaseQuickBuildFoo1Query extends ModelCriteria', $script);
+		$this->assertStringContainsString('class QuickBuildFoo1 extends BaseQuickBuildFoo1', $script);
+		$this->assertStringContainsString('class QuickBuildFoo1Peer extends BaseQuickBuildFoo1Peer', $script);
+		$this->assertStringContainsString('class QuickBuildFoo1Query extends BaseQuickBuildFoo1Query', $script);
+		$this->assertStringContainsString('class BaseQuickBuildFoo1 extends BaseObject', $script);
+		$this->assertStringContainsString('class BaseQuickBuildFoo1Peer', $script);
+		$this->assertStringContainsString('class BaseQuickBuildFoo1Query extends ModelCriteria', $script);
 	}
 
 	/**

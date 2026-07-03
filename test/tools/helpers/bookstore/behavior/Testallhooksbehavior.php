@@ -8,6 +8,8 @@
  * @license    MIT License
  */
 
+use Propulsion\Generator\Model\Behavior;
+
 class TestAllHooksBehavior extends Behavior
 {
   protected $tableModifier, $objectBuilderModifier, $peerBuilderModifier, $queryBuilderModifier;

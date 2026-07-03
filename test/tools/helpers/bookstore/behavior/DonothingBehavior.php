@@ -8,6 +8,8 @@
  * @license    MIT License
  */
 
+use Propulsion\Generator\Model\Behavior;
+
 class DonothingBehavior extends Behavior
 {
 }

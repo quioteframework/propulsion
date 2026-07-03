@@ -2,6 +2,7 @@
 
 
 use PHPUnit\Framework\TestCase;
+use Propulsion\Propel;
 /**
  * This file is part of the Propel package.
  * For the full copyright and license information, please view the LICENSE
@@ -10,8 +11,7 @@ use PHPUnit\Framework\TestCase;
  * @license    MIT License
  */
 
-set_include_path(get_include_path() . PATH_SEPARATOR . realpath(dirname(__FILE__) . '/../../../fixtures/bookstore/build/classes'));
-Propel::init(dirname(__FILE__) . '/../../../fixtures/bookstore/build/conf/bookstore-conf.php');
+require_once dirname(__FILE__) . '/../IntegrationDatabase.php';
 include_once dirname(__FILE__) . '/CmsDataPopulator.php';
 
 /**
@@ -27,6 +27,18 @@ abstract class CmsTestBase extends TestCase
 	protected function setUp(): void
 	{
 		parent::setUp();
+
+		try {
+			IntegrationDatabase::ensureReady();
+		} catch (\RuntimeException $e) {
+			$this->markTestSkipped($e->getMessage());
+		}
+
+		if (!Propel::isInit()) {
+			set_include_path(get_include_path() . PATH_SEPARATOR . realpath(IntegrationDatabase::classesDir()));
+			Propel::init(IntegrationDatabase::confFile());
+		}
+
 		$this->con = Propel::getConnection(PagePeer::DATABASE_NAME);
 		$this->con->beginTransaction();
 		CmsDataPopulator::depopulate($this->con);

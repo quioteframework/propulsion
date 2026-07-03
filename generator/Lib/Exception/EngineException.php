@@ -10,10 +10,13 @@ namespace Propulsion\Generator\Exception;
  * @license    MIT License
  */
 
-use Phing\Exception\BuildException;
-
 /**
  * The base class of all exceptions thrown by the engine.
+ *
+ * This does not extend Phing\Exception\BuildException: EngineException is thrown
+ * throughout the core generator code (schema/model classes, GeneratorConfig, the
+ * Manager classes used by bin/propulsion), none of which should require phing/phing
+ * -- a dev-only dependency -- to be installed to run.
  *
  * @author     Hans Lellelid <hans@xmpl.org> (Propel)
  * @author     Daniel Rall <dlr@collab.net> (Torque)
@@ -21,4 +24,4 @@ use Phing\Exception\BuildException;
  * @version    $Revision$
  * @package    propel.generator.exception
  */
-class EngineException extends BuildException {}
+class EngineException extends \Exception {}

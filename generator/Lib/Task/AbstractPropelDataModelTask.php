@@ -452,7 +452,7 @@ abstract class AbstractPropelDataModelTask extends Task
 				if ($this->validate && $this->xsdFile) {
 					$this->log("  Validating XML using schema " . $this->xsdFile->getPath(), Project::MSG_VERBOSE);
 					if (!$dom->schemaValidate($this->xsdFile->getAbsolutePath())) {
-						throw new EngineException("XML schema file (".$xmlFile->getPath().") does not validate. See warnings above for reasons validation failed (make sure error_reporting is set to show E_WARNING if you don't see any).", $this->getLocation());
+						throw new EngineException("XML schema file (".$xmlFile->getPath().") does not validate. See warnings above for reasons validation failed (make sure error_reporting is set to show E_WARNING if you don't see any). Location: " . $this->getLocation());
 					}
 				}
 

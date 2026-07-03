@@ -18,7 +18,7 @@ namespace Propulsion\Query;
  * @version    $Revision$
  * @package    propel.runtime.query
  */
-class CriterionIterator implements \Traversable
+class CriterionIterator implements \Iterator
 {
 
 	private $idx = 0;

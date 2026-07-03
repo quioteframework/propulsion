@@ -20,7 +20,7 @@ namespace Propulsion\Generator\Builder\OM;
  * @package    propel.generator.builder.om
  */
 use Propulsion\Generator\Model\Inheritance;
-use Phing\Exception\BuildException;
+use Propulsion\Generator\Exception\EngineException;
 
 class ExtensionQueryInheritanceBuilder extends OMBuilder
 {
@@ -60,12 +60,12 @@ class ExtensionQueryInheritanceBuilder extends OMBuilder
 	/**
 	 * Returns the child object we're operating on currently.
 	 * @return     Inheritance
-	 * @throws     BuildException - if child was not set.
+	 * @throws     EngineException - if child was not set.
 	 */
 	public function getChild()
 	{
 		if (!$this->child) {
-			throw new BuildException("The PHP5MultiExtendObjectBuilder needs to be told which child class to build (via setChild() method) before it can build the stub class.");
+			throw new EngineException("The PHP5MultiExtendObjectBuilder needs to be told which child class to build (via setChild() method) before it can build the stub class.");
 		}
 		return $this->child;
 	}

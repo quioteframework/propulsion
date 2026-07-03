@@ -1,5 +1,7 @@
 <?php
 
+use Propulsion\Generator\Builder\OM\OMBuilder;
+
 class AddClassBehaviorBuilder extends OMBuilder
 {
 	public $overwrite = true;
@@ -16,6 +18,13 @@ class AddClassBehaviorBuilder extends OMBuilder
 	public function getUnprefixedClassname()
 	{
 		return $this->getStubObjectBuilder()->getUnprefixedClassname() . 'FooClass';
+	}
+
+	/**
+	 * No additional includes needed for this test-only builder.
+	 */
+	protected function addIncludes(&$script = null)
+	{
 	}
 
 	/**

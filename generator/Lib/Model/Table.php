@@ -24,7 +24,6 @@
  * @package    propel.generator.model
  */
 use Propulsion\Generator\Exception\EngineException;
-use Phing\Exception\BuildException;
 
 class Table extends ScopedElement implements IDMethod
 {
@@ -868,7 +867,7 @@ class Table extends ScopedElement implements IDMethod
 					$foreignTable->addReferrer($foreignKey);
 				}
 			} elseif ($throwErrors) {
-				throw new BuildException(sprintf(
+				throw new EngineException(sprintf(
 					'Table "%s" contains a foreign key to nonexistent table "%s"',
 					$this->getName(),
 					$foreignKey->getForeignTableName()
@@ -887,7 +886,7 @@ class Table extends ScopedElement implements IDMethod
 					// give notice of a schema inconsistency.
 					// note we do not prevent the npe as there is nothing
 					// that we can do, if it is to occur.
-					throw new BuildException(sprintf(
+					throw new EngineException(sprintf(
 						'Table "%s" contains a foreign key with nonexistent local column "%s"',
 						$this->getName(),
 						$localColumnName
@@ -909,7 +908,7 @@ class Table extends ScopedElement implements IDMethod
 				} elseif ($throwErrors) {
 					// if the foreign column does not exist, we may have an
 					// external reference or a misspelling
-					throw new BuildException(sprintf(
+					throw new EngineException(sprintf(
 						'Table "%s" contains a foreign key to table "%s" with nonexistent column "%s"',
 						$this->getName(),
 						$foreignTable->getName(),

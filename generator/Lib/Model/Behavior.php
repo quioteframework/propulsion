@@ -8,6 +8,9 @@ namespace Propulsion\Generator\Model;
  * @license    MIT License
  */
 
+use ReflectionObject;
+use Propulsion\Generator\Builder\Util\PropelTemplate;
+
 /**
  * Information about behaviors of a table.
  *

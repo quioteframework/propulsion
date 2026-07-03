@@ -2,3 +2,4 @@
 composer.phar
 .phpunit.cache/
 *.cache
+/test/fixtures/*/build/

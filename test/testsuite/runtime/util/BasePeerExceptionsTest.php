@@ -26,7 +26,7 @@ class BasePeerExceptionsTest extends BookstoreTestBase
 			BookPeer::addSelectColumns($c);
 			BasePeer::doSelect($c);
 		} catch (PropelException $e) {
-			$this->assertContains('[SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` WHERE book.ID BAD SQL:p1]', $e->getMessage(), 'SQL query is written in the exception message');
+			$this->assertStringContainsString('[SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book WHERE book.ID BAD SQL:p1]', $e->getMessage(), 'SQL query is written in the exception message');
 		}
 	}
 
@@ -38,7 +38,7 @@ class BasePeerExceptionsTest extends BookstoreTestBase
 			BookPeer::addSelectColumns($c);
 			BasePeer::doCount($c);
 		} catch (PropelException $e) {
-			$this->assertContains('[SELECT COUNT(*) FROM `book` WHERE book.ID BAD SQL:p1]', $e->getMessage(), 'SQL query is written in the exception message');
+			$this->assertStringContainsString('[SELECT COUNT(*) FROM book WHERE book.ID BAD SQL:p1]', $e->getMessage(), 'SQL query is written in the exception message');
 		}
 	}
 
@@ -50,7 +50,7 @@ class BasePeerExceptionsTest extends BookstoreTestBase
 			$c->add(BookPeer::ID, 12, ' BAD SQL');
 			BasePeer::doDelete($c, Propel::getConnection());
 		} catch (PropelException $e) {
-			$this->assertContains('[DELETE FROM `book` WHERE book.ID BAD SQL:p1]', $e->getMessage(), 'SQL query is written in the exception message');
+			$this->assertStringContainsString('[DELETE FROM book WHERE book.ID BAD SQL:p1]', $e->getMessage(), 'SQL query is written in the exception message');
 		}
 	}
 
@@ -59,7 +59,7 @@ class BasePeerExceptionsTest extends BookstoreTestBase
 		try {
 			BasePeer::doDeleteAll('BAD TABLE', Propel::getConnection());
 		} catch (PropelException $e) {
-			$this->assertContains('[DELETE FROM `BAD` `TABLE`]', $e->getMessage(), 'SQL query is written in the exception message');
+			$this->assertStringContainsString('[DELETE FROM BAD TABLE]', $e->getMessage(), 'SQL query is written in the exception message');
 		}
 	}
 
@@ -73,7 +73,7 @@ class BasePeerExceptionsTest extends BookstoreTestBase
 			$c2->add(BookPeer::TITLE, 'Foo');
 			BasePeer::doUpdate($c1, $c2, Propel::getConnection());
 		} catch (PropelException $e) {
-			$this->assertContains('[UPDATE `book` SET `TITLE`=:p1 WHERE book.ID BAD SQL:p2]', $e->getMessage(), 'SQL query is written in the exception message');
+			$this->assertStringContainsString('[UPDATE book SET TITLE=:p1 WHERE book.ID BAD SQL:p2]', $e->getMessage(), 'SQL query is written in the exception message');
 		}
 	}
 
@@ -85,7 +85,7 @@ class BasePeerExceptionsTest extends BookstoreTestBase
 			$c->add(BookPeer::AUTHOR_ID, 'lkhlkhj');
 			BasePeer::doInsert($c, Propel::getConnection());
 		} catch (PropelException $e) {
-			$this->assertContains('[INSERT INTO `book` (`AUTHOR_ID`) VALUES (:p1)]', $e->getMessage(), 'SQL query is written in the exception message');
+			$this->assertStringContainsString('[INSERT INTO book (AUTHOR_ID,ID) VALUES (:p1,:p2)]', $e->getMessage(), 'SQL query is written in the exception message');
 		}
 	}
 

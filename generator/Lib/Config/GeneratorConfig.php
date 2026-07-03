@@ -16,11 +16,9 @@ namespace Propulsion\Generator\Config;
  *
  * @author     Hans Lellelid <hans@xmpl.org>
  * @package    propel.generator.config
- * @method string getLocation()
  */
 
- use Phing\Exception\BuildException;
-use Phing\Phing;
+use Propulsion\Generator\Exception\EngineException;
 use PDO;
 use Propulsion\Generator\Platform\PropelPlatformInterface;
 use Propulsion\Generator\Reverse\SchemaParser;
@@ -50,20 +48,23 @@ class GeneratorConfig implements GeneratorConfigInterface
 	}
 
 	/**
-	 * Builds a GeneratorConfig from the generator's default.properties file, an
-	 * optional user-supplied properties file (Phing/Ant-style `key = value` lines,
-	 * one per line), and an array of ad-hoc overrides -- without requiring Phing.
+	 * Builds a GeneratorConfig from the generator's default.properties file, one or
+	 * more optional user-supplied properties files (Phing/Ant-style `key = value`
+	 * lines, one per line), and an array of ad-hoc overrides -- without requiring Phing.
 	 *
 	 * @param      string $defaultPropertiesFile Path to generator/default.properties.
-	 * @param      string|null $overridePropertiesFile Path to a user build.properties file.
+	 * @param      string|string[]|null $overridePropertiesFiles One or more override files,
+	 *             applied in order (later files win on conflicting keys).
 	 * @param      array<string,mixed> $overrides Raw `propel.*`-prefixed overrides, e.g. ['propel.targetPlatform' => 'php84'].
 	 */
-	public static function createFromPropertiesFile(string $defaultPropertiesFile, ?string $overridePropertiesFile = null, array $overrides = []): self
+	public static function createFromPropertiesFile(string $defaultPropertiesFile, string|array|null $overridePropertiesFiles = null, array $overrides = []): self
 	{
 		$props = self::parsePropertiesFile($defaultPropertiesFile);
 
-		if ($overridePropertiesFile !== null) {
-			$props = array_merge($props, self::parsePropertiesFile($overridePropertiesFile));
+		foreach ((array) $overridePropertiesFiles as $overrideFile) {
+			if ($overrideFile !== null) {
+				$props = array_merge($props, self::parsePropertiesFile($overrideFile));
+			}
 		}
 
 		$props = array_merge($props, $overrides);
@@ -80,7 +81,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 		$properties = array();
 		$lines = @file($filepath);
 		if ($lines === false) {
-			throw new BuildException("Unable to parse contents of $filepath");
+			throw new EngineException("Unable to parse contents of $filepath");
 		}
 		foreach ($lines as $line) {
 			$line = trim($line);
@@ -197,13 +198,13 @@ class GeneratorConfig implements GeneratorConfigInterface
 	 *
 	 * @param      string $propname The name of the property that holds the class path (dot-path notation).
 	 * @return     string The class name.
-	 * @throws     BuildException If the classname cannot be determined or class cannot be loaded.
+	 * @throws     EngineException If the classname cannot be determined or class cannot be loaded.
 	 */
 	public function getClassname($propname)
 	{
 		$classpath = $this->getBuildProperty($propname);
 		if (null === $classpath) {
-			throw new BuildException("Unable to find class path for '$propname' property.");
+			throw new EngineException("Unable to find class path for '$propname' property.");
 		}
 
 		// This is a slight hack to workaround camel case inconsistencies for the DataSQL classes.
@@ -220,7 +221,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 		}
 
 		if (empty($classpath)) {
-			throw new BuildException("Unable to find class path for '$propname' property.");
+			throw new EngineException("Unable to find class path for '$propname' property.");
 		}
 
 		// If it's a PSR-4 namespaced class name, prefer that (most modern usages)
@@ -228,7 +229,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 			if (class_exists($classpath)) {
 				return $classpath;
 			}
-			throw new BuildException("Class '$classpath' not found for property '$propname'.");
+			throw new EngineException("Class '$classpath' not found for property '$propname'.");
 		}
 
 		// If $classpath already refers to a real class (no namespace), return it
@@ -252,10 +253,22 @@ class GeneratorConfig implements GeneratorConfigInterface
 			return $nsCandidateUc;
 		}
 
-		// Legacy dot-notation path, use Phing::import as a last resort for backward compatibility
-		$clazz = Phing::import($classpath);
+		// Legacy dot-notation path (e.g. 'test.tools.helpers.bookstore.behavior.AddClassBehavior'),
+		// resolved relative to the current working directory. Phing::import() can't be used for
+		// this in Phing 3.x: it only converts '_' and '\' to directory separators, not '.', so it
+		// never supported this notation to begin with.
+		$file = str_replace('.', DIRECTORY_SEPARATOR, $classpath) . '.php';
+		$className = substr($classpath, strrpos($classpath, '.') + 1);
 
-		return $clazz;
+		if (is_file($file)) {
+			require_once $file;
+		}
+
+		if (class_exists($className)) {
+			return $className;
+		}
+
+		throw new EngineException("Class '$className' not found for property '$propname' (tried file '$file').");
 	}
 
 	/**
@@ -301,7 +314,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 		$platform = new $clazz();
 
 		if (!$platform instanceof PropelPlatformInterface) {
-			throw new BuildException("Specified platform class ($clazz) does not implement teh PropelPlatformInterface interface.");
+			throw new EngineException("Specified platform class ($clazz) does not implement the PropelPlatformInterface interface.");
 		}
 
 		$platform->setConnection($con);
@@ -319,7 +332,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 		$clazz = $this->getClassname("reverseParserClass");
 		$parser = new $clazz();
 		if (!$parser instanceof SchemaParser) {
-			throw new BuildException("Specified platform class ($clazz) does implement SchemaParser interface.", $this->getLocation());
+			throw new EngineException("Specified platform class ($clazz) does not implement the SchemaParser interface.");
 		}
 		$parser->setConnection($con);
 		$parser->setMigrationTable($this->getBuildProperty('migrationTable'));
@@ -365,7 +378,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 		$propname = 'behavior' . ucfirst(strtolower($name)) . 'Class';
 		try {
 			$ret = $this->getClassname($propname);
-		} catch (BuildException $e) {
+		} catch (EngineException $e) {
 			// class path not configured
 			$ret = false;
 		}

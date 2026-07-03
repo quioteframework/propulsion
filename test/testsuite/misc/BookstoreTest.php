@@ -249,7 +249,7 @@ class BookstoreTest extends BookstoreEmptyTestBase
 		$this->assertEquals(1, count($failures), '1 validation message was returned');
 
 		$el = array_shift($failures);
-		$this->assertContains("must be more than", $el->getMessage(), 'Expected validation message was returned');
+		$this->assertStringContainsString("must be more than", $el->getMessage(), 'Expected validation message was returned');
 
 		$bk2 = new Book();
 		$bk2->setTitle("Don Juan");
@@ -261,7 +261,7 @@ class BookstoreTest extends BookstoreEmptyTestBase
 		$this->assertEquals(1, count($failures), '1 validation message was returned');
 
 		$el = array_shift($failures);
-		$this->assertContains("Book title already in database.", $el->getMessage(), 'Expected validation message was returned');
+		$this->assertStringContainsString("Book title already in database.", $el->getMessage(), 'Expected validation message was returned');
 
 		//Now trying some more complex validation.
 		$auth1 = new Author();
@@ -671,7 +671,7 @@ class BookstoreTest extends BookstoreEmptyTestBase
 		$this->assertEquals(1, count($failures), '1 validation message was returned');
 
 		$el = array_shift($failures);
-		$this->assertContains("must be more than", $el->getMessage(), 'Expected validation message was returned');
+		$this->assertStringContainsString("must be more than", $el->getMessage(), 'Expected validation message was returned');
 
 		$bk2 = new Book();
 		$bk2->setTitle("Don Juan");
@@ -683,7 +683,7 @@ class BookstoreTest extends BookstoreEmptyTestBase
 		$this->assertEquals(1, count($failures), '1 validation message was returned');
 
 		$el = array_shift($failures);
-		$this->assertContains("Book title already in database.", $el->getMessage(), 'Expected validation message was returned');
+		$this->assertStringContainsString("Book title already in database.", $el->getMessage(), 'Expected validation message was returned');
 
 		//Now trying some more complex validation.
 		$auth1 = new Author();

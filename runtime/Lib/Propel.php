@@ -857,3 +857,35 @@ class Propel
 	}
 }
 
+// Generated Object Model classes (both the archived PHP5 builders and the current
+// PHP84 ones) are emitted unnamespaced and reference runtime classes by their bare
+// historic name (Propel::, TableMap, PropelException, ...) -- that was their actual
+// global name before this fork renamed Propel\ to Propulsion\. Alias them eagerly
+// (not lazily via spl_autoload_register) because `catch (PropelException $e)` --
+// used throughout this codebase and any already-generated model code -- does NOT
+// trigger autoloading in PHP the way `new`/`instanceof`/class_exists() do; an alias
+// created only on first *reference* would still be missing the first time a catch
+// block needs it. class_alias() autoloads its target class itself, so this eagerly
+// loads all of them once, whenever Propulsion\Propel is first loaded (i.e. always,
+// since Propel::init() is the mandatory bootstrap call).
+set_error_handler(static function (int $severity, string $message, string $file = '', int $line = 0): bool {
+	throw new \ErrorException($message, 0, $severity, $file, $line);
+});
+try {
+	foreach (require __DIR__ . '/legacy-class-map.php' as $legacyName => $fqcn) {
+		if (!class_exists($legacyName, false) && !interface_exists($legacyName, false)) {
+			try {
+				class_alias($fqcn, $legacyName);
+			} catch (\Throwable $e) {
+				// A handful of runtime classes have optional dependencies of their own
+				// (e.g. PropelYAMLParser expects a bundled sfYaml.php that isn't part of
+				// this fork). Don't let one broken/unused legacy class -- or even just a
+				// warning it emits while loading -- take down every other alias, and by
+				// extension Propel::init() itself, for it.
+			}
+		}
+	}
+} finally {
+	restore_error_handler();
+}
+

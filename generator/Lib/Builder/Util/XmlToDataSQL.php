@@ -21,7 +21,7 @@ use Phing\Parser\AbstractHandler;
 use Phing\Io\File;
 use Phing\Io\FileReader;
 use Phing\Io\Writer;
-use Phing\Exception\BuildException;
+use Propulsion\Generator\Exception\EngineException;
 use Phing\Io\BufferedReader;
 use Phing\Parser\ExpatParser
 ;
@@ -135,7 +135,7 @@ class XmlToDataSQL extends AbstractHandler
 		try {
 			$fr = new FileReader($xmlFile);
 		} catch (Exception $e) {
-			throw new BuildException("XML File not found: " . $xmlFile->getAbsolutePath());
+			throw new EngineException("XML File not found: " . $xmlFile->getAbsolutePath());
 		}
 
 		$br = new BufferedReader($fr);
