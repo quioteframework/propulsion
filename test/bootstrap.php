@@ -33,6 +33,7 @@ try {
 
 // Include the base test case
 require_once __DIR__ . '/tools/helpers/BaseTestCase.php';
+require_once __DIR__ . '/tools/helpers/SchemaPlatformFixtures.php';
 
 // Include data populators if they exist  
 $dataPopulatorFile = __DIR__ . '/tools/helpers/bookstore/BookstoreDataPopulator.php';

@@ -22,6 +22,7 @@ class ModelCriteriaSelectTest extends BookstoreTestBase
 	 */
 	public function testSelectThrowsExceptionWhenCalledWithAnEmptyString()
 	{
+		$this->expectException(PropelException::class);
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->select('');
 	}
@@ -31,6 +32,7 @@ class ModelCriteriaSelectTest extends BookstoreTestBase
 	 */
 	public function testSelectThrowsExceptionWhenCalledWithAnEmptyArray()
 	{
+		$this->expectException(PropelException::class);
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->select(array());
 	}

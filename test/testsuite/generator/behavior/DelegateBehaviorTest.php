@@ -173,6 +173,7 @@ EOF;
 	 */
 	public function testAModelCannotHaveCascadingDelegates()
 	{
+		$this->expectException(PropelException::class);
 		$main = new DelegateMain();
 		$main->setSummary('bar');
 		$main->setBody('baz');

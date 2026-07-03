@@ -43,6 +43,7 @@ class PropelArrayCollectionTest extends BookstoreEmptyTestBase
 	 */
 	public function testSaveOnReadOnlyEntityThrowsException()
 	{
+		$this->expectException(PropelException::class);
 		$col = new PropelArrayCollection();
 		$col->setModel('ContestView');
 		$cv = new ContestView();
@@ -65,6 +66,7 @@ class PropelArrayCollectionTest extends BookstoreEmptyTestBase
 	 */
 	public function testDeleteOnReadOnlyEntityThrowsException()
 	{
+		$this->expectException(PropelException::class);
 		$col = new PropelArrayCollection();
 		$col->setModel('ContestView');
 		$cv = new ContestView();
@@ -197,6 +199,7 @@ class PropelArrayCollectionTest extends BookstoreEmptyTestBase
 	 */
 	public function testGetWorkerObjectNoModel()
 	{
+		$this->expectException(PropelException::class);
 		$col = new TestablePropelArrayCollection();
 		$col->getWorkerObject();
 	}

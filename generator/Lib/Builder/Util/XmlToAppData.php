@@ -26,7 +26,7 @@ namespace Propulsion\Generator\Builder\Util;
  use Propulsion\Generator\Platform\PropelPlatformInterface;
  use Propulsion\Generator\Model\AppData;
  use Propulsion\Generator\Config\GeneratorConfig;
- use Propulsion\Exception\SchemaException;
+ use Propulsion\Generator\Exception\SchemaException;
 class XmlToAppData
 {
 

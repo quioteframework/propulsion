@@ -515,6 +515,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 	 */
 	public function testGroupByClassThrowsExceptionOnUnkownClass()
 	{
+		$this->expectException(PropelException::class);
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->groupByClass('Author');
 	}
@@ -963,6 +964,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 	 */
 	public function testWithThrowsExceptionWhenJoinLacks()
 	{
+		$this->expectException(PropelException::class);
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->with('Author');
 	}
@@ -981,6 +983,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 	 */
 	public function testWithThrowsExceptionWhenNotUsingAlias()
 	{
+		$this->expectException(PropelException::class);
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->join('Book.Author a');
 		$c->with('Author');
@@ -1606,6 +1609,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 	 */
 	public function testFindPksCompositeKey()
 	{
+		$this->expectException(PropelException::class);
 		$c = new ModelCriteria('bookstore', 'BookListRel');
 		$bookListRel = $c->findPks(array(array(1, 2)));
 

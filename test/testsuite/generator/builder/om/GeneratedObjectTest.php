@@ -1308,6 +1308,7 @@ EOF;
      */
     public function testMagicCallUndefined()
     {
+    	$this->expectException(PropelException::class);
         $book = new Book();
         $book->fooMethodName();
     }

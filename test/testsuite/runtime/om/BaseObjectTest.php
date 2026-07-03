@@ -40,6 +40,7 @@ class BaseObjectTest extends TestCase
 	 */
 	public function testGetVirtualColumnWrongKey()
 	{
+		$this->expectException(PropelException::class);
 		$b = new TestableBaseObject();
 		$b->getVirtualColumn('foo');
 	}

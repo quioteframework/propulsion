@@ -58,10 +58,11 @@ class GeneratorConfigTest extends TestCase
 	}
 
 	/**
- 	 * @expectedException BuildException
+ 	 * @expectedException EngineException
  	 */
 	public function testGetClassnameOnInexistantProperty()
 	{
+		$this->expectException(EngineException::class);
 		$generator = new GeneratorConfig();
 		$generator->getClassname('propel.foo.bar');
 	}

@@ -72,6 +72,7 @@ class ConcreteInheritanceBehaviorTest extends BookstoreTestBase
 	 */
 	public function testModifyTableNoCopyDataKeepsAutoIncrement()
 	{
+		$this->expectException(PropelException::class);
 		$content = new ConcreteContent();
 		$content->save();
 		$c = new Criteria;

@@ -9,12 +9,15 @@
  */
 namespace Propulsion\Parser;
 
-if (!class_exists('sfYaml')) {
-	require_once dirname(__FILE__) . '/yaml/sfYaml.php';
-}
+use Symfony\Component\Yaml\Yaml;
 
 /**
- * YAML parser. Converts data between associative array and YAML formats
+ * YAML parser. Converts data between associative array and YAML formats.
+ *
+ * Uses symfony/yaml. Previously bundled a vendored copy of Symfony 1.x's
+ * sfYaml component that was never actually committed to this fork (a dead
+ * dependency since before the PHP 8.4 port); symfony/yaml is maintained and
+ * already a dependency of this project's own tooling.
  *
  * @author     Francois Zaninotto
  * @package    propel.runtime.parser
@@ -30,7 +33,7 @@ class PropelYAMLParser extends PropelParser
 	 */
 	public function fromArray($array)
 	{
-		return \sfYaml::dump($array, 3);
+		return Yaml::dump($array, 3, 2);
 	}
 
 	/**
@@ -52,7 +55,7 @@ class PropelYAMLParser extends PropelParser
 	 */
 	public function toArray($data)
 	{
-		return \sfYaml::load($data);
+		return Yaml::parse($data);
 	}
 
 	/**

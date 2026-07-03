@@ -21,7 +21,7 @@ class PropelYAMLParserTest extends TestCase
 	public static function arrayYAMLConversionDataProvider()
 	{
 		return array(
-			array(array(), '{  }', 'empty array'),
+			array(array(), '{}', 'empty array'),
 			array(array(1, 2, 3),
 "- 1
 - 2

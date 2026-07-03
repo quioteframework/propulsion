@@ -72,6 +72,7 @@ EOF;
 	 */
 	public function testInvalidValueThrowsPropelException()
 	{
+		$this->expectException(PropelException::class);
 		$r = new ComplexColumnTypeEntity5();
 		$r->setBar1("Invalid Date");
 	}

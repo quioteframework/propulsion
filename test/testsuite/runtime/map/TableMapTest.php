@@ -169,6 +169,7 @@ class TableMapTest extends TestCase
 	 */
   public function testLoadWrongRelations()
   {
+  	$this->expectException(PropelException::class);
     $this->tmap->getRelation('Bar');
   }
 

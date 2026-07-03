@@ -340,6 +340,7 @@ EOF;
 	 */
 	public function testToVersionThrowsExceptionOnIncorrectVersion()
 	{
+		$this->expectException(PropelException::class);
 		$o = new VersionableBehaviorTest1();
 		$o->setBar(123); // version 1
 		$o->save();

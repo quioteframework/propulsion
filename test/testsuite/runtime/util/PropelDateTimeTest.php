@@ -168,6 +168,7 @@ class PropelDateTimeTest extends TestCase
 	 */
 	public function testNewInstanceInvalidValue()
 	{
+		$this->expectException(PropelException::class);
 		$dt = PropelDateTime::newInstance('some string');
 	}
 

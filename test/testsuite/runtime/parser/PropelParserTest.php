@@ -29,6 +29,7 @@ class PropelParserTest extends TestCase
 	 */
 	public function testGetParserThrowsExceptionOnWrongParser()
 	{
+		$this->expectException(PropelException::class);
 		$parser = PropelParser::getParser('Foo');
 	}
 

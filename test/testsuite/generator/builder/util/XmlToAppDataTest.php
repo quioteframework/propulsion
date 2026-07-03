@@ -44,6 +44,7 @@ class XmlToAppDataTest extends TestCase
 	 */
 	public function testParseStringIncorrectSchema()
 	{
+		$this->expectException(SchemaException::class);
 		$schema = '<?xml version="1.0" encoding="ISO-8859-1" standalone="no"?><foo/>';
 		$xtad = new XmlToAppData();
 		$appData = $xtad->parseString($schema);

@@ -52,6 +52,7 @@ class CriteriaFluidConditionTest extends BaseTestCase
 	 */
 	public function testNestedIf()
 	{
+		$this->expectException(PropelException::class);
 		$f = new TestableCriteria();
 		$f->
 			_if(false)->
@@ -65,6 +66,7 @@ class CriteriaFluidConditionTest extends BaseTestCase
 	 */
 	public function testNestedIf2()
 	{
+		$this->expectException(PropelException::class);
 		$f = new TestableCriteria();
 		$f->
 			_if(true)->
