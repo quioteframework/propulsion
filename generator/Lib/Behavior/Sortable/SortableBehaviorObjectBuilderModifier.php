@@ -150,7 +150,7 @@ protected \$sortableQueries = array();
  */
 public function getRank()
 {
-	return \$this->{$this->getColumnAttribute('rank_column')};
+	return \$this->{$this->getColumnGetter('rank_column')}();
 }
 
 /**
@@ -181,7 +181,7 @@ public function setRank(\$v)
  */
 public function getScopeValue()
 {
-	return \$this->{$this->getColumnAttribute('scope_column')};
+	return \$this->{$this->getColumnGetter('scope_column')}();
 }
 
 /**
