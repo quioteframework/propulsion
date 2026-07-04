@@ -7,12 +7,9 @@ history (`git log`); every fix commit explains its own root cause in full.
 
 ## Test suite status
 
-**Full suite (Docker/Postgres): 2222 tests, 0 errors, 2 failures, 13
+**Full suite (Docker/Postgres): 2222 tests, 0 errors, 0 failures, 13
 skipped.** **No-Docker mode (`PROPULSION_SKIP_INTEGRATION=1`): same 2222
-tests, 0 errors, 2 failures, 1114 skipped.** Both modes now agree exactly on
-errors/failures — see the "MssqlPlatformTest static-counter flake" entry
-below for the 2 pre-existing failures (unrelated to Docker, present in both
-modes, not caused by or fixed as part of the no-Docker triage below).
+tests, 0 errors, 0 failures, 1114 skipped.** Both modes agree exactly.
 
 ```
 cd test
@@ -29,9 +26,7 @@ real bug or a genuine MySQL/Postgres SQL-semantics difference before writing
 a platform-conditional branch into a test (see `IntegrationDatabase::currentPlatform()`).
 
 CI (`.github/workflows/tests.yml`) runs both the no-Docker `unit` tier and
-the Docker-backed `integration` tier on every push/PR. Both are now
-effectively equally green (mod the pre-existing Mssql flake below), so the
-`unit` job's `continue-on-error: true` can be flipped to blocking.
+the Docker-backed `integration` tier on every push/PR; both are blocking.
 
 **No-Docker mode used to error on ~77 tests instead of skipping cleanly (or
 running).** Triaged individually; they split roughly evenly into two real
@@ -71,24 +66,6 @@ categories, not one:
 
 ## Open issues
 
-- **`MssqlPlatformTest` static-counter flake (2 failures, both modes).**
-  `MssqlPlatform::$dropCount` is a static counter baked into generated
-  `DROP TABLE` DDL (`@reftable_N`/`@constraintname_N` cursor variable
-  names), and the test file hardcodes the exact counter value each
-  assertion expects, implicitly depending on running every preceding test
-  method (including every `@dataProvider` iteration) in exactly the order
-  this file was originally written against. `testGetDropTableDDL` and
-  `testGetDropTableDDLSchema` currently expect off by one from what the
-  suite's actual (still internally consistent, just numbered one higher/
-  lower than hardcoded) execution order produces. Reproduces identically
-  standalone (`phpunit testsuite/generator/platform/MssqlPlatformTest.php`)
-  and Docker or no-Docker, so it's unrelated to the no-Docker triage below —
-  a pre-existing test-ordering fragility, not a real DDL-generation bug.
-  Not yet fixed; the real fix is to stop hardcoding the counter value (reset
-  `MssqlPlatform::$dropCount` in `setUp()` and compute the expected value
-  from a local counter, or assert on the DDL with the counter value
-  interpolated symbolically) rather than to reorder tests to match the
-  hardcoded numbers.
 - **Testcontainer cleanup**: `IntegrationDatabase` stops its container via
   `register_shutdown_function()`, which doesn't run on `kill -9` or a
   `timeout`-killed process, so an interrupted run can leak a container.
