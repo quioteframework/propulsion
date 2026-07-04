@@ -992,11 +992,11 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * Returns the number of rows matching criteria - PHP 8.4 LSP compliant version.
 	 *
 	 * @param      Criteria \$criteria
-	 * @param      bool \$distinct Whether to select only distinct columns; deprecated: use Criteria->setDistinct() instead.
+	 * @param      mixed \$distinct Whether to select only distinct columns; deprecated: use Criteria->setDistinct() instead.
 	 * @param      PropulsionPDO|null \$con
 	 * @return     int Number of matching rows.
 	 */
-	public static function doCountThis(Criteria \$criteria, bool \$distinct = false, ?PropulsionPDO \$con = null)
+	public static function doCountThis(Criteria \$criteria, mixed \$distinct = false, ?PropulsionPDO \$con = null)
 	{
 		// we may modify criteria, so copy it first
 		\$criteria = clone \$criteria;
