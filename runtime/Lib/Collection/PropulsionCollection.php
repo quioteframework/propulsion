@@ -31,6 +31,7 @@ namespace Propulsion\Collection;
  use Propulsion\Exception\PropulsionException;
  use ArrayIterator;
  use Iterator;
+ use PDO;
  use Propulsion\Connection\PropulsionPDO;
  use Propulsion\Propulsion;
  use Propulsion\OM\BaseObject;
@@ -45,7 +46,7 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	protected $model = '';
 
 	/**
-	 * @var       ArrayIterator
+	 * @var       Iterator|null
 	 */
 	protected $iterator;
 
@@ -169,7 +170,11 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 		if ($pos == 0) {
 			return null;
 		} else {
-			$this->getInternalIterator()->seek($pos - 1);
+			$iterator = $this->getInternalIterator();
+			if (!$iterator instanceof \SeekableIterator) {
+				throw new PropulsionException(get_class($this) . ' does not support getPrevious().');
+			}
+			$iterator->seek($pos - 1);
 			return $this->getCurrent();
 		}
 	}
@@ -208,7 +213,11 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 		if ($count == 0) {
 			return null;
 		} else {
-			$this->getInternalIterator()->seek($count - 1);
+			$iterator = $this->getInternalIterator();
+			if (!$iterator instanceof \SeekableIterator) {
+				throw new PropulsionException(get_class($this) . ' does not support getLast().');
+			}
+			$iterator->seek($count - 1);
 			return $this->getCurrent();
 		}
 	}
@@ -414,7 +423,7 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	 * Overrides ArrayObject::getIterator() to save the iterator object
 	 * for internal use e.g. getNext(), isOdd(), etc.
 	 *
-	 * @return    ArrayIterator
+	 * @return    Iterator
 	 */
 	public function getIterator(): Iterator
 	{
@@ -429,7 +438,7 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	}
 
 	/**
-	 * @return    ArrayIterator
+	 * @return    Iterator
 	 */
 	public function getInternalIterator()
 	{
@@ -505,7 +514,7 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	 * Get a connection object for the database containing the elements of the collection
 	 *
 	 * @param     string  $type  The connection type (Propulsion::CONNECTION_READ by default; can be Propulsion::connection_WRITE)
-	 * @return    PropulsionPDO  A PropulsionPDO connection object
+	 * @return    PDO|PropulsionPDO  A database connection object
 	 */
 	public function getConnection($type = Propulsion::CONNECTION_READ)
 	{
@@ -525,7 +534,7 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	 * @param     mixed   $parser  A PropulsionParser instance, or a format name ('XML', 'YAML', 'JSON', 'CSV')
 	 * @param     string  $data    The source data to import from
 	 *
-	 * @return    BaseObject  The current object, for fluid interface
+	 * @return    $this  The current object, for fluid interface
 	 */
 	public function importFrom($parser, $data): mixed
 	{
@@ -574,7 +583,7 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	 * @param     string  $name
 	 * @param     mixed   $params
 	 *
-	 * @return    array|string
+	 * @return    $this|array|string
 	 */
 	public function __call($name, $params)
 	{

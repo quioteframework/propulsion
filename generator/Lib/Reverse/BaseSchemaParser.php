@@ -19,6 +19,7 @@ namespace Propulsion\Generator\Reverse;
  */
 use Propulsion\Generator\Config\GeneratorConfig;
 use Propulsion\Generator\Config\GeneratorConfigInterface;
+use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\VendorInfo;
 
 abstract class BaseSchemaParser implements SchemaParser
@@ -40,7 +41,7 @@ abstract class BaseSchemaParser implements SchemaParser
 	/**
 	 * GeneratorConfig object holding build properties.
 	 *
-	 * @var        GeneratorConfig|null
+	 * @var        GeneratorConfigInterface|null
 	 */
 	private $generatorConfig;
 
@@ -147,7 +148,7 @@ abstract class BaseSchemaParser implements SchemaParser
 	/**
 	 * Gets the GeneratorConfig option.
 	 *
-	 * @return     GeneratorConfig|null
+	 * @return     GeneratorConfigInterface|null
 	 */
 	public function getGeneratorConfig()
 	{
@@ -179,7 +180,7 @@ abstract class BaseSchemaParser implements SchemaParser
 	 * Gets a mapped Propulsion type for specified native type.
 	 *
 	 * @param      string $nativeType
-	 * @return     string The mapped Propulsion type.
+	 * @return     string|null The mapped Propulsion type.
 	 */
 	protected function getMappedPropulsionType($nativeType)
 	{
@@ -228,7 +229,14 @@ abstract class BaseSchemaParser implements SchemaParser
 	{
 	  if (null === $this->platform)
 	  {
-	    $this->platform = $this->getGeneratorConfig()->getConfiguredPlatform();
+	    $generatorConfig = $this->getGeneratorConfig();
+	    if (!$generatorConfig instanceof GeneratorConfig) {
+	      throw new EngineException(sprintf(
+	        "Cannot auto-configure the platform: the configured GeneratorConfig (%s) does not support getConfiguredPlatform(). Call setPlatform() explicitly instead.",
+	        $generatorConfig === null ? 'none' : get_class($generatorConfig)
+	      ));
+	    }
+	    $this->platform = $generatorConfig->getConfiguredPlatform();
 	  }
 	  return $this->platform;
 	}

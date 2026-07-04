@@ -55,7 +55,7 @@ class PropulsionException extends \Exception
 	 * Get the previous Exception
 	 * We can't override getPrevious() since it's final
 	 *
-	 * @return    \Exception  The previous exception
+	 * @return    \Throwable|null  The previous exception
 	 */
 	public function getCause(): \Exception|\Throwable|null
 	{

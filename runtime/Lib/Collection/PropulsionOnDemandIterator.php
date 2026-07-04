@@ -14,7 +14,6 @@ use \Iterator;
 use \PDOStatement;
 use Propulsion\OM\BaseObject;
 use Propulsion\Propulsion;
-use Propulsion\Formatter\PropulsionFormatter;
 use Propulsion\Exception\PropulsionException;
 use PDO;
 /**
@@ -42,10 +41,10 @@ class PropulsionOnDemandIterator implements Iterator
 		$enableInstancePoolingOnFinish = false;
 
 	/**
-	 * @param     PropulsionFormatter  $formatter
+	 * @param     PropulsionObjectFormatter  $formatter
 	 * @param     PDOStatement     $stmt
 	 */
-	public function __construct(PropulsionFormatter $formatter, PDOStatement $stmt)
+	public function __construct(PropulsionObjectFormatter $formatter, PDOStatement $stmt)
 	{
 		$this->formatter = $formatter;
 		$this->stmt = $stmt;

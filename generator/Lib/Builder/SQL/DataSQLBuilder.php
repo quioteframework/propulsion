@@ -122,7 +122,7 @@ abstract class DataSQLBuilder extends DataModelBuilder
 	 * Gets a representation of a binary value suitable for use in a SQL statement.
 	 * Default behavior is true = 1, false = 0.
 	 * @param      boolean $value
-	 * @return     int
+	 * @return     int|string
 	 */
 	protected function getBooleanSql($value)
 	{
@@ -211,7 +211,7 @@ abstract class DataSQLBuilder extends DataModelBuilder
 
 	/**
 	 * Gets a representation of a NULL value suitable for use in a SQL statement.
-	 * @return     null
+	 * @return     string
 	 */
 	protected function getNullSql()
 	{

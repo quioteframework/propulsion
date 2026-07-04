@@ -454,16 +454,16 @@ class Criterion
 		// check chained criterion
 
 		$clausesLength = count($this->clauses);
-		$isEquiv &= (count($crit->getClauses()) == $clausesLength);
+		$isEquiv = $isEquiv && (count($crit->getClauses()) == $clausesLength);
 		$critConjunctions = $crit->getConjunctions();
 		$critClauses = $crit->getClauses();
 		for ($i=0; $i < $clausesLength && $isEquiv; $i++) {
-			$isEquiv &= ($this->conjunctions[$i] === $critConjunctions[$i]);
-			$isEquiv &= ($this->clauses[$i] === $critClauses[$i]);
+			$isEquiv = $isEquiv && ($this->conjunctions[$i] === $critConjunctions[$i]);
+			$isEquiv = $isEquiv && ($this->clauses[$i] === $critClauses[$i]);
 		}
 
 		if ($isEquiv) {
-			$isEquiv &= $this->value === $crit->getValue();
+			$isEquiv = $isEquiv && $this->value === $crit->getValue();
 		}
 
 		return $isEquiv;

@@ -692,7 +692,7 @@ class Table extends ScopedElement implements IDMethod
 			$this->columnsByLowercaseName[strtolower($colName)] = $col;
 			$this->columnsByPhpName[$col->getPhpName()] = $col;
 			$col->setPosition(count($this->columnList));
-			$this->needsTransactionInPostgres |= $col->requiresTransactionInPostgres();
+			$this->needsTransactionInPostgres = $this->needsTransactionInPostgres || $col->requiresTransactionInPostgres();
 			return $col;
 		} else {
 			$col = new Column();
@@ -816,7 +816,7 @@ class Table extends ScopedElement implements IDMethod
 
 	/**
 	 * Get the subclasses that can be created from this table.
-	 * @return    array string[] Class names
+	 * @return    array|null string[] Class names
 	 */
 	public function getChildrenNames()
 	{
@@ -1540,7 +1540,7 @@ class Table extends ScopedElement implements IDMethod
 	 * @param      string $name The name of the column (e.g. 'my_column')
 	 * @param      boolean $caseInsensitive Whether the check is case insensitive. False by default.
 	 *
-	 * @return     Column a Column object or null if it doesn't exist
+	 * @return     Column|null a Column object or null if it doesn't exist
 	 */
 	public function getColumn($name, $caseInsensitive = false)
 	{
@@ -1556,7 +1556,7 @@ class Table extends ScopedElement implements IDMethod
 
 	/**
 	 * Returns a specified column.
-	 * @return    Column Return a Column object or null if it does not exist.
+	 * @return    Column|null Return a Column object or null if it does not exist.
 	 */
 	public function getColumnByPhpName($phpName)
 	{
@@ -1836,7 +1836,7 @@ class Table extends ScopedElement implements IDMethod
 	/**
 	 * Gets the auto increment PK
 	 *
-	 * @return   Column if any auto increment PK column
+	 * @return   Column|null if any auto increment PK column
 	 */
 	public function getAutoIncrementPrimaryKey()
 	{

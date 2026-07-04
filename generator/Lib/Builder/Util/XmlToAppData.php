@@ -94,7 +94,7 @@ class XmlToAppData
 	{
 		// we don't want infinite recursion
 		if ($this->isAlreadyParsed($xmlFile)) {
-			return;
+			return $this->app;
 		}
 
 		return $this->parseString(file_get_contents($xmlFile), $xmlFile);
@@ -113,7 +113,7 @@ class XmlToAppData
 		$xmlFile ??= '';
 		// we don't want infinite recursion
 		if ($this->isAlreadyParsed($xmlFile)) {
-			return;
+			return $this->app;
 		}
 		// store current schema file path
 		$this->schemasTagsStack[$xmlFile] = array();

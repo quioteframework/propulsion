@@ -127,7 +127,7 @@ abstract class PropulsionFormatter
 	 *
 	 * @param BaseObject $record the object to format
 	 *
-	 * @return BaseObject The original record
+	 * @return mixed The formatted record (subclasses vary: BaseObject as-is, an array, etc.)
 	 */
 	public function formatRecord($record = null)
 	{

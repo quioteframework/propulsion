@@ -180,7 +180,7 @@ class Criteria implements \IteratorAggregate
 
 	/**
 	 * Storage of having data.
-	 * @var        Criterion
+	 * @var        Criterion|null
 	 */
 	protected $having = null;
 
@@ -547,7 +547,7 @@ class Criteria implements \IteratorAggregate
 	 * Method to return a String table name.
 	 *
 	 * @param      string $name Name of the key.
-	 * @return     string The value of the object at key.
+	 * @return     string|null The value of the object at key.
 	 */
 	public function getColumnName($name)
 	{
@@ -583,7 +583,7 @@ class Criteria implements \IteratorAggregate
 	 * Method to return a comparison String.
 	 *
 	 * @param      string $key String name of the key.
-	 * @return     string A String with the value of the object at key.
+	 * @return     string|null A String with the value of the object at key.
 	 */
 	public function getComparison($key)
 	{
@@ -647,7 +647,7 @@ class Criteria implements \IteratorAggregate
 	 * Method to return a String table name.
 	 *
 	 * @param      string $name The name of the key.
-	 * @return     string The value of table for criterion at key.
+	 * @return     string|null The value of table for criterion at key.
 	 */
 	public function getTableName($name)
 	{
@@ -745,7 +745,7 @@ class Criteria implements \IteratorAggregate
 	 * @param      mixed $value
 	 * @param      string $comparison A String.
 	 *
-	 * @return     Criteria A modified Criteria object.
+	 * @return     static A modified Criteria object.
 	 */
 	public function add($p1, $value = null, $comparison = null)
 	{
@@ -1606,7 +1606,7 @@ class Criteria implements \IteratorAggregate
 	 *  - addAnd(column, value)
 	 *  - addAnd(Criterion)
 	 *
-	 * @return     Criteria A modified Criteria object.
+	 * @return     static A modified Criteria object.
 	 */
 	public function addAnd($p1, $p2 = null, $p3 = null, $preferColumnCondition = true)
 	{
@@ -1637,7 +1637,7 @@ class Criteria implements \IteratorAggregate
 	 *  - addOr(column, value)
 	 *  - addOr(Criterion)
 	 *
-	 * @return     Criteria A modified Criteria object.
+	 * @return     static A modified Criteria object.
 	 */
 	public function addOr($p1, $p2 = null, $p3 = null, $preferColumnCondition = true)
 	{
@@ -1675,7 +1675,7 @@ class Criteria implements \IteratorAggregate
 	*                      (necessary for Propulsion 1.4 compatibility).
 	 *                     If false, the condition is combined with the last existing condition.
 	 *
-	 * @return     Criteria A modified Criteria object.
+	 * @return     static A modified Criteria object.
 	 */
 	public function addUsingOperator($p1, $value = null, $operator = null, $preferColumnCondition = true)
 	{

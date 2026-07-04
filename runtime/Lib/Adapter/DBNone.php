@@ -90,7 +90,7 @@ class DBNone extends DBAdapter
 	 */
 	public function strLength($s)
 	{
-		return strlen($s);
+		return "LENGTH($s)";
 	}
 
 	/**

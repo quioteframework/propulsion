@@ -17,7 +17,7 @@ namespace Propulsion\Collection;
  */
 use PDOStatement;
 use Propulsion\Exception\PropulsionException;
-use Propulsion\Formatter\PropulsionFormatter;
+use Propulsion\Formatter\PropulsionObjectFormatter;
 use Propulsion\OM\BaseObject;
 use Propulsion\Util\BasePeer;
 class PropulsionOnDemandCollection extends PropulsionCollection
@@ -33,10 +33,10 @@ class PropulsionOnDemandCollection extends PropulsionCollection
 	protected ?bool $isValid = null;
 
 	/**
-	 * @param     PropulsionFormatter $formatter
+	 * @param     PropulsionObjectFormatter $formatter
 	 * @param     PDOStatement $stmt
 	 */
-	public function initIterator(PropulsionFormatter $formatter, PDOStatement $stmt)
+	public function initIterator(PropulsionObjectFormatter $formatter, PDOStatement $stmt)
 	{
 		$this->iterator = new PropulsionOnDemandIterator($formatter, $stmt);
 	}

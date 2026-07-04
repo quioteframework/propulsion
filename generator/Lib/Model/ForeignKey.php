@@ -437,7 +437,7 @@ class ForeignKey extends XMLElement
 
 	/**
 	 * Get the foreign column mapped to specified local column.
-	 * @return     string Column name.
+	 * @return     string|null Column name.
 	 */
 	public function getMappedForeignColumn($local)
 	{
@@ -450,7 +450,7 @@ class ForeignKey extends XMLElement
 
 	/**
 	 * Get the local column mapped to specified foreign column.
-	 * @return     string Column name.
+	 * @return     string|null Column name.
 	 */
 	public function getMappedLocalColumn($foreign)
 	{
@@ -620,7 +620,7 @@ class ForeignKey extends XMLElement
 	 * Get the other foreign keys starting on the same table
 	 * Used in many-to-many relationships
 	 *
-	 * @return    ForeignKey
+	 * @return    ForeignKey[]
 	 */
 	public function getOtherFks()
 	{

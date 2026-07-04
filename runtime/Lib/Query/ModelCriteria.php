@@ -1336,9 +1336,9 @@ class ModelCriteria extends Criteria
 	 * @param     mixed $conditions An array of conditions, using column phpNames as key
 	 * @param     PropulsionPDO $con an optional connection object
 	 *
-	 * @return    PropulsionObjectCollection the list of results (default formatter returns PropulsionObjectCollection, never null)
+	 * @return    PropulsionCollection the list of results (default formatter returns PropulsionObjectCollection, never null)
 	 */
-	public function findByArray($conditions, ?PropulsionPDO $con = null) : PropulsionObjectCollection
+	public function findByArray($conditions, ?PropulsionPDO $con = null) : PropulsionCollection
 	{
 		$this->filterByArray($conditions);
 

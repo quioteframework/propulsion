@@ -31,9 +31,11 @@ use Propulsion\Generator\Builder\OM\MultiExtendObjectBuilder;
 use Propulsion\Generator\Builder\OM\OMBuilder;
 use Propulsion\Generator\Builder\OM\QueryBuilder;
 use Propulsion\Generator\Builder\OM\QueryInheritanceBuilder;
+use Propulsion\Generator\Builder\OM\TableMapBuilder;
 use Propulsion\Generator\Builder\SQL\DataSQLBuilder;
 use Propulsion\Generator\Builder\Util\Pluralizer;
 use Propulsion\Generator\Config\GeneratorConfig;
+use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\Database;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Config\GeneratorConfigInterface;
@@ -62,49 +64,49 @@ abstract class DataModelBuilder
 
 	/**
 	 * Peer builder class for current table.
-	 * @var        DataModelBuilder
+	 * @var        AbstractPeerBuilder
 	 */
 	private $peerBuilder;
 
 	/**
 	 * Stub Peer builder class for current table.
-	 * @var        DataModelBuilder
+	 * @var        AbstractPeerBuilder
 	 */
 	private $stubPeerBuilder;
 
 	/**
 	 * Object builder class for current table.
-	 * @var        DataModelBuilder
+	 * @var        AbstractObjectBuilder
 	 */
 	private $objectBuilder;
 
 	/**
 	 * Stub Object builder class for current table.
-	 * @var        DataModelBuilder
+	 * @var        AbstractObjectBuilder
 	 */
 	private $stubObjectBuilder;
 
 	/**
 	 * Query builder class for current table.
-	 * @var        DataModelBuilder
+	 * @var        QueryBuilder
 	 */
 	private $queryBuilder;
 
 	/**
 	 * Stub Query builder class for current table.
-	 * @var        DataModelBuilder
+	 * @var        OMBuilder
 	 */
 	private $stubQueryBuilder;
 
 	/**
 	 * TableMap builder class for current table.
-	 * @var        DataModelBuilder
+	 * @var        TableMapBuilder
 	 */
 	protected $tablemapBuilder;
 
 	/**
 	 * Stub Interface builder class for current table.
-	 * @var        DataModelBuilder
+	 * @var        AbstractObjectBuilder
 	 */
 	private $interfaceBuilder;
 
@@ -116,37 +118,37 @@ abstract class DataModelBuilder
 
 	/**
 	 * Node object builder for current table.
-	 * @var        DataModelBuilder
+	 * @var        AbstractObjectBuilder
 	 */
 	private $nodeBuilder;
 
 	/**
 	 * Node peer builder for current table.
-	 * @var        DataModelBuilder
+	 * @var        AbstractPeerBuilder
 	 */
 	private $nodePeerBuilder;
 
 	/**
 	 * Stub node object builder for current table.
-	 * @var        DataModelBuilder
+	 * @var        AbstractObjectBuilder
 	 */
 	private $stubNodeBuilder;
 
 	/**
 	 * Stub node peer builder for current table.
-	 * @var        DataModelBuilder
+	 * @var        AbstractPeerBuilder
 	 */
 	private $stubNodePeerBuilder;
 
 	/**
 	 * NestedSet object builder for current table.
-	 * @var        DataModelBuilder
+	 * @var        AbstractObjectBuilder
 	 */
 	private $nestedSetBuilder;
 
 	/**
 	 * NestedSet peer builder for current table.
-	 * @var        DataModelBuilder
+	 * @var        AbstractPeerBuilder
 	 */
 	private $nestedSetPeerBuilder;
 
@@ -178,13 +180,41 @@ abstract class DataModelBuilder
 	}
 
 	/**
+	 * Gets a configured builder for the given table/type, asserting that it is an
+	 * instance of $expectedClass. GeneratorConfig::getConfiguredBuilder() resolves
+	 * its return type dynamically (from build.properties config), so its static
+	 * return type is only ever the common base class; every getXxxBuilder()
+	 * accessor below knows the concrete subclass its own $type always resolves to,
+	 * and uses this to narrow it back for callers that need e.g. setChild().
+	 *
+	 * @template T of DataModelBuilder
+	 * @param      Table $table
+	 * @param      string $type
+	 * @param      class-string<T> $expectedClass
+	 * @return     T
+	 */
+	private function configureBuilder(Table $table, string $type, string $expectedClass): DataModelBuilder
+	{
+		$builder = $this->getGeneratorConfig()->getConfiguredBuilder($table, $type);
+		if (!$builder instanceof $expectedClass) {
+			throw new EngineException(sprintf(
+				"Configured '%s' builder class (%s) does not extend %s.",
+				$type,
+				get_class($builder),
+				$expectedClass
+			));
+		}
+		return $builder;
+	}
+
+	/**
 	 * Returns new or existing Peer builder class for this table.
 	 * @return     AbstractPeerBuilder
 	 */
 	public function getPeerBuilder()
 	{
 		if (!isset($this->peerBuilder)) {
-			$this->peerBuilder = $this->getGeneratorConfig()->getConfiguredBuilder($this->getTable(), 'peer');
+			$this->peerBuilder = $this->configureBuilder($this->getTable(), 'peer', AbstractPeerBuilder::class);
 		}
 		return $this->peerBuilder;
 	}
@@ -208,7 +238,7 @@ abstract class DataModelBuilder
 	public function getStubPeerBuilder()
 	{
 		if (!isset($this->stubPeerBuilder)) {
-			$this->stubPeerBuilder = $this->getGeneratorConfig()->getConfiguredBuilder($this->getTable(), 'peerstub');
+			$this->stubPeerBuilder = $this->configureBuilder($this->getTable(), 'peerstub', AbstractPeerBuilder::class);
 		}
 		return $this->stubPeerBuilder;
 	}
@@ -220,7 +250,7 @@ abstract class DataModelBuilder
 	public function getObjectBuilder()
 	{
 		if (!isset($this->objectBuilder)) {
-			$this->objectBuilder = $this->getGeneratorConfig()->getConfiguredBuilder($this->getTable(), 'object');
+			$this->objectBuilder = $this->configureBuilder($this->getTable(), 'object', AbstractObjectBuilder::class);
 		}
 		return $this->objectBuilder;
 	}
@@ -232,43 +262,43 @@ abstract class DataModelBuilder
 	public function getStubObjectBuilder()
 	{
 		if (!isset($this->stubObjectBuilder)) {
-			$this->stubObjectBuilder = $this->getGeneratorConfig()->getConfiguredBuilder($this->getTable(), 'objectstub');
+			$this->stubObjectBuilder = $this->configureBuilder($this->getTable(), 'objectstub', AbstractObjectBuilder::class);
 		}
 		return $this->stubObjectBuilder;
 	}
 
 	/**
 	 * Returns new or existing Query builder class for this table.
-	 * @return     AbstractObjectBuilder
+	 * @return     QueryBuilder
 	 */
 	public function getQueryBuilder()
 	{
 		if (!isset($this->queryBuilder)) {
-			$this->queryBuilder = $this->getGeneratorConfig()->getConfiguredBuilder($this->getTable(), 'query');
+			$this->queryBuilder = $this->configureBuilder($this->getTable(), 'query', QueryBuilder::class);
 		}
 		return $this->queryBuilder;
 	}
 
 	/**
 	 * Returns new or existing stub Query builder class for this table.
-	 * @return     AbstractObjectBuilder
+	 * @return     OMBuilder
 	 */
 	public function getStubQueryBuilder()
 	{
 		if (!isset($this->stubQueryBuilder)) {
-			$this->stubQueryBuilder = $this->getGeneratorConfig()->getConfiguredBuilder($this->getTable(), 'querystub');
+			$this->stubQueryBuilder = $this->configureBuilder($this->getTable(), 'querystub', OMBuilder::class);
 		}
 		return $this->stubQueryBuilder;
 	}
 
 	/**
 	 * Returns new or existing Object builder class for this table.
-	 * @return     AbstractObjectBuilder
+	 * @return     TableMapBuilder
 	 */
 	public function getTableMapBuilder()
 	{
 		if (!isset($this->tablemapBuilder)) {
-			$this->tablemapBuilder = $this->getGeneratorConfig()->getConfiguredBuilder($this->getTable(), 'tablemap');
+			$this->tablemapBuilder = $this->configureBuilder($this->getTable(), 'tablemap', TableMapBuilder::class);
 		}
 		return $this->tablemapBuilder;
 	}
@@ -280,7 +310,7 @@ abstract class DataModelBuilder
 	public function getInterfaceBuilder()
 	{
 		if (!isset($this->interfaceBuilder)) {
-			$this->interfaceBuilder = $this->getGeneratorConfig()->getConfiguredBuilder($this->getTable(), 'interface');
+			$this->interfaceBuilder = $this->configureBuilder($this->getTable(), 'interface', AbstractObjectBuilder::class);
 		}
 		return $this->interfaceBuilder;
 	}
@@ -292,7 +322,7 @@ abstract class DataModelBuilder
 	public function getMultiExtendObjectBuilder()
 	{
 		if (!isset($this->multiExtendObjectBuilder)) {
-			$this->multiExtendObjectBuilder = $this->getGeneratorConfig()->getConfiguredBuilder($this->getTable(), 'objectmultiextend');
+			$this->multiExtendObjectBuilder = $this->configureBuilder($this->getTable(), 'objectmultiextend', MultiExtendObjectBuilder::class);
 		}
 		return $this->multiExtendObjectBuilder;
 	}
@@ -304,7 +334,7 @@ abstract class DataModelBuilder
 	public function getNodeBuilder()
 	{
 		if (!isset($this->nodeBuilder)) {
-			$this->nodeBuilder = $this->getGeneratorConfig()->getConfiguredBuilder($this->getTable(), 'node');
+			$this->nodeBuilder = $this->configureBuilder($this->getTable(), 'node', AbstractObjectBuilder::class);
 		}
 		return $this->nodeBuilder;
 	}
@@ -316,7 +346,7 @@ abstract class DataModelBuilder
 	public function getNodePeerBuilder()
 	{
 		if (!isset($this->nodePeerBuilder)) {
-			$this->nodePeerBuilder = $this->getGeneratorConfig()->getConfiguredBuilder($this->getTable(), 'nodepeer');
+			$this->nodePeerBuilder = $this->configureBuilder($this->getTable(), 'nodepeer', AbstractPeerBuilder::class);
 		}
 		return $this->nodePeerBuilder;
 	}
@@ -328,7 +358,7 @@ abstract class DataModelBuilder
 	public function getStubNodeBuilder()
 	{
 		if (!isset($this->stubNodeBuilder)) {
-			$this->stubNodeBuilder = $this->getGeneratorConfig()->getConfiguredBuilder($this->getTable(), 'nodestub');
+			$this->stubNodeBuilder = $this->configureBuilder($this->getTable(), 'nodestub', AbstractObjectBuilder::class);
 		}
 		return $this->stubNodeBuilder;
 	}
@@ -340,7 +370,7 @@ abstract class DataModelBuilder
 	public function getStubNodePeerBuilder()
 	{
 		if (!isset($this->stubNodePeerBuilder)) {
-			$this->stubNodePeerBuilder = $this->getGeneratorConfig()->getConfiguredBuilder($this->getTable(), 'nodepeerstub');
+			$this->stubNodePeerBuilder = $this->configureBuilder($this->getTable(), 'nodepeerstub', AbstractPeerBuilder::class);
 		}
 		return $this->stubNodePeerBuilder;
 	}
@@ -352,7 +382,7 @@ abstract class DataModelBuilder
 	public function getNestedSetBuilder()
 	{
 		if (!isset($this->nestedSetBuilder)) {
-			$this->nestedSetBuilder = $this->getGeneratorConfig()->getConfiguredBuilder($this->getTable(), 'nestedset');
+			$this->nestedSetBuilder = $this->configureBuilder($this->getTable(), 'nestedset', AbstractObjectBuilder::class);
 		}
 		return $this->nestedSetBuilder;
 	}
@@ -364,7 +394,7 @@ abstract class DataModelBuilder
 	public function getNestedSetPeerBuilder()
 	{
 		if (!isset($this->nestedSetPeerBuilder)) {
-			$this->nestedSetPeerBuilder = $this->getGeneratorConfig()->getConfiguredBuilder($this->getTable(), 'nestedsetpeer');
+			$this->nestedSetPeerBuilder = $this->configureBuilder($this->getTable(), 'nestedsetpeer', AbstractPeerBuilder::class);
 		}
 		return $this->nestedSetPeerBuilder;
 	}
@@ -376,7 +406,7 @@ abstract class DataModelBuilder
 	public function getDataSQLBuilder()
 	{
 		if (!isset($this->dataSqlBuilder)) {
-			$this->dataSqlBuilder = $this->getGeneratorConfig()->getConfiguredBuilder($this->getTable(), 'datasql');
+			$this->dataSqlBuilder = $this->configureBuilder($this->getTable(), 'datasql', DataSQLBuilder::class);
 		}
 		return $this->dataSqlBuilder;
 	}
@@ -406,7 +436,7 @@ abstract class DataModelBuilder
 	 */
 	public function getNewPeerBuilder(Table $table)
 	{
-		return $this->getGeneratorConfig()->getConfiguredBuilder($table, 'peer');
+		return $this->configureBuilder($table, 'peer', AbstractPeerBuilder::class);
 	}
 
 	/**
@@ -420,7 +450,7 @@ abstract class DataModelBuilder
 	 */
 	public function getNewStubPeerBuilder(Table $table)
 	{
-		return $this->getGeneratorConfig()->getConfiguredBuilder($table, 'peerstub');
+		return $this->configureBuilder($table, 'peerstub', AbstractPeerBuilder::class);
 	}
 
 	/**
@@ -434,7 +464,7 @@ abstract class DataModelBuilder
 	 */
 	public function getNewObjectBuilder(Table $table)
 	{
-		return $this->getGeneratorConfig()->getConfiguredBuilder($table, 'object');
+		return $this->configureBuilder($table, 'object', AbstractObjectBuilder::class);
 	}
 
 	/**
@@ -448,7 +478,7 @@ abstract class DataModelBuilder
 	 */
 	public function getNewStubObjectBuilder(Table $table)
 	{
-		return $this->getGeneratorConfig()->getConfiguredBuilder($table, 'objectstub');
+		return $this->configureBuilder($table, 'objectstub', AbstractObjectBuilder::class);
 	}
 
 	/**
@@ -462,7 +492,7 @@ abstract class DataModelBuilder
 	 */
 	public function getNewQueryBuilder(Table $table)
 	{
-		return $this->getGeneratorConfig()->getConfiguredBuilder($table, 'query');
+		return $this->configureBuilder($table, 'query', QueryBuilder::class);
 	}
 
 	/**
@@ -472,11 +502,11 @@ abstract class DataModelBuilder
 	 * a query builder for a RELATED table.
 	 *
 	 * @param      Table $table
-	 * @return     QueryBuilder
+	 * @return     OMBuilder
 	 */
 	public function getNewStubQueryBuilder(Table $table)
 	{
-		return $this->getGeneratorConfig()->getConfiguredBuilder($table, 'querystub');
+		return $this->configureBuilder($table, 'querystub', OMBuilder::class);
 	}
 
 	/**
@@ -485,7 +515,7 @@ abstract class DataModelBuilder
 	 */
 	public function getNewQueryInheritanceBuilder($child)
 	{
-		$queryInheritanceBuilder = $this->getGeneratorConfig()->getConfiguredBuilder($this->getTable(), 'queryinheritance');
+		$queryInheritanceBuilder = $this->configureBuilder($this->getTable(), 'queryinheritance', OMBuilder::class);
 		if ($queryInheritanceBuilder instanceof QueryInheritanceBuilder) {
 			$queryInheritanceBuilder->setChild($child);
 		}
@@ -498,7 +528,7 @@ abstract class DataModelBuilder
 	 */
 	public function getNewStubQueryInheritanceBuilder($child)
 	{
-		$stubQueryInheritanceBuilder = $this->getGeneratorConfig()->getConfiguredBuilder($this->getTable(), 'queryinheritancestub');
+		$stubQueryInheritanceBuilder = $this->configureBuilder($this->getTable(), 'queryinheritancestub', OMBuilder::class);
 		if ($stubQueryInheritanceBuilder instanceof ExtensionQueryInheritanceBuilder) {
 			$stubQueryInheritanceBuilder->setChild($child);
 		}
@@ -508,7 +538,7 @@ abstract class DataModelBuilder
 	/**
 	 * Gets the GeneratorConfig object.
 	 *
-	 * @return     GeneratorConfig
+	 * @return     GeneratorConfigInterface
 	 */
 	public function getGeneratorConfig()
 	{

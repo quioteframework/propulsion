@@ -296,7 +296,7 @@ class PropulsionPager implements \Countable, \Iterator
 	 */
 	public function getFirstPage()
 	{
-		return '1';
+		return 1;
 	}
 
 	/**

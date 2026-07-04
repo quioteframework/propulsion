@@ -144,7 +144,7 @@ END
 	public function getAddForeignKeyDDL(ForeignKey $fk)
 	{
 		if ($fk->isSkipSql()) {
-			return;
+			return '';
 		}
 		$pattern = "
 BEGIN
@@ -161,7 +161,7 @@ END
 	public function getForeignKeyDDL(ForeignKey $fk)
 	{
 		if ($fk->isSkipSql()) {
-			return;
+			return '';
 		}
 		$pattern = 'CONSTRAINT %s FOREIGN KEY (%s) REFERENCES %s (%s)';
 		$script = sprintf($pattern,

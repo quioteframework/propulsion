@@ -32,17 +32,17 @@ class Domain extends XMLElement
 	private $description;
 
 	/**
-	 * @var        int Size
+	 * @var        int|string|null Size
 	 */
 	private $size;
 
 	/**
-	 * @var        int Scale
+	 * @var        int|string|null Scale
 	 */
 	private $scale;
 
 	/**
-	 * @var        int Propulsion type from schema
+	 * @var        string Propulsion type from schema
 	 */
 	private $propelType;
 
@@ -169,7 +169,7 @@ class Domain extends XMLElement
 	}
 
 	/**
-	 * @return     string Returns the scale.
+	 * @return     int|string|null Returns the scale.
 	 */
 	public function getScale()
 	{
@@ -177,7 +177,7 @@ class Domain extends XMLElement
 	}
 
 	/**
-	 * @param      string $scale The scale to set.
+	 * @param      int|string|null $scale The scale to set.
 	 */
 	public function setScale($scale)
 	{
@@ -187,7 +187,7 @@ class Domain extends XMLElement
 	/**
 	 * Replaces the size if the new value is not null.
 	 *
-	 * @param      string $value The size to set.
+	 * @param      int|string|null $value The size to set.
 	 */
 	public function replaceScale($value)
 	{
@@ -197,7 +197,7 @@ class Domain extends XMLElement
 	}
 
 	/**
-	 * @return     int Returns the size.
+	 * @return     int|string|null Returns the size.
 	 */
 	public function getSize()
 	{
@@ -205,7 +205,7 @@ class Domain extends XMLElement
 	}
 
 	/**
-	 * @param      int $size The size to set.
+	 * @param      int|string|null $size The size to set.
 	 */
 	public function setSize($size)
 	{
@@ -215,7 +215,7 @@ class Domain extends XMLElement
 	/**
 	 * Replaces the size if the new value is not null.
 	 *
-	 * @param      int $value The size to set.
+	 * @param      int|string|null $value The size to set.
 	 */
 	public function replaceSize($value)
 	{

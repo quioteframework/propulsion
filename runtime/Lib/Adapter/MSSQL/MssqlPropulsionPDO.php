@@ -134,7 +134,7 @@ class MssqlPropulsionPDO extends PropulsionPDO
 	public function lastInsertId($seqname = null) : string|false
 	{
 		$result = self::query('SELECT SCOPE_IDENTITY()');
-		return (int) $result->fetchColumn();
+		return (string) $result->fetchColumn();
 	}
 
 	/**

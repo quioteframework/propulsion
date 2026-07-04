@@ -437,7 +437,7 @@ DROP INDEX %s ON %s;
 	public function getDropForeignKeyDDL(ForeignKey $fk)
 	{
 		if ($fk->isSkipSql()) {
-			return;
+			return '';
 		}
 		$pattern = "
 ALTER TABLE %s DROP FOREIGN KEY %s;
