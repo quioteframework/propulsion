@@ -836,7 +836,42 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		// Always add = null default value to support clearing relationships and object state
 		$defaultValue = ' = null';
 
-		if ($col->isTemporalType()) {
+		if ($col->isBooleanType()) {
+			// The property/getter are strictly typed ?bool, but Propulsion has always
+			// accepted common string/int representations here too and normalized them --
+			// see PHP5ObjectBuilder::addBooleanMutator() in archaeology/php5-builders/ --
+			// so e.g. setActive('no') is a real, previously-supported calling convention,
+			// not a caller bug. Under the too-strict promoted signature, a non-empty string
+			// like 'false' or 'off' would just cast truthy to `true`, silently inverting
+			// the caller's intent instead of throwing (bool is weakly-typed enough to
+			// accept a string without a TypeError, so this bug was silent, not fatal).
+			$script .= "
+
+	/**
+	 * $description
+	 * Non-boolean arguments are converted using the following rules:
+	 *   * 1, '1', 'true',  'on',  and 'yes' are converted to boolean true
+	 *   * 0, '0', 'false', 'off', and 'no'  are converted to boolean false
+	 * Check on string values is case insensitive (so 'FaLsE' is seen as 'false').
+	 *
+	 * @param bool|int|string|null \$value New value
+	 * @return $returnType The current object (for fluent API support)
+	 */
+	public function set$phpname(bool|int|string|null \$value$defaultValue): $returnType
+	{
+		if (\$value !== null) {
+			\$value = is_string(\$value)
+				? !in_array(strtolower(\$value), ['false', 'off', '-', 'no', 'n', '0', ''], true)
+				: (bool) \$value;
+		}
+		if (\$this->$phpname !== \$value) {
+			\$this->$phpname = \$value;
+			\$this->modifiedColumns[] = " . $this->getColumnConstant($col) . ";
+		}
+
+		return \$this;
+	}";
+		} elseif ($col->isTemporalType()) {
 			// The property/getter are strictly typed ?DateTimeInterface, but Propulsion has
 			// always accepted a Unix timestamp (int) or a parseable date string here too
 			// (PHP5ObjectBuilder's addTemporalMutator used PropulsionDateTime::newInstance()
