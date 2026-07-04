@@ -126,6 +126,21 @@ class VersionableBehaviorObjectBuilderModifier
     }
   }
 
+  public function objectAttributes($builder)
+  {
+    $this->setBuilder($builder);
+    return "
+/**
+ * Guard against infinite mutual recursion in isVersioningNecessary()
+ * when two or more versionable objects reference each other (directly
+ * or through a chain of versioned fks/referrers).
+ *
+ * @var boolean
+ */
+protected \$alreadyInIsVersioningNecessary = false;
+";
+  }
+
   public function objectMethods($builder)
   {
     $this->setBuilder($builder);
@@ -199,13 +214,26 @@ public function isVersioningNecessary(\$con = null)
 	if (\$this->alreadyInSave) {
 		return false;
 	}
+	// Guard against infinite mutual recursion: if we're already in the
+	// middle of computing isVersioningNecessary() for this object further
+	// up the call stack (e.g. object A references object B, and B
+	// references A back through a versioned fk/referrer relationship),
+	// don't recurse into it again. The object that started the check will
+	// still see its own columns and its other relationships evaluated
+	// normally; only the cyclical re-entry is short-circuited.
+	if (\$this->alreadyInIsVersioningNecessary) {
+		return false;
+	}
+	\$this->alreadyInIsVersioningNecessary = true;
 	if ({$peerClass}::isVersioningEnabled() && (\$this->isNew() || \$this->isModified())) {
+		\$this->alreadyInIsVersioningNecessary = false;
 		return true;
 	}";
     foreach ($this->behavior->getVersionableFks() as $fk) {
       $fkGetter = $this->builder->getFKPhpNameAffix($fk, $plural = false);
       $script .= "
 	if (\$this->get{$fkGetter}(\$con)->isVersioningNecessary(\$con)) {
+		\$this->alreadyInIsVersioningNecessary = false;
 		return true;
 	}
 ";
@@ -215,12 +243,14 @@ public function isVersioningNecessary(\$con = null)
       $script .= "
 	foreach (\$this->get{$fkGetter}(null, \$con) as \$relatedObject) {
 		if (\$relatedObject->isVersioningNecessary(\$con)) {
+			\$this->alreadyInIsVersioningNecessary = false;
 			return true;
 		}
 	}
 ";
     }
     $script .= "
+	\$this->alreadyInIsVersioningNecessary = false;
 	return false;
 }
 ";

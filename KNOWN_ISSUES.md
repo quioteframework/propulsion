@@ -899,6 +899,46 @@ Phase 3.5 section, so it may not have an owner yet) since a single test
 class currently makes `vendor/bin/phpunit -c phpunit.xml` (no filter)
 uncompletable in this environment.
 
+**Fixed.** The generated `isVersioningNecessary()` (built by
+`VersionableBehaviorObjectBuilderModifier::addIsVersioningNecessary()` in
+`generator/Lib/Behavior/Versionable/VersionableBehaviorObjectBuilderModifier.php`)
+had no re-entrancy guard for the case being diagnosed above. It already
+carried an `alreadyInSave` check (a *different* flag, only ever set true
+while inside `save()`), which does nothing to stop two objects with a
+mutual versioned fk/referrer relationship from calling each other's
+`isVersioningNecessary()` back and forth outside of a save — each call
+checks its own fk/referrer getters and, for every versionable
+fk/referrer, unconditionally recurses into the related object's
+`isVersioningNecessary()` with no memory of who's already on the call
+stack. For a bidirectional pair (A has a versioned fk/referrer to B, B
+has one back to A) that recursion never bottoms out and blows the C
+stack until PHP segfaults, exactly as diagnosed. Fixed by giving each
+versionable object its own dedicated re-entrancy flag, generated via a
+new `objectAttributes` hook (`protected bool $alreadyInIsVersioningNecessary = false;`)
+and checked/set at the top of `isVersioningNecessary()`, mirroring the
+existing `alreadyInSave`/`alreadyInValidation` guard pattern already used
+elsewhere in `ObjectBuilder.php` (e.g. `doValidate()`'s
+`alreadyInValidation` guard). On re-entry (i.e. the object is already
+being checked further up the current call stack) the method now
+short-circuits to `false` instead of recursing again — the object that
+started the check still gets its own columns and every other
+relationship evaluated normally; only the cyclical re-entry into an
+object already being evaluated is skipped, which is semantically correct
+(that object's own modified-state contribution to the "is versioning
+necessary" decision is already being evaluated by the frame further up
+the stack, and won't be lost). Verified: `--filter
+VersionableBehaviorObjectBuilderModifierTest` (40 tests) and `--filter
+Versionable` (51 tests) both now complete without crashing and pass in
+full. A subsequent unfiltered `vendor/bin/phpunit -c phpunit.xml` run
+(previously impossible to complete at all) finished cleanly at **2200
+tests, 5262 assertions, 38 errors, 26 failures, 3 PHPUnit warnings, 1
+warning, 260 deprecations, 12 skipped, 1 risky** — matching the
+already-documented post-Phase-3.5 baseline above exactly, confirming this
+fix has no side effects on the rest of the suite and that number is now
+obtainable with a genuinely unfiltered run rather than one requiring
+`--exclude-filter 'VersionableBehaviorObjectBuilderModifierTest::'` to
+avoid the segfault.
+
 **Separate, smaller discovery, also out of scope and not fixed:** even
 with `versionable` excluded, five `nested_set` peer tests
 (`NestedSetBehaviorPeerBuilderModifierTest::testMakeRoomForLeaf`/
