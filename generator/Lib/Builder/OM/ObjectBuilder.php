@@ -199,7 +199,16 @@ class ObjectBuilder extends AbstractObjectBuilder
 	{
 		// Always use nullable types for getters and setters to support clearing relationships
 		// and object state, regardless of database constraints
-		
+
+		// LOB columns (BLOB/VARBINARY/LONGVARBINARY) are stored internally as a PHP
+		// stream resource, matching PHP5ObjectBuilder's addLobMutator() -- callers can
+		// pass either a resource or a raw string (normalized to a resource by the
+		// mutator, see addColumnMutator()). "resource" isn't a legal PHP type
+		// declaration, so `mixed` is used for the property/getter/setter signatures.
+		if ($col->isLobType()) {
+			return 'mixed';
+		}
+
 		// Check for temporal types first, before relying on getPhpType()
 		if ($col->isTemporalType()) {
 			$this->declareClass('\\DateTimeInterface');
@@ -248,7 +257,12 @@ class ObjectBuilder extends AbstractObjectBuilder
 	{
 		// All properties need to be nullable in PHP to support object clearing/resetting
 		// Unlike strongly typed languages like C#, PHP objects need to be clearable
-		
+
+		// See getPhp84TypeHint() -- LOB columns store a stream resource internally.
+		if ($col->isLobType()) {
+			return 'mixed';
+		}
+
 		// Check for temporal types first, before relying on getPhpType()
 		if ($col->isTemporalType()) {
 			$this->declareClass('\\DateTimeInterface');
@@ -451,9 +465,17 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 
 		$this->addConstants($script);
 		$this->addProperties($script);
-		
-		// Always add constructor and applyDefaultValues for PHP 8.4 to ensure typed properties are initialized
-		$this->addApplyDefaultValues($script);
+
+		// Typed properties are always initialized via their declaration-time defaults
+		// (see addProperties()), so applyDefaultValues() is only actually needed --
+		// and, matching PHP5ObjectBuilder/GeneratedObjectTest::testHasApplyDefaultValues's
+		// expected contract, only generated -- for tables that have a real column
+		// default to apply. The constructor itself is still always emitted (it also
+		// calls parent::__construct()); it just conditionally skips the
+		// applyDefaultValues() call for tables that don't have the method.
+		if ($this->hasDefaultValues()) {
+			$this->addApplyDefaultValues($script);
+		}
 		$this->addConstructor($script);
 		
 		$this->addColumnAccessorMethods($script);
@@ -533,6 +555,17 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			// applyDefaultValues(), called from the constructor (see
 			// addApplyDefaultValues()), where a plain assignment IS allowed to coerce.
 			$defaultVal = ($col->isTemporalType() || $col->isEnumType()) ? 'NULL' : $this->getDefaultValueString($col);
+			// Array-typed columns default to an empty array, not null, absent an explicit
+			// schema default -- PHP5ObjectBuilder's array getter lazily coerced a null
+			// internal value to array() on read; this builder's getter is a plain property
+			// return, so the property itself needs the empty-array default instead. `array()`
+			// is a legal constant expression for a property declaration default (unlike the
+			// DateTime/enum cases above), so this can be set directly here rather than
+			// deferred to applyDefaultValues() -- which, for tables with no column that has
+			// an explicit default at all, is never even generated (see hasDefaultValues()).
+			if (($defaultVal === 'NULL' || $defaultVal === 'null') && $col->getType() === PropulsionTypes::PHP_ARRAY) {
+				$defaultVal = 'array()';
+			}
 
 			// Add property documentation
 			$script .= "
@@ -541,8 +574,16 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * The value for the $colname field.
 	 * " . ($col->getDescription() ? $col->getDescription() : '') . "
 	 */";
-		// Add the typed property
-		$visibility = $col->isLazyLoad() ? 'protected' : 'private';
+		// Add the typed property. PHP5ObjectBuilder always declared column properties
+		// `protected` (see archaeology/php5-builders/PHP5ObjectBuilder.php,
+		// addColumnAttributeDeclaration()); several tests across the suite rely on that
+		// contract via a "declare a public subclass property with the same name to gain
+		// white-box access" trick (e.g. GeneratedObjectEnumColumnTypeTest), which only
+		// works if the parent's property is protected -- a same-named `private` property
+		// in the parent is a genuinely separate storage slot, not an overridable one, so
+		// the trick silently gains no access at all. Match PHP5's visibility here rather
+		// than `private` for non-lazy columns.
+		$visibility = 'protected';
 
 		if ($defaultVal !== 'NULL' && $defaultVal !== 'null') {
 			$script .= "
@@ -648,7 +689,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	protected function addConstructor(&$script)
 	{
 		$table = $this->getTable();
-		
+		$applyDefaultsCall = $this->hasDefaultValues() ? "
+		\$this->applyDefaultValues();" : '';
+
 		$script .= "
 
 	/**
@@ -657,8 +700,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	public function __construct()
 	{
-		parent::__construct();
-		\$this->applyDefaultValues();
+		parent::__construct();{$applyDefaultsCall}
 	}";
 	}
 
@@ -717,6 +759,10 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 					$script .= "
 		\$this->$phpname = $defaultValue;";
 				}
+			} elseif ($col->getType() === PropulsionTypes::PHP_ARRAY) {
+				// See addProperties() -- array columns default to an empty array, not null.
+				$script .= "
+		\$this->$phpname = array();";
 			} else {
 				// For typed properties without explicit defaults, initialize to null if nullable
 				$returnType = $this->getPhp84TypeHint($col);
@@ -745,7 +791,91 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			} else {
 				$this->addColumnAccessor($script, $col);
 			}
+			// Array-typed columns with a plural name (e.g. "tags") additionally get
+			// has<Singular>()/add<Singular>()/remove<Singular>() convenience methods --
+			// ported from PHP5ObjectBuilder::addHasArrayElement()/addAddArrayElement()/
+			// addRemoveArrayElement(), which were entirely missing from the promoted
+			// builder (see KNOWN_ISSUES.md, Phase 3.5).
+			if ($col->getType() === PropulsionTypes::PHP_ARRAY && $col->isNamePlural()) {
+				$this->addHasArrayElement($script, $col);
+				$this->addAddArrayElement($script, $col);
+				$this->addRemoveArrayElement($script, $col);
+			}
 		}
+	}
+
+	/**
+	 * Adds a has<Singular>() tester method for a plural-named array column.
+	 */
+	protected function addHasArrayElement(&$script, Column $col)
+	{
+		$cfc = $col->getPhpName();
+		$singularPhpName = rtrim($cfc, 's');
+		$script .= "
+
+	/**
+	 * Test the presence of a value in the [" . $col->getName() . "] array column value.
+	 * @param      mixed \$value
+	 * @return     bool
+	 */
+	public function has$singularPhpName(mixed \$value): bool
+	{
+		return in_array(\$value, \$this->get$cfc());
+	}";
+	}
+
+	/**
+	 * Adds an add<Singular>() method for a plural-named array column.
+	 */
+	protected function addAddArrayElement(&$script, Column $col)
+	{
+		$cfc = $col->getPhpName();
+		$singularPhpName = rtrim($cfc, 's');
+		$returnType = $this->getClassname();
+		$script .= "
+
+	/**
+	 * Adds a value to the [" . $col->getName() . "] array column value.
+	 * @param      mixed \$value
+	 * @return     $returnType The current object (for fluent API support)
+	 */
+	public function add$singularPhpName(mixed \$value): $returnType
+	{
+		\$currentArray = \$this->get$cfc();
+		\$currentArray[] = \$value;
+		\$this->set$cfc(\$currentArray);
+
+		return \$this;
+	}";
+	}
+
+	/**
+	 * Adds a remove<Singular>() method for a plural-named array column.
+	 */
+	protected function addRemoveArrayElement(&$script, Column $col)
+	{
+		$cfc = $col->getPhpName();
+		$singularPhpName = rtrim($cfc, 's');
+		$returnType = $this->getClassname();
+		$script .= "
+
+	/**
+	 * Removes a value from the [" . $col->getName() . "] array column value.
+	 * @param      mixed \$value
+	 * @return     $returnType The current object (for fluent API support)
+	 */
+	public function remove$singularPhpName(mixed \$value): $returnType
+	{
+		\$targetArray = array();
+		foreach (\$this->get$cfc() as \$element) {
+			if (\$element != \$value) {
+				\$targetArray[] = \$element;
+			}
+		}
+		\$this->set$cfc(\$targetArray);
+
+		return \$this;
+	}";
 	}
 
 	/**
@@ -855,12 +985,100 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		return \$this->{$phpname}?->format(\$format);
 	}";
 		} else {
+			$clo = strtolower($col->getName());
+			// Lazy-loaded columns (e.g. BLOB/CLOB) aren't populated by hydrate() -- see
+			// addHydrate()'s isLazyLoad() skip -- so the getter has to trigger a
+			// dedicated one-column query the first time it's accessed. Ported from
+			// PHP5ObjectBuilder::addLazyLoader(); the promoted builder previously had no
+			// lazy-load mechanism at all (the ${clo}_isLoaded flag was declared and reset
+			// on reload()/clear(), but nothing ever read it or loaded anything).
+			$loadCall = $col->isLazyLoad() ? "
+		if (!\$this->{$clo}_isLoaded) {
+			\$this->load$phpname();
+		}
+" : '';
 			$this->addDefaultAccessorComment($script, $col);
 			$this->addDefaultAccessorOpen($script, $col);
-			$script .= "
+			$script .= "{$loadCall}
 		return \$this->$phpname;
 	}";
+			if ($col->isLazyLoad()) {
+				$this->addLazyLoader($script, $col);
+			}
 		}
+	}
+
+	/**
+	 * Adds the load<Phpname>() lazy-loader method for a lazy-loaded column.
+	 *
+	 * Ported from PHP5ObjectBuilder::addLazyLoader(), simplified: this builder only
+	 * needs to support the LOB (resource) and plain-scalar cases actually exercised by
+	 * the fixtures (see GeneratedObjectLobTest); PHP5's Oracle/SQL Server-specific
+	 * branches for CLOB streaming and PDO::PARAM_LOB column binding aren't ported since
+	 * nothing in this codebase's supported platforms needs them.
+	 */
+	protected function addLazyLoader(&$script, Column $col)
+	{
+		$this->declareClass('Propulsion\Connection\PropulsionPDO');
+		$this->declareClass('Propulsion\Exception\PropulsionException');
+		$this->declareClass('\PDO');
+		$this->declareClass('\Exception');
+
+		$phpname = $col->getPhpName();
+		$clo = strtolower($col->getName());
+		$const = $this->getColumnConstant($col);
+
+		$script .= "
+
+	/**
+	 * Load the value for the lazy-loaded [" . $col->getName() . "] column.
+	 *
+	 * This method performs an additional query to return the value for
+	 * the [" . $col->getName() . "] column, since it is not populated by
+	 * the hydrate() method.
+	 *
+	 * @param ?PropulsionPDO \$con The connection to use.
+	 * @return void
+	 * @throws PropulsionException - any underlying error will be wrapped and re-thrown.
+	 */
+	protected function load$phpname(?PropulsionPDO \$con = null): void
+	{
+		\$c = \$this->buildPkeyCriteria();
+		\$c->addSelectColumn($const);
+		try {
+			\$stmt = " . $this->getPeerClassname() . "::doSelectStmt(\$c, \$con);
+			\$row = \$stmt->fetch(PDO::FETCH_NUM);
+			\$stmt->closeCursor();
+";
+		if ($col->isLobType()) {
+			$script .= "
+			if (\$row !== false && \$row[0] !== null) {
+				if (is_resource(\$row[0])) {
+					// Some PDO drivers (e.g. pgsql, for bytea columns) already return a
+					// stream for a LOB column; only string results need wrapping.
+					\$this->$phpname = \$row[0];
+				} else {
+					\$this->$phpname = fopen('php://memory', 'r+');
+					fwrite(\$this->$phpname, \$row[0]);
+				}
+				rewind(\$this->$phpname);
+			} else {
+				\$this->$phpname = null;
+			}
+";
+		} else {
+			$phpType = $col->getPhpType();
+			$castType = match($phpType) { 'double' => 'float', 'integer' => 'int', 'boolean' => 'bool', default => $phpType };
+			$script .= "
+			\$this->$phpname = (\$row !== false && \$row[0] !== null) ? ($castType) \$row[0] : null;
+";
+		}
+		$script .= "
+			\$this->{$clo}_isLoaded = true;
+		} catch (Exception \$e) {
+			throw new PropulsionException(\"Error loading value for [$clo] column\", \$e);
+		}
+	}";
 	}
 
 	/**
@@ -972,6 +1190,37 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		// Always add = null default value to support clearing relationships and object state
 		$defaultValue = ' = null';
 
+		if ($col->isLobType()) {
+			// Ported from PHP5ObjectBuilder::addLobMutator(). Because BLOB columns are
+			// streams in PDO, we have to assume that they are always modified when a new
+			// value is passed in -- the contents of a stream may have changed externally
+			// even if the resource identity hasn't. A raw string is wrapped in a fresh
+			// php://memory stream (rewound to the start) so callers can pass either form.
+			$script .= "
+
+	/**
+	 * $description
+	 *
+	 * @param mixed \$value New value: a stream resource, or a raw string that will be
+	 *              wrapped in a new stream.
+	 * @return $returnType The current object (for fluent API support)
+	 */
+	public function set$phpname(mixed \$value$defaultValue): $returnType
+	{
+		if (\$value !== null && !is_resource(\$value)) {
+			\$fp = fopen('php://memory', 'r+');
+			fwrite(\$fp, (string) \$value);
+			rewind(\$fp);
+			\$value = \$fp;
+		}
+		\$this->$phpname = \$value;
+		\$this->modifiedColumns[] = " . $this->getColumnConstant($col) . ";
+
+		return \$this;
+	}";
+			return;
+		}
+
 		if ($col->isBooleanType()) {
 			// The property/getter are strictly typed ?bool, but Propulsion has always
 			// accepted common string/int representations here too and normalized them --
@@ -1032,8 +1281,26 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	{
 		if (\$value !== null && !(\$value instanceof DateTimeInterface)) {
 			\$value = is_int(\$value) ? (new DateTime())->setTimestamp(\$value) : new DateTime((string) \$value);
-		}
-		if (\$this->$phpname != \$value) {
+		}";
+				$defaultValueCol = $col->getDefaultValue();
+				if ($defaultValueCol !== null && !$defaultValueCol->isExpression()) {
+					// PHP5ObjectBuilder::addTemporalMutator() treats explicitly (re-)setting a
+					// column to its own schema default as a real modification even when the
+					// value doesn't actually change -- e.g. `new Review()` (which applies the
+					// default via applyDefaultValues()) followed by an explicit
+					// setReviewDate() call to that same default date is expected to mark the
+					// object modified, since the caller's explicit call is what should count,
+					// not whether the resulting value happens to match what was already there.
+					$fmt = var_export($this->getTemporalFormatter($col), true);
+					$defaultValueString = $this->getDefaultValueString($col);
+					$script .= "
+		\$matchesDefault = \$value !== null && \$value->format($fmt) === $defaultValueString;
+		if (\$this->$phpname != \$value || \$matchesDefault) {";
+				} else {
+					$script .= "
+		if (\$this->$phpname != \$value) {";
+				}
+				$script .= "
 			\$this->$phpname = \$value;
 			\$this->modifiedColumns[] = " . $this->getColumnConstant($col) . ";
 		}
@@ -1516,16 +1783,47 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 
 	protected function addEnsureConsistency(&$script)
 	{
-		// Implementation would be similar to parent but with typed parameters
+		// Ported from PHP5ObjectBuilder::addEnsureConsistency(): checks each cached FK
+		// reference object against the current value of its local FK column(s), and
+		// invalidates (nulls) the cache if they no longer match. Called from hydrate()
+		// when $rehydrate is true (i.e. from reload()) -- without this, reload() (which
+		// doesn't clear FK reference caches unless $deep=true) would keep returning a
+		// stale cached related object via the getter even after the FK column itself
+		// changed underneath it and was re-hydrated with a new value. This was a
+		// complete no-op before, silently breaking that invalidation for every table.
+		$table = $this->getTable();
 		$script .= "
 
 	/**
-	 * Ensures that all required foreign key objects are loaded.
-	 * This method is used internally by Propulsion to hydrate the object.
+	 * Checks and repairs the internal consistency of the object.
+	 *
+	 * This method is executed after an already-instantiated object is re-hydrated
+	 * from the database. It exists to check any foreign keys to make sure that
+	 * the objects related to the current object are correct based on foreign key.
+	 *
+	 * You can override this method in the stub class, but you should always invoke
+	 * the base method from the overridden method (i.e. parent::ensureConsistency()),
+	 * in case your model changes.
+	 *
+	 * @throws PropulsionException
 	 */
 	protected function ensureConsistency(): void
-	{
-		// Implementation for ensuring referential consistency
+	{";
+		foreach ($table->getColumns() as $col) {
+			if ($col->isForeignKey()) {
+				$phpname = $col->getPhpName();
+				foreach ($col->getForeignKeys() as $fk) {
+					$tblFK = $table->getDatabase()->getTable($fk->getForeignTableName());
+					$colFK = $tblFK->getColumn($fk->getMappedForeignColumn($col->getName()));
+					$varName = $this->getFKVarName($fk);
+					$script .= "
+		if (\$this->$varName !== null && \$this->$phpname !== \$this->{$varName}->get" . $colFK->getPhpName() . "()) {
+			\$this->$varName = null;
+		}";
+				}
+			}
+		}
+		$script .= "
 	}";
 	}
 
@@ -1775,7 +2073,11 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		\$affectedRows = 0;
 		if (!\$this->alreadyInSave) {
 			\$this->alreadyInSave = true;";
-		
+		if ($reloadOnInsert || $reloadOnUpdate) {
+			$script .= "
+			\$reloadObject = false;";
+		}
+
 		if (count($table->getForeignKeys())) {
 			$script .= "
 
@@ -1827,15 +2129,38 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			}
 			
 			$script .= "
-					\$pk = " . $this->getNewPeerBuilder($table)->getBasePeerClassname() . "::doInsert(\$criteria, \$con);
+					\$pk = " . $this->getNewPeerBuilder($table)->getBasePeerClassname() . "::doInsert(\$criteria, \$con);";
+			if ($reloadOnInsert) {
+				$script .= "
+					if (!\$skipReload) {
+						\$reloadObject = true;
+					}";
+			}
+			$script .= "
 					\$affectedRows += 1;";
 					
 			if ($table->getIdMethod() != IDMethod::NO_ID_METHOD) {
 				if (count($pks = $table->getPrimaryKey())) {
 					foreach ($pks as $pk) {
 						if ($pk->isAutoIncrement()) {
-							$script .= "
+							if ($table->isAllowPkInsert()) {
+								// For an allowPkInsert table, BasePeer::doInsert() only
+								// generates/returns a new id ($pk here) when the caller didn't
+								// already supply one -- on a sequence-based platform (e.g.
+								// Postgres), $pk comes back null when the criteria already had
+								// an explicit value, since the id-generation step is skipped
+								// entirely (see BasePeer::doInsert()'s !$criteria->keyContainsValue()
+								// guard). Overwriting the caller's already-set primary key with
+								// that null unconditionally, as PHP5ObjectBuilder never did, would
+								// silently erase it.
+								$script .= "
+					if (\$pk !== null) {
+						\$this->set" . $pk->getPhpName() . "(\$pk);
+					}";
+							} else {
+								$script .= "
 					\$this->set" . $pk->getPhpName() . "(\$pk);";
+							}
 						}
 					}
 				}
@@ -1843,12 +2168,34 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			
 			$script .= "
 					\$this->setNew(false);
-				} else {
+				} else {";
+		if ($reloadOnUpdate) {
+			$script .= "
+					if (!\$skipReload) {
+						\$reloadObject = true;
+					}";
+		}
+		$script .= "
 					\$affectedRows += " . $this->getPeerClassname() . "::doUpdateThis(\$this, \$con);
 				}
 				\$this->resetModified();
 			}
 ";
+
+		// PDO does not rewind LOB stream resources after using them to bind an
+		// insert/update parameter, which otherwise leaves the very resource the caller
+		// just handed us (or read back via the getter) positioned at EOF -- ported from
+		// PHP5ObjectBuilder::addSaveBody()'s equivalent post-doSave rewind loop.
+		foreach ($table->getColumns() as $col) {
+			if ($col->isLobType()) {
+				$phpname = $col->getPhpName();
+				$script .= "
+			if (\$this->$phpname !== null && is_resource(\$this->$phpname)) {
+				rewind(\$this->$phpname);
+			}
+";
+			}
+		}
 
 		// Add referrers save logic (many-to-many collections)
 		foreach ($table->getReferrers() as $refFK) {
@@ -1876,7 +2223,20 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		}
 
 		$script .= "
-			\$this->alreadyInSave = false;
+			\$this->alreadyInSave = false;";
+		if ($reloadOnInsert || $reloadOnUpdate) {
+			// Ported from PHP5ObjectBuilder::addDoSave(): tables with reloadOnInsert/
+			// reloadOnUpdate schema attributes (used for DB-computed default
+			// expressions, e.g. `created_at` columns with a NOW()-style default) need an
+			// actual reload() after the insert/update to pick up the value the database
+			// computed -- entirely missing before (the $skipReload parameter and its
+			// plumbing existed, but nothing ever set $reloadObject or called reload()).
+			$script .= "
+			if (\$reloadObject) {
+				\$this->reload(false, \$con);
+			}";
+		}
+		$script .= "
 		}
 		return \$affectedRows;
 	}";
@@ -1925,16 +2285,20 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		}
 		\$this->hydrate(\$row, 0, true); // rehydrate";
 		
-		// Support for lazy load columns
+		// Support for lazy load columns: force the next getter call to re-query,
+		// rather than returning a value (or, for LOB columns, a stream resource) that
+		// may be stale or -- for a resource the caller has since fclose()'d -- invalid.
 		$table = $this->getTable();
 		foreach ($table->getColumns() as $col) {
 			if ($col->isLazyLoad()) {
 				$clo = strtolower($col->getName());
+				$phpname = $col->getPhpName();
 				$script .= "
-		\$this->{$clo}_isLoaded = false;";
+		\$this->{$clo}_isLoaded = false;
+		\$this->$phpname = null;";
 			}
 		}
-		
+
 		$script .= "
 
 		if (\$deep) {
@@ -2001,10 +2365,10 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 *
 	 * @return array an associative array containing the field names (as keys) and field values
 	 */
-	public function toArray(string \$keyType = BasePeer::TYPE_PHPNAME, bool \$includeLazyLoadColumns = true, array \$alreadyDumpedObjects = array()" . ($hasFks ? ", bool \$includeForeignObjects = false" : '') . "): array
+	public function toArray(string \$keyType = BasePeer::TYPE_PHPNAME, ?bool \$includeLazyLoadColumns = true, array \$alreadyDumpedObjects = array()" . ($hasFks ? ", bool \$includeForeignObjects = false" : '') . "): array|string
 	{
 		if (isset(\$alreadyDumpedObjects['$objectClassName'][$pkGetter])) {
-			return ['*RECURSION*' => true];
+			return '*RECURSION*';
 		}
 		\$alreadyDumpedObjects['$objectClassName'][$pkGetter] = true;
 		\$keys = ".$this->getPeerClassname()."::getFieldNames(\$keyType);
@@ -2344,8 +2708,19 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 				continue;
 			}
 			$phpname = $col->getPhpName();
-			$script .= "
+			if ($col->isEnumType()) {
+				// Enum columns store the raw index internally ($this->$phpname), but
+				// their generated setter (addEnumMutator()) validates and accepts the
+				// enum *label*, not the index -- passing the raw index straight through
+				// throws "Value ... is not accepted in this enumerated column" the moment
+				// the index isn't itself a valid label (e.g. index 2 for a 2-value enum).
+				// Use the getter, which resolves the index back to its label, instead.
+				$script .= "
+		\$copyObj->set$phpname(\$this->get$phpname());";
+			} else {
+				$script .= "
 		\$copyObj->set$phpname(\$this->$phpname);";
+			}
 		}
 
 		// Add deep copy for foreign key references and collections
@@ -2360,7 +2735,17 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 ";
 			foreach ($table->getReferrers() as $refFK) {
 				if ($refFK->isLocalPrimaryKey()) {
-					continue; // 1:1 relationships don't get deep copied
+					// 1:1 relationships (e.g. BookstoreEmployee <-> BookstoreEmployeeAccount)
+					// ARE deep-copied too -- ported from PHP5ObjectBuilder::addCopyInto(),
+					// which this previously diverged from despite its comment's claim.
+					$refFKPhpNameAffix = $this->getRefFKPhpNameAffix($refFK, false);
+					$script .= "
+			\$relObj = \$this->get$refFKPhpNameAffix();
+			if (\$relObj) {
+				\$copyObj->set$refFKPhpNameAffix(\$relObj->copy(\$deepCopy));
+			}
+";
+					continue;
 				}
 				$refFKPhpNameAffix = $this->getRefFKPhpNameAffix($refFK, true);
 				$script .= "
@@ -2569,10 +2954,20 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 				\$this->init$relCol();
 			} else {
 				\$query = " . $this->getNewStubQueryBuilder($refFK->getTable())->getClassname() . "::create(null, \$criteria);
-				
-				\$this->{$collName} = \$query
+
+				\${$collName} = \$query
 					->filterBy" . $this->getFKPhpNameAffix($refFK, false) . "(\$this)
 					->find(\$con);
+				// A caller-supplied \$criteria always fetches fresh from the database and
+				// is never persisted into the cached collection -- ported from
+				// PHP5ObjectBuilder::addRefFKGet(); the previous version overwrote the
+				// full cached collection with the filtered result, so a subsequent
+				// no-criteria call would wrongly keep returning the filtered subset
+				// instead of the real full collection.
+				if (null !== \$criteria) {
+					return \${$collName};
+				}
+				\$this->{$collName} = \${$collName};
 			}
 		}
 
@@ -2587,7 +2982,14 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	{
 		$relatedObjectClassName = $this->getNewStubObjectBuilder($refFK->getTable())->getClassname();
 		$relCol = $this->getRefFKPhpNameAffix($refFK, true);
+		$collName = $this->getRefFKCollVarName($refFK);
 
+		// Ported from PHP5ObjectBuilder::addRefFKCount(): the previous version always
+		// hit the database (or returned 0 for a new/unsaved object), ignoring an
+		// already-loaded in-memory collection entirely -- so counting referrers added
+		// via add<Fk>() on a not-yet-saved object (e.g. Book::countReviews() right after
+		// several addReview() calls, before Book::save()) always returned 0 instead of
+		// the real in-memory count.
 		$script .= "
 
 	/**
@@ -2601,18 +3003,22 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	public function count$relCol(?Criteria \$criteria = null, bool \$distinct = false, ?PropulsionPDO \$con = null): int
 	{
-		if (\$this->isNew()) {
-			return 0;
+		if (\$this->$collName === null || \$criteria !== null) {
+			if (\$this->isNew() && \$this->$collName === null) {
+				return 0;
+			}
+
+			\$query = " . $this->getNewStubQueryBuilder($refFK->getTable())->getClassname() . "::create(null, \$criteria);
+			if (\$distinct) {
+				\$query->distinct();
+			}
+
+			return \$query
+				->filterBy" . $this->getFKPhpNameAffix($refFK, false) . "(\$this)
+				->count(\$con);
 		}
 
-		\$query = " . $this->getNewStubQueryBuilder($refFK->getTable())->getClassname() . "::create(null, \$criteria);
-		if (\$distinct) {
-			\$query->distinct();
-		}
-
-		return \$query
-			->filterBy" . $this->getFKPhpNameAffix($refFK, false) . "(\$this)
-			->count(\$con);
+		return count(\$this->$collName);
 	}";
 	}
 
@@ -3113,22 +3519,41 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	
 	protected function addPrimaryString(&$script): void
 	{
-		$table = $this->getTable();
+		// Ported from PHP5ObjectBuilder::addPrimaryString(): if a column is marked
+		// primaryString="true" in the schema, __toString() returns that column's value;
+		// otherwise it falls back to the object's default YAML/etc. export format
+		// (Peer::DEFAULT_STRING_FORMAT). The previous implementation ignored both of
+		// these and always stringified the primary key instead -- wrong for every table
+		// (whether or not it declares a primaryString column), and the dependency several
+		// tests/behaviors (e.g. SluggableBehavior's default slug source) have on this
+		// method's real contract.
+		foreach ($this->getTable()->getColumns() as $column) {
+			if ($column->isPrimaryString()) {
+				$phpname = $column->getPhpName();
+				$script .= "
+
+	/**
+	 * Return the string representation of this object
+	 *
+	 * @return string The value of the '" . $column->getName() . "' column
+	 */
+	public function __toString(): string
+	{
+		return (string) \$this->get$phpname();
+	}";
+				return;
+			}
+		}
 		$script .= "
 
 	/**
 	 * Return the string representation of this object
 	 *
-	 * @return string The value of the primary key columns
+	 * @return string
 	 */
 	public function __toString(): string
 	{
-		\$pk = \$this->getPrimaryKey();
-		if (is_array(\$pk)) {
-			return (string) implode(', ', \$pk);
-		} else {
-			return (string) \$pk;
-		}
+		return (string) \$this->exportTo(" . $this->getPeerClassname() . "::DEFAULT_STRING_FORMAT);
 	}";
 	}
 	

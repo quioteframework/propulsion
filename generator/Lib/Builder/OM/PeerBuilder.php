@@ -992,11 +992,11 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * Returns the number of rows matching criteria - PHP 8.4 LSP compliant version.
 	 *
 	 * @param      Criteria \$criteria
-	 * @param      bool \$distinct Whether to select only distinct columns; deprecated: use Criteria->setDistinct() instead.
+	 * @param      mixed \$distinct Whether to select only distinct columns; deprecated: use Criteria->setDistinct() instead.
 	 * @param      PropulsionPDO|null \$con
 	 * @return     int Number of matching rows.
 	 */
-	public static function doCountThis(Criteria \$criteria, bool \$distinct = false, ?PropulsionPDO \$con = null)
+	public static function doCountThis(Criteria \$criteria, mixed \$distinct = false, ?PropulsionPDO \$con = null)
 	{
 		// we may modify criteria, so copy it first
 		\$criteria = clone \$criteria;
@@ -2325,5 +2325,752 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		}
 	}
 ";
+	}
+
+	/**
+	 * Adds the doSelectJoin*()/doCountJoin*() methods on top of the base
+	 * doSelect()/doSelectOne()/doCount() family.
+	 *
+	 * Ported from archaeology/php5-builders/PHP5PeerBuilder.php -- these
+	 * methods were entirely absent from the promoted builder (see
+	 * KNOWN_ISSUES.md, Phase 3.5), which meant every generated Peer was
+	 * missing doSelectJoin<Fk>()/doSelectJoinAll()/doCountJoin<Fk>()/
+	 * doCountJoinAll(), silently relied upon by application code and tests
+	 * (e.g. GeneratedPeerDoSelectTest, GeneratedObjectTest::toArray()'s
+	 * include-foreign-objects path) as long as PHP5PeerBuilder was the
+	 * default.
+	 */
+	protected function addSelectMethods(&$script)
+	{
+		$table = $this->getTable();
+
+		parent::addSelectMethods($script);
+
+		if ($table->isAlias()) {
+			return;
+		}
+
+		$this->addDoCountJoin($script);
+		$this->addDoSelectJoin($script);
+
+		$countFK = count($table->getForeignKeys());
+		$includeJoinAll = true;
+
+		foreach ($table->getForeignKeys() as $fk) {
+			$tblFK = $table->getDatabase()->getTable($fk->getForeignTableName());
+			$this->declareClassFromBuilder($this->getNewStubPeerBuilder($tblFK));
+			if ($tblFK->isForReferenceOnly()) {
+				$includeJoinAll = false;
+			}
+		}
+
+		if ($includeJoinAll) {
+			if ($countFK > 0) {
+				$this->addDoCountJoinAll($script);
+				$this->addDoSelectJoinAll($script);
+			}
+			if ($countFK > 1) {
+				$this->addDoCountJoinAllExcept($script);
+				$this->addDoSelectJoinAllExcept($script);
+			}
+		}
+	}
+
+	/**
+	 * Returns the desired join behavior, as set in the build properties.
+	 */
+	protected function getJoinBehavior()
+	{
+		return $this->getGeneratorConfig()->getBuildProperty('useLeftJoinsInDoJoinMethods') ? 'Criteria::LEFT_JOIN' : 'Criteria::INNER_JOIN';
+	}
+
+	/**
+	 * Builds the addJoin()/addMultipleJoin() call(s) needed to join $table to
+	 * $joinTable across foreign key $fk.
+	 */
+	public function addCriteriaJoin(ForeignKey $fk, Table $table, Table $joinTable, $joinedTablePeerBuilder)
+	{
+		$script = '';
+		$lfMap = $fk->getLocalForeignMapping();
+		$lftCols = $fk->getLocalColumns();
+		if (count($lftCols) == 1) {
+			// simple foreign key
+			$lftCol = $lftCols[0];
+			$script .= sprintf("
+		\$criteria->addJoin(%s, %s, \$join_behavior);
+",
+				$this->getColumnConstant($table->getColumn($lftCol)),
+				$joinedTablePeerBuilder->getColumnConstant($joinTable->getColumn($lfMap[$lftCol])));
+		} else {
+			// composite foreign key
+			$script .= "
+		\$criteria->addMultipleJoin(array(
+";
+			foreach ($lftCols as $columnName) {
+				$script .= sprintf("      array(%s, %s),
+",
+					$this->getColumnConstant($table->getColumn($columnName)),
+					$joinedTablePeerBuilder->getColumnConstant($joinTable->getColumn($lfMap[$columnName]))
+				);
+			}
+			$script .= "    ), \$join_behavior);
+";
+		}
+		return $script;
+	}
+
+	/**
+	 * Adds the doSelectJoin<Fk>() methods.
+	 */
+	protected function addDoSelectJoin(&$script)
+	{
+		$table = $this->getTable();
+		$className = $this->getObjectClassname();
+		$join_behavior = $this->getJoinBehavior();
+
+		if (count($table->getForeignKeys()) < 1) {
+			return;
+		}
+
+		foreach ($table->getForeignKeys() as $fk) {
+			$joinTable = $table->getDatabase()->getTable($fk->getForeignTableName());
+
+			if ($joinTable->isForReferenceOnly()) {
+				continue;
+			}
+
+			// This condition is necessary because Propulsion lacks a system for
+			// aliasing the table if it is the same table.
+			if ($fk->getForeignTableName() == $table->getName()) {
+				continue;
+			}
+
+			$thisTableObjectBuilder = $this->getNewObjectBuilder($table);
+			$joinedTableObjectBuilder = $this->getNewObjectBuilder($joinTable);
+			$joinedTablePeerBuilder = $this->getNewPeerBuilder($joinTable);
+
+			$joinClassName = $joinedTableObjectBuilder->getObjectClassname();
+
+			$script .= "
+
+	/**
+	 * Selects a collection of $className objects pre-filled with their $joinClassName objects.
+	 * @param      Criteria  \$criteria
+	 * @param      ?PropulsionPDO \$con
+	 * @param      string    \$join_behavior the type of joins to use, defaults to $join_behavior
+	 * @return     array Array of $className objects.
+	 * @throws     PropulsionException Any exceptions caught during processing will be
+	 *		 rethrown wrapped into a PropulsionException.
+	 */
+	public static function doSelectJoin" . $thisTableObjectBuilder->getFKPhpNameAffix($fk, false) . "(Criteria \$criteria, ?PropulsionPDO \$con = null, \$join_behavior = $join_behavior)
+	{
+		\$criteria = clone \$criteria;
+
+		// Set the correct dbName if it has not been overridden
+		if (\$criteria->getDbName() == Propulsion::getDefaultDB()) {
+			\$criteria->setDbName(self::DATABASE_NAME);
+		}
+
+		" . $this->getPeerClassname() . "::addSelectColumns(\$criteria);
+		\$startcol = " . $this->getPeerClassname() . "::NUM_HYDRATE_COLUMNS;
+		" . $joinedTablePeerBuilder->getPeerClassname() . "::addSelectColumns(\$criteria);
+";
+
+			$script .= $this->addCriteriaJoin($fk, $table, $joinTable, $joinedTablePeerBuilder);
+
+			$this->applyBehaviorModifier('preSelect', $script);
+
+			$script .= "
+		\$stmt = " . $this->basePeerClassname . "::doSelect(\$criteria, \$con);
+		\$results = array();
+
+		while (\$row = \$stmt->fetch(PDO::FETCH_NUM)) {
+			\$key1 = " . $this->getPeerClassname() . "::getPrimaryKeyHashFromRow(\$row, 0);
+			if (null !== (\$obj1 = " . $this->getPeerClassname() . "::getInstanceFromPool(\$key1))) {
+				// We no longer rehydrate the object, since this can cause data loss.
+			} else {
+";
+			if ($table->getChildrenColumn()) {
+				$script .= "
+				\$omClass = " . $this->getPeerClassname() . "::getOMClass(\$row, 0);
+				\$cls = substr('.'.\$omClass, strrpos('.'.\$omClass, '.') + 1);
+";
+			} else {
+				$script .= "
+				\$cls = " . $this->getPeerClassname() . "::getOMClass(false);
+";
+			}
+			$script .= "
+				" . $this->buildObjectInstanceCreationCode('$obj1', '$cls') . "
+				\$obj1->hydrate(\$row);
+				" . $this->getPeerClassname() . "::addInstanceToPool(\$obj1, \$key1);
+			} // if \$obj1 already loaded
+
+			\$key2 = " . $joinedTablePeerBuilder->getPeerClassname() . "::getPrimaryKeyHashFromRow(\$row, \$startcol);
+			if (\$key2 !== null) {
+				\$obj2 = " . $joinedTablePeerBuilder->getPeerClassname() . "::getInstanceFromPool(\$key2);
+				if (!\$obj2) {
+";
+			if ($joinTable->getChildrenColumn()) {
+				$script .= "
+					\$omClass = " . $joinedTablePeerBuilder->getPeerClassname() . "::getOMClass(\$row, \$startcol);
+					\$cls = substr('.'.\$omClass, strrpos('.'.\$omClass, '.') + 1);
+";
+			} else {
+				$script .= "
+					\$cls = " . $joinedTablePeerBuilder->getPeerClassname() . "::getOMClass(false);
+";
+			}
+			$script .= "
+					" . $this->buildObjectInstanceCreationCode('$obj2', '$cls') . "
+					\$obj2->hydrate(\$row, \$startcol);
+					" . $joinedTablePeerBuilder->getPeerClassname() . "::addInstanceToPool(\$obj2, \$key2);
+				} // if obj2 already loaded
+";
+			if ($fk->isLocalPrimaryKey()) {
+				$script .= "
+				// one to one relationship
+				\$obj1->set" . $joinedTablePeerBuilder->getObjectClassname() . "(\$obj2);";
+			} else {
+				$script .= "
+				\$obj2->add" . $joinedTableObjectBuilder->getRefFKPhpNameAffix($fk, false) . "(\$obj1);";
+			}
+			$script .= "
+
+			} // if joined row was not null
+
+			\$results[] = \$obj1;
+		}
+		\$stmt->closeCursor();
+		return \$results;
+	}
+";
+		} // foreach fk
+	}
+
+	/**
+	 * Adds the doCountJoin<Fk>() methods.
+	 */
+	protected function addDoCountJoin(&$script)
+	{
+		$table = $this->getTable();
+
+		if (count($table->getForeignKeys()) < 1) {
+			return;
+		}
+
+		foreach ($table->getForeignKeys() as $fk) {
+			$joinTable = $table->getDatabase()->getTable($fk->getForeignTableName());
+
+			if ($joinTable->isForReferenceOnly()) {
+				continue;
+			}
+			if ($fk->getForeignTableName() == $table->getName()) {
+				continue;
+			}
+
+			$thisTableObjectBuilder = $this->getNewObjectBuilder($table);
+			$joinedTablePeerBuilder = $this->getNewPeerBuilder($joinTable);
+			$join_behavior = $this->getJoinBehavior();
+
+			$script .= "
+
+	/**
+	 * Returns the number of rows matching criteria, joining the related " . $thisTableObjectBuilder->getFKPhpNameAffix($fk, false) . " table
+	 *
+	 * @param      Criteria \$criteria
+	 * @param      mixed \$distinct Whether to select only distinct columns; deprecated: use Criteria->setDistinct() instead.
+	 * @param      ?PropulsionPDO \$con
+	 * @param      string    \$join_behavior the type of joins to use, defaults to $join_behavior
+	 * @return     int Number of matching rows.
+	 */
+	public static function doCountJoin" . $thisTableObjectBuilder->getFKPhpNameAffix($fk, false) . "(Criteria \$criteria, mixed \$distinct = false, ?PropulsionPDO \$con = null, \$join_behavior = $join_behavior)
+	{
+		\$criteria = clone \$criteria;
+
+		\$criteria->setPrimaryTableName(" . $this->getPeerClassname() . "::TABLE_NAME);
+
+		if (\$distinct && !in_array(Criteria::DISTINCT, \$criteria->getSelectModifiers())) {
+			\$criteria->setDistinct();
+		}
+
+		if (!\$criteria->hasSelectClause()) {
+			" . $this->getPeerClassname() . "::addSelectColumns(\$criteria);
+		}
+
+		\$criteria->clearOrderByColumns(); // ORDER BY won't ever affect the count
+
+		\$criteria->setDbName(self::DATABASE_NAME);
+
+		if (\$con === null) {
+			\$con = Propulsion::getConnection(" . $this->getPeerClassname() . "::DATABASE_NAME, Propulsion::CONNECTION_READ);
+		}
+";
+			$script .= $this->addCriteriaJoin($fk, $table, $joinTable, $joinedTablePeerBuilder);
+
+			$this->applyBehaviorModifier('preSelect', $script);
+
+			$script .= "
+		\$stmt = " . $this->basePeerClassname . "::doCount(\$criteria, \$con);
+
+		if (\$row = \$stmt->fetch(PDO::FETCH_NUM)) {
+			\$count = (int) \$row[0];
+		} else {
+			\$count = 0; // no rows returned; we infer that means 0 matches.
+		}
+		\$stmt->closeCursor();
+		return \$count;
+	}
+";
+		} // foreach fk
+	}
+
+	/**
+	 * Adds the doSelectJoinAll() method.
+	 */
+	protected function addDoSelectJoinAll(&$script)
+	{
+		$table = $this->getTable();
+		$className = $this->getObjectClassname();
+		$join_behavior = $this->getJoinBehavior();
+
+		$script .= "
+
+	/**
+	 * Selects a collection of $className objects pre-filled with all related objects.
+	 *
+	 * @param      Criteria  \$criteria
+	 * @param      ?PropulsionPDO \$con
+	 * @param      string    \$join_behavior the type of joins to use, defaults to $join_behavior
+	 * @return     array Array of $className objects.
+	 * @throws     PropulsionException Any exceptions caught during processing will be
+	 *		 rethrown wrapped into a PropulsionException.
+	 */
+	public static function doSelectJoinAll(Criteria \$criteria, ?PropulsionPDO \$con = null, \$join_behavior = $join_behavior)
+	{
+		\$criteria = clone \$criteria;
+
+		// Set the correct dbName if it has not been overridden
+		if (\$criteria->getDbName() == Propulsion::getDefaultDB()) {
+			\$criteria->setDbName(self::DATABASE_NAME);
+		}
+
+		" . $this->getPeerClassname() . "::addSelectColumns(\$criteria);
+		\$startcol2 = " . $this->getPeerClassname() . "::NUM_HYDRATE_COLUMNS;
+";
+		$index = 2;
+		foreach ($table->getForeignKeys() as $fk) {
+			if ($fk->getForeignTableName() != $table->getName()) {
+				$joinTable = $table->getDatabase()->getTable($fk->getForeignTableName());
+				$new_index = $index + 1;
+
+				$joinedTablePeerBuilder = $this->getNewPeerBuilder($joinTable);
+
+				$script .= "
+		" . $joinedTablePeerBuilder->getPeerClassname() . "::addSelectColumns(\$criteria);
+		\$startcol$new_index = \$startcol$index + " . $joinedTablePeerBuilder->getPeerClassname() . "::NUM_HYDRATE_COLUMNS;
+";
+				$index = $new_index;
+			}
+		}
+
+		foreach ($table->getForeignKeys() as $fk) {
+			if ($fk->getForeignTableName() != $table->getName()) {
+				$joinTable = $table->getDatabase()->getTable($fk->getForeignTableName());
+				$joinedTablePeerBuilder = $this->getNewPeerBuilder($joinTable);
+				$script .= $this->addCriteriaJoin($fk, $table, $joinTable, $joinedTablePeerBuilder);
+			}
+		}
+
+		$this->applyBehaviorModifier('preSelect', $script);
+
+		$script .= "
+		\$stmt = " . $this->basePeerClassname . "::doSelect(\$criteria, \$con);
+		\$results = array();
+
+		while (\$row = \$stmt->fetch(PDO::FETCH_NUM)) {
+			\$key1 = " . $this->getPeerClassname() . "::getPrimaryKeyHashFromRow(\$row, 0);
+			if (null !== (\$obj1 = " . $this->getPeerClassname() . "::getInstanceFromPool(\$key1))) {
+				// We no longer rehydrate the object, since this can cause data loss.
+			} else {";
+
+		if ($table->getChildrenColumn()) {
+			$script .= "
+				\$omClass = " . $this->getPeerClassname() . "::getOMClass(\$row, 0);
+				\$cls = substr('.'.\$omClass, strrpos('.'.\$omClass, '.') + 1);
+";
+		} else {
+			$script .= "
+				\$cls = " . $this->getPeerClassname() . "::getOMClass(false);
+";
+		}
+
+		$script .= "
+				" . $this->buildObjectInstanceCreationCode('$obj1', '$cls') . "
+				\$obj1->hydrate(\$row);
+				" . $this->getPeerClassname() . "::addInstanceToPool(\$obj1, \$key1);
+			} // if obj1 already loaded
+";
+
+		$index = 1;
+		foreach ($table->getForeignKeys() as $fk) {
+			if ($fk->getForeignTableName() != $table->getName()) {
+				$joinTable = $table->getDatabase()->getTable($fk->getForeignTableName());
+
+				$joinedTableObjectBuilder = $this->getNewObjectBuilder($joinTable);
+				$joinedTablePeerBuilder = $this->getNewPeerBuilder($joinTable);
+
+				$joinClassName = $joinedTableObjectBuilder->getObjectClassname();
+
+				$index++;
+
+				$script .= "
+			// Add objects for joined $joinClassName rows
+
+			\$key$index = " . $joinedTablePeerBuilder->getPeerClassname() . "::getPrimaryKeyHashFromRow(\$row, \$startcol$index);
+			if (\$key$index !== null) {
+				\$obj$index = " . $joinedTablePeerBuilder->getPeerClassname() . "::getInstanceFromPool(\$key$index);
+				if (!\$obj$index) {
+";
+				if ($joinTable->getChildrenColumn()) {
+					$script .= "
+					\$omClass = " . $joinedTablePeerBuilder->getPeerClassname() . "::getOMClass(\$row, \$startcol$index);
+					\$cls = substr('.'.\$omClass, strrpos('.'.\$omClass, '.') + 1);
+";
+				} else {
+					$script .= "
+					\$cls = " . $joinedTablePeerBuilder->getPeerClassname() . "::getOMClass(false);
+";
+				}
+				$script .= "
+					" . $this->buildObjectInstanceCreationCode('$obj' . $index, '$cls') . "
+					\$obj" . $index . "->hydrate(\$row, \$startcol$index);
+					" . $joinedTablePeerBuilder->getPeerClassname() . "::addInstanceToPool(\$obj$index, \$key$index);
+				} // if obj$index loaded
+
+				// Add the \$obj1 to the collection in \$obj" . $index;
+				if ($fk->isLocalPrimaryKey()) {
+					$script .= "
+				\$obj1->set" . $joinedTablePeerBuilder->getObjectClassname() . "(\$obj" . $index . ");";
+				} else {
+					$script .= "
+				\$obj" . $index . "->add" . $joinedTableObjectBuilder->getRefFKPhpNameAffix($fk, false) . "(\$obj1);";
+				}
+				$script .= "
+			} // if joined row not null
+";
+			}
+		}
+
+		$script .= "
+			\$results[] = \$obj1;
+		}
+		\$stmt->closeCursor();
+		return \$results;
+	}
+";
+	}
+
+	/**
+	 * Adds the doCountJoinAll() method.
+	 */
+	protected function addDoCountJoinAll(&$script)
+	{
+		$table = $this->getTable();
+		$join_behavior = $this->getJoinBehavior();
+
+		$script .= "
+
+	/**
+	 * Returns the number of rows matching criteria, joining all related tables
+	 *
+	 * @param      Criteria \$criteria
+	 * @param      mixed \$distinct Whether to select only distinct columns; deprecated: use Criteria->setDistinct() instead.
+	 * @param      ?PropulsionPDO \$con
+	 * @param      string    \$join_behavior the type of joins to use, defaults to $join_behavior
+	 * @return     int Number of matching rows.
+	 */
+	public static function doCountJoinAll(Criteria \$criteria, mixed \$distinct = false, ?PropulsionPDO \$con = null, \$join_behavior = $join_behavior)
+	{
+		\$criteria = clone \$criteria;
+
+		\$criteria->setPrimaryTableName(" . $this->getPeerClassname() . "::TABLE_NAME);
+
+		if (\$distinct && !in_array(Criteria::DISTINCT, \$criteria->getSelectModifiers())) {
+			\$criteria->setDistinct();
+		}
+
+		if (!\$criteria->hasSelectClause()) {
+			" . $this->getPeerClassname() . "::addSelectColumns(\$criteria);
+		}
+
+		\$criteria->clearOrderByColumns(); // ORDER BY won't ever affect the count
+
+		\$criteria->setDbName(self::DATABASE_NAME);
+
+		if (\$con === null) {
+			\$con = Propulsion::getConnection(" . $this->getPeerClassname() . "::DATABASE_NAME, Propulsion::CONNECTION_READ);
+		}
+";
+
+		foreach ($table->getForeignKeys() as $fk) {
+			if ($fk->getForeignTableName() != $table->getName()) {
+				$joinTable = $table->getDatabase()->getTable($fk->getForeignTableName());
+				$joinedTablePeerBuilder = $this->getNewPeerBuilder($joinTable);
+				$script .= $this->addCriteriaJoin($fk, $table, $joinTable, $joinedTablePeerBuilder);
+			}
+		}
+
+		$this->applyBehaviorModifier('preSelect', $script);
+
+		$script .= "
+		\$stmt = " . $this->basePeerClassname . "::doCount(\$criteria, \$con);
+
+		if (\$row = \$stmt->fetch(PDO::FETCH_NUM)) {
+			\$count = (int) \$row[0];
+		} else {
+			\$count = 0; // no rows returned; we infer that means 0 matches.
+		}
+		\$stmt->closeCursor();
+		return \$count;
+	}";
+	}
+
+	/**
+	 * Adds the doSelectJoinAllExcept*() methods.
+	 */
+	protected function addDoSelectJoinAllExcept(&$script)
+	{
+		$table = $this->getTable();
+		$join_behavior = $this->getJoinBehavior();
+
+		$fkeys = $table->getForeignKeys();
+		foreach ($fkeys as $fk) {
+			$excludedTable = $table->getDatabase()->getTable($fk->getForeignTableName());
+
+			$thisTableObjectBuilder = $this->getNewObjectBuilder($table);
+			$excludedTableObjectBuilder = $this->getNewObjectBuilder($excludedTable);
+
+			$excludedClassName = $excludedTableObjectBuilder->getObjectClassname();
+
+			$script .= "
+
+	/**
+	 * Selects a collection of " . $this->getObjectClassname() . " objects pre-filled with all related objects except " . $thisTableObjectBuilder->getFKPhpNameAffix($fk) . ".
+	 *
+	 * @param      Criteria  \$criteria
+	 * @param      ?PropulsionPDO \$con
+	 * @param      string    \$join_behavior the type of joins to use, defaults to $join_behavior
+	 * @return     array Array of " . $this->getObjectClassname() . " objects.
+	 * @throws     PropulsionException Any exceptions caught during processing will be
+	 *		 rethrown wrapped into a PropulsionException.
+	 */
+	public static function doSelectJoinAllExcept" . $thisTableObjectBuilder->getFKPhpNameAffix($fk, false) . "(Criteria \$criteria, ?PropulsionPDO \$con = null, \$join_behavior = $join_behavior)
+	{
+		\$criteria = clone \$criteria;
+
+		if (\$criteria->getDbName() == Propulsion::getDefaultDB()) {
+			\$criteria->setDbName(self::DATABASE_NAME);
+		}
+
+		" . $this->getPeerClassname() . "::addSelectColumns(\$criteria);
+		\$startcol2 = " . $this->getPeerClassname() . "::NUM_HYDRATE_COLUMNS;
+";
+			$index = 2;
+			foreach ($table->getForeignKeys() as $subfk) {
+				if ($subfk->getForeignTableName() != $table->getName()) {
+					$joinTable = $table->getDatabase()->getTable($subfk->getForeignTableName());
+					$joinTablePeerBuilder = $this->getNewPeerBuilder($joinTable);
+					$joinClassName = $joinTablePeerBuilder->getObjectClassname();
+
+					if ($joinClassName != $excludedClassName) {
+						$new_index = $index + 1;
+						$script .= "
+		" . $joinTablePeerBuilder->getPeerClassname() . "::addSelectColumns(\$criteria);
+		\$startcol$new_index = \$startcol$index + " . $joinTablePeerBuilder->getPeerClassname() . "::NUM_HYDRATE_COLUMNS;
+";
+						$index = $new_index;
+					}
+				}
+			}
+
+			foreach ($table->getForeignKeys() as $subfk) {
+				if ($subfk->getForeignTableName() != $table->getName()) {
+					$joinTable = $table->getDatabase()->getTable($subfk->getForeignTableName());
+					$joinedTablePeerBuilder = $this->getNewPeerBuilder($joinTable);
+					$joinClassName = $joinedTablePeerBuilder->getObjectClassname();
+
+					if ($joinClassName != $excludedClassName) {
+						$script .= $this->addCriteriaJoin($subfk, $table, $joinTable, $joinedTablePeerBuilder);
+					}
+				}
+			}
+
+			$this->applyBehaviorModifier('preSelect', $script);
+
+			$script .= "
+
+		\$stmt = " . $this->basePeerClassname . "::doSelect(\$criteria, \$con);
+		\$results = array();
+
+		while (\$row = \$stmt->fetch(PDO::FETCH_NUM)) {
+			\$key1 = " . $this->getPeerClassname() . "::getPrimaryKeyHashFromRow(\$row, 0);
+			if (null !== (\$obj1 = " . $this->getPeerClassname() . "::getInstanceFromPool(\$key1))) {
+				// We no longer rehydrate the object, since this can cause data loss.
+			} else {";
+			if ($table->getChildrenColumn()) {
+				$script .= "
+				\$omClass = " . $this->getPeerClassname() . "::getOMClass(\$row, 0);
+				\$cls = substr('.'.\$omClass, strrpos('.'.\$omClass, '.') + 1);
+";
+			} else {
+				$script .= "
+				\$cls = " . $this->getPeerClassname() . "::getOMClass(false);
+";
+			}
+
+			$script .= "
+				" . $this->buildObjectInstanceCreationCode('$obj1', '$cls') . "
+				\$obj1->hydrate(\$row);
+				" . $this->getPeerClassname() . "::addInstanceToPool(\$obj1, \$key1);
+			} // if obj1 already loaded
+";
+
+			$index = 1;
+			foreach ($table->getForeignKeys() as $subfk) {
+				if ($subfk->getForeignTableName() != $table->getName()) {
+					$joinTable = $table->getDatabase()->getTable($subfk->getForeignTableName());
+
+					$joinedTableObjectBuilder = $this->getNewObjectBuilder($joinTable);
+					$joinedTablePeerBuilder = $this->getNewPeerBuilder($joinTable);
+
+					$joinClassName = $joinedTableObjectBuilder->getObjectClassname();
+
+					if ($joinClassName != $excludedClassName) {
+						$index++;
+
+						$script .= "
+			// Add objects for joined $joinClassName rows
+
+			\$key$index = " . $joinedTablePeerBuilder->getPeerClassname() . "::getPrimaryKeyHashFromRow(\$row, \$startcol$index);
+			if (\$key$index !== null) {
+				\$obj$index = " . $joinedTablePeerBuilder->getPeerClassname() . "::getInstanceFromPool(\$key$index);
+				if (!\$obj$index) {
+";
+						if ($joinTable->getChildrenColumn()) {
+							$script .= "
+					\$omClass = " . $joinedTablePeerBuilder->getPeerClassname() . "::getOMClass(\$row, \$startcol$index);
+					\$cls = substr('.'.\$omClass, strrpos('.'.\$omClass, '.') + 1);
+";
+						} else {
+							$script .= "
+					\$cls = " . $joinedTablePeerBuilder->getPeerClassname() . "::getOMClass(false);
+";
+						}
+						$script .= "
+					" . $this->buildObjectInstanceCreationCode('$obj' . $index, '$cls') . "
+					\$obj" . $index . "->hydrate(\$row, \$startcol$index);
+					" . $joinedTablePeerBuilder->getPeerClassname() . "::addInstanceToPool(\$obj$index, \$key$index);
+				} // if \$obj$index already loaded
+";
+						if ($subfk->isLocalPrimaryKey()) {
+							$script .= "
+				\$obj1->set" . $joinedTablePeerBuilder->getObjectClassname() . "(\$obj" . $index . ");";
+						} else {
+							$script .= "
+				\$obj" . $index . "->add" . $joinedTableObjectBuilder->getRefFKPhpNameAffix($subfk, false) . "(\$obj1);";
+						}
+						$script .= "
+			} // if joined row is not null
+";
+					}
+				}
+			}
+			$script .= "
+			\$results[] = \$obj1;
+		}
+		\$stmt->closeCursor();
+		return \$results;
+	}
+";
+		} // foreach fk
+	}
+
+	/**
+	 * Adds the doCountJoinAllExcept*() methods.
+	 */
+	protected function addDoCountJoinAllExcept(&$script)
+	{
+		$table = $this->getTable();
+		$join_behavior = $this->getJoinBehavior();
+
+		$fkeys = $table->getForeignKeys();
+		foreach ($fkeys as $fk) {
+			$excludedTable = $table->getDatabase()->getTable($fk->getForeignTableName());
+
+			$thisTableObjectBuilder = $this->getNewObjectBuilder($table);
+			$excludedTableObjectBuilder = $this->getNewObjectBuilder($excludedTable);
+			$excludedClassName = $excludedTableObjectBuilder->getObjectClassname();
+
+			$script .= "
+
+	/**
+	 * Returns the number of rows matching criteria, joining all related tables except " . $thisTableObjectBuilder->getFKPhpNameAffix($fk) . ".
+	 *
+	 * @param      Criteria \$criteria
+	 * @param      mixed \$distinct Whether to select only distinct columns; deprecated: use Criteria->setDistinct() instead.
+	 * @param      ?PropulsionPDO \$con
+	 * @param      string    \$join_behavior the type of joins to use, defaults to $join_behavior
+	 * @return     int Number of matching rows.
+	 */
+	public static function doCountJoinAllExcept" . $thisTableObjectBuilder->getFKPhpNameAffix($fk, false) . "(Criteria \$criteria, mixed \$distinct = false, ?PropulsionPDO \$con = null, \$join_behavior = $join_behavior)
+	{
+		\$criteria = clone \$criteria;
+
+		\$criteria->setPrimaryTableName(" . $this->getPeerClassname() . "::TABLE_NAME);
+
+		if (\$distinct && !in_array(Criteria::DISTINCT, \$criteria->getSelectModifiers())) {
+			\$criteria->setDistinct();
+		}
+
+		if (!\$criteria->hasSelectClause()) {
+			" . $this->getPeerClassname() . "::addSelectColumns(\$criteria);
+		}
+
+		\$criteria->clearOrderByColumns(); // ORDER BY won't ever affect the count
+
+		\$criteria->setDbName(self::DATABASE_NAME);
+
+		if (\$con === null) {
+			\$con = Propulsion::getConnection(" . $this->getPeerClassname() . "::DATABASE_NAME, Propulsion::CONNECTION_READ);
+		}
+";
+			foreach ($table->getForeignKeys() as $subfk) {
+				if ($subfk->getForeignTableName() != $table->getName()) {
+					$joinTable = $table->getDatabase()->getTable($subfk->getForeignTableName());
+					$joinedTablePeerBuilder = $this->getNewPeerBuilder($joinTable);
+					$joinClassName = $joinedTablePeerBuilder->getObjectClassname();
+
+					if ($joinClassName != $excludedClassName) {
+						$script .= $this->addCriteriaJoin($subfk, $table, $joinTable, $joinedTablePeerBuilder);
+					}
+				}
+			}
+
+			$this->applyBehaviorModifier('preSelect', $script);
+
+			$script .= "
+		\$stmt = " . $this->basePeerClassname . "::doCount(\$criteria, \$con);
+
+		if (\$row = \$stmt->fetch(PDO::FETCH_NUM)) {
+			\$count = (int) \$row[0];
+		} else {
+			\$count = 0; // no rows returned; we infer that means 0 matches.
+		}
+		\$stmt->closeCursor();
+		return \$count;
+	}
+";
+		} // foreach fk
 	}
 }
