@@ -1484,12 +1484,22 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 *
 	 * NOTICE: This does not apply to primary or foreign keys for now.
 	 *
-	 * @param      ".$this->getObjectClassname()." \$obj The object to validate.
+	 * \$obj is deliberately untyped (not \$this->getObjectClassname()): concrete-inheritance
+	 * tables generate a real PHP peer-class inheritance chain (e.g.
+	 * ConcreteArticlePeer extends ConcreteContentPeer), and narrowing this parameter's
+	 * type per-table would violate LSP the moment a child peer overrides this method
+	 * with a narrower type than its parent -- PHP fatals with a
+	 * \"must be compatible with\" error, which is exactly the class of bug this rename
+	 * from doValidate was meant to avoid in the first place. \$obj is only ever called
+   * with \$this from the generated object class (see ObjectBuilder::addValidate()), so
+	 * the missing type hint costs nothing in practice.
+	 *
+	 * @param      mixed \$obj The object to validate.
 	 * @param      mixed \$cols Column name or array of column names.
 	 *
 	 * @return     mixed TRUE if all columns are valid or the error message of the first invalid column.
 	 */
-	public static function doValidateThis(" . $this->getObjectClassname() . " \$obj, mixed \$cols = null)
+	public static function doValidateThis(\$obj, mixed \$cols = null)
 	{
 		\$columns = array();
 
