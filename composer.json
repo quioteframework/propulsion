@@ -18,7 +18,8 @@
   },
   "require-dev": {
     "phpunit/phpunit": "^12.0",
-    "testcontainers/testcontainers": "^1.0"
+    "testcontainers/testcontainers": "^1.0",
+    "phpstan/phpstan": "^2.2"
   },
   "autoload": {
     "psr-4": {
@@ -34,6 +35,7 @@
       "docker ps -aq --filter label=propulsion.test-container=true | xargs -r docker stop --",
       "docker ps -aq --filter label=propulsion.test-container=true | xargs -r docker rm --"
     ],
-    "test:worker": "php test/worker/driver.php"
+    "test:worker": "php test/worker/driver.php",
+    "analyse": "phpstan analyse"
   }
 }
