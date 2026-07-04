@@ -9,6 +9,7 @@
  */
 
 use Testcontainers\Modules\PostgresContainer;
+use Testcontainers\Modules\MySQLContainer;
 use Testcontainers\Container\StartedGenericContainer;
 use Propulsion\Generator\Config\GeneratorConfig;
 use Propulsion\Generator\Manager\ModelManager;
@@ -27,12 +28,30 @@ use Propulsion\Generator\Manager\SqlManager;
  *
  * Set PROPULSION_SKIP_INTEGRATION=1 to skip all tests that depend on this (e.g. in
  * environments without Docker) rather than fail on a Docker error.
+ *
+ * Set PROPULSION_TEST_DB=mysql to run the *main bookstore fixture only* against a
+ * MySQL testcontainer instead of the default Postgres one -- useful for confirming
+ * whether a given test failure is a real library bug or one of this suite's several
+ * already-documented MySQL-vs-Postgres platform-semantics differences (loose numeric
+ * coercion in WHERE clauses, relaxed non-standard GROUP BY, identifier quoting
+ * defaults, ...). The "schemas" and "namespaced" fixture projects are Postgres-
+ * schema-feature-specific by design (see ensureSchemasReady()/
+ * ensureNamespacedReady()) and are not retargeted -- their tests degrade to
+ * markTestSkipped() automatically in this mode, since they try to open a `pgsql:`
+ * DSN against what is now a MySQL container and fail the same way they would with
+ * no Docker at all.
  */
 class IntegrationDatabase
 {
     private static ?StartedGenericContainer $container = null;
     private static bool $attempted = false;
     private static ?string $skipReason = null;
+
+    private static function platform(): string
+    {
+        $platform = getenv('PROPULSION_TEST_DB');
+        return $platform === 'mysql' ? 'mysql' : 'pgsql';
+    }
 
     private static bool $namespacedAttempted = false;
     private static ?string $namespacedSkipReason = null;
@@ -326,14 +345,25 @@ class IntegrationDatabase
 
         self::workaroundBrokenDockerCredentialHelper();
 
-        try {
-            self::$container = (new PostgresContainer())
-                ->withPostgresUser('propulsion')
-                ->withPostgresPassword('propulsion')
-                ->withPostgresDatabase('propulsion_test')
-                ->start();
-        } catch (\Throwable $e) {
-            throw new \RuntimeException('Could not start the Postgres testcontainer (is Docker running?): ' . $e->getMessage());
+        if (self::platform() === 'mysql') {
+            try {
+                self::$container = (new MySQLContainer())
+                    ->withMySQLUser('propulsion', 'propulsion')
+                    ->withMySQLDatabase('propulsion_test')
+                    ->start();
+            } catch (\Throwable $e) {
+                throw new \RuntimeException('Could not start the MySQL testcontainer (is Docker running?): ' . $e->getMessage());
+            }
+        } else {
+            try {
+                self::$container = (new PostgresContainer())
+                    ->withPostgresUser('propulsion')
+                    ->withPostgresPassword('propulsion')
+                    ->withPostgresDatabase('propulsion_test')
+                    ->start();
+            } catch (\Throwable $e) {
+                throw new \RuntimeException('Could not start the Postgres testcontainer (is Docker running?): ' . $e->getMessage());
+            }
         }
 
         register_shutdown_function(static function () {
@@ -470,18 +500,30 @@ class IntegrationDatabase
      */
     private static function workaroundBrokenDockerCredentialHelper(): void
     {
-        if (getenv('DOCKER_CONFIG') !== false) {
-            return;
+        if (getenv('DOCKER_CONFIG') === false) {
+            $dir = sys_get_temp_dir() . '/propulsion-test-docker-config';
+            if (!is_dir($dir)) {
+                mkdir($dir, 0777, true);
+            }
+            $configFile = $dir . '/config.json';
+            if (!is_file($configFile)) {
+                file_put_contents($configFile, '{}');
+            }
+            putenv("DOCKER_CONFIG=$dir");
         }
-        $dir = sys_get_temp_dir() . '/propulsion-test-docker-config';
-        if (!is_dir($dir)) {
-            mkdir($dir, 0777, true);
+
+        // testcontainers/testcontainers's own registry-auth lookup (used whenever an
+        // image isn't already cached locally and needs a real pull, e.g. the first time
+        // this environment pulls mysql:latest rather than the already-cached
+        // postgres:latest) reads DOCKER_AUTH_CONFIG or ~/.docker/config.json directly --
+        // it does not consult the Docker CLI's own DOCKER_CONFIG variable the workaround
+        // above targets, so a broken credsStore there still breaks a fresh pull even with
+        // that override in place. Short-circuit it the same way, with an explicit empty
+        // auth config so it never invokes the (unusable, from this shell) credential
+        // helper binary at all.
+        if (getenv('DOCKER_AUTH_CONFIG') === false) {
+            putenv('DOCKER_AUTH_CONFIG={}');
         }
-        $configFile = $dir . '/config.json';
-        if (!is_file($configFile)) {
-            file_put_contents($configFile, '{}');
-        }
-        putenv("DOCKER_CONFIG=$dir");
     }
 
     private static function buildFixtures(string $host, int $port): void
@@ -489,6 +531,7 @@ class IntegrationDatabase
         $fixtureDir = dirname(__DIR__, 2) . '/fixtures/bookstore';
         $repoRoot = dirname(__DIR__, 3);
         $classesDir = self::classesDir();
+        $platform = self::platform();
 
         if (!is_dir($classesDir) && !mkdir($classesDir, 0777, true) && !is_dir($classesDir)) {
             throw new \RuntimeException("Unable to create $classesDir");
@@ -500,13 +543,13 @@ class IntegrationDatabase
                 $fixtureDir . '/build.properties',
                 $fixtureDir . '/build.propulsion.properties',
             ],
-            ['propel.database' => 'pgsql']
+            ['propel.database' => $platform]
         );
 
         $schemas = glob($fixtureDir . '/*schema.xml');
         sort($schemas);
 
-        $sqlDir = sys_get_temp_dir() . '/propulsion-test-sql';
+        $sqlDir = sys_get_temp_dir() . '/propulsion-test-sql-' . $platform;
         if (!is_dir($sqlDir)) {
             mkdir($sqlDir, 0777, true);
         }
@@ -524,20 +567,22 @@ class IntegrationDatabase
             chdir($previousCwd);
         }
 
-        $dsn = "pgsql:host=$host;port=$port;dbname=propulsion_test";
+        $dsn = $platform === 'mysql'
+            ? "mysql:host=$host;port=$port;dbname=propulsion_test"
+            : "pgsql:host=$host;port=$port;dbname=propulsion_test";
         $pdo = new \PDO($dsn, 'propulsion', 'propulsion');
         $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
         foreach (glob($sqlDir . '/*.sql') as $sqlFile) {
             $pdo->exec((string) file_get_contents($sqlFile));
         }
 
-        self::writeRuntimeConf($dsn);
+        self::writeRuntimeConf($dsn, $platform);
     }
 
-    private static function writeRuntimeConf(string $dsn): void
+    private static function writeRuntimeConf(string $dsn, string $platform = 'pgsql'): void
     {
         $datasource = [
-            'adapter' => 'pgsql',
+            'adapter' => $platform,
             'connection' => [
                 'dsn' => $dsn,
                 'user' => 'propulsion',
@@ -547,7 +592,13 @@ class IntegrationDatabase
                 // second connection/transaction against a row the first one is still
                 // holding (uncommitted) should error out in a few seconds, not block
                 // forever. Surfaced by a real deadlock during AggregateColumnBehaviorTest.
-                'settings' => [
+                // MySQL's equivalent is a session variable, not a SET-per-statement
+                // pragma, and its deadlock detector is on by default regardless.
+                'settings' => $platform === 'mysql' ? [
+                    'queries' => [
+                        'SET SESSION innodb_lock_wait_timeout = 5',
+                    ],
+                ] : [
                     'queries' => [
                         'SET lock_timeout = 5000',
                         'SET statement_timeout = 15000',
