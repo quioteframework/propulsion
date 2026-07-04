@@ -16,7 +16,7 @@
  * @version    $Id$
  * @package    runtime.query
  */
-class CriteriaTest extends BookstoreTestBase
+class CriteriaTest extends \PHPUnit\Framework\TestCase
 {
 
 	/**
@@ -35,6 +35,17 @@ class CriteriaTest extends BookstoreTestBase
 	protected function setUp(): void
 	{
 		parent::setUp();
+		// Despite historically extending BookstoreTestBase, nothing in this file
+		// opens a real database connection or touches $this->con: every test here
+		// builds Criteria/SQL-string output in memory against a swapped-in DBSQLite()/
+		// DBMySQL() adapter purely to select dialect quoting rules (see testOrderByIgnoreCase
+		// et al, which reference BookPeer::TITLE/addSelectColumns() only for their
+		// generated column-name constants/metadata, never executing anything). So this
+		// needs the Bookstore fixture *classes* to exist (see IntegrationDatabase::
+		// ensureClassesGenerated(), triggered eagerly and unconditionally in
+		// bootstrap.php) but not a live DB/Docker -- extending TestCase directly here,
+		// instead of BookstoreTestBase, means this whole class also runs (not just
+		// skips cleanly) with PROPULSION_SKIP_INTEGRATION=1 or no Docker at all.
 		$this->c = new Criteria();
 		$this->savedAdapter = Propulsion::getDB(null);
 		Propulsion::setDB(null, new DBSQLite());
@@ -336,6 +347,23 @@ class CriteriaTest extends BookstoreTestBase
 	{
 		$originalDB = Propulsion::getDB();
 		Propulsion::setDB(null, new DBMySQL());
+
+		// This test never calls Propulsion::init() (no live DB/Docker needed -- see
+		// setUp() above), so the only registered datasource is the unnamed "default"
+		// one this file's setUp() points at DBMySQL()/DBSQLite(); BaseBookPeer::
+		// buildTableMap() (run automatically once BookPeer's class file is
+		// autoloaded, from the BookPeer::TITLE reference below) instead registers
+		// the 'book' table under BookPeer::DATABASE_NAME ('bookstore'), since that's
+		// what's baked into the generated class. Rather than pointing this Criteria
+		// at 'bookstore' (which has no registered adapter here, only 'default'
+		// does), copy the 'book' TableMap into the 'default' DatabaseMap too, so
+		// BasePeer::createSelectSql() can resolve both the table and the adapter
+		// under the same (default) name -- exactly as if this table had been
+		// declared directly against the datasource this test is using.
+		$defaultDbMap = Propulsion::getDatabaseMap();
+		if (!$defaultDbMap->hasTable(BookPeer::TABLE_NAME)) {
+			$defaultDbMap->addTableObject(new BookTableMap());
+		}
 
 		$criteria = new Criteria();
 		$criteria->setIgnoreCase(true);

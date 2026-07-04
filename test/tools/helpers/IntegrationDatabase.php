@@ -58,6 +58,19 @@ class IntegrationDatabase
     private static bool $attempted = false;
     private static ?string $skipReason = null;
 
+    /**
+     * Tracks the Docker-free half of ensureReady(): generating the Bookstore Object
+     * Model classes + SQL via the real generator classes. This needs no database
+     * connection at all (Postgres, MySQL, or otherwise) -- it's pure schema-XML-to-PHP
+     * codegen -- so it's split out and run unconditionally, independent of whether a
+     * live Postgres testcontainer can be started. Tests that only inspect generated
+     * code/object-model shape (not an actual DB round-trip) can depend on this alone
+     * via ensureClassesGenerated() and run identically with or without Docker.
+     */
+    private static bool $classesGenerated = false;
+    private static ?string $classesGenerationError = null;
+    private static bool $classmapRegistered = false;
+
     private static function platform(): string
     {
         $platform = getenv('PROPULSION_TEST_DB');
@@ -108,6 +121,16 @@ class IntegrationDatabase
         }
         self::$attempted = true;
 
+        // Generate the Object Model classes first, unconditionally -- this is pure
+        // codegen (schema.xml -> PHP), it needs no database, Docker or otherwise. If
+        // this alone fails, no point in even trying to start a container.
+        try {
+            self::ensureClassesGenerated();
+        } catch (\Throwable $e) {
+            self::$skipReason = $e->getMessage();
+            throw new \RuntimeException(self::$skipReason);
+        }
+
         try {
             self::ensureContainerStarted();
         } catch (\Throwable $e) {
@@ -116,10 +139,48 @@ class IntegrationDatabase
         }
 
         try {
-            self::buildFixtures(self::$container->getHost(), self::$container->getFirstMappedPort());
+            self::loadFixtureData(self::$container->getHost(), self::$container->getFirstMappedPort());
         } catch (\Throwable $e) {
             self::$skipReason = 'Could not build bookstore fixtures: ' . $e->getMessage();
             throw new \RuntimeException(self::$skipReason);
+        }
+    }
+
+    /**
+     * Generates the Bookstore Object Model classes (and their DDL, though nothing
+     * loads it anywhere here) via the real generator classes -- the same ones
+     * bin/propulsion uses, no shelling out -- without starting any database, container
+     * or otherwise. Idempotent; safe to call from bootstrap.php unconditionally and
+     * again (as a no-op) from ensureReady().
+     *
+     * Tests that only exercise generated code shape/object-model behavior (e.g.
+     * TableBehaviorTest, OMBuilderTest, FieldnameRelatedTest) or build SQL strings
+     * in memory against a non-live adapter (e.g. CriteriaTest, which swaps in
+     * DBSQLite()/DBMySQL() purely to select dialect quoting, never opening a
+     * connection) can depend on this alone and run identically with or without
+     * Docker -- they were only ever forced through the Docker-gated ensureReady()
+     * because that was, historically, the only thing that generated these classes
+     * at all.
+     *
+     * @throws \RuntimeException With a message suitable for markTestSkipped() if
+     *         codegen itself fails (e.g. a broken schema.xml) -- this should be rare
+     *         and unrelated to Docker availability.
+     */
+    public static function ensureClassesGenerated(): void
+    {
+        if (self::$classesGenerated) {
+            if (self::$classesGenerationError !== null) {
+                throw new \RuntimeException(self::$classesGenerationError);
+            }
+            return;
+        }
+        self::$classesGenerated = true;
+
+        try {
+            self::generateFixtureClasses();
+        } catch (\Throwable $e) {
+            self::$classesGenerationError = 'Could not generate bookstore fixture classes: ' . $e->getMessage();
+            throw new \RuntimeException(self::$classesGenerationError);
         }
 
         // Force Propulsion\Propulsion to load now, which eagerly registers its own
@@ -131,6 +192,53 @@ class IntegrationDatabase
         class_exists(\Propulsion\Propulsion::class);
 
         self::registerClassmapAutoloader();
+    }
+
+    private static function generateFixtureClasses(): void
+    {
+        $fixtureDir = dirname(__DIR__, 2) . '/fixtures/bookstore';
+        $repoRoot = dirname(__DIR__, 3);
+        $classesDir = self::classesDir();
+        $platform = self::platform();
+
+        if (!is_dir($classesDir) && !mkdir($classesDir, 0777, true) && !is_dir($classesDir)) {
+            throw new \RuntimeException("Unable to create $classesDir");
+        }
+
+        $config = GeneratorConfig::createFromPropertiesFile(
+            $repoRoot . '/generator/default.properties',
+            [
+                $fixtureDir . '/build.properties',
+                $fixtureDir . '/build.propulsion.properties',
+            ],
+            ['propel.database' => $platform]
+        );
+
+        $schemas = glob($fixtureDir . '/*schema.xml');
+        sort($schemas);
+
+        $sqlDir = self::sqlDirFor($platform);
+        if (!is_dir($sqlDir)) {
+            mkdir($sqlDir, 0777, true);
+        }
+
+        // GeneratorConfig's legacy dot-notation behavior class resolution (e.g.
+        // 'test.tools.helpers.bookstore.behavior.AddClassBehavior') is resolved
+        // relative to the working directory -- anchor it to the repo root
+        // regardless of where the PHPUnit process itself was launched from.
+        $previousCwd = getcwd();
+        chdir($repoRoot);
+        try {
+            (new ModelManager($config, $classesDir))->generate($schemas);
+            (new SqlManager($config, $sqlDir))->generate($schemas);
+        } finally {
+            chdir($previousCwd);
+        }
+    }
+
+    private static function sqlDirFor(string $platform): string
+    {
+        return sys_get_temp_dir() . '/propulsion-test-sql-' . $platform;
     }
 
     public static function namespacedConfFile(): string
@@ -487,6 +595,20 @@ class IntegrationDatabase
      */
     private static function registerClassmapAutoloader(?string $classesDir = null): void
     {
+        // The default (bookstore) classmap can now be registered from two call paths
+        // that may both run in the same process -- ensureClassesGenerated() (always)
+        // and ensureReady() (previously the only caller) -- guard against scanning and
+        // registering it twice. The namespaced/schemas variants each pass their own
+        // explicit $classesDir and are already only ever called once per fixture
+        // project (see ensureNamespacedReady()/ensureSchemasReady()'s own $attempted
+        // guards), so they don't need this.
+        if ($classesDir === null) {
+            if (self::$classmapRegistered) {
+                return;
+            }
+            self::$classmapRegistered = true;
+        }
+
         $classmap = [];
         $iterator = new \RecursiveIteratorIterator(
             new \RecursiveDirectoryIterator($classesDir ?? self::classesDir(), \FilesystemIterator::SKIP_DOTS)
@@ -549,46 +671,17 @@ class IntegrationDatabase
         }
     }
 
-    private static function buildFixtures(string $host, int $port): void
+    /**
+     * The database-dependent half of what ensureReady() used to do as buildFixtures():
+     * loads the already-generated DDL (see generateFixtureClasses()/
+     * ensureClassesGenerated(), always run first) into the live container and points
+     * the runtime config at it. Requires a running container -- callers must have
+     * already gone through ensureContainerStarted().
+     */
+    private static function loadFixtureData(string $host, int $port): void
     {
-        $fixtureDir = dirname(__DIR__, 2) . '/fixtures/bookstore';
-        $repoRoot = dirname(__DIR__, 3);
-        $classesDir = self::classesDir();
         $platform = self::platform();
-
-        if (!is_dir($classesDir) && !mkdir($classesDir, 0777, true) && !is_dir($classesDir)) {
-            throw new \RuntimeException("Unable to create $classesDir");
-        }
-
-        $config = GeneratorConfig::createFromPropertiesFile(
-            $repoRoot . '/generator/default.properties',
-            [
-                $fixtureDir . '/build.properties',
-                $fixtureDir . '/build.propulsion.properties',
-            ],
-            ['propel.database' => $platform]
-        );
-
-        $schemas = glob($fixtureDir . '/*schema.xml');
-        sort($schemas);
-
-        $sqlDir = sys_get_temp_dir() . '/propulsion-test-sql-' . $platform;
-        if (!is_dir($sqlDir)) {
-            mkdir($sqlDir, 0777, true);
-        }
-
-        // GeneratorConfig's legacy dot-notation behavior class resolution (e.g.
-        // 'test.tools.helpers.bookstore.behavior.AddClassBehavior') is resolved
-        // relative to the working directory -- anchor it to the repo root
-        // regardless of where the PHPUnit process itself was launched from.
-        $previousCwd = getcwd();
-        chdir($repoRoot);
-        try {
-            (new ModelManager($config, $classesDir))->generate($schemas);
-            (new SqlManager($config, $sqlDir))->generate($schemas);
-        } finally {
-            chdir($previousCwd);
-        }
+        $sqlDir = self::sqlDirFor($platform);
 
         $dsn = $platform === 'mysql'
             ? "mysql:host=$host;port=$port;dbname=propulsion_test"

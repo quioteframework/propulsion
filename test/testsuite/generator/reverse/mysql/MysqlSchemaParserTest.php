@@ -37,7 +37,18 @@ class MysqlSchemaParserTest extends TestCase
 	protected function tearDown(): void
 	{
 		parent::tearDown();
-		Propulsion::init(dirname(__FILE__) . '/../../../../fixtures/bookstore/build/conf/bookstore-conf.php');
+		// testParse() markTestSkipped()s itself (below) when no MySQL server is
+		// reachable, e.g. PROPULSION_SKIP_INTEGRATION=1 or no Docker at all --
+		// but tearDown() still always runs, even for a skipped test. Without a
+		// Docker-backed run, the bookstore fixtures' live-DB conf was never
+		// written (ensureClassesGenerated() only generates the *classes*, not
+		// this conf file -- see IntegrationDatabase), so guard against
+		// Propulsion::init() throwing on a config file that doesn't exist and
+		// turning a clean skip into an error.
+		$conf = dirname(__FILE__) . '/../../../../fixtures/bookstore/build/conf/bookstore-conf.php';
+		if (file_exists($conf)) {
+			Propulsion::init($conf);
+		}
 	}
 
     public function testParse()

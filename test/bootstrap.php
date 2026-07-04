@@ -86,9 +86,14 @@ foreach ($platformTestHelperFiles as $file) {
 // PHPUnit's TestSuiteLoader requires every test file up front during suite
 // discovery, before any test's setUp() runs -- so the fixtures (and the classmap
 // autoloader for their unnamespaced generated classes) must exist *before* that,
-// not lazily on first use. If this fails (e.g. no Docker, or
-// PROPULSION_SKIP_INTEGRATION=1), leave a clear message; individual Bookstore/Cms
-// tests will fail during setUp()'s own ensureReady() call and markTestSkipped()
+// not lazily on first use. ensureReady() generates those classes (via
+// ensureClassesGenerated(), pure schema-XML-to-PHP codegen, no database needed)
+// *before* it ever touches Docker, so this succeeds even with no Docker or
+// PROPULSION_SKIP_INTEGRATION=1 -- it only actually throws (leaving a clear
+// message here) if Docker/Postgres aren't available, at the later, DB-dependent
+// step. Tests that only need the generated classes (not a live DB) work in that
+// case; ones that extend BookstoreTestBase/CmsTestBase for real query execution
+// still fail during setUp()'s own ensureReady() call and markTestSkipped()
 // themselves, same as always.
 try {
     IntegrationDatabase::ensureReady();

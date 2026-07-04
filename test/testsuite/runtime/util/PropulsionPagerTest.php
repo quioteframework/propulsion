@@ -77,6 +77,13 @@ class PropulsionPagerTest extends BookstoreEmptyTestBase
   protected function tearDown(): void
   {
     parent::tearDown();
+    // parent::tearDown() (BookstoreTestBase) always runs, even when setUp() bailed
+    // out early via markTestSkipped() (no Docker/PROPULSION_SKIP_INTEGRATION=1) --
+    // in which case $this->books was never populated and there's nothing in the
+    // (unreachable, no live conf) database to clean up.
+    if (!$this->con || empty($this->books)) {
+      return;
+    }
     $cr = new Criteria();
     $cr->add(BookPeer::ID, $this->books, Criteria::IN);
     BookPeer::doDelete($cr);

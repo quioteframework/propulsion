@@ -10,13 +10,12 @@ jobs:
   unit:
     name: Unit tests (no Docker)
     runs-on: ubuntu-latest
-    # Non-blocking: under PROPULSION_SKIP_INTEGRATION=1, ~77 tests error out
-    # because they depend on the Docker-built fixtures but aren't individually
-    # guarded with a markTestSkipped()/class_exists() check the way most of the
-    # suite is (see KNOWN_ISSUES.md). The "integration" job below runs the same
-    # suite with Docker available and is blocking. Flip this to false once the
-    # remaining no-Docker guards are added.
-    continue-on-error: true
+    # Blocking: PROPULSION_SKIP_INTEGRATION=1 used to error out on ~77 tests that
+    # depended on the Docker-built fixtures without being properly guarded/decoupled
+    # (see KNOWN_ISSUES.md for the fix and how those tests were triaged). This tier
+    # now agrees exactly with the "integration" job below on errors/failures (both
+    # currently have the same 2 pre-existing MssqlPlatformTest failures -- also
+    # tracked in KNOWN_ISSUES.md, unrelated to Docker availability).
     steps:
       - uses: actions/checkout@v4
 
