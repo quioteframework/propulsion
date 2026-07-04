@@ -1,6 +1,6 @@
 {
   "name": "quioteframework/propulsion",
-  "description": "Propulsion is an object-relational mapping (ORM) for PHP, forked from Propulsion 1.",
+  "description": "Propulsion is an object-relational mapping (ORM) for PHP, forked from Propel 1.",
   "keywords": ["ORM"],
   "license": "MIT",
   "authors": [
