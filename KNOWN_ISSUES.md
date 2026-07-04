@@ -7,7 +7,7 @@ history (`git log`); every fix commit explains its own root cause in full.
 
 ## Test suite status
 
-**Full suite (Docker/Postgres) is green: 2259 tests, 0 errors, 0 failures, 0
+**Full suite (Docker/Postgres) is green: 2263 tests, 0 errors, 0 failures, 0
 risky, 14 skipped.** (The `MssqlPlatformTest` order-dependent flake mentioned in earlier
 drafts of this section is fixed — see the `Propel*`/rename-era commit history
 around `MssqlPlatform::$dropCount` if curious; it's no longer an issue.)
@@ -561,11 +561,93 @@ categories, not one:
   support outright once there's actual evidence (a changelog/major-version
   point, or direct confirmation) that no consuming project still relies on
   it.
-- **Postgres isn't actually the documented/default database** despite being
-  what all fixtures and CI use: `generator/default.properties`'s
-  `propel.database` is still empty, the README doesn't recommend one, and
-  `PgsqlPlatform` hasn't had a feature-parity audit against `MysqlPlatform`
-  beyond what's needed to unblock fixture loading.
+- **Fixed: Postgres promoted to the documented/default database.**
+  `generator/default.properties`'s `propel.database` now defaults to `pgsql`
+  (still a plain per-project override via a project's own `build.properties`
+  or the console commands' `--database` flag -- every consumer of
+  `propel.database` already goes through `GeneratorConfig`'s default ->
+  project-override -> explicit-override merge order, so nothing relied on the
+  old empty default). The README now has a "Database support" section
+  recommending Postgres for new projects and explaining why (this codebase's
+  own tests/CI/generator default to it).
+
+  A `PgsqlPlatform` vs `MysqlPlatform` feature-parity audit (both against
+  their shared `DefaultPlatform` base) found and fixed two real gaps, plus
+  investigated and reverted one false lead:
+  - **Fixed: `getAddSchemasDDL()` only created schemas declared via the
+    legacy `<vendor type="pgsql"><parameter name="schema">` convention, not
+    the primary, cross-platform `schema="..."` attribute on
+    `<database>`/`<table>`.** That attribute (`Table::$schema`, set via
+    `ScopedElement::loadFromXML()`) already gets every identifier
+    schema-qualified everywhere (`Table::getName()`/
+    `ForeignKey::getForeignTableName()`, used by `quoteIdentifier()`) for any
+    platform where `supportsSchemas()` is true -- but the schema itself was
+    never actually created, so DDL for a table using only this attribute
+    failed against a fresh database (`CREATE TABLE "x"."book" ...` with no
+    preceding `CREATE SCHEMA "x"`) unless something else created it out of
+    band. `test/tools/helpers/IntegrationDatabase.php` carried exactly this
+    workaround (manually pre-creating the "schemas" fixture's schemas) with a
+    comment explaining the gap; the workaround is now removed since the
+    generator does it correctly. See `PgsqlPlatformTest::
+    testGetAddSchemasDDLNativeSchemaAttribute()`.
+  - **Fixed: the same gap in the diff/migration path.**
+    `getModifyDatabaseDDL()` (unlike `getAddTablesDDL()`, the full-rebuild
+    path) was never overridden at all, so a migration/diff adding a
+    brand-new schema-qualified table had the identical problem. `PgsqlPlatform`
+    now overrides `getModifyDatabaseDDL()` to emit `CREATE SCHEMA IF NOT
+    EXISTS` (`IF NOT EXISTS` here, unlike the full-rebuild path's plain
+    `CREATE SCHEMA`, since a diff runs against a database that may already
+    have other tables in that schema) for every newly-added table's schema
+    first. See `PgsqlPlatformMigrationTest::
+    testGetModifyDatabaseDDLCreatesSchemaForAddedTable()`.
+  - **Fixed: `getMaxColumnNameLength()` returned 32** (PostgreSQL's limit
+    prior to server version 7.3, from 2002) **instead of 63** (the real
+    `NAMEDATALEN`-based limit on any currently-supported server -- see the
+    "PostgreSQL 15+" entry below). This needlessly truncated auto-generated
+    constraint/index names (`ConstraintNameGenerator`, `Index::getName()`)
+    well before the real server-enforced limit.
+  - **Investigated and reverted: `supportsInsertNullPk()`.** By analogy with
+    `MssqlPlatform` (which correctly returns `false`, since SQL Server's
+    IDENTITY value is fetched *after* insert and an explicit `NULL` for the
+    PK would reach the SQL as-is and fail), it looked like `PgsqlPlatform`
+    should override this too, since a `serial` column is a plain `NOT NULL
+    DEFAULT nextval(...)` column that also rejects an explicit `NULL`.
+    Setting it to `false` broke a real integration test
+    (`BookstoreTest::testScenarioUsingQuery`, "Database insert attempted
+    without anything specified to insert") for a new object whose only
+    column besides the (always-implicitly-"modified") PK matches its schema
+    default (so no other column is ever marked modified, and removing the
+    null PK left the insert Criteria completely empty).  Root-caused to:
+    `DBPostgres::getIdMethod()` is `ID_METHOD_SEQUENCE`, so
+    `isGetIdBeforeInsert()` is `true` -- `BasePeer::doInsert()` already
+    detects a present-but-`null`-valued PK key via `Criteria::
+    keyContainsValue()` (which explicitly treats `null` as "no value", not
+    just "absent") and fetches+overwrites it with a real sequence value
+    *before* ever building the SQL, so an explicit `NULL` never actually
+    reaches Postgres in the generated flow regardless of this flag -- unlike
+    MSSQL's IDENTITY, which is `ID_METHOD_AUTOINCREMENT`/fetched *after*
+    insert, so nothing pre-empts a `null` there. Confirmed correct as `true`
+    (the `DefaultPlatform` default, same effective behavior as `MysqlPlatform`
+    not overriding it either) and left alone; no code change.
+  - **Confirmed correct, intentionally not changed** (real platform
+    differences, not gaps): `getAutoIncrement()`/`getNativeIdMethod()`
+    (`serial`/`bigserial` column-level vs. MySQL's `AUTO_INCREMENT` keyword);
+    `getBooleanString()` (`'t'`/`'f'` literals vs. MySQL's `1`/`0`);
+    `hasStreamBlobImpl()` (PDO pgsql actually returns BYTEA as a stream; PDO
+    mysql doesn't); `supportsVarcharWithoutSize()` (real Postgres allows a
+    bare `VARCHAR`; MySQL doesn't); `getRenameColumnDDL()`/
+    `getRemoveColumnDDL()` (Postgres's native `ALTER TABLE ... RENAME
+    COLUMN`/`DROP COLUMN` syntax, inherited unchanged from `DefaultPlatform`,
+    already matches real Postgres -- MySQL is the one that needs an override,
+    for its `CHANGE`-based syntax); `getDropIndexDDL()`/`getAddIndexDDL()`
+    (Postgres index names are schema/database-scoped, not per-table, so no
+    `ON <table>` clause is needed or emitted, unlike MySQL); no reserved-word
+    list or column-length index-prefix support (`Index_type`-style vendor
+    param) exists for *any* platform in this codebase, so there was nothing
+    Postgres-specific to be behind on there. No native `JSON`/`JSONB`/`ARRAY`
+    column type exists in `PropulsionTypes` for either platform to expose --
+    `PHP_ARRAY` maps to plain `TEXT` (PHP-serialized) on both MySQL and
+    Postgres alike, so this isn't a MySQL-has-it/Postgres-lacks-it gap either.
 - **PostgreSQL 15+ is the minimum supported version.** PostgreSQL 14 reaches
   end-of-life in ~4 months from 2026-07-04; PostgreSQL 12-13 are already
   past EOL. Nothing in this codebase currently targets a version below 12

@@ -26,6 +26,7 @@ use Propulsion\Generator\Model\Database;
 use Propulsion\Generator\Model\Column;
 use Propulsion\Generator\Model\Unique;
 use Propulsion\Generator\Model\Diff\PropulsionColumnDiff;
+use Propulsion\Generator\Model\Diff\PropulsionDatabaseDiff;
 use Propulsion\Generator\Model\Index;
 
 class PgsqlPlatform extends DefaultPlatform
@@ -65,9 +66,21 @@ class PgsqlPlatform extends DefaultPlatform
 		return '';
 	}
 
+	/**
+	 * PostgreSQL identifiers are stored in a `NAMEDATALEN`-sized column
+	 * (64 bytes, one of which is reserved for the trailing null terminator),
+	 * so 63 characters is the real usable limit on any currently-supported
+	 * server (this only changes if PostgreSQL is compiled with a
+	 * non-default `NAMEDATALEN`, vanishingly rare in practice). This used to
+	 * return 32 -- the limit on PostgreSQL server versions older than 7.3
+	 * (2002) -- which is long past this codebase's PostgreSQL 15+ floor (see
+	 * KNOWN_ISSUES.md) and needlessly truncated auto-generated constraint/
+	 * index names (see ConstraintNameGenerator, Index::getName()) well
+	 * before the real server-enforced limit.
+	 */
 	public function getMaxColumnNameLength()
 	{
-		return 32;
+		return 63;
 	}
 
 	public function getBooleanString($b)
@@ -146,15 +159,40 @@ DROP SEQUENCE IF EXISTS %s;
 		}
 	}
 
+	/**
+	 * Emits a `CREATE SCHEMA` statement for every distinct schema referenced by
+	 * the database's tables.
+	 *
+	 * Two independent ways exist to put a table in a non-default schema, and
+	 * both are honored here:
+	 *  - the `schema="..."` attribute on `<database>`/`<table>` (the primary,
+	 *    cross-platform mechanism -- see {@link Table::getName()}/
+	 *    {@link \Propulsion\Generator\Model\ForeignKey::getForeignTableName()},
+	 *    which already qualify every identifier as `schema.table` for any
+	 *    platform where {@link supportsSchemas()} is true). Until this was
+	 *    fixed, a table using only this attribute got fully schema-qualified
+	 *    DDL (`CREATE TABLE "x"."book" ...`) but the schema itself was never
+	 *    created, so the generated SQL failed against a fresh database unless
+	 *    something else created the schema out of band.
+	 *  - the legacy `<vendor type="pgsql"><parameter name="schema" .../>`
+	 *    vendor-info convention, which additionally wraps the table's DDL in
+	 *    `SET search_path` (see {@link getUseSchemaDDL()}) since -- unlike the
+	 *    `schema` attribute -- it does not change the table's qualified name.
+	 */
 	public function getAddSchemasDDL(Database $database)
 	{
 		$ret = '';
 		$schemas = array();
 		foreach ($database->getTables() as $table) {
+			$schemaName = $table->getSchema();
+			if ($schemaName !== null && $schemaName !== '' && !isset($schemas[$schemaName])) {
+				$schemas[$schemaName] = true;
+				$ret .= $this->getCreateSchemaDDL($schemaName);
+			}
 			$vi = $table->getVendorInfoForType('pgsql');
 			if ($vi->hasParameter('schema') && !isset($schemas[$vi->getParameter('schema')])) {
 				$schemas[$vi->getParameter('schema')] = true;
-				$ret .= $this->getAddSchemaDDL($table);
+				$ret .= $this->getCreateSchemaDDL($vi->getParameter('schema'));
 			}
 		}
 		return $ret;
@@ -164,11 +202,91 @@ DROP SEQUENCE IF EXISTS %s;
 	{
 		$vi = $table->getVendorInfoForType('pgsql');
 		if ($vi->hasParameter('schema')) {
-			$pattern = "
-CREATE SCHEMA %s;
-";
-			return sprintf($pattern, $this->quoteIdentifier($vi->getParameter('schema')));
+			return $this->getCreateSchemaDDL($vi->getParameter('schema'));
 		};
+	}
+
+	protected function getCreateSchemaDDL($schemaName, $ifNotExists = false)
+	{
+		$pattern = "
+CREATE SCHEMA %s%s;
+";
+		return sprintf($pattern, $ifNotExists ? 'IF NOT EXISTS ' : '', $this->quoteIdentifier($schemaName));
+	}
+
+	/**
+	 * Emits `CREATE SCHEMA IF NOT EXISTS` for every distinct schema referenced
+	 * by the given (newly-added, in a diff) tables' `schema="..."` attribute.
+	 *
+	 * Used by {@link getModifyDatabaseDDL()} so that a migration/diff adding a
+	 * brand-new schema-qualified table creates its schema first, the same way
+	 * {@link getAddSchemasDDL()} does for a full rebuild. `IF NOT EXISTS` is
+	 * used here (unlike getAddSchemasDDL()'s full-rebuild `CREATE SCHEMA`,
+	 * which intentionally errors on a name collision) since a diff only ever
+	 * runs against a database that may already have other tables -- possibly
+	 * in that same schema -- so re-declaring an already-existing schema must
+	 * not be a hard failure.
+	 *
+	 * @param      Table[] $tables
+	 * @return     string
+	 */
+	protected function getAddSchemasForTablesDDL(array $tables)
+	{
+		$ret = '';
+		$schemas = array();
+		foreach ($tables as $table) {
+			$schemaName = $table->getSchema();
+			if ($schemaName !== null && $schemaName !== '' && !isset($schemas[$schemaName])) {
+				$schemas[$schemaName] = true;
+				$ret .= $this->getCreateSchemaDDL($schemaName, true);
+			}
+			$vi = $table->getVendorInfoForType('pgsql');
+			if ($vi->hasParameter('schema') && !isset($schemas[$vi->getParameter('schema')])) {
+				$schemas[$vi->getParameter('schema')] = true;
+				$ret .= $this->getCreateSchemaDDL($vi->getParameter('schema'), true);
+			}
+		}
+		return $ret;
+	}
+
+	/**
+	 * Overrides the implementation from DefaultPlatform to create the schema
+	 * of any newly-added, schema-qualified table before its CREATE TABLE
+	 * statement -- see {@link getAddSchemasForTablesDDL()}.
+	 *
+	 * @return     string
+	 * @see        DefaultPlatform::getModifyDatabaseDDL
+	 */
+	public function getModifyDatabaseDDL(PropulsionDatabaseDiff $databaseDiff)
+	{
+		$ret = $this->getBeginDDL();
+
+		foreach ($databaseDiff->getRemovedTables() as $table) {
+			$ret .= $this->getDropTableDDL($table);
+		}
+
+		foreach ($databaseDiff->getRenamedTables() as $fromTableName => $toTableName) {
+			$ret .= $this->getRenameTableDDL($fromTableName, $toTableName);
+		}
+
+		$ret .= $this->getAddSchemasForTablesDDL($databaseDiff->getAddedTables());
+
+		foreach ($databaseDiff->getAddedTables() as $table) {
+			$ret .= $this->getAddTableDDL($table);
+			$ret .= $this->getAddIndicesDDL($table);
+		}
+
+		foreach ($databaseDiff->getModifiedTables() as $tableDiff) {
+			$ret .= $this->getModifyTableDDL($tableDiff);
+		}
+
+		foreach ($databaseDiff->getAddedTables() as $table) {
+			$ret .= $this->getAddForeignKeysDDL($table);
+		}
+
+		$ret .= $this->getEndDDL();
+
+		return $ret;
 	}
 
 	public function getUseSchemaDDL(Table $table)
