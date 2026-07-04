@@ -157,8 +157,14 @@ class PropulsionMigrationManager
 			try {
 				$stmt = $pdo->prepare($sql);
 				$stmt->execute();
-				if ($migrationTimestamp = $stmt->fetchColumn()) {
-					$migrationTimestamps[$name] = $migrationTimestamp;
+				// Use !== false (not a truthy check) so a legitimate version of 0 --
+				// the documented "no migrations applied yet" baseline written by
+				// createMigrationTable()/a "down" back to the start -- isn't mistaken
+				// for "no row fetched", which would incorrectly return null here
+				// instead of 0.
+				$migrationTimestamp = $stmt->fetchColumn();
+				if ($migrationTimestamp !== false) {
+					$migrationTimestamps[$name] = (int) $migrationTimestamp;
 				}
 			} catch (\PDOException $e) {
 				$this->createMigrationTable($name);
