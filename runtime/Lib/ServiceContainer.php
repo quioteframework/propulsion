@@ -23,38 +23,39 @@ namespace Propulsion;
  *    forceMasterConnection replication flag, in-flight transactions) -- this
  *    belongs on {@see Session}, which is reset at each request boundary.
  *
- * This is phase 4a: additive scaffolding only. `Propulsion`'s existing process-global
- * statics (connection map, adapter map, database maps) are NOT being ripped out
- * or re-homed here yet -- that is phase 4b/4c, gated on the (separately in
+ * This is phase 4a/4b: `Propulsion`'s other existing process-global statics
+ * (connection map, adapter map, database maps) are NOT being ripped out or
+ * re-homed here yet -- that is phase 4c, gated on the (separately in
  * progress) Phase 3 builder rename landing first. For now, ServiceContainer's
- * concrete job is the interim instance-pool registry described below; the
- * connection/adapter/table-map ownership described above is the target shape,
- * not what phase 4a actually moves.
+ * concrete job is a thin `clearInstancePools()` convenience delegating to
+ * `Session` (see below); the connection/adapter/table-map ownership described
+ * above is the target shape, not what 4a/4b actually move.
+ *
+ * Phase 4b history: prior to this phase, every generated `FooPeer` class had
+ * its own private `static $instances` array with no central registry, so this
+ * class had to walk every table in every loaded `DatabaseMap` to guess which
+ * Peer classes existed, plus an explicit `registerInstancePoolClass()`
+ * escape hatch for classes that hadn't been touched yet. Now that pool
+ * storage genuinely lives on `Session` (keyed by Peer FQCN, populated lazily
+ * the first time a class pools anything), there is nothing left to walk or
+ * register -- `Session::clearAllPools()` clears every pool that could
+ * possibly exist, full stop. `registerInstancePoolClass()`/
+ * `getRegisteredInstancePoolClasses()` are kept as inert bookkeeping only
+ * because existing tests (`ServiceContainerTest`) exercise them directly;
+ * they no longer influence `clearInstancePools()`'s behavior.
  */
 class ServiceContainer
 {
     /**
-     * Interim hack (phase 4a only, per the rework plan): a central registry of
-     * generated Peer classnames, so that all of their static instance pools can be
-     * cleared in one call. Each generated `FooPeer` class today has its own
-     * private `public static $instances = array();` with no central registry at
-     * all -- `FooPeer::clearInstancePool()` already exists per-class (see
-     * generator/Lib/Builder/OM/*PeerBuilder.php's addClearInstancePool()), it just
-     * has nothing that calls all of them together.
-     *
-     * This registry is explicitly interim: phase 4b reworks the (renamed, per
-     * Phase 3) PeerBuilder template so pooling delegates to Session directly,
-     * which removes the need for this class-name bookkeeping entirely. Don't
-     * build more on top of this than that -- it is meant to be deleted.
-     *
      * @var array<class-string, true>
      */
     private array $instancePoolClasses = [];
 
     /**
-     * Register a generated Peer classname so {@see clearInstancePools()} will
-     * clear its static instance pool. Safe to call more than once for the same
-     * class.
+     * Kept for backwards compatibility -- no longer consulted by
+     * {@see clearInstancePools()}, which now clears every Peer's pool
+     * unconditionally via `Session::clearAllPools()`. Safe to call more than
+     * once for the same class.
      */
     public function registerInstancePoolClass(string $peerClass): void
     {
@@ -71,39 +72,14 @@ class ServiceContainer
     }
 
     /**
-     * Clear every generated Peer class's static instance pool: both the ones
-     * explicitly registered via {@see registerInstancePoolClass()}, and (since
-     * nothing calls that today -- no generated code has been touched for this
-     * phase) every Peer reachable via Propulsion's already-loaded DatabaseMaps, on a
-     * best-effort basis. A table only shows up here once something has actually
-     * looked up its TableMap/Peer at least once, which is fine for this interim
-     * hack: an object class that was never touched has an empty pool anyway.
+     * Clear every generated Peer class's instance pool by delegating straight
+     * to the current `Session`, which is where pool storage genuinely lives
+     * as of phase 4b (see `Session::$instancePools`). No more walking
+     * `DatabaseMap`s or tracking a registry of classnames -- a pool that was
+     * never populated is already empty.
      */
     public function clearInstancePools(): void
     {
-        $classes = $this->instancePoolClasses;
-
-        foreach (Propulsion::getDatabaseMapNames() as $dbName) {
-            $dbMap = Propulsion::getDatabaseMap($dbName);
-            foreach ($dbMap->getTables() as $table) {
-                try {
-                    $peerClass = $table->getPeerClassname();
-                } catch (\Throwable $e) {
-                    // Not every TableMap necessarily resolves a PEER constant
-                    // (e.g. it hasn't been fully initialized) -- skip rather than
-                    // let one bad table map abort clearing the rest.
-                    continue;
-                }
-                if ($peerClass) {
-                    $classes[$peerClass] = true;
-                }
-            }
-        }
-
-        foreach (array_keys($classes) as $peerClass) {
-            if (is_callable([$peerClass, 'clearInstancePool'])) {
-                $peerClass::clearInstancePool();
-            }
-        }
+        Propulsion::getSession()->clearAllPools();
     }
 }

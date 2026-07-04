@@ -115,4 +115,92 @@ class SessionTest extends TestCase
     {
         $this->assertSame(Propulsion::getSession(), Propulsion::getSession());
     }
+
+    /**
+     * Phase 4b: instance-pool storage lives directly on Session
+     * (Session::$instancePools), replacing the per-generated-class
+     * `static $instances` array. These are the DB-independent unit tests for
+     * that storage API in isolation -- see SessionResetTransactionTest for
+     * the end-to-end version exercised through real generated Peer classes.
+     */
+    public function testPoolStartsEmpty()
+    {
+        $session = new Session();
+        $this->assertSame([], $session->getPool('SomePeerClass'));
+        $this->assertNull($session->getPooledInstance('SomePeerClass', 'k'));
+    }
+
+    public function testAddAndGetPooledInstance()
+    {
+        $session = new Session();
+        $obj = new \stdClass();
+
+        $session->addPooledInstance('SomePeerClass', 'k1', $obj);
+
+        $this->assertSame($obj, $session->getPooledInstance('SomePeerClass', 'k1'));
+        $this->assertSame(['k1' => $obj], $session->getPool('SomePeerClass'));
+    }
+
+    public function testRemovePooledInstance()
+    {
+        $session = new Session();
+        $obj = new \stdClass();
+        $session->addPooledInstance('SomePeerClass', 'k1', $obj);
+
+        $session->removePooledInstance('SomePeerClass', 'k1');
+
+        $this->assertNull($session->getPooledInstance('SomePeerClass', 'k1'));
+        $this->assertSame([], $session->getPool('SomePeerClass'));
+    }
+
+    public function testClearPoolOnlyClearsTheNamedClass()
+    {
+        $session = new Session();
+        $session->addPooledInstance('PeerA', 'k1', new \stdClass());
+        $session->addPooledInstance('PeerB', 'k1', new \stdClass());
+
+        $session->clearPool('PeerA');
+
+        $this->assertSame([], $session->getPool('PeerA'));
+        $this->assertCount(1, $session->getPool('PeerB'));
+    }
+
+    public function testClearAllPoolsClearsEveryClass()
+    {
+        $session = new Session();
+        $session->addPooledInstance('PeerA', 'k1', new \stdClass());
+        $session->addPooledInstance('PeerB', 'k1', new \stdClass());
+
+        $session->clearAllPools();
+
+        $this->assertSame([], $session->getPool('PeerA'));
+        $this->assertSame([], $session->getPool('PeerB'));
+    }
+
+    public function testResetClearsAllPools()
+    {
+        $session = new Session();
+        $session->addPooledInstance('PeerA', 'k1', new \stdClass());
+
+        $session->reset();
+
+        $this->assertSame([], $session->getPool('PeerA'));
+    }
+
+    /**
+     * The actual worker-safety property this whole phase exists to deliver:
+     * pools are keyed off the *current* Session instance, not any
+     * class-level static -- a fresh Session must never see instances pooled
+     * by a different, still-populated Session.
+     */
+    public function testPoolsAreIsolatedPerSessionInstance()
+    {
+        $a = new Session();
+        $a->addPooledInstance('SomePeerClass', 'k1', new \stdClass());
+
+        $b = new Session();
+
+        $this->assertCount(1, $a->getPool('SomePeerClass'));
+        $this->assertSame([], $b->getPool('SomePeerClass'));
+    }
 }
