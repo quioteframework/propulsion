@@ -46,7 +46,9 @@ class NestedSetBehaviorObjectBuilderModifierTest extends BookstoreNestedSetTestB
 	{
 		$expectedAttributes = array('nestedSetQueries');
 		foreach ($expectedAttributes as $attribute) {
-			$this->assertClassHasAttribute($attribute, 'Table9');
+			// assertClassHasAttribute() was removed in PHPUnit 10+; property_exists()
+			// is the direct replacement PHPUnit's own upgrade guide recommends.
+			$this->assertTrue(property_exists('Table9', $attribute), "Table9 should have attribute $attribute");
 		}
 	}
 

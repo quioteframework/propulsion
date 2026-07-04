@@ -33,7 +33,13 @@ class NestedSetBehaviorObjectBuilderModifier
 
 	protected function getColumnAttribute($name)
 	{
-		return strtolower($this->behavior->getColumnForParameter($name)->getName());
+		// The promoted ObjectBuilder declares object properties named after
+		// the column's PhpName (e.g. `TreeLeft`), not the lowercased SQL
+		// column name (e.g. `tree_left`) that PHP5ObjectBuilder used to use
+		// (archaeology/php5-builders/PHP5ObjectBuilder.php's `$clo =
+		// strtolower($col->getName())` convention). Match whatever the
+		// current builder actually generates so `$this->{...}` resolves.
+		return $this->behavior->getColumnForParameter($name)->getPhpName();
 	}
 
 	protected function getColumnPhpName($name)
