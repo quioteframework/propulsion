@@ -7,8 +7,12 @@ history (`git log`); every fix commit explains its own root cause in full.
 
 ## Test suite status
 
-**Full suite (Docker/Postgres) is green: 2222 tests, 0 errors, 0 failures, 0
-risky, 13 skipped.**
+**Full suite (Docker/Postgres) is green: 2233 tests, 0 errors, 0 failures, 0
+risky, 13 skipped**, *except* for a pre-existing order-dependent flake in
+`MssqlPlatformTest` (see that bullet under "Open issues") that the generator
+Task-class tests added below happen to reliably trigger — not a regression in
+the Task classes or the fix that unblocked them, just the first thing to
+surface it in a full run instead of only a filtered one.
 
 ```
 cd test
@@ -47,23 +51,110 @@ blocking.
   to find and remove them via `docker stop`/`docker rm` — works the same
   regardless of host OS, since it goes through the Docker daemon rather
   than sending a signal directly.
+- **`MssqlPlatformTest` is order-dependent and flaky.** `MssqlPlatform` uses a
+  plain `static $dropCount` counter (shared process-wide, across every
+  `MssqlPlatform` instance) to name cursor variables in its drop-table-with-FK
+  DDL, and several `MssqlPlatformTest` assertions hardcode the exact counter
+  value they expect at that point (e.g. `@reftable_6`). Since PHPUnit
+  evaluates every test class's data providers up front before running any
+  test body, *any* change that shifts how many times some `MssqlPlatform`
+  instance generates that DDL before `MssqlPlatformTest`'s own assertions run
+  — including, concretely, just adding unrelated new test files anywhere in
+  the suite (confirmed while adding the generator Task-class tests below,
+  which don't touch MSSQL at all) — throws the expected counter value off by
+  one and fails 1-2 assertions. Confirmed via `git stash` that a clean-tree
+  full run is 0/0; do not attempt to fix the counter or the test as part of
+  unrelated work — it needs a real fix (e.g. resetting the counter per test,
+  or generating cursor variable names some other way) on its own.
 - **Worker-safety test matrix not run.** Phase 4a/4b (below) built the
   `ServiceContainer`/`Session` split and unit-tested it directly, but the
   actual worker-mode property (no object bleed across requests, connection
   persistence, memory doesn't grow under sustained load) needs a real
   worker harness (FrankenPHP or equivalent) this repo doesn't have. Nothing
   to do here until such a harness exists.
-- **Phing `Task` classes** (`generator/Lib/Task/*`, 15 files) are still
-  present, gated on proving output parity between the Phing path
-  (`generator/bin/propel-gen`) and the `bin/propulsion` console path. No
-  formal side-by-side comparison has been done. The tasks that actually
-  matter going forward are **OM** (`PropulsionOMTask`), **SchemaReverse**
-  (`PropulsionSchemaReverseTask`), **Diff** (`PropulsionSQLDiffTask`), and
-  **migrations** (`PropulsionMigrationTask`/`*UpTask`/`*DownTask`/
-  `*StatusTask`/`BasePropulsionMigrationTask`) — prioritize proving parity
-  for those. `PropulsionDataDumpTask`/`PropulsionDataSQLTask`/
-  `PropulsionGraphvizTask`/`PropulsionSQLExec`/`PropulsionSQLTask` are lower
-  priority.
+- **Phing `Task` classes** (`generator/Lib/Task/*`, 15 files) now have real
+  test coverage (`test/testsuite/generator/task/`) and are confirmed working,
+  but `generator/bin/propel-gen` itself was actually broken for *every*
+  project until this pass fixed it — see below. The tasks are not yet
+  deletable: they're the only path for SchemaReverse/Diff/Migrations (the
+  console app has no equivalents), and OM parity is now proven rather than
+  assumed, not obsoleted.
+  - **Root cause fixed**: `generator/default.properties` declared
+    `propel.project`, `propel.project.dir`, and `propel.targetPackage` as
+    templates referencing each other in the same file (e.g.
+    `propel.project.dir = ${propel.home}/projects/${propel.project}`). Phing's
+    `<property file=...>` resolves placeholders against that file's own
+    just-parsed table before ever falling back to the live project table, so
+    every directory property derived from `propel.project.dir`
+    (`propel.schema.dir`, `propel.output.dir`, `propel.php.dir`,
+    `propel.sql.dir`, `propel.migration.dir`, ...) silently resolved to the
+    file-local empty default instead of whatever `propel-gen`/`build.xml` had
+    actually set — meaning `propel-gen <task>` failed with "No schema files
+    were found" for every single project, unconditionally. Moved those three
+    properties into `generator/build-propel.xml` as plain `<property>` tasks
+    (which substitute against the live project table) instead. Also fixed
+    `propel.reverse.parser.class` and `propel.builder.datasql.class`, which
+    had the same "`${propel.database}`-templated path" bug in a different
+    shape: `Reverse\${propel.database}\${propel.database}SchemaParser` and
+    `Builder\SQL\${propel.database}\${propel.database}DataSQLBuilder` can
+    never resolve, because those directories/namespaces are cased `MySQL`/
+    `PgSQL`/`MSSQL`/... while `propel.database` is always lowercase — replaced
+    both with explicit per-database class properties, matching the existing
+    `propel.platform.*.class` convention.
+  - **OM** (`PropulsionOMTask`): confirmed at parity — `PropulsionOMTaskTest`
+    generates the same schema (FK + a built-in behavior) through
+    `PropulsionOMTask` and the console `model:build` path
+    (`Propulsion\Generator\Manager\ModelManager`) and asserts the two output
+    trees are byte-for-byte identical (modulo the autogenerated timestamp
+    line).
+  - **SchemaReverse** (`PropulsionSchemaReverseTask`): confirmed working
+    end-to-end — `PropulsionSchemaReverseTaskTest` reverse-engineers a real
+    two-table, one-FK Postgres schema (via the shared testcontainer) and
+    checks the resulting schema.xml's tables/columns/types/FK. Caveat: the
+    reversed `NUMERIC(p,s)` column's `size` attribute doesn't decode
+    Postgres's packed typmod correctly (comes out as a raw encoded integer,
+    e.g. `655362` instead of `10`); pre-existing in `PgsqlSchemaParserV12Plus`
+    and out of scope for this pass (structure/FK/most types are all correct).
+  - **Diff** (`PropulsionSQLDiffTask`): confirmed correct —
+    `PropulsionSQLDiffTaskTest` covers both the shared diff engine
+    (`PropulsionDatabaseComparator` + `Platform::getModifyDatabaseDDL()`) on
+    two schema.xml versions with a real structural change (added columns,
+    widened `VARCHAR`, added FK), and the Task itself end-to-end against a
+    live, deliberately out-of-date Postgres schema, checking the generated
+    `PropulsionMigration_<timestamp>.php` class' up/down SQL. Note:
+    `PropulsionSQLDiffTask` only supports "live database vs schema.xml" (it
+    reads a buildtime-conf for connections); there's no "two schema.xml
+    files" mode on the Task itself, which is why that half of the coverage
+    drives the comparator directly instead.
+  - **Migrations** (`PropulsionMigrationTask`/`*UpTask`/`*DownTask`/
+    `*StatusTask`/`BasePropulsionMigrationTask`): confirmed correct —
+    `PropulsionMigrationTaskTest` runs a full `status` → `up` → `down` cycle
+    against a real Postgres table (a hand-written migration class in exactly
+    the format `PropulsionMigrationManager::getMigrationClassBody()`/
+    `PropulsionSQLDiffTask` produce), checking the live schema actually
+    changes and the tracked version updates each step. Along the way, fixed
+    `PropulsionMigrationManager::getOldestDatabaseVersion()`: it used a
+    truthy check on the fetched version column, so a legitimate version of
+    `0` (the documented "nothing applied yet" baseline, and what a full "down"
+    back to the start leaves behind) was indistinguishable from "no row
+    fetched" and incorrectly returned `null`.
+  - **Lower priority** (`PropulsionDataDumpTask`, `PropulsionDataSQLTask`,
+    `PropulsionGraphvizTask`, `PropulsionSQLExec`, `PropulsionSQLTask`): all
+    five now have a real smoke test (`LowerPriorityTaskSmokeTest`) exercising
+    genuine minimal input (real schema, and for `DataDump`/`SQLExec` a real
+    Postgres table) — **all five pass**. `PropulsionSQLTask` generates DDL
+    containing `CREATE TABLE`; `PropulsionSQLExec` executes that DDL for real
+    against a live database; `PropulsionGraphvizTask` produces a `.dot` file
+    referencing the expected table; `PropulsionDataDumpTask` dumps a real row
+    from a live table into `dataset`-format XML; `PropulsionDataSQLTask`
+    converts a small hand-written data XML file into `INSERT` SQL (this is
+    also what surfaced the `propel.builder.datasql.class` bug fixed above).
+  - **Known side effect of this work**: adding the new generator/task tests
+    reliably perturbs the pre-existing `MssqlPlatformTest` static-counter
+    order-dependency into failing even in a *full* suite run, not just a
+    filtered one — see that bullet below. Not a regression in the Task
+    classes; confirmed via `git stash` that a clean-tree full run is
+    genuinely 0/0 while the new tests exist alongside it.
 - **`PropulsionConvertConfTask` should be deprecated, not preserved.** It
   exists to convert the old XML runtime/buildtime config format
   (`runtime-conf.xml`/`build.properties`) into the PHP array config this
