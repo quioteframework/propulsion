@@ -1,0 +1,12 @@
+{
+	skip_install_trust
+	admin off
+}
+
+:8080 {
+	root /app/test/worker/public
+
+	php_server {
+		worker /app/test/worker/public/index.php 1
+	}
+}
