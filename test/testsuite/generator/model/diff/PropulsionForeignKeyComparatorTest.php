@@ -16,7 +16,7 @@ use PHPUnit\Framework\TestCase;
  *
  * @package    generator.model.diff
  */
-class PropulsionForeignComparatorTest extends TestCase
+class PropulsionForeignKeyComparatorTest extends TestCase
 {
 	public function testCompareNoDifference()
 	{

@@ -214,20 +214,30 @@ class ObjectBuilder extends AbstractObjectBuilder
 			$this->declareClass('\\DateTimeInterface');
 			return '?DateTimeInterface';
 		}
-		
+
+		// OBJECT columns store an arbitrary, caller-supplied PHP object (serialized on
+		// save, unserialized on hydrate -- see hydrate()/buildCriteria()/
+		// buildPkeyCriteria()). PropulsionTypes::getPhpNative() maps OBJECT to an empty
+		// string (no single PHP class fits every possible stored object), which used to
+		// fall through to the "default: ?string" case below and reject any real object
+		// passed to the setter. `mixed` is used for the same reason LOB columns are.
+		if ($col->getType() === PropulsionTypes::OBJECT) {
+			return 'mixed';
+		}
+
 		// Check the actual Propulsion type for better type hints
 		$propelType = $col->getType();
-		
+
 		// Map Propulsion types to PHP 8.4 types
 		// For BIGINT, use int since we're on 64-bit PHP 8.4 (handles up to 2^63-1)
-		if ($propelType === PropulsionTypes::BIGINT || $propelType === PropulsionTypes::INTEGER || 
+		if ($propelType === PropulsionTypes::BIGINT || $propelType === PropulsionTypes::INTEGER ||
 		    $propelType === PropulsionTypes::SMALLINT || $propelType === PropulsionTypes::TINYINT) {
 			return '?int';
 		}
-		
+
 		// Fall back to the PHP type mapping
 		$phpType = $col->getPhpType();
-		
+
 		switch ($phpType) {
 			case 'int':
 				return '?int';
@@ -268,12 +278,17 @@ class ObjectBuilder extends AbstractObjectBuilder
 			$this->declareClass('\\DateTimeInterface');
 			return '?DateTimeInterface';
 		}
-		
+
+		// See getPhp84TypeHint() -- OBJECT columns store an arbitrary caller-supplied object.
+		if ($col->getType() === PropulsionTypes::OBJECT) {
+			return 'mixed';
+		}
+
 		// Check the actual Propulsion type for better type hints
 		// For BIGINT, use int since we're on 64-bit PHP 8.4 (handles up to 2^63-1)
 		$propelType = $col->getType();
-		
-		if ($propelType === PropulsionTypes::BIGINT || $propelType === PropulsionTypes::INTEGER || 
+
+		if ($propelType === PropulsionTypes::BIGINT || $propelType === PropulsionTypes::INTEGER ||
 		    $propelType === PropulsionTypes::SMALLINT || $propelType === PropulsionTypes::TINYINT) {
 			return '?int';
 		}
@@ -1686,6 +1701,8 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 				$script .= "(bool) \$row[\$startcol + " . $n . "]";
 			} elseif ($col->getType() === PropulsionTypes::PHP_ARRAY) {
 				$script .= "(\$row[\$startcol + " . $n . "] === '' ? array() : (preg_match('/^ \\| (.*) \\| $/s', \$row[\$startcol + " . $n . "], \$matches) ? explode(' | ', \$matches[1]) : explode(' | ', \$row[\$startcol + " . $n . "])))";
+			} elseif ($col->getType() === PropulsionTypes::OBJECT) {
+				$script .= "unserialize(\$row[\$startcol + " . $n . "])";
 			} elseif ($col->isNumericType()) {
 				$phpType = $col->getPhpType();
 				// Use canonical cast names (PHP 8.5 deprecates non-canonical forms)
@@ -2524,6 +2541,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			if ($col->getType() === PropulsionTypes::PHP_ARRAY) {
 				$script .= "
 		if (\$this->isColumnModified($const)) \$criteria->add($const, \$this->$phpname ? ' | ' . implode(' | ', \$this->$phpname) . ' | ' : '');";
+			} elseif ($col->getType() === PropulsionTypes::OBJECT) {
+				$script .= "
+		if (\$this->isColumnModified($const)) \$criteria->add($const, \$this->$phpname === null ? null : serialize(\$this->$phpname));";
 			} else {
 				$script .= "
 		if (\$this->isColumnModified($const)) \$criteria->add($const, \$this->$phpname);";
@@ -2558,6 +2578,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			if ($pk->getType() === PropulsionTypes::PHP_ARRAY) {
 				$script .= "
 		\$criteria->add($const, \$this->$phpname ? ' | ' . implode(' | ', \$this->$phpname) . ' | ' : '');";
+			} elseif ($pk->getType() === PropulsionTypes::OBJECT) {
+				$script .= "
+		\$criteria->add($const, \$this->$phpname === null ? null : serialize(\$this->$phpname));";
 			} else {
 				$script .= "
 		\$criteria->add($const, \$this->$phpname);";
