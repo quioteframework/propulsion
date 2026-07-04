@@ -21,11 +21,14 @@ accessor API gap in `i18n`, and ~15 more generic gaps — missing
 `doSelectJoin*` methods, LOB/array/enum column handling, referrer-collection
 caching, `primaryString`/`__toString`, `reload`/`ensureConsistency`,
 temporal-default modified-tracking, `allowPkInsert`, and more). See Phase
-3.5 below for the itemized root-cause writeup of every one of these. Exact
-consolidated post-merge count has not yet been re-run as a single pass (each
-fix was verified independently against its own before/after baseline) —
-next step is a fresh full-suite run to confirm the combined total and catch
-any cross-fix interaction.
+3.5 below for the itemized root-cause writeup of every one of these.
+Confirmed post-merge with a fresh full-suite run: **2200 tests, 38 errors,
+26 failures, 12 skipped, 1 risky** — essentially back to the pre-Phase-3.5
+baseline (36 errors/19 failures) despite fully removing PHP5 as a fallback,
+with the remaining gap being the already-documented pre-existing flakiness
+clusters below plus a couple of newly-surfaced order-dependent stragglers
+(not chased down further, consistent with this suite's documented run-to-run
+count variance).
 
 Prior to Phase 3.5, with Docker (full suite, confirmed by an actual
 combined run after all of the below landed together on `main`): **2184
