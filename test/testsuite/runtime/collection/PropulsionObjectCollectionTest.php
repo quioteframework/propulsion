@@ -121,7 +121,14 @@ class PropulsionObjectCollectionTest extends BookstoreTestBase
 				)
 			),
 		));
-		$this->assertEquals($expected, $coll->toArray());
+		// toArray()'s $includeForeignObjects param (both here and on BaseObject::toArray()
+		// itself) defaults to false -- a deliberate, deep-recursion-avoiding default that
+		// matches the object-level API exactly. This test's own name and its expected
+		// array (which includes a nested 'Author' key, itself containing a '*RECURSION*'
+		// marker for the cycle back to this book) are specifically exercising the *deep*
+		// behavior, so it needs to opt in explicitly rather than relying on a since-changed
+		// implicit default.
+		$this->assertEquals($expected, $coll->toArray(null, false, BasePeer::TYPE_PHPNAME, true, array(), true));
 	}
 
 	public function testPopulateRelationOneToManyWithEmptyCollection()
