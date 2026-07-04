@@ -377,7 +377,7 @@ public static function updateLoadedNodes(\$prune = null, PropulsionPDO \$con = n
 {
 	if (Propulsion::isInstancePoolingEnabled()) {
 		\$keys = array();
-		foreach ($peerClassname::\$instances as \$obj) {
+		foreach ($peerClassname::getInstancePool() as \$obj) {
 			if (!\$prune || !\$prune->equals(\$obj)) {
 				\$keys[] = \$obj->getPrimaryKey();
 			}
