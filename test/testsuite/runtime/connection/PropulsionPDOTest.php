@@ -453,12 +453,20 @@ class PropulsionPDOTest extends TestCase
 	}
 }
 
-class myLogger
+class myLogger extends \Psr\Log\AbstractLogger
 {
 	public $latestMessage = '';
 
-	public function __call($method, $arguments)
+	// PropulsionPDO::log() always delegates to the PSR-3 log($level, $message) method
+	// (never a level-named method like info()/debug()), so a plain __call() catch-all
+	// used to work as a stand-in for a "real" PSR-3 logger under PHP5's untyped
+	// setLogger() -- setLogger() is now strictly typed to Psr\Log\LoggerInterface, which
+	// __call() alone can't satisfy (PHP requires the interface's methods to be really
+	// declared, magic methods don't count). Extending AbstractLogger and only
+	// implementing the one abstract method it requires keeps this test double's original
+	// "just record the last thing logged" behavior.
+	public function log($level, $message, array $context = array()): void
 	{
-		$this->latestMessage = $method . ': ' . array_shift($arguments);
+		$this->latestMessage = 'log: ' . $message;
 	}
 }
