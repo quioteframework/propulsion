@@ -31,20 +31,35 @@ class PropulsionArrayFormatter extends PropulsionFormatter
 	public function format(PDOStatement $stmt)
 	{
 		$this->checkInit();
-		if($class = $this->collectionName) {
-			$collection = new $class();
-			$collection->setModel($this->class);
-			$collection->setFormatter($this);
-		} else {
-			$collection = array();
-		}
 		if ($this->isWithOneToMany() && $this->hasLimit) {
 			throw new PropulsionException('Cannot use limit() in conjunction with with() on a one-to-many relationship. Please remove the with() call, or the limit() call.');
 		}
+		// Rows are always accumulated into a plain PHP array first, by reference (not a
+		// PropulsionArrayCollection, even if that's the final container -- PHP has no
+		// by-reference form of ArrayAccess::offsetSet(), so "$collection[] = &$object"
+		// fatals once $collection is an object). For a one-to-many with(), a later row for
+		// the same main object mutates $this->alreadyHydratedObjects[...] in place
+		// (appending to the nested "Reviews"-style array) rather than returning a new array
+		// -- a plain copy here would freeze the first row's snapshot, silently dropping
+		// every related row after the first one. Object hydration
+		// (PropulsionObjectFormatter) doesn't have this problem since PHP objects are
+		// always handle/reference types; a plain PHP array is not.
+		$rows = array();
 		while ($row = $stmt->fetch(PDO::FETCH_NUM)) {
 			if ($object = &$this->getStructuredArrayFromRow($row)) {
-				$collection[] = $object;
+				$rows[] = &$object;
 			}
+			unset($object);
+		}
+		if ($class = $this->collectionName) {
+			$collection = new $class();
+			$collection->setModel($this->class);
+			$collection->setFormatter($this);
+			foreach ($rows as $row) {
+				$collection[] = $row;
+			}
+		} else {
+			$collection = $rows;
 		}
 		$this->currentObjects = array();
 		$this->alreadyHydratedObjects = array();
