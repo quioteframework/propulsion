@@ -401,7 +401,14 @@ class PropulsionPDOTest extends TestCase
 		$testLog = new myLogger();
 		$con->setLogger($testLog);
 
-		$logEverything = array('PropulsionPDO::exec', 'PropulsionPDO::query', 'PropulsionPDO::beginTransaction', 'PropulsionPDO::commit', 'PropulsionPDO::rollBack', 'DebugPDOStatement::execute');
+		// PropulsionPDO::log() checks the *actual* __METHOD__ value against this list, which
+		// is fully-namespace-qualified now that the class lives in Propulsion\Connection --
+		// matches the dual legacy/namespaced convention $defaultLogMethods already uses for
+		// exactly this reason (see PropulsionPDO::$defaultLogMethods).
+		$logEverything = array(
+			'PropulsionPDO::exec', 'PropulsionPDO::query', 'PropulsionPDO::beginTransaction', 'PropulsionPDO::commit', 'PropulsionPDO::rollBack', 'DebugPDOStatement::execute',
+			'Propulsion\\Connection\\PropulsionPDO::exec', 'Propulsion\\Connection\\PropulsionPDO::query', 'Propulsion\\Connection\\PropulsionPDO::beginTransaction', 'Propulsion\\Connection\\PropulsionPDO::commit', 'Propulsion\\Connection\\PropulsionPDO::rollBack', 'Propulsion\\Connection\\DebugPDOStatement::execute',
+		);
 		Propulsion::getConfiguration(PropulsionConfiguration::TYPE_OBJECT)->setParameter("debugpdo.logging.methods", $logEverything, false);
 		$con->useDebug(true);
 
