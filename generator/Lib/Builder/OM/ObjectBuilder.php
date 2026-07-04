@@ -749,17 +749,28 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	}
 
 	/**
-	 * Adds a getter method for a column with PHP 8.4 type hints
+	 * Adds the doc comment for a temporal column's accessor.
+	 *
+	 * Split out from addColumnAccessor() (rather than left inline, the way
+	 * PHP5ObjectBuilder split it into its own finer-grained
+	 * addTemporalAccessorComment()/addTemporalAccessorOpen()/
+	 * addTemporalAccessorBody()/addTemporalAccessorClose() quartet) because
+	 * I18nBehaviorObjectBuilderModifier::addTranslatedColumnGetter() needs to
+	 * compose a getter from independent comment/signature pieces: i18n
+	 * generates its own translated-column getter body (delegating to
+	 * getCurrentTranslation()) but wants the exact same comment/signature the
+	 * plain accessor would use. Public (unlike addColumnAccessor() itself)
+	 * because i18n calls it on a *different* table's ObjectBuilder instance
+	 * (the i18n table's), not via inheritance -- see
+	 * generator/Lib/Behavior/I18n/I18nBehaviorObjectBuilderModifier.php.
+	 *
+	 * @see addColumnAccessor()
 	 */
-	protected function addColumnAccessor(&$script, Column $col)
+	public function addTemporalAccessorComment(&$script, Column $col)
 	{
 		$colname = $col->getName();
-		$phpname = $col->getPhpName();
 		$description = $col->getDescription() ? $col->getDescription() : "Get the value of [$colname] column.";
-
-		if ($col->isTemporalType()) {
-			$returnType = $this->getPhp84TypeHint($col);
-			$script .= "
+		$script .= "
 
 	/**
 	 * $description
@@ -767,9 +778,66 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 *
 	 * @param string|null \$format Optional date/time format string for backwards compatibility.
 	 * @return \\DateTimeInterface|string|null
+	 */";
+	}
+
+	/**
+	 * Adds the function declaration (through the opening brace) for a temporal
+	 * column's accessor. See addTemporalAccessorComment() for why this is
+	 * split out and public.
 	 */
-	public function get$phpname(?string \$format = null): \\DateTimeInterface|string|null
+	public function addTemporalAccessorOpen(&$script, Column $col)
 	{
+		$phpname = $col->getPhpName();
+		$script .= "
+	public function get$phpname(?string \$format = null): \\DateTimeInterface|string|null
+	{";
+	}
+
+	/**
+	 * Adds the doc comment for a non-temporal, non-enum column's accessor.
+	 * See addTemporalAccessorComment() for why this is split out and public.
+	 */
+	public function addDefaultAccessorComment(&$script, Column $col)
+	{
+		$colname = $col->getName();
+		$description = $col->getDescription() ? $col->getDescription() : "Get the value of [$colname] column.";
+		$returnType = $this->getPhp84TypeHint($col);
+		$script .= "
+
+	/**
+	 * $description
+	 *
+	 * @return $returnType
+	 */";
+	}
+
+	/**
+	 * Adds the function declaration (through the opening brace) for a
+	 * non-temporal, non-enum column's accessor. See addTemporalAccessorComment()
+	 * for why this is split out and public.
+	 */
+	public function addDefaultAccessorOpen(&$script, Column $col)
+	{
+		$phpname = $col->getPhpName();
+		$returnType = $this->getPhp84TypeHint($col);
+		$script .= "
+	public function get$phpname(): $returnType
+	{";
+	}
+
+	/**
+	 * Adds a getter method for a column with PHP 8.4 type hints
+	 */
+	protected function addColumnAccessor(&$script, Column $col)
+	{
+		$colname = $col->getName();
+		$phpname = $col->getPhpName();
+
+		if ($col->isTemporalType()) {
+			$this->addTemporalAccessorComment($script, $col);
+			$this->addTemporalAccessorOpen($script, $col);
+			$script .= "
 		if (\$format !== null) {
 			return \$this->{$phpname}?->format(\$format);
 		}
@@ -787,16 +855,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		return \$this->{$phpname}?->format(\$format);
 	}";
 		} else {
-			$returnType = $this->getPhp84TypeHint($col);
+			$this->addDefaultAccessorComment($script, $col);
+			$this->addDefaultAccessorOpen($script, $col);
 			$script .= "
-
-	/**
-	 * $description
-	 *
-	 * @return $returnType
-	 */
-	public function get$phpname(): $returnType
-	{
 		return \$this->$phpname;
 	}";
 		}
@@ -819,6 +880,81 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 				$this->addColumnMutator($script, $col);
 			}
 		}
+	}
+
+	/**
+	 * Adds the doc comment for a temporal column's mutator (setter).
+	 *
+	 * Split out from addColumnMutator() for the same reason
+	 * addTemporalAccessorComment()/addDefaultAccessorComment() are split out
+	 * above: I18nBehaviorObjectBuilderModifier::addTranslatedColumnSetter()
+	 * composes a translated-column setter from these independent
+	 * comment/signature pieces (calling them on the i18n table's own
+	 * ObjectBuilder instance, hence public) rather than duplicating the
+	 * doc/signature logic itself.
+	 *
+	 * @see addColumnMutator()
+	 */
+	public function addTemporalMutatorComment(&$script, Column $col)
+	{
+		$colname = $col->getName();
+		$returnType = $this->getClassname();
+		$description = $col->getDescription() ? $col->getDescription() : "Set the value of [$colname] column.";
+		$script .= "
+
+	/**
+	 * $description
+	 *
+	 * @param DateTimeInterface|string|int|null \$value New value: a DateTimeInterface, a
+	 *              Unix timestamp (int), a parseable date/time string, or null.
+	 * @return $returnType The current object (for fluent API support)
+	 */";
+	}
+
+	/**
+	 * Adds the doc comment for a non-temporal, non-boolean column's mutator
+	 * (setter). See addTemporalMutatorComment() for why this is split out and
+	 * public.
+	 */
+	public function addMutatorComment(&$script, Column $col)
+	{
+		$colname = $col->getName();
+		$paramType = $this->getPhp84TypeHint($col);
+		$returnType = $this->getClassname();
+		$description = $col->getDescription() ? $col->getDescription() : "Set the value of [$colname] column.";
+		$script .= "
+
+	/**
+	 * $description
+	 *
+	 * @param $paramType \$value New value
+	 * @return $returnType The current object (for fluent API support)
+	 */";
+	}
+
+	/**
+	 * Adds the mutator (setter) function declaration, through the opening
+	 * brace. Named to match the historical (archived) PHP5ObjectBuilder
+	 * method this replaces -- see addTemporalMutatorComment() for why this is
+	 * split out and public. Picks the same widened parameter type
+	 * addColumnMutator() would use for this column (temporal/boolean/plain),
+	 * since it's shared between the temporal and default mutator composition
+	 * paths in I18nBehaviorObjectBuilderModifier::addTranslatedColumnSetter().
+	 */
+	public function addMutatorOpenOpen(&$script, Column $col)
+	{
+		$phpname = $col->getPhpName();
+		$returnType = $this->getClassname();
+		if ($col->isTemporalType()) {
+			$paramType = 'DateTimeInterface|string|int|null';
+		} elseif ($col->isBooleanType()) {
+			$paramType = 'bool|int|string|null';
+		} else {
+			$paramType = $this->getPhp84TypeHint($col);
+		}
+		$script .= "
+	public function set$phpname($paramType \$value = null): $returnType
+	{";
 	}
 
 	/**
