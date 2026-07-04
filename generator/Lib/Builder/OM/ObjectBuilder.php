@@ -1200,6 +1200,10 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$paramType = $this->getPhp84TypeHint($col);
 		$returnType = $this->getClassname();
 
+		if ($col->isTemporalType()) {
+			$this->declareClass('Propulsion\\Exception\\PropulsionException');
+		}
+
 		$description = $col->getDescription() ? $col->getDescription() : "Set the value of [$colname] column.";
 
 		// Always add = null default value to support clearing relationships and object state
@@ -1294,8 +1298,17 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	public function set$phpname(DateTimeInterface|string|int|null \$value$defaultValue): $returnType
 	{
+		// An empty string means \"no value\", matching PHP5ObjectBuilder's convention --
+		// not \"now\", which is what `new DateTime('')` would otherwise silently produce.
+		if (\$value === '') {
+			\$value = null;
+		}
 		if (\$value !== null && !(\$value instanceof DateTimeInterface)) {
-			\$value = is_int(\$value) ? (new DateTime())->setTimestamp(\$value) : new DateTime((string) \$value);
+			try {
+				\$value = is_int(\$value) ? (new DateTime())->setTimestamp(\$value) : new DateTime((string) \$value);
+			} catch (\\Exception \$e) {
+				throw new PropulsionException(\"Error parsing date/time value for [" . strtolower($colname) . "]\", \$e);
+			}
 		}";
 				$defaultValueCol = $col->getDefaultValue();
 				if ($defaultValueCol !== null && !$defaultValueCol->isExpression()) {
