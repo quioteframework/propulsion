@@ -56,6 +56,68 @@ class TableMapBuilder extends OMBuilder
     }
 
     /**
+     * Override getUseStatements to provide PHP 8.4 compatible use statements with
+     * deduplication. See QueryBuilder::getUseStatements()/PeerBuilder::getUseStatements()/
+     * ObjectBuilder::getUseStatements() for the full rationale (identical logic, copied
+     * here because this builder needed the same fix): without this, addClassBody()'s FQCN
+     * declareClass() calls for core Propulsion\* classes either get a redundant `use`
+     * emitted for a flat/non-namespaced class (fatal -- "name is already in use" -- when
+     * PropulsionQuickBuilder concatenates many such classes into one eval()'d script with
+     * no namespace block between them), or, for a genuinely namespaced class, would need
+     * one but the default (OMBuilder::getUseStatements()) doesn't map legacy bare declares
+     * to their real FQCN.
+     */
+    public function getUseStatements($ignoredNamespace = null)
+    {
+        $script = '';
+        $declaredClasses = $this->declaredClasses;
+        unset($declaredClasses[$ignoredNamespace]);
+
+        $classMap = [];
+        $preferredNamespaces = [
+            'PropulsionException' => 'Propulsion\\Exception\\PropulsionException',
+            'BasePeer' => 'Propulsion\\Util\\BasePeer',
+            'Criteria' => 'Propulsion\\Query\\Criteria',
+            'ModelCriteria' => 'Propulsion\\Query\\ModelCriteria',
+            'ModelJoin' => 'Propulsion\\Query\\ModelJoin',
+            'PropulsionPDO' => 'Propulsion\\Connection\\PropulsionPDO',
+            'PropulsionCollection' => 'Propulsion\\Collection\\PropulsionCollection',
+            'PropulsionObjectCollection' => 'Propulsion\\Collection\\PropulsionObjectCollection',
+            'Propulsion' => 'Propulsion\\Propulsion',
+            'BaseObject' => 'Propulsion\\OM\\BaseObject',
+            'Persistent' => 'Propulsion\\OM\\Persistent',
+            'TableMap' => 'Propulsion\\Map\\TableMap',
+            'RelationMap' => 'Propulsion\\Map\\RelationMap',
+        ];
+        $isFlat = !$this->getNamespace();
+
+        foreach ($declaredClasses as $namespace => $classes) {
+            foreach ($classes as $class) {
+                $fullName = $namespace ? $namespace . '\\' . $class : $class;
+
+                if ($isFlat && isset($preferredNamespaces[$class])
+                    && ($namespace === '' || $fullName === $preferredNamespaces[$class])) {
+                    continue;
+                }
+
+                if (!$isFlat && $namespace === '' && isset($preferredNamespaces[$class])) {
+                    $fullName = $preferredNamespaces[$class];
+                }
+
+                $classMap[$class] = $fullName;
+            }
+        }
+
+        asort($classMap);
+
+        foreach ($classMap as $className => $fullName) {
+            $script .= sprintf("use %s;\n", $fullName);
+        }
+
+        return $script;
+    }
+
+    /**
      * Adds the include() statements for files that this class depends on or utilizes.
      * Inlined from the legacy PHP5TableMapBuilder base.
      * @param      string &$script The script will be modified in this method.
