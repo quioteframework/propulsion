@@ -541,7 +541,7 @@ class ModelCriteria extends Criteria
 	 *
 	 * @return    array|string A list of column names (e.g. array('Title', 'Category.Name', 'c.Content')) or a single column name (e.g. 'Name')
 	 */
-	public function getSelect() : array|string
+	public function getSelect() : array|string|null
 	{
 		return $this->select;
 	}
@@ -1130,12 +1130,12 @@ class ModelCriteria extends Criteria
 	 *
 	 * @param     PropulsionPDO $con The connection object used by the query
 	 */
-	protected function basePreSelect(PropulsionPDO $con) : mixed
+	protected function basePreSelect(PropulsionPDO $con)
 	{
 		return $this->preSelect($con);
 	}
 
-	protected function preSelect(PropulsionPDO $con) : mixed
+	protected function preSelect(PropulsionPDO $con)
 	{
 		return null;
 	}
