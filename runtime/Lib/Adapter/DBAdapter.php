@@ -431,23 +431,25 @@ abstract class DBAdapter
 
 				$selectClause[] = $columnName; // the full column name: e.g. MAX(books.price)
 
-				$parenPos = strrpos($columnName, '(');
-				$dotPos = strrpos($columnName, '.', ($parenPos !== false ? $parenPos : 0));
+				// Find the last "table.column"-shaped reference in the expression and take its
+				// table part by scanning backwards from the last dot for identifier characters.
+				// This must work not just for a bare "table.column" or a single-level function
+				// wrapper ("MAX(books.price)", "COUNT(DISTINCT books.price)") but also for
+				// expressions with several nested function calls and/or several qualified column
+				// references, e.g. "substring(book.TITLE from position('Potter' in book.TITLE))"
+				// -- a previous implementation located the table name between the *last* "(" and
+				// the *last* "." in the whole expression, which for a nested expression like that
+				// one picks up everything in between (including unrelated string literals and
+				// keywords) instead of just the identifier immediately before the dot.
+				$dotPos = strrpos($columnName, '.');
 
 				if ($dotPos !== false) {
-					if ($parenPos === false) { // table.column
-						$tableName = substr($columnName, 0, $dotPos);
-					} else { // FUNC(table.column)
-						// functions may contain qualifiers so only take the last
-						// word as the table name.
-						// COUNT(DISTINCT books.price)
-						$lastSpace = strpos($tableName, ' ');
-						if ($lastSpace !== false) { // COUNT(DISTINCT books.price)
-							$tableName = substr($tableName, $lastSpace + 1);
-						} else {
-							$tableName = substr($columnName, $parenPos + 1, $dotPos - ($parenPos + 1));
-						}
+					$start = $dotPos;
+					while ($start > 0 && (ctype_alnum($columnName[$start - 1]) || $columnName[$start - 1] === '_')) {
+						$start--;
 					}
+					$tableName = substr($columnName, $start, $dotPos - $start);
+
 					// is it a table alias?
 					$tableName2 = $criteria->getTableForAlias($tableName);
 					if ($tableName2 !== null) {
