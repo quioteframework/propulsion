@@ -3247,22 +3247,41 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	
 	protected function addPrimaryString(&$script): void
 	{
-		$table = $this->getTable();
+		// Ported from PHP5ObjectBuilder::addPrimaryString(): if a column is marked
+		// primaryString="true" in the schema, __toString() returns that column's value;
+		// otherwise it falls back to the object's default YAML/etc. export format
+		// (Peer::DEFAULT_STRING_FORMAT). The previous implementation ignored both of
+		// these and always stringified the primary key instead -- wrong for every table
+		// (whether or not it declares a primaryString column), and the dependency several
+		// tests/behaviors (e.g. SluggableBehavior's default slug source) have on this
+		// method's real contract.
+		foreach ($this->getTable()->getColumns() as $column) {
+			if ($column->isPrimaryString()) {
+				$phpname = $column->getPhpName();
+				$script .= "
+
+	/**
+	 * Return the string representation of this object
+	 *
+	 * @return string The value of the '" . $column->getName() . "' column
+	 */
+	public function __toString(): string
+	{
+		return (string) \$this->get$phpname();
+	}";
+				return;
+			}
+		}
 		$script .= "
 
 	/**
 	 * Return the string representation of this object
 	 *
-	 * @return string The value of the primary key columns
+	 * @return string
 	 */
 	public function __toString(): string
 	{
-		\$pk = \$this->getPrimaryKey();
-		if (is_array(\$pk)) {
-			return (string) implode(', ', \$pk);
-		} else {
-			return (string) \$pk;
-		}
+		return (string) \$this->exportTo(" . $this->getPeerClassname() . "::DEFAULT_STRING_FORMAT);
 	}";
 	}
 	
