@@ -596,7 +596,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->limit(50);
 		$c->offset(10);
-		$sql = 'SELECT  FROM  LIMIT 10, 50';
+		$sql = 'SELECT  FROM  LIMIT 50 OFFSET 10';
 		$params = array();
 		$this->assertCriteriaTranslation($c, $sql, $params, 'offset() adds an OFFSET clause');
 	}
@@ -822,7 +822,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->join('be.Supervisor sup');
 		$c->join('sup.Subordinate sub');
 		$c->where('sub.Name = ?', 'Foo');
-		$sql = 'SELECT  FROM `bookstore_employee` INNER JOIN `bookstore_employee` `sup` ON (bookstore_employee.SUPERVISOR_ID=sup.ID) INNER JOIN `bookstore_employee` `sub` ON (sup.ID=sub.SUPERVISOR_ID) WHERE sub.NAME = :p1';
+		$sql = 'SELECT  FROM bookstore_employee INNER JOIN bookstore_employee sup ON (bookstore_employee.SUPERVISOR_ID=sup.ID) INNER JOIN bookstore_employee sub ON (sup.ID=sub.SUPERVISOR_ID) WHERE sub.NAME = :p1';
 		$params = array(
 			array('table' => 'bookstore_employee', 'column' => 'NAME', 'value' => 'Foo'),
 		);
@@ -844,7 +844,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->join('sup.Subordinate sub');
 		$c->where('sub.Name = ?', 'Foo');
 		$employees = BookstoreEmployeePeer::doSelect($c, $con);
-		$expectedSQL = "SELECT bookstore_employee.ID, bookstore_employee.CLASS_KEY, bookstore_employee.NAME, bookstore_employee.JOB_TITLE, bookstore_employee.SUPERVISOR_ID FROM `bookstore_employee` INNER JOIN `bookstore_employee` `sup` ON (bookstore_employee.SUPERVISOR_ID=sup.ID) INNER JOIN `bookstore_employee` `sub` ON (sup.ID=sub.SUPERVISOR_ID) WHERE sub.NAME = 'Foo'";
+		$expectedSQL = "SELECT bookstore_employee.ID, bookstore_employee.CLASS_KEY, bookstore_employee.NAME, bookstore_employee.JOB_TITLE, bookstore_employee.SUPERVISOR_ID FROM bookstore_employee INNER JOIN bookstore_employee sup ON (bookstore_employee.SUPERVISOR_ID=sup.ID) INNER JOIN bookstore_employee sub ON (sup.ID=sub.SUPERVISOR_ID) WHERE sub.NAME = 'Foo'";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'join() allows the use of relation alias in further joins()');
 	}
 
@@ -1751,7 +1751,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->setModelAlias('b', true);
 		$c->where('b.Title = ?', 'foo');
 		$c->delete();
-		$expectedSQL = "DELETE b FROM book AS b WHERE b.TITLE = 'foo'";
+		$expectedSQL = "DELETE FROM book AS b WHERE b.TITLE = 'foo'";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'delete() also works on tables with true table alias');
 	}
 
@@ -2095,7 +2095,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$c->find($con);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` LEFT JOIN `author` ON (book.AUTHOR_ID=author.ID) WHERE book.TITLE = 'foo' AND author.FIRST_NAME = 'john' LIMIT 10, 5";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book LEFT JOIN author ON (book.AUTHOR_ID=author.ID) WHERE book.TITLE = 'foo' AND author.FIRST_NAME = 'john' LIMIT 5 OFFSET 10";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'useQuery() and endUse() allow to merge a secondary criteria');
 	}
 
@@ -2120,7 +2120,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$c->find($con);
-		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` LEFT JOIN `author` `a` ON (book.AUTHOR_ID=a.ID) WHERE book.TITLE = 'foo' AND a.FIRST_NAME = 'john' LIMIT 10, 5";
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book LEFT JOIN author a ON (book.AUTHOR_ID=a.ID) WHERE book.TITLE = 'foo' AND a.FIRST_NAME = 'john' LIMIT 5 OFFSET 10";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'useQuery() and endUse() allow to merge a secondary criteria');
 	}
 
