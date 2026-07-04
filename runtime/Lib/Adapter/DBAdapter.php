@@ -432,7 +432,9 @@ abstract class DBAdapter
 				$selectClause[] = $columnName; // the full column name: e.g. MAX(books.price)
 
 				// Find the last "table.column"-shaped reference in the expression and take its
-				// table part by scanning backwards from the last dot for identifier characters.
+				// table part by scanning backwards from the last dot for identifier characters
+				// (and further embedded dots, to keep multi-schema-qualified table names like
+				// "myschema.mytable.column" intact -- see the pgsql-multi-schema fixture).
 				// This must work not just for a bare "table.column" or a single-level function
 				// wrapper ("MAX(books.price)", "COUNT(DISTINCT books.price)") but also for
 				// expressions with several nested function calls and/or several qualified column
@@ -445,7 +447,7 @@ abstract class DBAdapter
 
 				if ($dotPos !== false) {
 					$start = $dotPos;
-					while ($start > 0 && (ctype_alnum($columnName[$start - 1]) || $columnName[$start - 1] === '_')) {
+					while ($start > 0 && (ctype_alnum($columnName[$start - 1]) || $columnName[$start - 1] === '_' || $columnName[$start - 1] === '.')) {
 						$start--;
 					}
 					$tableName = substr($columnName, $start, $dotPos - $start);
