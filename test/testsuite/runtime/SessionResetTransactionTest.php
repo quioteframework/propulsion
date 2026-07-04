@@ -56,10 +56,11 @@ class SessionResetTransactionTest extends BookstoreTestBase
     }
 
     /**
-     * Session::reset() delegates instance-pool clearing to
-     * ServiceContainer::clearInstancePools() -- verify the two are actually
-     * wired together end to end (ServiceContainerTest covers
-     * clearInstancePools() itself in isolation).
+     * Session::reset() clears every generated Peer's instance pool directly
+     * (phase 4b: pool storage lives on Session itself now, see
+     * Session::$instancePools) -- verify end to end (ServiceContainerTest
+     * covers ServiceContainer::clearInstancePools()'s delegation to
+     * Session::clearAllPools() in isolation).
      */
     public function testResetClearsInstancePools()
     {
@@ -70,13 +71,54 @@ class SessionResetTransactionTest extends BookstoreTestBase
         $author->setLastName('Pools');
         $author->save($this->con);
 
-        $ref = new ReflectionProperty(AuthorPeer::class, 'instances');
-        $ref->setAccessible(true);
-        $this->assertGreaterThan(0, count($ref->getValue()));
+        $this->assertGreaterThan(0, count(AuthorPeer::getInstancePool()));
 
         Propulsion::getSession()->reset();
 
-        $this->assertSame(0, count($ref->getValue()));
+        $this->assertSame(0, count(AuthorPeer::getInstancePool()));
+    }
+
+    /**
+     * The actual worker-safety property this phase exists to deliver: pools
+     * are keyed off the *current* Session object, not a class-level static.
+     * A fresh Session must start with empty pools even though a previous
+     * Session (still holding a reference, as if a previous "request" had
+     * used it) has populated ones -- proving pool storage really moved off
+     * process-global class statics and onto Session instances.
+     */
+    public function testFreshSessionDoesNotSeePoolsFromAPreviousSession(): void
+    {
+        $original = Propulsion::getSession();
+
+        AuthorPeer::clearInstancePool();
+        $author = new Author();
+        $author->setFirstName('Old');
+        $author->setLastName('Session');
+        $author->save($this->con);
+
+        $this->assertGreaterThan(
+            0,
+            count(AuthorPeer::getInstancePool()),
+            'sanity check: saving pooled something on the original session'
+        );
+
+        $fresh = new Propulsion\Session();
+        Propulsion::setSession($fresh);
+
+        try {
+            $this->assertSame(
+                0,
+                count(AuthorPeer::getInstancePool()),
+                'a fresh Session must not see instances pooled under a previous Session'
+            );
+        } finally {
+            Propulsion::setSession($original);
+        }
+
+        // Swapping the original session back restores visibility of what it
+        // had pooled -- confirming the pool genuinely lives on the Session
+        // object itself, not anywhere process-global.
+        $this->assertGreaterThan(0, count(AuthorPeer::getInstancePool()));
     }
 
     public function testResetClearsForceMasterConnectionEndToEnd()

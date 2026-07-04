@@ -114,12 +114,12 @@ class TestAllHooksObjectBuilderModifier
     // unlike the archived PHP5ObjectBuilder, which used lowercase column-name
     // properties (e.g. $id). Using the getter keeps this test helper agnostic
     // to that internal representation.
-    return '$this->preDelete = 1;$this->preDeleteIsBeforeDelete = isset(Table3Peer::$instances[$this->getId()]);$this->preDeleteBuilder="' . get_class($builder) . '";';
+    return '$this->preDelete = 1;$this->preDeleteIsBeforeDelete = (Table3Peer::getInstanceFromPool((string) $this->getId()) !== null);$this->preDeleteBuilder="' . get_class($builder) . '";';
   }
 
   public function postDelete($builder)
   {
-    return '$this->postDelete = 1;$this->postDeleteIsBeforeDelete = isset(Table3Peer::$instances[$this->getId()]);$this->postDeleteBuilder="' . get_class($builder) . '";';
+    return '$this->postDelete = 1;$this->postDeleteIsBeforeDelete = (Table3Peer::getInstanceFromPool((string) $this->getId()) !== null);$this->postDeleteBuilder="' . get_class($builder) . '";';
   }
 
   public function objectMethods($builder)

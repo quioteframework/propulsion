@@ -57,7 +57,7 @@ class ServiceContainerTest extends BookstoreTestBase
         $sc = new ServiceContainer();
         $sc->clearInstancePools();
 
-        $this->assertSame(0, $this->countPooledAuthors(), 'clearInstancePools() should have emptied AuthorPeer::$instances');
+        $this->assertSame(0, $this->countPooledAuthors(), 'clearInstancePools() should have emptied AuthorPeer\'s instance pool');
     }
 
     /**
@@ -85,9 +85,6 @@ class ServiceContainerTest extends BookstoreTestBase
 
     private function countPooledAuthors(): int
     {
-        $ref = new ReflectionProperty(AuthorPeer::class, 'instances');
-        $ref->setAccessible(true);
-
-        return count($ref->getValue());
+        return count(AuthorPeer::getInstancePool());
     }
 }

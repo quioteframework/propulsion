@@ -245,12 +245,12 @@ class BookstoreDataPopulator
 			'ReviewPeer',
 			'BookSummaryPeer',
 		);
-		// free the memory from existing objects
+		// free the memory from existing objects. Instance pools live on the
+		// current Session (phase 4b), not a per-class static array anymore --
+		// see Propulsion\Session::getPool()/PeerBuilder's generated
+		// getInstancePool().
 		foreach ($peerClasses as $peerClass) {
-			// $peerClass::$instances crashes on PHP 5.2, see http://www.propelorm.org/ticket/1388
-			$r = new ReflectionClass($peerClass);
-			$p = $r->getProperty('instances');
-			foreach ($p->getValue() as $o) {
+			foreach (call_user_func(array($peerClass, 'getInstancePool')) as $o) {
 				$o->clearAllReferences();
 			}
 		}

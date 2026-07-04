@@ -35,6 +35,7 @@ namespace Propulsion\Generator\Builder\OM;
  * @method void addAddInstanceToPool(string &$script)
  * @method void addRemoveInstanceFromPool(string &$script)
  * @method void addGetInstanceFromPool(string &$script)
+ * @method void addGetInstancePool(string &$script)
  * @method void addClearInstancePool(string &$script)
  * @method void addClearRelatedInstancePool(string &$script)
  * @method void addGetPrimaryKeyHash(string &$script)
@@ -97,6 +98,7 @@ abstract class AbstractPeerBuilder extends OMBuilder
 		$this->addAddInstanceToPool($script);
 		$this->addRemoveInstanceFromPool($script);
 		$this->addGetInstanceFromPool($script);
+		$this->addGetInstancePool($script);
 		$this->addClearInstancePool($script);
 		$this->addClearRelatedInstancePool($script);
 

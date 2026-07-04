@@ -1262,7 +1262,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 	{
 		if (Propulsion::isInstancePoolingEnabled()) {
 			\$keys = [];
-			foreach (self::\$instances as \$obj) {
+			foreach (self::getInstancePool() as \$obj) {
 				\$keys[] = \$obj->getPrimaryKey();
 			}
 

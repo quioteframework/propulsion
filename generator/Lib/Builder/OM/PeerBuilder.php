@@ -379,14 +379,6 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/** The default string format for model objects of the related table **/
 	const DEFAULT_STRING_FORMAT = '" . $this->getTable()->getDefaultStringFormat() . "';
 
-	/**
-	 * An identiy map to hold any loaded instances of ".$this->getObjectClassname()." objects.
-	 * This must be public so that other peer classes can access this when hydrating from JOIN
-	 * queries.
-	 * @var        array ".$this->getObjectClassname()."[]
-	 */
-	public static \$instances = array();
-
 ";
 
 		// apply behaviors
@@ -1153,6 +1145,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		$this->addRemoveInstanceFromPool($script);
 		$this->addClearInstancePool($script);
 		$this->addGetInstanceFromPool($script);
+		$this->addGetInstancePool($script);
 		$this->addGetPrimaryKeyHash($script);
 	}
 
@@ -1186,7 +1179,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 				\$key = " . $this->getInstancePoolKeySnippet($php) . ";";
 		$script .= "
 			} // if key === null
-			self::\$instances[\$key] = \$obj;
+			Propulsion::getSession()->addPooledInstance(self::class, \$key, \$obj);
 		}
 	}";
 	}
@@ -1240,7 +1233,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 				throw \$e;
 			}
 
-			unset(self::\$instances[\$key]);
+			Propulsion::getSession()->removePooledInstance(self::class, \$key);
 		}
 	}";
 	}
@@ -1257,7 +1250,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 */
 	public static function clearInstancePool(): void
 	{
-		self::\$instances = array();
+		Propulsion::getSession()->clearPool(self::class);
 	}";
 	}
 
@@ -1278,10 +1271,32 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	public static function getInstanceFromPool(?string \$key): ?object
 	{
 		if (\$key === null) { return null; }
-		if (Propulsion::isInstancePoolingEnabled() && isset(self::\$instances[\$key])) {
-			return self::\$instances[\$key];
+		if (Propulsion::isInstancePoolingEnabled()) {
+			return Propulsion::getSession()->getPooledInstance(self::class, \$key);
 		}
 		return null; // explicit
+	}";
+	}
+
+	/**
+	 * Adds getInstancePool method
+	 */
+	protected function addGetInstancePool(&$script)
+	{
+		$objectClass = $this->getStubObjectBuilder()->getFullyQualifiedClassname();
+		$script .= "
+
+	/**
+	 * Retrieves every currently-pooled instance of this Peer's object class.
+	 * This must be public so that other peer classes/behaviors can access it
+	 * when hydrating from JOIN queries or reconciling the pool with the
+	 * database (e.g. the nested_set behavior).
+	 *
+	 * @return array<string, \\" . $objectClass . "> Pooled instances, keyed by instance-pool key.
+	 */
+	public static function getInstancePool(): array
+	{
+		return Propulsion::getSession()->getPool(self::class);
 	}";
 	}
 
