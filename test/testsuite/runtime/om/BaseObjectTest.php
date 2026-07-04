@@ -66,4 +66,16 @@ class BaseObjectTest extends TestCase
 class TestableBaseObject extends BaseObject
 {
 	public $virtualColumns = array();
+
+	// BaseObject::getPrimaryKey()/clearAllReferences() are abstract -- every generated Object
+	// class implements them (unconditionally), but this hand-written test double isn't
+	// generated, so it needs its own (trivial, unused-by-these-tests) stubs.
+	public function getPrimaryKey()
+	{
+		return null;
+	}
+
+	public function clearAllReferences(bool $deep = false): void
+	{
+	}
 }
