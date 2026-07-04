@@ -1014,7 +1014,7 @@ class ModelCriteria extends Criteria
 	public function addSelectQuery(Criteria $subQueryCriteria, ?string $alias = null, ?bool $addAliasAndSelectColumns = true) : static
 	{
 		if (!$subQueryCriteria->hasSelectClause()) {
-			$this->addSelfSelectColumns();
+			$subQueryCriteria->addSelfSelectColumns();
 		}
 		parent::addSelectQuery($subQueryCriteria, $alias);
 		if ($addAliasAndSelectColumns) {
@@ -1221,7 +1221,7 @@ class ModelCriteria extends Criteria
 		$pkCols = $this->getTableMap()->getPrimaryKeys();
 		if (count($pkCols) == 1) {
 			// simple primary key
-			$pkCol = $pkCols[0];
+			$pkCol = reset($pkCols);
 			$this->add($pkCol->getFullyQualifiedName(), $key);
 			return $this->findOne($con);
 		} else {
