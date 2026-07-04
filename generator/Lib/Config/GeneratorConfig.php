@@ -49,11 +49,15 @@ class GeneratorConfig implements GeneratorConfigInterface
 	}
 
 	/**
-	 * Builds a GeneratorConfig from the generator's default.properties file, one or
-	 * more optional user-supplied properties files (Phing/Ant-style `key = value`
-	 * lines, one per line), and an array of ad-hoc overrides -- without requiring Phing.
+	 * Builds a GeneratorConfig from the generator's default config file, one or
+	 * more optional user-supplied override files, and an array of ad-hoc
+	 * overrides -- without requiring Phing. Each file is either a plain PHP
+	 * file returning a flat `['propel.foo' => ..., ...]` array (recommended,
+	 * dispatched by a `.php` extension -- see generator/default.php), or a
+	 * legacy Phing/Ant-style `.properties` text file (`key = value` lines,
+	 * one per line).
 	 *
-	 * @param      string $defaultPropertiesFile Path to generator/default.properties.
+	 * @param      string $defaultPropertiesFile Path to generator/default.php.
 	 * @param      string|string[]|null $overridePropertiesFiles One or more override files,
 	 *             applied in order (later files win on conflicting keys).
 	 * @param      array<string,mixed> $overrides Raw `propel.*`-prefixed overrides, e.g. ['propel.targetPlatform' => 'php84'].
@@ -75,10 +79,28 @@ class GeneratorConfig implements GeneratorConfigInterface
 	}
 
 	/**
+	 * Loads a build-properties file, dispatched by extension: a `.php` file is
+	 * `require`d and expected to `return` a flat `['propel.foo' => ..., ...]`
+	 * array directly (recommended -- see NOTICE.md/KNOWN_ISSUES.md), while
+	 * anything else falls back to the legacy Ant/Phing `.properties` text
+	 * format, for the same reason `loadBuildConnectionsFile()` keeps XML
+	 * support for `buildtime-conf.xml`: these files are user-authored content
+	 * that may live in a consuming project's own repo, not code inside this
+	 * one, so dropping the legacy format outright isn't provably safe from
+	 * here alone.
+	 *
 	 * @return array<string,mixed>
 	 */
 	private static function parsePropertiesFile(string $filepath): array
 	{
+		if (strtolower(pathinfo($filepath, PATHINFO_EXTENSION)) === 'php') {
+			$props = require $filepath;
+			if (!is_array($props)) {
+				throw new EngineException("Expected $filepath to return an array of properties.");
+			}
+			return $props;
+		}
+
 		$properties = array();
 		$lines = @file($filepath);
 		if ($lines === false) {

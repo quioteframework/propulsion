@@ -35,7 +35,7 @@ class SqlDiffCommand extends Command
             ->addArgument('schema', InputArgument::OPTIONAL, 'Schema file or directory', './schema')
             ->addOption('migration-dir', 'o', InputOption::VALUE_REQUIRED, 'Output directory for the generated migration class', './migrations')
             ->addOption('buildtime-conf', null, InputOption::VALUE_REQUIRED, 'Path to a build-time connection config file describing the datasource(s) to diff against: a plain PHP file returning [\'default\' => ..., \'datasources\' => [...]] (recommended), or a legacy buildtime-conf.xml file')
-            ->addOption('config', 'c', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Build properties file overriding generator/default.properties (repeatable; later files win)', [])
+            ->addOption('config', 'c', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Build properties file overriding generator/default.php (repeatable; later files win)', [])
             ->addOption('database', 'd', InputOption::VALUE_REQUIRED, 'Target database adapter (mysql, pgsql, sqlite, ...)')
             ->addOption('case-insensitive', null, InputOption::VALUE_NONE, 'Perform a case-insensitive structure comparison')
             ->setHelp(<<<'EOT'
@@ -105,7 +105,7 @@ EOT
 
     private function loadConfiguration(InputInterface $input): GeneratorConfig
     {
-        $defaultPropertiesFile = dirname(__DIR__, 2) . '/default.properties';
+        $defaultPropertiesFile = dirname(__DIR__, 2) . '/default.php';
 
         $overrides = [];
         if ($database = $input->getOption('database')) {

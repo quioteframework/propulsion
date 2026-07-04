@@ -46,7 +46,7 @@ class PropulsionDatabaseComparatorTest extends TestCase
     {
         $repoRoot = dirname(__DIR__, 5);
         $config = GeneratorConfig::createFromPropertiesFile(
-            $repoRoot . '/generator/default.properties',
+            $repoRoot . '/generator/default.php',
             null,
             ['propel.database' => 'pgsql']
         );

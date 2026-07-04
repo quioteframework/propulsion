@@ -107,7 +107,7 @@ EOT
     private function buildConfig(): GeneratorConfig
     {
         return GeneratorConfig::createFromPropertiesFile(
-            dirname(__DIR__, 4) . '/generator/default.properties',
+            dirname(__DIR__, 4) . '/generator/default.php',
             null,
             ['propel.database' => 'pgsql']
         );

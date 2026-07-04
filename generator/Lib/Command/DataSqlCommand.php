@@ -27,7 +27,7 @@ class DataSqlCommand extends Command
             ->addOption('output', 'o', InputOption::VALUE_REQUIRED, 'Output SQL file', './dataset.sql')
             ->addOption('database', 'd', InputOption::VALUE_REQUIRED, 'Target database adapter (mysql, pgsql, sqlite, ...)')
             ->addOption('data-database', null, InputOption::VALUE_REQUIRED, 'Only use the <database name="..."> from the schema (uses the first database in the schema if omitted)')
-            ->addOption('config', 'c', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Build properties file overriding generator/default.properties (repeatable; later files win)', [])
+            ->addOption('config', 'c', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Build properties file overriding generator/default.php (repeatable; later files win)', [])
             ->setHelp(<<<'EOT'
 The <info>data:sql</info> command converts an XML dataset file (as produced by
 <info>data:dump</info>) into a file of INSERT SQL statements, using the
@@ -79,7 +79,7 @@ EOT
 
     private function loadConfiguration(InputInterface $input): GeneratorConfig
     {
-        $defaultPropertiesFile = dirname(__DIR__, 2) . '/default.properties';
+        $defaultPropertiesFile = dirname(__DIR__, 2) . '/default.php';
 
         $overrides = [];
         if ($database = $input->getOption('database')) {

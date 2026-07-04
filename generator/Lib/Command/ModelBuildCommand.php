@@ -25,7 +25,7 @@ class ModelBuildCommand extends Command
         $this
             ->addArgument('schema', InputArgument::OPTIONAL, 'Schema file or directory', './schema')
             ->addOption('output-dir', 'o', InputOption::VALUE_REQUIRED, 'Output directory for generated classes', './generated-classes')
-            ->addOption('config', 'c', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Build properties file overriding generator/default.properties (repeatable; later files win)', [])
+            ->addOption('config', 'c', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Build properties file overriding generator/default.php (repeatable; later files win)', [])
             ->addOption('database', 'd', InputOption::VALUE_REQUIRED, 'Target database adapter (mysql, pgsql, sqlite, ...)')
             ->addOption('target-platform', null, InputOption::VALUE_REQUIRED, 'Codegen dialect: php5 (legacy) or php84 (current)')
             ->addOption('namespace', null, InputOption::VALUE_REQUIRED, 'Default package/namespace for generated classes')
@@ -86,7 +86,7 @@ EOT
 
     private function loadConfiguration(InputInterface $input): GeneratorConfig
     {
-        $defaultPropertiesFile = dirname(__DIR__, 2) . '/default.properties';
+        $defaultPropertiesFile = dirname(__DIR__, 2) . '/default.php';
 
         $overrides = [];
         if ($database = $input->getOption('database')) {

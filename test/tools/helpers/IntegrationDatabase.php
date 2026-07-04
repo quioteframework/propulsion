@@ -227,10 +227,10 @@ class IntegrationDatabase
         }
 
         $config = GeneratorConfig::createFromPropertiesFile(
-            $repoRoot . '/generator/default.properties',
+            $repoRoot . '/generator/default.php',
             [
-                $fixtureDir . '/build.properties',
-                $fixtureDir . '/build.propulsion.properties',
+                $fixtureDir . '/build.php',
+                $fixtureDir . '/build.propulsion.php',
             ],
             ['propel.database' => $platform]
         );
@@ -371,8 +371,8 @@ class IntegrationDatabase
         }
 
         $config = GeneratorConfig::createFromPropertiesFile(
-            $repoRoot . '/generator/default.properties',
-            [$fixtureDir . '/build.properties'],
+            $repoRoot . '/generator/default.php',
+            [$fixtureDir . '/build.php'],
             ['propel.database' => 'pgsql']
         );
 
@@ -502,8 +502,8 @@ class IntegrationDatabase
         }
 
         $config = GeneratorConfig::createFromPropertiesFile(
-            $repoRoot . '/generator/default.properties',
-            [$fixtureDir . '/build.properties'],
+            $repoRoot . '/generator/default.php',
+            [$fixtureDir . '/build.php'],
             ['propel.database' => 'pgsql', 'propel.targetPlatform' => 'php84']
         );
 

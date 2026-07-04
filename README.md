@@ -1,19 +1,30 @@
 # Propulsion
 
-Propulsion is an object-relational mapper (ORM) for PHP, forked from Propulsion 1
-and modernized to target PHP 8.5+.
+Propulsion is an object-relational mapper (ORM) for PHP, forked from
+[Propel 1](https://github.com/propelorm/Propel1) and modernized to target
+PHP 8.5+.
+
+Propel 1 development had wound down and the project was effectively
+unmaintained; Propulsion picks up that codebase, renames it, and carries it
+forward — modern PHP syntax and types throughout, Phing replaced by a plain
+console app, PostgreSQL promoted to the default/recommended database, and
+ongoing bug fixes. See `NOTICE.md` for attribution details and
+`KNOWN_ISSUES.md` for a running log of what's changed and what's still in
+progress.
 
 ## Database support
 
 **PostgreSQL is the recommended and default database for new projects**
 (PostgreSQL 15+; see `KNOWN_ISSUES.md` for the version-support note). It's
 what this codebase's own test suite, CI, and code generator default to —
-`generator/default.properties`'s `propel.database` is `pgsql` out of the box,
-and `PgsqlPlatform` gets the most feature-parity attention of the bundled
+`generator/default.php`'s `propel.database` is `pgsql` out of the box, and
+`PgsqlPlatform` gets the most feature-parity attention of the bundled
 platforms. MySQL, SQLite, Oracle, and MSSQL/SQL Server are also supported and
 exercised by the test suite, and remain a simple per-project override — set
-`propel.database` in your own `build.properties`, or pass `--database` on the
-console commands — if you need a different target.
+`propel.database` in your own `build.php` (a plain PHP file returning an
+array; `--config`, repeatable, on the console commands — a legacy
+`build.properties` text file is also still accepted), or pass `--database`
+directly, if you need a different target.
 
 ## Logging
 

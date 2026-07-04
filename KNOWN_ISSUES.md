@@ -561,9 +561,26 @@ categories, not one:
   support outright once there's actual evidence (a changelog/major-version
   point, or direct confirmation) that no consuming project still relies on
   it.
+- **`generator/default.properties` replaced with `generator/default.php`
+  (plain PHP array, same content).** The same reasoning as the buildtime-conf
+  precedent above applies one level up: `GeneratorConfig::parsePropertiesFile()`
+  now dispatches on file extension, so a `.php` file is `require`d and
+  expected to `return` a flat `['propel.foo' => ..., ...]` array, while
+  anything else still falls through to the legacy Ant/Phing `.properties`
+  text parser -- kept, again, because a project's own `build.properties` is
+  user-authored content outside this repo, not provably safe to break.
+  `generator/default.properties` itself, however, ships *with* this repo (like
+  the `Propel*` → `Propulsion*` rename and the Phing removal, fully internal
+  and auditable), so it was hard-cut to `generator/default.php` with no
+  parallel legacy copy kept around -- every in-repo consumer (every generator
+  Command's `loadConfiguration()`, `QuickGeneratorConfig`, `IntegrationDatabase`,
+  and the handful of tests that construct a `GeneratorConfig` directly) was
+  updated to the new path. The nine `test/fixtures/*/build.properties` files
+  (all internal test fixtures, same reasoning) were converted the same way,
+  to `build.php`/`build.propulsion.php`.
 - **Fixed: Postgres promoted to the documented/default database.**
-  `generator/default.properties`'s `propel.database` now defaults to `pgsql`
-  (still a plain per-project override via a project's own `build.properties`
+  `generator/default.php`'s `propel.database` now defaults to `pgsql`
+  (still a plain per-project override via a project's own `build.php`
   or the console commands' `--database` flag -- every consumer of
   `propel.database` already goes through `GeneratorConfig`'s default ->
   project-override -> explicit-override merge order, so nothing relied on the

@@ -28,7 +28,7 @@ class SchemaReverseCommand extends Command
             ->addOption('database-name', null, InputOption::VALUE_REQUIRED, 'Name to use for the <database name=""> attribute in the generated schema.xml')
             ->addOption('output-file', 'o', InputOption::VALUE_REQUIRED, 'Path to write the generated schema.xml to', './schema.xml')
             ->addOption('add-validators', null, InputOption::VALUE_REQUIRED, 'Comma-separated list of validators to add: none,maxlength,maxvalue,type,required,unique,all', 'none')
-            ->addOption('config', 'c', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Build properties file overriding generator/default.properties (repeatable; later files win)', [])
+            ->addOption('config', 'c', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Build properties file overriding generator/default.php (repeatable; later files win)', [])
             ->addOption('database', 'd', InputOption::VALUE_REQUIRED, 'Source database adapter (mysql, pgsql, sqlite, ...) -- selects which SchemaParser/Platform to use')
             ->setHelp(<<<'EOT'
 The <info>schema:reverse</info> command connects to a live database and reverse-engineers
@@ -89,7 +89,7 @@ EOT
 
     private function loadConfiguration(InputInterface $input): GeneratorConfig
     {
-        $defaultPropertiesFile = dirname(__DIR__, 2) . '/default.properties';
+        $defaultPropertiesFile = dirname(__DIR__, 2) . '/default.php';
 
         $overrides = [];
         if ($database = $input->getOption('database')) {

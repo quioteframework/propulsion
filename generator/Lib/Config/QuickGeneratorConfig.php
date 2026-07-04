@@ -39,11 +39,11 @@ namespace Propulsion\Generator\Config;
 class QuickGeneratorConfig implements GeneratorConfigInterface
 {
 	// These used to hardcode the PHP5* builders (independently of
-	// generator/default.properties' propel.builder.*.class keys -- this class is used by
+	// generator/default.php's propel.builder.*.class keys -- this class is used by
 	// PropulsionQuickBuilder, the ad-hoc-schema builder most behavior unit tests use, and
 	// has its own separate builder registry). Since the PHP5 builders were removed
 	// entirely (see archaeology/php5-builders/, KNOWN_ISSUES.md), these now point at the
-	// same promoted builders default.properties uses.
+	// same promoted builders default.php uses.
 	protected $builders = array(
 		'peer'					=> PeerBuilder::class,
 		'object'				=> ObjectBuilder::class,
@@ -68,33 +68,7 @@ class QuickGeneratorConfig implements GeneratorConfigInterface
 
 	public function __construct()
 	{
-		$this->setBuildProperties($this->parsePseudoIniFile(dirname(__FILE__) . '/../../default.properties'));
-	}
-
-	/**
-	 * Why would Phing use ini while it so fun to invent a new format? (sic)
-	 * parse_ini_file() doesn't work for Phing property files
-	 */
-	protected function parsePseudoIniFile($filepath)
-	{
-		$properties = array();
-		if (($lines = @file($filepath)) === false) {
-			throw new \Exception("Unable to parse contents of $filepath");
-		}
-		foreach($lines as $line) {
-				$line = trim($line);
-				if ($line == "" || $line[0] == '#' || $line[0] == ';') continue;
-				$pos = strpos($line, '=');
-				$property = trim(substr($line, 0, $pos));
-				$value = trim(substr($line, $pos + 1));
-				if ($value === "true") {
-					$value = true;
-				} elseif ($value === "false") {
-					$value = false;
-				}
-				$properties[$property] = $value;
-		}
-		return $properties;
+		$this->setBuildProperties(require dirname(__FILE__) . '/../../default.php');
 	}
 
 	/**
@@ -167,6 +141,11 @@ class QuickGeneratorConfig implements GeneratorConfigInterface
 	 */
 	public function setBuildProperty($name, $value)
 	{
+		if ($value === 'true') {
+			$value = true;
+		} elseif ($value === 'false') {
+			$value = false;
+		}
 		$this->buildProperties[$name] = $value;
 	}
 

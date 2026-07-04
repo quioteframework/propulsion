@@ -28,7 +28,7 @@ class DataDumpCommand extends Command
             ->addOption('user', 'u', InputOption::VALUE_REQUIRED, 'Database user', null)
             ->addOption('password', 'p', InputOption::VALUE_REQUIRED, 'Database password', null)
             ->addOption('database', 'd', InputOption::VALUE_REQUIRED, 'Only dump the database with this <database name="..."> from the schema (dumps every database in the schema if omitted)')
-            ->addOption('config', 'c', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Build properties file overriding generator/default.properties (repeatable; later files win)', [])
+            ->addOption('config', 'c', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Build properties file overriding generator/default.php (repeatable; later files win)', [])
             ->setHelp(<<<'EOT'
 The <info>data:dump</info> command connects to a live database and dumps the
 rows of every table described by a schema.xml into an XML `<dataset>` file --
@@ -88,7 +88,7 @@ EOT
 
     private function loadConfiguration(InputInterface $input): GeneratorConfig
     {
-        $defaultPropertiesFile = dirname(__DIR__, 2) . '/default.properties';
+        $defaultPropertiesFile = dirname(__DIR__, 2) . '/default.php';
 
         return GeneratorConfig::createFromPropertiesFile(
             $defaultPropertiesFile,
