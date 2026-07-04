@@ -16,6 +16,10 @@ the promoted builders (most seriously, `ObjectBuilder` calling zero
 behavior-modifier hooks at all — since fixed — plus several
 still-unfixed, behavior-specific gaps in `nested_set`/`i18n`/`sortable`).
 See Phase 3.5 for the itemized list of what was fixed and what remains.
+**Update: the `sortable` cluster is now fixed** (see "Sortable behavior
+cluster — fixed" under Phase 3.5) — current count **2200 tests, 143
+errors, 145 failures, 11 skipped, 1 risky**; `nested_set`/`i18n` remain
+open, being worked in parallel.
 
 Prior to Phase 3.5, with Docker (full suite, confirmed by an actual
 combined run after all of the below landed together on `main`): **2184
@@ -637,6 +641,66 @@ pass should work through the remaining clusters the same way this one
 worked through the hook-wiring and segfault issues (bisect by running
 `testsuite/generator/behavior/<name>/` in isolation, find the first real
 error, root-cause it, repeat).
+
+**Sortable behavior cluster — fixed** (the `SortableBehaviorObjectBuilderModifierTest`/
+`SortableBehaviorObjectBuilderModifierWithScopeTest`/`SortableBehaviorPeerBuilderModifierTest`/
+`SortableBehaviorPeerBuilderModifierWithScopeTest` ~29-37 failures called out
+above). Two independent, real bugs in the sortable behavior's own modifier
+code (`generator/Lib/Behavior/Sortable/*.php`), neither in `ObjectBuilder`/
+`PeerBuilder` itself — both pre-existing and silently tolerated by PHP5's
+untyped generated code, surfaced only once the promoted (strictly-typed)
+builders became the sole code path:
+
+- `SortableBehaviorObjectBuilderModifier::addRankAccessors()`/
+  `addScopeAccessors()` generated `getRank()`/`getScopeValue()` wrapper
+  methods (emitted whenever the schema names the rank/scope column
+  something other than the literal `rank`/`scope_value`, which both
+  `table11`/`table12` sortable fixtures do) that read a raw object
+  property named via `strtolower($column->getName())` — e.g.
+  `$this->sortable_rank`. That was `PHP5ObjectBuilder`'s property-naming
+  convention (`strtolower($col->getName())` throughout). The promoted
+  `ObjectBuilder` names column properties by PascalCase `phpName` instead
+  (`private ?int $SortableRank`, per `addProperties()`), so these wrappers
+  always read an undeclared property (silently `null` under PHP's dynamic
+  property access) instead of the real one. Every rank-dependent
+  assertion across all four Sortable test classes failed or returned/keyed
+  on a null/empty rank as a result (visible as `Failed asserting that null
+  matches expected N`, or arrays keyed by `''` instead of the real rank in
+  the reorder/move tests). Fixed by delegating to the real generated
+  getter method (`$this->getSortableRank()`, via the existing
+  `getColumnGetter()` helper) instead of re-deriving a property name —
+  decouples the behavior modifier from `ObjectBuilder`'s internal property-
+  naming scheme entirely, rather than reintroducing a second, now-wrong
+  copy of PHP5's convention. This is the kind of gap the task's framing
+  anticipated finding in behavior modifiers specifically (not just in the
+  builders) — worth a quick check by whoever owns `nested_set`/`i18n`
+  whether their behavior modifiers make the same `strtolower(getName())`
+  property-name assumption, since the pattern (and the `getColumnAttribute()`
+  helper method name) recurs verbatim in
+  `SortableBehaviorPeerBuilderModifier` too, just unused there.
+- `SortableBehaviorPeerBuilderModifier::addCountList()` called
+  `Peer::doCount($c, $con)`, positionally passing the connection into
+  `doCount()`'s `$distinct` parameter (the call was simply missing the
+  `$distinct` argument). `PeerBuilder::addDoCount()`'s `doCount()` wrapper
+  is untyped and forwards to the strictly-typed `doCountThis(Criteria,
+  bool, ?PropulsionPDO)`, so this always threw `doCountThis(): Argument #2
+  ($distinct) must be of type bool, null given` the moment
+  `countList()` (used by `SortableBehaviorPeerBuilderModifierWithScopeTest::
+  testCountList`) ran — this was the suite's one sortable-cluster *error*
+  (as opposed to failure). Fixed by passing the missing `false` literal
+  for `$distinct` explicitly.
+
+Verified: `--filter SortableBehavior` went from 37 failures + 1 error (of
+73 tests) to 0/0, 73/73 passing. Full suite
+(`../vendor/bin/phpunit -c phpunit.xml`, Docker/Postgres, fixture `build/`
+dirs removed first): **2200 tests, 143 errors, 145 failures** (was 143
+errors/184 failures before this fix) — the 39-defect drop matches the
+sortable cluster exactly (confirmed via a full re-run: no `SortableBehavior`
+class appears anywhere in the post-fix failure/error list), and the error
+count staying at 143 rather than dropping to 142 is this suite's
+already-documented run-to-run flakiness (±1-2), not a regression — no new
+failing test class appeared. Not investigated further: `nested_set`/`i18n`
+clusters, out of this task's scope (being worked in parallel elsewhere).
 
 ### Phase 4 — Worker-safety rework (ServiceContainer/Session split)
 
