@@ -434,6 +434,12 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$this->addClear($script);
 		$this->addClearAllReferences($script);
 		$this->addPrimaryString($script);
+
+		// Lets behaviors append arbitrary custom methods (e.g. the nested_set behavior's
+		// getLeftValue()/setLeftValue()/isRoot()/etc.). See addProperties() for why this
+		// hook, like the others added alongside it, was entirely missing before.
+		$this->applyBehaviorModifier('objectMethods', $script, "	");
+
 		$this->addMagicCall($script);
 	}
 
@@ -559,6 +565,12 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	protected bool \$new = true;
 	protected bool \$deleted = false;
 	protected array \$modifiedColumns = [];";
+
+		// Lets behaviors add extra properties (e.g. the nested_set behavior's left/right/
+		// level columns' in-memory shadow, if any). This hook was entirely missing from
+		// this builder until now -- every behavior that hooks object-level codegen
+		// silently got none of its generated code injected, see KNOWN_ISSUES.md.
+		$this->applyBehaviorModifier('objectAttributes', $script, "	");
 	}
 
 	/**
@@ -1157,6 +1169,10 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	{
 		$script .= "
 }";
+
+		// Filter hooks rewrite the whole accumulated $script by reference, so this must
+		// run last, after the closing brace above. See addProperties() for background.
+		$this->applyBehaviorModifier('objectFilter', $script, "");
 	}
 
 	/**
@@ -1302,10 +1318,37 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		\$con->beginTransaction();
 		try {
 			\$deleteQuery = " . $this->getQueryClassname() . "::create()
-				->filterByPrimaryKey(\$this->getPrimaryKey());
-			\$deleteQuery->delete(\$con);
+				->filterByPrimaryKey(\$this->getPrimaryKey());";
+		// preDelete()/postDelete() are user-overridable hook methods (see
+		// runtime/Lib/OM/BaseObject.php) -- preDelete() returning false vetoes the delete.
+		// This whole addHooks-gated block, and the applyBehaviorModifier() calls inside it,
+		// were entirely missing before: neither the virtual hook methods nor any behavior's
+		// preDelete/postDelete modifier ever ran. See KNOWN_ISSUES.md.
+		if ($this->getGeneratorConfig()->getBuildProperty('addHooks')) {
+			$script .= "
+			\$ret = \$this->preDelete(\$con);";
+			$this->applyBehaviorModifier('preDelete', $script, "			");
+			$script .= "
+			if (\$ret) {
+				\$deleteQuery->delete(\$con);
+				\$this->postDelete(\$con);";
+			$this->applyBehaviorModifier('postDelete', $script, "				");
+			$script .= "
+				\$con->commit();
+				\$this->setDeleted(true);
+			} else {
+				\$con->commit();
+			}";
+		} else {
+			$this->applyBehaviorModifier('preDelete', $script, "			");
+			$script .= "
+			\$deleteQuery->delete(\$con);";
+			$this->applyBehaviorModifier('postDelete', $script, "			");
+			$script .= "
 			\$con->commit();
-			\$this->setDeleted(true);
+			\$this->setDeleted(true);";
+		}
+		$script .= "
 		} catch (PropulsionException \$e) {
 			\$con->rollBack();
 			throw \$e;
@@ -1356,11 +1399,58 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 
 		\$con->beginTransaction();
 		\$isInsert = \$this->isNew();
-		try {
-			\$affectedRows = \$this->doSave(\$con" . ($reloadOnUpdate || $reloadOnInsert ? ", \$skipReload" : "") . ");
+		try {";
+		// preSave()/postSave()/preInsert()/postInsert()/preUpdate()/postUpdate() are
+		// user-overridable hook methods (see runtime/Lib/OM/BaseObject.php) --
+		// preSave()/preInsert()/preUpdate() returning false vetoes the save. This whole
+		// addHooks-gated block, and the applyBehaviorModifier() calls inside it, were
+		// entirely missing before: neither the virtual hook methods nor any behavior's
+		// save-lifecycle modifier ever ran. See KNOWN_ISSUES.md.
+		if ($this->getGeneratorConfig()->getBuildProperty('addHooks')) {
+			$script .= "
+			\$ret = \$this->preSave(\$con);";
+			$this->applyBehaviorModifier('preSave', $script, "			");
+			$script .= "
+			if (\$isInsert) {
+				\$ret = \$ret && \$this->preInsert(\$con);";
+			$this->applyBehaviorModifier('preInsert', $script, "				");
+			$script .= "
+			} else {
+				\$ret = \$ret && \$this->preUpdate(\$con);";
+			$this->applyBehaviorModifier('preUpdate', $script, "				");
+			$script .= "
+			}
+			if (\$ret) {
+				\$affectedRows = \$this->doSave(\$con" . ($reloadOnUpdate || $reloadOnInsert ? ", \$skipReload" : "") . ");
+				if (\$isInsert) {
+					\$this->postInsert(\$con);";
+			$this->applyBehaviorModifier('postInsert', $script, "					");
+			$script .= "
+				} else {
+					\$this->postUpdate(\$con);";
+			$this->applyBehaviorModifier('postUpdate', $script, "					");
+			$script .= "
+				}
+				\$this->postSave(\$con);";
+			$this->applyBehaviorModifier('postSave', $script, "				");
+			$script .= "
+				" . $this->getPeerClassname() . "::addInstanceToPool(\$this);
+			} else {
+				\$affectedRows = 0;
+			}
+			\$con->commit();
+			return \$affectedRows;";
+		} else {
+			$this->applyBehaviorModifier('preSave', $script, "			");
+			$script .= "
+			\$affectedRows = \$this->doSave(\$con" . ($reloadOnUpdate || $reloadOnInsert ? ", \$skipReload" : "") . ");";
+			$this->applyBehaviorModifier('postSave', $script, "			");
+			$script .= "
 			" . $this->getPeerClassname() . "::addInstanceToPool(\$this);
 			\$con->commit();
-			return \$affectedRows;
+			return \$affectedRows;";
+		}
+		$script .= "
 		} catch (PropulsionException \$e) {
 			\$con->rollBack();
 			throw \$e;
@@ -2700,7 +2790,12 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 				}
 			}
 		}
-		
+
+		// Lets behaviors clear their own extra references here too (e.g. a behavior that
+		// caches a related collection). See addProperties() for background on why this
+		// hook, like the others added alongside it, was entirely missing before.
+		$this->applyBehaviorModifier('objectClearReferences', $script, "		");
+
 		// Clear foreign key references
 		foreach ($table->getForeignKeys() as $fk) {
 			$varName = $this->getFKVarName($fk);

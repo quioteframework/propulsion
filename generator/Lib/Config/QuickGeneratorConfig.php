@@ -16,44 +16,50 @@ namespace Propulsion\Generator\Config;
 
  use Propulsion\Generator\Model\Table;
  use Propulsion\Generator\Builder\Util\DefaultEnglishPluralizer;
- use Propulsion\Generator\Builder\OM\PHP5PeerBuilder;
- use Propulsion\Generator\Builder\OM\PHP5ObjectBuilder;
- use Propulsion\Generator\Builder\OM\PHP5ExtensionObjectBuilder;
- use Propulsion\Generator\Builder\OM\PHP5ExtensionPeerBuilder;
- use Propulsion\Generator\Builder\OM\PHP5MultiExtendObjectBuilder;
- use Propulsion\Generator\Builder\OM\PHP5TableMapBuilder;
+ use Propulsion\Generator\Builder\OM\PeerBuilder;
+ use Propulsion\Generator\Builder\OM\ObjectBuilder;
+ use Propulsion\Generator\Builder\OM\ExtensionObjectBuilder;
+ use Propulsion\Generator\Builder\OM\ExtensionPeerBuilder;
+ use Propulsion\Generator\Builder\OM\MultiExtendObjectBuilder;
+ use Propulsion\Generator\Builder\OM\TableMapBuilder;
  use Propulsion\Generator\Builder\OM\QueryBuilder;
  use Propulsion\Generator\Builder\OM\ExtensionQueryBuilder;
  use Propulsion\Generator\Builder\OM\QueryInheritanceBuilder;
  use Propulsion\Generator\Builder\OM\ExtensionQueryInheritanceBuilder;
- use Propulsion\Generator\Builder\OM\PHP5InterfaceBuilder;
- use Propulsion\Generator\Builder\OM\PHP5NodeBuilder;
- use Propulsion\Generator\Builder\OM\PHP5NodePeerBuilder;
- use Propulsion\Generator\Builder\OM\PHP5ExtensionNodeBuilder;
- use Propulsion\Generator\Builder\OM\PHP5ExtensionNodePeerBuilder;
- use Propulsion\Generator\Builder\OM\PHP5NestedSetBuilder;
- use Propulsion\Generator\Builder\OM\PHP5NestedSetPeerBuilder;
+ use Propulsion\Generator\Builder\OM\InterfaceBuilder;
+ use Propulsion\Generator\Builder\OM\NodeBuilder;
+ use Propulsion\Generator\Builder\OM\NodePeerBuilder;
+ use Propulsion\Generator\Builder\OM\ExtensionNodeBuilder;
+ use Propulsion\Generator\Builder\OM\ExtensionNodePeerBuilder;
+ use Propulsion\Generator\Builder\OM\NestedSetBuilder;
+ use Propulsion\Generator\Builder\OM\NestedSetPeerBuilder;
 
 class QuickGeneratorConfig implements GeneratorConfigInterface
 {
+	// These used to hardcode the PHP5* builders (independently of
+	// generator/default.properties' propel.builder.*.class keys -- this class is used by
+	// PropulsionQuickBuilder, the ad-hoc-schema builder most behavior unit tests use, and
+	// has its own separate builder registry). Since the PHP5 builders were removed
+	// entirely (see archaeology/php5-builders/, KNOWN_ISSUES.md), these now point at the
+	// same promoted builders default.properties uses.
 	protected $builders = array(
-		'peer'					=> PHP5PeerBuilder::class,
-		'object'				=> PHP5ObjectBuilder::class,
-		'objectstub'		=> PHP5ExtensionObjectBuilder::class,
-		'peerstub'			=> PHP5ExtensionPeerBuilder::class,
-		'objectmultiextend' => PHP5MultiExtendObjectBuilder::class,
-		'tablemap'			=> PHP5TableMapBuilder::class,
+		'peer'					=> PeerBuilder::class,
+		'object'				=> ObjectBuilder::class,
+		'objectstub'		=> ExtensionObjectBuilder::class,
+		'peerstub'			=> ExtensionPeerBuilder::class,
+		'objectmultiextend' => MultiExtendObjectBuilder::class,
+		'tablemap'			=> TableMapBuilder::class,
 		'query'					=> QueryBuilder::class,
 		'querystub'			=> ExtensionQueryBuilder::class,
 		'queryinheritance' => QueryInheritanceBuilder::class,
 		'queryinheritancestub' => ExtensionQueryInheritanceBuilder::class,
-		'interface'			=> PHP5InterfaceBuilder::class,
-		'node'					=> PHP5NodeBuilder::class,
-		'nodepeer'			=> PHP5NodePeerBuilder::class,
-		'nodestub'			=> PHP5ExtensionNodeBuilder::class,
-		'nodepeerstub'	=> PHP5ExtensionNodePeerBuilder::class,
-		'nestedset'			=> PHP5NestedSetBuilder::class,
-		'nestedsetpeer' => PHP5NestedSetPeerBuilder::class,
+		'interface'			=> InterfaceBuilder::class,
+		'node'					=> NodeBuilder::class,
+		'nodepeer'			=> NodePeerBuilder::class,
+		'nodestub'			=> ExtensionNodeBuilder::class,
+		'nodepeerstub'	=> ExtensionNodePeerBuilder::class,
+		'nestedset'			=> NestedSetBuilder::class,
+		'nestedsetpeer' => NestedSetPeerBuilder::class,
 	);
 
 	protected $buildProperties = array();
