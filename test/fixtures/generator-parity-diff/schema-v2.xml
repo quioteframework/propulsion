@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<database name="diff_parity" defaultIdMethod="native">
+  <table name="diff_author" phpName="DiffAuthor">
+    <column name="id" type="INTEGER" primaryKey="true" autoIncrement="true"/>
+    <column name="name" type="VARCHAR" size="100" required="true"/>
+  </table>
+  <table name="diff_book" phpName="DiffBook">
+    <column name="id" type="INTEGER" primaryKey="true" autoIncrement="true"/>
+    <column name="title" type="VARCHAR" size="255" required="true"/>
+    <column name="author_id" type="INTEGER"/>
+    <column name="price" type="DECIMAL" size="10" scale="2"/>
+    <foreign-key foreignTable="diff_author" onDelete="cascade">
+      <reference local="author_id" foreign="id"/>
+    </foreign-key>
+  </table>
+</database>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<database name="generator_parity" defaultIdMethod="native">
+  <table name="parity_author" phpName="ParityAuthor">
+    <column name="id" type="INTEGER" primaryKey="true" autoIncrement="true"/>
+    <column name="name" type="VARCHAR" size="100" required="true"/>
+  </table>
+  <table name="parity_book" phpName="ParityBook">
+    <column name="id" type="INTEGER" primaryKey="true" autoIncrement="true"/>
+    <column name="title" type="VARCHAR" size="255" required="true"/>
+    <column name="author_id" type="INTEGER"/>
+    <foreign-key foreignTable="parity_author" onDelete="cascade">
+      <reference local="author_id" foreign="id"/>
+    </foreign-key>
+    <behavior name="timestampable"/>
+  </table>
+</database>
