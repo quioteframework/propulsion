@@ -3,6 +3,18 @@
 Propulsion is an object-relational mapper (ORM) for PHP, forked from Propulsion 1
 and modernized to target PHP 8.5+.
 
+## Database support
+
+**PostgreSQL is the recommended and default database for new projects**
+(PostgreSQL 15+; see `KNOWN_ISSUES.md` for the version-support note). It's
+what this codebase's own test suite, CI, and code generator default to —
+`generator/default.properties`'s `propel.database` is `pgsql` out of the box,
+and `PgsqlPlatform` gets the most feature-parity attention of the bundled
+platforms. MySQL, SQLite, Oracle, and MSSQL/SQL Server are also supported and
+exercised by the test suite, and remain a simple per-project override — set
+`propel.database` in your own `build.properties`, or pass `--database` on the
+console commands — if you need a different target.
+
 ## Logging
 
 Propulsion logs through [PSR-3](https://www.php-fig.org/psr/psr-3/)
