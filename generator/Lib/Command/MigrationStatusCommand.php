@@ -29,7 +29,9 @@ The <info>migration:status</info> command lists which migration classes (in
 --migration-dir) have already been applied to the configured datasource(s) and
 which are still pending.
 
-<info>php bin/propulsion migration:status --buildtime-conf=buildtime-conf.xml --migration-dir=./migrations</info>
+<info>php bin/propulsion migration:status --buildtime-conf=buildtime-conf.php --migration-dir=./migrations</info>
+
+A legacy buildtime-conf.xml file (deprecated) is also still accepted.
 EOT
             );
     }

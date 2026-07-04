@@ -7,7 +7,7 @@ history (`git log`); every fix commit explains its own root cause in full.
 
 ## Test suite status
 
-**Full suite (Docker/Postgres) is green: 2252 tests, 0 errors, 0 failures, 0
+**Full suite (Docker/Postgres) is green: 2259 tests, 0 errors, 0 failures, 0
 risky, 14 skipped.** (The `MssqlPlatformTest` order-dependent flake mentioned in earlier
 drafts of this section is fixed — see the `Propel*`/rename-era commit history
 around `MssqlPlatform::$dropCount` if curious; it's no longer an issue.)
@@ -509,6 +509,57 @@ categories, not one:
   crutch. Not scoped or started — noting the direction here so "should we
   port ConvertConf to the console app too" doesn't come up without this
   context.
+- **Build-time connection config: plain-PHP format added, XML kept
+  (deprecated, not removed).** `Propulsion::init()`/`setConfiguration()` (the
+  *runtime* side) already only ever accepted PHP arrays; the one remaining
+  live XML surface was *build-time* database connection info -- the
+  `--buildtime-conf` option on `migration:status`/`migration:up`/
+  `migration:down`/`sql:diff` (`GeneratorConfig::getBuildConnections()`/
+  `parseBuildConnections()`), which read a `buildtime-conf.xml` file like:
+  ```xml
+  <config><propel><datasources default="bookstore">
+    <datasource id="bookstore"><adapter>pgsql</adapter>
+      <connection><dsn>pgsql:host=localhost;dbname=mydb</dsn><user>me</user><password>secret</password></connection>
+    </datasource>
+  </datasources></propel></config>
+  ```
+  **Recommended now**: the same `--buildtime-conf` option also accepts a
+  plain PHP file (dispatched on file extension, in
+  `GeneratorConfig::loadBuildConnectionsFile()`) that just `require`s and
+  returns an array in the same shape `getBuildConnections()` has always
+  returned internally:
+  ```php
+  <?php
+  return [
+      'default' => 'bookstore',
+      'datasources' => [
+          'bookstore' => ['adapter' => 'pgsql', 'dsn' => 'pgsql:host=localhost;dbname=mydb', 'user' => 'me', 'password' => 'secret'],
+      ],
+  ];
+  ```
+  A `propel.buildtimeConfigArray` build property (an array set directly,
+  rather than a file path) is also supported for programmatic/ad-hoc use, in
+  the same shape.
+
+  **Kept both formats, deliberately not a hard cutover** -- unlike the
+  Phing removal and the `Propel*` → `Propulsion*` rename (both entirely
+  internal to this repo, so every caller was auditable and provably safe to
+  cut over in one pass), a `buildtime-conf.xml` file is *user-authored
+  content living in a consuming project's own repo*, not code inside this
+  one. There is no way to grep an external project's config files from here,
+  so whether removing XML support would break existing consumers "in the
+  wild" genuinely can't be verified from within this codebase alone --
+  exactly the kind of concrete uncertainty that argues for keeping both
+  paths rather than guessing. All in-repo test coverage
+  (`MigrationCommandsTest`, `SqlDiffCommandTest`) still exercises the legacy
+  XML path unchanged, plus new parallel test methods
+  (`...UsingPhpConfigFile()`) proving the PHP path works end-to-end through
+  the same console commands; `GeneratorConfigTest` covers all three input
+  forms (`buildtimeConfigArray`, a `.php` file, a legacy `.xml` file)
+  directly at the `GeneratorConfig` unit level. Revisit removing XML
+  support outright once there's actual evidence (a changelog/major-version
+  point, or direct confirmation) that no consuming project still relies on
+  it.
 - **Postgres isn't actually the documented/default database** despite being
   what all fixtures and CI use: `generator/default.properties`'s
   `propel.database` is still empty, the README doesn't recommend one, and

@@ -396,48 +396,116 @@ class GeneratorConfig implements GeneratorConfigInterface
 		$this->buildConnections = $buildConnections;
 	}
 
+	/**
+	 * Looks up build-time database connection info (adapter/dsn/user/password,
+	 * keyed by datasource id, with one marked as default) from, in order:
+	 *
+	 *  - a `propel.buildtimeConfigArray` build property: a plain PHP array,
+	 *    already in the shape this method returns (see
+	 *    {@see applyBuildConnectionsArray()}), e.g. set programmatically or
+	 *    via an ad-hoc `--config` override. This is the recommended path --
+	 *    see KNOWN_ISSUES.md.
+	 *  - a `propel.buildtimeConfFile` build property naming either a plain
+	 *    PHP file (recommended -- returns the same array shape as above,
+	 *    loaded via `require`) or a legacy `buildtime-conf.xml` file (kept
+	 *    for backward compatibility with existing project configs -- see
+	 *    {@see parseBuildConnections()}), tried at a direct path, CWD, or a
+	 *    repository `build/propel/` directory.
+	 *  - a `propel.buildtimeConf` base64-encoded XML string build property
+	 *    (legacy; command-line-friendly since it avoids whitespace).
+	 *
+	 * @return array<string,array{adapter:?string,dsn:?string,user:?string,password:?string}>
+	 */
 	public function getBuildConnections()
 	{
 		if (null === $this->buildConnections) {
-			$buildTimeConfigPath = $this->getBuildProperty('buildtimeConfFile') ? $this->getBuildProperty('projectDir') . DIRECTORY_SEPARATOR .  $this->getBuildProperty('buildtimeConfFile') : null;
-			// Allow alternative locations for buildtime conf: a direct path, CWD, or repository build/propel directory
-			$buildTimeConfFileName = $this->getBuildProperty('buildtimeConfFile');
-			if ($buildTimeConfigString = $this->getBuildProperty('buildtimeConf')) {
-				// configuration passed as propel.buildtimeConf string
-				// probably using the command line, which doesn't accept whitespace
-				// therefore base64 encoded
-				$this->parseBuildConnections(base64_decode($buildTimeConfigString));
-			} elseif (file_exists($buildTimeConfigPath)) {
-				// configuration stored in a buildtime-conf.xml file
-				$this->parseBuildConnections(file_get_contents($buildTimeConfigPath));
-			} elseif ($buildTimeConfFileName && file_exists($buildTimeConfFileName)) {
-				// path provided directly, e.g. -Dpropel.buildtime.conf.file=/path/to/file
-				$this->parseBuildConnections(file_get_contents($buildTimeConfFileName));
-			} elseif ($buildTimeConfFileName) {
-				// try from current working directory: ./build/propel/<file>
-				$cand = getcwd() . DIRECTORY_SEPARATOR . 'build' . DIRECTORY_SEPARATOR . 'propel' . DIRECTORY_SEPARATOR . $buildTimeConfFileName;
-				if (file_exists($cand)) {
-					$this->parseBuildConnections(file_get_contents($cand));
-				} else {
-					// try CWD + filename (in case it's referenced relative to CWD)
-					$cand2 = getcwd() . DIRECTORY_SEPARATOR . $buildTimeConfFileName;
-					if (file_exists($cand2)) {
-						$this->parseBuildConnections(file_get_contents($cand2));
-					} else {
-						// last resort: try repository-level build/propel path relative to this file
-						$repoCand = dirname(__DIR__, 5) . DIRECTORY_SEPARATOR . 'build' . DIRECTORY_SEPARATOR . 'propel' . DIRECTORY_SEPARATOR . $buildTimeConfFileName;
-						if (file_exists($repoCand)) {
-							$this->parseBuildConnections(file_get_contents($repoCand));
+			if (is_array($buildTimeConfigArray = $this->getBuildProperty('buildtimeConfigArray'))) {
+				// A PHP array passed directly, in the same shape a
+				// buildtime-config.php file returns.
+				$this->applyBuildConnectionsArray($buildTimeConfigArray);
+			} else {
+				$buildTimeConfFileName = $this->getBuildProperty('buildtimeConfFile');
+				$buildTimeConfigPath = $buildTimeConfFileName ? $this->getBuildProperty('projectDir') . DIRECTORY_SEPARATOR . $buildTimeConfFileName : null;
+
+				if ($buildTimeConfigString = $this->getBuildProperty('buildtimeConf')) {
+					// configuration passed as propel.buildtimeConf string
+					// probably using the command line, which doesn't accept whitespace
+					// therefore base64 encoded
+					$this->parseBuildConnections(base64_decode($buildTimeConfigString));
+				} elseif ($buildTimeConfFileName) {
+					// Try, in order: the resolved projectDir-relative path, the
+					// filename as given directly (e.g. -Dpropel.buildtime.conf.file=/path/to/file),
+					// then a few alternative locations (CWD, repository build/propel directory).
+					$candidates = array_filter([
+						$buildTimeConfigPath,
+						$buildTimeConfFileName,
+						getcwd() . DIRECTORY_SEPARATOR . 'build' . DIRECTORY_SEPARATOR . 'propel' . DIRECTORY_SEPARATOR . $buildTimeConfFileName,
+						getcwd() . DIRECTORY_SEPARATOR . $buildTimeConfFileName,
+						dirname(__DIR__, 5) . DIRECTORY_SEPARATOR . 'build' . DIRECTORY_SEPARATOR . 'propel' . DIRECTORY_SEPARATOR . $buildTimeConfFileName,
+					]);
+					foreach ($candidates as $candidate) {
+						if ($this->loadBuildConnectionsFile($candidate)) {
+							break;
 						}
 					}
 				}
-			} else {
+			}
+
+			if (null === $this->buildConnections) {
 				$this->buildConnections = array();
 			}
 		}
 		return $this->buildConnections;
 	}
 
+	/**
+	 * Loads build connections from a file if it exists, dispatching to the
+	 * plain-PHP-array format (a `.php` file returning the
+	 * `getBuildConnections()` array shape) or the legacy XML format based on
+	 * the file extension.
+	 *
+	 * @return bool true if the file existed and was loaded.
+	 */
+	private function loadBuildConnectionsFile(string $path): bool
+	{
+		if (!file_exists($path)) {
+			return false;
+		}
+		if (strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'php') {
+			$config = require $path;
+			$this->applyBuildConnectionsArray(is_array($config) ? $config : []);
+		} else {
+			$this->parseBuildConnections(file_get_contents($path));
+		}
+		return true;
+	}
+
+	/**
+	 * Applies a plain-PHP build connections array, e.g.:
+	 * ```php
+	 * return [
+	 *     'default' => 'bookstore',
+	 *     'datasources' => [
+	 *         'bookstore' => ['adapter' => 'pgsql', 'dsn' => 'pgsql:host=localhost;dbname=mydb', 'user' => 'me', 'password' => 'secret'],
+	 *     ],
+	 * ];
+	 * ```
+	 *
+	 * @param array<string,mixed> $config
+	 */
+	private function applyBuildConnectionsArray(array $config): void
+	{
+		$this->defaultBuildConnection = $config['default'] ?? null;
+		$this->buildConnections = $config['datasources'] ?? [];
+	}
+
+	/**
+	 * Parses the legacy `buildtime-conf.xml` format. Kept for backward
+	 * compatibility with existing project configs -- see
+	 * {@see getBuildConnections()} and KNOWN_ISSUES.md for why the plain-PHP
+	 * array format (a `.php` file, or `propel.buildtimeConfigArray`) is
+	 * recommended for new configs instead.
+	 */
 	protected function parseBuildConnections($xmlString)
 	{
 		$conf = simplexml_load_string($xmlString);

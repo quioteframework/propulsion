@@ -55,7 +55,7 @@ class SqlDiffManager extends AbstractSchemaManager
     {
         $connections = $this->generatorConfig->getBuildConnections();
         if (!$connections) {
-            throw new EngineException('You must define database connection settings (e.g. via --buildtime-conf pointing at a buildtime-conf.xml file) to use sql:diff');
+            throw new EngineException('You must define database connection settings (e.g. via --buildtime-conf pointing at a buildtime-conf.php file) to use sql:diff');
         }
 
         $this->logger->info('Reading database structures...');
