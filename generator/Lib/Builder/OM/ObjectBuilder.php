@@ -825,13 +825,47 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$phpname = $col->getPhpName();
 		$paramType = $this->getPhp84TypeHint($col);
 		$returnType = $this->getClassname();
-		
+
 		$description = $col->getDescription() ? $col->getDescription() : "Set the value of [$colname] column.";
 
 		// Always add = null default value to support clearing relationships and object state
 		$defaultValue = ' = null';
 
-		$script .= "
+		if ($col->isTemporalType()) {
+			// The property/getter are strictly typed ?DateTimeInterface, but Propulsion has
+			// always accepted a Unix timestamp (int) or a parseable date string here too
+			// (PHP5ObjectBuilder's addTemporalMutator used PropulsionDateTime::newInstance()
+			// to normalize any of those) -- callers passing an int/string, a common and
+			// previously-supported pattern (e.g. TimestampableBehavior/SoftDeleteBehavior
+			// call setX($someUnixTimestamp)), got a hard TypeError against the too-strict
+			// ?DateTimeInterface-only param type this builder used for every column type
+			// uniformly. Accept the wider mixed input and normalize to a real
+			// DateTimeInterface instance (unlike PHP5, which normalized to a formatted
+			// string -- this builder's properties are real DateTimeInterface objects, so
+			// normalizing to an object here keeps that consistent) before comparing/storing.
+			$script .= "
+
+	/**
+	 * $description
+	 *
+	 * @param DateTimeInterface|string|int|null \$value New value: a DateTimeInterface, a
+	 *              Unix timestamp (int), a parseable date/time string, or null.
+	 * @return $returnType The current object (for fluent API support)
+	 */
+	public function set$phpname(DateTimeInterface|string|int|null \$value$defaultValue): $returnType
+	{
+		if (\$value !== null && !(\$value instanceof DateTimeInterface)) {
+			\$value = is_int(\$value) ? (new DateTime())->setTimestamp(\$value) : new DateTime((string) \$value);
+		}
+		if (\$this->$phpname != \$value) {
+			\$this->$phpname = \$value;
+			\$this->modifiedColumns[] = " . $this->getColumnConstant($col) . ";
+		}
+
+		return \$this;
+	}";
+		} else {
+			$script .= "
 
 	/**
 	 * $description
@@ -848,6 +882,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 
 		return \$this;
 	}";
+		}
 
 		// Add temporal specific mutator if needed
 		if ($col->isTemporalType()) {
