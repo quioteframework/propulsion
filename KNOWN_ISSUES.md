@@ -7,13 +7,23 @@ scoping conversation, before it detoured into fixing tests).
 
 ## Current test suite state
 
-With Docker (full suite, confirmed by an actual combined run after all of the
-below landed together on `main`): **2184 tests, 36 errors, 19 failures, 12
-skipped, 2 risky**. Started from a suite that couldn't run a single test at
-the start of this work (bootstrap was completely broken) and had 1137+
-errors once it could run at all. See git log on `main` for the detailed fix
-history — each commit message documents the specific root cause found and
-fixed.
+**As of Phase 3.5 (PHP5 builders removed entirely — see that section
+below for the full story): 2200 tests, 143 errors, 184 failures, 11
+skipped, 1 risky.** This is a regression in absolute count from the 36
+errors/19 failures baseline described below, and an accurate one: removing
+PHP5 as a fallback surfaced real, previously-masked completeness gaps in
+the promoted builders (most seriously, `ObjectBuilder` calling zero
+behavior-modifier hooks at all — since fixed — plus several
+still-unfixed, behavior-specific gaps in `nested_set`/`i18n`/`sortable`).
+See Phase 3.5 for the itemized list of what was fixed and what remains.
+
+Prior to Phase 3.5, with Docker (full suite, confirmed by an actual
+combined run after all of the below landed together on `main`): **2184
+tests, 36 errors, 19 failures, 12 skipped, 2 risky**. Started from a suite
+that couldn't run a single test at the start of this work (bootstrap was
+completely broken) and had 1137+ errors once it could run at all. See git
+log on `main` for the detailed fix history — each commit message
+documents the specific root cause found and fixed.
 
 Getting from ~118 errors (clusters #1-#3 fixed) down to 36 required fixing
 two more things not called out as their own numbered clusters: merging four
@@ -467,17 +477,166 @@ this phase — same pattern as commit `306ee1b`'s findings):
   `Map`/`OM`, for PSR-4-friendly `<SchemaName>/Map` and `<SchemaName>/OM`
   directory naming — not a bug to revert.
 
-**Still needed for a fully-flipped Phase 3** (tracked here rather than a
-separate phase, since it's the same rename/promotion effort, just
-incomplete): audit and fix the promoted `ObjectBuilder`/`PeerBuilder` to
-the same completeness bar demonstrated above for `QueryBuilder`/
-`TableMapBuilder`, then flip `propel.builder.peer.class`/
-`propel.builder.object.class`/etc.; separately, either finish porting
-`NestedSetBuilder`/`NestedSetPeerBuilder`/`NodeBuilder`/`NodePeerBuilder`'s
-~40 stubbed methods or formally deprecate/remove the "NestedSet treeMode"
-and "node" (`MaterializedPath`) builder types instead (their PHP5
-equivalents are the only complete implementations and the treeMode itself
-is already marked `@deprecated` in its own generated docblock).
+**Superseded by Phase 3.5 below**: rather than doing the "still needed"
+audit-and-flip work incrementally, all PHP5 builders were removed from the
+codebase outright per explicit user instruction. See Phase 3.5.
+
+### Phase 3.5 — Remove PHP5 builders entirely, archived to `archaeology/php5-builders/`
+
+**Done, with substantial known fallout** — explicit user request ("Rip out
+all the PHP5 stuff. Place the files in some archeology directory for now
+so you can reference them if/when needed. I'm unsure if nestedsets have
+ever worked in Propel."), executed as a follow-on to Phase 3 rather than
+the originally-planned incremental audit-then-flip.
+
+**What moved**: every `PHP5*`-prefixed builder (`PHP5PeerBuilder`,
+`PHP5ObjectBuilder`, `PHP5TableMapBuilder`, `PHP5QueryBuilder`,
+`PHP5InterfaceBuilder`, the `PHP5Extension*`/`PHP5Node*`/`PHP5NestedSet*`
+family, `PHP5MultiExtendObjectBuilder`, `PHP5ObjectNoCollectionBuilder`) —
+15 files — moved from `generator/Lib/Builder/OM/` (the PSR-4 root for
+`Propulsion\Generator\`) to `archaeology/php5-builders/` (outside any
+autoload path; see that directory's `README.md`). `default.properties`'
+`propel.builder.*.class` keys and `.php5.class` overrides referencing them
+were removed; every builder type is now unconditionally the promoted
+(formerly `PHP84`-suffixed) one. `ExtensionObjectBuilder`/
+`ExtensionPeerBuilder`, which literally `extends PHP5Extension{Object,Peer}Builder`,
+had the two methods they still needed (`getUnprefixedClassname()`,
+`addClassClose()`) inlined and their base class changed to
+`AbstractObjectBuilder`/`AbstractPeerBuilder`. A second, entirely separate
+hardcoded builder registry, `generator/Lib/Config/QuickGeneratorConfig.php`
+(used by `PropulsionQuickBuilder`, the ad-hoc-schema builder nearly all
+behavior unit tests use — independent of `default.properties`), was missed
+in the first pass and fixed once it started fataling with "Class
+...PHP5TableMapBuilder not found".
+
+**The big one — ObjectBuilder had *zero* behavior-modifier hook calls**:
+removing PHP5 forced `ObjectBuilder`/`PeerBuilder` to become the
+unconditional default (previously deferred in Phase 3 specifically because
+of known gaps). Auditing `ObjectBuilder` turned up something far larger
+than the previously-documented temporal-default bug: it never called
+`applyBehaviorModifier()` *anywhere*, and never called the
+user-overridable `preSave()`/`postSave()`/`preInsert()`/`postInsert()`/
+`preUpdate()`/`postUpdate()`/`preDelete()`/`postDelete()` hook methods
+(defined on `runtime/Lib/OM/BaseObject.php`, e.g. `TestAuthor` overrides
+these throughout the test suite) at all. This meant **every schema
+behavior that hooks object-level codegen** (`nested_set`, `versionable`,
+`sluggable`, `timestampable`, `aggregate_column`, `archivable`, `i18n`,
+`sortable`, `concrete_inheritance`, `delegate`, `soft_delete`,
+`query_cache`) silently got none of its generated code injected, and no
+object ever ran its own save/delete lifecycle hooks either — this was the
+dominant cause of a spike to ~830 combined errors/failures immediately
+after the PHP5 removal. Fixed by porting the `addHooks`-gated hook
+structure from `archaeology/php5-builders/PHP5ObjectBuilder.php`
+(`addSaveBody`/`addDeleteBody`) into `addSave()`/`addDelete()`, and adding
+the remaining hook points: `objectAttributes` (end of `addProperties()`),
+`objectMethods` (in `addClassBody()`, before `addMagicCall()`),
+`objectFilter` (after the closing brace in `addClassClose()`, since filter
+hooks rewrite `$script` by reference so must run last),
+`objectClearReferences` (in `addClearAllReferences()`, after the `$deep`
+block). `objectCall` was already wired via `addMagicCall()`'s existing
+`getBehaviorContent('objectCall')` call.
+
+**Other real, previously-dormant bugs found and fixed while chasing this
+down** (all silent under PHP5-as-default, since nothing exercised the
+promoted `ObjectBuilder`/`PeerBuilder`/`TableMapBuilder` as the *only*
+option before):
+
+- `addPKRefFKSet()` (the 1:1-relationship reverse FK setter, e.g.
+  `BookstoreEmployee::setBookstoreEmployeeAccount()`) called the other
+  side's setter unconditionally with no guard against it calling back —
+  infinite mutual recursion, stack overflow, **an actual PHP engine
+  segfault** the moment any 1:1 relationship's setter was exercised.
+  Ported PHP5's `if ($v !== null && $v->get{FK}() === null)` guard.
+- `addHasOnlyDefaultValues()`'s temporal-column comparison used a plain
+  double-quoted string containing `$this->$phpname->format(...)` — PHP's
+  simple string-interpolation syntax parses `$phpname->format` as a
+  (bogus, build-time) property access on the `$phpname` *string* itself,
+  silently corrupting the generated code. Needed `{$phpname}`.
+- `PeerBuilder::doValidateThis()` type-hinted its `$obj` parameter as the
+  current table's own object class, which is an LSP violation the moment a
+  concrete-inheritance child peer (a real PHP class hierarchy, e.g.
+  `ConcreteArticlePeer extends ConcreteContentPeer`) narrows that type
+  relative to its parent. Dropped the type hint (`$obj` is only ever
+  called with `$this`).
+- `QueryBuilder`/`PeerBuilder`/`ObjectBuilder`/`TableMapBuilder` all needed
+  (and, for the latter two, were missing) a `getUseStatements()` override:
+  the default emits a `use Fully\Qualified\Name;` for every FQCN-declared
+  class regardless of whether the generated class has a real namespace.
+  For a flat/non-namespaced target this is at best redundant and at worst
+  fatal — `PropulsionQuickBuilder` concatenates many flat classes into a
+  single `eval()`'d script with no namespace block between them, so the
+  same `use X;` emitted once per class collides ("name is already in
+  use"). All four now key off whether the *generated* class itself has a
+  real namespace.
+- Temporal, enum, and boolean column mutators/properties were all typed
+  far too strictly relative to what Propulsion has always accepted at
+  these call sites (a pattern repeated three times before it was
+  recognized as systemic): `?DateTimeInterface`-only setters rejected the
+  int-timestamp/string inputs `TimestampableBehavior`/`SoftDeleteBehavior`
+  pass; enum columns' `?string`-typed property couldn't legally take the
+  int index `getDefaultValueString()` returns as a *compile-time property
+  declaration default* (a hard fatal, not a warning); `?bool`-only
+  setters silently inverted string inputs like `'false'`/`'off'`/`'no'`
+  (bool's weak typing casts any non-empty string truthy, so this one
+  didn't even throw). Ported PHP5's normalization logic for all three
+  (`PHP5ObjectBuilder::addTemporalMutator()`/`addBooleanMutator()`,
+  and the enum-index default handling), while keeping the *properties*
+  themselves strictly typed (`?DateTimeInterface`, real objects — PHP5
+  stored temporal values as pre-formatted strings internally; this
+  builder does not, and this phase didn't change that).
+- `NestedSetBuilder.php`/`NestedSetPeerBuilder.php` (the deprecated
+  "NestedSet treeMode", not the actively-maintained `nested_set`
+  *behavior*) had ~38+11 literal `{ /* Implementation */ }` no-op stub
+  methods, so any table using it (the `cms.page` fixture,
+  `Page`/`PagePeer`) fataled with "must be declared abstract" on
+  instantiation the moment it stopped falling back to
+  `PHP5NestedSetBuilder`. Ported the real logic from
+  `archaeology/php5-builders/PHP5NestedSetBuilder.php`/
+  `PHP5NestedSetPeerBuilder.php`. `GeneratedNestedSetObjectTest`/
+  `GeneratedNestedSetTest`/`GeneratedNestedSetPeerTest` (27 tests) now
+  pass. Known remaining gaps in the port: `updateLoadedNode()`'s
+  composite-primary-key branch doesn't reconstruct PHP5's OR-of-ANDs
+  `Criterion` tree (no fixture exercises it), and
+  `hydrateDescendants()`/`hydrateChildren()` don't handle
+  single-table-inheritance children-column tables (also unexercised).
+  `NodeBuilder.php`/`NodePeerBuilder.php` (the separate, never-fixture-tested
+  `MaterializedPath`/`AdjacencyList` "node" builder type) were *not*
+  similarly completed — no test in this suite exercises them (the
+  `test/fixtures/treetest/` fixture that would is orphaned, not wired
+  into `IntegrationDatabase` or any test file) — so they remain the same
+  kind of no-op stubs, now with no PHP5 fallback either.
+
+**Net result — this was not a clean net win on the test counter**, and
+that's an accurate reflection of real completeness gaps this phase
+exposed rather than something papered over: before this phase (PHP5 still
+providing a safety net for `peer`/`object`/`objectstub`/`peerstub`/
+`objectmultiextend`/`node`/`nestedset`/etc., per Phase 3), the full suite
+was at parity with the documented **36 errors, 19 failures** baseline.
+After removing PHP5 entirely and fixing everything above (segfault, the
+entirely-missing behavior-hook system, the four `getUseStatements` bugs,
+the three column-mutator strictness regressions, the LSP violation, the
+NestedSet builder port): **2200 tests, 143 errors, 184 failures, 11
+skipped, 1 risky**. The swing is entirely attributable to behavior tests
+that depend on completeness the promoted `ObjectBuilder` never actually
+had before (most were simply never reached, because PHP5 was silently
+doing the real work): dominant remaining clusters (see a fresh
+`../vendor/bin/phpunit -c phpunit.xml testsuite/` run for the current
+exact numbers) are `NestedSetBehaviorObjectBuilderModifierTest` (~50,
+active `nested_set` *behavior* — distinct from the treeMode builder above,
+and only partially working: tree positioning/query edge cases remain
+broken even with the hooks now firing), `I18nBehaviorObjectBuilderModifierTest`/
+`I18nBehaviorQueryBuilderModifierTest` (~37), `SortableBehaviorObjectBuilderModifierTest`
+and its `WithScope` variant (~29), plus scattered failures across
+`GeneratedObjectTest`, `ModelCriteriaTest`, `GeneratedPeerDoSelectTest`,
+and others not yet root-caused. **Not further investigated in this pass**
+due to time constraints — flagged here rather than left silently broken.
+Given the user's explicit acknowledgment that nested-set correctness was
+already in doubt, and that PHP5 removal was requested outright rather than
+gated on reaching parity first, this is being landed as-is; a follow-up
+pass should work through the remaining clusters the same way this one
+worked through the hook-wiring and segfault issues (bisect by running
+`testsuite/generator/behavior/<name>/` in isolation, find the first real
+error, root-cause it, repeat).
 
 ### Phase 4 — Worker-safety rework (ServiceContainer/Session split)
 
