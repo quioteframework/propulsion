@@ -62,7 +62,14 @@ class NestedSetBuilder extends AbstractObjectBuilder
 	 */
 	protected function addIncludes(&$script = null)
 	{
-		// PHP 8.4 uses namespaces and autoloading, so includes are minimal
+		// PHP 8.4 uses namespaces and autoloading, but the generated code below still
+		// references these short class names, so they must be declared here for the
+		// framework to auto-generate the corresponding `use` statements (see
+		// OMBuilder::declareClass()/getUseStatements()).
+		$this->declareClass('Propulsion\\Connection\\PropulsionPDO');
+		$this->declareClass('Propulsion\\OM\\NodeObject');
+		$this->declareClass('Propulsion\\OM\\NestedSetRecursiveIterator');
+		$this->declareClass('Propulsion\\Exception\\PropulsionException');
 	}
 
 	/**
@@ -218,9 +225,85 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	// Note: The remaining methods (addGetIterator, addSave, etc.) would follow the same pattern
-	// of modernizing the PHP5 code to use PHP 8.4 features like proper typing, null coalescing, etc.
-	// For brevity, I'm including a few key methods as examples:
+	protected function addGetIterator(&$script): void
+	{
+		$script .= "
+	/**
+	 * Returns a pre-order iterator for this node and its children.
+	 */
+	public function getIterator(): \Traversable
+	{
+		return new NestedSetRecursiveIterator(\$this);
+	}
+";
+	}
+
+	protected function addSave(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Saves modified object data to the datastore.
+	 * If object is saved without left/right values, set them as undefined (0)
+	 *
+	 * @param      PropulsionPDO \$con Connection to use.
+	 * @return     int The number of rows affected by this insert/update and any referring fk objects' save() operations.
+	 *                 May be unreliable with parent/children/brother changes
+	 * @throws     PropulsionException
+	 */
+	public function save(?PropulsionPDO \$con = null): int
+	{
+		\$left = \$this->getLeftValue();
+		\$right = \$this->getRightValue();
+		if (empty(\$left) || empty(\$right)) {
+			\$root = $peerClassname::retrieveRoot(\$this->getScopeIdValue(), \$con);
+			$peerClassname::insertAsLastChildOf(\$this, \$root, \$con);
+		}
+
+		return parent::save(\$con);
+	}
+";
+	}
+
+	protected function addDelete(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Removes this object and all descendants from datastore.
+	 *
+	 * @param      PropulsionPDO \$con Connection to use.
+	 * @throws     PropulsionException
+	 */
+	public function delete(?PropulsionPDO \$con = null): void
+	{
+		// delete node first
+		parent::delete(\$con);
+
+		// delete descendants and then shift tree
+		$peerClassname::deleteDescendants(\$this, \$con);
+	}
+";
+	}
+
+	protected function addMakeRoot(&$script): void
+	{
+		$objectClassName = $this->getStubObjectBuilder()->getClassname();
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Sets node properties to make it a root node.
+	 *
+	 * @return     $objectClassName The current object (for fluent API support)
+	 * @throws     PropulsionException
+	 */
+	public function makeRoot()
+	{
+		$peerClassname::createRoot(\$this);
+		return \$this;
+	}
+";
+	}
 
 	protected function addGetLevel(&$script): void
 	{
@@ -245,6 +328,84 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
+	protected function addGetPath(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Get the path to the node in the tree
+	 */
+	public function getPath(?PropulsionPDO \$con = null): array
+	{
+		return $peerClassname::getPath(\$this, \$con);
+	}
+";
+	}
+
+	protected function addGetNumberOfChildren(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Gets the number of children for the node (direct descendants)
+	 */
+	public function getNumberOfChildren(?PropulsionPDO \$con = null): int
+	{
+		return $peerClassname::getNumberOfChildren(\$this, \$con);
+	}
+";
+	}
+
+	protected function addGetNumberOfDescendants(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Gets the total number of descendants for the node
+	 */
+	public function getNumberOfDescendants(?PropulsionPDO \$con = null): int
+	{
+		return $peerClassname::getNumberOfDescendants(\$this, \$con);
+	}
+";
+	}
+
+	protected function addGetChildren(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Gets the children for the node
+	 */
+	public function getChildren(?PropulsionPDO \$con = null): array
+	{
+		\$this->getLevel();
+
+		if (is_array(\$this->children)) {
+			return \$this->children;
+		}
+
+		return $peerClassname::retrieveChildren(\$this, \$con);
+	}
+";
+	}
+
+	protected function addGetDescendants(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Gets the descendants for the node
+	 */
+	public function getDescendants(?PropulsionPDO \$con = null): array
+	{
+		\$this->getLevel();
+
+		return $peerClassname::retrieveDescendants(\$this, \$con);
+	}
+";
+	}
+
 	protected function addSetLevel(&$script): void
 	{
 		// No return type here: Propulsion\OM\NodeObject::setLevel($level) is untyped, and
@@ -260,6 +421,67 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	public function setLevel(\$level)
 	{
 		\$this->level = \$level;
+		return \$this;
+	}
+";
+	}
+
+	protected function addSetChildren(&$script): void
+	{
+		$script .= "
+	/**
+	 * Sets the children array of the node in the tree
+	 */
+	public function setChildren(array \$children)
+	{
+		\$this->children = \$children;
+		return \$this;
+	}
+";
+	}
+
+	protected function addSetParentNode(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Sets the parentNode of the node in the tree
+	 */
+	public function setParentNode(?NodeObject \$parent = null)
+	{
+		\$this->parentNode = (true === (\$this->hasParentNode = $peerClassname::isValid(\$parent))) ? \$parent : null;
+		return \$this;
+	}
+";
+	}
+
+	protected function addSetPrevSibling(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Sets the previous sibling of the node in the tree
+	 */
+	public function setPrevSibling(?NodeObject \$node = null)
+	{
+		\$this->prevSibling = \$node;
+		\$this->hasPrevSibling = $peerClassname::isValid(\$node);
+		return \$this;
+	}
+";
+	}
+
+	protected function addSetNextSibling(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Sets the next sibling of the node in the tree
+	 */
+	public function setNextSibling(?NodeObject \$node = null)
+	{
+		\$this->nextSibling = \$node;
+		\$this->hasNextSibling = $peerClassname::isValid(\$node);
 		return \$this;
 	}
 ";
@@ -291,44 +513,558 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	// Placeholder methods - in a complete implementation, these would contain
-	// the full modernized logic from the PHP5 version
-	protected function addGetIterator(&$script): void { /* Implementation */ }
-	protected function addSave(&$script): void { /* Implementation */ }
-	protected function addDelete(&$script): void { /* Implementation */ }
-	protected function addMakeRoot(&$script): void { /* Implementation */ }
-	protected function addGetPath(&$script): void { /* Implementation */ }
-	protected function addGetNumberOfChildren(&$script): void { /* Implementation */ }
-	protected function addGetNumberOfDescendants(&$script): void { /* Implementation */ }
-	protected function addGetChildren(&$script): void { /* Implementation */ }
-	protected function addGetDescendants(&$script): void { /* Implementation */ }
-	protected function addSetChildren(&$script): void { /* Implementation */ }
-	protected function addSetParentNode(&$script): void { /* Implementation */ }
-	protected function addSetPrevSibling(&$script): void { /* Implementation */ }
-	protected function addSetNextSibling(&$script): void { /* Implementation */ }
-	protected function addIsEqualTo(&$script): void { /* Implementation */ }
-	protected function addHasParent(&$script): void { /* Implementation */ }
-	protected function addHasChildren(&$script): void { /* Implementation */ }
-	protected function addHasPrevSibling(&$script): void { /* Implementation */ }
-	protected function addHasNextSibling(&$script): void { /* Implementation */ }
-	protected function addRetrieveParent(&$script): void { /* Implementation */ }
-	protected function addRetrieveFirstChild(&$script): void { /* Implementation */ }
-	protected function addRetrieveLastChild(&$script): void { /* Implementation */ }
-	protected function addRetrievePrevSibling(&$script): void { /* Implementation */ }
-	protected function addRetrieveNextSibling(&$script): void { /* Implementation */ }
-	protected function addInsertAsFirstChildOf(&$script): void { /* Implementation */ }
-	protected function addInsertAsLastChildOf(&$script): void { /* Implementation */ }
-	protected function addInsertAsPrevSiblingOf(&$script): void { /* Implementation */ }
-	protected function addInsertAsNextSiblingOf(&$script): void { /* Implementation */ }
-	protected function addMoveToFirstChildOf(&$script): void { /* Implementation */ }
-	protected function addMoveToLastChildOf(&$script): void { /* Implementation */ }
-	protected function addMoveToPrevSiblingOf(&$script): void { /* Implementation */ }
-	protected function addMoveToNextSiblingOf(&$script): void { /* Implementation */ }
-	protected function addInsertAsParentOf(&$script): void { /* Implementation */ }
-	protected function addGetLeft(&$script): void { /* Implementation */ }
-	protected function addGetRight(&$script): void { /* Implementation */ }
-	protected function addGetScopeId(&$script): void { /* Implementation */ }
-	protected function addSetLeft(&$script): void { /* Implementation */ }
-	protected function addSetRight(&$script): void { /* Implementation */ }
-	protected function addSetScopeId(&$script): void { /* Implementation */ }
+	protected function addIsEqualTo(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Tests if object is equal to \$node
+	 */
+	public function isEqualTo(NodeObject \$node): bool
+	{
+		return $peerClassname::isEqualTo(\$this, \$node);
+	}
+";
+	}
+
+	protected function addHasParent(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Tests if object has an ancestor
+	 */
+	public function hasParent(?PropulsionPDO \$con = null): bool
+	{
+		if (\$this->hasParentNode === null) {
+			\$this->hasParentNode = $peerClassname::hasParent(\$this, \$con);
+		}
+		return \$this->hasParentNode;
+	}
+";
+	}
+
+	protected function addHasChildren(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Determines if the node has children / descendants
+	 */
+	public function hasChildren(): bool
+	{
+		return $peerClassname::hasChildren(\$this);
+	}
+";
+	}
+
+	protected function addHasPrevSibling(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Determines if the node has previous sibling
+	 */
+	public function hasPrevSibling(?PropulsionPDO \$con = null): bool
+	{
+		if (\$this->hasPrevSibling === null) {
+			\$this->hasPrevSibling = $peerClassname::hasPrevSibling(\$this, \$con);
+		}
+		return \$this->hasPrevSibling;
+	}
+";
+	}
+
+	protected function addHasNextSibling(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Determines if the node has next sibling
+	 */
+	public function hasNextSibling(?PropulsionPDO \$con = null): bool
+	{
+		if (\$this->hasNextSibling === null) {
+			\$this->hasNextSibling = $peerClassname::hasNextSibling(\$this, \$con);
+		}
+		return \$this->hasNextSibling;
+	}
+";
+	}
+
+	protected function addRetrieveParent(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Gets ancestor for the given node if it exists
+	 *
+	 * @return     mixed Propulsion object if exists else null
+	 */
+	public function retrieveParent(?PropulsionPDO \$con = null)
+	{
+		if (\$this->hasParentNode === null) {
+			\$this->parentNode = $peerClassname::retrieveParent(\$this, \$con);
+			\$this->hasParentNode = $peerClassname::isValid(\$this->parentNode);
+		}
+		return \$this->parentNode;
+	}
+";
+	}
+
+	protected function addRetrieveFirstChild(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Gets first child if it exists
+	 *
+	 * @return     mixed Propulsion object if exists else null
+	 */
+	public function retrieveFirstChild(?PropulsionPDO \$con = null)
+	{
+		if (\$this->hasChildren()) {
+			if (is_array(\$this->children) && count(\$this->children) > 0) {
+				return \$this->children[0];
+			}
+
+			return $peerClassname::retrieveFirstChild(\$this, \$con);
+		}
+		return null;
+	}
+";
+	}
+
+	protected function addRetrieveLastChild(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Gets last child if it exists
+	 *
+	 * @return     mixed Propulsion object if exists else null
+	 */
+	public function retrieveLastChild(?PropulsionPDO \$con = null)
+	{
+		if (\$this->hasChildren()) {
+			if (is_array(\$this->children) && count(\$this->children) > 0) {
+				\$last = count(\$this->children) - 1;
+				return \$this->children[\$last];
+			}
+
+			return $peerClassname::retrieveLastChild(\$this, \$con);
+		}
+		return null;
+	}
+";
+	}
+
+	protected function addRetrievePrevSibling(&$script): void
+	{
+		$script .= "
+	/**
+	 * Gets prev sibling for the given node if it exists
+	 *
+	 * @return     mixed Propulsion object if exists else null
+	 */
+	public function retrievePrevSibling(?PropulsionPDO \$con = null)
+	{
+		if (\$this->hasPrevSibling(\$con)) {
+			return \$this->prevSibling;
+		}
+		return null;
+	}
+";
+	}
+
+	protected function addRetrieveNextSibling(&$script): void
+	{
+		$script .= "
+	/**
+	 * Gets next sibling for the given node if it exists
+	 *
+	 * @return     mixed Propulsion object if exists else null
+	 */
+	public function retrieveNextSibling(?PropulsionPDO \$con = null)
+	{
+		if (\$this->hasNextSibling(\$con)) {
+			return \$this->nextSibling;
+		}
+		return null;
+	}
+";
+	}
+
+	protected function addInsertAsFirstChildOf(&$script): void
+	{
+		$objectClassName = $this->getStubObjectBuilder()->getClassname();
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Inserts as first child of given destination node \$parent
+	 *
+	 * @return     $objectClassName The current object (for fluent API support)
+	 * @throws     PropulsionException - if this object already exists
+	 */
+	public function insertAsFirstChildOf(NodeObject \$parent, ?PropulsionPDO \$conn = null)
+	{
+		if (!\$this->isNew()) {
+			throw new PropulsionException(\"$objectClassName must be new.\");
+		}
+		$peerClassname::insertAsFirstChildOf(\$this, \$parent, \$conn);
+		return \$this;
+	}
+";
+	}
+
+	protected function addInsertAsLastChildOf(&$script): void
+	{
+		$objectClassName = $this->getStubObjectBuilder()->getClassname();
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Inserts as last child of given destination node \$parent
+	 *
+	 * @return     $objectClassName The current object (for fluent API support)
+	 * @throws     PropulsionException - if this object already exists
+	 */
+	public function insertAsLastChildOf(NodeObject \$parent, ?PropulsionPDO \$conn = null)
+	{
+		if (!\$this->isNew()) {
+			throw new PropulsionException(\"$objectClassName must be new.\");
+		}
+		$peerClassname::insertAsLastChildOf(\$this, \$parent, \$conn);
+		return \$this;
+	}
+";
+	}
+
+	protected function addInsertAsPrevSiblingOf(&$script): void
+	{
+		$objectClassName = $this->getStubObjectBuilder()->getClassname();
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Inserts \$this as previous sibling to given destination node \$dest
+	 *
+	 * @return     $objectClassName The current object (for fluent API support)
+	 * @throws     PropulsionException - if this object already exists
+	 */
+	public function insertAsPrevSiblingOf(NodeObject \$dest, ?PropulsionPDO \$conn = null)
+	{
+		if (!\$this->isNew()) {
+			throw new PropulsionException(\"$objectClassName must be new.\");
+		}
+		$peerClassname::insertAsPrevSiblingOf(\$this, \$dest, \$conn);
+		return \$this;
+	}
+";
+	}
+
+	protected function addInsertAsNextSiblingOf(&$script): void
+	{
+		$objectClassName = $this->getStubObjectBuilder()->getClassname();
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Inserts \$this as next sibling to given destination node \$dest
+	 *
+	 * @return     $objectClassName The current object (for fluent API support)
+	 * @throws     PropulsionException - if this object already exists
+	 */
+	public function insertAsNextSiblingOf(NodeObject \$dest, ?PropulsionPDO \$conn = null)
+	{
+		if (!\$this->isNew()) {
+			throw new PropulsionException(\"$objectClassName must be new.\");
+		}
+		$peerClassname::insertAsNextSiblingOf(\$this, \$dest, \$conn);
+		return \$this;
+	}
+";
+	}
+
+	protected function addMoveToFirstChildOf(&$script): void
+	{
+		$objectClassName = $this->getStubObjectBuilder()->getClassname();
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Moves node to be first child of \$parent
+	 *
+	 * @return     $objectClassName The current object (for fluent API support)
+	 */
+	public function moveToFirstChildOf(NodeObject \$parent, ?PropulsionPDO \$conn = null)
+	{
+		if (\$this->isNew()) {
+			throw new PropulsionException(\"$objectClassName must exist in tree.\");
+		}
+		$peerClassname::moveToFirstChildOf(\$parent, \$this, \$conn);
+		return \$this;
+	}
+";
+	}
+
+	protected function addMoveToLastChildOf(&$script): void
+	{
+		$objectClassName = $this->getStubObjectBuilder()->getClassname();
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Moves node to be last child of \$parent
+	 *
+	 * @return     $objectClassName The current object (for fluent API support)
+	 */
+	public function moveToLastChildOf(NodeObject \$parent, ?PropulsionPDO \$conn = null)
+	{
+		if (\$this->isNew()) {
+			throw new PropulsionException(\"$objectClassName must exist in tree.\");
+		}
+		$peerClassname::moveToLastChildOf(\$parent, \$this, \$conn);
+		return \$this;
+	}
+";
+	}
+
+	protected function addMoveToPrevSiblingOf(&$script): void
+	{
+		$objectClassName = $this->getStubObjectBuilder()->getClassname();
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Moves node to be prev sibling to \$dest
+	 *
+	 * @return     $objectClassName The current object (for fluent API support)
+	 */
+	public function moveToPrevSiblingOf(NodeObject \$dest, ?PropulsionPDO \$conn = null)
+	{
+		if (\$this->isNew()) {
+			throw new PropulsionException(\"$objectClassName must exist in tree.\");
+		}
+		$peerClassname::moveToPrevSiblingOf(\$dest, \$this, \$conn);
+		return \$this;
+	}
+";
+	}
+
+	protected function addMoveToNextSiblingOf(&$script): void
+	{
+		$objectClassName = $this->getStubObjectBuilder()->getClassname();
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Moves node to be next sibling to \$dest
+	 *
+	 * @return     $objectClassName The current object (for fluent API support)
+	 */
+	public function moveToNextSiblingOf(NodeObject \$dest, ?PropulsionPDO \$conn = null)
+	{
+		if (\$this->isNew()) {
+			throw new PropulsionException(\"$objectClassName must exist in tree.\");
+		}
+		$peerClassname::moveToNextSiblingOf(\$dest, \$this, \$conn);
+		return \$this;
+	}
+";
+	}
+
+	protected function addInsertAsParentOf(&$script): void
+	{
+		$objectClassName = $this->getStubObjectBuilder()->getClassname();
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Inserts node as parent of given node.
+	 *
+	 * @return     $objectClassName The current object (for fluent API support)
+	 */
+	public function insertAsParentOf(NodeObject \$node, ?PropulsionPDO \$conn = null)
+	{
+		$peerClassname::insertAsParentOf(\$this, \$node, \$conn);
+		return \$this;
+	}
+";
+	}
+
+	protected function addGetLeft(&$script): void
+	{
+		$table = $this->getTable();
+
+		$left_col_getter_name = null;
+		foreach ($table->getColumns() as $col) {
+			if ($col->isNestedSetLeftKey()) {
+				$left_col_getter_name = 'get'.$col->getPhpName();
+				break;
+			}
+		}
+
+		$script .= "
+	/**
+	 * Wraps the getter for the left value
+	 *
+	 * @return     int|null null until the node has been positioned in the tree
+	 */
+	public function getLeftValue(): ?int
+	{
+		return \$this->$left_col_getter_name();
+	}
+
+	/**
+	 * Alias of getLeftValue(), matching the internal isRoot()/isLeaf() naming.
+	 */
+	public function getLeft(): ?int
+	{
+		return \$this->getLeftValue();
+	}
+";
+	}
+
+	protected function addGetRight(&$script): void
+	{
+		$table = $this->getTable();
+
+		$right_col_getter_name = null;
+		foreach ($table->getColumns() as $col) {
+			if ($col->isNestedSetRightKey()) {
+				$right_col_getter_name = 'get'.$col->getPhpName();
+				break;
+			}
+		}
+
+		$script .= "
+	/**
+	 * Wraps the getter for the right value
+	 *
+	 * @return     int|null null until the node has been positioned in the tree
+	 */
+	public function getRightValue(): ?int
+	{
+		return \$this->$right_col_getter_name();
+	}
+
+	/**
+	 * Alias of getRightValue(), matching the internal isRoot()/isLeaf() naming.
+	 */
+	public function getRight(): ?int
+	{
+		return \$this->getRightValue();
+	}
+";
+	}
+
+	protected function addGetScopeId(&$script): void
+	{
+		$table = $this->getTable();
+
+		$scope_col_getter_name = null;
+		foreach ($table->getColumns() as $col) {
+			if ($col->isTreeScopeKey()) {
+				$scope_col_getter_name = 'get'.$col->getPhpName();
+				break;
+			}
+		}
+
+		$script .= "
+	/**
+	 * Wraps the getter for the scope value
+	 *
+	 * @return     int|null null if scope is disabled
+	 */
+	public function getScopeIdValue()
+	{";
+		if ($scope_col_getter_name) {
+			$script .= "
+		return \$this->$scope_col_getter_name();";
+		} else {
+			$script .= "
+		return null;";
+		}
+		$script .= "
+	}
+";
+	}
+
+	protected function addSetLeft(&$script): void
+	{
+		$table = $this->getTable();
+
+		$left_col_setter_name = null;
+		foreach ($table->getColumns() as $col) {
+			if ($col->isNestedSetLeftKey()) {
+				$left_col_setter_name = 'set'.$col->getPhpName();
+				break;
+			}
+		}
+
+		$objectClassName = $this->getStubObjectBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Set the value of the left column
+	 *
+	 * @return     $objectClassName The current object (for fluent API support)
+	 */
+	public function setLeftValue(int \$v)
+	{
+		\$this->$left_col_setter_name(\$v);
+		return \$this;
+	}
+";
+	}
+
+	protected function addSetRight(&$script): void
+	{
+		$table = $this->getTable();
+
+		$right_col_setter_name = null;
+		foreach ($table->getColumns() as $col) {
+			if ($col->isNestedSetRightKey()) {
+				$right_col_setter_name = 'set'.$col->getPhpName();
+				break;
+			}
+		}
+
+		$objectClassName = $this->getStubObjectBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Set the value of the right column
+	 *
+	 * @return     $objectClassName The current object (for fluent API support)
+	 */
+	public function setRightValue(int \$v)
+	{
+		\$this->$right_col_setter_name(\$v);
+		return \$this;
+	}
+";
+	}
+
+	protected function addSetScopeId(&$script): void
+	{
+		$table = $this->getTable();
+
+		$scope_col_setter_name = null;
+		foreach ($table->getColumns() as $col) {
+			if ($col->isTreeScopeKey()) {
+				$scope_col_setter_name = 'set'.$col->getPhpName();
+				break;
+			}
+		}
+
+		$objectClassName = $this->getStubObjectBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Set the value of the scope column
+	 *
+	 * @return     $objectClassName The current object (for fluent API support)
+	 */
+	public function setScopeIdValue(\$v)
+	{";
+		if ($scope_col_setter_name) {
+			$script .= "
+		\$this->$scope_col_setter_name(\$v);";
+		}
+		$script .= "
+		return \$this;
+	}
+";
+	}
 }

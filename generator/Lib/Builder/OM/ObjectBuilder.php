@@ -307,6 +307,70 @@ class ObjectBuilder extends AbstractObjectBuilder
 	}
 
 	/**
+	 * Override getUseStatements to provide PHP 8.4 compatible use statements with
+	 * deduplication. See QueryBuilder::getUseStatements()/PeerBuilder::getUseStatements()
+	 * for the full rationale (identical logic, copied here because this builder needed the
+	 * same fix): without this, addClassBody()'s FQCN declareClass() calls for core
+	 * Propulsion\* classes (BaseObject, PropulsionException, Criteria, ...) either get a
+	 * redundant `use` emitted for a flat/non-namespaced class (fatal -- "name is already in
+	 * use" -- when PropulsionQuickBuilder concatenates many such classes into one eval()'d
+	 * script with no namespace block between them), or, for a genuinely namespaced class,
+	 * would need one but the default (OMBuilder::getUseStatements()) doesn't map legacy
+	 * bare declares to their real FQCN.
+	 */
+	public function getUseStatements($ignoredNamespace = null)
+	{
+		$script = '';
+		$declaredClasses = $this->declaredClasses;
+		unset($declaredClasses[$ignoredNamespace]);
+
+		$classMap = [];
+		$preferredNamespaces = [
+			'PropulsionException' => 'Propulsion\\Exception\\PropulsionException',
+			'BasePeer' => 'Propulsion\\Util\\BasePeer',
+			'Criteria' => 'Propulsion\\Query\\Criteria',
+			'ModelCriteria' => 'Propulsion\\Query\\ModelCriteria',
+			'ModelJoin' => 'Propulsion\\Query\\ModelJoin',
+			'PropulsionPDO' => 'Propulsion\\Connection\\PropulsionPDO',
+			'PropulsionCollection' => 'Propulsion\\Collection\\PropulsionCollection',
+			'PropulsionObjectCollection' => 'Propulsion\\Collection\\PropulsionObjectCollection',
+			'Propulsion' => 'Propulsion\\Propulsion',
+			'BaseObject' => 'Propulsion\\OM\\BaseObject',
+			'Persistent' => 'Propulsion\\OM\\Persistent'
+		];
+		$isFlat = !$this->getNamespace();
+
+		foreach ($declaredClasses as $namespace => $classes) {
+			foreach ($classes as $class) {
+				$fullName = $namespace ? $namespace . '\\' . $class : $class;
+
+				if ($isFlat && isset($preferredNamespaces[$class])
+					&& ($namespace === '' || $fullName === $preferredNamespaces[$class])) {
+					// Flat target referencing a globally-aliased core class: no import needed.
+					continue;
+				}
+
+				if (!$isFlat && $namespace === '' && isset($preferredNamespaces[$class])) {
+					// Namespaced target with a legacy bare declare of a core class: import its
+					// real FQCN, since a bare reference here would resolve relative to this
+					// class's own namespace instead.
+					$fullName = $preferredNamespaces[$class];
+				}
+
+				$classMap[$class] = $fullName;
+			}
+		}
+
+		asort($classMap);
+
+		foreach ($classMap as $className => $fullName) {
+			$script .= sprintf("use %s;\n", $fullName);
+		}
+
+		return $script;
+	}
+
+	/**
 	 * Adds class phpdoc comment and opening of class.
 	 * @param      string &$script The script will be modified in this method.
 	 */
@@ -434,6 +498,12 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$this->addClear($script);
 		$this->addClearAllReferences($script);
 		$this->addPrimaryString($script);
+
+		// Lets behaviors append arbitrary custom methods (e.g. the nested_set behavior's
+		// getLeftValue()/setLeftValue()/isRoot()/etc.). See addProperties() for why this
+		// hook, like the others added alongside it, was entirely missing before.
+		$this->applyBehaviorModifier('objectMethods', $script, "	");
+
 		$this->addMagicCall($script);
 	}
 
@@ -451,13 +521,18 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			$colname = $col->getName();
 			$phpname = $col->getPhpName();
 			$type = $this->getPhp84PropertyType($col);
-			// Temporal (DateTimeInterface-typed) and other object-typed columns can have a
-			// non-null default, but PHP property declarations only accept constant/scalar
-			// expressions as defaults -- `new DateTime(...)` isn't legal here (unlike in a
-			// constructor-promoted parameter). Always default those to null in the property
-			// declaration; the real default is applied via applyDefaultValues(), called from
-			// the constructor (see addApplyDefaultValues()).
-			$defaultVal = $col->isTemporalType() ? 'NULL' : $this->getDefaultValueString($col);
+			// Temporal (DateTimeInterface-typed) columns can have a non-null default, but
+			// PHP property declarations only accept constant/scalar expressions as defaults
+			// -- `new DateTime(...)` isn't legal here (unlike in a constructor-promoted
+			// parameter). Enum columns are similar for a different reason:
+			// getDefaultValueString() returns the enum's *index* (an int) for its stored
+			// representation, but the property itself is typed ?string -- a property
+			// declaration default must match the declared type exactly (no int-to-string
+			// coercion is allowed there, unlike a real assignment statement). Always default
+			// both to null in the property declaration; the real default is applied via
+			// applyDefaultValues(), called from the constructor (see
+			// addApplyDefaultValues()), where a plain assignment IS allowed to coerce.
+			$defaultVal = ($col->isTemporalType() || $col->isEnumType()) ? 'NULL' : $this->getDefaultValueString($col);
 
 			// Add property documentation
 			$script .= "
@@ -559,6 +634,12 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	protected bool \$new = true;
 	protected bool \$deleted = false;
 	protected array \$modifiedColumns = [];";
+
+		// Lets behaviors add extra properties (e.g. the nested_set behavior's left/right/
+		// level columns' in-memory shadow, if any). This hook was entirely missing from
+		// this builder until now -- every behavior that hooks object-level codegen
+		// silently got none of its generated code injected, see KNOWN_ISSUES.md.
+		$this->applyBehaviorModifier('objectAttributes', $script, "	");
 	}
 
 	/**
@@ -749,13 +830,82 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$phpname = $col->getPhpName();
 		$paramType = $this->getPhp84TypeHint($col);
 		$returnType = $this->getClassname();
-		
+
 		$description = $col->getDescription() ? $col->getDescription() : "Set the value of [$colname] column.";
 
 		// Always add = null default value to support clearing relationships and object state
 		$defaultValue = ' = null';
 
-		$script .= "
+		if ($col->isBooleanType()) {
+			// The property/getter are strictly typed ?bool, but Propulsion has always
+			// accepted common string/int representations here too and normalized them --
+			// see PHP5ObjectBuilder::addBooleanMutator() in archaeology/php5-builders/ --
+			// so e.g. setActive('no') is a real, previously-supported calling convention,
+			// not a caller bug. Under the too-strict promoted signature, a non-empty string
+			// like 'false' or 'off' would just cast truthy to `true`, silently inverting
+			// the caller's intent instead of throwing (bool is weakly-typed enough to
+			// accept a string without a TypeError, so this bug was silent, not fatal).
+			$script .= "
+
+	/**
+	 * $description
+	 * Non-boolean arguments are converted using the following rules:
+	 *   * 1, '1', 'true',  'on',  and 'yes' are converted to boolean true
+	 *   * 0, '0', 'false', 'off', and 'no'  are converted to boolean false
+	 * Check on string values is case insensitive (so 'FaLsE' is seen as 'false').
+	 *
+	 * @param bool|int|string|null \$value New value
+	 * @return $returnType The current object (for fluent API support)
+	 */
+	public function set$phpname(bool|int|string|null \$value$defaultValue): $returnType
+	{
+		if (\$value !== null) {
+			\$value = is_string(\$value)
+				? !in_array(strtolower(\$value), ['false', 'off', '-', 'no', 'n', '0', ''], true)
+				: (bool) \$value;
+		}
+		if (\$this->$phpname !== \$value) {
+			\$this->$phpname = \$value;
+			\$this->modifiedColumns[] = " . $this->getColumnConstant($col) . ";
+		}
+
+		return \$this;
+	}";
+		} elseif ($col->isTemporalType()) {
+			// The property/getter are strictly typed ?DateTimeInterface, but Propulsion has
+			// always accepted a Unix timestamp (int) or a parseable date string here too
+			// (PHP5ObjectBuilder's addTemporalMutator used PropulsionDateTime::newInstance()
+			// to normalize any of those) -- callers passing an int/string, a common and
+			// previously-supported pattern (e.g. TimestampableBehavior/SoftDeleteBehavior
+			// call setX($someUnixTimestamp)), got a hard TypeError against the too-strict
+			// ?DateTimeInterface-only param type this builder used for every column type
+			// uniformly. Accept the wider mixed input and normalize to a real
+			// DateTimeInterface instance (unlike PHP5, which normalized to a formatted
+			// string -- this builder's properties are real DateTimeInterface objects, so
+			// normalizing to an object here keeps that consistent) before comparing/storing.
+			$script .= "
+
+	/**
+	 * $description
+	 *
+	 * @param DateTimeInterface|string|int|null \$value New value: a DateTimeInterface, a
+	 *              Unix timestamp (int), a parseable date/time string, or null.
+	 * @return $returnType The current object (for fluent API support)
+	 */
+	public function set$phpname(DateTimeInterface|string|int|null \$value$defaultValue): $returnType
+	{
+		if (\$value !== null && !(\$value instanceof DateTimeInterface)) {
+			\$value = is_int(\$value) ? (new DateTime())->setTimestamp(\$value) : new DateTime((string) \$value);
+		}
+		if (\$this->$phpname != \$value) {
+			\$this->$phpname = \$value;
+			\$this->modifiedColumns[] = " . $this->getColumnConstant($col) . ";
+		}
+
+		return \$this;
+	}";
+		} else {
+			$script .= "
 
 	/**
 	 * $description
@@ -772,6 +922,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 
 		return \$this;
 	}";
+		}
 
 		// Add temporal specific mutator if needed
 		if ($col->isTemporalType()) {
@@ -898,8 +1049,21 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 					// $this->$phpname is a DateTimeInterface object here (or null), not the
 					// raw formatted string $defaultVal holds -- compare formatted values.
 					$fmt = $this->getTemporalFormatter($col);
+					// Curly-brace-delimited {$phpname} below is required, not stylistic: plain
+					// "$this->$phpname->format(...)" makes PHP's simple string-interpolation
+					// syntax parse "$phpname->format" as a (bogus, build-time) property access
+					// on the $phpname *string* itself -- silently emitting corrupted generated
+					// code (and a "Attempt to read property on string" warning at build time).
 					$script .= "
-		if (\$this->$phpname === null || \$this->$phpname->format('$fmt') !== $defaultVal) {
+		if (\$this->{$phpname} === null || \$this->{$phpname}->format('$fmt') !== $defaultVal) {
+			return false;
+		}";
+				} elseif ($col->isEnumType()) {
+					// $this->$phpname was coerced to the property's declared ?string type when
+					// applyDefaultValues() assigned it the int index $defaultVal holds -- a
+					// strict !== would always be true (differing types), so compare loosely.
+					$script .= "
+		if (\$this->$phpname != $defaultVal) {
 			return false;
 		}";
 				} else {
@@ -1152,6 +1316,10 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	{
 		$script .= "
 }";
+
+		// Filter hooks rewrite the whole accumulated $script by reference, so this must
+		// run last, after the closing brace above. See addProperties() for background.
+		$this->applyBehaviorModifier('objectFilter', $script, "");
 	}
 
 	/**
@@ -1297,10 +1465,37 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		\$con->beginTransaction();
 		try {
 			\$deleteQuery = " . $this->getQueryClassname() . "::create()
-				->filterByPrimaryKey(\$this->getPrimaryKey());
-			\$deleteQuery->delete(\$con);
+				->filterByPrimaryKey(\$this->getPrimaryKey());";
+		// preDelete()/postDelete() are user-overridable hook methods (see
+		// runtime/Lib/OM/BaseObject.php) -- preDelete() returning false vetoes the delete.
+		// This whole addHooks-gated block, and the applyBehaviorModifier() calls inside it,
+		// were entirely missing before: neither the virtual hook methods nor any behavior's
+		// preDelete/postDelete modifier ever ran. See KNOWN_ISSUES.md.
+		if ($this->getGeneratorConfig()->getBuildProperty('addHooks')) {
+			$script .= "
+			\$ret = \$this->preDelete(\$con);";
+			$this->applyBehaviorModifier('preDelete', $script, "			");
+			$script .= "
+			if (\$ret) {
+				\$deleteQuery->delete(\$con);
+				\$this->postDelete(\$con);";
+			$this->applyBehaviorModifier('postDelete', $script, "				");
+			$script .= "
+				\$con->commit();
+				\$this->setDeleted(true);
+			} else {
+				\$con->commit();
+			}";
+		} else {
+			$this->applyBehaviorModifier('preDelete', $script, "			");
+			$script .= "
+			\$deleteQuery->delete(\$con);";
+			$this->applyBehaviorModifier('postDelete', $script, "			");
+			$script .= "
 			\$con->commit();
-			\$this->setDeleted(true);
+			\$this->setDeleted(true);";
+		}
+		$script .= "
 		} catch (PropulsionException \$e) {
 			\$con->rollBack();
 			throw \$e;
@@ -1351,11 +1546,58 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 
 		\$con->beginTransaction();
 		\$isInsert = \$this->isNew();
-		try {
-			\$affectedRows = \$this->doSave(\$con" . ($reloadOnUpdate || $reloadOnInsert ? ", \$skipReload" : "") . ");
+		try {";
+		// preSave()/postSave()/preInsert()/postInsert()/preUpdate()/postUpdate() are
+		// user-overridable hook methods (see runtime/Lib/OM/BaseObject.php) --
+		// preSave()/preInsert()/preUpdate() returning false vetoes the save. This whole
+		// addHooks-gated block, and the applyBehaviorModifier() calls inside it, were
+		// entirely missing before: neither the virtual hook methods nor any behavior's
+		// save-lifecycle modifier ever ran. See KNOWN_ISSUES.md.
+		if ($this->getGeneratorConfig()->getBuildProperty('addHooks')) {
+			$script .= "
+			\$ret = \$this->preSave(\$con);";
+			$this->applyBehaviorModifier('preSave', $script, "			");
+			$script .= "
+			if (\$isInsert) {
+				\$ret = \$ret && \$this->preInsert(\$con);";
+			$this->applyBehaviorModifier('preInsert', $script, "				");
+			$script .= "
+			} else {
+				\$ret = \$ret && \$this->preUpdate(\$con);";
+			$this->applyBehaviorModifier('preUpdate', $script, "				");
+			$script .= "
+			}
+			if (\$ret) {
+				\$affectedRows = \$this->doSave(\$con" . ($reloadOnUpdate || $reloadOnInsert ? ", \$skipReload" : "") . ");
+				if (\$isInsert) {
+					\$this->postInsert(\$con);";
+			$this->applyBehaviorModifier('postInsert', $script, "					");
+			$script .= "
+				} else {
+					\$this->postUpdate(\$con);";
+			$this->applyBehaviorModifier('postUpdate', $script, "					");
+			$script .= "
+				}
+				\$this->postSave(\$con);";
+			$this->applyBehaviorModifier('postSave', $script, "				");
+			$script .= "
+				" . $this->getPeerClassname() . "::addInstanceToPool(\$this);
+			} else {
+				\$affectedRows = 0;
+			}
+			\$con->commit();
+			return \$affectedRows;";
+		} else {
+			$this->applyBehaviorModifier('preSave', $script, "			");
+			$script .= "
+			\$affectedRows = \$this->doSave(\$con" . ($reloadOnUpdate || $reloadOnInsert ? ", \$skipReload" : "") . ");";
+			$this->applyBehaviorModifier('postSave', $script, "			");
+			$script .= "
 			" . $this->getPeerClassname() . "::addInstanceToPool(\$this);
 			\$con->commit();
-			return \$affectedRows;
+			return \$affectedRows;";
+		}
+		$script .= "
 		} catch (PropulsionException \$e) {
 			\$con->rollBack();
 			throw \$e;
@@ -2391,8 +2633,13 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	{
 		\$this->$varName = \$v;
 
-		// Add binding for other direction of this 1:1 relationship.
-		if (\$v !== null) {
+		// Add binding for other direction of this 1:1 relationship. Guarded (unlike a
+		// naive unconditional call) on the other side not already pointing back here --
+		// without this check, \$v->set...(\$this) below calls back into this same setter
+		// forever, overflowing the stack (a real, previously-undetected bug: this method
+		// was never exercised as the default 1:1-relationship setter before the PHP5
+		// builders were removed, see KNOWN_ISSUES.md).
+		if (\$v !== null && \$v->get" . $this->getFKPhpNameAffix($refFK, false) . "() === null) {
 			\$v->set" . $this->getFKPhpNameAffix($refFK, false) . "(\$this);
 		}
 
@@ -2690,7 +2937,12 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 				}
 			}
 		}
-		
+
+		// Lets behaviors clear their own extra references here too (e.g. a behavior that
+		// caches a related collection). See addProperties() for background on why this
+		// hook, like the others added alongside it, was entirely missing before.
+		$this->applyBehaviorModifier('objectClearReferences', $script, "		");
+
 		// Clear foreign key references
 		foreach ($table->getForeignKeys() as $fk) {
 			$varName = $this->getFKVarName($fk);

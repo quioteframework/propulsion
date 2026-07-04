@@ -18,8 +18,32 @@ namespace Propulsion\Generator\Builder\OM;
  * @author     Modernized for PHP 8.4
  * @package    propel.generator.builder.om
  */
-class ExtensionObjectBuilder extends PHP5ExtensionObjectBuilder
+class ExtensionObjectBuilder extends AbstractObjectBuilder
 {
+
+    /**
+     * Returns the name of the current class being built.
+     * Inlined from the (now-archived) PHP5ExtensionObjectBuilder base -- this class no
+     * longer extends it (see KNOWN_ISSUES.md, PHP5 removal).
+     * @return     string
+     */
+    public function getUnprefixedClassname()
+    {
+        return $this->getTable()->getPhpName();
+    }
+
+    /**
+     * Closes class.
+     * Inlined from the (now-archived) PHP5ExtensionObjectBuilder base.
+     * @param      string &$script The script will be modified in this method.
+     */
+    protected function addClassClose(&$script)
+    {
+        $script .= "
+} // " . $this->getClassname() . "
+";
+        $this->applyBehaviorModifier('extensionObjectFilter', $script, "");
+    }
 
     protected function addIncludes(&$script = null)
     {

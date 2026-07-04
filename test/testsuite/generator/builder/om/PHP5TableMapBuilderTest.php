@@ -9,7 +9,10 @@
  */
 
 /**
- * Test class for PHP5TableMapBuilder.
+ * Test class for the "tablemap" builder (TableMapBuilder since Phase 3's PHP5
+ * removal, see KNOWN_ISSUES.md; this test exercises it indirectly through the
+ * bookstore fixture's database map rather than instantiating a builder class
+ * by name, so it kept working unmodified across that rename).
  *
  * @author     François Zaninotto
  * @version    $Id$
