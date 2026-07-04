@@ -499,16 +499,17 @@ categories, not one:
       migration class; an already-matching schema reports nothing to migrate)
       and `PropulsionDatabaseComparatorTest` (the shared diff engine on two
       schema.xml versions, unchanged from before).
-- **`PropulsionConvertConfTask` should be deprecated, not preserved.** It
-  exists to convert the old XML runtime/buildtime config format
-  (`runtime-conf.xml`/`build.properties`) into the PHP array config this
-  codebase actually consumes at runtime. The XML config format itself is
-  legacy baggage from upstream Propel that this fork should move away from
-  entirely (config should just be authored as PHP arrays/a PHP config file
-  directly) rather than keep a converter task around indefinitely as a
-  crutch. Not scoped or started — noting the direction here so "should we
-  port ConvertConf to the console app too" doesn't come up without this
-  context.
+- **`PropulsionConvertConfTask` is gone.** It converted the old XML *runtime*
+  config format (`runtime-conf.xml`) into the PHP array config
+  `Propulsion::init()`/`setConfiguration()` actually consumes — it was
+  deleted along with the rest of the Phing `Task` classes during the Phing
+  removal (see that entry above), and didn't need a console-app
+  replacement: the runtime side already only accepts plain PHP arrays
+  directly (no XML involved at all), so there was nothing left to convert.
+  The one remaining live XML config surface is *build-time* connection
+  config (`buildtime-conf.xml`, read by `GeneratorConfig::
+  getBuildConnections()`, used by the migration/diff console commands) —
+  tracked separately, see the build-time config entry below.
 - **Postgres isn't actually the documented/default database** despite being
   what all fixtures and CI use: `generator/default.properties`'s
   `propel.database` is still empty, the README doesn't recommend one, and
