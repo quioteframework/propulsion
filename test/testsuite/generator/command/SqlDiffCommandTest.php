@@ -117,13 +117,13 @@ class SqlDiffCommandTest extends TestCase
     }
 
     /**
-     * Deliberately uses its own decimal-free schema.xml rather than
-     * generator-parity-diff's schema-v2.xml: that fixture's `price`
-     * DECIMAL(10,2) column would hit the pre-existing, out-of-scope
-     * PgsqlSchemaParserV12Plus NUMERIC-typmod-decoding bug documented in
-     * KNOWN_ISSUES.md (a reversed NUMERIC(p,s) column's `size` doesn't decode
-     * Postgres's packed typmod correctly), which would report a spurious
-     * diff on that column regardless of this command's own correctness.
+     * Includes a DECIMAL(10,2) column deliberately: this is the regression
+     * case for the PgsqlSchemaParser NUMERIC-typmod-decoding bug documented
+     * in KNOWN_ISSUES.md (a reversed NUMERIC(p,s) column's `size` didn't
+     * decode Postgres's packed typmod correctly, e.g. reporting 655362
+     * instead of 10) -- before that fix, this test would have reported a
+     * spurious diff on the `price` column even though the live table and
+     * schema.xml genuinely match.
      */
     public function testCommandReportsNoDiffWhenSchemaAlreadyMatches(): void
     {
@@ -149,6 +149,7 @@ class SqlDiffCommandTest extends TestCase
         $this->pdo->exec('CREATE TABLE diff_author (id SERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL)');
         $this->pdo->exec(
             'CREATE TABLE diff_book (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL, author_id INTEGER, '
+            . 'price NUMERIC(10,2), '
             . 'CONSTRAINT diff_book_author_fk FOREIGN KEY (author_id) REFERENCES diff_author (id) ON DELETE CASCADE)'
         );
 
@@ -164,6 +165,7 @@ class SqlDiffCommandTest extends TestCase
     <column name="id" type="INTEGER" primaryKey="true" autoIncrement="true"/>
     <column name="title" type="VARCHAR" size="255" required="true"/>
     <column name="author_id" type="INTEGER"/>
+    <column name="price" type="DECIMAL" size="10" scale="2"/>
     <foreign-key foreignTable="diff_author" onDelete="cascade">
       <reference local="author_id" foreign="id"/>
     </foreign-key>

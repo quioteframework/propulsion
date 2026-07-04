@@ -469,6 +469,45 @@ categories, not one:
   `propel.database` is still empty, the README doesn't recommend one, and
   `PgsqlPlatform` hasn't had a feature-parity audit against `MysqlPlatform`
   beyond what's needed to unblock fixture loading.
+- **PostgreSQL 15+ is the minimum supported version.** PostgreSQL 14 reaches
+  end-of-life in ~4 months from 2026-07-04; PostgreSQL 12-13 are already
+  past EOL. Nothing in this codebase currently targets a version below 12
+  (the reverse-engineering parser was the one place with an explicit
+  version split — see the fixed bug immediately below — and it's been
+  consolidated into a single, always-`pg_get_expr()`-based implementation
+  now that pre-12 support is moot). No other code currently has
+  version-conditional Postgres behavior to audit, but keep this floor in
+  mind if any future Postgres-specific feature work considers gating on
+  server version.
+- **Fixed: `PgsqlSchemaParser` decoded `NUMERIC(p,s)` columns' precision/scale
+  incorrectly** when reverse-engineering a schema (e.g. a live `price
+  NUMERIC(10,2)` column came back with `size="655362"` instead of `size="10"
+  scale="2"` — a still-packed, un-shifted Postgres `atttypmod` value, not
+  the decoded precision). Root cause: `processLengthScale()`'s numeric
+  branch checked `$strName == $this->getMappedNativeType(PropulsionTypes::NUMERIC)`,
+  but this parser's own type map (`getTypeMapping()`) only ever maps
+  Postgres's `numeric`/`decimal` native type names to
+  `PropulsionTypes::DECIMAL` — nothing produces `PropulsionTypes::NUMERIC` —
+  so `getMappedNativeType(PropulsionTypes::NUMERIC)` always returned `null`,
+  the branch never matched a real numeric column, and every `NUMERIC(p,s)`
+  column silently fell through to the generic fallback branch, which
+  returns the raw `atttypmod - 4` value with no bit-shifting at all. Fixed
+  by checking against `PropulsionTypes::DECIMAL` instead, which is what the
+  type map actually produces. This was a real bug independent of the
+  PostgreSQL version-support question above, and existed identically in the
+  now-deleted pre-12 `PgsqlSchemaParser` variant this class absorbed (same
+  copy-pasted logic) — not just the promoted one.
+
+  While fixing this, also renamed `PgsqlSchemaParserV12Plus` →
+  `PgsqlSchemaParser` and deleted the old pre-12, `pg_attrdef.adsrc`-based
+  `PgsqlSchemaParser` it used to sit alongside — with a PostgreSQL 15+ floor,
+  there's no supported version that variant was still relevant for, and
+  keeping two classes with confusingly overlapping names (one of which had
+  the exact same bug) wasn't worth preserving. Added direct regression
+  coverage in `SchemaReverseManagerTest`/`SqlDiffCommandTest` (a
+  `NUMERIC(10,2)` column reverse-engineers to `size="10" scale="2"`, and a
+  live table with that column no longer produces a spurious diff against a
+  matching schema.xml).
 - **PSR-18**: not started — no HTTP client usage exists anywhere in this
   codebase, so there's nothing concrete to wire it into yet.
 - **OTEL instrumentation**: explicitly out of scope, not planned.

@@ -11,7 +11,17 @@
 namespace Propulsion\Generator\Reverse\PgSQL;
 
 /**
- * Postgresql database schema parser.
+ * PostgreSQL database schema parser.
+ *
+ * Targets PostgreSQL 15+ (the minimum supported version -- see
+ * KNOWN_ISSUES.md). Uses pg_get_expr(adbin, adrelid) rather than the older
+ * pg_attrdef.adsrc text column (dropped in Postgres 12), so this has always
+ * worked on every version this project still supports; there is no
+ * older-Postgres variant to maintain anymore. This class used to be named
+ * PgsqlSchemaParserV12Plus, back when a separate pre-12, adsrc-based
+ * PgsqlSchemaParser existed alongside it -- that older variant is deleted
+ * now that PostgreSQL 12-14 aren't supported targets, so this is the only
+ * PostgreSQL schema parser and no longer needs the version-qualified name.
  *
  * @author     Hans Lellelid <hans@xmpl.org>
  * @version    $Revision$
@@ -27,8 +37,9 @@ use Propulsion\Generator\Model\ForeignKey;
 use Propulsion\Generator\Model\Index;
 use Propulsion\Generator\Model\Unique;
 use Propulsion\Generator\Exception\EngineException;
-use \stdClass;
+
 use \PDO;
+use \stdClass;
 class PgsqlSchemaParser extends BaseSchemaParser
 {
 	/**
@@ -106,7 +117,6 @@ class PgsqlSchemaParser extends BaseSchemaParser
 		// Clean up
 		$stmt = null;
 
-		// H4X by Arto 6.2.2024. Added AND n.nspname NOT LIKE '%_service' to ignore new Jakamo service schemas
 		$stmt = $this->dbh->query("SELECT c.oid,
 								    c.relname, n.nspname
 								    FROM pg_class c join pg_namespace n on (c.relnamespace=n.oid)
@@ -114,7 +124,6 @@ class PgsqlSchemaParser extends BaseSchemaParser
 								      AND n.nspname NOT IN ('information_schema','pg_catalog')
 								      AND n.nspname NOT LIKE 'pg_temp%'
 								      AND n.nspname NOT LIKE 'pg_toast%'
-									  AND n.nspname NOT LIKE '%_service'
 								    ORDER BY relname");
 
 		$tableWraps = array();
@@ -181,7 +190,7 @@ class PgsqlSchemaParser extends BaseSchemaParser
 								        att.atttypmod,
 								        att.atthasdef,
 								        att.attnotnull,
-								        def.adsrc,
+								        pg_get_expr(def.adbin, def.adrelid) as adsrc,
 								        CASE WHEN att.attndims > 0 THEN 1 ELSE 0 END AS isarray,
 								        CASE
 								            WHEN ty.typname = 'bpchar'
@@ -292,8 +301,17 @@ class PgsqlSchemaParser extends BaseSchemaParser
 			return $arrRetVal;
 		} // if ($intTypmod == -1)
 
-		// Numeric Datatype?
-		if ($strName == $this->getMappedNativeType(PropulsionTypes::NUMERIC)) {
+		// Numeric Datatype? Note: PropulsionTypes::DECIMAL, not ::NUMERIC -- the
+		// type map above (getTypeMapping()) maps Postgres's 'numeric'/'decimal'
+		// native type names to PropulsionTypes::DECIMAL, never to
+		// PropulsionTypes::NUMERIC (which nothing in this map produces). Checking
+		// against ::NUMERIC here meant getMappedNativeType() always returned
+		// null, this branch never matched a real numeric column, and every
+		// NUMERIC(p,s) column silently fell through to the final `else` below --
+		// which just returns the raw, still-packed typmod integer (e.g. 655362
+		// for NUMERIC(10,2)) as 'length' with no bit-shifting at all, instead of
+		// the actual precision (10).
+		if ($strName == $this->getMappedNativeType(PropulsionTypes::DECIMAL)) {
 			$intLen = ($intTypmod - 4) >> 16;
 			$intPrec = ($intTypmod - 4) & 0xffff;
 			$intLen = sprintf ("%ld", $intLen);
@@ -303,7 +321,7 @@ class PgsqlSchemaParser extends BaseSchemaParser
 			} // if ($intPrec)
 			$arrRetVal['length'] = $intLen;
 			$arrRetVal['scale'] = $intPrec;
-		} // if ($strName == $this->getMappedNativeType(PropulsionTypes::NUMERIC))
+		} // if ($strName == $this->getMappedNativeType(PropulsionTypes::DECIMAL))
 		elseif ($strName == $this->getMappedNativeType(PropulsionTypes::TIME) || $strName == 'timetz'
 			|| $strName == $this->getMappedNativeType(PropulsionTypes::TIMESTAMP) || $strName == 'timestamptz'
 			|| $strName == 'interval' || $strName == 'bit')

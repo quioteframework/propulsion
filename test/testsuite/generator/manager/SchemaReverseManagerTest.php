@@ -16,13 +16,9 @@ require_once dirname(__DIR__, 3) . '/tools/helpers/IntegrationDatabase.php';
 
 /**
  * Integration coverage for the console-app `schema:reverse` path
- * (Propulsion\Generator\Manager\SchemaReverseManager -- see SchemaReverseCommand).
- *
- * Mirrors PropulsionSchemaReverseTaskTest's Phing-task coverage (same two-table,
- * one-FK Postgres schema, same assertions on tables/columns/types/FK) so the two
- * code paths can be checked for structural/functional equivalence; per KNOWN_ISSUES.md
- * a byte-for-byte comparison isn't required since the two writers may format the XML
- * slightly differently.
+ * (Propulsion\Generator\Manager\SchemaReverseManager -- see SchemaReverseCommand)
+ * against a real Postgres testcontainer (two tables, one FK, several column
+ * types).
  */
 class SchemaReverseManagerTest extends TestCase
 {
@@ -60,7 +56,8 @@ class SchemaReverseManagerTest extends TestCase
             . 'id SERIAL PRIMARY KEY, '
             . 'title VARCHAR(255) NOT NULL, '
             . 'author_id INTEGER REFERENCES rev_author(id), '
-            . 'is_active BOOLEAN NOT NULL DEFAULT true'
+            . 'is_active BOOLEAN NOT NULL DEFAULT true, '
+            . 'price NUMERIC(10,2)'
             . ')'
         );
     }
@@ -119,6 +116,19 @@ class SchemaReverseManagerTest extends TestCase
         $this->assertSame('VARCHAR', (string) $bookColumns['title']['type']);
         $this->assertSame('INTEGER', (string) $bookColumns['author_id']['type']);
         $this->assertSame('BOOLEAN', (string) $bookColumns['is_active']['type']);
+
+        // Regression coverage for the PgsqlSchemaParser NUMERIC-typmod-decoding
+        // bug (KNOWN_ISSUES.md): a NUMERIC(10,2) column's packed atttypmod used
+        // to come out un-decoded (e.g. 655362, the raw (precision<<16)|scale
+        // value) instead of the real precision/scale, because the decoding
+        // branch checked PropulsionTypes::NUMERIC -- a type constant the
+        // reverse type map never actually produces for Postgres's 'numeric'
+        // native type (it always maps to PropulsionTypes::DECIMAL) -- so the
+        // check never matched and numeric columns silently fell through to
+        // the un-shifted fallback.
+        $this->assertSame('DECIMAL', (string) $bookColumns['price']['type']);
+        $this->assertSame('10', (string) $bookColumns['price']['size']);
+        $this->assertSame('2', (string) $bookColumns['price']['scale']);
 
         $this->assertGreaterThan(0, count($tablesByName['rev_book']->{'foreign-key'}));
         $fk = $tablesByName['rev_book']->{'foreign-key'}[0];

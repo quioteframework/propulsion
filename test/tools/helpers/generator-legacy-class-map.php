@@ -98,7 +98,7 @@ return [
     'PgsqlDataSQLBuilder' => 'Propulsion\\Generator\\Builder\\SQL\\PgSQL\\PgsqlDataSQLBuilder',
     'PgsqlPlatform' => 'Propulsion\\Generator\\Platform\\PgsqlPlatform',
     'PgsqlSchemaParser' => 'Propulsion\\Generator\\Reverse\\PgSQL\\PgsqlSchemaParser',
-    'PgsqlSchemaParserV12Plus' => 'Propulsion\\Generator\\Reverse\\PgSQL\\PgsqlSchemaParserV12Plus',
+    'PgsqlSchemaParserV12Plus' => 'Propulsion\\Generator\\Reverse\\PgSQL\\PgsqlSchemaParser',
     'PhpNameGenerator' => 'Propulsion\\Generator\\Model\\PhpNameGenerator',
     'Pluralizer' => 'Propulsion\\Generator\\Builder\\Util\\Pluralizer',
     'PropelColumnComparator' => 'Propulsion\\Generator\\Model\\Diff\\PropulsionColumnComparator',

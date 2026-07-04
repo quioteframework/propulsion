@@ -229,7 +229,7 @@ class SchemaReverseManager implements LoggerAwareInterface
 
         $parser = $this->generatorConfig->getConfiguredSchemaParser($con);
         // The Task parameter is only ever used by parsers for optional Phing-specific
-        // MSG_VERBOSE logging (see e.g. PgsqlSchemaParserV12Plus::parse()); passing null
+        // MSG_VERBOSE logging (see e.g. PgsqlSchemaParser::parse()); passing null
         // here is exactly what happens when the old Task ran without verbose output.
         $nbTables = $parser->parse($database, null);
 
