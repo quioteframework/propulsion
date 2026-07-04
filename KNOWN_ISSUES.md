@@ -7,15 +7,21 @@ scoping conversation, before it detoured into fixing tests).
 
 ## Current test suite state
 
-**As of Phase 3.5 (PHP5 builders removed entirely — see that section
-below for the full story): 2200 tests, 143 errors, 184 failures, 11
-skipped, 1 risky.** This is a regression in absolute count from the 36
-errors/19 failures baseline described below, and an accurate one: removing
-PHP5 as a fallback surfaced real, previously-masked completeness gaps in
-the promoted builders (most seriously, `ObjectBuilder` calling zero
-behavior-modifier hooks at all — since fixed — plus several
-still-unfixed, behavior-specific gaps in `nested_set`/`i18n`/`sortable`).
-See Phase 3.5 for the itemized list of what was fixed and what remains.
+**As of the Phase 3.5 follow-up pass (`ObjectBuilder`/`PeerBuilder`
+completeness audit, scoped to everything except `nested_set`/`i18n`/
+`sortable` — see that section for the full itemized list): 2200 tests, 115
+errors, 121 failures, 11 skipped, 1 risky.** Immediately after PHP5 removal
+(before that follow-up pass) the suite was at 143 errors/184 failures — a
+regression in absolute count from the 36 errors/19 failures baseline
+described below, and an accurate one: removing PHP5 as a fallback surfaced
+real, previously-masked completeness gaps in the promoted builders (most
+seriously, `ObjectBuilder` calling zero behavior-modifier hooks at all —
+since fixed). The follow-up pass fixed ~15 more such gaps (doSelectJoin*
+methods entirely missing, LOB/array/enum column handling, referrer
+collection caching, primaryString/__toString, reload/ensureConsistency,
+temporal-default modified-tracking, allowPkInsert, and more — see Phase 3.5
+for the itemized list), leaving `nested_set`/`i18n`/`sortable`-specific gaps
+(~150 errors/failures) as the dominant remaining cluster, tracked separately.
 
 Prior to Phase 3.5, with Docker (full suite, confirmed by an actual
 combined run after all of the below landed together on `main`): **2184
@@ -637,6 +643,182 @@ pass should work through the remaining clusters the same way this one
 worked through the hook-wiring and segfault issues (bisect by running
 `testsuite/generator/behavior/<name>/` in isolation, find the first real
 error, root-cause it, repeat).
+
+**Follow-up pass — completeness audit of `ObjectBuilder`/`PeerBuilder`,
+scoped to everything except `nested_set`/`i18n`/`sortable`** (those three
+behaviors were being fixed concurrently in separate worktrees). Assigned
+test set: `GeneratedObjectTest`, `ObjectBehaviorTest`,
+`GeneratedPeerDoSelectTest`, `BaseObjectSerializeTest`,
+`BaseObjectConvertTest`, `GeneratedObjectArrayColumnTypeTest`,
+`GeneratedObjectEnumColumnTypeTest`, `GeneratedObjectLobTest`,
+`PeerBehaviorTest`, `QueryBuilderTest`, `SluggableBehaviorTest`,
+`Ticket520Test`. Before this pass: 214 tests / 19 errors / 51 failures / 1
+risky in that filtered set. After: 214 tests / 2 errors / 0 failures / 1
+risky — the 2 remaining errors (`GeneratedPeerDoSelectTest::testDoSelect`/
+`testDoSelectOne`) and the 1 risky test (`GeneratedObjectTest::testNoColsModified`)
+are the exact same pre-existing, already-documented issues from clusters #3
+and #5 above (MySQL-vs-Postgres string/identifier quoting semantics; a
+genuinely-incomplete test), confirmed unrelated to this pass by reproducing
+them against the pre-pass commit (`910e12f`) in a throwaway worktree.
+
+Full suite, before this pass: **2200 tests, 143 errors, 184 failures, 11
+skipped, 1 risky** (the Phase 3.5 net-result baseline above). After: **2200
+tests, 115 errors, 121 failures, 11 skipped, 1 risky** — same test/skip/risky
+counts (no tests gained, lost, or newly skipped), 28 fewer errors and 63
+fewer failures, all attributable to fixes below. Spot-checked several
+failure clusters outside the assigned test list that touch the same
+machinery this pass changed (`GeneratedQueryArrayColumnTypeTest`,
+`PropulsionObjectCollectionTest`, `BasePeerTest`, `GeneratedObjectRelTest`,
+`GeneratedObjectTemporalColumnTypeTest`, `AggregateColumnBehaviorTest`)
+against the same pre-pass commit to confirm no new regressions were
+introduced there either -- all either already failing before this pass with
+the same failure, or newly *fixed* as an incidental benefit.
+
+Root causes found and fixed, all in `generator/Lib/Builder/OM/{ObjectBuilder,PeerBuilder}.php`
+unless noted (every one was a real gap the promoted builders had that
+PHP5's had not, silently masked as long as PHP5 was the default):
+
+- **`PeerBuilder::doCountThis()`'s `$distinct` param was strictly typed
+  `bool`.** Generated behavior code
+  (`SortableBehaviorPeerBuilderModifier::countList()`) and at least one test
+  call `doCount($criteria, $con)` positionally -- shifting `$con` into the
+  `$distinct` slot. PHP5's untyped equivalent silently tolerated this
+  (truthy object, harmless no-op `setDistinct()` call, connection argument
+  just silently dropped in favor of the default); the strict type threw a
+  `TypeError`. Loosened to `mixed`, matching PHP5's actual (untyped)
+  contract.
+- **`doSelectJoin<Fk>()`/`doSelectJoinAll()`/`doSelectJoinAllExcept<Fk>()`
+  and their `doCountJoin*()` counterparts were entirely absent** from the
+  promoted `PeerBuilder` -- a ~750-line method family PHP5PeerBuilder
+  provided as the default. Ported it (`addCriteriaJoin()`/`getJoinBehavior()`
+  helpers plus the six `addDoSelectJoin*()`/`addDoCountJoin*()` methods and
+  an `addSelectMethods()` override wiring them in), adapting parameter
+  typing to the promoted builder's `?PropulsionPDO`/`mixed` conventions.
+  This single gap accounted for most of `GeneratedPeerDoSelectTest`'s
+  failures and the `doSelectJoinAuthor()`-dependent paths in
+  `GeneratedObjectTest::toArray()`.
+- **Array-typed (`PHP_ARRAY`) columns with a plural name got no
+  `has<Singular>()`/`add<Singular>()`/`remove<Singular>()` methods** (e.g. a
+  `tags` column should generate `hasTag()`/`addTag()`/`removeTag()`) --
+  ported from PHP5's `addHasArrayElement()`/`addAddArrayElement()`/
+  `addRemoveArrayElement()`, adapted to this builder's storage model (a real
+  PHP array property, not PHP5's lazily-decoded serialized-string-plus-cache
+  pair). Also fixed array columns with no explicit schema default
+  incorrectly defaulting to `null` instead of `array()`, in both the
+  property declaration and `applyDefaultValues()`.
+- **LOB columns (BLOB/VARBINARY/LONGVARBINARY) had no resource support and
+  no lazy-load mechanism at all.** Property/getter/setter were plain
+  `?string`, so passing a stream resource (a normal, previously-supported
+  calling convention) threw a `TypeError`; the `${col}_isLoaded` flag existed
+  but nothing ever consulted it, and there was no `load<Phpname>()` method to
+  actually populate a lazy column on first access. Ported PHP5's
+  stream-based model: `mixed`-typed property/getter/setter (accepting either
+  a resource or a raw string, normalizing the latter into a rewound
+  `php://memory` stream), a real lazy-loader method, `doSave()` rewinding LOB
+  stream properties after insert/update (PDO leaves them at EOF), and
+  `reload()` actually nulling lazy-loaded columns (previously it reset the
+  `_isLoaded` flag but left the stale/possibly-`fclose()`'d resource in
+  place).
+- **`copyInto()` passed enum columns' raw internal index straight to the
+  target's setter**, which validates against the enum's *label* set, not its
+  index -- throws the moment the index isn't itself coincidentally a valid
+  label. Routed enum columns through the getter (index -> label) instead.
+- **Non-lazy column properties were `private`**, unlike PHP5's uniform
+  `protected`. Several tests gain white-box access to internal state by
+  declaring a same-named public property on a throwaway subclass -- only
+  possible if the parent's property is `protected` (a same-named `private`
+  parent property is a distinct storage slot, silently gaining no access at
+  all). Switched to `protected`.
+- **`toArray()`'s `$includeLazyLoadColumns` param was strictly typed
+  `bool`**; existing call sites (both test code and this method's own
+  recursive self-calls) pass `null` for it, relying on PHP5's untyped param
+  treating `null` as falsy. Widened to `?bool`. Also fixed the recursion
+  guard to return the bare string `'*RECURSION*'` (PHP5's actual behavior)
+  instead of `['*RECURSION*' => true]` -- fixed `BaseObjectConvertTest`'s
+  YAML/JSON/CSV recursion-marker assertions.
+- **`ObjectBuilder::addPrimaryString()` (the generated `__toString()`)
+  always stringified the primary key**, ignoring both a `primaryString="true"`
+  schema column and the fallback to `Peer::DEFAULT_STRING_FORMAT` (YAML by
+  default) that PHP5 used. Fixing this one method also fixed all of
+  `SluggableBehaviorTest`'s remaining failures, since `SluggableBehavior`'s
+  default raw-slug source slugifies the object's string representation.
+- **`reloadOnInsert`/`reloadOnUpdate` schema attributes had all their
+  plumbing (the `$skipReload` parameter) but no actual effect** -- nothing
+  ever set `$reloadObject` or called `reload()` after a modified insert/update,
+  so DB-computed default expressions (e.g. a `created` column with
+  `defaultExpr="CURRENT_TIMESTAMP"`) were never picked up into the object
+  after `save()`. Ported the `$reloadObject` tracking and final
+  `reload()` call from PHP5's `addDoSave()`.
+- **Temporal column mutators didn't mark a column modified when explicitly
+  re-set to its own schema default**, even though that's a real, intentional
+  write (e.g. `new Review(); $review->setReviewDate('2001-01-01')` when
+  `'2001-01-01'` is `review_date`'s default) -- PHP5's mutator special-cased
+  this exact scenario (`|| ($dt->format($fmt) === $defaultValue)`); ported
+  it.
+- **`allowPkInsert="true"` tables silently lost a caller-supplied primary
+  key on Postgres.** `BasePeer::doInsert()` only returns a freshly-generated
+  id when the caller didn't already supply one; on a sequence-based platform
+  it returns `null` when the criteria already had an explicit value (id
+  generation is skipped entirely). `doSave()` called `$this->set<Pk>($pk)`
+  unconditionally after every insert, silently overwriting the caller's
+  explicit id with that `null` the moment the row was saved. Guarded the
+  call with `if ($pk !== null)` for `allowPkInsert` tables, matching PHP5's
+  existing guard.
+- **`ensureConsistency()` was a complete no-op.** PHP5's version invalidates
+  a cached FK reference object when its own foreign column no longer
+  matches the local FK column's current value; `hydrate()` already called
+  `ensureConsistency()` on re-hydration (i.e. from `reload()`), but with
+  nothing implemented there, `reload()` (which doesn't clear FK reference
+  caches unless `$deep=true`) kept returning a stale cached related object
+  via the getter even after the FK column was re-hydrated with a new value.
+  Ported the real check.
+- **`count<Fk>()` (referrer count) always hit the database, or returned `0`
+  for a new/unsaved object** -- ignoring an already-loaded in-memory
+  referrer collection entirely, so counting objects added via `add<Fk>()`
+  before the first `save()` always returned 0 instead of the real in-memory
+  count. Ported PHP5's collection-aware version.
+- **`get<Fk>()` (referrer collection getter) unconditionally overwrote the
+  cached full referrer collection with the result of a caller-supplied
+  `$criteria` filter**, so a subsequent no-criteria call wrongly kept
+  returning the filtered subset instead of the real full collection. PHP5's
+  version only persists into the cache when `$criteria` is `null`; a
+  filtered fetch returns its result directly without touching the cache.
+  Ported that distinction.
+- **`copyInto()` explicitly skipped 1:1 referrer relationships** ("1:1
+  relationships don't get deep copied", contradicting PHP5's
+  `addCopyInto()`, which does deep-copy them via `set<Fk>($relObj->copy($deepCopy))`).
+  Ported the real 1:1 branch.
+- Two **test-file fixes**, same "PHP5-era assumption about internal
+  representation" pattern documented elsewhere in this file: `PeerBehaviorTest`/
+  `ObjectBehaviorTest` hardcoded `'PHP5PeerBuilder'`/`'PHP5ObjectBuilder'` as
+  the expected `get_class($builder)` value from behavior hooks (stale --
+  those classes are archived, `PeerBuilder`/`ObjectBuilder` are what's
+  actually invoked now); `test/tools/helpers/bookstore/behavior/Testallhooksbehavior.php`'s
+  `preDelete`/`postDelete` hook bodies and `GeneratedObjectEnumColumnTypeTest`'s
+  white-box test subclass read/declared the raw lowercase column-name
+  property (`$this->id`, `$bar`) that only existed on PHP5-generated objects;
+  updated to the promoted builder's PhpName-cased properties/getters (`$Bar`,
+  `getId()`).
+
+**Not investigated in this pass** (out of scope, per the explicit split with
+concurrent `nested_set`/`i18n`/`sortable` work): the ~150 remaining
+errors/failures in `NestedSetBehaviorObjectBuilderModifierTest` and its
+`WithScope`/`PeerBuilderModifierTest`/`QueryBuilderModifierTest` variants,
+`I18nBehaviorObjectBuilderModifierTest`/`I18nBehaviorQueryBuilderModifierTest`/
+`I18nBehaviorPeerBuilderModifierTest`, and
+`SortableBehaviorObjectBuilderModifierTest`/its `WithScope`/`PeerBuilderModifierTest`/
+`QueryBuilderModifierTest` variants. Also not investigated: the pre-existing
+`ModelCriteriaTest`/`SubQueryTest`/`ModelCriteriaWithSchemaTest` failures that
+predate Phase 3.5 (confirmed against `910e12f` in a throwaway worktree,
+e.g. `ModelCriteriaTest::testFindPkSimpleKey`'s `ModelCriteria::findPk()`
+"Undefined array key 0" -- `getTableMap()->getPrimaryKeys()` returning a
+non-zero-indexed array is a `runtime/Lib/Query/ModelCriteria.php` bug,
+unrelated to the generator/builder work this pass scoped to), and the
+`MssqlPlatformTest`/`PropulsionStatementFormatterTest`/`PropulsionArrayFormatterTest`/
+`PropulsionObjectFormatterTest`/`PropulsionPDOTest`/`FieldnameRelatedTest`/
+`PropulsionQuickBuilderTest`/`PropulsionArrayCollectionTest`/`MysqlSchemaParserTest`
+clusters, none of which showed up in this pass's assigned test list and
+weren't diffed against the pre-pass baseline individually.
 
 ### Phase 4 — Worker-safety rework (ServiceContainer/Session split)
 
