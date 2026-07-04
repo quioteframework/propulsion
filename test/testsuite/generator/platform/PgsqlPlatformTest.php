@@ -110,6 +110,69 @@ EOF;
 		$this->assertEquals($expected, $this->getPlatform()->getAddTablesDDL($database));
 	}
 
+	public function testGetMaxColumnNameLength()
+	{
+		// PostgreSQL 15+'s real NAMEDATALEN-based limit is 63, not the pre-7.3
+		// 32-character limit this used to (incorrectly) return -- see the
+		// docblock on PgsqlPlatform::getMaxColumnNameLength().
+		$this->assertEquals(63, $this->getPlatform()->getMaxColumnNameLength());
+	}
+
+	/**
+	 * Regression test: a table using only the primary, cross-platform
+	 * `schema="..."` attribute (not the legacy `<vendor type="pgsql">`
+	 * convention covered by testGetAddTablesDDLSchemasVendor()) used to get
+	 * fully schema-qualified DDL (`CREATE TABLE "x"."book" ...`) without the
+	 * schema itself ever being created, which fails outright against a fresh
+	 * database. getAddSchemasDDL() must emit `CREATE SCHEMA` for these too.
+	 */
+	public function testGetAddSchemasDDLNativeSchemaAttribute()
+	{
+		$schema = <<<EOF
+<database name="test">
+	<table name="book" schema="x">
+		<column name="id" primaryKey="true" type="INTEGER" autoIncrement="true" />
+	</table>
+	<table name="author" schema="y">
+		<column name="id" primaryKey="true" type="INTEGER" autoIncrement="true" />
+	</table>
+	<table name="book_summary" schema="x">
+		<column name="id" primaryKey="true" type="INTEGER" autoIncrement="true" />
+	</table>
+</database>
+EOF;
+		$database = $this->getDatabaseFromSchema($schema);
+		$expected = <<<EOF
+
+CREATE SCHEMA "x";
+
+CREATE SCHEMA "y";
+
+EOF;
+		$this->assertEquals($expected, $this->getPlatform()->getAddSchemasDDL($database));
+	}
+
+	/**
+	 * A `schema="..."` table doesn't need `SET search_path` wrapping the way
+	 * the legacy vendor-info convention does (see
+	 * testGetAddTableDDLSchemaVendor()), because Table::getName() already
+	 * returns the fully schema-qualified identifier.
+	 */
+	public function testGetAddTableDDLNativeSchemaAttributeNoSearchPath()
+	{
+		$schema = <<<EOF
+<database name="test">
+	<table name="foo" schema="Woopah">
+		<column name="id" primaryKey="true" type="INTEGER" autoIncrement="true" />
+	</table>
+</database>
+EOF;
+		$table = $this->getTableFromSchema($schema, 'Woopah.foo');
+		$ddl = $this->getPlatform()->getAddTableDDL($table);
+		$this->assertStringNotContainsString('search_path', $ddl);
+		$this->assertStringContainsString('CREATE TABLE "Woopah"."foo"', $ddl);
+	}
+
 	public function testGetAddTablesDDLSchemasVendor()
 	{
 		$schema = <<<EOF
@@ -202,6 +265,10 @@ EOF;
 	{
 		$database = $this->getDatabaseFromSchema($schema);
 		$expected = <<<EOF
+
+CREATE SCHEMA "x";
+
+CREATE SCHEMA "y";
 
 -----------------------------------------------------------------------
 -- x.book

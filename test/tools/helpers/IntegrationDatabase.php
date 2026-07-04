@@ -405,49 +405,17 @@ class IntegrationDatabase
         $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
 
         // The schemas fixture's tables use a `schema="..."` attribute (Propulsion's
-        // "multiple schemas in one database" support) on real Postgres, which -- unlike
-        // MySQL, where "schema" just becomes a cross-database reference -- requires an
-        // actual `CREATE SCHEMA` up front: Table::getName() qualifies the DDL/DML table
-        // name as `schema.table` whenever the target platform's supportsSchemas() is
-        // true, regardless of propel.schema.autoPrefix (that only affects the generated
-        // PHP class/phpName, not the real SQL identifier). The generator's own
-        // getAddSchemasDDL() only emits CREATE SCHEMA for pgsql *vendor-info*
-        // parameters, which this fixture doesn't set, so create them here instead of
-        // teaching the generator a new implicit-schema-creation code path.
-        foreach (self::schemaNamesUsedBy($schemas) as $schemaName) {
-            $pdo->exec('CREATE SCHEMA IF NOT EXISTS "' . str_replace('"', '""', $schemaName) . '"');
-        }
-
+        // "multiple schemas in one database" support). PgsqlPlatform::getAddSchemasDDL()
+        // now emits `CREATE SCHEMA` for these directly (see the fixed gap in
+        // KNOWN_ISSUES.md's Postgres-parity entry -- it used to only do this for the
+        // legacy `<vendor type="pgsql">` schema convention, not this fixture's own
+        // `schema="..."` attribute), so the generated SQL below creates the schemas
+        // itself; no separate pre-creation step is needed here anymore.
         foreach (glob($sqlDir . '/*.sql') as $sqlFile) {
             $pdo->exec((string) file_get_contents($sqlFile));
         }
 
         self::writeSchemasRuntimeConf($dsn);
-    }
-
-    /**
-     * Collects every distinct `schema="..."` attribute value from the given schema.xml
-     * files (both the root <database> element and individual <table> elements), so the
-     * corresponding real Postgres schemas can be created before the generated DDL runs.
-     */
-    private static function schemaNamesUsedBy(array $schemaXmlFiles): array
-    {
-        $names = [];
-        foreach ($schemaXmlFiles as $file) {
-            $xml = simplexml_load_file($file);
-            if ($xml === false) {
-                continue;
-            }
-            if (isset($xml['schema'])) {
-                $names[(string) $xml['schema']] = true;
-            }
-            foreach ($xml->table as $table) {
-                if (isset($table['schema'])) {
-                    $names[(string) $table['schema']] = true;
-                }
-            }
-        }
-        return array_keys($names);
     }
 
     private static function writeSchemasRuntimeConf(string $dsn): void

@@ -65,9 +65,21 @@ class PgsqlPlatform extends DefaultPlatform
 		return '';
 	}
 
+	/**
+	 * PostgreSQL identifiers are stored in a `NAMEDATALEN`-sized column
+	 * (64 bytes, one of which is reserved for the trailing null terminator),
+	 * so 63 characters is the real usable limit on any currently-supported
+	 * server (this only changes if PostgreSQL is compiled with a
+	 * non-default `NAMEDATALEN`, vanishingly rare in practice). This used to
+	 * return 32 -- the limit on PostgreSQL server versions older than 7.3
+	 * (2002) -- which is long past this codebase's PostgreSQL 15+ floor (see
+	 * KNOWN_ISSUES.md) and needlessly truncated auto-generated constraint/
+	 * index names (see ConstraintNameGenerator, Index::getName()) well
+	 * before the real server-enforced limit.
+	 */
 	public function getMaxColumnNameLength()
 	{
-		return 32;
+		return 63;
 	}
 
 	public function getBooleanString($b)
@@ -146,15 +158,40 @@ DROP SEQUENCE IF EXISTS %s;
 		}
 	}
 
+	/**
+	 * Emits a `CREATE SCHEMA` statement for every distinct schema referenced by
+	 * the database's tables.
+	 *
+	 * Two independent ways exist to put a table in a non-default schema, and
+	 * both are honored here:
+	 *  - the `schema="..."` attribute on `<database>`/`<table>` (the primary,
+	 *    cross-platform mechanism -- see {@link Table::getName()}/
+	 *    {@link \Propulsion\Generator\Model\ForeignKey::getForeignTableName()},
+	 *    which already qualify every identifier as `schema.table` for any
+	 *    platform where {@link supportsSchemas()} is true). Until this was
+	 *    fixed, a table using only this attribute got fully schema-qualified
+	 *    DDL (`CREATE TABLE "x"."book" ...`) but the schema itself was never
+	 *    created, so the generated SQL failed against a fresh database unless
+	 *    something else created the schema out of band.
+	 *  - the legacy `<vendor type="pgsql"><parameter name="schema" .../>`
+	 *    vendor-info convention, which additionally wraps the table's DDL in
+	 *    `SET search_path` (see {@link getUseSchemaDDL()}) since -- unlike the
+	 *    `schema` attribute -- it does not change the table's qualified name.
+	 */
 	public function getAddSchemasDDL(Database $database)
 	{
 		$ret = '';
 		$schemas = array();
 		foreach ($database->getTables() as $table) {
+			$schemaName = $table->getSchema();
+			if ($schemaName !== null && $schemaName !== '' && !isset($schemas[$schemaName])) {
+				$schemas[$schemaName] = true;
+				$ret .= $this->getCreateSchemaDDL($schemaName);
+			}
 			$vi = $table->getVendorInfoForType('pgsql');
 			if ($vi->hasParameter('schema') && !isset($schemas[$vi->getParameter('schema')])) {
 				$schemas[$vi->getParameter('schema')] = true;
-				$ret .= $this->getAddSchemaDDL($table);
+				$ret .= $this->getCreateSchemaDDL($vi->getParameter('schema'));
 			}
 		}
 		return $ret;
@@ -164,11 +201,16 @@ DROP SEQUENCE IF EXISTS %s;
 	{
 		$vi = $table->getVendorInfoForType('pgsql');
 		if ($vi->hasParameter('schema')) {
-			$pattern = "
+			return $this->getCreateSchemaDDL($vi->getParameter('schema'));
+		};
+	}
+
+	protected function getCreateSchemaDDL($schemaName)
+	{
+		$pattern = "
 CREATE SCHEMA %s;
 ";
-			return sprintf($pattern, $this->quoteIdentifier($vi->getParameter('schema')));
-		};
+		return sprintf($pattern, $this->quoteIdentifier($schemaName));
 	}
 
 	public function getUseSchemaDDL(Table $table)
