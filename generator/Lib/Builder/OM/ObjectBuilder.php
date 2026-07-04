@@ -521,13 +521,18 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			$colname = $col->getName();
 			$phpname = $col->getPhpName();
 			$type = $this->getPhp84PropertyType($col);
-			// Temporal (DateTimeInterface-typed) and other object-typed columns can have a
-			// non-null default, but PHP property declarations only accept constant/scalar
-			// expressions as defaults -- `new DateTime(...)` isn't legal here (unlike in a
-			// constructor-promoted parameter). Always default those to null in the property
-			// declaration; the real default is applied via applyDefaultValues(), called from
-			// the constructor (see addApplyDefaultValues()).
-			$defaultVal = $col->isTemporalType() ? 'NULL' : $this->getDefaultValueString($col);
+			// Temporal (DateTimeInterface-typed) columns can have a non-null default, but
+			// PHP property declarations only accept constant/scalar expressions as defaults
+			// -- `new DateTime(...)` isn't legal here (unlike in a constructor-promoted
+			// parameter). Enum columns are similar for a different reason:
+			// getDefaultValueString() returns the enum's *index* (an int) for its stored
+			// representation, but the property itself is typed ?string -- a property
+			// declaration default must match the declared type exactly (no int-to-string
+			// coercion is allowed there, unlike a real assignment statement). Always default
+			// both to null in the property declaration; the real default is applied via
+			// applyDefaultValues(), called from the constructor (see
+			// addApplyDefaultValues()), where a plain assignment IS allowed to coerce.
+			$defaultVal = ($col->isTemporalType() || $col->isEnumType()) ? 'NULL' : $this->getDefaultValueString($col);
 
 			// Add property documentation
 			$script .= "
@@ -1016,6 +1021,14 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 					// code (and a "Attempt to read property on string" warning at build time).
 					$script .= "
 		if (\$this->{$phpname} === null || \$this->{$phpname}->format('$fmt') !== $defaultVal) {
+			return false;
+		}";
+				} elseif ($col->isEnumType()) {
+					// $this->$phpname was coerced to the property's declared ?string type when
+					// applyDefaultValues() assigned it the int index $defaultVal holds -- a
+					// strict !== would always be true (differing types), so compare loosely.
+					$script .= "
+		if (\$this->$phpname != $defaultVal) {
 			return false;
 		}";
 				} else {
