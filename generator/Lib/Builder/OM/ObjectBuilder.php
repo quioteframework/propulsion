@@ -1647,16 +1647,47 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 
 	protected function addEnsureConsistency(&$script)
 	{
-		// Implementation would be similar to parent but with typed parameters
+		// Ported from PHP5ObjectBuilder::addEnsureConsistency(): checks each cached FK
+		// reference object against the current value of its local FK column(s), and
+		// invalidates (nulls) the cache if they no longer match. Called from hydrate()
+		// when $rehydrate is true (i.e. from reload()) -- without this, reload() (which
+		// doesn't clear FK reference caches unless $deep=true) would keep returning a
+		// stale cached related object via the getter even after the FK column itself
+		// changed underneath it and was re-hydrated with a new value. This was a
+		// complete no-op before, silently breaking that invalidation for every table.
+		$table = $this->getTable();
 		$script .= "
 
 	/**
-	 * Ensures that all required foreign key objects are loaded.
-	 * This method is used internally by Propulsion to hydrate the object.
+	 * Checks and repairs the internal consistency of the object.
+	 *
+	 * This method is executed after an already-instantiated object is re-hydrated
+	 * from the database. It exists to check any foreign keys to make sure that
+	 * the objects related to the current object are correct based on foreign key.
+	 *
+	 * You can override this method in the stub class, but you should always invoke
+	 * the base method from the overridden method (i.e. parent::ensureConsistency()),
+	 * in case your model changes.
+	 *
+	 * @throws PropulsionException
 	 */
 	protected function ensureConsistency(): void
-	{
-		// Implementation for ensuring referential consistency
+	{";
+		foreach ($table->getColumns() as $col) {
+			if ($col->isForeignKey()) {
+				$phpname = $col->getPhpName();
+				foreach ($col->getForeignKeys() as $fk) {
+					$tblFK = $table->getDatabase()->getTable($fk->getForeignTableName());
+					$colFK = $tblFK->getColumn($fk->getMappedForeignColumn($col->getName()));
+					$varName = $this->getFKVarName($fk);
+					$script .= "
+		if (\$this->$varName !== null && \$this->$phpname !== \$this->{$varName}->get" . $colFK->getPhpName() . "()) {
+			\$this->$varName = null;
+		}";
+				}
+			}
+		}
+		$script .= "
 	}";
 	}
 
@@ -2568,7 +2599,17 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 ";
 			foreach ($table->getReferrers() as $refFK) {
 				if ($refFK->isLocalPrimaryKey()) {
-					continue; // 1:1 relationships don't get deep copied
+					// 1:1 relationships (e.g. BookstoreEmployee <-> BookstoreEmployeeAccount)
+					// ARE deep-copied too -- ported from PHP5ObjectBuilder::addCopyInto(),
+					// which this previously diverged from despite its comment's claim.
+					$refFKPhpNameAffix = $this->getRefFKPhpNameAffix($refFK, false);
+					$script .= "
+			\$relObj = \$this->get$refFKPhpNameAffix();
+			if (\$relObj) {
+				\$copyObj->set$refFKPhpNameAffix(\$relObj->copy(\$deepCopy));
+			}
+";
+					continue;
 				}
 				$refFKPhpNameAffix = $this->getRefFKPhpNameAffix($refFK, true);
 				$script .= "
@@ -2777,10 +2818,20 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 				\$this->init$relCol();
 			} else {
 				\$query = " . $this->getNewStubQueryBuilder($refFK->getTable())->getClassname() . "::create(null, \$criteria);
-				
-				\$this->{$collName} = \$query
+
+				\${$collName} = \$query
 					->filterBy" . $this->getFKPhpNameAffix($refFK, false) . "(\$this)
 					->find(\$con);
+				// A caller-supplied \$criteria always fetches fresh from the database and
+				// is never persisted into the cached collection -- ported from
+				// PHP5ObjectBuilder::addRefFKGet(); the previous version overwrote the
+				// full cached collection with the filtered result, so a subsequent
+				// no-criteria call would wrongly keep returning the filtered subset
+				// instead of the real full collection.
+				if (null !== \$criteria) {
+					return \${$collName};
+				}
+				\$this->{$collName} = \${$collName};
 			}
 		}
 
@@ -2795,7 +2846,14 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	{
 		$relatedObjectClassName = $this->getNewStubObjectBuilder($refFK->getTable())->getClassname();
 		$relCol = $this->getRefFKPhpNameAffix($refFK, true);
+		$collName = $this->getRefFKCollVarName($refFK);
 
+		// Ported from PHP5ObjectBuilder::addRefFKCount(): the previous version always
+		// hit the database (or returned 0 for a new/unsaved object), ignoring an
+		// already-loaded in-memory collection entirely -- so counting referrers added
+		// via add<Fk>() on a not-yet-saved object (e.g. Book::countReviews() right after
+		// several addReview() calls, before Book::save()) always returned 0 instead of
+		// the real in-memory count.
 		$script .= "
 
 	/**
@@ -2809,18 +2867,22 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	public function count$relCol(?Criteria \$criteria = null, bool \$distinct = false, ?PropulsionPDO \$con = null): int
 	{
-		if (\$this->isNew()) {
-			return 0;
+		if (\$this->$collName === null || \$criteria !== null) {
+			if (\$this->isNew() && \$this->$collName === null) {
+				return 0;
+			}
+
+			\$query = " . $this->getNewStubQueryBuilder($refFK->getTable())->getClassname() . "::create(null, \$criteria);
+			if (\$distinct) {
+				\$query->distinct();
+			}
+
+			return \$query
+				->filterBy" . $this->getFKPhpNameAffix($refFK, false) . "(\$this)
+				->count(\$con);
 		}
 
-		\$query = " . $this->getNewStubQueryBuilder($refFK->getTable())->getClassname() . "::create(null, \$criteria);
-		if (\$distinct) {
-			\$query->distinct();
-		}
-
-		return \$query
-			->filterBy" . $this->getFKPhpNameAffix($refFK, false) . "(\$this)
-			->count(\$con);
+		return count(\$this->$collName);
 	}";
 	}
 
