@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propulsion\Generator\Builder\SQL\PgSQL;;
+namespace Propulsion\Generator\Builder\SQL\PgSQL;
 
 /**
  * PostgreSQL class for building data dump SQL.

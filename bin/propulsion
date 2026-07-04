@@ -14,6 +14,8 @@ use Propulsion\Generator\Command\SqlDiffCommand;
 use Propulsion\Generator\Command\MigrationStatusCommand;
 use Propulsion\Generator\Command\MigrationUpCommand;
 use Propulsion\Generator\Command\MigrationDownCommand;
+use Propulsion\Generator\Command\DataDumpCommand;
+use Propulsion\Generator\Command\DataSqlCommand;
 
 $application = new Application('Propulsion', '2.0.0-dev');
 
@@ -27,5 +29,7 @@ $application->addCommand(new SqlDiffCommand());
 $application->addCommand(new MigrationStatusCommand());
 $application->addCommand(new MigrationUpCommand());
 $application->addCommand(new MigrationDownCommand());
+$application->addCommand(new DataDumpCommand());
+$application->addCommand(new DataSqlCommand());
 
 $application->run();

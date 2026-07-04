@@ -181,17 +181,62 @@ categories, not one:
     end-to-end by every fixture-backed test in the suite (via
     `IntegrationDatabase::ensureClassesGenerated()`, which calls the same
     `ModelManager` the console `model:build` command uses).
-  - **Not ported, deleted outright** (per already-documented scope decisions
-    below): `PropulsionDataDumpTask`/`PropulsionDataSQLTask` (no console
-    equivalent, deliberately -- see "Console-app migration status" below) and
-    `PropulsionConvertConfTask` (should be deprecated, not preserved -- see
-    its own entry below). `generator/Lib/Builder/Util/XmlToDataSQL.php` and
-    `PropulsionStringReader.php` were deleted alongside `PropulsionDataSQLTask`
-    since they existed solely to support it and had real `Phing\...` imports
-    of their own; the one test that used to reach `PropulsionConvertConfTask`
-    for its `simpleXmlToArray()` XML-to-array helper
-    (`MysqlSchemaParserTest`) now carries a small test-local, Phing-free port
-    of just that one static method instead of extending the deleted Task.
+  - **Revisited: `data:dump`/`data:sql` console commands added.** Originally
+    left un-ported (see the stale "Lower priority" writeup a few paragraphs
+    below, kept for context) on the theory that the pair was only useful
+    inside a Phing multi-database build with no natural single-command
+    reduction -- reconsidered, and it turns out that's not actually true:
+    each command just needed an explicit `--dsn`/schema-file/output-file
+    argument instead of Phing's `datadbmap`/`sqldbmap` file-based routing,
+    the same simplification `sql:exec` already used for `PropulsionSQLExec`.
+    `DataDumpManager`/`DataDumpCommand` (`data:dump`) and
+    `DataSqlManager`/`DataSqlCommand` (`data:sql`) are the plain-PHP ports,
+    in `generator/Lib/Manager/`/`generator/Lib/Command/`. Two real gaps had
+    to be fixed to make this work, both left behind when the originals were
+    deleted:
+    - `generator/Lib/Builder/Util/DataRow.php` and `ColumnValue.php` didn't
+      exist as standalone files -- they only ever existed as "inner classes"
+      at the bottom of the now-deleted `XmlToDataSQL.php`, declared in the
+      `Propulsion\Generator\Builder\Util` namespace that `DataSQLBuilder.php`
+      (never deleted, never had Phing coupling) `use`s them from. Deleting
+      `XmlToDataSQL.php` alongside the Phing removal silently broke every
+      `DataSQLBuilder` subclass's `use` imports (latent until something
+      actually instantiated one, which nothing did -- matching the
+      "deliberately not ported" status at the time). Recreated both as
+      proper standalone value-object classes.
+    - `XmlToDataSQL` itself (the real dump-XML -> INSERT-SQL transform logic,
+      minus the Phing-Task wrapper) used a `Phing\Parser\AbstractHandler`/
+      `Phing\Parser\ExpatParser` SAX-callback pattern to stream-parse the
+      dataset XML. `DataSqlManager::transform()` reimplements the same
+      logic with a plain `DOMDocument` walk instead -- these dataset files
+      are small, flat XML (one child element per row, no nesting), so a SAX
+      streaming parser was never actually necessary for this format, and a
+      DOM walk needs no Phing dependency at all. Also found and fixed a
+      leftover `namespace ...;;` (double-semicolon) typo in
+      `PgsqlDataSQLBuilder.php`/`OracleDataSQLBuilder.php` while touching
+      this area (harmless -- an empty statement -- but worth a two-line
+      cleanup since it was right there).
+
+    Regression coverage in `DataDumpAndSqlManagerTest`: dumps a live table
+    (including a `NULL` column value, confirmed omitted as an XML attribute
+    entirely rather than written as an empty string) to XML, converts that
+    XML to INSERT SQL via a *second* schema describing a differently-named
+    target table (proving the round trip resolves by phpName, not by
+    literal table-name match), executes the SQL via `sql:exec`, and confirms
+    the target table's rows match the source exactly (including the
+    `NUMERIC` and `BOOLEAN` column values, which need the `PgsqlDataSQLBuilder`
+    quoting overrides this port didn't touch).
+
+    Still not ported: `PropulsionConvertConfTask` (should be deprecated, not
+    preserved -- see its own entry below, unaffected by this revisit).
+    `generator/Lib/Builder/Util/XmlToDataSQL.php` (the old, Phing-coupled
+    driver class -- superseded by `DataSqlManager`, not resurrected) and
+    `PropulsionStringReader.php` (existed solely to support the now-deleted
+    `PropulsionDataSQLTask`/`PropulsionConvertConfTask` Phing tasks) stay
+    deleted; the one test that used to reach `PropulsionConvertConfTask` for
+    its `simpleXmlToArray()` XML-to-array helper (`MysqlSchemaParserTest`)
+    still carries its small test-local, Phing-free port of just that one
+    static method rather than resurrecting the Task.
   - Below is the history of how these tasks were audited, confirmed correct,
     and ported, kept for context:
   - **Root cause fixed**: `generator/default.properties` declared

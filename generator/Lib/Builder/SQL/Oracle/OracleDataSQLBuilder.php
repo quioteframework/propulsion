@@ -7,7 +7,7 @@
  *
  * @license    MIT License
  */
-namespace Propulsion\Generator\Builder\SQL\Oracle;;
+namespace Propulsion\Generator\Builder\SQL\Oracle;
 
 /**
  * Oracle class for building data dump SQL.
