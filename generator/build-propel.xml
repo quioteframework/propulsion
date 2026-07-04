@@ -26,6 +26,34 @@
   </if>
 
   <!--
+    propel.project / propel.project.dir / propel.targetPackage default
+    computation lives here, as plain property tasks, rather than inside
+    default.properties.
+
+    Phing's file-based property loading resolves placeholders found within
+    that same file against the file's own (just-parsed) key/value table
+    before ever falling back to the live project property table (see
+    PropertyTask::resolveAllProperties()). default.properties used to declare
+    an empty propel.project default,
+    "propel.project.dir = ${propel.home}/projects/${propel.project}", and
+    "propel.targetPackage = ${propel.project}" itself; every derived directory
+    property in that file (propel.schema.dir, propel.output.dir,
+    propel.php.dir, propel.sql.dir, propel.migration.dir, etc.) is defined in
+    terms of propel.project.dir, so they -- and propel.targetPackage -- all
+    silently resolved against that file-local empty default instead of the
+    real value, already set correctly by this point via build.xml's
+    resolvepath/set-project-dir or a project's own build.properties, whenever
+    propel-gen was invoked normally (i.e. always). Plain property tasks (as
+    opposed to file-loaded ones) substitute placeholders against the live
+    project table via the normal attribute-binding path, so declaring the
+    same defaults here instead avoids the shadowing bug while still
+    providing a fallback for direct, standalone invocation of this file.
+  -->
+  <property name="propel.project" value=""/>
+  <property name="propel.project.dir" value="${propel.home}/projects/${propel.project}"/>
+  <property name="propel.targetPackage" value="${propel.project}"/>
+
+  <!--
     The default.properties file will map old properties to the new ones along
     with setting the corret defaults.
   -->

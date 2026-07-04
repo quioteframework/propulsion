@@ -98,6 +98,27 @@ class IntegrationDatabase
      * @throws \RuntimeException With a message suitable for markTestSkipped() when
      *         Docker/Postgres aren't usable in this environment.
      */
+    /**
+     * Exposes the shared testcontainer's host/port (starting it via ensureReady()'s
+     * Postgres-only path if nothing has started one yet) for tests that need to spin
+     * up their own scratch database in it -- e.g. generator Task-class integration
+     * tests that reverse-engineer or migrate a small hand-built schema rather than
+     * one of the pre-built fixture projects. Only meaningful when currentPlatform()
+     * is 'pgsql' (the default); throws the same skip-reason RuntimeException as
+     * ensureReady() if Docker/Postgres aren't usable here.
+     *
+     * @return array{host: string, port: int}
+     */
+    public static function containerConnection(): array
+    {
+        self::ensureContainerStarted();
+
+        return [
+            'host' => self::$container->getHost(),
+            'port' => self::$container->getFirstMappedPort(),
+        ];
+    }
+
     public static function ensureReady(): void
     {
         if (self::$attempted) {
