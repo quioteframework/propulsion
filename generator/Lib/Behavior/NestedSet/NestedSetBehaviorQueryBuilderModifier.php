@@ -74,6 +74,7 @@ class NestedSetBehaviorQueryBuilderModifier
 
 	protected function addTreeRoots(&$script)
 	{
+		$useScope = $this->behavior->useScope();
 		$script .= "
 /**
  * Filter the query to restrict the result to root objects
@@ -82,7 +83,19 @@ class NestedSetBehaviorQueryBuilderModifier
  */
 public function treeRoots()
 {
-	return \$this->addUsingAlias({$this->peerClassname}::LEFT_COL, 1, Criteria::EQUAL);
+	\$this->addUsingAlias({$this->peerClassname}::LEFT_COL, 1, Criteria::EQUAL);";
+		// treeRoots() can return more than one row when scoping is enabled (one
+		// root per scope) with no other column to disambiguate row order --
+		// LEFT_COL is 1 for every one of them. Without an explicit order,
+		// Postgres is free to return them in whatever order it likes (and
+		// does, in ways that vary run-to-run depending on unrelated global
+		// suite state), so order deterministically by scope.
+		if ($useScope) {
+			$script .= "
+	\$this->addAscendingOrderByColumn({$this->peerClassname}::SCOPE_COL);";
+		}
+		$script .= "
+	return \$this;
 }
 ";
 	}
@@ -288,12 +301,19 @@ public function orderByBranch(\$reverse = false)
  */
 public function orderByLevel(\$reverse = false)
 {
+	// Order by the level column itself, not by right value: right value
+	// descending happens to put the root first (it always has the largest
+	// right value), but past that it interleaves subtrees in a postorder-ish
+	// sequence instead of actually grouping nodes by level. Break ties within
+	// a level by left value (branch/natural tree order) for a stable result.
 	if (\$reverse) {
 		return \$this
-			->addAscendingOrderByColumn({$this->peerClassname}::RIGHT_COL);
+			->addDescendingOrderByColumn({$this->peerClassname}::LEVEL_COL)
+			->addDescendingOrderByColumn({$this->peerClassname}::LEFT_COL);
 	} else {
 		return \$this
-			->addDescendingOrderByColumn({$this->peerClassname}::RIGHT_COL);
+			->addAscendingOrderByColumn({$this->peerClassname}::LEVEL_COL)
+			->addAscendingOrderByColumn({$this->peerClassname}::LEFT_COL);
 	}
 }
 ";

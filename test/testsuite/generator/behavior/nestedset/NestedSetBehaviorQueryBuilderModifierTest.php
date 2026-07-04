@@ -239,11 +239,13 @@ class NestedSetBehaviorQueryBuilderModifierTest extends BookstoreNestedSetTestBa
 		$objs = Table9Query::create()
 			->orderByLevel()
 			->find();
-		$coll = $this->buildCollection(array($t1, $t2, $t5, $t4, $t6, $t7), 'orderByLevel() orders by level, from the root to the leaf');
+		$coll = $this->buildCollection(array($t1, $t2, $t3, $t5, $t4, $t6, $t7));
+		$this->assertEquals($coll, $objs, 'orderByLevel() orders by level, from the root to the leaf');
 		$objs = Table9Query::create()
 			->orderByLevel(true)
 			->find();
-		$coll = $this->buildCollection(array($t7, $t6, $t4, $t5, $t2, $t1), 'orderByLevel(true) orders by level, from the leaf to the root');
+		$coll = $this->buildCollection(array($t7, $t6, $t4, $t5, $t3, $t2, $t1));
+		$this->assertEquals($coll, $objs, 'orderByLevel(true) orders by level, from the leaf to the root');
 	}
 
 	public function testFindRoot()
