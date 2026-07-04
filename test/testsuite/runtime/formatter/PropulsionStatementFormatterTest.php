@@ -57,7 +57,7 @@ class PropulsionStatementFormatterTest extends BookstoreEmptyTestBase
 	{
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
-		$stmt = $con->query('SELECT * FROM book WHERE book.TITLE = "Quicksilver"');
+		$stmt = $con->query('SELECT * FROM book WHERE book.TITLE = \'Quicksilver\'');
 		$formatter = new PropulsionStatementFormatter();
 		$formatter->init(new ModelCriteria('bookstore', 'Book'));
 		$books = $formatter->format($stmt);
@@ -72,7 +72,7 @@ class PropulsionStatementFormatterTest extends BookstoreEmptyTestBase
 	{
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
-		$stmt = $con->query('SELECT * FROM book WHERE book.TITLE = "foo"');
+		$stmt = $con->query('SELECT * FROM book WHERE book.TITLE = \'foo\'');
 		$formatter = new PropulsionStatementFormatter();
 		$formatter->init(new ModelCriteria('bookstore', 'Book'));
 		$books = $formatter->format($stmt);
@@ -111,7 +111,7 @@ class PropulsionStatementFormatterTest extends BookstoreEmptyTestBase
 	{
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
-		$stmt = $con->query('SELECT * FROM book WHERE book.TITLE = "foo"');
+		$stmt = $con->query('SELECT * FROM book WHERE book.TITLE = \'foo\'');
 		$formatter = new PropulsionStatementFormatter();
 		$formatter->init(new ModelCriteria('bookstore', 'Book'));
 		$book = $formatter->formatOne($stmt);

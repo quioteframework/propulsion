@@ -503,8 +503,15 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
         $super->addSubordinate($e1);
         $super->addSubordinate($e2);
 
+        // $super itself has no directly-modified columns of its own (only the
+        // relation added above) -- this exercises save() cascading the insert
+        // for $super and its subordinates without throwing or silently no-oping.
         $affected = $super->save();
 
+        $this->assertGreaterThan(0, $affected, 'save() reports rows affected even when the root object has no directly-modified columns');
+        $this->assertNotNull($super->getId(), 'save() persisted $super despite it having no directly-modified columns');
+        $this->assertEquals($super->getId(), $e1->getSupervisorId(), 'cascading the relation set the subordinate\'s supervisor_id');
+        $this->assertEquals($super->getId(), $e2->getSupervisorId(), 'cascading the relation set the subordinate\'s supervisor_id');
     }
 
     /**

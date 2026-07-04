@@ -105,7 +105,7 @@ class PropulsionOnDemandFormatterTest extends BookstoreEmptyTestBase
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		BookstoreDataPopulator::populate($con);
 
-		$stmt = $con->query('SELECT * FROM book WHERE book.TITLE = "Quicksilver"');
+		$stmt = $con->query('SELECT * FROM book WHERE book.TITLE = \'Quicksilver\'');
 		$formatter = new PropulsionOnDemandFormatter();
 		$formatter->init(new ModelCriteria('bookstore', 'Book'));
 		$books = $formatter->format($stmt);
@@ -122,7 +122,7 @@ class PropulsionOnDemandFormatterTest extends BookstoreEmptyTestBase
 	{
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
-		$stmt = $con->query('SELECT * FROM book WHERE book.TITLE = "foo"');
+		$stmt = $con->query('SELECT * FROM book WHERE book.TITLE = \'foo\'');
 		$formatter = new PropulsionOnDemandFormatter();
 		$formatter->init(new ModelCriteria('bookstore', 'Book'));
 		$books = $formatter->format($stmt);
