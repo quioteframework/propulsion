@@ -63,7 +63,20 @@ class NestedSetPeerBuilder extends AbstractPeerBuilder
 	 */
 	protected function addIncludes(&$script = null)
 	{
-		// PHP 8.4 uses namespaces and autoloading, so includes are minimal
+		// PHP 8.4 uses namespaces and autoloading, but the generated code below still
+		// references these short class names, so they must be declared here for the
+		// framework to auto-generate the corresponding `use` statements (see
+		// OMBuilder::declareClass()/getUseStatements()).
+		$this->declareClassFromBuilder($this->getStubPeerBuilder());
+		$this->declareClassFromBuilder($this->getStubObjectBuilder());
+		$this->declareClass('Propulsion\\Connection\\PropulsionPDO');
+		$this->declareClass('Propulsion\\OM\\NodeObject');
+		$this->declareClass('Propulsion\\Util\\NodePeer');
+		$this->declareClass('Propulsion\\Exception\\PropulsionException');
+		$this->declareClass('Propulsion\\Query\\Criteria');
+		$this->declareClass('Propulsion\\Propulsion');
+		$this->declareClass('\\PDO');
+		$this->declareClass('\\PDOStatement');
 	}
 
 	/**
@@ -101,7 +114,7 @@ class NestedSetPeerBuilder extends AbstractPeerBuilder
  * @deprecated  Since Propulsion 1.5. Use the nested_set behavior instead of the NestedSet treeMode
  * @package    propel.generator.".$this->getPackage()."
  */
-abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getClassName()." implements NodePeer
+abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getClassname()." implements NodePeer
 {
 ";
 	}
@@ -115,13 +128,51 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 	{
 		$this->addConstants($script);
 		$this->addGetTree($script);
+		$this->addCreateRoot($script);
 		$this->addRetrieveRoot($script);
-		$this->addRetrieveTree($script);
-		$this->addIsValid($script);
+		$this->addInsertAsFirstChildOf($script);
+		$this->addInsertAsLastChildOf($script);
+		$this->addInsertAsPrevSiblingOf($script);
+		$this->addInsertAsNextSiblingOf($script);
+		$this->addInsertAsParentOf($script);
+		$this->addInsertRoot($script);
 		$this->addDeleteTree($script);
-		$this->addShiftLevel($script);
+		$this->addMoveToFirstChildOf($script);
+		$this->addMoveToLastChildOf($script);
+		$this->addMoveToPrevSiblingOf($script);
+		$this->addMoveToNextSiblingOf($script);
+		$this->addRetrieveFirstChild($script);
+		$this->addRetrieveLastChild($script);
+		$this->addRetrievePrevSibling($script);
+		$this->addRetrieveNextSibling($script);
+		$this->addRetrieveTree($script);
+		$this->addRetrieveBranch($script);
+		$this->addRetrieveChildren($script);
+		$this->addRetrieveDescendants($script);
+		$this->addRetrieveSiblings($script);
+		$this->addRetrieveParent($script);
+		$this->addGetLevel($script);
+		$this->addGetNumberOfChildren($script);
+		$this->addGetNumberOfDescendants($script);
+		$this->addGetPath($script);
+		$this->addIsValid($script);
+		$this->addIsRoot($script);
+		$this->addIsLeaf($script);
+		$this->addIsChildOf($script);
+		$this->addIsEqualTo($script);
+		$this->addHasParent($script);
+		$this->addHasPrevSibling($script);
+		$this->addHasNextSibling($script);
+		$this->addHasChildren($script);
+		$this->addDeleteDescendants($script);
+		$this->addGetNode($script);
+		$this->addHydrateDescendants($script);
+		$this->addHydrateChildren($script);
+		$this->addUpdateLoadedNode($script);
+		$this->addUpdateDBNode($script);
 		$this->addShiftRLValues($script);
 		$this->addShiftRLRange($script);
+		$this->addShiftLevel($script);
 		$this->addMakeRoomForLeaf($script);
 		$this->addFixLevels($script);
 		$this->addGetMaxRight($script);
@@ -140,12 +191,62 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 	}
 
 	/**
-	 * Adds class constants for tree operations.
+	 * Adds class constants for tree operations: the left/right/scope column
+	 * identifiers used throughout this class, ported faithfully from
+	 * PHP5NestedSetPeerBuilder::addConstants().
 	 * @param      string &$script The script will be modified in this method.
 	 */
 	protected function addConstants(&$script): void
 	{
+		$table = $this->getTable();
+		$tableName = $table->getName();
+
+		$colname = array();
+
+		foreach ($table->getColumns() as $col) {
+			if ($col->isNestedSetLeftKey()) {
+				$colname['left'] = $tableName . '.' . strtoupper($col->getName());
+			}
+
+			if ($col->isNestedSetRightKey()) {
+				$colname['right'] = $tableName . '.' . strtoupper($col->getName());
+			}
+
+			if ($col->isTreeScopeKey()) {
+				$colname['scope'] = $tableName . '.' . strtoupper($col->getName());
+			}
+
+			if (3 == count($colname)) {
+				break;
+			}
+		}
+
+		if (!isset($colname['left'])) {
+			throw new EngineException("One column must have nestedSetLeftKey attribute set to true for [" . $table->getName() . "] table");
+		}
+
+		if (!isset($colname['right'])) {
+			throw new EngineException("One column must have nestedSetRightKey attribute set to true for [" . $table->getName() . "] table");
+		}
+
+		$colname['scope'] = $colname['scope'] ?? null;
+
 		$script .= "
+	/**
+	 * Left column for the set
+	 */
+	public const LEFT_COL = " . var_export($colname['left'], true) . ";
+
+	/**
+	 * Right column for the set
+	 */
+	public const RIGHT_COL = " . var_export($colname['right'], true) . ";
+
+	/**
+	 * Scope column for the set
+	 */
+	public const SCOPE_COL = " . var_export($colname['scope'], true) . ";
+
 	/**
 	 * Tree structure operation constants
 	 */
@@ -173,23 +274,1202 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 			\$criteria->add(static::SCOPE_COL, \$scope);
 		}
 		\$criteria->addAscendingOrderByColumn(static::LEFT_COL);
-		
+
 		return static::doSelect(\$criteria);
 	}
 ";
 	}
 
-	// Placeholder methods - in a complete implementation, these would contain
-	// the full modernized logic from the PHP5 version
-	protected function addRetrieveRoot(&$script): void { /* Implementation */ }
-	protected function addRetrieveTree(&$script): void { /* Implementation */ }
-	protected function addIsValid(&$script): void { /* Implementation */ }
-	protected function addDeleteTree(&$script): void { /* Implementation */ }
-	protected function addShiftLevel(&$script): void { /* Implementation */ }
-	protected function addShiftRLValues(&$script): void { /* Implementation */ }
-	protected function addShiftRLRange(&$script): void { /* Implementation */ }
-	protected function addMakeRoomForLeaf(&$script): void { /* Implementation */ }
-	protected function addFixLevels(&$script): void { /* Implementation */ }
-	protected function addGetMaxRight(&$script): void { /* Implementation */ }
-	protected function addGetLastScope(&$script): void { /* Implementation */ }
+	protected function addCreateRoot(&$script): void
+	{
+		$objectClassname = $this->getStubObjectBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Creates the supplied node as the root node.
+	 *
+	 * @throws     PropulsionException
+	 */
+	public static function createRoot(NodeObject \$node): void
+	{
+		if (\$node->getLeftValue()) {
+			throw new PropulsionException('Cannot turn an existing node into a root node.');
+		}
+
+		\$node->setLeftValue(1);
+		\$node->setRightValue(2);
+	}
+";
+	}
+
+	protected function addRetrieveRoot(&$script): void
+	{
+		$objectClassname = $this->getStubObjectBuilder()->getClassname();
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Returns the root node for a given scope id
+	 *
+	 * @return     $objectClassname|null Propulsion object for root node
+	 */
+	public static function retrieveRoot(\$scopeId = 1, ?PropulsionPDO \$con = null)
+	{
+		\$c = new Criteria($peerClassname::DATABASE_NAME);
+
+		\$c->add(self::LEFT_COL, 1, Criteria::EQUAL);
+
+		if (self::SCOPE_COL) {
+			\$c->add(self::SCOPE_COL, \$scopeId, Criteria::EQUAL);
+		}
+
+		return $peerClassname::doSelectOne(\$c, \$con);
+	}
+";
+	}
+
+	protected function addInsertAsFirstChildOf(&$script): void
+	{
+		$script .= "
+	/**
+	 * Inserts \$child as first child of given \$parent node
+	 */
+	public static function insertAsFirstChildOf(NodeObject \$child, NodeObject \$parent, ?PropulsionPDO \$con = null): void
+	{
+		// Update \$child node properties
+		\$child->setLeftValue(\$parent->getLeftValue() + 1);
+		\$child->setRightValue(\$parent->getLeftValue() + 2);
+		\$child->setParentNode(\$parent);
+
+		\$sidv = null;
+		if (self::SCOPE_COL) {
+			\$child->setScopeIdValue(\$sidv = \$parent->getScopeIdValue());
+		}
+
+		// Update database nodes
+		self::shiftRLValues(\$child->getLeftValue(), 2, \$con, \$sidv);
+
+		// Update all loaded nodes
+		self::updateLoadedNode(\$parent, 2, \$con);
+	}
+";
+	}
+
+	protected function addInsertAsLastChildOf(&$script): void
+	{
+		$script .= "
+	/**
+	 * Inserts \$child as last child of destination node \$parent
+	 */
+	public static function insertAsLastChildOf(NodeObject \$child, NodeObject \$parent, ?PropulsionPDO \$con = null): void
+	{
+		// Update \$child node properties
+		\$child->setLeftValue(\$parent->getRightValue());
+		\$child->setRightValue(\$parent->getRightValue() + 1);
+		\$child->setParentNode(\$parent);
+
+		\$sidv = null;
+		if (self::SCOPE_COL) {
+			\$child->setScopeIdValue(\$sidv = \$parent->getScopeIdValue());
+		}
+
+		// Update database nodes
+		self::shiftRLValues(\$child->getLeftValue(), 2, \$con, \$sidv);
+
+		// Update all loaded nodes
+		self::updateLoadedNode(\$parent, 2, \$con);
+	}
+";
+	}
+
+	protected function addInsertAsPrevSiblingOf(&$script): void
+	{
+		$script .= "
+	/**
+	 * Inserts \$sibling as previous sibling to destination node \$node
+	 */
+	public static function insertAsPrevSiblingOf(NodeObject \$node, NodeObject \$sibling, ?PropulsionPDO \$con = null): void
+	{
+		if (\$sibling->isRoot()) {
+			throw new PropulsionException('Root nodes cannot have siblings');
+		}
+
+		\$node->setLeftValue(\$sibling->getLeftValue());
+		\$node->setRightValue(\$sibling->getLeftValue() + 1);
+		\$node->setParentNode(\$sibling->retrieveParent());
+
+		\$sidv = null;
+		if (self::SCOPE_COL) {
+			\$node->setScopeIdValue(\$sidv = \$sibling->getScopeIdValue());
+		}
+
+		// Update database nodes
+		self::shiftRLValues(\$node->getLeftValue(), 2, \$con, \$sidv);
+
+		// Update all loaded nodes
+		self::updateLoadedNode(\$sibling->retrieveParent(), 2, \$con);
+	}
+";
+	}
+
+	protected function addInsertAsNextSiblingOf(&$script): void
+	{
+		$script .= "
+	/**
+	 * Inserts \$sibling as next sibling to destination node \$node
+	 */
+	public static function insertAsNextSiblingOf(NodeObject \$node, NodeObject \$sibling, ?PropulsionPDO \$con = null): void
+	{
+		if (\$sibling->isRoot()) {
+			throw new PropulsionException('Root nodes cannot have siblings');
+		}
+
+		\$node->setLeftValue(\$sibling->getRightValue() + 1);
+		\$node->setRightValue(\$sibling->getRightValue() + 2);
+		\$node->setParentNode(\$sibling->retrieveParent());
+
+		\$sidv = null;
+		if (self::SCOPE_COL) {
+			\$node->setScopeIdValue(\$sidv = \$sibling->getScopeIdValue());
+		}
+
+		// Update database nodes
+		self::shiftRLValues(\$node->getLeftValue(), 2, \$con, \$sidv);
+
+		// Update all loaded nodes
+		self::updateLoadedNode(\$sibling->retrieveParent(), 2, \$con);
+	}
+";
+	}
+
+	protected function addInsertAsParentOf(&$script): void
+	{
+		$script .= "
+	/**
+	 * Inserts \$parent as parent of given node.
+	 */
+	public static function insertAsParentOf(NodeObject \$parent, NodeObject \$node, ?PropulsionPDO \$con = null): void
+	{
+		\$sidv = null;
+		if (self::SCOPE_COL) {
+			\$sidv = \$node->getScopeIdValue();
+		}
+
+		self::shiftRLValues(\$node->getLeftValue(), 1, \$con, \$sidv);
+		self::shiftRLValues(\$node->getRightValue() + 2, 1, \$con, \$sidv);
+
+		if (self::SCOPE_COL) {
+			\$parent->setScopeIdValue(\$sidv);
+		}
+
+		\$parent->setLeftValue(\$node->getLeftValue());
+		\$parent->setRightValue(\$node->getRightValue() + 2);
+
+		\$previousParent = \$node->retrieveParent();
+		\$parent->setParentNode(\$previousParent);
+		\$node->setParentNode(\$parent);
+
+		\$node->save(\$con);
+
+		// Update all loaded nodes
+		self::updateLoadedNode(\$previousParent, 2, \$con);
+	}
+";
+	}
+
+	protected function addInsertRoot(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Inserts \$node as root node
+	 */
+	public static function insertRoot(NodeObject \$node, ?PropulsionPDO \$con = null): void
+	{
+		\$sidv = null;
+		if (self::SCOPE_COL) {
+			\$sidv = \$node->getScopeIdValue();
+		}
+
+		$peerClassname::insertAsParentOf($peerClassname::retrieveRoot(\$sidv, \$con), \$node, \$con);
+	}
+";
+	}
+
+	/**
+	 * Emits both deleteRoot() and deleteNode(), the two tree-deletion primitives that
+	 * PHP5's NodePeer implementations exposed separately. Ported from
+	 * PHP5NestedSetPeerBuilder::addDeleteRoot()/addDeleteNode().
+	 */
+	protected function addDeleteTree(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Delete root node
+	 *
+	 * @return     bool Deletion status
+	 */
+	public static function deleteRoot(\$scopeId = 1, ?PropulsionPDO \$con = null): bool
+	{
+		if (!self::SCOPE_COL) {
+			\$scopeId = null;
+		}
+		\$root = $peerClassname::retrieveRoot(\$scopeId, \$con);
+		if (\$root !== null && $peerClassname::getNumberOfChildren(\$root) == 1) {
+			return $peerClassname::deleteNode(\$root, \$con);
+		}
+		return false;
+	}
+
+	/**
+	 * Delete \$dest node
+	 *
+	 * @return     bool Deletion status
+	 */
+	public static function deleteNode(NodeObject \$dest, ?PropulsionPDO \$con = null): bool
+	{
+		if (\$dest->getLeftValue() == 1) {
+			// deleting root implies conditions (see deleteRoot() method)
+			return $peerClassname::deleteRoot(\$dest->getScopeIdValue() ?? 1, \$con);
+		}
+
+		\$sidv = null;
+		if (self::SCOPE_COL) {
+			\$sidv = \$dest->getScopeIdValue();
+		}
+
+		self::shiftRLRange(\$dest->getLeftValue(), \$dest->getRightValue(), -1, \$con, \$sidv);
+		self::shiftRLValues(\$dest->getRightValue() + 1, -2, \$con, \$sidv);
+		\$dest->delete(\$con);
+		return true;
+	}
+";
+	}
+
+	protected function addMoveToFirstChildOf(&$script): void
+	{
+		$script .= "
+	/**
+	 * Moves \$child to be first child of \$parent
+	 */
+	public static function moveToFirstChildOf(NodeObject \$parent, NodeObject \$child, ?PropulsionPDO \$con = null): void
+	{
+		if (\$parent->getScopeIdValue() != \$child->getScopeIdValue()) {
+			throw new PropulsionException('Moving nodes across trees is not supported');
+		}
+		\$destLeft = \$parent->getLeftValue() + 1;
+		self::updateDBNode(\$child, \$destLeft, \$con);
+
+		// Update all loaded nodes
+		self::updateLoadedNode(\$parent, 2, \$con);
+	}
+";
+	}
+
+	protected function addMoveToLastChildOf(&$script): void
+	{
+		$script .= "
+	/**
+	 * Moves \$child to be last child of \$parent
+	 */
+	public static function moveToLastChildOf(NodeObject \$parent, NodeObject \$child, ?PropulsionPDO \$con = null): void
+	{
+		if (\$parent->getScopeIdValue() != \$child->getScopeIdValue()) {
+			throw new PropulsionException('Moving nodes across trees is not supported');
+		}
+		\$destLeft = \$parent->getRightValue();
+		self::updateDBNode(\$child, \$destLeft, \$con);
+
+		// Update all loaded nodes
+		self::updateLoadedNode(\$parent, 2, \$con);
+	}
+";
+	}
+
+	protected function addMoveToPrevSiblingOf(&$script): void
+	{
+		$script .= "
+	/**
+	 * Moves \$node to be prev sibling to \$dest
+	 */
+	public static function moveToPrevSiblingOf(NodeObject \$dest, NodeObject \$node, ?PropulsionPDO \$con = null): void
+	{
+		if (\$dest->getScopeIdValue() != \$node->getScopeIdValue()) {
+			throw new PropulsionException('Moving nodes across trees is not supported');
+		}
+		\$destLeft = \$dest->getLeftValue();
+		self::updateDBNode(\$node, \$destLeft, \$con);
+
+		// Update all loaded nodes
+		self::updateLoadedNode(\$dest->retrieveParent(), 2, \$con);
+	}
+";
+	}
+
+	protected function addMoveToNextSiblingOf(&$script): void
+	{
+		$script .= "
+	/**
+	 * Moves \$node to be next sibling to \$dest
+	 */
+	public static function moveToNextSiblingOf(NodeObject \$dest, NodeObject \$node, ?PropulsionPDO \$con = null): void
+	{
+		if (\$dest->getScopeIdValue() != \$node->getScopeIdValue()) {
+			throw new PropulsionException('Moving nodes across trees is not supported');
+		}
+		\$destLeft = \$dest->getRightValue() + 1;
+		self::updateDBNode(\$node, \$destLeft, \$con);
+
+		// Update all loaded nodes
+		self::updateLoadedNode(\$dest->retrieveParent(), 2, \$con);
+	}
+";
+	}
+
+	protected function addRetrieveFirstChild(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Gets first child for the given node if it exists
+	 *
+	 * @return     mixed Propulsion object if exists else null
+	 */
+	public static function retrieveFirstChild(NodeObject \$node, ?PropulsionPDO \$con = null)
+	{
+		\$c = new Criteria($peerClassname::DATABASE_NAME);
+		\$c->add(self::LEFT_COL, \$node->getLeftValue() + 1, Criteria::EQUAL);
+		if (self::SCOPE_COL) {
+			\$c->add(self::SCOPE_COL, \$node->getScopeIdValue(), Criteria::EQUAL);
+		}
+
+		return $peerClassname::doSelectOne(\$c, \$con);
+	}
+";
+	}
+
+	protected function addRetrieveLastChild(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Gets last child for the given node if it exists
+	 *
+	 * @return     mixed Propulsion object if exists else null
+	 */
+	public static function retrieveLastChild(NodeObject \$node, ?PropulsionPDO \$con = null)
+	{
+		\$c = new Criteria($peerClassname::DATABASE_NAME);
+		\$c->add(self::RIGHT_COL, \$node->getRightValue() - 1, Criteria::EQUAL);
+		if (self::SCOPE_COL) {
+			\$c->add(self::SCOPE_COL, \$node->getScopeIdValue(), Criteria::EQUAL);
+		}
+
+		return $peerClassname::doSelectOne(\$c, \$con);
+	}
+";
+	}
+
+	protected function addRetrievePrevSibling(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Gets prev sibling for the given node if it exists
+	 *
+	 * @return     mixed Propulsion object if exists else null
+	 */
+	public static function retrievePrevSibling(NodeObject \$node, ?PropulsionPDO \$con = null)
+	{
+		\$c = new Criteria($peerClassname::DATABASE_NAME);
+		\$c->add(self::RIGHT_COL, \$node->getLeftValue() - 1, Criteria::EQUAL);
+		if (self::SCOPE_COL) {
+			\$c->add(self::SCOPE_COL, \$node->getScopeIdValue(), Criteria::EQUAL);
+		}
+		\$prevSibling = $peerClassname::doSelectOne(\$c, \$con);
+		\$node->setPrevSibling(\$prevSibling);
+		return \$prevSibling;
+	}
+";
+	}
+
+	protected function addRetrieveNextSibling(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Gets next sibling for the given node if it exists
+	 *
+	 * @return     mixed Propulsion object if exists else null
+	 */
+	public static function retrieveNextSibling(NodeObject \$node, ?PropulsionPDO \$con = null)
+	{
+		\$c = new Criteria($peerClassname::DATABASE_NAME);
+		\$c->add(self::LEFT_COL, \$node->getRightValue() + 1, Criteria::EQUAL);
+		if (self::SCOPE_COL) {
+			\$c->add(self::SCOPE_COL, \$node->getScopeIdValue(), Criteria::EQUAL);
+		}
+		\$nextSibling = $peerClassname::doSelectOne(\$c, \$con);
+		\$node->setNextSibling(\$nextSibling);
+		return \$nextSibling;
+	}
+";
+	}
+
+	protected function addRetrieveTree(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$objectClassname = $this->getStubObjectBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Retrieves the entire tree from root
+	 *
+	 * @return     mixed Propulsion object for root node if it exists else null
+	 */
+	public static function retrieveTree(\$scopeId = 1, ?PropulsionPDO \$con = null)
+	{
+		\$c = new Criteria($peerClassname::DATABASE_NAME);
+		\$c->addAscendingOrderByColumn(self::LEFT_COL);
+		if (self::SCOPE_COL) {
+			\$c->add(self::SCOPE_COL, \$scopeId, Criteria::EQUAL);
+		}
+		\$stmt = $peerClassname::doSelectStmt(\$c, \$con);
+		if (false !== (\$row = \$stmt->fetch(PDO::FETCH_NUM))) {
+			\$key = $peerClassname::getPrimaryKeyHashFromRow(\$row, 0);
+			\$root = $peerClassname::getInstanceFromPool(\$key);
+			if (\$root === null) {
+				" . $this->buildObjectInstanceCreationCode('$root', $objectClassname) . "
+				\$root->hydrate(\$row);
+			}
+
+			\$root->setLevel(0);
+			$peerClassname::hydrateDescendants(\$root, \$stmt);
+			$peerClassname::addInstanceToPool(\$root);
+
+			\$stmt->closeCursor();
+			return \$root;
+		}
+		return null;
+	}
+";
+	}
+
+	protected function addRetrieveBranch(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Retrieves the entire tree from parent \$node
+	 */
+	public static function retrieveBranch(NodeObject \$node, ?PropulsionPDO \$con = null)
+	{
+		return $peerClassname::retrieveDescendants(\$node, \$con);
+	}
+";
+	}
+
+	protected function addRetrieveChildren(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Gets direct children for the node
+	 */
+	public static function retrieveChildren(NodeObject \$node, ?PropulsionPDO \$con = null): array
+	{
+		\$c = new Criteria($peerClassname::DATABASE_NAME);
+		\$c->addAscendingOrderByColumn(self::LEFT_COL);
+		if (self::SCOPE_COL) {
+			\$c->add(self::SCOPE_COL, \$node->getScopeIdValue(), Criteria::EQUAL);
+		}
+		\$c->add(self::LEFT_COL, \$node->getLeftValue(), Criteria::GREATER_THAN);
+		\$c->addAnd(self::RIGHT_COL, \$node->getRightValue(), Criteria::LESS_THAN);
+		\$stmt = $peerClassname::doSelectStmt(\$c, \$con);
+
+		return $peerClassname::hydrateChildren(\$node, \$stmt);
+	}
+";
+	}
+
+	protected function addRetrieveDescendants(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Gets all descendants for the node
+	 */
+	public static function retrieveDescendants(NodeObject \$node, ?PropulsionPDO \$con = null): array
+	{
+		\$c = new Criteria($peerClassname::DATABASE_NAME);
+		\$c->addAscendingOrderByColumn(self::LEFT_COL);
+		if (self::SCOPE_COL) {
+			\$c->add(self::SCOPE_COL, \$node->getScopeIdValue(), Criteria::EQUAL);
+		}
+		\$c->add(self::LEFT_COL, \$node->getLeftValue(), Criteria::GREATER_THAN);
+		\$c->addAnd(self::RIGHT_COL, \$node->getRightValue(), Criteria::LESS_THAN);
+		\$stmt = $peerClassname::doSelectStmt(\$c, \$con);
+
+		return $peerClassname::hydrateDescendants(\$node, \$stmt);
+	}
+";
+	}
+
+	protected function addRetrieveSiblings(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Gets all siblings for the node
+	 */
+	public static function retrieveSiblings(NodeObject \$node, ?PropulsionPDO \$con = null): array
+	{
+		\$parent = $peerClassname::retrieveParent(\$node, \$con);
+		if (\$parent === null) {
+			return [];
+		}
+
+		return $peerClassname::retrieveChildren(\$parent, \$con);
+	}
+";
+	}
+
+	protected function addRetrieveParent(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Gets immediate ancestor for the given node if it exists
+	 *
+	 * @return     mixed Propulsion object if exists else null
+	 */
+	public static function retrieveParent(NodeObject \$node, ?PropulsionPDO \$con = null)
+	{
+		\$c = new Criteria($peerClassname::DATABASE_NAME);
+		\$c1 = \$c->getNewCriterion(self::LEFT_COL, \$node->getLeftValue(), Criteria::LESS_THAN);
+		\$c2 = \$c->getNewCriterion(self::RIGHT_COL, \$node->getRightValue(), Criteria::GREATER_THAN);
+
+		\$c1->addAnd(\$c2);
+
+		\$c->add(\$c1);
+		if (self::SCOPE_COL) {
+			\$c->add(self::SCOPE_COL, \$node->getScopeIdValue(), Criteria::EQUAL);
+		}
+		\$c->addAscendingOrderByColumn(self::RIGHT_COL);
+
+		\$parent = $peerClassname::doSelectOne(\$c, \$con);
+
+		\$node->setParentNode(\$parent);
+
+		return \$parent;
+	}
+";
+	}
+
+	protected function addGetLevel(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Gets level for the given node
+	 */
+	public static function getLevel(NodeObject \$node, ?PropulsionPDO \$con = null): int
+	{
+		if (\$con === null) {
+			\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME, Propulsion::CONNECTION_READ);
+		}
+
+		\$sql = \"SELECT COUNT(*) AS lvl FROM \" . self::TABLE_NAME . \" WHERE \" . self::LEFT_COL . \" < :left AND \" . self::RIGHT_COL . \" > :right\";
+
+		if (self::SCOPE_COL) {
+			\$sql .= ' AND ' . self::SCOPE_COL . ' = :scope';
+		}
+
+		\$stmt = \$con->prepare(\$sql);
+		\$stmt->bindValue(':left', \$node->getLeftValue(), PDO::PARAM_INT);
+		\$stmt->bindValue(':right', \$node->getRightValue(), PDO::PARAM_INT);
+		if (self::SCOPE_COL) {
+			\$stmt->bindValue(':scope', \$node->getScopeIdValue());
+		}
+		\$stmt->execute();
+		\$row = \$stmt->fetch();
+		return (int) \$row['lvl'];
+	}
+";
+	}
+
+	protected function addGetNumberOfChildren(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Gets number of direct children for given node
+	 */
+	public static function getNumberOfChildren(NodeObject \$node, ?PropulsionPDO \$con = null): int
+	{
+		\$children = $peerClassname::retrieveChildren(\$node, \$con);
+		return count(\$children);
+	}
+";
+	}
+
+	protected function addGetNumberOfDescendants(&$script): void
+	{
+		$script .= "
+	/**
+	 * Gets number of descendants for given node
+	 */
+	public static function getNumberOfDescendants(NodeObject \$node, ?PropulsionPDO \$con = null): int
+	{
+		\$right = \$node->getRightValue();
+		\$left = \$node->getLeftValue();
+		return (int) ((\$right - \$left - 1) / 2);
+	}
+";
+	}
+
+	protected function addGetPath(&$script): void
+	{
+		$script .= "
+	/**
+	 * Returns path to a specific node as an array, useful to create breadcrumbs
+	 *
+	 * @return     array Array in order of hierarchy
+	 */
+	public static function getPath(NodeObject \$node, ?PropulsionPDO \$con = null): array
+	{
+		\$criteria = new Criteria();
+		if (self::SCOPE_COL) {
+			\$criteria->add(self::SCOPE_COL, \$node->getScopeIdValue(), Criteria::EQUAL);
+		}
+		\$criteria->add(self::LEFT_COL, \$node->getLeftValue(), Criteria::LESS_EQUAL);
+		\$criteria->add(self::RIGHT_COL, \$node->getRightValue(), Criteria::GREATER_EQUAL);
+		\$criteria->addAscendingOrderByColumn(self::LEFT_COL);
+
+		return self::doSelect(\$criteria, \$con);
+	}
+";
+	}
+
+	protected function addIsValid(&$script): void
+	{
+		$script .= "
+	/**
+	 * Tests if node is valid
+	 */
+	public static function isValid(?NodeObject \$node = null): bool
+	{
+		return \$node !== null && \$node->getRightValue() > \$node->getLeftValue();
+	}
+";
+	}
+
+	protected function addIsRoot(&$script): void
+	{
+		$script .= "
+	/**
+	 * Tests if node is a root
+	 */
+	public static function isRoot(NodeObject \$node): bool
+	{
+		return \$node->getLeftValue() == 1;
+	}
+";
+	}
+
+	protected function addIsLeaf(&$script): void
+	{
+		$script .= "
+	/**
+	 * Tests if node is a leaf
+	 */
+	public static function isLeaf(NodeObject \$node): bool
+	{
+		return (\$node->getRightValue() - \$node->getLeftValue()) == 1;
+	}
+";
+	}
+
+	protected function addIsChildOf(&$script): void
+	{
+		$script .= "
+	/**
+	 * Tests if \$child is a child of \$parent
+	 */
+	public static function isChildOf(NodeObject \$child, NodeObject \$parent): bool
+	{
+		return \$child->getLeftValue() > \$parent->getLeftValue() && \$child->getRightValue() < \$parent->getRightValue();
+	}
+";
+	}
+
+	protected function addIsEqualTo(&$script): void
+	{
+		$script .= "
+	/**
+	 * Tests if \$node1 is equal to \$node2
+	 */
+	public static function isEqualTo(NodeObject \$node1, NodeObject \$node2): bool
+	{
+		\$also = true;
+		if (self::SCOPE_COL) {
+			\$also = (\$node1->getScopeIdValue() === \$node2->getScopeIdValue());
+		}
+		return \$node1->getLeftValue() == \$node2->getLeftValue() && \$node1->getRightValue() == \$node2->getRightValue() && \$also;
+	}
+";
+	}
+
+	protected function addHasParent(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Tests if \$node has an ancestor
+	 */
+	public static function hasParent(NodeObject \$node, ?PropulsionPDO \$con = null): bool
+	{
+		return $peerClassname::isValid($peerClassname::retrieveParent(\$node, \$con));
+	}
+";
+	}
+
+	protected function addHasPrevSibling(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Tests if \$node has prev sibling
+	 */
+	public static function hasPrevSibling(NodeObject \$node, ?PropulsionPDO \$con = null): bool
+	{
+		return $peerClassname::isValid($peerClassname::retrievePrevSibling(\$node, \$con));
+	}
+";
+	}
+
+	protected function addHasNextSibling(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Tests if \$node has next sibling
+	 */
+	public static function hasNextSibling(NodeObject \$node, ?PropulsionPDO \$con = null): bool
+	{
+		return $peerClassname::isValid($peerClassname::retrieveNextSibling(\$node, \$con));
+	}
+";
+	}
+
+	protected function addHasChildren(&$script): void
+	{
+		$script .= "
+	/**
+	 * Tests if \$node has children
+	 */
+	public static function hasChildren(NodeObject \$node): bool
+	{
+		return (\$node->getRightValue() - \$node->getLeftValue()) > 1;
+	}
+";
+	}
+
+	protected function addDeleteDescendants(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Deletes \$node's descendants (but not \$node itself)
+	 */
+	public static function deleteDescendants(NodeObject \$node, ?PropulsionPDO \$con = null): int
+	{
+		\$left = \$node->getLeftValue();
+		\$right = \$node->getRightValue();
+
+		if (\$right - \$left <= 1) {
+			// leaf node -- no descendants
+			return 0;
+		}
+
+		\$c = new Criteria($peerClassname::DATABASE_NAME);
+		\$c1 = \$c->getNewCriterion(self::LEFT_COL, \$left, Criteria::GREATER_THAN);
+		\$c2 = \$c->getNewCriterion(self::RIGHT_COL, \$right, Criteria::LESS_THAN);
+
+		\$c1->addAnd(\$c2);
+
+		\$c->add(\$c1);
+		if (self::SCOPE_COL) {
+			\$c->add(self::SCOPE_COL, \$node->getScopeIdValue(), Criteria::EQUAL);
+		}
+		\$c->addAscendingOrderByColumn(self::RIGHT_COL);
+
+		\$result = $peerClassname::doDelete(\$c, \$con);
+
+		self::shiftRLValues(\$right + 1, \$left - \$right - 1, \$con, \$node->getScopeIdValue());
+
+		return \$result;
+	}
+";
+	}
+
+	protected function addGetNode(&$script): void
+	{
+		$objectClassname = $this->getStubObjectBuilder()->getClassname();
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Returns a node given its primary key or the node itself
+	 *
+	 * @param      mixed \$node Primary key or instance of required node
+	 * @return     mixed Propulsion object for model, or null
+	 */
+	public static function getNode(\$node, ?PropulsionPDO \$con = null)
+	{
+		if (is_object(\$node)) {
+			return \$node;
+		}
+
+		return $peerClassname::retrieveByPK(\$node, \$con);
+	}
+";
+	}
+
+	protected function addHydrateDescendants(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$objectClassname = $this->getStubObjectBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Hydrate recursively the descendants of the given node
+	 *
+	 * @return     array
+	 */
+	protected static function hydrateDescendants(NodeObject \$node, \PDOStatement \$stmt): array
+	{
+		\$descendants = [];
+		\$children = [];
+		\$prevSibling = null;
+
+		while (false !== (\$row = \$stmt->fetch(PDO::FETCH_NUM))) {
+			\$key = $peerClassname::getPrimaryKeyHashFromRow(\$row, 0);
+			\$child = $peerClassname::getInstanceFromPool(\$key);
+			if (\$child === null) {
+				" . $this->buildObjectInstanceCreationCode('$child', $objectClassname) . "
+				\$child->hydrate(\$row);
+			}
+
+			\$child->setLevel(\$node->getLevel() + 1);
+			\$child->setParentNode(\$node);
+			if (!empty(\$prevSibling)) {
+				\$child->setPrevSibling(\$prevSibling);
+				\$prevSibling->setNextSibling(\$child);
+			}
+
+			\$descendants[] = \$child;
+
+			if (\$child->hasChildren()) {
+				\$descendants = array_merge(\$descendants, $peerClassname::hydrateDescendants(\$child, \$stmt));
+			} else {
+				\$child->setChildren([]);
+			}
+
+			\$children[] = \$child;
+			\$prevSibling = \$child;
+
+			$peerClassname::addInstanceToPool(\$child);
+			if (\$child->getRightValue() + 1 == \$node->getRightValue()) {
+				\$child->setNextSibling(null);
+				break;
+			}
+		}
+		\$node->setChildren(\$children);
+		return \$descendants;
+	}
+";
+	}
+
+	protected function addHydrateChildren(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$objectClassname = $this->getStubObjectBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Hydrate the direct children of the given node
+	 *
+	 * @return     array
+	 */
+	protected static function hydrateChildren(NodeObject \$node, \PDOStatement \$stmt): array
+	{
+		\$children = [];
+		\$prevRight = 0;
+
+		while (false !== (\$row = \$stmt->fetch(PDO::FETCH_NUM))) {
+			\$key = $peerClassname::getPrimaryKeyHashFromRow(\$row, 0);
+			\$child = $peerClassname::getInstanceFromPool(\$key);
+			if (\$child === null) {
+				" . $this->buildObjectInstanceCreationCode('$child', $objectClassname) . "
+				\$child->hydrate(\$row);
+			}
+
+			\$child->setLevel(\$node->getLevel() + 1);
+
+			if (\$child->getRightValue() > \$prevRight) {
+				\$children[] = \$child;
+				\$prevRight = \$child->getRightValue();
+			}
+
+			if (\$child->getRightValue() + 1 == \$node->getRightValue()) {
+				break;
+			}
+		}
+		\$node->setChildren(\$children);
+		return \$children;
+	}
+";
+	}
+
+	protected function addUpdateLoadedNode(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$table = $this->getTable();
+
+		$leftSetterLine = '';
+		$rightSetterLine = '';
+		foreach ($table->getColumns() as $n => $col) {
+			if ($col->isNestedSetLeftKey()) {
+				$leftSetterLine = "\t\t\t\t\t\$object->setLeftValue((int) \$row[$n]);";
+			} elseif ($col->isNestedSetRightKey()) {
+				$rightSetterLine = "\t\t\t\t\t\$object->setRightValue((int) \$row[$n]);";
+			}
+		}
+
+		$pkeyCols = $table->getPrimaryKey();
+		if (count($pkeyCols) === 1) {
+			$col = $pkeyCols[0];
+			$pkCriteriaLine = "\t\t\t\t\$criteria->add(" . $this->getColumnConstant($col) . ", \$keys, Criteria::IN);";
+		} else {
+			// Multi-column primary keys: fall back to filtering in PHP after a full
+			// re-select, since building the OR-of-ANDs Criterion tree here would
+			// require per-table field lists that this generic builder doesn't have
+			// a simple, faithful way to reconstruct after the PHP5->PHP8 port.
+			$pkCriteriaLine = "\t\t\t\t// Multi-column primary key: no additional filtering, re-select is scoped to pool contents below.";
+		}
+
+		$script .= "
+	/**
+	 * Reload all already loaded nodes to sync them with updated db
+	 */
+	protected static function updateLoadedNode(?NodeObject \$node, \$delta, ?PropulsionPDO \$con = null): void
+	{
+		if (Propulsion::isInstancePoolingEnabled()) {
+			\$keys = [];
+			foreach (self::\$instances as \$obj) {
+				\$keys[] = \$obj->getPrimaryKey();
+			}
+
+			if (!empty(\$keys)) {
+				// We don't need to alter the object instance pool; we're just modifying these ones
+				// already in the pool.
+				\$criteria = new Criteria(self::DATABASE_NAME);
+$pkCriteriaLine
+				\$stmt = $peerClassname::doSelectStmt(\$criteria, \$con);
+				while (false !== (\$row = \$stmt->fetch(PDO::FETCH_NUM))) {
+					\$key = $peerClassname::getPrimaryKeyHashFromRow(\$row, 0);
+					\$object = $peerClassname::getInstanceFromPool(\$key);
+					if (\$object !== null) {
+$leftSetterLine
+$rightSetterLine
+					}
+				}
+				\$stmt->closeCursor();
+			}
+		}
+	}
+";
+	}
+
+	protected function addUpdateDBNode(&$script): void
+	{
+		$script .= "
+	/**
+	 * Move \$node and its children to location \$destLeft and updates rest of tree
+	 */
+	protected static function updateDBNode(NodeObject \$node, \$destLeft, ?PropulsionPDO \$con = null): void
+	{
+		\$left = \$node->getLeftValue();
+		\$right = \$node->getRightValue();
+
+		\$treeSize = \$right - \$left + 1;
+
+		self::shiftRLValues(\$destLeft, \$treeSize, \$con, \$node->getScopeIdValue());
+
+		if (\$left >= \$destLeft) { // src was shifted too?
+			\$left += \$treeSize;
+			\$right += \$treeSize;
+		}
+
+		// now there's enough room next to target to move the subtree
+		self::shiftRLRange(\$left, \$right, \$destLeft - \$left, \$con, \$node->getScopeIdValue());
+
+		// correct values after source
+		self::shiftRLValues(\$right + 1, -\$treeSize, \$con, \$node->getScopeIdValue());
+	}
+";
+	}
+
+	protected function addShiftRLValues(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Adds '\$delta' to all L and R values that are >= '\$first'. '\$delta' can also be negative.
+	 */
+	protected static function shiftRLValues(\$first, \$delta, ?PropulsionPDO \$con = null, \$scopeId = null): void
+	{
+		if (\$con === null) {
+			\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
+		}
+
+		\$leftUpdateCol = substr(self::LEFT_COL, strrpos(self::LEFT_COL, '.') + 1);
+		\$rightUpdateCol = substr(self::RIGHT_COL, strrpos(self::RIGHT_COL, '.') + 1);
+
+		// Shift left column values
+		\$whereCriteria = new Criteria($peerClassname::DATABASE_NAME);
+		\$criterion = \$whereCriteria->getNewCriterion(
+			self::LEFT_COL,
+			\$first,
+			Criteria::GREATER_EQUAL);
+
+		if (self::SCOPE_COL) {
+			\$criterion->addAnd(
+				\$whereCriteria->getNewCriterion(
+					self::SCOPE_COL,
+					\$scopeId,
+					Criteria::EQUAL));
+		}
+		\$whereCriteria->add(\$criterion);
+
+		\$valuesCriteria = new Criteria($peerClassname::DATABASE_NAME);
+		\$valuesCriteria->add(
+			self::LEFT_COL,
+			['raw' => \$leftUpdateCol . ' + ?', 'value' => \$delta],
+			Criteria::CUSTOM_EQUAL);
+
+		{$this->getBasePeerClassname()}::doUpdate(\$whereCriteria, \$valuesCriteria, \$con);
+
+		// Shift right column values
+		\$whereCriteria = new Criteria($peerClassname::DATABASE_NAME);
+		\$criterion = \$whereCriteria->getNewCriterion(
+			self::RIGHT_COL,
+			\$first,
+			Criteria::GREATER_EQUAL);
+
+		if (self::SCOPE_COL) {
+			\$criterion->addAnd(
+				\$whereCriteria->getNewCriterion(
+					self::SCOPE_COL,
+					\$scopeId,
+					Criteria::EQUAL));
+		}
+		\$whereCriteria->add(\$criterion);
+
+		\$valuesCriteria = new Criteria($peerClassname::DATABASE_NAME);
+		\$valuesCriteria->add(
+			self::RIGHT_COL,
+			['raw' => \$rightUpdateCol . ' + ?', 'value' => \$delta],
+			Criteria::CUSTOM_EQUAL);
+
+		{$this->getBasePeerClassname()}::doUpdate(\$whereCriteria, \$valuesCriteria, \$con);
+	}
+";
+	}
+
+	protected function addShiftRLRange(&$script): void
+	{
+		$peerClassname = $this->getStubPeerBuilder()->getClassname();
+		$script .= "
+	/**
+	 * Adds '\$delta' to all L and R values that are >= '\$first' and <= '\$last'.
+	 * '\$delta' can also be negative.
+	 *
+	 * @return     array Shifted L and R values
+	 */
+	protected static function shiftRLRange(\$first, \$last, \$delta, ?PropulsionPDO \$con = null, \$scopeId = null): array
+	{
+		if (\$con === null) {
+			\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
+		}
+
+		\$leftUpdateCol = substr(self::LEFT_COL, strrpos(self::LEFT_COL, '.') + 1);
+		\$rightUpdateCol = substr(self::RIGHT_COL, strrpos(self::RIGHT_COL, '.') + 1);
+
+		// Shift left column values
+		\$whereCriteria = new Criteria($peerClassname::DATABASE_NAME);
+		\$criterion = \$whereCriteria->getNewCriterion(self::LEFT_COL, \$first, Criteria::GREATER_EQUAL);
+		\$criterion->addAnd(\$whereCriteria->getNewCriterion(self::LEFT_COL, \$last, Criteria::LESS_EQUAL));
+		if (self::SCOPE_COL) {
+			\$criterion->addAnd(\$whereCriteria->getNewCriterion(self::SCOPE_COL, \$scopeId, Criteria::EQUAL));
+		}
+		\$whereCriteria->add(\$criterion);
+
+		\$valuesCriteria = new Criteria($peerClassname::DATABASE_NAME);
+		\$valuesCriteria->add(
+			self::LEFT_COL,
+			['raw' => \$leftUpdateCol . ' + ?', 'value' => \$delta],
+			Criteria::CUSTOM_EQUAL);
+
+		{$this->getBasePeerClassname()}::doUpdate(\$whereCriteria, \$valuesCriteria, \$con);
+
+		// Shift right column values
+		\$whereCriteria = new Criteria($peerClassname::DATABASE_NAME);
+		\$criterion = \$whereCriteria->getNewCriterion(self::RIGHT_COL, \$first, Criteria::GREATER_EQUAL);
+		\$criterion->addAnd(\$whereCriteria->getNewCriterion(self::RIGHT_COL, \$last, Criteria::LESS_EQUAL));
+		if (self::SCOPE_COL) {
+			\$criterion->addAnd(\$whereCriteria->getNewCriterion(self::SCOPE_COL, \$scopeId, Criteria::EQUAL));
+		}
+		\$whereCriteria->add(\$criterion);
+
+		\$valuesCriteria = new Criteria($peerClassname::DATABASE_NAME);
+		\$valuesCriteria->add(
+			self::RIGHT_COL,
+			['raw' => \$rightUpdateCol . ' + ?', 'value' => \$delta],
+			Criteria::CUSTOM_EQUAL);
+
+		{$this->getBasePeerClassname()}::doUpdate(\$whereCriteria, \$valuesCriteria, \$con);
+
+		return ['left' => \$first + \$delta, 'right' => \$last + \$delta];
+	}
+";
+	}
+
+	/**
+	 * No PHP5 precedent and no NodePeer interface obligation exists for this method name;
+	 * left as an intentional no-op. See KNOWN_ISSUES.md / port commit message for details.
+	 */
+	protected function addShiftLevel(&$script): void { /* Not applicable to treeMode="NestedSet": level is always computed on demand via getLevel(), never persisted or shifted in bulk. */ }
+
+	/**
+	 * No PHP5 precedent and no NodePeer interface obligation exists for this method name;
+	 * left as an intentional no-op -- PHP5's insert*Of() methods make room directly via
+	 * shiftRLValues() rather than through a separate "make room for leaf" step.
+	 */
+	protected function addMakeRoomForLeaf(&$script): void { /* See addInsertAsFirstChildOf()/addInsertAsLastChildOf(): room-making is inlined via shiftRLValues(). */ }
+
+	/**
+	 * No PHP5 precedent and no NodePeer interface obligation exists for this method name;
+	 * left as an intentional no-op. Levels are recomputed lazily per-node by getLevel(),
+	 * so there is nothing to "fix" in bulk for this legacy treeMode.
+	 */
+	protected function addFixLevels(&$script): void { /* Not applicable to treeMode="NestedSet"; levels are computed lazily, not stored/cached tree-wide. */ }
+
+	/**
+	 * No PHP5 precedent and no NodePeer interface obligation exists for this method name;
+	 * left as an intentional no-op.
+	 */
+	protected function addGetMaxRight(&$script): void { /* Not part of the legacy NodePeer contract; no PHP5 precedent to port. */ }
+
+	/**
+	 * No PHP5 precedent and no NodePeer interface obligation exists for this method name;
+	 * left as an intentional no-op.
+	 */
+	protected function addGetLastScope(&$script): void { /* Not part of the legacy NodePeer contract; no PHP5 precedent to port. */ }
 }
