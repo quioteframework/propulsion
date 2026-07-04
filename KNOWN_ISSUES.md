@@ -1196,12 +1196,84 @@ as:
     — the unmodified baseline, re-run back-to-back right after, came out at
     38 errors / 23 failures for the same 2184 pre-existing tests. So this
     change is confirmed equal-or-better, not a regression.
-- **4b**: Rework the (renamed, per Phase 3) `PeerBuilder` template so pool
-  methods delegate to `Session`; regenerate models; drop the interim
-  pool-registry hack.
-- **4c**: Delete legacy `PHP5*` builders (gated on 4a/4b proving the new
-  pool delegation works, and on Phase 3's TableMapBuilder inlining removing
-  the last real dependency on PHP5 code).
+- **4b**: **Done.** Reworked `PeerBuilder.php`'s generated pool methods to
+  delegate to `Session` instead of each generated Peer class's own private
+  `static $instances` array, and deleted the DatabaseMap-walking part of the
+  interim hack. Concretely:
+  - `Session` gained real per-class pool storage: `private array
+    $instancePools` typed `array<class-string, array<string, object>>`,
+    keyed first by the generated Peer's FQCN, then by the same string
+    instance-pool key the generated code has always computed (a PK's string
+    value, or `serialize()` of a composite-PK tuple —
+    `PeerBuilder::getInstancePoolKeySnippet()`, unchanged). New public API:
+    `addPooledInstance(string $peerClass, string $key, object $instance)`,
+    `getPooledInstance(string $peerClass, string $key): ?object`,
+    `removePooledInstance(string $peerClass, string $key)`,
+    `getPool(string $peerClass): array`, `clearPool(string $peerClass)`,
+    `clearAllPools()`. `Session::reset()` now calls `$this->clearAllPools()`
+    directly instead of routing through `ServiceContainer`.
+  - `PeerBuilder.php` no longer emits `public static $instances = array();`
+    at all. `addInstanceToPool()`/`removeInstanceFromPool()`/
+    `clearInstancePool()`/`getInstanceFromPool()` are now thin wrappers that
+    compute the same instance-pool key as before (identical logic, untouched)
+    and call the corresponding `Propulsion::getSession()` method with
+    `self::class` as the Peer-classname key — the generated method
+    signatures and caller-visible behavior are unchanged. Added one new
+    generated method, `getInstancePool(): array`, replacing the old
+    `public static $instances` array's "must be public so other peer
+    classes/behaviors can access it" role — two call sites needed it
+    (`NestedSetPeerBuilder::updateLoadedNode()`,
+    `NestedSetBehaviorPeerBuilderModifier::updateLoadedNodes()`, both of
+    which iterated `self::$instances`/`$peerClassname::$instances` directly
+    to reconcile in-memory nodes after a tree-structure update); both
+    switched to call `getInstancePool()` instead.
+  - `ServiceContainer::clearInstancePools()` is now a one-line delegation to
+    `Propulsion::getSession()->clearAllPools()` — no more walking every
+    table in every loaded `DatabaseMap` to guess which Peer classes exist,
+    since real pool storage now lives on `Session` and a pool that was never
+    populated is already empty. `registerInstancePoolClass()`/
+    `getRegisteredInstancePoolClasses()` are kept (inert bookkeeping only,
+    no longer consulted by `clearInstancePools()`) purely because
+    `ServiceContainerTest` exercises them directly and nothing indicated
+    external code depends on their removal.
+  - Regenerating all three fixture projects (`bookstore`, `schemas`,
+    `namespaced`) surfaced two more direct `Peer::$instances` accesses
+    outside the generator itself, both fixed:
+    `test/tools/helpers/bookstore/BookstoreDataPopulator.php::depopulate()`
+    used `ReflectionClass::getProperty('instances')` to free pooled objects
+    before bulk-deleting fixture data (switched to the new
+    `getInstancePool()`), and `test/tools/helpers/bookstore/behavior/
+    Testallhooksbehavior.php`'s injected `preDelete`/`postDelete` hook
+    bodies read `Table3Peer::$instances[$this->getId()]` directly (switched
+    to `Table3Peer::getInstanceFromPool((string) $this->getId()) !== null`).
+    The first of these was the dominant cause of an initial post-change
+    regression run coming back at 335 errors instead of the expected
+    ~38 — a single missed reflection call site used by nearly every
+    bookstore-fixture test's teardown path, not a design problem with the
+    pool-delegation change itself.
+  - Extended `SessionTest`/`SessionResetTransactionTest` to cover the new
+    pool-storage API directly (start-empty, add/get/remove, clear-one-class
+    vs. clear-all, `reset()` clearing pools) and, specifically, the
+    worker-safety property this whole phase exists to deliver: a fresh
+    `Session` (or `Propulsion::setSession()`-swapped-in `Session`) never
+    sees instances pooled under a different, still-populated `Session` —
+    proving pool storage lives on the `Session` object itself, not on any
+    remaining class-level or process-global state.
+  - Verified against a full suite run (Docker/Postgres, all three fixture
+    `build/` dirs removed first): **2208 tests, 38 errors, 32 failures, 12
+    skipped, 1 risky** (2208 = the 2200-test baseline this file already
+    documents + 8 new `SessionTest` pool-API tests, all 8 passing). Diffed
+    the full failing/error test-name list against the documented baseline
+    clusters (MySQL-vs-Postgres backtick/quoting mismatches, `SubQueryTest`,
+    `MssqlPlatformTest`, the `AggregateColumnBehaviorWithSchemaTest`/
+    `ModelCriteriaWithSchemaTest` not-null-violation cluster, etc.) — every
+    single failing/erroring test name was already on that list; nothing new
+    appeared, nothing pool- or Session-related appears anywhere in the
+    failing list. `PropulsionQuickBuilder`/`QuickGeneratorConfig` needed no
+    changes — neither hardcodes anything about pool storage shape.
+- **4c**: Delete legacy `PHP5*` builders — **superseded**, this already
+  happened outright in Phase 3.5 below (explicit user request, done ahead of
+  the originally-planned 4a/4b-gated order). Nothing left to do here.
 - **4d**: Quiote adapter integration (`PropulsionDatabase` wiring,
   `ResetInterface`) — tracked in the Quiote-side doc, not this repo.
 
