@@ -18,6 +18,8 @@
  */
 class AggregateColumnBehaviorWithSchemaTest extends SchemasTestBase
 {
+	protected $con;
+
 	protected function setUp(): void
 	{
 		parent::setUp();

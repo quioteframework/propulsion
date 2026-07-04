@@ -17,6 +17,8 @@
  */
 class PropulsionOnDemandCollectionTest extends BookstoreEmptyTestBase
 {
+	protected $books;
+
 	protected function setUp(): void
 	{
 		parent::setUp();

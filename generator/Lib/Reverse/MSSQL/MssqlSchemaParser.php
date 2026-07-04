@@ -70,7 +70,6 @@ class MssqlSchemaParser extends BaseSchemaParser
 		"varbinary(max)" => PropulsionTypes::CLOB,
 		"varchar" => PropulsionTypes::VARCHAR,
 		"varchar(max)" => PropulsionTypes::CLOB,
-		"uniqueidentifier" => PropulsionTypes::CHAR,
 	// SQL Server 2000 only
 		"bigint identity" => PropulsionTypes::BIGINT,
 		"bigint" => PropulsionTypes::BIGINT,

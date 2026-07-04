@@ -48,7 +48,7 @@ abstract class ScopedElement extends XMLElement
 	/**
 	 * retrieves a build property.
 	 *
-	 * @param unknown_type $name
+	 * @param string $name
 	 */
 	abstract protected function getBuildProperty($name);
 
@@ -74,7 +74,7 @@ abstract class ScopedElement extends XMLElement
 
 	/**
 	 * Set the value of the namespace.
-	 * @param      v  Value to assign to namespace.
+	 * @param      string $v Value to assign to namespace.
 	 */
 	public function setNamespace($v)
 	{
@@ -90,7 +90,7 @@ abstract class ScopedElement extends XMLElement
 
 	/**
 	 * Get the value of package.
-	 * @return     value of package.
+	 * @return     string Value of package.
 	 */
 	public function getPackage()
 	{
@@ -99,7 +99,7 @@ abstract class ScopedElement extends XMLElement
 
 	/**
 	 * Set the value of package.
-	 * @param      v  Value to assign to package.
+	 * @param      string $v Value to assign to package.
 	 */
 	public function setPackage($v)
 	{
@@ -112,7 +112,7 @@ abstract class ScopedElement extends XMLElement
 
 	/**
 	 * Get the value of schema.
-	 * @return     value of schema.
+	 * @return     string Value of schema.
 	 */
 	public function getSchema()
 	{
@@ -121,7 +121,7 @@ abstract class ScopedElement extends XMLElement
 
 	/**
 	 * Set the value of schema.
-	 * @param      v  Value to assign to schema.
+	 * @param      string $v Value to assign to schema.
 	 */
 	public function setSchema($v)
 	{

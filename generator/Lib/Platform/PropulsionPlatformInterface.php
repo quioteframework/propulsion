@@ -21,6 +21,7 @@
  use Propulsion\Generator\Model\Domain;
  use Propulsion\Generator\Model\Column;
  use Propulsion\Generator\Model\Table;
+ use Propulsion\Generator\Model\Diff\PropulsionDatabaseDiff;
 interface PropulsionPlatformInterface
 {
 
@@ -42,13 +43,13 @@ interface PropulsionPlatformInterface
 	public function getSequenceName(Table $table);
 	/**
 	 * Sets a database connection to use (for quoting, etc.).
-	 * @param      PDO $con The database connection to use in this Platform class.
+	 * @param      \PDO|null $con The database connection to use in this Platform class.
 	 */
 	public function setConnection(?\PDO $con = null);
 
 	/**
 	 * Returns the database connection to use for this Platform class.
-	 * @return     PDO The database connection or NULL if none has been set.
+	 * @return     \PDO|null The database connection or NULL if none has been set.
 	 */
 	public function getConnection();
 
@@ -95,7 +96,7 @@ interface PropulsionPlatformInterface
 	public function getNullString($notNull);
 
 	/**
-	 * @return     The RDBMS-specific SQL fragment for autoincrement.
+	 * @return     string The RDBMS-specific SQL fragment for autoincrement.
 	 */
 	public function getAutoIncrement();
 
@@ -118,8 +119,8 @@ interface PropulsionPlatformInterface
 	 * echo $platform->getColumnListDDL(array('foo', 'bar');
 	 * // '"foo","bar"'
 	 * </code>
-	 * @param      array Column[] or string[]
-	 * @param      string $delim The delimiter to use in separating the column names.
+	 * @param      Column[]|string[] $columns
+	 * @param      string $delimiter The delimiter to use in separating the column names.
 	 *
 	 * @return     string
 	 */
@@ -130,6 +131,14 @@ interface PropulsionPlatformInterface
 	 * @return     string
 	 */
 	public function getPrimaryKeyDDL(Table $table);
+
+	/**
+	 * Builds the DDL SQL to modify a database
+	 * based on a PropulsionDatabaseDiff instance
+	 *
+	 * @return     string
+	 */
+	public function getModifyDatabaseDDL(PropulsionDatabaseDiff $databaseDiff);
 
 	/**
 	 * Returns if the RDBMS-specific SQL type has a size attribute.

@@ -18,6 +18,7 @@
 class DatabaseMapTest extends BookstoreTestBase
 {
   protected $databaseMap;
+  protected $databaseName;
 
   protected function setUp(): void
   {

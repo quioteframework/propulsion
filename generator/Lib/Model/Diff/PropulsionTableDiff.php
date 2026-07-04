@@ -130,7 +130,7 @@ class PropulsionTableDiff
 	 *
 	 * @param string $columnName
 	 *
-	 * @param Column
+	 * @return Column
 	 */
 	public function getAddedColumn($columnName)
 	{
@@ -183,7 +183,7 @@ class PropulsionTableDiff
 	 *
 	 * @param string $columnName
 	 *
-	 * @param Column
+	 * @return Column
 	 */
 	public function getRemovedColumn($columnName)
 	{
@@ -307,7 +307,7 @@ class PropulsionTableDiff
 	 * Add a removed Pk column
 	 *
 	 * @param string $columnName
-	 * @param Column $removedColumn
+	 * @param Column $removedPkColumn
 	 */
 	public function addRemovedPkColumn($columnName, Column $removedPkColumn)
 	{
@@ -462,7 +462,7 @@ class PropulsionTableDiff
 	/**
 	 * Getter for the modifiedIndices property
 	 *
-	 * @return
+	 * @return array
 	 */
 	public function getModifiedIndices()
 	{
@@ -523,12 +523,12 @@ class PropulsionTableDiff
 	/**
 	 * Add a removed Fk column
 	 *
-	 * @param string $fkName
-	 * @param ForeignKey $removedColumn
+	 * @param string|null $fkName
+	 * @param ForeignKey $removedFk
 	 */
 	public function addRemovedFk($fkName, ForeignKey $removedFk)
 	{
-		$this->removedFks[$fkName] = $removedFk;
+		$this->removedFks[$fkName ?? ''] = $removedFk;
 	}
 
 	/**

@@ -200,6 +200,7 @@ protected function createRawSlug()
  */
 protected static function cleanupSlugPart(\$slug, \$replacement = '" . $this->getParameter('replacement') . "')
 {
+	\$slug = (string) \$slug;
 	// transliterate
 	if (function_exists('iconv')) {
 		\$slug = iconv('utf-8', 'us-ascii//TRANSLIT', \$slug);

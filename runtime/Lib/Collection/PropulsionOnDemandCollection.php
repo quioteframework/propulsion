@@ -134,7 +134,7 @@ class PropulsionOnDemandCollection extends PropulsionCollection
 	 *
 	 * @return    mixed
 	 */
-	public function offsetGet($offset) : int
+	public function offsetGet($offset) : mixed
 	{
 		if ($offset == $this->currentKey) {
 			return $this->currentRow;

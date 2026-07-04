@@ -201,7 +201,7 @@ public function childrenOf($objectName)
  *
  * @return    {$this->queryClassname} The current query, for fluid interface
  */
-public function siblingsOf($objectName, PropulsionPDO \$con = null)
+public function siblingsOf($objectName, ?PropulsionPDO \$con = null)
 {
 	if ({$objectName}->isRoot()) {
 		return \$this->

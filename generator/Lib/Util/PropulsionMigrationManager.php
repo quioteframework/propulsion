@@ -62,13 +62,13 @@ class PropulsionMigrationManager
 
 	public function getPdoConnection($datasource)
 	{
-		if (!isset($pdoConnections[$datasource])) {
+		if (!isset($this->pdoConnections[$datasource])) {
 			$pdo = $this->createPdoConnection($datasource);
 
-			$pdoConnections[$datasource] = $pdo;
+			$this->pdoConnections[$datasource] = $pdo;
 		}
 
-		return $pdoConnections[$datasource];
+		return $this->pdoConnections[$datasource];
 	}
 
 	/**

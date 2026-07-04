@@ -137,6 +137,8 @@ END
 				$this->getColumnListDDL($table->getPrimaryKey())
 			);
 		}
+
+		return '';
 	}
 
 	public function getAddForeignKeyDDL(ForeignKey $fk)

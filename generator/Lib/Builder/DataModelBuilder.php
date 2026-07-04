@@ -25,7 +25,16 @@ namespace Propulsion\Generator\Builder;
  */
 
 use Propulsion\Generator\Builder\OM\AbstractObjectBuilder;
+use Propulsion\Generator\Builder\OM\AbstractPeerBuilder;
+use Propulsion\Generator\Builder\OM\ExtensionQueryInheritanceBuilder;
+use Propulsion\Generator\Builder\OM\MultiExtendObjectBuilder;
+use Propulsion\Generator\Builder\OM\OMBuilder;
+use Propulsion\Generator\Builder\OM\QueryBuilder;
+use Propulsion\Generator\Builder\OM\QueryInheritanceBuilder;
+use Propulsion\Generator\Builder\SQL\DataSQLBuilder;
+use Propulsion\Generator\Builder\Util\Pluralizer;
 use Propulsion\Generator\Config\GeneratorConfig;
+use Propulsion\Generator\Model\Database;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Config\GeneratorConfigInterface;
 use Propulsion\Generator\Platform\PropulsionPlatformInterface;
@@ -101,7 +110,7 @@ abstract class DataModelBuilder
 
 	/**
 	 * Stub child object for current table.
-	 * @var        DataModelBuilder
+	 * @var        MultiExtendObjectBuilder
 	 */
 	private $multiExtendObjectBuilder;
 
@@ -278,7 +287,7 @@ abstract class DataModelBuilder
 
 	/**
 	 * Returns new or existing stub child object builder class for this table.
-	 * @return     AbstractObjectBuilder
+	 * @return     MultiExtendObjectBuilder
 	 */
 	public function getMultiExtendObjectBuilder()
 	{
@@ -472,23 +481,27 @@ abstract class DataModelBuilder
 
 	/**
 	 * Returns new Query Inheritance builder class for this table.
-	 * @return     AbstractObjectBuilder
+	 * @return     OMBuilder
 	 */
 	public function getNewQueryInheritanceBuilder($child)
 	{
 		$queryInheritanceBuilder = $this->getGeneratorConfig()->getConfiguredBuilder($this->getTable(), 'queryinheritance');
-		$queryInheritanceBuilder->setChild($child);
+		if ($queryInheritanceBuilder instanceof QueryInheritanceBuilder) {
+			$queryInheritanceBuilder->setChild($child);
+		}
 		return $queryInheritanceBuilder;
 	}
 
 	/**
 	 * Returns new stub Query Inheritance builder class for this table.
-	 * @return     AbstractObjectBuilder
+	 * @return     OMBuilder
 	 */
 	public function getNewStubQueryInheritanceBuilder($child)
 	{
 		$stubQueryInheritanceBuilder = $this->getGeneratorConfig()->getConfiguredBuilder($this->getTable(), 'queryinheritancestub');
-		$stubQueryInheritanceBuilder->setChild($child);
+		if ($stubQueryInheritanceBuilder instanceof ExtensionQueryInheritanceBuilder) {
+			$stubQueryInheritanceBuilder->setChild($child);
+		}
 		return $stubQueryInheritanceBuilder;
 	}
 

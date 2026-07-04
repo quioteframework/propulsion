@@ -24,14 +24,14 @@ interface SchemaParser
 
 	/**
 	 * Gets the database connection.
-	 * @return     PDO
+	 * @return     \PDO|null
 	 */
 	public function getConnection();
 
 	/**
 	 * Sets the database connection.
 	 *
-	 * @param      PDO $dbh
+	 * @param      \PDO $dbh
 	 */
 	public function setConnection(\PDO $dbh);
 

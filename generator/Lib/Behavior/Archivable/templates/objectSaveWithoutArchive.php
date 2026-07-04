@@ -6,7 +6,7 @@
  *
  * @return     <?php echo $objectClassname ?> The current object (for fluent API support)
  */
-public function saveWithoutArchive(PropulsionPDO $con = null)
+public function saveWithoutArchive(?PropulsionPDO $con = null)
 {
 <?php if (!$isArchiveOnInsert): ?>
 	if (!$this->isNew()) {

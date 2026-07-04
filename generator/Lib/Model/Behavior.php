@@ -8,6 +8,8 @@ namespace Propulsion\Generator\Model;
  * @license    MIT License
  */
 
+use DOMDocument;
+use InvalidArgumentException;
 use ReflectionObject;
 use Propulsion\Generator\Builder\Util\PropulsionTemplate;
 
@@ -94,7 +96,7 @@ class Behavior extends XMLElement
 	 * Add a parameter
 	 * Expects an associative array looking like array('name' => 'foo', 'value' => bar)
 	 *
-	 * @param     array associative array with name and value keys
+	 * @param     array $attribute Associative array with name and value keys
 	 */
 	public function addParameter($attribute)
 	{
@@ -106,7 +108,7 @@ class Behavior extends XMLElement
 	 * Overrides the behavior parameters
 	 * Expects an associative array looking like array('foo' => 'bar')
 	 *
-	 * @param     array associative array
+	 * @param     array $parameters Associative array
 	 */
 	public function setParameters($parameters)
 	{
@@ -230,7 +232,7 @@ class Behavior extends XMLElement
 	 * Useful for table behaviors
 	 *
 	 * @param     string    $param Name of the parameter storing the column name
-	 * @return    ColumnMap The column of the table supporting the behavior
+	 * @return    Column|null The column of the table supporting the behavior
 	 */
 	public function getColumnForParameter($param)
 	{

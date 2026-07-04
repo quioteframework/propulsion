@@ -37,7 +37,7 @@ class PhpNameGenerator implements NameGenerator
 	 * works the same as the <code>CONV_METHOD_PHPNAME</code> method
 	 * but will not lowercase any characters.
 	 *
-	 * @param      array inputs list expected to contain two (optional: three) parameters,
+	 * @param      array $inputs List expected to contain two (optional: three) parameters,
 	 * element 0 contains name to convert, element 1 contains method for conversion,
 	 * optional element 2 contains prefix to be striped from name
 	 * @return     string The generated name.
@@ -85,7 +85,7 @@ class PhpNameGenerator implements NameGenerator
 	 *
 	 * my_CLASS_name -> MyClassName
 	 *
-	 * @param      string $schemaName name to be converted.
+	 * @param      string|null $schemaName name to be converted.
 	 * @return     string Converted name.
 	 * @see        NameGenerator
 	 * @see        #underscoreMethod()
@@ -93,7 +93,7 @@ class PhpNameGenerator implements NameGenerator
 	protected function underscoreMethod($schemaName)
 	{
 		$name = "";
-		$tok = strtok($schemaName, self::STD_SEPARATOR_CHAR);
+		$tok = strtok($schemaName ?? '', self::STD_SEPARATOR_CHAR);
 		while ($tok !== false) {
 			$name .= ucfirst(strtolower($tok));
 			$tok = strtok(self::STD_SEPARATOR_CHAR);
@@ -136,7 +136,7 @@ class PhpNameGenerator implements NameGenerator
 	 *
 	 * my_CLASS_name -> MyCLASSName
 	 *
-	 * @param      string $schemaName name to be converted.
+	 * @param      string|null $schemaName name to be converted.
 	 * @return     string Converted name.
 	 * @see        NameGenerator
 	 * @see        #underscoreMethod(String)
@@ -144,7 +144,7 @@ class PhpNameGenerator implements NameGenerator
 	protected function phpnameMethod($schemaName)
 	{
 		$name = "";
-		$tok = strtok($schemaName, self::STD_SEPARATOR_CHAR);
+		$tok = strtok($schemaName ?? '', self::STD_SEPARATOR_CHAR);
 		while ($tok !== false) {
 			$name .= ucfirst($tok);
 			$tok = strtok(self::STD_SEPARATOR_CHAR);

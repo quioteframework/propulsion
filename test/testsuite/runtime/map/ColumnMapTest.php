@@ -18,6 +18,10 @@
 class ColumnMapTest extends BookstoreTestBase
 {
   protected $databaseMap;
+  protected $dmap;
+  protected $tmap;
+  protected $columnName;
+  protected $cmap;
 
   protected function setUp(): void
   {

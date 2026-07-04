@@ -26,7 +26,7 @@ class MssqlPropulsionPDO extends PropulsionPDO
 	 * It is necessary to override the abstract PDO transaction functions here, as
 	 * the PDO driver for MSSQL does not support transactions.
 	 *
-	 * @return    integer
+	 * @return    boolean
 	 */
 	public function beginTransaction(): bool
 	{
@@ -49,7 +49,7 @@ class MssqlPropulsionPDO extends PropulsionPDO
 	 * It is necessary to override the abstract PDO transaction functions here, as
 	 * the PDO driver for MSSQL does not support transactions.
 	 *
-	 * @return    integer
+	 * @return    boolean
 	 */
 	public function commit(): bool
 	{
@@ -78,7 +78,7 @@ class MssqlPropulsionPDO extends PropulsionPDO
 	 * It is necessary to override the abstract PDO transaction functions here, as
 	 * the PDO driver for MSSQL does not support transactions.
 	 *
-	 * @return    integer
+	 * @return    boolean
 	 */
 	public function rollBack() : bool
 	{
@@ -105,7 +105,7 @@ class MssqlPropulsionPDO extends PropulsionPDO
 	 * It is necessary to override the abstract PDO transaction functions here, as
 	 * the PDO driver for MSSQL does not support transactions.
 	 *
-	 * @return    integer
+	 * @return    boolean
 	 */
 	public function forceRollBack(): bool
 	{
@@ -129,7 +129,7 @@ class MssqlPropulsionPDO extends PropulsionPDO
 
 	/**
 	 * @param      string  $seqname
-	 * @return     integer
+	 * @return     string|false
 	 */
 	public function lastInsertId($seqname = null) : string|false
 	{

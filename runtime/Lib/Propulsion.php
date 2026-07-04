@@ -203,7 +203,7 @@ class Propulsion
 	/**
 	 * Configure Propulsion a PHP (array) config file.
 	 *
-	 * @param      string Path (absolute or relative to include_path) to config file.
+	 * @param      string $configFile Path (absolute or relative to include_path) to config file.
 	 *
 	 * @throws     PropulsionException If configuration file cannot be opened.
 	 *                             (E_WARNING probably will also be raised by PHP)
@@ -255,7 +255,7 @@ class Propulsion
 	/**
 	 * Sets the configuration for Propulsion and all dependencies.
 	 *
-	 * @param      mixed The Configuration (array or PropulsionConfiguration)
+	 * @param      mixed $c The Configuration (array or PropulsionConfiguration)
 	 */
 	public static function setConfiguration($c)
 	{
@@ -271,11 +271,12 @@ class Propulsion
 	/**
 	 * Get the configuration for this component.
 	 *
-	 * @param      int - PropulsionConfiguration::TYPE_ARRAY: return the configuration as an array
-	 *                   (for backward compatibility this is the default)
-	 *                 - PropulsionConfiguration::TYPE_ARRAY_FLAT: return the configuration as a flat array
-	 *                   ($config['name.space.item'])
-	 *                 - PropulsionConfiguration::TYPE_OBJECT: return the configuration as a PropulsionConfiguration instance
+	 * @param      int $type One of:
+	 *                   - PropulsionConfiguration::TYPE_ARRAY: return the configuration as an array
+	 *                     (for backward compatibility this is the default)
+	 *                   - PropulsionConfiguration::TYPE_ARRAY_FLAT: return the configuration as a flat array
+	 *                     ($config['name.space.item'])
+	 *                   - PropulsionConfiguration::TYPE_OBJECT: return the configuration as a PropulsionConfiguration instance
 	 * @return     mixed The Configuration (array or PropulsionConfiguration)
 	 */
 	public static function getConfiguration($type = PropulsionConfiguration::TYPE_ARRAY)
@@ -339,7 +340,7 @@ class Propulsion
 	 *
 	 * The database maps are "registered" by the generated map builder classes.
 	 *
-	 * @param      string The name of the database corresponding to the DatabaseMap to retrieve.
+	 * @param      string $name The name of the database corresponding to the DatabaseMap to retrieve.
 	 *
 	 * @return     DatabaseMap The named <code>DatabaseMap</code>.
 	 *
@@ -745,8 +746,8 @@ class Propulsion
 	 *
 	 * Process the INI file flags to be passed to each connection.
 	 *
-	 * @param      array Where to find the list of constant flags and their new setting.
-	 * @param      array Put the data into here
+	 * @param      array $source Where to find the list of constant flags and their new setting.
+	 * @param      array $write_to Put the data into here
 	 *
 	 * @throws     PropulsionException If invalid options were specified.
 	 */
@@ -757,6 +758,8 @@ class Propulsion
 				$key = $option;
 			} elseif (is_string($option)) {
 				$key = 'Propulsion\\Connection\\PropulsionPDO::' . $option;
+			} else {
+				throw new PropulsionException("Invalid PDO option/attribute name specified: " . var_export($option, true));
 			}
 			if (!defined($key)) {
 				throw new PropulsionException("Invalid PDO option/attribute name specified: ".$key);
@@ -778,7 +781,7 @@ class Propulsion
 	/**
 	 * Returns database adapter for a specific datasource.
 	 *
-	 * @param      string The datasource name.
+	 * @param      string $name The datasource name.
 	 *
 	 * @return     DBAdapter The corresponding database adapter.
 	 *
@@ -867,7 +870,7 @@ class Propulsion
 	 * classname of a validator in the schema.xml.  This method will attempt to include that
 	 * class via autoload and then relative to a location on the include_path.
 	 *
-	 * @param      string $class dot-path to clas (e.g. path.to.my.ClassName).
+	 * @param      string $path dot-path to clas (e.g. path.to.my.ClassName).
 	 * @return     string unqualified classname
 	 */
 	public static function importClass($path) {
@@ -902,7 +905,7 @@ class Propulsion
 	 * you can change the whole TableMap-Model, but keep its
 	 * functionality for Criteria.
 	 *
-	 * @param      string The name of the class.
+	 * @param      string $name The name of the class.
 	 */
 	public static function setDatabaseMapClass($name)
 	{

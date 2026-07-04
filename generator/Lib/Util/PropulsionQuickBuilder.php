@@ -15,9 +15,14 @@ use \PDO;
 use PDOStatement;
 use Propulsion\Adapter\DBSQLite;
 use \Propulsion\Connection\PropulsionPDO;
+use Propulsion\Generator\Builder\OM\ExtensionQueryInheritanceBuilder;
+use Propulsion\Generator\Builder\OM\MultiExtendObjectBuilder;
+use Propulsion\Generator\Builder\OM\OMBuilder;
+use Propulsion\Generator\Builder\OM\QueryInheritanceBuilder;
 use Propulsion\Generator\Builder\Util\XmlToAppData;
 use Propulsion\Generator\Config\QuickGeneratorConfig;
 use Propulsion\Generator\Model\Table;
+use Propulsion\Generator\Platform\DefaultPlatform;
 use Propulsion\Generator\Platform\PropulsionPlatformInterface;
 use Propulsion\Generator\Platform\SqlitePlatform;
 use \Propulsion\Propulsion;
@@ -135,7 +140,43 @@ class PropulsionQuickBuilder
 
 	public function getSQL()
 	{
-		return $this->getPlatform()->getAddTablesDDL($this->getDatabase());
+		$platform = $this->getPlatform();
+		return $platform instanceof DefaultPlatform ? $platform->getAddTablesDDL($this->getDatabase()) : '';
+	}
+
+	/**
+	 * Builds the script for a configured builder, if it is a real OM builder
+	 * (i.e. actually has a build() method).
+	 *
+	 * @param mixed $table
+	 * @param string $target
+	 * @return string
+	 */
+	private function buildScriptFor($table, $target)
+	{
+		$builder = $this->getConfig()->getConfiguredBuilder($table, $target);
+		return $builder instanceof OMBuilder ? $builder->build() : '';
+	}
+
+	/**
+	 * Same as buildScriptFor(), but also assigns the given inheritance child
+	 * to the builder before building, for builders that support it.
+	 *
+	 * @param mixed $table
+	 * @param string $target
+	 * @param mixed $child
+	 * @return string
+	 */
+	private function buildScriptForChild($table, $target, $child)
+	{
+		$builder = $this->getConfig()->getConfiguredBuilder($table, $target);
+		if ($builder instanceof QueryInheritanceBuilder
+			|| $builder instanceof ExtensionQueryInheritanceBuilder
+			|| $builder instanceof MultiExtendObjectBuilder
+		) {
+			$builder->setChild($child);
+		}
+		return $builder instanceof OMBuilder ? $builder->build() : '';
 	}
 
 	public function buildClasses()
@@ -157,43 +198,39 @@ class PropulsionQuickBuilder
 		$script = '';
 
 		foreach (array('tablemap', 'peer', 'object', 'query', 'peerstub', 'objectstub', 'querystub') as $target) {
-			$script .= $this->getConfig()->getConfiguredBuilder($table, $target)->build();
+			$script .= $this->buildScriptFor($table, $target);
 		}
 
 		if ($col = $table->getChildrenColumn()) {
 			if ($col->isEnumeratedClasses()) {
 				foreach ($col->getChildren() as $child) {
 					if ($child->getAncestor()) {
-						$builder = $this->getConfig()->getConfiguredBuilder('queryinheritance', $target);
-						$builder->setChild($child);
-						$script .= $builder->build();
+						$script .= $this->buildScriptForChild('queryinheritance', $target, $child);
 					}
 					foreach (array('objectmultiextend', 'queryinheritancestub') as $target) {
-						$builder = $this->getConfig()->getConfiguredBuilder($table, $target);
-						$builder->setChild($child);
-						$script .= $builder->build();
+						$script .= $this->buildScriptForChild($table, $target, $child);
 					}
 				}
 			}
 		}
 
 		if ($table->getInterface()) {
-			$script .= $this->getConfig()->getConfiguredBuilder('interface', $target)->build();
+			$script .= $this->buildScriptFor('interface', $target);
 		}
 
 		if ($table->treeMode()) {
 			switch($table->treeMode()) {
 				case 'NestedSet':
 					foreach (array('nestedsetpeer', 'nestedset') as $target) {
-						$script .= $this->getConfig()->getConfiguredBuilder($table, $target)->build();
+						$script .= $this->buildScriptFor($table, $target);
 					}
 				break;
 				case 'MaterializedPath':
 					foreach (array('nodepeer', 'node') as $target) {
-						$script .= $this->getConfig()->getConfiguredBuilder($table, $target)->build();
+						$script .= $this->buildScriptFor($table, $target);
 					}
 					foreach (array('nodepeerstub', 'nodestub') as $target) {
-						$script .= $this->getConfig()->getConfiguredBuilder($table, $target)->build();
+						$script .= $this->buildScriptFor($table, $target);
 					}
 				break;
 				case 'AdjacencyList':

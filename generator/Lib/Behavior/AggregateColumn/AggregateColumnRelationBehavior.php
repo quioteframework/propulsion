@@ -111,6 +111,14 @@ class AggregateColumnRelationBehavior extends Behavior
 		return "\$this->updateRelated{$relationName}s(\$con);";
 	}
 
+	public function queryAttributes($builder)
+	{
+		$relationName = $this->getRelationName($builder);
+		$variableName = self::lcfirst($relationName);
+		return "protected \${$variableName}s;
+";
+	}
+
 	public function queryMethods($builder)
 	{
 		$script = '';

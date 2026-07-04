@@ -27,7 +27,7 @@ class ModelCriterion extends Criterion
 	/**
 	 * Create a new instance.
 	 *
-	 * @param      Criteria $parent The outer class (this is an "inner" class).
+	 * @param      Criteria $outer The outer class (this is an "inner" class).
 	 * @param      ColumnMap $column A Column object to help escaping the value
 	 * @param      mixed $value
 	 * @param      string $comparison, among ModelCriteria::MODEL_CLAUSE

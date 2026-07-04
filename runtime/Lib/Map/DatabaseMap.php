@@ -82,9 +82,9 @@ class DatabaseMap
   public function addTableObject(TableMap $table)
   {
     $table->setDatabaseMap($this);
-    $this->tables[$table->getName()] = $table;
+    $this->tables[$table->getName() ?? ''] = $table;
     // Register under the class name as specified in the TableMap
-    $phpName = ltrim($table->getClassname(), '\\');
+    $phpName = ltrim($table->getClassname() ?? '', '\\');
     $this->tablesByPhpName[$phpName] = $table;
   }
 

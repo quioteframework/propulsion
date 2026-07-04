@@ -21,10 +21,12 @@ namespace Propulsion\Adapter;
  */
 use PDO;
 use PDOStatement;
+use PDOException;
 use Exception;
 use Propulsion\Exception\PropulsionException;
 use Propulsion\Map\ColumnMap;
 use Propulsion\Map\DatabaseMap;
+use Propulsion\Query\Criteria;
 class DBMySQL extends DBAdapter
 {
 	/**
@@ -153,8 +155,9 @@ class DBMySQL extends DBAdapter
 	 * @param     string   $sql
 	 * @param     integer  $offset
 	 * @param     integer  $limit
+	 * @param     Criteria $criteria  Unused by this adapter.
 	 */
-	public function applyLimit(&$sql, $offset, $limit)
+	public function applyLimit(&$sql, $offset, $limit, $criteria = null)
 	{
 		if ( $limit > 0 ) {
 			$sql .= " LIMIT " . ($offset > 0 ? $offset . ", " : "") . $limit;

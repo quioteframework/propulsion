@@ -108,4 +108,20 @@ class DebugPDO extends PropulsionPDO
 	 * @var       boolean
 	 */
 	public $useDebug = true;
+
+	/**
+	 * Free-form slot behaviors' preSelect() hooks can stash debug info on
+	 * (e.g. which builder/class triggered the hook) for tests to inspect.
+	 *
+	 * @var       mixed
+	 */
+	public $preSelect;
+
+	/**
+	 * Free-form slot behaviors' postDelete()/postUpdate() hooks can stash the
+	 * number of affected rows on for tests to inspect.
+	 *
+	 * @var       mixed
+	 */
+	public $lastAffectedRows;
 }

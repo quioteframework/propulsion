@@ -47,7 +47,7 @@ class QueryInheritanceBuilder extends OMBuilder
 		return ($this->getChild()->getPackage() ? $this->getChild()->getPackage() : parent::getPackage()) . ".om";
 	}
 
-	public function getNamespace()
+	public function getNamespace(): ?string
 	{
 		if ($namespace = parent::getNamespace()) {
 			if ($this->getGeneratorConfig() && $omns = $this->getGeneratorConfig()->getBuildProperty('namespaceOm')) {
@@ -56,6 +56,7 @@ class QueryInheritanceBuilder extends OMBuilder
 				return $namespace;
 			}
 		}
+		return null;
 	}
 
 	/**
@@ -84,7 +85,7 @@ class QueryInheritanceBuilder extends OMBuilder
 	 * Returns classpath to parent class.
 	 * @return     string
 	 */
-	protected function getParentClassName()
+	protected function getParentClassName(): ?string
 	{
 		$ancestorClassName = ClassTools::classname($this->getChild()->getAncestor());
 		if ($this->getDatabase()->hasTableByPhpName($ancestorClassName)) {
@@ -97,6 +98,7 @@ class QueryInheritanceBuilder extends OMBuilder
 				}
 			}
 		}
+		return null;
 	}
 
 	/**

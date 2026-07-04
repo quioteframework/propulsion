@@ -22,7 +22,7 @@ namespace Propulsion\Formatter;
  use Propulsion\Query\ModelCriteria;
  use PDOStatement;
  use Propulsion\Exception\PropulsionException;
- use Propulsion\Om\BaseObject;
+ use Propulsion\OM\BaseObject;
  use ReflectionClass;
  
 class PropulsionOnDemandFormatter extends PropulsionObjectFormatter

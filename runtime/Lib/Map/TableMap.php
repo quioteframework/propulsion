@@ -288,7 +288,7 @@ class TableMap
   /**
    * Add a column to the table.
    *
-   * @param      string name A String with the column name.
+   * @param      string $name A String with the column name.
    * @param      string $type A string specifying the Propulsion type.
    * @param      boolean $isNotNull Whether column does not allow NULL values.
    * @param      int $size An int specifying the size.
@@ -714,7 +714,7 @@ class TableMap
    * Tell me if i have PREFIX in my string.
    *
    * @deprecated Not used anywhere in Propulsion
-   * @param      string A String.
+   * @param      string $data A String.
    * @return     boolean True if prefix is contained in data.
    */
   protected function hasPrefix($data)
@@ -741,7 +741,7 @@ class TableMap
    * SCARAB_FOO_BAR becomes FooBar.
    *
    * @deprecated Not used anywhere in Propulsion. At buildtime, use Column::generatePhpName() for that purpose
-   * @param      string A String.
+   * @param      string $data A String.
    * @return     string A String with data processed.
    */
   public final function removeUnderScores($data)

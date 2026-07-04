@@ -84,7 +84,7 @@ class PropulsionObjectFormatter extends PropulsionFormatter
 	 *  @param    array  $row associative array indexed by column number,
 	 *                   as returned by PDOStatement::fetch(PDO::FETCH_NUM)
 	 *
-	 * @return    \Propulsion\Om\BaseObject
+	 * @return    \Propulsion\OM\BaseObject
 	 */
 	public function getAllObjectsFromRow($row)
 	{

@@ -9,6 +9,8 @@
  */
 namespace Propulsion\Generator\Model;
 
+use DOMDocument;
+
 /**
  * Information about unique columns of a table.  This class assumes
  * that in the underlying RDBMS, unique constraints and unique indices

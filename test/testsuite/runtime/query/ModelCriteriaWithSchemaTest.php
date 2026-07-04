@@ -43,18 +43,25 @@ class ModelCriteriaWithSchemaTest extends SchemasTestBase
 	 * @dataProvider conditionsForTestReplaceNamesWithSchemas
 	 */
 	#[\PHPUnit\Framework\Attributes\DataProvider('conditionsForTestReplaceNamesWithSchemas')]
-	public function testReplaceNamesWithSchemas($origClause, $columnPhpName = false, $modifiedClause)
+	public function testReplaceNamesWithSchemas($origClause, $columnPhpName, $modifiedClause)
 	{
 		$c = new TestableModelCriteriaWithSchema('bookstore-schemas', 'ContestBookstoreContest');
-		$this->doTestReplaceNames($c, ContestBookstoreContestPeer::getTableMap(),  $origClause, $columnPhpName = false, $modifiedClause);
+		$this->doTestReplaceNames($c, ContestBookstoreContestPeer::getTableMap(),  $origClause, $columnPhpName, $modifiedClause);
 	}
 
-	public function doTestReplaceNames($c, $tableMap, $origClause, $columnPhpName = false, $modifiedClause)
+	public function doTestReplaceNames($c, $tableMap, $origClause, $columnPhpName, $modifiedClause)
 	{
 		$c->replaceNames($origClause);
 		$columns = $c->replacedColumns;
 		if ($columnPhpName) {
-			$this->assertEquals(array($tableMap->getColumnByPhpName($columnPhpName)), $columns);
+			// Compare by identity (getPhpName()) rather than deep object equality --
+			// fetching a FK column's ColumnMap can lazily trigger the TableMap's
+			// relation-building (RelationMap objects, 'relationsBuilt' flag), which
+			// has nothing to do with whether replaceNames() matched the right column.
+			$this->assertEquals(
+				array($tableMap->getColumnByPhpName($columnPhpName)->getPhpName()),
+				array_map(fn ($column) => $column->getPhpName(), $columns)
+			);
 		}
 		$this->assertEquals($modifiedClause, $origClause);
 	}

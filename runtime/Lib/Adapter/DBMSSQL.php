@@ -144,7 +144,7 @@ class DBMSSQL extends DBAdapter
 	 *
 	 * @return    void
 	 */
-	public function applyLimit(&$sql, $offset, $limit)
+	public function applyLimit(&$sql, $offset, $limit, $criteria = null)
 	{
 		// make sure offset and limit are numeric
 		if(! is_numeric($offset) || ! is_numeric($limit))

@@ -256,7 +256,7 @@ class ModelCriteria extends Criteria
 	 *
 	 * @see        filterBy()
 	 *
-	 * @param      mixed $conditions An array of conditions, using column phpNames as key
+	 * @param      array $conditions An array of conditions, using column phpNames as key
 	 *
 	 * @return     static The current object, for fluid interface
 	 */
@@ -513,7 +513,7 @@ class ModelCriteria extends Criteria
 	 *   ArticleQuery::create()->select(array('Id', 'Name'))->findOne();
 	 *   => array('Id' => 1, 'Name' => 'Foo')
 	 *
-	 * @param     mixed $columnArray A list of column names (e.g. array('Title', 'Category.Name', 'c.Content')) or a single column name (e.g. 'Name')
+	 * @param     array|string $columnArray A list of column names (e.g. array('Title', 'Category.Name', 'c.Content')) or a single column name (e.g. 'Name')
 	 *
 	 * @return    static The current object, for fluid interface
 	 */
@@ -849,7 +849,7 @@ class ModelCriteria extends Criteria
 	 * Sets the array of ModelWith specifying which objects must be hydrated
 	 * together with the main object.
 	 *
-	 * @param    array
+	 * @param    array $with
 	 *
 	 * @return     static The current object, for fluid interface
 	 */
@@ -898,7 +898,7 @@ class ModelCriteria extends Criteria
 	 *
 	 * @see       ModelCriteria::endUse()
 	 * @param     string $relationName Relation name or alias
-	 * @param     string $secondCriteriaClass Classname for the ModelCriteria to be used
+	 * @param     string $secondaryCriteriaClass Classname for the ModelCriteria to be used
 	 *
 	* @return    ModelCriteria The secondary criteria object
 	 */
@@ -1013,7 +1013,7 @@ class ModelCriteria extends Criteria
 	 */
 	public function addSelectQuery(Criteria $subQueryCriteria, ?string $alias = null, ?bool $addAliasAndSelectColumns = true) : static
 	{
-		if (!$subQueryCriteria->hasSelectClause()) {
+		if ($subQueryCriteria instanceof self && !$subQueryCriteria->hasSelectClause()) {
 			$subQueryCriteria->addSelfSelectColumns();
 		}
 		parent::addSelectQuery($subQueryCriteria, $alias);
@@ -1166,7 +1166,7 @@ class ModelCriteria extends Criteria
 	 *
 	 * @param     PropulsionPDO $con an optional connection object
 	 *
-	 * @return    ?\Propulsion\Om\BaseObject the result (null if no result found with default formatter)
+	 * @return    ?\Propulsion\OM\BaseObject the result (null if no result found with default formatter)
 	 */
 	public function findOne(?PropulsionPDO $con = null) : mixed
 	{
@@ -1185,7 +1185,7 @@ class ModelCriteria extends Criteria
 	 *
 	 * @param     PropulsionPDO $con an optional connection object
 	 *
-	 * @return    \Propulsion\Om\BaseObject the result (never null with default formatter - creates new object if not found)
+	 * @return    \Propulsion\OM\BaseObject the result (never null with default formatter - creates new object if not found)
 	 */
 	public function findOneOrCreate(?PropulsionPDO $con = null) : mixed
 	{
@@ -1219,7 +1219,7 @@ class ModelCriteria extends Criteria
 	 * @param     mixed $key Primary key to use for the query
 	 * @param     PropulsionPDO $con an optional connection object
 	 *
-	 * @return    ?\Propulsion\Om\BaseObject the result (null if no result found with default formatter)
+	 * @return    ?\Propulsion\OM\BaseObject the result (null if no result found with default formatter)
 	 */
 	public function findPk(mixed $key, ?PropulsionPDO $con = null) : mixed
 	{
@@ -1282,6 +1282,7 @@ class ModelCriteria extends Criteria
 
 		$this->configureSelectColumns();
 
+		$sql = null;
 		try {
 			$this->basePreSelect($con);
 			$params = array();
@@ -1350,11 +1351,11 @@ class ModelCriteria extends Criteria
 	 * @see       filterBy()
 	 * @see       findOne()
 	 *
-	 * @param     mixed $column A string representing thecolumn phpName, e.g. 'AuthorId'
+	 * @param     string $column A string representing thecolumn phpName, e.g. 'AuthorId'
 	 * @param     mixed  $value A value for the condition
 	 * @param     PropulsionPDO $con an optional connection object
 	 *
-	 * @return    ?\Propulsion\Om\BaseObject the result (null if no result found with default formatter)
+	 * @return    ?\Propulsion\OM\BaseObject the result (null if no result found with default formatter)
 	 */
 	public function findOneBy(string $column, mixed $value, ?PropulsionPDO $con = null) : mixed
 	{
@@ -1379,7 +1380,7 @@ class ModelCriteria extends Criteria
 	 * @param     mixed $conditions An array of conditions, using column phpNames as key
 	 * @param     PropulsionPDO $con an optional connection object
 	 *
-	 * @return    ?\Propulsion\Om\BaseObject the result (null if no result found with default formatter)
+	 * @return    ?\Propulsion\OM\BaseObject the result (null if no result found with default formatter)
 	 */
 	public function findOneByArray($conditions, ?PropulsionPDO $con = null) : mixed
 	{
@@ -1442,6 +1443,8 @@ class ModelCriteria extends Criteria
 			|| $this->getHaving()
 			|| in_array(Criteria::DISTINCT, $this->getSelectModifiers());
 
+		$sql = null;
+		$stmt = null;
 		try {
 			$this->basePreSelect($con);
 			$params = array();
@@ -1725,6 +1728,9 @@ class ModelCriteria extends Criteria
 				foreach ($values as $key => $value) {
 					$object->setByName($key, $value);
 				}
+			}
+			if (!$objects instanceof PropulsionObjectCollection) {
+				throw new PropulsionException('doUpdate() with $forceIndividualSaves expects a PropulsionObjectCollection');
 			}
 			$objects->save($con);
 			$affectedRows = count($objects);
@@ -2017,7 +2023,7 @@ class ModelCriteria extends Criteria
 	/**
 	 * Special case for subquery columns
 	 *
-	 * @return     array[string,string] List($columnMap, $realColumnName)
+	 * @return     array{0: ?ColumnMap, 1: ?string} List($columnMap, $realColumnName)
 	 */
 	protected function getColumnFromSubQuery(string $class, string $phpName, $failSilently = true) : array
 	{
@@ -2082,7 +2088,7 @@ class ModelCriteria extends Criteria
 	 * Overrides Criteria::add() to force the use of a true table alias if it exists
 	 *
 	 * @see        Criteria::add()
-	 * @param      string $column The colName of column to run the condition on (e.g. BookPeer::ID)
+	 * @param      string $p1 The colName of column to run the condition on (e.g. BookPeer::ID)
 	 * @param      mixed $value
 	 * @param      string $operator A String, like Criteria::EQUAL.
 	 *

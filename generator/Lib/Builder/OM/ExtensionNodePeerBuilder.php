@@ -119,7 +119,7 @@ class " . $this->getClassname() . " extends $baseClassname
      * Example modern PHP 8.4 query method:
      * 
      * public static function findByCustomCriteria(
-     *     array $criteria = [],
+     *     array \$criteria = [],
      *     ?\\Propulsion\\Runtime\\Connection\\ConnectionInterface \$con = null
      * ): \\Propulsion\\Runtime\\Collection\\ObjectCollection {
      *     \$query = static::createQuery();
@@ -142,22 +142,6 @@ class " . $this->getClassname() . " extends $baseClassname
 		$script .= "
 } // " . $this->getClassname() . "
 ";
-	}
-
-	/**
-	 * Gets the node peer builder instance with proper typing.
-	 */
-	public function getNodePeerBuilder(): AbstractPeerBuilder
-	{
-		return $this->getDatabase()->getTable($this->getTable()->getName())->getNodePeerBuilder();
-	}
-
-	/**
-	 * Gets the stub node builder instance with proper typing.
-	 */
-	public function getStubNodeBuilder(): AbstractObjectBuilder
-	{
-		return $this->getDatabase()->getTable($this->getTable()->getName())->getStubNodeBuilder();
 	}
 
 } // ExtensionNodePeerBuilder

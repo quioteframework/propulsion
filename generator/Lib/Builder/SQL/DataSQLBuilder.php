@@ -186,7 +186,7 @@ abstract class DataSQLBuilder extends DataModelBuilder
 	 */
 	protected function getDoubleSql($value)
 	{
-		return (double) $value;
+		return (float) $value;
 	}
 
 	/**

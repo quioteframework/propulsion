@@ -48,6 +48,7 @@ class QueryBuilder extends OMBuilder
                 return $namespace;
             }
         }
+        return null;
     }
 
     /**
@@ -676,8 +677,10 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         }
         // tip: we don't use findOne() to avoid putting an unecessary LIMIT 1 statement,
         // which may be costly on platforms not natively supporting LIMIT (like Oracle)
+        $peerBuilder = $this->getPeerBuilder();
+        $instancePoolKeySnippet = $peerBuilder instanceof PeerBuilder ? $peerBuilder->getInstancePoolKeySnippet($poolKeyHashParams) : '';
         $script .= "
-        if ((null !== (\$obj = ".$this->getPeerClassname()."::getInstanceFromPool(".$this->getPeerBuilder()->getInstancePoolKeySnippet($poolKeyHashParams)."))) && \$this->getFormatter()->isObjectFormatter()) {
+        if ((null !== (\$obj = ".$this->getPeerClassname()."::getInstanceFromPool(".$instancePoolKeySnippet."))) && \$this->getFormatter()->isObjectFormatter()) {
             // the object is alredy in the instance pool
             return \$obj;
         } else {

@@ -9,6 +9,8 @@
  */
  namespace Propulsion\Generator\Model;
 
+use Propulsion\Generator\Exception\EngineException;
+
 /**
  * A name generation factory.
  *
@@ -44,7 +46,7 @@ class NameFactory
 	/**
 	 * Factory method which retrieves an instance of the named generator.
 	 *
-	 * @param      name The fully qualified class name of the name
+	 * @param      string $name The fully qualified class name of the name
 	 * generation algorithm to retrieve.
 	 */
 	protected static function getAlgorithm($name)
@@ -62,7 +64,7 @@ class NameFactory
 	 * @param      string $algorithmName The fully qualified class name of the {@link NameGenerator}
 	 *             implementation to use to generate names.
 	 * @param      array $inputs Inputs used to generate a name.
-	 * @return     The generated name.
+	 * @return     string The generated name.
 	 * @throws     EngineException
 	 */
 	public static function generateName($algorithmName, $inputs)

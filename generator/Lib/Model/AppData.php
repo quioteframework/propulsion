@@ -32,7 +32,7 @@ class AppData
 
 	/**
 	 * The platform class for our database(s).
-	 * @var        string
+	 * @var        PropulsionPlatformInterface|null
 	 */
 	private $platform;
 
@@ -57,7 +57,7 @@ class AppData
 	/**
 	 * Creates a new instance for the specified database type.
 	 *
-	 * @param      PropulsionPlatformInterface $platform The default platform object to use for any databases added to this application model.
+	 * @param      PropulsionPlatformInterface $defaultPlatform The default platform object to use for any databases added to this application model.
 	 */
 	public function __construct(?PropulsionPlatformInterface $defaultPlatform = null)
 	{
@@ -79,7 +79,7 @@ class AppData
 	/**
 	 * Gets the platform object to use for any databases added to this application model.
 	 *
-	 * @return Platform
+	 * @return PropulsionPlatformInterface|null
 	 */
 	public function getPlatform()
 	{
@@ -109,7 +109,7 @@ class AppData
 	/**
 	 * Set the name of the database.
 	 *
-	 * @param      name of the database.
+	 * @param      string $name Name of the database.
 	 */
 	public function setName($name)
 	{
@@ -164,8 +164,8 @@ class AppData
 	/**
 	 * Return the database with the specified name.
 	 *
-	 * @param      name database name
-	 * @return     A Database object.  If it does not exist it returns null
+	 * @param      string|null $name Database name
+	 * @return     Database|null A Database object.  If it does not exist it returns null
 	 */
 	public function getDatabase($name = null, $doFinalInit = true)
 	{
@@ -191,7 +191,7 @@ class AppData
 	/**
 	 * Checks whether a database with the specified nam exists in this AppData
 	 *
-	 * @param      name database name
+	 * @param      string $name Database name
 	 * @return     boolean
 	 */
 	public function hasDatabase($name)
@@ -208,7 +208,7 @@ class AppData
 	 * Add a database to the list and sets the AppData property to this
 	 * AppData
 	 *
-	 * @param      db the database to add
+	 * @param      Database|array $db The database to add
 	 */
 	public function addDatabase($db)
 	{

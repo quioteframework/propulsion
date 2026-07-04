@@ -19,27 +19,8 @@ namespace Propulsion\Generator\Builder\OM;
  *
  * @author     Hans Lellelid <hans@xmpl.org>
  * @package    propel.generator.builder.om
- * @method void AddBooleanMutator(string &$script, $col)
- * @method void addDefaultAccessor(string &$script, $col)
- * @method void addTemporalMutator(string &$script, $col)
- * @method void addTemporalAccessor(string &$script, $col)
- * @method void addObjectMutator(string &$script, $col)
- * @method void addObjectAccessor(string &$script, $col)
- * @method void addArrayMutator(string &$script, $col)
- * @method void addArrayAccessor(string &$script, $col)
- * @method void addEnumMutator(string &$script, $col)
- * @method void addEnumAccessor(string &$script, $col)
- * @method void addLazyLoader(string &$script, $col)
- * @method void addLobMutator(string &$script, $col)
- * @method void addAddArrayElement(string &$script, $col)
- * @method void addRemoveArrayElement(string &$script, $col)
- * @method void addHasArrayElement(string &$script, $col)
- * @method void addDefaultMutator(string &$script, $col)
- * @method void addDefaultAccessor(string &$script, $col)
- * @method void addTemporalMutator(string &$script, $col)
  */
 use Propulsion\Generator\Model\Table;
-use Propulsion\Generator\Model\PropulsionTypes;
 
 abstract class AbstractObjectBuilder extends OMBuilder
 {
@@ -62,72 +43,6 @@ abstract class AbstractObjectBuilder extends OMBuilder
 	 * @param      string &$script The script will be modified in this method.
 	 */
 	abstract protected function addClassBody(&$script);
-
-	/**
-	 * Adds the getter methods for the column values.
-	 * This is here because it is probably generic enough to apply to templates being generated
-	 * in different langauges (e.g. PHP4 and PHP5).
-	 * @param      string &$script The script will be modified in this method.
-	 */
-	protected function addColumnAccessorMethods(&$script)
-	{
-		$table = $this->getTable();
-
-		foreach ($table->getColumns() as $col) {
-
-			// if they're not using the DateTime class than we will generate "compatibility" accessor method
-			if ($col->getType() === PropulsionTypes::DATE || $col->getType() === PropulsionTypes::TIME || $col->getType() === PropulsionTypes::TIMESTAMP) {
-				$this->addTemporalAccessor($script, $col);
-			} else if ($col->getType() === PropulsionTypes::OBJECT) {
-				$this->addObjectAccessor($script, $col);
-			} else if ($col->getType() === PropulsionTypes::PHP_ARRAY) {
-				$this->addArrayAccessor($script, $col);
-				if ($col->isNamePlural()) {
-					$this->addHasArrayElement($script, $col);
-				}
-			} else if ($col->isEnumType()) {
-				$this->addEnumAccessor($script, $col);
-			} else {
-				$this->addDefaultAccessor($script, $col);
-			}
-
-			if ($col->isLazyLoad()) {
-				$this->addLazyLoader($script, $col);
-			}
-		}
-	}
-
-	/**
-	 * Adds the mutator (setter) methods for setting column values.
-	 * This is here because it is probably generic enough to apply to templates being generated
-	 * in different langauges (e.g. PHP4 and PHP5).
-	 * @param      string &$script The script will be modified in this method.
-	 */
-	protected function addColumnMutatorMethods(&$script)
-	{
-		foreach ($this->getTable()->getColumns() as $col) {
-			if ($col->isLobType()) {
-				$this->addLobMutator($script, $col);
-			} elseif ($col->getType() === PropulsionTypes::DATE || $col->getType() === PropulsionTypes::TIME || $col->getType() === PropulsionTypes::TIMESTAMP) {
-				$this->addTemporalMutator($script, $col);
-			} else if ($col->getType() === PropulsionTypes::OBJECT) {
-				$this->addObjectMutator($script, $col);
-			} else if ($col->getType() === PropulsionTypes::PHP_ARRAY) {
-				$this->addArrayMutator($script, $col);
-				if ($col->isNamePlural()) {
-					$this->addAddArrayElement($script, $col);
-					$this->addRemoveArrayElement($script, $col);
-				}
-			} else if ($col->isEnumType()) {
-				$this->addEnumMutator($script, $col);
-			} else if ($col->isBooleanType()) {
-				$this->addBooleanMutator($script, $col);
-			} else {
-				$this->addDefaultMutator($script, $col);
-			}
-		}
-	}
-
 
 	/**
 	 * Gets the baseClass path if specified for table/db.

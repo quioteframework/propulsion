@@ -74,7 +74,7 @@ class ColumnMap
    * Constructor.
    *
    * @param      string $name The name of the column.
-   * @param      TableMap containingTable TableMap of the table this column is in.
+   * @param      TableMap $containingTable TableMap of the table this column is in.
    */
   public function __construct($name, TableMap $containingTable)
   {
@@ -270,7 +270,7 @@ class ColumnMap
   /**
    * Set if this column may be null.
    *
-   * @param      boolean nn True if column may be null.
+   * @param      boolean $nn True if column may be null.
    * @return     void
    */
   public function setNotNull($nn)
@@ -310,8 +310,8 @@ class ColumnMap
   /**
    * Set the foreign key for this column.
    *
-   * @param      string tableName The name of the table that is foreign.
-   * @param      string columnName The name of the column that is foreign.
+   * @param      string $tableName The name of the table that is foreign.
+   * @param      string $columnName The name of the column that is foreign.
    * @return     void
    */
   public function setForeignKey($tableName, $columnName)

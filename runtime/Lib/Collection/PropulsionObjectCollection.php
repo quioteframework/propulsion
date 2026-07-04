@@ -68,7 +68,7 @@ class PropulsionObjectCollection extends PropulsionCollection
 		}
 		$con->beginTransaction();
 		try {
-			/** @var BaseObject */
+			/** @var BaseObject $element */
 			foreach ($this as $element) {
 				$element->delete($con);
 			}
@@ -156,7 +156,7 @@ class PropulsionObjectCollection extends PropulsionCollection
 		$ret = array();
 		$keyGetterMethod = 'get' . $keyColumn;
 
-		/** @var BaseObject */
+		/** @var BaseObject $obj */
 		foreach ($this as $key => $obj) {
 			$key = null === $keyColumn ? $key : $obj->$keyGetterMethod();
 			$key = $usePrefix ? ($this->getModel() . '_' . $key) : $key;

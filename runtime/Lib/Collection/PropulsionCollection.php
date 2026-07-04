@@ -33,7 +33,7 @@ namespace Propulsion\Collection;
  use Iterator;
  use Propulsion\Connection\PropulsionPDO;
  use Propulsion\Propulsion;
- use Propulsion\Om\BaseObject;
+ use Propulsion\OM\BaseObject;
  use Propulsion\Parser\PropulsionParser;
  use Propulsion\Util\BasePeer;
 
@@ -110,6 +110,18 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	public function setData($data)
 	{
 		$this->exchangeArray($data);
+	}
+
+	/**
+	 * Populates the collection from an array.
+	 * Subclasses override this to hydrate ORM objects.
+	 *
+	 * @param     array $arr
+	 * @return    void
+	 */
+	public function fromArray($arr)
+	{
+		$this->setData($arr);
 	}
 
 	/**
@@ -335,7 +347,9 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 		if (!$this->offsetExists($key)) {
 			throw new PropulsionException('Unknown key ' . $key);
 		}
-		return $this->offsetUnset($key);
+		$removed = $this->offsetGet($key);
+		$this->offsetUnset($key);
+		return $removed;
 	}
 
 	/**
@@ -518,7 +532,9 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 		if (!$parser instanceof PropulsionParser) {
 			$parser = PropulsionParser::getParser($parser);
 		}
-		return $this->fromArray($parser->listToArray($data), BasePeer::TYPE_PHPNAME);
+		$this->fromArray($parser->listToArray($data));
+
+		return $this;
 	}
 
 	/**

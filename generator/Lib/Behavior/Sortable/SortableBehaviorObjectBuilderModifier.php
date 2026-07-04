@@ -137,8 +137,6 @@ protected \$sortableQueries = array();
 
 	/**
 	 * Get the wraps for getter/setter, if the rank column has not the default name
-	 *
-	 * @return string
 	 */
 	protected function addRankAccessors(&$script)
 	{
@@ -168,8 +166,6 @@ public function setRank(\$v)
 
 	/**
 	 * Get the wraps for getter/setter, if the scope column has not the default name
-	 *
-	 * @return string
 	 */
 	protected function addScopeAccessors(&$script)
 	{
@@ -223,7 +219,7 @@ public function isFirst()
  *
  * @return    boolean
  */
-public function isLast(PropulsionPDO \$con = null)
+public function isLast(?PropulsionPDO \$con = null)
 {
 	return \$this->{$this->getColumnGetter()}() == {$this->queryClassname}::create()->getMaxRank(" . ($useScope ? "\$this->{$this->getColumnGetter('scope_column')}(), " : '') . "\$con);
 }
@@ -241,7 +237,7 @@ public function isLast(PropulsionPDO \$con = null)
  *
  * @return    {$this->objectClassname}
  */
-public function getNext(PropulsionPDO \$con = null)
+public function getNext(?PropulsionPDO \$con = null)
 {";
 		if ($this->behavior->getParameter('rank_column') == 'rank' && $useScope) {
 			$script .= "
@@ -270,7 +266,7 @@ public function getNext(PropulsionPDO \$con = null)
  *
  * @return    {$this->objectClassname}
  */
-public function getPrevious(PropulsionPDO \$con = null)
+public function getPrevious(?PropulsionPDO \$con = null)
 {";
 		if ($this->behavior->getParameter('rank_column') == 'rank' && $useScope) {
 			$script .= "
@@ -303,7 +299,7 @@ public function getPrevious(PropulsionPDO \$con = null)
  *
  * @throws    PropulsionException
  */
-public function insertAtRank(\$rank, PropulsionPDO \$con = null)
+public function insertAtRank(\$rank, ?PropulsionPDO \$con = null)
 {";
 		if ($useScope) {
 			$script .= "
@@ -345,7 +341,7 @@ public function insertAtRank(\$rank, PropulsionPDO \$con = null)
  *
  * @throws    PropulsionException
  */
-public function insertAtBottom(PropulsionPDO \$con = null)
+public function insertAtBottom(?PropulsionPDO \$con = null)
 {";
 		if ($useScope) {
 			$script .= "
@@ -393,7 +389,7 @@ public function insertAtTop()
  *
  * @throws    PropulsionException
  */
-public function moveToRank(\$newRank, PropulsionPDO \$con = null)
+public function moveToRank(\$newRank, ?PropulsionPDO \$con = null)
 {
 	if (\$this->isNew()) {
 		throw new PropulsionException('New objects cannot be moved. Please use insertAtRank() instead');
@@ -443,7 +439,7 @@ public function moveToRank(\$newRank, PropulsionPDO \$con = null)
  *
  * @throws Exception if the database cannot execute the two updates
  */
-public function swapWith(\$object, PropulsionPDO \$con = null)
+public function swapWith(\$object, ?PropulsionPDO \$con = null)
 {
 	if (\$con === null) {
 		\$con = Propulsion::getConnection({$this->peerClassname}::DATABASE_NAME);
@@ -477,7 +473,7 @@ public function swapWith(\$object, PropulsionPDO \$con = null)
  *
  * @return    {$this->objectClassname} the current object
  */
-public function moveUp(PropulsionPDO \$con = null)
+public function moveUp(?PropulsionPDO \$con = null)
 {
 	if (\$this->isFirst()) {
 		return \$this;
@@ -510,7 +506,7 @@ public function moveUp(PropulsionPDO \$con = null)
  *
  * @return    {$this->objectClassname} the current object
  */
-public function moveDown(PropulsionPDO \$con = null)
+public function moveDown(?PropulsionPDO \$con = null)
 {
 	if (\$this->isLast(\$con)) {
 		return \$this;
@@ -543,7 +539,7 @@ public function moveDown(PropulsionPDO \$con = null)
  *
  * @return    {$this->objectClassname} the current object
  */
-public function moveToTop(PropulsionPDO \$con = null)
+public function moveToTop(?PropulsionPDO \$con = null)
 {
 	if (\$this->isFirst()) {
 		return \$this;
@@ -564,7 +560,7 @@ public function moveToTop(PropulsionPDO \$con = null)
  *
  * @return integer the old object's rank
  */
-public function moveToBottom(PropulsionPDO \$con = null)
+public function moveToBottom(?PropulsionPDO \$con = null)
 {
 	if (\$this->isLast(\$con)) {
 		return false;

@@ -567,7 +567,6 @@ class PgsqlSchemaParser extends BaseSchemaParser
 	 * Adds the sequences for this database.
 	 *
 	 * @return     void
-	 * @throws     SQLException
 	 */
 	protected function addSequences(Database $database)
 	{

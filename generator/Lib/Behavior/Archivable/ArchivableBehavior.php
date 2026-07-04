@@ -18,6 +18,8 @@ namespace Propulsion\Generator\Behavior\Archivable;
  */
 
 use Propulsion\Generator\Model\Behavior;
+use Propulsion\Generator\Model\Table;
+use Propulsion\Generator\Model\Column;
 use \InvalidArgumentException;
 
 class ArchivableBehavior extends Behavior
@@ -128,13 +130,15 @@ class ArchivableBehavior extends Behavior
 	}
 
 	/**
-	 * @return Column
+	 * @return ?Column
 	 */
 	public function getArchivedAtColumn()
 	{
 		if ($this->getParameter('log_archived_at') == 'true') {
 			return $this->getTable()->getColumn($this->getParameter('archived_at_column'));
 		}
+
+		return null;
 	}
 
 	public function isArchiveOnInsert()

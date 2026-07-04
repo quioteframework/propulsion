@@ -18,6 +18,8 @@ use PHPUnit\Framework\TestCase;
  */
 class PropulsionTablePkColumnComparatorTest extends TestCase
 {
+	protected $platform;
+
 	public function setUp(): void
 	{
 		$this->platform = new MysqlPlatform();

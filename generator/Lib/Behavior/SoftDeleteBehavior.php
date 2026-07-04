@@ -62,7 +62,7 @@ class SoftDeleteBehavior extends Behavior
 /**
  * Bypass the soft_delete behavior and force a hard delete of the current object
  */
-public function forceDelete(PropulsionPDO \$con = null)
+public function forceDelete(?PropulsionPDO \$con = null)
 {
 	if(\$isSoftDeleteEnabled = {$peerClassName}::isSoftDeleteEnabled()) {
 		{$peerClassName}::disableSoftDelete();
@@ -83,7 +83,7 @@ public function forceDelete(PropulsionPDO \$con = null)
  *
  * @return		 int The number of rows affected by this update and any referring fk objects' save() operations.
  */
-public function unDelete(PropulsionPDO \$con = null)
+public function unDelete(?PropulsionPDO \$con = null)
 {
 	\$this->{$this->getColumnSetter()}(null);
 	return \$this->save(\$con);
@@ -171,7 +171,7 @@ public function includeDeleted()
  *
  * @return		int Number of updated rows
  */
-public function softDelete(PropulsionPDO \$con = null)
+public function softDelete(?PropulsionPDO \$con = null)
 {
 	return \$this->update(array('{$this->getColumnForParameter('deleted_column')->getPhpName()}' => time()), \$con);
 }
@@ -188,7 +188,7 @@ public function softDelete(PropulsionPDO \$con = null)
  *
  * @return		int Number of deleted rows
  */
-public function forceDelete(PropulsionPDO \$con = null)
+public function forceDelete(?PropulsionPDO \$con = null)
 {
 	return {$this->builder->getPeerClassname()}::doForceDelete(\$this, \$con);
 }
@@ -205,7 +205,7 @@ public function forceDelete(PropulsionPDO \$con = null)
  *
  * @return		int Number of deleted rows
  */
-public function forceDeleteAll(PropulsionPDO \$con = null)
+public function forceDeleteAll(?PropulsionPDO \$con = null)
 {
 	return {$this->builder->getPeerClassname()}::doForceDeleteAll(\$con);}
 ";
@@ -221,7 +221,7 @@ public function forceDeleteAll(PropulsionPDO \$con = null)
  *
  * @return		int The number of rows affected by this update and any referring fk objects' save() operations.
  */
-public function unDelete(PropulsionPDO \$con = null)
+public function unDelete(?PropulsionPDO \$con = null)
 {
 	return \$this->update(array('{$this->getColumnForParameter('deleted_column')->getPhpName()}' => null), \$con);
 }
@@ -362,7 +362,7 @@ public static function isSoftDeleteEnabled()
  * @throws		 PropulsionException Any exceptions caught during processing will be
  *							rethrown wrapped into a PropulsionException.
  */
-public static function doSoftDelete(\$values, PropulsionPDO \$con = null)
+public static function doSoftDelete(\$values, ?PropulsionPDO \$con = null)
 {
 	if (\$con === null) {
 		\$con = Propulsion::getConnection({$this->getTable()->getPhpName()}Peer::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
@@ -413,7 +413,7 @@ public static function doSoftDelete(\$values, PropulsionPDO \$con = null)
  * @throws		 PropulsionException Any exceptions caught during processing will be
  *							rethrown wrapped into a PropulsionException.
  */
-public static function doDelete2(\$values, PropulsionPDO \$con = null)
+public static function doDelete2(\$values, ?PropulsionPDO \$con = null)
 {
 	if ({$this->builder->getPeerClassname()}::isSoftDeleteEnabled()) {
 		return {$this->builder->getPeerClassname()}::doSoftDelete(\$values, \$con);
@@ -434,7 +434,7 @@ public static function doDelete2(\$values, PropulsionPDO \$con = null)
  * @throws		 PropulsionException Any exceptions caught during processing will be
  *							rethrown wrapped into a PropulsionException.
  */
-public static function doSoftDeleteAll(PropulsionPDO \$con = null)
+public static function doSoftDeleteAll(?PropulsionPDO \$con = null)
 {
 	if (\$con === null) {
 		\$con = Propulsion::getConnection({$this->builder->getPeerClassname()}::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
@@ -460,7 +460,7 @@ public static function doSoftDeleteAll(PropulsionPDO \$con = null)
  * @throws		 PropulsionException Any exceptions caught during processing will be
  *							rethrown wrapped into a PropulsionException.
  */
-public static function doDeleteAll2(PropulsionPDO \$con = null)
+public static function doDeleteAll2(?PropulsionPDO \$con = null)
 {
 	if ({$this->builder->getPeerClassname()}::isSoftDeleteEnabled()) {
 		return {$this->builder->getPeerClassname()}::doSoftDeleteAll(\$con);

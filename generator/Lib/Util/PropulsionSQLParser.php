@@ -9,6 +9,9 @@
  */
 
 namespace Propulsion\Generator\Util;
+
+use PDO;
+
 /**
  * Service class for parsing a large SQL string into an array of SQL statements
  *
@@ -146,7 +149,7 @@ class PropulsionSQLParser
 	 * //   ) ENGINE=InnoDB;"
 	 * // )
 	 * </code>
-	 * @param string $input The absolute path to the file to parse
+	 * @param string $file The absolute path to the file to parse
 	 *
 	 * @return array A list of SQL statement strings
 	 */

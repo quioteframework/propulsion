@@ -17,6 +17,8 @@
  */
 class BaseObjectConvertTest extends BookstoreTestBase
 {
+	protected $book;
+
 	protected function setUp(): void
 	{
 		parent::setUp();

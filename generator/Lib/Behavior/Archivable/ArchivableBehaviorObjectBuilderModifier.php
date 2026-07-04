@@ -64,6 +64,8 @@ class ArchivableBehaviorObjectBuilderModifier
 	\$this->archiveOnInsert = true;
 }";
 		}
+
+		return '';
 	}
 
 	/**
@@ -78,6 +80,8 @@ class ArchivableBehaviorObjectBuilderModifier
 	\$this->archiveOnUpdate = true;
 }";
 		}
+
+		return '';
 	}
 
 	/**
@@ -97,6 +101,8 @@ class ArchivableBehaviorObjectBuilderModifier
 				'isAddHooks'     => $builder->getGeneratorConfig()->getBuildProperty('addHooks'),
 			));
 		}
+
+		return '';
 	}
 
 	/**

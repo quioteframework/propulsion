@@ -50,7 +50,7 @@ class PropulsionTypes
 	const PHP_ARRAY = "ARRAY";
 	const ENUM = "ENUM";
 
-	protected $creoleToPropulsionTypeMap = [];
+	protected static $creoleToPropulsionTypeMap = [];
 	
 	private static $TEXT_TYPES = array(
 		self::CHAR, self::VARCHAR, self::LONGVARCHAR, self::CLOB, self::DATE, self::TIME, self::TIMESTAMP, self::BU_DATE, self::BU_TIMESTAMP
@@ -254,13 +254,14 @@ class PropulsionTypes
 	 * Used but Propulsion Creole task.
 	 *
 	 * @param      int $sqlType The Creole SQL type constant.
-	 * @return     string The Propulsion type to use or NULL if none found.
+	 * @return     string|null The Propulsion type to use or NULL if none found.
 	 */
 	public static function getPropulsionType($sqlType)
 	{
 		if (isset(self::$creoleToPropulsionTypeMap[$sqlType])) {
 			return self::$creoleToPropulsionTypeMap[$sqlType];
 		}
+		return null;
 	}
 
 	/**

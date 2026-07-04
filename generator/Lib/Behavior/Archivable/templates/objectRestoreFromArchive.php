@@ -9,7 +9,7 @@
  *
  * @return <?php echo $objectClassname ?> The current object (for fluent API support)
  */
-public function restoreFromArchive(PropulsionPDO $con = null)
+public function restoreFromArchive(?PropulsionPDO $con = null)
 {
 	if (!$archive = $this->getArchive($con)) {
 		throw new PropulsionException('The current object has never been archived and cannot be restored');

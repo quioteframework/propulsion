@@ -21,7 +21,7 @@ namespace Propulsion\Formatter;
  use \PDO;
  use \PDOStatement;
  use Propulsion\Exception\PropulsionException;
- use Propulsion\Om\BaseObject;
+ use Propulsion\OM\BaseObject;
 class PropulsionArrayFormatter extends PropulsionFormatter
 {
 	protected $collectionName = 'Propulsion\\Collection\\PropulsionArrayCollection';
@@ -145,7 +145,7 @@ class PropulsionArrayFormatter extends PropulsionFormatter
 			}
 
 			// hydrate related object or take it from registry
-			$key = call_user_func(array($modelWith->getModelPeerName(), 'getPrimaryKeyHashFromRow'), $row, $col);
+			$key = call_user_func(array($modelWith->getModelPeerName(), 'getPrimaryKeyHashFromRow'), $row, $col) ?? '';
 			// we hydrate the main object even in case of a one-to-many relationship
 			// in order to get the $col variable increased anyway
 			$secondaryObject = $this->getSingleObjectFromRow($row, $class, $col);

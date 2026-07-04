@@ -18,7 +18,7 @@ namespace Propulsion\Formatter;
  */
 
  use Propulsion\Query\ModelCriteria;
- use Propulsion\Om\BaseObject;
+ use Propulsion\OM\BaseObject;
  use Propulsion\Propulsion;
  use Propulsion\Exception\PropulsionException;
  use PDOStatement;

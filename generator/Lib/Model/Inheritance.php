@@ -49,7 +49,7 @@ class Inheritance extends XMLElement
 
 	/**
 	 * Set the value of key.
-	 * @param      v  Value to assign to key.
+	 * @param      string $v Value to assign to key.
 	 */
 	public function setKey($v)
 	{
@@ -58,7 +58,7 @@ class Inheritance extends XMLElement
 
 	/**
 	 * Get the value of parent.
-	 * @return     value of parent.
+	 * @return     Column|null Value of parent.
 	 */
 	public function getColumn()
 	{
@@ -67,7 +67,7 @@ class Inheritance extends XMLElement
 
 	/**
 	 * Set the value of parent.
-	 * @param      v  Value to assign to parent.
+	 * @param      Column $v Value to assign to parent.
 	 */
 	public function setColumn(Column  $v)
 	{
@@ -85,7 +85,7 @@ class Inheritance extends XMLElement
 
 	/**
 	 * Set the value of className.
-	 * @param      v  Value to assign to className.
+	 * @param      string $v Value to assign to className.
 	 */
 	public function setClassName($v)
 	{
@@ -94,7 +94,7 @@ class Inheritance extends XMLElement
 
 	/**
 	 * Get the value of package.
-	 * @return     value of package.
+	 * @return     string Value of package.
 	 */
 	public function getPackage()
 	{
@@ -103,7 +103,7 @@ class Inheritance extends XMLElement
 
 	/**
 	 * Set the value of package.
-	 * @param      v  Value to assign to package.
+	 * @param      string $v Value to assign to package.
 	 */
 	public function setPackage($v)
 	{
@@ -112,7 +112,7 @@ class Inheritance extends XMLElement
 
 	/**
 	 * Get the value of ancestor.
-	 * @return     value of ancestor.
+	 * @return     string Value of ancestor.
 	 */
 	public function getAncestor()
 	{
@@ -121,7 +121,7 @@ class Inheritance extends XMLElement
 
 	/**
 	 * Set the value of ancestor.
-	 * @param      v  Value to assign to ancestor.
+	 * @param      string $v Value to assign to ancestor.
 	 */
 	public function setAncestor($v)
 	{

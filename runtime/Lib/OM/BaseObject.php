@@ -9,6 +9,12 @@
  */
 namespace Propulsion\OM;
 
+use Propulsion\Connection\PropulsionPDO;
+use Propulsion\Exception\PropulsionException;
+use Propulsion\Propulsion;
+use Propulsion\Parser\PropulsionParser;
+use Propulsion\Util\BasePeer;
+
 /**
  * This class contains attributes and methods that are used by all
  * business objects within the system.
@@ -21,6 +27,15 @@ namespace Propulsion\OM;
  * @method     string toYAML(boolean $includeLazyLoadColumns) Export the object to a YAML string
  * @method     string toJSON(boolean $includeLazyLoadColumns) Export the object to a JSON string
  * @method     string toCSV(boolean $includeLazyLoadColumns) Export the object to a CSV string
+ * @method     mixed getPrimaryKey() Getter for the object primaryKey (implemented by generated subclasses)
+ * @method     array|string toArray(string $keyType = BasePeer::TYPE_PHPNAME, ?bool $includeLazyLoadColumns = true, array $alreadyDumpedObjects = array(), bool $includeForeignObjects = false) Export the object properties to an array (implemented by generated subclasses)
+ * @method     mixed fromArray(array $arr, string $keyType = BasePeer::TYPE_PHPNAME) Populate the object from an array (implemented by generated subclasses)
+ * @method     void clearAllReferences(bool $deep = false) Clear internal collections prior to serializing (implemented by generated subclasses)
+ * @method     void clear() Reset all internal properties to their default values (implemented by generated subclasses)
+ * @method     int save(?PropulsionPDO $con = null) Persist the object to the database (implemented by generated subclasses)
+ * @method     void delete(?PropulsionPDO $con = null) Delete the object from the database (implemented by generated subclasses)
+ * @method     bool isPrimaryKeyNull() Whether the primary key for this object is null (implemented by generated subclasses)
+ * @method     int hydrate(array $row, int $startcol = 0, bool $rehydrate = false) Hydrate the object from a database row (implemented by generated subclasses)
  *
  * @author     Hans Lellelid <hans@xmpl.org> (Propel)
  * @author     Frank Y. Kim <frank.kim@clearink.com> (Torque)
@@ -28,12 +43,6 @@ namespace Propulsion\OM;
  * @version    $Revision$
  * @package    propel.runtime.om
  */
-
- use Propulsion\Connection\PropulsionPDO;
- use Propulsion\Exception\PropulsionException;
- use Propulsion\Propulsion;
- use Propulsion\Parser\PropulsionParser;
- use Propulsion\Util\BasePeer;
 abstract class BaseObject
 {
 
@@ -105,7 +114,7 @@ abstract class BaseObject
 	 * be false, if the object was retrieved from storage or was created
 	 * and then saved.
 	 *
-	 * @return     true, if the object has never been persisted.
+	 * @return     boolean True, if the object has never been persisted.
 	 */
 	public function isNew()
 	{
@@ -227,7 +236,7 @@ abstract class BaseObject
 	 * <code>obj</code> is an instance of <code>BaseObject</code>, delegates to
 	 * <code>equals(BaseObject)</code>.  Otherwise, returns <code>false</code>.
 	 *
-	 * @param      object The object to compare to.
+	 * @param      mixed $obj The object to compare to.
 	 * @return     boolean Whether equal to the object specified.
 	 */
 	public function equals($obj): bool
@@ -263,8 +272,6 @@ abstract class BaseObject
 
 	/**
 	 * Get the associative array of the virtual columns in this object
-	 *
-	 * @param      string $name The virtual column name
 	 *
 	 * @return     array
 	 */
@@ -373,17 +380,6 @@ abstract class BaseObject
 		return array_keys(get_object_vars($this));
 	}
 
-	/**
-	 * Catches calls to undefined methods.
-	 *
-	 * Provides magic import/export method support (fromXML()/toXML(), fromYAML()/toYAML(), etc.).
-	 * Allows to define default __call() behavior if you use a custom BaseObject
-	 *
-	 * @param	string  $name
-	 * @param   mixed   $params
-	 *
-	 * @return	array|string
-	 */
 	public function toXML(bool $includeLazyLoadColumns = true): string
 	{
 		return $this->exportTo('XML', $includeLazyLoadColumns);

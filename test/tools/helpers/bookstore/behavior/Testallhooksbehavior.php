@@ -74,7 +74,31 @@ class TestAllHooksObjectBuilderModifier
 {
   public function objectAttributes($builder)
   {
-    return 'public $customAttribute = 1;';
+    return 'public $customAttribute = 1;
+public $preSave;
+public $preSaveIsAfterSave;
+public $preSaveBuilder;
+public $postSave;
+public $postSaveIsAfterSave;
+public $postSaveBuilder;
+public $preInsert;
+public $preInsertIsAfterSave;
+public $preInsertBuilder;
+public $postInsert;
+public $postInsertIsAfterSave;
+public $postInsertBuilder;
+public $preUpdate;
+public $preUpdateIsAfterSave;
+public $preUpdateBuilder;
+public $postUpdate;
+public $postUpdateIsAfterSave;
+public $postUpdateBuilder;
+public $preDelete;
+public $preDeleteIsBeforeDelete;
+public $preDeleteBuilder;
+public $postDelete;
+public $postDeleteIsBeforeDelete;
+public $postDeleteBuilder;';
   }
 
   public function preSave($builder)

@@ -17,6 +17,7 @@ namespace Propulsion\Generator\Reverse;
  * @package    propel.generator.reverse
  * @method     void setMigrationTable(string $migrationTable)
  */
+use Propulsion\Generator\Config\GeneratorConfig;
 use Propulsion\Generator\Config\GeneratorConfigInterface;
 use Propulsion\Generator\Model\VendorInfo;
 
@@ -25,7 +26,7 @@ abstract class BaseSchemaParser implements SchemaParser
 
 	/**
 	 * The database connection.
-	 * @var        PDO
+	 * @var        \PDO|null
 	 */
 	protected $dbh;
 
@@ -39,7 +40,7 @@ abstract class BaseSchemaParser implements SchemaParser
 	/**
 	 * GeneratorConfig object holding build properties.
 	 *
-	 * @var        GeneratorConfig
+	 * @var        GeneratorConfig|null
 	 */
 	private $generatorConfig;
 
@@ -77,7 +78,7 @@ abstract class BaseSchemaParser implements SchemaParser
 	/**
 	 * Sets the database connection.
 	 *
-	 * @param      PDO $dbh
+	 * @param      \PDO|null $dbh
 	 */
 	public function setConnection(?\PDO $dbh)
 	{
@@ -86,7 +87,7 @@ abstract class BaseSchemaParser implements SchemaParser
 
 	/**
 	 * Gets the database connection.
-	 * @return     PDO
+	 * @return     \PDO|null
 	 */
 	public function getConnection()
 	{
@@ -146,7 +147,7 @@ abstract class BaseSchemaParser implements SchemaParser
 	/**
 	 * Gets the GeneratorConfig option.
 	 *
-	 * @return     GeneratorConfig
+	 * @return     GeneratorConfig|null
 	 */
 	public function getGeneratorConfig()
 	{

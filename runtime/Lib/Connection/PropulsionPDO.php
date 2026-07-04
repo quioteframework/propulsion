@@ -143,6 +143,7 @@ class PropulsionPDO extends \PDO
 	 */
 	public function __construct($dsn, $username = null, $password = null, $driver_options = array())
 	{
+		$debug = null;
 		if ($this->useDebug) {
 			$debug = $this->getDebugSnapshot();
 		}

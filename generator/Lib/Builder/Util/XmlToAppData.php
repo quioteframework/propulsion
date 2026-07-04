@@ -110,6 +110,7 @@ class XmlToAppData
 	 */
 	public function parseString($xmlString, $xmlFile = null)
 	{
+		$xmlFile ??= '';
 		// we don't want infinite recursion
 		if ($this->isAlreadyParsed($xmlFile)) {
 			return;
@@ -127,8 +128,6 @@ class XmlToAppData
 				xml_get_current_line_number($parser))
 			);
 		}
-		xml_parser_free($parser);
-
 		array_pop($this->schemasTagsStack);
 
 		return $this->app;
@@ -137,12 +136,9 @@ class XmlToAppData
 	/**
 	 * Handles opening elements of the xml file.
 	 *
-	 * @param      string $uri
-	 * @param      string $localName The local name (without prefix), or the empty string if
-	 *		 Namespace processing is not being performed.
-	 * @param      string $rawName The qualified name (with prefix), or the empty string if
-	 *		 qualified names are not available.
-	 * @param      string $attributes The specified or defaulted attributes
+	 * @param      resource|\XMLParser $parser The XML parser resource/instance.
+	 * @param      string $name The name of the element.
+	 * @param      array $attributes The specified or defaulted attributes.
 	 */
 	public function startElement($parser, $name, $attributes)
 	{
@@ -364,11 +360,8 @@ class XmlToAppData
 	/**
 	 * Handles closing elements of the xml file.
 	 *
-	 * @param      uri
-	 * @param      localName The local name (without prefix), or the empty string if
-	 *		 Namespace processing is not being performed.
-	 * @param      rawName The qualified name (with prefix), or the empty string if
-	 *		 qualified names are not available.
+	 * @param      resource|\XMLParser $parser The XML parser resource/instance.
+	 * @param      string $name The name of the element.
 	 */
 	public function endElement($parser, $name)
 	{

@@ -20,6 +20,10 @@ use PHPUnit\Framework\TestCase;
 class TableMapTest extends TestCase
 {
   protected $databaseMap;
+  protected $tableName;
+  protected $tmap;
+  protected $rmap1;
+  protected $rmap2;
 
   protected function setUp(): void
   {

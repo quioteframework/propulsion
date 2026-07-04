@@ -17,6 +17,22 @@
  */
 class ModelCriteriaTest extends BookstoreTestBase
 {
+	protected function setUp(): void
+	{
+		parent::setUp();
+		// Several tests below (testFind, testFindOne, testFindBy, testFindOneBy,
+		// testCount, testPaginate, ...) assert against fixture rows (e.g. Neal
+		// Stephenson's "Quicksilver") without repopulating them locally -- they
+		// used to rely on an earlier test in this same class (testJoinQuery())
+		// having already called BookstoreDataPopulator::populate() and committed
+		// it. That's execution-order-dependent: PHPUnit's defects-first ordering
+		// (or running a subset of tests) can run them before testJoinQuery(),
+		// leaving the fixture tables empty. Populate deterministically for every
+		// test instead of relying on sibling test order.
+		BookstoreDataPopulator::depopulate();
+		BookstoreDataPopulator::populate();
+	}
+
 	protected function assertCriteriaTranslation($criteria, $expectedSql, $expectedParams, $message = '')
 	{
 		$params = array();
@@ -90,18 +106,25 @@ class ModelCriteriaTest extends BookstoreTestBase
 	 * @dataProvider conditionsForTestReplaceNames
 	 */
 	#[\PHPUnit\Framework\Attributes\DataProvider('conditionsForTestReplaceNames')]
-	public function testReplaceNames($origClause, $columnPhpName = false, $modifiedClause)
+	public function testReplaceNames($origClause, $columnPhpName, $modifiedClause)
 	{
 		$c = new TestableModelCriteria('bookstore', 'Book');
-		$this->doTestReplaceNames($c, BookPeer::getTableMap(), $origClause, $columnPhpName = false, $modifiedClause);
+		$this->doTestReplaceNames($c, BookPeer::getTableMap(), $origClause, $columnPhpName, $modifiedClause);
 	}
 
-	public function doTestReplaceNames($c, $tableMap, $origClause, $columnPhpName = false, $modifiedClause)
+	public function doTestReplaceNames($c, $tableMap, $origClause, $columnPhpName, $modifiedClause)
 	{
 		$c->replaceNames($origClause);
 		$columns = $c->replacedColumns;
 		if ($columnPhpName) {
-			$this->assertEquals(array($tableMap->getColumnByPhpName($columnPhpName)), $columns);
+			// Compare by identity (getPhpName()) rather than deep object equality --
+			// fetching a FK column's ColumnMap can lazily trigger the TableMap's
+			// relation-building (RelationMap objects, 'relationsBuilt' flag), which
+			// has nothing to do with whether replaceNames() matched the right column.
+			$this->assertEquals(
+				array($tableMap->getColumnByPhpName($columnPhpName)->getPhpName()),
+				array_map(fn ($column) => $column->getPhpName(), $columns)
+			);
 		}
 		$this->assertEquals($modifiedClause, $origClause);
 	}
@@ -2082,8 +2105,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testUseQuery()
 	{
-		$c = new ModelCriteria('bookstore', 'Book', 'b');
-		$c->thisIsMe = true;
+		$original = $c = new ModelCriteria('bookstore', 'Book', 'b');
 		$c->where('b.Title = ?', 'foo');
 		$c->setOffset(10);
 		$c->leftJoin('b.Author');
@@ -2095,7 +2117,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c2->limit(5);
 
 		$c = $c2->endUse();
-		$this->assertTrue($c->thisIsMe, 'endUse() returns the Primary Criteria');
+		$this->assertSame($original, $c, 'endUse() returns the Primary Criteria');
 		$this->assertEquals('Book', $c->getModelName(), 'endUse() returns the Primary Criteria');
 
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
@@ -2106,8 +2128,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testUseQueryAlias()
 	{
-		$c = new ModelCriteria('bookstore', 'Book', 'b');
-		$c->thisIsMe = true;
+		$original = $c = new ModelCriteria('bookstore', 'Book', 'b');
 		$c->where('b.Title = ?', 'foo');
 		$c->setOffset(10);
 		$c->leftJoin('b.Author a');
@@ -2120,7 +2141,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c2->limit(5);
 
 		$c = $c2->endUse();
-		$this->assertTrue($c->thisIsMe, 'endUse() returns the Primary Criteria');
+		$this->assertSame($original, $c, 'endUse() returns the Primary Criteria');
 		$this->assertEquals('Book', $c->getModelName(), 'endUse() returns the Primary Criteria');
 
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
@@ -2132,7 +2153,6 @@ class ModelCriteriaTest extends BookstoreTestBase
 	public function testUseQueryCustomClass()
 	{
 		$c = new ModelCriteria('bookstore', 'Book', 'b');
-		$c->thisIsMe = true;
 		$c->where('b.Title = ?', 'foo');
 		$c->setLimit(10);
 		$c->leftJoin('b.Author a');

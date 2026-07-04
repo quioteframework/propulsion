@@ -19,7 +19,9 @@ namespace Propulsion\OM;
  * @package    propel.runtime.om
  */
 
- use Propulsion\Connection\PropulsionPDO;
+use Propulsion\Connection\PropulsionPDO;
+use Propulsion\Exception\PropulsionException;
+
 interface Persistent
 {
 
@@ -35,7 +37,7 @@ interface Persistent
 	 *
 	 * @param      mixed $primaryKey The new PrimaryKey object or string (result of PrimaryKey.toString()).
 	 * @return     void
-	 * @throws     \Exception, This method might throw an exceptions
+	 * @throws     \Exception This method might throw an exception
 	 */
 	public function setPrimaryKey(mixed $primaryKey);
 
@@ -97,7 +99,7 @@ interface Persistent
 	 * Deletes the object.
 	 * @param      PropulsionPDO $con
 	 * @return     void
-	 * @throws     Exception
+	 * @throws     PropulsionException
 	 */
 	public function delete(?PropulsionPDO $con = null);
 
@@ -105,7 +107,7 @@ interface Persistent
 	 * Saves the object.
 	 * @param      PropulsionPDO $con
 	 * @return     void
-	 * @throws     Exception
+	 * @throws     PropulsionException
 	 */
 	public function save(?PropulsionPDO $con = null);
 }

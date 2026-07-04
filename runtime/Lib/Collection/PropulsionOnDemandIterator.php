@@ -12,7 +12,7 @@ namespace Propulsion\Collection;
 use Propulsion\Formatter\PropulsionObjectFormatter;
 use \Iterator;
 use \PDOStatement;
-use Propulsion\Om\BaseObject;
+use Propulsion\OM\BaseObject;
 use Propulsion\Propulsion;
 use Propulsion\Formatter\PropulsionFormatter;
 use Propulsion\Exception\PropulsionException;

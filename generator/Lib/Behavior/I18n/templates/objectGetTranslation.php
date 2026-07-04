@@ -7,7 +7,7 @@
  *
  * @return <?php echo $i18nTablePhpName ?>
  */
-public function getTranslation($locale = '<?php echo $defaultLocale ?>', PropulsionPDO $con = null)
+public function getTranslation($locale = '<?php echo $defaultLocale ?>', ?PropulsionPDO $con = null)
 {
 	if (!isset($this->currentTranslations[$locale])) {
 		if (null !== $this-><?php echo $i18nListVariable ?>) {

@@ -7,7 +7,7 @@
  *
  * @return    <?php echo $objectClassname ?> The current object (for fluent API support)
  */
-public function removeTranslation($locale = '<?php echo $defaultLocale ?>', PropulsionPDO $con = null)
+public function removeTranslation($locale = '<?php echo $defaultLocale ?>', ?PropulsionPDO $con = null)
 {
 	if (!$this->isNew()) {
 		<?php echo $i18nQueryName ?>::create()

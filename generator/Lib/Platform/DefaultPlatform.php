@@ -187,7 +187,7 @@ class DefaultPlatform implements PropulsionPlatformInterface
 	}
 
 	/**
-	 * @return     The RDBMS-specific SQL fragment for autoincrement.
+	 * @return     string The RDBMS-specific SQL fragment for autoincrement.
 	 */
 	public function getAutoIncrement()
 	{
@@ -255,6 +255,7 @@ class DefaultPlatform implements PropulsionPlatformInterface
 	 */
 	public function getBeginDDL()
 	{
+		return '';
 	}
 
 	/**
@@ -264,6 +265,7 @@ class DefaultPlatform implements PropulsionPlatformInterface
 	 */
 	public function getEndDDL()
 	{
+		return '';
 	}
 
 	/**
@@ -380,8 +382,8 @@ DROP TABLE " . $this->quoteIdentifier($table->getName()) . ";
 	 * echo $platform->getColumnListDDL(array('foo', 'bar');
 	 * // '"foo","bar"'
 	 * </code>
-	 * @param      array Column[] or string[]
-	 * @param      string $delim The delimiter to use in separating the column names.
+	 * @param      Column[]|string[] $columns
+	 * @param      string $delimiter The delimiter to use in separating the column names.
 	 *
 	 * @return     string
 	 */
@@ -416,6 +418,8 @@ DROP TABLE " . $this->quoteIdentifier($table->getName()) . ";
 		if ($table->hasPrimaryKey()) {
 			return 'PRIMARY KEY (' . $this->getColumnListDDL($table->getPrimaryKey()) . ')';
 		}
+
+		return '';
 	}
 
 	/**
@@ -1109,7 +1113,7 @@ ALTER TABLE %s ADD
 	 * This function is used to set default column values when building
 	 * SQL.
 	 *
-	 * @param      mixed $tf A boolean or string representation of boolean ('y', 'true').
+	 * @param      mixed $b A boolean or string representation of boolean ('y', 'true').
 	 * @return     mixed
 	 */
 	public function getBooleanString($b)

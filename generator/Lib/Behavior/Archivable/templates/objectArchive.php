@@ -11,7 +11,7 @@
  *
  * @return     <?php echo $archiveTablePhpName ?> The archive object based on this object
  */
-public function archive(PropulsionPDO $con = null)
+public function archive(?PropulsionPDO $con = null)
 {
 	if ($this->isNew()) {
 		throw new PropulsionException('New objects cannot be archived. You must save the current object before calling archive().');

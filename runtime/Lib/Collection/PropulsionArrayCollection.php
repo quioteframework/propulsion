@@ -18,7 +18,7 @@ namespace Propulsion\Collection;
 use Propulsion\Connection\PropulsionPDO;
 use Propulsion\Exception\PropulsionException;
 use Propulsion\Propulsion;
-use Propulsion\Om\BaseObject;
+use Propulsion\OM\BaseObject;
 use Propulsion\Util\BasePeer;
 
 class PropulsionArrayCollection extends PropulsionCollection

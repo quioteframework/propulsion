@@ -100,7 +100,7 @@ class DBNone extends DBAdapter
 	 * @param     integer  $offset
 	 * @param     integer  $limit
 	 */
-	public function applyLimit(&$sql, $offset, $limit)
+	public function applyLimit(&$sql, $offset, $limit, $criteria = null)
 	{
 	}
 

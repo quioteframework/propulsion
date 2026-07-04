@@ -35,13 +35,13 @@ class PropulsionForeignKeyComparator
 	{
 		// Check for differences in local and remote table
 		$test = $caseInsensitive ?
-			strtolower($fromFk->getTableName()) != strtolower($toFk->getTableName()) :
+			strtolower($fromFk->getTableName() ?? '') != strtolower($toFk->getTableName() ?? '') :
 			$fromFk->getTableName() != $toFk->getTableName();
 		if ($test) {
 			return true;
 		}
 		$test = $caseInsensitive ?
-			strtolower($fromFk->getForeignTableName()) != strtolower($toFk->getForeignTableName()) :
+			strtolower($fromFk->getForeignTableName() ?? '') != strtolower($toFk->getForeignTableName() ?? '') :
 			$fromFk->getForeignTableName() != $toFk->getForeignTableName();
 		if ($test) {
 			return true;

@@ -251,7 +251,7 @@ class Criteria implements \IteratorAggregate
 	 * Creates a new instance with the default capacity which corresponds to
 	 * the specified database.
 	 *
-	 * @param      string The dabase name.
+	 * @param      string $dbName The dabase name.
 	 */
 	public function __construct($dbName = null)
 	{
@@ -342,8 +342,8 @@ class Criteria implements \IteratorAggregate
 	/**
 	 * Returns the column name associated with an alias (AS-column).
 	 *
-	 * @param      string $alias
-	 * @return     string|null $string
+	 * @param      string $as
+	 * @return     string|null
 	 */
 	public function getColumnForAs($as): string|null
 	{
@@ -413,7 +413,7 @@ class Criteria implements \IteratorAggregate
 	 * which can be either a table name or an alias name.
 	 *
 	 * @param      string $tableAliasOrName
-	 * @return     array($tableName, $tableAlias)
+	 * @return     array{0: string, 1: ?string} array($tableName, $tableAlias)
 	 */
 	public function getTableNameAndAlias($tableAliasOrName)
 	{
@@ -636,7 +636,7 @@ class Criteria implements \IteratorAggregate
 	 * any SELECT columns or WHERE columns.  This must be explicitly
 	 * set, of course, in order to be useful.
 	 *
-	 * @param      string $v
+	 * @param      string $tableName
 	 */
 	public function setPrimaryTableName($tableName)
 	{
@@ -741,7 +741,7 @@ class Criteria implements \IteratorAggregate
 	 * The name of the table must be used implicitly in the column name,
 	 * so the Column name must be something like 'TABLE.id'.
 	 *
-	 * @param      string $critOrColumn The column to run the comparison on, or Criterion object.
+	 * @param      string|Criterion|null $p1 The column to run the comparison on, or Criterion object.
 	 * @param      mixed $value
 	 * @param      string $comparison A String.
 	 *
@@ -753,7 +753,7 @@ class Criteria implements \IteratorAggregate
 			$this->map[$p1->getTable() . '.' . $p1->getColumn()] = $p1;
 		} else {
 			$criterion = new Criterion($this, $p1, $value, $comparison);
-			$this->map[$p1] = $criterion;
+			$this->map[$p1 ?? ''] = $criterion;
 		}
 		return $this;
 	}
@@ -924,7 +924,7 @@ class Criteria implements \IteratorAggregate
 			}
 			$conditionClause = $leftTableAlias ? $leftTableAlias . '.' : ($leftTableName ? $leftTableName . '.' : '');
 			$conditionClause .= $leftColumnName;
-			$conditionClause .= isset($condition[2]) ? $condition[2] : JOIN::EQUAL;
+			$conditionClause .= isset($condition[2]) ? $condition[2] : Join::EQUAL;
 			$conditionClause .= $rightTableAlias ? $rightTableAlias . '.' : ($rightTableName ? $rightTableName . '.' : '');
 			$conditionClause .= $rightColumnName;
 			$criterion = $this->getNewCriterion($leftTableName.'.'.$leftColumnName, $conditionClause, Criteria::CUSTOM);
@@ -1159,7 +1159,7 @@ class Criteria implements \IteratorAggregate
 	/**
 	 * Set limit.
 	 *
-	 * @param      int limit An int with the value for limit.
+	 * @param      int $limit An int with the value for limit.
 	 * @return     Criteria Modified Criteria object (for fluent API)
 	 */
 	public function setLimit($limit)
@@ -1584,7 +1584,7 @@ class Criteria implements \IteratorAggregate
 	 * $crit->addHaving($c);
 	 * </code>
 	 *
-	 * @param      Criterion having A Criterion object
+	 * @param      Criterion $having A Criterion object
 	 *
 	 * @return     Criteria A modified Criteria object.
 	 */

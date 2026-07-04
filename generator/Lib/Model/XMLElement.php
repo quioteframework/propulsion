@@ -10,6 +10,8 @@ namespace Propulsion\Generator\Model;
  * @license    MIT License
  */
 
+use Propulsion\Generator\Config\GeneratorConfig;
+
 /**
  * An abstract class for elements represented by XML tags (e.g. Column, Table).
  *
@@ -132,6 +134,18 @@ abstract class XMLElement
 			return new VendorInfo($type);
 		}
 	}
+
+  /**
+   * Gets the GeneratorConfig object, if this element (or one of its ancestors)
+   * is attached to one. Overridden by Table, Database and AppData, which are
+   * the only elements ever actually attached to a GeneratorConfig.
+   *
+   * @return GeneratorConfig|null
+   */
+  public function getGeneratorConfig()
+  {
+    return null;
+  }
 
   /**
    * Find the best class name for a given behavior

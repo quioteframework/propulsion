@@ -9,6 +9,8 @@
  */
 namespace Propulsion\Generator\Manager;
 
+use Propulsion\Generator\Builder\OM\ExtensionQueryInheritanceBuilder;
+use Propulsion\Generator\Builder\OM\MultiExtendObjectBuilder;
 use Propulsion\Generator\Builder\OM\QueryInheritanceBuilder;
 use Propulsion\Generator\Config\GeneratorConfig;
 use Propulsion\Generator\Exception\EngineException;
@@ -95,11 +97,15 @@ class ModelManager extends AbstractSchemaManager
                         $written += $this->writeBuilderOutput($builder, overwrite: true);
                     }
 
-                    foreach (['objectmultiextend', 'queryinheritancestub'] as $target) {
-                        $builder = $generatorConfig->getConfiguredBuilder($table, $target);
-                        $builder->setChild($child);
-                        $written += $this->writeBuilderOutput($builder, overwrite: false);
-                    }
+                    /** @var MultiExtendObjectBuilder $objectMultiExtendBuilder */
+                    $objectMultiExtendBuilder = $generatorConfig->getConfiguredBuilder($table, 'objectmultiextend');
+                    $objectMultiExtendBuilder->setChild($child);
+                    $written += $this->writeBuilderOutput($objectMultiExtendBuilder, overwrite: false);
+
+                    /** @var ExtensionQueryInheritanceBuilder $queryInheritanceStubBuilder */
+                    $queryInheritanceStubBuilder = $generatorConfig->getConfiguredBuilder($table, 'queryinheritancestub');
+                    $queryInheritanceStubBuilder->setChild($child);
+                    $written += $this->writeBuilderOutput($queryInheritanceStubBuilder, overwrite: false);
                 }
             }
         }

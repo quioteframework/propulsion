@@ -142,7 +142,7 @@ class VendorInfo extends XMLElement
 
 	/**
 	 * Gets a new merged VendorInfo object.
-	 * @param      VendorInfo $info
+	 * @param      VendorInfo $merge
 	 * @return     VendorInfo new object with merged parameters
 	 */
 	public function getMergedVendorInfo(VendorInfo $merge)

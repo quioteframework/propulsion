@@ -9,6 +9,10 @@
  */
 namespace Propulsion\Generator\Builder\OM;
 
+use Propulsion\Generator\Model\Table;
+use Propulsion\Generator\Model\ForeignKey;
+use Propulsion\Generator\Model\Column;
+
 /**
  * Base class for Peer-building classes.
  *
@@ -56,9 +60,6 @@ namespace Propulsion\Generator\Builder\OM;
  * @method void addGetOMClass_NoInheritance_Abstract(string &$script)
  * @method void addGetOMClass_NoInheritance(string &$script)
  */
-use Propulsion\Generator\Model\Table;
-use Propulsion\Generator\Model\ForeignKey;
-use Propulsion\Generator\Model\Column;
 abstract class AbstractPeerBuilder extends OMBuilder
 {
 

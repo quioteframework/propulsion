@@ -150,6 +150,8 @@ ALTER SESSION SET NLS_TIMESTAMP_FORMAT='YYYY-MM-DD HH24:MI:SS';
 		if (is_array($table->getPrimaryKey()) && count($table->getPrimaryKey())) {
 			return parent::getAddPrimaryKeyDDL($table);
 		}
+
+		return '';
 	}
 
 	public function getAddSequencesDDL(Table $table)
@@ -196,6 +198,8 @@ DROP SEQUENCE " . $this->quoteIdentifier($this->getSequenceName($table)) . ";
 				$this->generateBlockStorage($table, true)
 			);
 		}
+
+		return '';
 	}
 
 	public function getUniqueDDL(Unique $unique)

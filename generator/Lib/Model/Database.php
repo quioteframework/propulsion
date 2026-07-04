@@ -126,7 +126,7 @@ class Database extends ScopedElement
 
 	/**
 	 * Get the value of baseClass.
-	 * @return     value of baseClass.
+	 * @return     string Value of baseClass.
 	 */
 	public function getBaseClass()
 	{
@@ -135,7 +135,7 @@ class Database extends ScopedElement
 
 	/**
 	 * Set the value of baseClass.
-	 * @param      v  Value to assign to baseClass.
+	 * @param      string $v Value to assign to baseClass.
 	 */
 	public function setBaseClass($v)
 	{
@@ -144,7 +144,7 @@ class Database extends ScopedElement
 
 	/**
 	 * Get the value of basePeer.
-	 * @return     value of basePeer.
+	 * @return     string Value of basePeer.
 	 */
 	public function getBasePeer()
 	{
@@ -153,7 +153,7 @@ class Database extends ScopedElement
 
 	/**
 	 * Set the value of basePeer.
-	 * @param      v Value to assign to basePeer.
+	 * @param      string $v Value to assign to basePeer.
 	 */
 	public function setBasePeer($v)
 	{
@@ -162,7 +162,7 @@ class Database extends ScopedElement
 
 	/**
 	 * Get the value of defaultIdMethod.
-	 * @return     value of defaultIdMethod.
+	 * @return     string Value of defaultIdMethod.
 	 */
 	public function getDefaultIdMethod()
 	{
@@ -171,7 +171,7 @@ class Database extends ScopedElement
 
 	/**
 	 * Set the value of defaultIdMethod.
-	 * @param      v Value to assign to defaultIdMethod.
+	 * @param      string $v Value to assign to defaultIdMethod.
 	 */
 	public function setDefaultIdMethod($v)
 	{
@@ -374,14 +374,15 @@ class Database extends ScopedElement
 			$tbl = $data; // alias
 			$tbl->setDatabase($this);
 			if ($tbl->getSchema() === null) $tbl->setSchema($this->getSchema());
-			if (isset($this->tablesByName[$tbl->getName()])) {
-				throw new EngineException("Duplicate table declared: " . $tbl->getName());
+			$tblName = $tbl->getName() ?? '';
+			if (isset($this->tablesByName[$tblName])) {
+				throw new EngineException("Duplicate table declared: " . $tblName);
 			}
 			$this->tableList[] = $tbl;
-			$this->tablesByName[$tbl->getName()] = $tbl;
-			$this->tablesByLowercaseName[strtolower($tbl->getName())] = $tbl;
+			$this->tablesByName[$tblName] = $tbl;
+			$this->tablesByLowercaseName[strtolower($tblName)] = $tbl;
 			$this->tablesByPhpName[ $tbl->getPhpName() ] = $tbl;
-			if (strpos($tbl->getNamespace(), '\\') === 0) {
+			if (strpos($tbl->getNamespace() ?? '', '\\') === 0) {
 				$tbl->setNamespace(substr($tbl->getNamespace(), 1));
 			} elseif ($namespace = $this->getNamespace()) {
 				if ($tbl->getNamespace() === null) {
@@ -421,7 +422,7 @@ class Database extends ScopedElement
 
 	/**
 	 * Adds Domain object from <domain> tag.
-	 * @param      mixed XML attributes (array) or Domain object.
+	 * @param      mixed $data XML attributes (array) or Domain object.
 	 */
 	public function addDomain($data) {
 
@@ -531,7 +532,7 @@ class Database extends ScopedElement
 	 * Get the next behavior on all tables, ordered by behavior priority,
 	 * and skipping the ones that were already executed,
 	 *
-	 * @return Behavior
+	 * @return Behavior|null
 	 */
 	public function getNextTableBehavior()
 	{
@@ -550,6 +551,7 @@ class Database extends ScopedElement
 				return $behavior;
 			}
 		}
+		return null;
 	}
 
 	public function doFinalInitialization()

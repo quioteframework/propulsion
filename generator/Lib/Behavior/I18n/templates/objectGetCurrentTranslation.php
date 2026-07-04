@@ -6,7 +6,7 @@
  *
  * @return <?php echo $i18nTablePhpName ?>
  */
-public function getCurrentTranslation(PropulsionPDO $con = null)
+public function getCurrentTranslation(?PropulsionPDO $con = null)
 {
 	return $this->getTranslation($this->getLocale(), $con);
 }

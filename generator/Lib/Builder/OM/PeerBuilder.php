@@ -1825,6 +1825,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			$table = $this->getTable();
 			$n = 0;
 			$pks = array();
+			// Default when the table has no primary key column at all: there is
+			// nothing to extract from the row, so the generated method returns null.
+			$pk = 'null';
 			foreach ($table->getColumns() as $col) {
 				if (!$col->isLazyLoad()) {
 					if ($col->isPrimaryKey()) {

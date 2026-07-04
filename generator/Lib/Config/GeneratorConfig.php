@@ -24,6 +24,7 @@ use Propulsion\Generator\Platform\PropulsionPlatformInterface;
 use Propulsion\Generator\Reverse\SchemaParser;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Builder\DataModelBuilder;
+use Propulsion\Generator\Builder\Util\Pluralizer;
 
 class GeneratorConfig implements GeneratorConfigInterface
 {
@@ -528,6 +529,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 		if (null === $databaseName) {
 			$databaseName = $this->defaultBuildConnection;
 		}
+		$databaseName ??= '';
 		if (isset($connections[$databaseName])) {
 			return $connections[$databaseName];
 		} else {

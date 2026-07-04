@@ -36,6 +36,7 @@ namespace Propulsion\Util;
  use \PDOStatement;
  use Propulsion\Map\ColumnMap;
  use Propulsion\Validator\ValidationFailed;
+ use Propulsion\Validator\BasicValidator;
 class BasePeer
 {
 
@@ -197,6 +198,7 @@ class BasePeer
 	 */
 	public static function doDeleteAll(?string $tableName = null, ?PropulsionPDO $con = null, ?string $databaseName = null)
 	{
+		$sql = null;
 		try {
 			$db = Propulsion::getDB($databaseName);
 			if ($db->useQuoteIdentifier()) {
@@ -276,6 +278,7 @@ class BasePeer
 			$criteria->add($pk->getFullyQualifiedName(), $id);
 		}
 
+		$sql = null;
 		try {
 			$adapter = Propulsion::getDB($criteria->getDBName());
 
@@ -306,7 +309,7 @@ class BasePeer
 			$db->cleanupSQL($sql, $params, $criteria, $dbMap);
 
 			$stmt = $con->prepare($sql);
-			$db->bindValues($stmt, $params, $dbMap, $db);
+			$db->bindValues($stmt, $params, $dbMap);
 			$stmt->execute();
 
 		} catch (Exception $e) {
@@ -446,7 +449,7 @@ class BasePeer
 				$stmt = $con->prepare($sql);
 
 				// Replace ':p?' with the actual values
-				$db->bindValues($stmt, $params, $dbMap, $db);
+				$db->bindValues($stmt, $params, $dbMap);
 
 				$stmt->execute();
 
@@ -479,6 +482,7 @@ class BasePeer
 		$dbMap = Propulsion::getDatabaseMap($criteria->getDbName());
 		$db = Propulsion::getDB($criteria->getDbName());
 		$stmt = null;
+		$sql = null;
 
 		if ($con === null) {
 			$con = Propulsion::getConnection($criteria->getDbName(), Propulsion::CONNECTION_READ);
@@ -526,6 +530,7 @@ class BasePeer
 		}
 
 		$stmt = null;
+		$sql = null;
 
 		$needsComplexCount = $criteria->getGroupByColumns()
 			|| $criteria->getOffset()
@@ -891,7 +896,7 @@ class BasePeer
 	 * imports and caches it.
 	 *
 	 * @param      string $classname The dot-path name of class (e.g. myapp.propel.MyValidator)
-	 * @return     Validator object or null if not able to instantiate validator class (and error will be logged in this case)
+	 * @return     BasicValidator|null The validator instance, or null if not able to instantiate validator class (and error will be logged in this case)
 	 */
 	public static function getValidator($classname)
 	{
@@ -906,6 +911,7 @@ class BasePeer
 		} catch (Exception $e) {
 			Propulsion::log("BasePeer::getValidator(): failed trying to instantiate " . $classname . ": ".$e->getMessage(), Propulsion::LOG_ERR);
 		}
+		return null;
 	}
 
 }

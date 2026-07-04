@@ -17,6 +17,8 @@
  */
 class PropulsionCollectionConvertTest extends BookstoreTestBase
 {
+	protected $coll;
+
 	protected function setUp(): void
 	{
 		parent::setUp();

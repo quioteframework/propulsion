@@ -99,7 +99,7 @@ interface NodeObject extends \IteratorAggregate
 	/**
 	 * Sets the level of the node in the tree
 	 *
-	 * @param      int $v new value
+	 * @param      int $level new value
 	 * @return     object The current object (for fluent API support)
 	 */
 	public function setLevel($level);
@@ -107,7 +107,7 @@ interface NodeObject extends \IteratorAggregate
 	/**
 	 * Sets the children array of the node in the tree
 	 *
-	 * @param      array of Node $children	array of Propulsion node object
+	 * @param      NodeObject[] $children Array of Propulsion node objects
 	 * @return     object The current object (for fluent API support)
 	 */
 	public function setChildren(array $children);
@@ -115,7 +115,7 @@ interface NodeObject extends \IteratorAggregate
 	/**
 	 * Sets the parentNode of the node in the tree
 	 *
-	 * @param      object $parent Propulsion node object
+	 * @param      NodeObject $parent Propulsion node object
 	 * @return     object The current object (for fluent API support)
 	 */
 	public function setParentNode(?NodeObject $parent = null);
@@ -123,7 +123,7 @@ interface NodeObject extends \IteratorAggregate
 	/**
 	 * Sets the previous sibling of the node in the tree
 	 *
-	 * @param      object $node Propulsion node object
+	 * @param      NodeObject $node Propulsion node object
 	 * @return     object The current object (for fluent API support)
 	 */
 	public function setPrevSibling(?NodeObject $node = null);
@@ -131,7 +131,7 @@ interface NodeObject extends \IteratorAggregate
 	/**
 	 * Sets the next sibling of the node in the tree
 	 *
-	 * @param      object $node Propulsion node object
+	 * @param      NodeObject $node Propulsion node object
 	 * @return     object The current object (for fluent API support)
 	 */
 	public function setNextSibling(?NodeObject $node = null);
@@ -153,7 +153,7 @@ interface NodeObject extends \IteratorAggregate
 	/**
 	 * Tests if object is equal to $node
 	 *
-	 * @param      object $node	Propulsion object for node to compare to
+	 * @param      NodeObject $node	Propulsion object for node to compare to
 	 * @return     bool
 	 */
 	public function isEqualTo(NodeObject $node);
@@ -232,8 +232,8 @@ interface NodeObject extends \IteratorAggregate
 	/**
 	 * Inserts as first child of destination node $parent
 	 *
-	 * @param      object $parent	Propulsion object for given destination node
-	 * @param      PropulsionPDO $con	Connection to use.
+	 * @param      NodeObject $parent	Propulsion object for given destination node
+	 * @param      PropulsionPDO $conn	Connection to use.
 	 * @return     object The current object (for fluent API support)
 	 */
 	public function insertAsFirstChildOf(NodeObject $parent, ?PropulsionPDO $conn = null);
@@ -241,8 +241,8 @@ interface NodeObject extends \IteratorAggregate
 	/**
 	 * Inserts as last child of destination node $parent
 	 *
-	 * @param      object $parent	Propulsion object for given destination node
-	 * @param      PropulsionPDO $con	Connection to use.
+	 * @param      NodeObject $parent	Propulsion object for given destination node
+	 * @param      PropulsionPDO $conn	Connection to use.
 	 * @return     object The current object (for fluent API support)
 	 */
 	public function insertAsLastChildOf(NodeObject $parent, ?PropulsionPDO $conn = null);
@@ -250,8 +250,8 @@ interface NodeObject extends \IteratorAggregate
 	/**
 	 * Inserts node as previous sibling to destination node $dest
 	 *
-	 * @param      object $dest	Propulsion object for given destination node
-	 * @param      PropulsionPDO $con	Connection to use.
+	 * @param      NodeObject $dest	Propulsion object for given destination node
+	 * @param      PropulsionPDO $conn	Connection to use.
 	 * @return     object The current object (for fluent API support)
 	 */
 	public function insertAsPrevSiblingOf(NodeObject $dest, ?PropulsionPDO $conn = null);
@@ -259,8 +259,8 @@ interface NodeObject extends \IteratorAggregate
 	/**
 	 * Inserts node as next sibling to destination node $dest
 	 *
-	 * @param      object $dest	Propulsion object for given destination node
-	 * @param      PropulsionPDO $con	Connection to use.
+	 * @param      NodeObject $dest	Propulsion object for given destination node
+	 * @param      PropulsionPDO $conn	Connection to use.
 	 * @return     object The current object (for fluent API support)
 	 */
 	public function insertAsNextSiblingOf(NodeObject $dest, ?PropulsionPDO $conn = null);
@@ -268,8 +268,8 @@ interface NodeObject extends \IteratorAggregate
 	/**
 	 * Moves node to be first child of $parent
 	 *
-	 * @param      object $parent	Propulsion object for destination node
-	 * @param      PropulsionPDO $con Connection to use.
+	 * @param      NodeObject $parent	Propulsion object for destination node
+	 * @param      PropulsionPDO $conn Connection to use.
 	 * @return     void
 	 */
 	public function moveToFirstChildOf(NodeObject $parent, ?PropulsionPDO $conn = null);
@@ -277,8 +277,8 @@ interface NodeObject extends \IteratorAggregate
 	/**
 	 * Moves node to be last child of $parent
 	 *
-	 * @param      object $parent	Propulsion object for destination node
-	 * @param      PropulsionPDO $con Connection to use.
+	 * @param      NodeObject $parent	Propulsion object for destination node
+	 * @param      PropulsionPDO $conn Connection to use.
 	 * @return     void
 	 */
 	public function moveToLastChildOf(NodeObject $parent, ?PropulsionPDO $conn = null);
@@ -286,8 +286,8 @@ interface NodeObject extends \IteratorAggregate
 	/**
 	 * Moves node to be prev sibling to $dest
 	 *
-	 * @param      object $dest	Propulsion object for destination node
-	 * @param      PropulsionPDO $con Connection to use.
+	 * @param      NodeObject $dest	Propulsion object for destination node
+	 * @param      PropulsionPDO $conn Connection to use.
 	 * @return     void
 	 */
 	public function moveToPrevSiblingOf(NodeObject $dest, ?PropulsionPDO $conn = null);
@@ -295,8 +295,8 @@ interface NodeObject extends \IteratorAggregate
 	/**
 	 * Moves node to be next sibling to $dest
 	 *
-	 * @param      object $dest	Propulsion object for destination node
-	 * @param      PropulsionPDO $con Connection to use.
+	 * @param      NodeObject $dest	Propulsion object for destination node
+	 * @param      PropulsionPDO $conn Connection to use.
 	 * @return     void
 	 */
 	public function moveToNextSiblingOf(NodeObject $dest, ?PropulsionPDO $conn = null);
@@ -304,10 +304,10 @@ interface NodeObject extends \IteratorAggregate
 	/**
 	 * Inserts node as parent of given node.
 	 *
-	 * @param      object $node  Propulsion object for given destination node
-	 * @param      PropulsionPDO $con	Connection to use.
+	 * @param      NodeObject $node  Propulsion object for given destination node
+	 * @param      PropulsionPDO $conn	Connection to use.
 	 * @return     void
-	 * @throws     \Exception      When trying to insert node as parent of a root node
+	 * @throws     PropulsionException      When trying to insert node as parent of a root node
 	 */
 	public function insertAsParentOf(NodeObject $node, ?PropulsionPDO $conn = null);
 

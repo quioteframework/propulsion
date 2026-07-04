@@ -458,10 +458,10 @@ class ".$this->getClassname()." extends \Propulsion\Map\TableMap
             foreach ($val->getRules() as $rule) {
                 if ($val->getTranslate() !== Validator::TRANSLATE_NONE) {
                     $script .= "
-        \$this->addValidator('$cup', '".$rule->getName()."', '".$rule->getClass()."', '".str_replace("'", "\'", $rule->getValue())."', ".$val->getTranslate()."('".str_replace("'", "\'", $rule->getMessage())."'));";
+        \$this->addValidator('$cup', '".$rule->getName()."', '".$rule->getClass()."', '".str_replace("'", "\'", $rule->getValue() ?? '')."', ".$val->getTranslate()."('".str_replace("'", "\'", $rule->getMessage() ?? '')."'));";
                 } else {
                     $script .= "
-        \$this->addValidator('$cup', '".$rule->getName()."', '".$rule->getClass()."', '".str_replace("'", "\'", $rule->getValue())."', '".str_replace("'", "\'", $rule->getMessage())."');";
+        \$this->addValidator('$cup', '".$rule->getName()."', '".$rule->getClass()."', '".str_replace("'", "\'", $rule->getValue() ?? '')."', '".str_replace("'", "\'", $rule->getMessage() ?? '')."');";
                 }
             }
         }

@@ -21,6 +21,7 @@ namespace Propulsion\Generator\Builder\OM;
  */
 use Propulsion\Generator\Builder\DataModelBuilder;
 use \Exception;
+use Propulsion\Generator\Model\Column;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Model\ForeignKey;
 abstract class OMBuilder extends DataModelBuilder
@@ -184,7 +185,7 @@ abstract class OMBuilder extends DataModelBuilder
 	 * Return the user-defined namespace for this table,
 	 * or the database namespace otherwise.
 	 *
-	 * @return    string
+	 * @return    string|null
 	 */
 	public function getNamespace()
 	{
@@ -193,6 +194,7 @@ abstract class OMBuilder extends DataModelBuilder
 
 	public function declareClassNamespace($class, $namespace = '')
 	{
+		$namespace ??= '';
 		if (isset($this->declaredClasses[$namespace])
 		 && in_array($class, $this->declaredClasses[$namespace])) {
 			return;

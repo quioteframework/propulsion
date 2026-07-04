@@ -85,7 +85,7 @@ class Column extends XMLElement
 	private $needsTransactionInPostgres; //maybe this can be retrieved from vendorSpecificInfo
 
 	/**
-	 * @var stores the possible values of an ENUM column
+	 * @var array Stores the possible values of an ENUM column
 	 */
 	protected $valueSet = array();
 
@@ -97,7 +97,7 @@ class Column extends XMLElement
 	/**
 	 * Creates a new column and set the name
 	 *
-	 * @param			 name column name
+	 * @param			 string|null $name Column name
 	 */
 	public function __construct($name = null)
 	{
@@ -107,7 +107,7 @@ class Column extends XMLElement
 	/**
 	 * Return a comma delimited string listing the specified columns.
 	 *
-	 * @param			 columns Either a list of <code>Column</code> objects, or
+	 * @param			 Column[]|string[] $columns Either a list of <code>Column</code> objects, or
 	 * a list of <code>String</code> objects with column names.
 	 * @deprecated Use the Platform::getColumnListDDL() method instead
 	 */
@@ -134,7 +134,7 @@ class Column extends XMLElement
 			if ($dom)	 {
 				$this->getDomain()->copy($this->getTable()->getDatabase()->getDomain($dom));
 			} else {
-				$type = strtoupper($this->getAttribute("type"));
+				$type = strtoupper($this->getAttribute("type") ?? '');
 				if ($type) {
 					if ($platform = $this->getPlatform()) {
 						$this->getDomain()->copy($this->getPlatform()->getDomainForType($type));
@@ -202,7 +202,7 @@ class Column extends XMLElement
 			$this->isNestedSetRightKey = $this->booleanValue($this->getAttribute("nestedSetRightKey"));
 			$this->isTreeScopeKey = $this->booleanValue($this->getAttribute("treeScopeKey"));
 
-			$this->isNotNull = ($this->booleanValue($this->getAttribute("required"), false) || $this->isPrimaryKey); // primary keys are required
+			$this->isNotNull = ($this->booleanValue($this->getAttribute("required")) || $this->isPrimaryKey); // primary keys are required
 
 			//AutoIncrement/Sequences
 			$this->isAutoIncrement = $this->booleanValue($this->getAttribute("autoIncrement"));
@@ -314,7 +314,7 @@ class Column extends XMLElement
 	/**
 	 * Set the description for the Table
 	 *
-	 * @param			 newDescription description for the Table
+	 * @param			 string $newDescription Description for the Table
 	 */
 	public function setDescription($newDescription)
 	{
@@ -917,7 +917,7 @@ class Column extends XMLElement
 
 	/**
 	 * Sets the list of possible values for an ENUM column
-	 * @param array
+	 * @param array $valueSet
 	 */
 	public function setValueSet($valueSet)
 	{
@@ -1090,7 +1090,7 @@ class Column extends XMLElement
 	/**
 	 * Set a string that will give this column a default value.
 	 *
-	 * @param ColumnDefaultValue|scalar column default value
+	 * @param ColumnDefaultValue|scalar $def Column default value
 	 */
 	public function setDefaultValue($def)
 	{

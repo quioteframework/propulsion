@@ -9,6 +9,7 @@
  */
 namespace Propulsion\Generator\Model\Diff;
 
+use Propulsion\Generator\Model\IDMethod;
 use Propulsion\Generator\Model\Table;
 
 /**
@@ -81,7 +82,7 @@ class PropulsionDatabaseDiff
 	 *
 	 * @param string $tableName
 	 *
-	 * @param Table
+	 * @return Table
 	 */
 	public function getAddedTable($tableName)
 	{
@@ -144,7 +145,7 @@ class PropulsionDatabaseDiff
 	 *
 	 * @param string $tableName
 	 *
-	 * @param Table
+	 * @return Table
 	 */
 	public function getRemovedTable($tableName)
 	{

@@ -45,7 +45,7 @@ class PropulsionConfiguration implements \ArrayAccess
 	/**
 	 * @see       http://www.php.net/ArrayAccess
 	 *
-	 * @param     integer  $offset
+	 * @param     string  $offset
 	 * @return    boolean
 	 */
 	public function offsetExists($offset): bool
@@ -56,7 +56,7 @@ class PropulsionConfiguration implements \ArrayAccess
 	/**
 	 * @see       http://www.php.net/ArrayAccess
 	 *
-	 * @param     integer  $offset
+	 * @param     string  $offset
 	 * @param     mixed    $value
 	 */
 	public function offsetSet($offset, $value): void
@@ -68,7 +68,7 @@ class PropulsionConfiguration implements \ArrayAccess
 	/**
 	 * @see       http://www.php.net/ArrayAccess
 	 *
-	 * @param     integer  $offset
+	 * @param     string  $offset
 	 * @return    array
 	 */
 	public function offsetGet($offset): mixed
@@ -79,7 +79,7 @@ class PropulsionConfiguration implements \ArrayAccess
 	/**
 	 * @see       http://www.php.net/ArrayAccess
 	 *
-	 * @param     integer  $offset
+	 * @param     string  $offset
 	 */
 	public function offsetUnset($offset): void
 	{

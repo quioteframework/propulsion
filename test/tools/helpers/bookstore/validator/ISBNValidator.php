@@ -24,6 +24,6 @@ class ISBNValidator implements BasicValidator
 	 */
 	public function isValid (ValidatorMap $map, $str)
 	{
-		return !(preg_match(self::NOT_ISBN_REGEXP, $str));
+		return !(preg_match(self::NOT_ISBN_REGEXP, $str ?? ''));
 	}
 }

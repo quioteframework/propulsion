@@ -17,6 +17,14 @@ namespace Propulsion\Generator\Behavior\Versionable;
  */
 class VersionableBehaviorPeerBuilderModifier
 {
+  protected $behavior, $table;
+
+  public function __construct($behavior)
+  {
+    $this->behavior = $behavior;
+    $this->table = $behavior->getTable();
+  }
+
   public function staticAttributes()
   {
     return "

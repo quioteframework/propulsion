@@ -9,6 +9,7 @@
  */
 namespace Propulsion\Generator\Manager;
 
+use Propulsion\Generator\Builder\SQL\DataSQLBuilder;
 use Propulsion\Generator\Builder\Util\ColumnValue;
 use Propulsion\Generator\Builder\Util\DataRow;
 use Propulsion\Generator\Exception\EngineException;
@@ -107,6 +108,12 @@ class DataSqlManager extends AbstractSchemaManager
                 }
                 $currentTableName = $table->getName();
                 $currentBuilder = $this->generatorConfig->getConfiguredBuilder($table, 'datasql');
+                if (!$currentBuilder instanceof DataSQLBuilder) {
+                    throw new EngineException(sprintf(
+                        'Configured "datasql" builder class "%s" does not extend DataSQLBuilder.',
+                        get_class($currentBuilder)
+                    ));
+                }
                 $sql .= $currentBuilder->getTableStartSql();
             }
 

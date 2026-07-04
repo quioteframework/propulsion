@@ -67,7 +67,7 @@ class Criterion
 	/**
 	 * Create a new instance.
 	 *
-	 * @param      Criteria $parent The outer class (this is an "inner" class).
+	 * @param      Criteria $outer The outer class (this is an "inner" class).
 	 * @param      string $column TABLE.COLUMN format.
 	 * @param      mixed $value
 	 * @param      string $comparison
@@ -123,7 +123,7 @@ class Criterion
 	/**
 	 * Set the table name.
 	 *
-	 * @param      string name A String with the table name.
+	 * @param      string $name A String with the table name.
 	 * @return     void
 	 */
 	public function setTable($name)

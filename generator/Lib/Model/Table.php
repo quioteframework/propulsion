@@ -23,6 +23,7 @@
  * @version    $Revision$
  * @package    propel.generator.model
  */
+use Propulsion\Generator\Config\GeneratorConfig;
 use Propulsion\Generator\Exception\EngineException;
 
 class Table extends ScopedElement implements IDMethod
@@ -225,7 +226,7 @@ class Table extends ScopedElement implements IDMethod
 	/**
 	 * Whether this table needs to use transactions in Postgres.
 	 *
-	 * @var       string
+	 * @var       boolean
 	 * @deprecated
 	 */
 	private $needsTransactionInPostgres;
@@ -539,7 +540,7 @@ class Table extends ScopedElement implements IDMethod
 	 * Creates a delimiter-delimited string list of column names
 	 *
 	 * @see        Platform::getColumnList() if quoting is required
-	 * @param      array Column[] or string[]
+	 * @param      Column[]|string[] $columns
 	 * @param      string $delim The delimiter to use in separating the column names.
 	 * @return     string
 	 */
@@ -603,9 +604,9 @@ class Table extends ScopedElement implements IDMethod
 	/**
 	 * Macro to a constraint name.
 	 *
-	 * @param     nameType constraint type
-	 * @param     nbr unique number for this constraint type
-	 * @return    unique name for constraint
+	 * @param     string $nameType Constraint type
+	 * @param     int $nbr Unique number for this constraint type
+	 * @return    string Unique name for constraint
 	 * @throws		 EngineException
 	 */
 	private function acquireConstraintName(string $nameType, int $nbr)
@@ -621,7 +622,7 @@ class Table extends ScopedElement implements IDMethod
 	/**
 	 * Gets the value of base class for classes produced from this table.
 	 *
-	 * @return    The base class for classes produced from this table.
+	 * @return    string The base class for classes produced from this table.
 	 */
 	public function getBaseClass()
 	{
@@ -636,7 +637,7 @@ class Table extends ScopedElement implements IDMethod
 
 	/**
 	 * Set the value of baseClass.
-	 * @param     v	Value to assign to baseClass.
+	 * @param     string $v Value to assign to baseClass.
 	 */
 	public function setBaseClass($v)
 	{
@@ -645,7 +646,7 @@ class Table extends ScopedElement implements IDMethod
 
 	/**
 	 * Get the value of basePeer.
-	 * @return    value of basePeer.
+	 * @return    string Value of basePeer.
 	 */
 	public function getBasePeer()
 	{
@@ -660,7 +661,7 @@ class Table extends ScopedElement implements IDMethod
 
 	/**
 	 * Set the value of basePeer.
-	 * @param     v	Value to assign to basePeer.
+	 * @param     string $v Value to assign to basePeer.
 	 */
 	public function setBasePeer($v)
 	{
@@ -671,8 +672,8 @@ class Table extends ScopedElement implements IDMethod
 	 * A utility function to create a new column from attrib and add it to this
 	 * table.
 	 *
-	 * @param     $coldata xml attributes or Column class for the column to add
-	 * @return    the added column
+	 * @param     array|Column $data Xml attributes or Column class for the column to add
+	 * @return    Column The added column
 	 */
 	public function addColumn($data)
 	{
@@ -682,12 +683,13 @@ class Table extends ScopedElement implements IDMethod
 			if ($col->isInheritance()) {
 				$this->inheritanceColumn = $col;
 			}
-			if (isset($this->columnsByName[$col->getName()])) {
-				throw new EngineException('Duplicate column declared: ' . $col->getName());
+			$colName = $col->getName() ?? '';
+			if (isset($this->columnsByName[$colName])) {
+				throw new EngineException('Duplicate column declared: ' . $colName);
 			}
 			$this->columnList[] = $col;
-			$this->columnsByName[$col->getName()] = $col;
-			$this->columnsByLowercaseName[strtolower($col->getName())] = $col;
+			$this->columnsByName[$colName] = $col;
+			$this->columnsByLowercaseName[strtolower($colName)] = $col;
 			$this->columnsByPhpName[$col->getPhpName()] = $col;
 			$col->setPosition(count($this->columnList));
 			$this->needsTransactionInPostgres |= $col->requiresTransactionInPostgres();
@@ -765,7 +767,7 @@ class Table extends ScopedElement implements IDMethod
 	/**
 	 * Removes validators based on a column name
 	 *
-	 * @param string the name of the column bearing a validator
+	 * @param string $columnName The name of the column bearing a validator
 	 */
 	public function removeValidatorForColumn($columnName)
 	{
@@ -1170,7 +1172,7 @@ class Table extends ScopedElement implements IDMethod
 	/**
 	 * Set the description for the Table
 	 *
-	 * @param     newDescription description for the Table
+	 * @param     string $newDescription Description for the Table
 	 */
 	public function setDescription($newDescription)
 	{
@@ -1316,7 +1318,7 @@ class Table extends ScopedElement implements IDMethod
 	/**
 	 * Is table read-only, in which case only accessors (and relationship setters)
 	 * will be created.
-	 * @return    boolan Value of readOnly.
+	 * @return    boolean Value of readOnly.
 	 */
 	public function isReadOnly()
 	{
@@ -1352,7 +1354,7 @@ class Table extends ScopedElement implements IDMethod
 
 	/**
 	 * PhpName of om object this entry references.
-	 * @return    value of external.
+	 * @return    string|null Value of external.
 	 */
 	public function getAlias()
 	{
@@ -1362,7 +1364,7 @@ class Table extends ScopedElement implements IDMethod
 	/**
 	 * Is this table specified in the schema or is there just
 	 * a foreign key reference to it.
-	 * @return    value of external.
+	 * @return    boolean Value of external.
 	 */
 	public function isAlias()
 	{
@@ -1372,7 +1374,7 @@ class Table extends ScopedElement implements IDMethod
 	/**
 	 * Set whether this table specified in the schema or is there just
 	 * a foreign key reference to it.
-	 * @param     v	Value to assign to alias.
+	 * @param     string $v Value to assign to alias.
 	 */
 	public function setAlias($v)
 	{
@@ -1381,7 +1383,7 @@ class Table extends ScopedElement implements IDMethod
 
 	/**
 	 * Interface which objects for this table will implement
-	 * @return    value of interface.
+	 * @return    string Value of interface.
 	 */
 	public function getInterface()
 	{
@@ -1390,7 +1392,7 @@ class Table extends ScopedElement implements IDMethod
 
 	/**
 	 * Interface which objects for this table will implement
-	 * @param     v	Value to assign to interface.
+	 * @param     string $v Value to assign to interface.
 	 */
 	public function setInterface($v)
 	{
@@ -1403,7 +1405,7 @@ class Table extends ScopedElement implements IDMethod
 	 * Foo BO will be <code>public abstract class Foo</code>
 	 * This helps support class hierarchies
 	 *
-	 * @return    value of abstractValue.
+	 * @return    boolean Value of abstractValue.
 	 */
 	public function isAbstract()
 	{
@@ -1417,7 +1419,7 @@ class Table extends ScopedElement implements IDMethod
 	 * <code>public abstract class Foo</code>
 	 * This helps support class hierarchies
 	 *
-	 * @param     v	Value to assign to abstractValue.
+	 * @param     boolean $v Value to assign to abstractValue.
 	 */
 	public function setAbstract($v)
 	{
@@ -1583,7 +1585,7 @@ class Table extends ScopedElement implements IDMethod
 	/**
 	 * Return the foreign keys that includes col in it's list of local columns.
 	 * Eg. Foreign key (a,b,c) refrences tbl(x,y,z) will be returned of col is either a,b or c.
-	 * @param     string $col
+	 * @param     string $colname
 	 * @return    array ForeignKey[] or null if there is no FK for specified column.
 	 */
 	public function getColumnForeignKeys($colname)
@@ -1650,7 +1652,7 @@ class Table extends ScopedElement implements IDMethod
 
 	/**
 	 * Flag to determine if tree node class should be generated for this table.
-	 * @return    valur of treeMode
+	 * @return    string Value of treeMode
 	 */
 	public function treeMode()
 	{
@@ -1659,7 +1661,7 @@ class Table extends ScopedElement implements IDMethod
 
 	/**
 	 * Flag to determine if tree node class should be generated for this table.
-	 * @param     v	Value to assign to treeMode.
+	 * @param     string $v Value to assign to treeMode.
 	 */
 	public function setTreeMode($v)
 	{
@@ -1852,7 +1854,7 @@ class Table extends ScopedElement implements IDMethod
 	/**
 	 * Returns all parts of the primary key, separated by commas.
 	 *
-	 * @return    A CSV list of primary key parts.
+	 * @return    string A CSV list of primary key parts.
 	 * @deprecated Use the Platform::getColumnListDDL() with the #getPrimaryKey() method.
 	 */
 	public function printPrimaryKey()
@@ -1881,7 +1883,7 @@ class Table extends ScopedElement implements IDMethod
 	/**
 	 * Returns the elements of the list, separated by commas.
 	 * @param     array $list
-	 * @return    A CSV list.
+	 * @return    string A CSV list.
 	 * @deprecated Use the Platform::getColumnListDDL() method.
 	 */
 	private function printList($list) {

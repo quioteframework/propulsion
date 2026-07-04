@@ -20,6 +20,7 @@ namespace Propulsion\Util;
  */
 
  use Propulsion\Query\ModelCriteria;
+ use Propulsion\Collection\PropulsionCollection;
 class PropulsionModelPager implements \IteratorAggregate, \Countable
 {
 	protected

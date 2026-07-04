@@ -15,6 +15,8 @@ namespace Propulsion\Generator\Config;
  */
 
  use Propulsion\Generator\Model\Table;
+ use Propulsion\Generator\Builder\DataModelBuilder;
+ use Propulsion\Generator\Builder\Util\Pluralizer;
  use Propulsion\Generator\Builder\Util\DefaultEnglishPluralizer;
  use Propulsion\Generator\Builder\OM\PeerBuilder;
  use Propulsion\Generator\Builder\OM\ObjectBuilder;

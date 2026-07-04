@@ -163,7 +163,7 @@ public function orderByRank(\$order = Criteria::ASC)
  *
  * @return    {$this->objectClassname}
  */
-public function findOneByRank(\$rank, " . ($useScope ? "\$scope = null, " : "") . "PropulsionPDO \$con = null)
+public function findOneByRank(\$rank, " . ($useScope ? "\$scope = null, " : "") . "?PropulsionPDO \$con = null)
 {
 	return \$this
 		->filterByRank(\$rank" . ($useScope ? ", \$scope" : "") . ")
@@ -219,7 +219,7 @@ public function findList(" . ($useScope ? "\$scope = null, " : "") . "\$con = nu
  *
  * @return    integer highest position
  */
-public function getMaxRank(" . ($useScope ? "\$scope = null, " : "") . "PropulsionPDO \$con = null)
+public function getMaxRank(" . ($useScope ? "\$scope = null, " : "") . "?PropulsionPDO \$con = null)
 {
 	if (\$con === null) {
 		\$con = Propulsion::getConnection({$this->peerClassname}::DATABASE_NAME);
@@ -255,7 +255,7 @@ public function getMaxRank(" . ($useScope ? "\$scope = null, " : "") . "Propulsi
  *
  * @return    boolean true if the reordering took place, false if a database problem prevented it
  */
-public function reorder(array \$order, PropulsionPDO \$con = null)
+public function reorder(array \$order, ?PropulsionPDO \$con = null)
 {
 	if (\$con === null) {
 		\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME);

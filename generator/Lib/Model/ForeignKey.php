@@ -210,7 +210,7 @@ class ForeignKey extends XMLElement
 
 	/**
 	 * Sets a defaultJoin to use for this foreign key.
-	 * @param      string $name
+	 * @param      string $defaultJoin
 	 */
 	public function setDefaultJoin($defaultJoin)
 	{
@@ -596,7 +596,6 @@ class ForeignKey extends XMLElement
 	 * by foreign keys on both tables.  I don't know if that's good practice ... but hell, why not
 	 * support it.
 	 *
-	 * @param      ForeignKey $fk
 	 * @return     boolean
 	 */
 	public function isMatchedByInverseFK()

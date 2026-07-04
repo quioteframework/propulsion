@@ -83,7 +83,7 @@ abstract class DBAdapter
 	/**
 	 * Prepare connection parameters.
 	 *
-	 * @param array	$params
+	 * @param array	$settings
 	 * @return array
 	 */
 	public function prepareParams($settings)
@@ -282,7 +282,6 @@ abstract class DBAdapter
 	 */
 	protected function formatTemporalValue($value, ColumnMap $cMap)
 	{
-		/** @var $dt PropulsionDateTime */
 		if ($dt = PropulsionDateTime::newInstance($value)) {
 			switch($cMap->getType()) {
 			case PropulsionColumnTypes::TIMESTAMP:
@@ -365,8 +364,9 @@ abstract class DBAdapter
 	 * @param     string   $sql
 	 * @param     integer  $offset
 	 * @param     integer  $limit
+	 * @param     Criteria $criteria  Optional Criteria object, used by some adapters (e.g. DBOracle) to build the LIMIT clause.
 	 */
-	public abstract function applyLimit(&$sql, $offset, $limit);
+	public abstract function applyLimit(&$sql, $offset, $limit, $criteria = null);
 
 	/**
 	 * Gets the SQL string that this adapter uses for getting a random number.
