@@ -206,7 +206,11 @@ if (class_exists(AggregateComment::class) && class_exists(AggregateCommentQuery:
 	class TestableComment extends AggregateComment
 	{
 		// overrides the parent save() to bypass behavior hooks
-		public function save(PropulsionPDO $con = null)
+		// ObjectBuilder (the promoted PHP84 builder, the only "object" builder left since
+		// Phase 3's PHP5 removal, see KNOWN_ISSUES.md) generates a typed
+		// save(?PropulsionPDO $con = null): int signature -- match it or PHP fatals on an
+		// incompatible override.
+		public function save(?PropulsionPDO $con = null): int
 		{
 			$con->beginTransaction();
 			try {
@@ -221,7 +225,7 @@ if (class_exists(AggregateComment::class) && class_exists(AggregateCommentQuery:
 		}
 
 		// overrides the parent delete() to bypass behavior hooks
-		public function delete(PropulsionPDO $con = null)
+		public function delete(?PropulsionPDO $con = null): void
 		{
 			$con->beginTransaction();
 			try {

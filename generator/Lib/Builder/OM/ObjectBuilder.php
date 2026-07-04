@@ -898,8 +898,13 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 					// $this->$phpname is a DateTimeInterface object here (or null), not the
 					// raw formatted string $defaultVal holds -- compare formatted values.
 					$fmt = $this->getTemporalFormatter($col);
+					// Curly-brace-delimited {$phpname} below is required, not stylistic: plain
+					// "$this->$phpname->format(...)" makes PHP's simple string-interpolation
+					// syntax parse "$phpname->format" as a (bogus, build-time) property access
+					// on the $phpname *string* itself -- silently emitting corrupted generated
+					// code (and a "Attempt to read property on string" warning at build time).
 					$script .= "
-		if (\$this->$phpname === null || \$this->$phpname->format('$fmt') !== $defaultVal) {
+		if (\$this->{$phpname} === null || \$this->{$phpname}->format('$fmt') !== $defaultVal) {
 			return false;
 		}";
 				} else {
@@ -2391,8 +2396,13 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	{
 		\$this->$varName = \$v;
 
-		// Add binding for other direction of this 1:1 relationship.
-		if (\$v !== null) {
+		// Add binding for other direction of this 1:1 relationship. Guarded (unlike a
+		// naive unconditional call) on the other side not already pointing back here --
+		// without this check, \$v->set...(\$this) below calls back into this same setter
+		// forever, overflowing the stack (a real, previously-undetected bug: this method
+		// was never exercised as the default 1:1-relationship setter before the PHP5
+		// builders were removed, see KNOWN_ISSUES.md).
+		if (\$v !== null && \$v->get" . $this->getFKPhpNameAffix($refFK, false) . "() === null) {
 			\$v->set" . $this->getFKPhpNameAffix($refFK, false) . "(\$this);
 		}
 
