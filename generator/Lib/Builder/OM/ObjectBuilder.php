@@ -533,6 +533,17 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			// applyDefaultValues(), called from the constructor (see
 			// addApplyDefaultValues()), where a plain assignment IS allowed to coerce.
 			$defaultVal = ($col->isTemporalType() || $col->isEnumType()) ? 'NULL' : $this->getDefaultValueString($col);
+			// Array-typed columns default to an empty array, not null, absent an explicit
+			// schema default -- PHP5ObjectBuilder's array getter lazily coerced a null
+			// internal value to array() on read; this builder's getter is a plain property
+			// return, so the property itself needs the empty-array default instead. `array()`
+			// is a legal constant expression for a property declaration default (unlike the
+			// DateTime/enum cases above), so this can be set directly here rather than
+			// deferred to applyDefaultValues() -- which, for tables with no column that has
+			// an explicit default at all, is never even generated (see hasDefaultValues()).
+			if (($defaultVal === 'NULL' || $defaultVal === 'null') && $col->getType() === PropulsionTypes::PHP_ARRAY) {
+				$defaultVal = 'array()';
+			}
 
 			// Add property documentation
 			$script .= "
@@ -717,6 +728,10 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 					$script .= "
 		\$this->$phpname = $defaultValue;";
 				}
+			} elseif ($col->getType() === PropulsionTypes::PHP_ARRAY) {
+				// See addProperties() -- array columns default to an empty array, not null.
+				$script .= "
+		\$this->$phpname = array();";
 			} else {
 				// For typed properties without explicit defaults, initialize to null if nullable
 				$returnType = $this->getPhp84TypeHint($col);
@@ -745,7 +760,91 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			} else {
 				$this->addColumnAccessor($script, $col);
 			}
+			// Array-typed columns with a plural name (e.g. "tags") additionally get
+			// has<Singular>()/add<Singular>()/remove<Singular>() convenience methods --
+			// ported from PHP5ObjectBuilder::addHasArrayElement()/addAddArrayElement()/
+			// addRemoveArrayElement(), which were entirely missing from the promoted
+			// builder (see KNOWN_ISSUES.md, Phase 3.5).
+			if ($col->getType() === PropulsionTypes::PHP_ARRAY && $col->isNamePlural()) {
+				$this->addHasArrayElement($script, $col);
+				$this->addAddArrayElement($script, $col);
+				$this->addRemoveArrayElement($script, $col);
+			}
 		}
+	}
+
+	/**
+	 * Adds a has<Singular>() tester method for a plural-named array column.
+	 */
+	protected function addHasArrayElement(&$script, Column $col)
+	{
+		$cfc = $col->getPhpName();
+		$singularPhpName = rtrim($cfc, 's');
+		$script .= "
+
+	/**
+	 * Test the presence of a value in the [" . $col->getName() . "] array column value.
+	 * @param      mixed \$value
+	 * @return     bool
+	 */
+	public function has$singularPhpName(mixed \$value): bool
+	{
+		return in_array(\$value, \$this->get$cfc());
+	}";
+	}
+
+	/**
+	 * Adds an add<Singular>() method for a plural-named array column.
+	 */
+	protected function addAddArrayElement(&$script, Column $col)
+	{
+		$cfc = $col->getPhpName();
+		$singularPhpName = rtrim($cfc, 's');
+		$returnType = $this->getClassname();
+		$script .= "
+
+	/**
+	 * Adds a value to the [" . $col->getName() . "] array column value.
+	 * @param      mixed \$value
+	 * @return     $returnType The current object (for fluent API support)
+	 */
+	public function add$singularPhpName(mixed \$value): $returnType
+	{
+		\$currentArray = \$this->get$cfc();
+		\$currentArray[] = \$value;
+		\$this->set$cfc(\$currentArray);
+
+		return \$this;
+	}";
+	}
+
+	/**
+	 * Adds a remove<Singular>() method for a plural-named array column.
+	 */
+	protected function addRemoveArrayElement(&$script, Column $col)
+	{
+		$cfc = $col->getPhpName();
+		$singularPhpName = rtrim($cfc, 's');
+		$returnType = $this->getClassname();
+		$script .= "
+
+	/**
+	 * Removes a value from the [" . $col->getName() . "] array column value.
+	 * @param      mixed \$value
+	 * @return     $returnType The current object (for fluent API support)
+	 */
+	public function remove$singularPhpName(mixed \$value): $returnType
+	{
+		\$targetArray = array();
+		foreach (\$this->get$cfc() as \$element) {
+			if (\$element != \$value) {
+				\$targetArray[] = \$element;
+			}
+		}
+		\$this->set$cfc(\$targetArray);
+
+		return \$this;
+	}";
 	}
 
 	/**
