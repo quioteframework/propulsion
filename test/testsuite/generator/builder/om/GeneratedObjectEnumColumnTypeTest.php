@@ -35,7 +35,7 @@ EOF;
 			$publicAccessorCode = <<<EOF
 class PublicComplexColumnTypeEntity3 extends ComplexColumnTypeEntity3
 {
-	public \$bar;
+	public ?string \$Bar;
 }
 EOF;
 			eval($publicAccessorCode);
@@ -48,11 +48,11 @@ EOF;
 		$e = new ComplexColumnTypeEntity3();
 		$this->assertNull($e->getBar());
 		$e = new PublicComplexColumnTypeEntity3();
-		$e->bar = 0;
+		$e->Bar = 0;
 		$this->assertEquals('foo', $e->getBar());
-		$e->bar = 3;
+		$e->Bar = 3;
 		$this->assertEquals('1', $e->getBar());
-		$e->bar = 6;
+		$e->Bar = 6;
 		$this->assertEquals('foo bar', $e->getBar());
 	}
 
@@ -63,7 +63,7 @@ EOF;
 	{
 		$this->expectException(PropulsionException::class);
 		$e = new PublicComplexColumnTypeEntity3();
-		$e->bar = 156;
+		$e->Bar = 156;
 		$e->getBar();
 	}
 
@@ -78,13 +78,13 @@ EOF;
 		$this->assertTrue(method_exists('ComplexColumnTypeEntity3', 'setBar'));
 		$e = new PublicComplexColumnTypeEntity3();
 		$e->setBar('foo');
-		$this->assertEquals(0, $e->bar);
+		$this->assertEquals(0, $e->Bar);
 		$e->setBar(1);
-		$this->assertEquals(3, $e->bar);
+		$this->assertEquals(3, $e->Bar);
 		$e->setBar('1');
-		$this->assertEquals(3, $e->bar);
+		$this->assertEquals(3, $e->Bar);
 		$e->setBar('foo bar');
-		$this->assertEquals(6, $e->bar);
+		$this->assertEquals(6, $e->Bar);
 	}
 
 	/**

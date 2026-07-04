@@ -199,7 +199,16 @@ class ObjectBuilder extends AbstractObjectBuilder
 	{
 		// Always use nullable types for getters and setters to support clearing relationships
 		// and object state, regardless of database constraints
-		
+
+		// LOB columns (BLOB/VARBINARY/LONGVARBINARY) are stored internally as a PHP
+		// stream resource, matching PHP5ObjectBuilder's addLobMutator() -- callers can
+		// pass either a resource or a raw string (normalized to a resource by the
+		// mutator, see addColumnMutator()). "resource" isn't a legal PHP type
+		// declaration, so `mixed` is used for the property/getter/setter signatures.
+		if ($col->isLobType()) {
+			return 'mixed';
+		}
+
 		// Check for temporal types first, before relying on getPhpType()
 		if ($col->isTemporalType()) {
 			$this->declareClass('\\DateTimeInterface');
@@ -248,7 +257,12 @@ class ObjectBuilder extends AbstractObjectBuilder
 	{
 		// All properties need to be nullable in PHP to support object clearing/resetting
 		// Unlike strongly typed languages like C#, PHP objects need to be clearable
-		
+
+		// See getPhp84TypeHint() -- LOB columns store a stream resource internally.
+		if ($col->isLobType()) {
+			return 'mixed';
+		}
+
 		// Check for temporal types first, before relying on getPhpType()
 		if ($col->isTemporalType()) {
 			$this->declareClass('\\DateTimeInterface');
@@ -552,8 +566,16 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * The value for the $colname field.
 	 * " . ($col->getDescription() ? $col->getDescription() : '') . "
 	 */";
-		// Add the typed property
-		$visibility = $col->isLazyLoad() ? 'protected' : 'private';
+		// Add the typed property. PHP5ObjectBuilder always declared column properties
+		// `protected` (see archaeology/php5-builders/PHP5ObjectBuilder.php,
+		// addColumnAttributeDeclaration()); several tests across the suite rely on that
+		// contract via a "declare a public subclass property with the same name to gain
+		// white-box access" trick (e.g. GeneratedObjectEnumColumnTypeTest), which only
+		// works if the parent's property is protected -- a same-named `private` property
+		// in the parent is a genuinely separate storage slot, not an overridable one, so
+		// the trick silently gains no access at all. Match PHP5's visibility here rather
+		// than `private` for non-lazy columns.
+		$visibility = 'protected';
 
 		if ($defaultVal !== 'NULL' && $defaultVal !== 'null') {
 			$script .= "
@@ -887,6 +909,18 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	}";
 		} else {
 			$returnType = $this->getPhp84TypeHint($col);
+			$clo = strtolower($col->getName());
+			// Lazy-loaded columns (e.g. BLOB/CLOB) aren't populated by hydrate() -- see
+			// addHydrate()'s isLazyLoad() skip -- so the getter has to trigger a
+			// dedicated one-column query the first time it's accessed. Ported from
+			// PHP5ObjectBuilder::addLazyLoader(); the promoted builder previously had no
+			// lazy-load mechanism at all (the ${clo}_isLoaded flag was declared and reset
+			// on reload()/clear(), but nothing ever read it or loaded anything).
+			$loadCall = $col->isLazyLoad() ? "
+		if (!\$this->{$clo}_isLoaded) {
+			\$this->load$phpname();
+		}
+" : '';
 			$script .= "
 
 	/**
@@ -895,10 +929,86 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * @return $returnType
 	 */
 	public function get$phpname(): $returnType
-	{
+	{{$loadCall}
 		return \$this->$phpname;
 	}";
+			if ($col->isLazyLoad()) {
+				$this->addLazyLoader($script, $col);
+			}
 		}
+	}
+
+	/**
+	 * Adds the load<Phpname>() lazy-loader method for a lazy-loaded column.
+	 *
+	 * Ported from PHP5ObjectBuilder::addLazyLoader(), simplified: this builder only
+	 * needs to support the LOB (resource) and plain-scalar cases actually exercised by
+	 * the fixtures (see GeneratedObjectLobTest); PHP5's Oracle/SQL Server-specific
+	 * branches for CLOB streaming and PDO::PARAM_LOB column binding aren't ported since
+	 * nothing in this codebase's supported platforms needs them.
+	 */
+	protected function addLazyLoader(&$script, Column $col)
+	{
+		$this->declareClass('Propulsion\Connection\PropulsionPDO');
+		$this->declareClass('Propulsion\Exception\PropulsionException');
+		$this->declareClass('\PDO');
+		$this->declareClass('\Exception');
+
+		$phpname = $col->getPhpName();
+		$clo = strtolower($col->getName());
+		$const = $this->getColumnConstant($col);
+
+		$script .= "
+
+	/**
+	 * Load the value for the lazy-loaded [" . $col->getName() . "] column.
+	 *
+	 * This method performs an additional query to return the value for
+	 * the [" . $col->getName() . "] column, since it is not populated by
+	 * the hydrate() method.
+	 *
+	 * @param ?PropulsionPDO \$con The connection to use.
+	 * @return void
+	 * @throws PropulsionException - any underlying error will be wrapped and re-thrown.
+	 */
+	protected function load$phpname(?PropulsionPDO \$con = null): void
+	{
+		\$c = \$this->buildPkeyCriteria();
+		\$c->addSelectColumn($const);
+		try {
+			\$stmt = " . $this->getPeerClassname() . "::doSelectStmt(\$c, \$con);
+			\$row = \$stmt->fetch(PDO::FETCH_NUM);
+			\$stmt->closeCursor();
+";
+		if ($col->isLobType()) {
+			$script .= "
+			if (\$row !== false && \$row[0] !== null) {
+				if (is_resource(\$row[0])) {
+					// Some PDO drivers (e.g. pgsql, for bytea columns) already return a
+					// stream for a LOB column; only string results need wrapping.
+					\$this->$phpname = \$row[0];
+				} else {
+					\$this->$phpname = fopen('php://memory', 'r+');
+					fwrite(\$this->$phpname, \$row[0]);
+				}
+				rewind(\$this->$phpname);
+			} else {
+				\$this->$phpname = null;
+			}
+";
+		} else {
+			$phpType = $col->getPhpType();
+			$castType = match($phpType) { 'double' => 'float', 'integer' => 'int', 'boolean' => 'bool', default => $phpType };
+			$script .= "
+			\$this->$phpname = (\$row !== false && \$row[0] !== null) ? ($castType) \$row[0] : null;
+";
+		}
+		$script .= "
+			\$this->{$clo}_isLoaded = true;
+		} catch (Exception \$e) {
+			throw new PropulsionException(\"Error loading value for [$clo] column\", \$e);
+		}
+	}";
 	}
 
 	/**
@@ -934,6 +1044,37 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 
 		// Always add = null default value to support clearing relationships and object state
 		$defaultValue = ' = null';
+
+		if ($col->isLobType()) {
+			// Ported from PHP5ObjectBuilder::addLobMutator(). Because BLOB columns are
+			// streams in PDO, we have to assume that they are always modified when a new
+			// value is passed in -- the contents of a stream may have changed externally
+			// even if the resource identity hasn't. A raw string is wrapped in a fresh
+			// php://memory stream (rewound to the start) so callers can pass either form.
+			$script .= "
+
+	/**
+	 * $description
+	 *
+	 * @param mixed \$value New value: a stream resource, or a raw string that will be
+	 *              wrapped in a new stream.
+	 * @return $returnType The current object (for fluent API support)
+	 */
+	public function set$phpname(mixed \$value$defaultValue): $returnType
+	{
+		if (\$value !== null && !is_resource(\$value)) {
+			\$fp = fopen('php://memory', 'r+');
+			fwrite(\$fp, (string) \$value);
+			rewind(\$fp);
+			\$value = \$fp;
+		}
+		\$this->$phpname = \$value;
+		\$this->modifiedColumns[] = " . $this->getColumnConstant($col) . ";
+
+		return \$this;
+	}";
+			return;
+		}
 
 		if ($col->isBooleanType()) {
 			// The property/getter are strictly typed ?bool, but Propulsion has always
@@ -1813,6 +1954,21 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			}
 ";
 
+		// PDO does not rewind LOB stream resources after using them to bind an
+		// insert/update parameter, which otherwise leaves the very resource the caller
+		// just handed us (or read back via the getter) positioned at EOF -- ported from
+		// PHP5ObjectBuilder::addSaveBody()'s equivalent post-doSave rewind loop.
+		foreach ($table->getColumns() as $col) {
+			if ($col->isLobType()) {
+				$phpname = $col->getPhpName();
+				$script .= "
+			if (\$this->$phpname !== null && is_resource(\$this->$phpname)) {
+				rewind(\$this->$phpname);
+			}
+";
+			}
+		}
+
 		// Add referrers save logic (many-to-many collections)
 		foreach ($table->getReferrers() as $refFK) {
 			if ($refFK->isLocalPrimaryKey()) {
@@ -1888,16 +2044,20 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		}
 		\$this->hydrate(\$row, 0, true); // rehydrate";
 		
-		// Support for lazy load columns
+		// Support for lazy load columns: force the next getter call to re-query,
+		// rather than returning a value (or, for LOB columns, a stream resource) that
+		// may be stale or -- for a resource the caller has since fclose()'d -- invalid.
 		$table = $this->getTable();
 		foreach ($table->getColumns() as $col) {
 			if ($col->isLazyLoad()) {
 				$clo = strtolower($col->getName());
+				$phpname = $col->getPhpName();
 				$script .= "
-		\$this->{$clo}_isLoaded = false;";
+		\$this->{$clo}_isLoaded = false;
+		\$this->$phpname = null;";
 			}
 		}
-		
+
 		$script .= "
 
 		if (\$deep) {
@@ -1964,10 +2124,10 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 *
 	 * @return array an associative array containing the field names (as keys) and field values
 	 */
-	public function toArray(string \$keyType = BasePeer::TYPE_PHPNAME, bool \$includeLazyLoadColumns = true, array \$alreadyDumpedObjects = array()" . ($hasFks ? ", bool \$includeForeignObjects = false" : '') . "): array
+	public function toArray(string \$keyType = BasePeer::TYPE_PHPNAME, ?bool \$includeLazyLoadColumns = true, array \$alreadyDumpedObjects = array()" . ($hasFks ? ", bool \$includeForeignObjects = false" : '') . "): array|string
 	{
 		if (isset(\$alreadyDumpedObjects['$objectClassName'][$pkGetter])) {
-			return ['*RECURSION*' => true];
+			return '*RECURSION*';
 		}
 		\$alreadyDumpedObjects['$objectClassName'][$pkGetter] = true;
 		\$keys = ".$this->getPeerClassname()."::getFieldNames(\$keyType);
@@ -2307,8 +2467,19 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 				continue;
 			}
 			$phpname = $col->getPhpName();
-			$script .= "
+			if ($col->isEnumType()) {
+				// Enum columns store the raw index internally ($this->$phpname), but
+				// their generated setter (addEnumMutator()) validates and accepts the
+				// enum *label*, not the index -- passing the raw index straight through
+				// throws "Value ... is not accepted in this enumerated column" the moment
+				// the index isn't itself a valid label (e.g. index 2 for a 2-value enum).
+				// Use the getter, which resolves the index back to its label, instead.
+				$script .= "
+		\$copyObj->set$phpname(\$this->get$phpname());";
+			} else {
+				$script .= "
 		\$copyObj->set$phpname(\$this->$phpname);";
+			}
 		}
 
 		// Add deep copy for foreign key references and collections
