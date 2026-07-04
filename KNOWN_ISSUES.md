@@ -39,11 +39,14 @@ blocking.
   this.
 - **Testcontainer cleanup**: `IntegrationDatabase` stops its container via
   `register_shutdown_function()`, which doesn't run on `kill -9` or a
-  `timeout`-killed process. If test runs get interrupted, leaked
-  `postgres:latest`/`mysql:latest` containers can pile up:
-  `docker ps -a --filter ancestor=postgres:latest` /
-  `--filter ancestor=mysql:latest` to find them, `docker rm -f <id>` to
-  clean up. No general fix known (inherent to how shutdown functions work).
+  `timeout`-killed process, so an interrupted run can leak a container.
+  Since a leaked container's own randomly-generated name isn't predictable
+  (and there's no portable, non-OS-specific way to signal an arbitrary
+  process anyway), every testcontainer this class starts carries the label
+  `propulsion.test-container=true`. Run `composer test:cleanup-containers`
+  to find and remove them via `docker stop`/`docker rm` — works the same
+  regardless of host OS, since it goes through the Docker daemon rather
+  than sending a signal directly.
 - **Worker-safety test matrix not run.** Phase 4a/4b (below) built the
   `ServiceContainer`/`Session` split and unit-tested it directly, but the
   actual worker-mode property (no object bleed across requests, connection
@@ -53,7 +56,24 @@ blocking.
 - **Phing `Task` classes** (`generator/Lib/Task/*`, 15 files) are still
   present, gated on proving output parity between the Phing path
   (`generator/bin/propel-gen`) and the `bin/propulsion` console path. No
-  formal side-by-side comparison has been done.
+  formal side-by-side comparison has been done. The tasks that actually
+  matter going forward are **OM** (`PropulsionOMTask`), **SchemaReverse**
+  (`PropulsionSchemaReverseTask`), **Diff** (`PropulsionSQLDiffTask`), and
+  **migrations** (`PropulsionMigrationTask`/`*UpTask`/`*DownTask`/
+  `*StatusTask`/`BasePropulsionMigrationTask`) — prioritize proving parity
+  for those. `PropulsionDataDumpTask`/`PropulsionDataSQLTask`/
+  `PropulsionGraphvizTask`/`PropulsionSQLExec`/`PropulsionSQLTask` are lower
+  priority.
+- **`PropulsionConvertConfTask` should be deprecated, not preserved.** It
+  exists to convert the old XML runtime/buildtime config format
+  (`runtime-conf.xml`/`build.properties`) into the PHP array config this
+  codebase actually consumes at runtime. The XML config format itself is
+  legacy baggage from upstream Propel that this fork should move away from
+  entirely (config should just be authored as PHP arrays/a PHP config file
+  directly) rather than keep a converter task around indefinitely as a
+  crutch. Not scoped or started — noting the direction here so "should we
+  port ConvertConf to the console app too" doesn't come up without this
+  context.
 - **Postgres isn't actually the documented/default database** despite being
   what all fixtures and CI use: `generator/default.properties`'s
   `propel.database` is still empty, the README doesn't recommend one, and
