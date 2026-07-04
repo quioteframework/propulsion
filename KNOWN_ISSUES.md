@@ -209,6 +209,79 @@ categories, not one:
     `0` (the documented "nothing applied yet" baseline, and what a full "down"
     back to the start leaves behind) was indistinguishable from "no row
     fetched" and incorrectly returned `null`.
+  - **Migration ledger redesign (BREAKING CHANGE to the migration-tracking
+    table shape)**: a follow-up pass found three real bugs the parity
+    coverage above didn't exercise, all stemming from the migration table
+    being a single mutable-pointer row instead of a history:
+    1. `propel_migration` held one `version` column, rewritten via
+       `DELETE FROM propel_migration` + `INSERT` on every run — no audit
+       trail of what ran, when, or whether a migration file was edited since.
+    2. `PropulsionMigrationDownTask`'s per-statement loop caught a failed
+       statement's `PDOException`, logged it, and kept going — if *any*
+       statement in the direction succeeded, the migration was still recorded
+       as fully reverted even though a later statement failed.
+    3. Neither Up nor Down task wrapped a migration's statements in a
+       transaction, so on non-transactional-DDL platforms a partial failure
+       left the schema half-migrated with no clean way to retry; worse, both
+       tasks signaled failure via `return false` from `Task::main()`, which
+       does **not** fail a Phing build (Phing only fails a target on an
+       uncaught exception) — so a silently-aborted, half-applied migration
+       exited the `propel-gen` process with status 0.
+
+    Fixed by replacing the single-row table with an **append-only ledger**:
+    every migration run/reversion attempt gets a new row (`id` autoincrement
+    PK, `migration_timestamp`, `migration_name`, `direction` ('up'/'down'),
+    `checksum` — sha256 of the exact SQL string executed, for future
+    edited-after-running detection —, `applied_at`, `success`, and
+    `statement_log` — a JSON array of `{sql, status: success|failed|
+    not_attempted, error?}` for every statement in that direction, so a
+    partial failure's exact per-statement outcome is always recoverable).
+    Nothing is ever updated or deleted; "currently applied" state is
+    *derived* by `PropulsionMigrationManager::getCurrentVersion($datasource)`
+    from the ledger (the highest timestamp whose most recent **successful**
+    row is direction='up') rather than read directly, and
+    `getMigrationLedger($datasource)` exposes the full history for reporting.
+    Failed attempts (either direction) never move the applied-state pointer
+    at all — this matters most for a failed "down": on a transactional-DDL
+    platform the failed attempt's DDL is rolled back to the still-applied
+    "up" state, and the ledger must agree, not flip to "not applied" just
+    because the most recent row happens to be a failed down.
+
+    Statement execution now stops at the first failure (remaining statements
+    are logged `not_attempted`, not run) and a new
+    `PropulsionPlatformInterface::supportsTransactionalDDL()` flag (`true`
+    only for `PgsqlPlatform`/`SqlitePlatform`, `false` by default — MySQL's
+    DDL causes an implicit commit, and MSSQL/Oracle are left conservative
+    since this fork has no live instance to verify against) controls whether
+    the batch is wrapped in a transaction that gets rolled back in full on
+    failure. On a non-transactional platform, whatever succeeded before the
+    failure remains applied for real — an inherent limitation of
+    non-transactional DDL, recorded accurately via the per-statement log and
+    `success = false` rather than papered over; a human needs to reconcile
+    manually before retrying. Both `*UpTask` and `*DownTask` (and the combined
+    `PropulsionMigrationTask`) now throw a `Phing\Exception\BuildException` on
+    a statement failure instead of `return false`, actually failing the
+    build. The ledger insert always goes through a dedicated, separate PDO
+    connection from whatever connection ran the migration's DDL statements —
+    otherwise, on a transactional platform, a failed attempt's rollback would
+    wipe out its own failure-record insert if that insert had been part of
+    the same transaction, defeating the "log every attempt, successful or
+    not" requirement.
+
+    **This is a breaking schema change.** A project with an existing
+    old-shape `propel_migration` table (single `version` column) must drop it
+    and let `PropulsionMigrationStatusTask`/`PropulsionMigrationManager::
+    createMigrationTable()` recreate it in the new ledger shape on next run —
+    there is no automatic migration-of-the-migration-table, by design (silently
+    reinterpreting an old single-row `version` as a synthetic ledger history
+    would be guessing at data that was never recorded, e.g. which migrations
+    actually succeeded per statement). The default table name (configurable
+    via `getMigrationTable()`/`setMigrationTable()`/`propel.migration.table`,
+    unchanged) is also renamed from `propel_migration` to
+    `propulsion_migration` as part of this pass, matching this fork's
+    `Propel*` → `Propulsion*` identity rename elsewhere — a project relying on
+    the old default name needs to set it explicitly (or, again, just let it
+    get created fresh under the new default name).
   - **Lower priority** (`PropulsionDataDumpTask`, `PropulsionDataSQLTask`,
     `PropulsionGraphvizTask`, `PropulsionSQLExec`, `PropulsionSQLTask`): all
     five now have a real smoke test (`LowerPriorityTaskSmokeTest`) exercising
