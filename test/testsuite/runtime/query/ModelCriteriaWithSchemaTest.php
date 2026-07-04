@@ -64,6 +64,7 @@ class ModelCriteriaWithSchemaTest extends SchemasTestBase
 class TestableModelCriteriaWithSchema extends ModelCriteria
 {
 	public $joins = array();
+	public $replacedColumns;
 
 	public function replaceNames(string &$clause): bool
 	{

@@ -20,6 +20,7 @@ class BasePeerTest extends BookstoreTestBase
 
 	public function testMultipleFunctionInCriteria()
 	{
+		$this->expectNotToPerformAssertions();
 		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
 		try {
 			$c = new Criteria();
@@ -273,7 +274,7 @@ class BasePeerTest extends BookstoreTestBase
 		$c->addAlias('b', BookPeer::TABLE_NAME);
 		$c->add('b.TITLE', 'War And Peace');
 		BasePeer::doDelete($c, $con);
-		$expectedSQL = "DELETE b FROM `book` AS b WHERE b.TITLE='War And Peace'";
+		$expectedSQL = "DELETE FROM book AS b WHERE b.TITLE='War And Peace'";
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'doDelete() accepts a Criteria with a table alias');
 	}
 

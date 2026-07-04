@@ -214,20 +214,30 @@ class ObjectBuilder extends AbstractObjectBuilder
 			$this->declareClass('\\DateTimeInterface');
 			return '?DateTimeInterface';
 		}
-		
+
+		// OBJECT columns store an arbitrary, caller-supplied PHP object (serialized on
+		// save, unserialized on hydrate -- see hydrate()/buildCriteria()/
+		// buildPkeyCriteria()). PropulsionTypes::getPhpNative() maps OBJECT to an empty
+		// string (no single PHP class fits every possible stored object), which used to
+		// fall through to the "default: ?string" case below and reject any real object
+		// passed to the setter. `mixed` is used for the same reason LOB columns are.
+		if ($col->getType() === PropulsionTypes::OBJECT) {
+			return 'mixed';
+		}
+
 		// Check the actual Propulsion type for better type hints
 		$propelType = $col->getType();
-		
+
 		// Map Propulsion types to PHP 8.4 types
 		// For BIGINT, use int since we're on 64-bit PHP 8.4 (handles up to 2^63-1)
-		if ($propelType === PropulsionTypes::BIGINT || $propelType === PropulsionTypes::INTEGER || 
+		if ($propelType === PropulsionTypes::BIGINT || $propelType === PropulsionTypes::INTEGER ||
 		    $propelType === PropulsionTypes::SMALLINT || $propelType === PropulsionTypes::TINYINT) {
 			return '?int';
 		}
-		
+
 		// Fall back to the PHP type mapping
 		$phpType = $col->getPhpType();
-		
+
 		switch ($phpType) {
 			case 'int':
 				return '?int';
@@ -268,12 +278,17 @@ class ObjectBuilder extends AbstractObjectBuilder
 			$this->declareClass('\\DateTimeInterface');
 			return '?DateTimeInterface';
 		}
-		
+
+		// See getPhp84TypeHint() -- OBJECT columns store an arbitrary caller-supplied object.
+		if ($col->getType() === PropulsionTypes::OBJECT) {
+			return 'mixed';
+		}
+
 		// Check the actual Propulsion type for better type hints
 		// For BIGINT, use int since we're on 64-bit PHP 8.4 (handles up to 2^63-1)
 		$propelType = $col->getType();
-		
-		if ($propelType === PropulsionTypes::BIGINT || $propelType === PropulsionTypes::INTEGER || 
+
+		if ($propelType === PropulsionTypes::BIGINT || $propelType === PropulsionTypes::INTEGER ||
 		    $propelType === PropulsionTypes::SMALLINT || $propelType === PropulsionTypes::TINYINT) {
 			return '?int';
 		}
@@ -1185,6 +1200,10 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$paramType = $this->getPhp84TypeHint($col);
 		$returnType = $this->getClassname();
 
+		if ($col->isTemporalType()) {
+			$this->declareClass('Propulsion\\Exception\\PropulsionException');
+		}
+
 		$description = $col->getDescription() ? $col->getDescription() : "Set the value of [$colname] column.";
 
 		// Always add = null default value to support clearing relationships and object state
@@ -1279,8 +1298,17 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	public function set$phpname(DateTimeInterface|string|int|null \$value$defaultValue): $returnType
 	{
+		// An empty string means \"no value\", matching PHP5ObjectBuilder's convention --
+		// not \"now\", which is what `new DateTime('')` would otherwise silently produce.
+		if (\$value === '') {
+			\$value = null;
+		}
 		if (\$value !== null && !(\$value instanceof DateTimeInterface)) {
-			\$value = is_int(\$value) ? (new DateTime())->setTimestamp(\$value) : new DateTime((string) \$value);
+			try {
+				\$value = is_int(\$value) ? (new DateTime())->setTimestamp(\$value) : new DateTime((string) \$value);
+			} catch (\\Exception \$e) {
+				throw new PropulsionException(\"Error parsing date/time value for [" . strtolower($colname) . "]\", \$e);
+			}
 		}";
 				$defaultValueCol = $col->getDefaultValue();
 				if ($defaultValueCol !== null && !$defaultValueCol->isExpression()) {
@@ -1322,6 +1350,29 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			\$this->$phpname = \$value;
 			\$this->modifiedColumns[] = " . $this->getColumnConstant($col) . ";
 		}
+";
+			// A column can be the local side of more than one foreign key (this is what
+			// GeneratedObjectRelTest::testMultiFkImplication exercises: BookstoreContestEntry's
+			// BOOKSTORE_ID column is implicated in both its aBookstore and aBookstoreContest
+			// relations). Setting the raw FK column directly (as opposed to going through the
+			// generated setBookstore()/setBookstoreContest() relation setters, which already
+			// keep the cached related object in sync themselves) left any cached related
+			// object stale -- ported from PHP5ObjectBuilder::addMutatorCloseBody(), which
+			// already invalidated every implicated relation's cached object whenever its own
+			// local key no longer matches.
+			if ($col->isForeignKey()) {
+				$table = $this->getTable();
+				foreach ($col->getForeignKeys() as $fk) {
+					$tblFK = $table->getDatabase()->getTable($fk->getForeignTableName());
+					$colFK = $tblFK->getColumn($fk->getMappedForeignColumn($col->getName()));
+					$varName = $this->getFKVarName($fk);
+					$script .= "
+		if (\$this->$varName !== null && \$this->{$varName}->get" . $colFK->getPhpName() . "() !== \$value) {
+			\$this->$varName = null;
+		}";
+				}
+			}
+			$script .= "
 
 		return \$this;
 	}";
@@ -1686,6 +1737,8 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 				$script .= "(bool) \$row[\$startcol + " . $n . "]";
 			} elseif ($col->getType() === PropulsionTypes::PHP_ARRAY) {
 				$script .= "(\$row[\$startcol + " . $n . "] === '' ? array() : (preg_match('/^ \\| (.*) \\| $/s', \$row[\$startcol + " . $n . "], \$matches) ? explode(' | ', \$matches[1]) : explode(' | ', \$row[\$startcol + " . $n . "])))";
+			} elseif ($col->getType() === PropulsionTypes::OBJECT) {
+				$script .= "unserialize(\$row[\$startcol + " . $n . "])";
 			} elseif ($col->isNumericType()) {
 				$phpType = $col->getPhpType();
 				// Use canonical cast names (PHP 8.5 deprecates non-canonical forms)
@@ -2524,6 +2577,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			if ($col->getType() === PropulsionTypes::PHP_ARRAY) {
 				$script .= "
 		if (\$this->isColumnModified($const)) \$criteria->add($const, \$this->$phpname ? ' | ' . implode(' | ', \$this->$phpname) . ' | ' : '');";
+			} elseif ($col->getType() === PropulsionTypes::OBJECT) {
+				$script .= "
+		if (\$this->isColumnModified($const)) \$criteria->add($const, \$this->$phpname === null ? null : serialize(\$this->$phpname));";
 			} else {
 				$script .= "
 		if (\$this->isColumnModified($const)) \$criteria->add($const, \$this->$phpname);";
@@ -2558,6 +2614,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			if ($pk->getType() === PropulsionTypes::PHP_ARRAY) {
 				$script .= "
 		\$criteria->add($const, \$this->$phpname ? ' | ' . implode(' | ', \$this->$phpname) . ' | ' : '');";
+			} elseif ($pk->getType() === PropulsionTypes::OBJECT) {
+				$script .= "
+		\$criteria->add($const, \$this->$phpname === null ? null : serialize(\$this->$phpname));";
 			} else {
 				$script .= "
 		\$criteria->add($const, \$this->$phpname);";
@@ -3326,6 +3385,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$selfRelationName = $this->getFKPhpNameAffix($refFK, false);
 		$relatedQueryClassName = $this->getNewStubQueryBuilder($crossFK->getForeignTable())->getClassname();
 		$crossRefTableName = $refFK->getTableName();
+		$collName = $this->getCrossFKVarName($crossFK);
 
 		$script .= "
 	/**
@@ -3340,7 +3400,15 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	public function count$relatedName(?Criteria \$criteria = null, bool \$distinct = false, ?PropulsionPDO \$con = null): int
 	{
+		// A new (unsaved) object can't be counted from the database, but addBook()-style
+		// cross-FK adders already populate the in-memory collection before the first
+		// save() -- fall back to that count instead of unconditionally returning 0, the
+		// same collection-aware pattern already used by plain (non-cross) referrer
+		// count<Fk>() methods (see KNOWN_ISSUES.md's Phase 3.5 completeness audit).
 		if (\$this->isNew()) {
+			if (null === \$criteria && null !== \$this->$collName) {
+				return count(\$this->$collName);
+			}
 			return 0;
 		}
 

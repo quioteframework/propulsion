@@ -16,7 +16,7 @@ use PHPUnit\Framework\TestCase;
  * @author     Francois Zaninotto
  * @package    generator.builder.om
  */
-class GeneratedQueryEnumColumnTest extends TestCase
+class GeneratedQueryEnumColumnTypeTest extends TestCase
 {
 	public function setUp(): void
 	{

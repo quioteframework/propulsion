@@ -16,7 +16,7 @@ use PHPUnit\Framework\TestCase;
  * @author     Francois Zaninotto
  * @package    generator.builder.om
  */
-class GeneratedQueryObjectColumnTest extends TestCase
+class GeneratedQueryObjectColumnTypeTest extends TestCase
 {
 	protected $c1, $c2;
 

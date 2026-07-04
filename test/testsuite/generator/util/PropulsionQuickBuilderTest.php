@@ -18,7 +18,7 @@ class PropulsionQuickBuilderTest extends TestCase
 {
 	public function testGetPlatform()
 	{
-		require_once dirname(__FILE__) . '/../../../../generator/lib/platform/MysqlPlatform.php';
+		require_once dirname(__FILE__) . '/../../../../generator/Lib/Platform/MysqlPlatform.php';
 		$builder = new PropulsionQuickBuilder();
 		$builder->setPlatform(new MysqlPlatform());
 		$this->assertTrue($builder->getPLatform() instanceof MysqlPlatform);

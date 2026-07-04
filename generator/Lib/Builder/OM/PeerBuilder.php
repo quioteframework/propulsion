@@ -2066,12 +2066,18 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Retrieve a single object by pkey.
 	 *
-	 * @param      ".$col->getPhpType()." \$pk the primary key.
+	 * @param      ?".$col->getPhpType()." \$pk the primary key. A null value never matches
+	 *             a real row (e.g. an object that was never successfully saved, or whose
+	 *             insert got rolled back) and returns null immediately, the same as an
+	 *             unmatched non-null pkey would.
 	 * @param      ?PropulsionPDO \$con the connection to use
-	 * @return     " .$this->getObjectClassname(). "
+	 * @return     " .$this->getObjectClassname(). "|null
 	 */
-	public static function ".$this->getRetrieveMethodName()."(".$col->getPhpType(). " \$pk, ?PropulsionPDO \$con = null)
+	public static function ".$this->getRetrieveMethodName()."(?".$col->getPhpType(). " \$pk, ?PropulsionPDO \$con = null)
 	{
+		if (\$pk === null) {
+			return null;
+		}
 
 		if (null !== (\$obj = ".$this->getPeerClassname()."::getInstanceFromPool(".$this->getInstancePoolKeySnippet('$pk')."))) {
 			return \$obj;

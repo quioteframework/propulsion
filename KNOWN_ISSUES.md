@@ -1,9 +1,20 @@
 # Known issues and remaining work
 
-Status as of the test-fixing pass on `main` (commits `f8675fc`..`0186ecb`). This
-tracks two separate things: **remaining test failures** (from the PHPUnit
-pass) and **modernization plan phases not yet done** (from the original
-scoping conversation, before it detoured into fixing tests).
+Status as of the final cleanup triage pass on `main` (commits `747005e`..`64996bd`,
+on top of the earlier test-fixing pass `f8675fc`..`0186ecb`). This tracks two
+separate things: **remaining test failures** (from the PHPUnit pass) and
+**modernization plan phases not yet done** (from the original scoping
+conversation, before it detoured into fixing tests).
+
+**Latest full-suite state** (`cd test && rm -rf fixtures/*/build &&
+../vendor/bin/phpunit -c phpunit.xml`, Docker/Postgres, confirmed twice
+back-to-back): **2222 tests, 14 errors, 0 failures, 13 skipped, 1 risky.**
+Every remaining error is either explicitly documented as a genuine,
+symmetric MySQL-vs-Postgres platform-semantics difference (confirmed
+against a real MySQL testcontainer — see "Final cleanup triage pass"
+below) or a pre-existing, already-documented incomplete test
+(`GeneratedObjectTest::testNoColsModified`). See that section for the full
+per-cluster before/after breakdown.
 
 ## Current test suite state
 
@@ -93,6 +104,274 @@ rm -rf fixtures/bookstore/build fixtures/schemas/build fixtures/namespaced/build
 testcontainer — expect it to take a few minutes. Set
 `PROPULSION_SKIP_INTEGRATION=1` to skip every test that needs it, if Docker
 isn't available.)
+
+### Final cleanup triage pass — 2208/38/26/12/1 → 2222/14/0/13/1
+
+Starting point (confirmed fresh, per the "Reproduce" command above):
+**2208 tests, 38 errors, 26 failures, 12 skipped, 1 risky.** This pass went
+through every remaining cluster individually (bisecting with `--filter`/
+single-file runs, root-causing each one against real code rather than
+patching assertions), landing at a clean, twice-independently-reproduced
+**2222 tests, 14 errors, 0 failures, 13 skipped, 1 risky** (2222 = 2208 +
+14 tests gained from the 3 previously-uncollectible classes fixed below,
+now contributing real test methods). All commits for this pass are on top
+of `f317038` (the parent of this section), in the order listed.
+
+**Genuinely fixed (real library bugs), by cluster:**
+
+- **`ModelCriteriaTest`/`ModelCriteriaSelectTest`/`ModelCriteriaWithSchemaTest`
+  (12+3+6 → 0).** Multiple independent bugs in `runtime/Lib/Query/
+  ModelCriteria.php`:
+  - `findPk()` indexed `getTableMap()->getPrimaryKeys()` with a literal `0`,
+    but that array is keyed by normalized column name, not a 0-based index
+    — fixed with `reset()`, matching the `array_shift()` pattern
+    `findPks()` two methods down already uses.
+  - `addSelectQuery()` called `$this->addSelfSelectColumns()` instead of
+    `$subQueryCriteria->addSelfSelectColumns()` — a copy-paste typo that
+    left every subquery's own SELECT/FROM empty while spuriously leaking
+    the *outer* table into the FROM clause. This was the real structural
+    bug behind the entire `SubQueryTest` cluster (see below); fixed here
+    since both live in the same method.
+  - `setFormatter(string|PropulsionFormatter $formatter)`: passing an
+    object with `__toString()` (e.g. any generated model with a
+    `primaryString` column) silently coerced to a string via PHP's
+    union-type weak-mode scalar coercion instead of failing the
+    `instanceof` check. Widened to `mixed`, keeping the existing manual
+    checks (which is what the method actually wants).
+  - `orWhere(string $clause, ...)` was narrower than `where()`, which it
+    delegates to directly and which already accepts `string|array` (named
+    conditions). Widened to match.
+  - `findOneOrCreate()` copied a pending criterion's *stored* value
+    straight into the new object's setter, but query-builder filter
+    methods store ENUM columns as their internal index and ARRAY columns
+    as a `'%| value |%'`-style LIKE pattern — neither of which a real
+    setter accepts. Added `unconvertValueForColumn()`, the inverse of the
+    existing `convertValueForColumn()`.
+  - `getSelect(): array|string` didn't allow the genuine `null` default;
+    widened to `array|string|null`.
+  - `preSelect()`/`basePreSelect()` had a vestigial `: mixed` return type
+    that no caller consumes and that forced every subclass override to add
+    a bare `return null;` just to satisfy it (the only pre/post hook pair
+    with an explicit type — every sibling hook is untyped); dropped it for
+    consistency, and fixed `ModelCriteriaHooksTest`'s own override that had
+    no return statement at all.
+  - `TestableModelCriteriaWithSchema` (`ModelCriteriaWithSchemaTest.php`)
+    was missing the `public $replacedColumns;` white-box property override
+    its `ModelCriteriaTest` twin already has (from commit `0186ecb`) —
+    added it.
+  - `convertValueForColumn()` serialized ARRAY-column values as
+    `'| a | b |'` (no leading/trailing space), but `ObjectBuilder`'s
+    `buildCriteria()`/`hydrate()` persist/parse array columns as
+    `' | a | b | '` (surrounding spaces) — a plain `where('Col = ?', array(...))`
+    comparison never matched a stored row. Fixed the serialization to match
+    exactly (this also fixed `GeneratedQueryArrayColumnTypeTest::testWhere`).
+  - Remaining `ModelCriteriaTest`/`BasePeerTest`/`SubQueryTest` failures
+    were stale MySQL-only expected-SQL literals (backtick quoting —
+    `useQuoteIdentifier()` is `false` by default for Postgres, `true` only
+    for MySQL — and MySQL's `LIMIT offset, count` vs. Postgres's
+    `LIMIT count OFFSET offset`, and MySQL's `DELETE alias FROM ...`
+    multi-table-delete syntax, which `DBPostgres::getDeleteFromClause()`
+    deliberately doesn't emit since Postgres doesn't support it). Updated
+    the literals to match the suite's actual Postgres-backed default —
+    the same already-established pattern as cluster #4 below.
+  - **Left failing on purpose**: `ModelCriteriaTest::testMagicGroupBy`
+    exercises MySQL's non-standard relaxed GROUP BY (selecting ungrouped,
+    non-functionally-dependent columns) against a *real* connection —
+    genuinely invalid SQL under Postgres's stricter grouping rules, and
+    (confirmed by actually running this exact test against a MySQL
+    testcontainer, see below) also invalid under any modern MySQL with the
+    default `sql_mode=only_full_group_by`. Not a library bug; the test's
+    own query is simply obsolete for any DB configuration this suite could
+    plausibly run against today.
+- **`SubQueryTest` (7 → 0).** Root-caused as the `addSelectQuery()` typo
+  above (KNOWN_ISSUES previously flagged this as "a real structural
+  subquery-construction bug" without root-causing it — this pass did).
+  Also updated the same stale-backtick-literal pattern.
+- **Missing test classes (3 "Class X cannot be found" warnings) — fixed.**
+  All three were simple class/filename mismatches (PHPUnit's suite loader
+  requires them to match): `GeneratedQueryEnumColumnTest` →
+  `GeneratedQueryEnumColumnTypeTest`, `GeneratedQueryObjectColumnTest` →
+  `GeneratedQueryObjectColumnTypeTest`, `PropulsionForeignComparatorTest` →
+  `PropulsionForeignKeyComparatorTest`. Renaming the second one surfaced a
+  real, previously entirely-untested gap: OBJECT-typed columns had *no*
+  support at all in the promoted `ObjectBuilder` (property/getter/setter
+  typed `?string` instead of `mixed`, no serialize/unserialize in
+  `hydrate()`/`buildCriteria()`/`buildPkeyCriteria()`, unlike `PHP_ARRAY`
+  which already had dedicated handling in both places). Ported the same
+  treatment LOB columns already get.
+- **`GeneratedObjectRelTest` (2 → 0).**
+  - Column mutators for FK columns never invalidated a cached related
+    object when the raw FK column was set directly (as opposed to through
+    the generated relation setter, e.g. `setBookstore()`) — and a single
+    column can back more than one FK (`testMultiFkImplication`). Ported
+    the invalidation `PHP5ObjectBuilder::addMutatorCloseBody()` already did
+    for every column's mutator.
+  - `countBooks()`-style many-to-many cross-reference count methods
+    unconditionally returned 0 for a new/unsaved object, ignoring an
+    already-populated in-memory collection from an `addBook()`-style
+    adder — the same bug already fixed for plain (non-cross) referrer
+    `count<Fk>()` methods in an earlier pass, just not ported to the
+    cross-FK code path (`testManyToManyAdd`).
+- **`GeneratedObjectTemporalColumnTypeTest` (2 → 0).** The temporal column
+  mutator passed `''` straight into `new DateTime('')`, which PHP
+  interprets as "now" rather than "no value" (PHP5's convention); and
+  invalid date strings throw a native `DateMalformedStringException` as of
+  PHP 8.3, not the library's own `PropulsionException` every call site
+  expects. Fixed both.
+- **`GeneratedQueryArrayColumnTypeTest` (1 → 0).** Same
+  `convertValueForColumn()` fix as above.
+- **`GeneratedObjectObjectColumnTypeTest`/`GeneratedPeerDoSelectTest`
+  OBJECT-column error** — covered by the OBJECT-column-type port above.
+  `GeneratedPeerDoSelectTest::testDoSelect`/`testDoSelectOne` **left
+  failing on purpose**: the test explicitly passes `BookPeer::ID, 'foo'`
+  expecting an empty result (MySQL's loose numeric-column coercion
+  silently no-matches instead of erroring); Postgres correctly rejects
+  `'foo'` as invalid input for an integer column with a real SQL error.
+  Confirmed via a MySQL testcontainer run (see below) that this test does
+  pass as originally written under MySQL — a genuine, symmetric
+  MySQL-vs-Postgres semantic difference in the test's own query, not a bug.
+- **`FieldnameRelatedTest` (2 → 0).** `BasePeer::getFieldNames()`/
+  `translateFieldName()` — the generic, model-classname-taking counterparts
+  to each generated Peer's own static methods of the same name — never
+  existed on `BasePeer` at all (not in the promoted builder's runtime
+  support, no equivalent in the archived PHP5 runtime either). Added both,
+  delegating to the per-table implementation via the established
+  `<Classname>Peer` naming convention.
+- **`MysqlSchemaParserTest` (1 → 0, now a graceful skip).** No MySQL server
+  is provisioned anywhere in this suite's own integration infrastructure
+  (`IntegrationDatabase` only ever stood up Postgres) — this always errored
+  trying to open a socket connection to a MySQL server that doesn't exist.
+  Wrapped the connection attempt in a try/catch that calls
+  `markTestSkipped()`, the same graceful-degrade pattern
+  `BookstoreTestBase::setUp()` already uses. Also fixed a stale lowercase
+  `generator/lib` include-path segment (should be `generator/Lib`).
+- **`PropulsionQuickBuilderTest` (1 → 0).** Same stale-lowercase-path bug
+  (`generator/lib/platform/MysqlPlatform.php` → `generator/Lib/Platform/...`)
+  — the "old lowercase include path" class of bug flagged for this cluster
+  turned out to be a second, independent instance of the exact issue
+  `PropulsionStringReader.php` had in an earlier pass, not the same file.
+- **`DatabaseMapTest`/`AggregateColumnBehaviorTest` (2+2 → 0, root-caused
+  rather than confirmed-and-left).**
+  - `DatabaseMapTest`: confirmed still order-dependent/passes in isolation,
+    as documented — no fixable root cause found, left as-is.
+  - `AggregateColumnBehaviorTest::testRemoveRelation`/`testReplaceRelation`:
+    **not just flakiness** — `AggregateColumnRelationBehavior::objectFilter()`
+    injected its "remember the old related object" tracking via a literal
+    `str_replace()` search for PHP5ObjectBuilder's exact FK-relation-setter
+    signature (no `?` on the parameter, no return type). The promoted
+    `ObjectBuilder` generates `?RelatedClass $v = null): static`, which
+    never matched, so the injection silently never fired and
+    `$this->oldX` was never populated — every remove/replace-a-relation
+    scenario failed to decrement the old object's aggregate. Fixed with a
+    regex that tolerates the nullable-parameter/return-type differences.
+- **`AggregateColumnBehaviorWithSchemaTest` (fixed properly, two stacked
+  bugs).** Populated the previously-undiagnosed not-null violation (missing
+  `store_name`, same pattern as cluster #1) — which unmasked a real,
+  previously-hidden regression from *this session's own* nested-function
+  table-name-detection fix (see `BasePeerTest` below): the backward
+  identifier scan stopped at the first embedded `.`, silently dropping the
+  `bookstore_schemas.` prefix from a multi-schema-qualified FROM-clause
+  entry while the SELECT list and ON-clause kept the full name — Postgres
+  correctly rejected the resulting `FROM bookstore INNER JOIN ...`. Fixed
+  by letting the scan continue through embedded dots too.
+- **`BasePeerTest` (2 → 0).** `DBAdapter::createSelectSqlPart()` derived a
+  raw/function select column's source table by finding the *last* `(` and
+  the *last* `.` in the whole expression — works for `MAX(books.price)`,
+  breaks for a nested expression like
+  `substring(book.TITLE from position('Potter' in book.TITLE))`, which
+  picked up unrelated string-literal/keyword text as a bogus FROM-clause
+  entry (`FROM 'Potter' in book`). Replaced with a backward
+  identifier-character scan from the last dot. `testDoDeleteTableAlias`
+  was the same stale MySQL-multi-table-delete-syntax literal as
+  `ModelCriteriaTest::testDeleteUsingTableAlias` above.
+- **`PropulsionPDOTest` (2 → 0, plus 2 more found once the first two
+  stopped masking them).**
+  - `testNestedTransactionRollBackSwallow`: `retrieveByPK_SinglePK`'s
+    generated `$pk` parameter was non-nullable, but a null primary key is
+    a legitimate input (checking whether an object whose insert never
+    completed was persisted) — widened to nullable with an immediate
+    `return null;` short-circuit.
+  - `testDebugLog`: `setLogger()` was typed to reject `null`, but
+    `getLogger()` already documents (and returns) `?LoggerInterface` — a
+    "no logger" state is real and reachable (confirmed by running against
+    a from-scratch MySQL testcontainer, where no earlier test in the fresh
+    connection pool had happened to set one first — this only ever passed
+    under Postgres by order-dependent coincidence). Also: the test's own
+    `myLogger` double used a `__call()` catch-all, which can't satisfy the
+    now-strictly-typed `LoggerInterface` parameter (interface conformance
+    needs real declared methods) — changed it to extend
+    `Psr\Log\AbstractLogger`. Also: its custom
+    `debugpdo.logging.methods` allowlist used only bare, pre-namespace
+    method names (`'PropulsionPDO::beginTransaction'`), but
+    `PropulsionPDO::log()` checks against the real, now-namespaced
+    `__METHOD__` — the class's own `$defaultLogMethods` already carries
+    both forms for this exact reason; the test's custom list didn't. Also
+    fixed two of the test's own stale backtick-literal assertions once the
+    above unblocked them (same pattern as everywhere else in this pass).
+- **`PropulsionObjectCollectionTest` (1 → 0).** `testToArrayDeep`'s stale
+  call to `toArray()` relied on an implicit `$includeForeignObjects`
+  default that both the collection- and object-level APIs deliberately set
+  to `false` (non-recursive by default) — updated the call to opt in
+  explicitly, matching what the test's own name and expected output
+  (nested related-object arrays, `*RECURSION*` marker) actually exercise.
+- **`PropulsionArrayCollectionTest` (1 → 0).** `testFromArray` populated
+  `Book` rows via `fromArray()` without the required `ISBN` column (the
+  same not-null-violation pattern fixed for ~40 other tests in an earlier
+  pass, just missed for this file) — the resulting Postgres error is what
+  left the shared connection's transaction aborted for the test's own next
+  query to legitimately fail on.
+- **`PropulsionArrayFormatterWithTest` (1 → 0, real formatter bug).**
+  `PropulsionArrayFormatter::format()`'s row loop did `$collection[] =
+  $object;` where `$object` is a *reference* returned from
+  `getStructuredArrayFromRow()`. For a one-to-many `with()` (e.g. a book
+  with multiple reviews), only the *first* SQL result row for a given main
+  object returns the real, growing array by reference; every later row for
+  the same object mutates that array in place and returns `null`. A plain
+  `=` assignment copies the array's value at that instant instead of
+  keeping the reference alive, so the copy already in `$collection` never
+  saw later rows' appends — only the first related row ever showed up.
+  `PropulsionObjectFormatter` never had this problem (PHP objects are
+  always handle/reference types; plain arrays are not). Fixed by
+  accumulating rows into a plain PHP array by reference first, then
+  copying the *final* contents into the real output container after the
+  loop (PHP has no by-reference form of `ArrayAccess::offsetSet()`, so
+  `$collection[] = &$object` itself fatals once `$collection` is a
+  `PropulsionArrayCollection` rather than a plain array).
+- **`ModelCriteriaHooksTest` (1 → 0).** Covered above (`preSelect()`).
+
+**Confirmed unrelated to this pass's changes, still present, out of
+scope**: `MssqlPlatformTest` (not one of this pass's assigned clusters;
+same pre-existing order-dependent behavior documented elsewhere in this
+file) and the already-documented cluster-#3 MySQL-double-quote-string
+tests (`PropulsionStatementFormatterTest`/`PropulsionArrayFormatterTest`/
+`PropulsionObjectFormatterTest`/`PropulsionOnDemandFormatterTest` — left
+untouched per explicit instruction for this pass).
+
+**MySQL testcontainer comparison run.** Added a `PROPULSION_TEST_DB=mysql`
+mode to `test/tools/helpers/IntegrationDatabase.php` (main bookstore
+fixture only — the `schemas`/`namespaced` fixtures are Postgres-schema-
+feature-specific by design and degrade to `markTestSkipped()` automatically
+in this mode) specifically to sanity-check this pass's various
+"MySQL-vs-Postgres semantic difference, not a bug" judgment calls against a
+real MySQL server rather than reasoning about it from documentation alone.
+Result: **2222 tests, 2 errors, 114 failures, 41 skipped, 1 risky.** The 114
+failures are overwhelmingly (111 of them) the *exact same* backtick-
+quoting/`LIMIT`-syntax/multi-table-`DELETE` literals this pass just updated
+to their Postgres form, now legitimately differing the other way under
+MySQL's `useQuoteIdentifier() === true` default — a symmetric, expected
+result that confirms those literals really were platform-specific and not
+arbitrarily "fixed to whatever passes." The 2 errors are
+`ModelCriteriaTest::testMagicGroupBy` (also invalid under a modern MySQL's
+default `sql_mode=only_full_group_by` — see above, confirms this test is
+simply obsolete) and one more `PropulsionPDOTest::testDebugLog` restore-
+logger call that only ever passed under Postgres by order-dependent luck
+(fixed above once found). Also had to fix a real, previously-undiscovered
+gap in this session's own Docker-credential-helper workaround while
+standing this up: it only ever overrode the Docker CLI's `DOCKER_CONFIG`
+variable, but testcontainers/testcontainers's own registry-auth lookup
+(only exercised on an actual image pull — every Postgres pull this session
+had a warm cache) reads `DOCKER_AUTH_CONFIG`/`~/.docker/config.json`
+directly instead; added an equivalent override for that too.
 
 ### Remaining failures, by cluster (highest count first)
 

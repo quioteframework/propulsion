@@ -600,9 +600,12 @@ class PropulsionPDO extends \PDO
 	/**
 	 * Sets a PSR-3 logger to use for this connection, overriding Propulsion::log().
 	 *
-	 * @param     LoggerInterface  $logger
+	 * @param     ?LoggerInterface  $logger A null value clears the per-connection logger
+	 *             override (falling back to Propulsion::log()), which is a legitimate
+	 *             state -- getLogger() already documents (and returns) ?LoggerInterface
+	 *             for exactly this reason.
 	 */
-	public function setLogger(LoggerInterface $logger)
+	public function setLogger(?LoggerInterface $logger)
 	{
 		$this->logger = $logger;
 	}

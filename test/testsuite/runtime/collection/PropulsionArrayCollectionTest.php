@@ -101,8 +101,8 @@ class PropulsionArrayCollectionTest extends BookstoreEmptyTestBase
 		$author->setLastName('Austen');
 		$author->save();
 		$books = array(
-			array('Title' => 'Mansfield Park', 'AuthorId' => $author->getId()),
-			array('Title' => 'Pride And PRejudice', 'AuthorId' => $author->getId())
+			array('Title' => 'Mansfield Park', 'ISBN' => '0141439563', 'AuthorId' => $author->getId()),
+			array('Title' => 'Pride And PRejudice', 'ISBN' => '0141439518', 'AuthorId' => $author->getId())
 		);
 		$col = new PropulsionArrayCollection();
 		$col->setModel('Book');

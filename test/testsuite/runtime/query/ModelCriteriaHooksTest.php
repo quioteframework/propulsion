@@ -141,6 +141,7 @@ class ModelCriteriaWithPreSelectHook extends ModelCriteria
 	public function preSelect(PropulsionPDO $con): mixed
 	{
 		$this->where($this->getModelAliasOrName() . '.Title = ?', 'Don Juan');
+		return null;
 	}
 }
 

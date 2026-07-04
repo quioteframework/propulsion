@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
  * @license    MIT License
  */
 
-set_include_path(get_include_path().PATH_SEPARATOR.dirname(__FILE__).'/../../../../../generator/lib');
+set_include_path(get_include_path().PATH_SEPARATOR.dirname(__FILE__).'/../../../../../generator/Lib');
 
 /**
  * Tests for Mysql database schema parser.
@@ -42,7 +42,19 @@ class MysqlSchemaParserTest extends TestCase
 
     public function testParse()
     {
-        $parser = new MysqlSchemaParser(Propulsion::getConnection('reverse-bookstore'));
+        // Unlike the rest of this suite (Postgres, via a testcontainer -- see
+        // IntegrationDatabase), no MySQL server is provisioned anywhere in this
+        // environment, so a real connection attempt here always fails ("No such file or
+        // directory" -- the DSN has no host, so PDO tries a local Unix socket that
+        // doesn't exist). Skip gracefully, the same way BookstoreTestBase's setUp() skips
+        // (rather than errors) when its own PROPULSION_SKIP_INTEGRATION/Docker-backed
+        // Postgres isn't available.
+        try {
+            $con = Propulsion::getConnection('reverse-bookstore');
+        } catch (PropulsionException $e) {
+            $this->markTestSkipped('No MySQL server available to reverse-engineer against: ' . $e->getMessage());
+        }
+        $parser = new MysqlSchemaParser($con);
         $parser->setGeneratorConfig(new QuickGeneratorConfig());
 
         $database = new Database();

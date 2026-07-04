@@ -167,10 +167,10 @@ class ModelCriteria extends Criteria
 	 * $c->setFormatter(ModelCriteria::FORMAT_ARRAY);
 	 * </code>
 	 *
-	 * @param     string|PropulsionFormatter $formatter a formatter class name, or a formatter instance
+	 * @param     mixed $formatter a formatter class name, or a formatter instance
 	 * @return    static The current object, for fluid interface
 	 */
-	public function setFormatter(string|PropulsionFormatter $formatter) : static
+	public function setFormatter(mixed $formatter) : static
 	{
 		if(is_string($formatter)) {
 			$formatter = new $formatter();
@@ -323,7 +323,7 @@ class ModelCriteria extends Criteria
 	 *
 	 * @return     static The current object, for fluid interface
 	 */
-	public function orWhere(string $clause, mixed $value = null) : static
+	public function orWhere(string|array $clause, mixed $value = null) : static
 	{
 		return $this
 			->_or()
@@ -541,7 +541,7 @@ class ModelCriteria extends Criteria
 	 *
 	 * @return    array|string A list of column names (e.g. array('Title', 'Category.Name', 'c.Content')) or a single column name (e.g. 'Name')
 	 */
-	public function getSelect() : array|string
+	public function getSelect() : array|string|null
 	{
 		return $this->select;
 	}
@@ -1014,7 +1014,7 @@ class ModelCriteria extends Criteria
 	public function addSelectQuery(Criteria $subQueryCriteria, ?string $alias = null, ?bool $addAliasAndSelectColumns = true) : static
 	{
 		if (!$subQueryCriteria->hasSelectClause()) {
-			$this->addSelfSelectColumns();
+			$subQueryCriteria->addSelfSelectColumns();
 		}
 		parent::addSelectQuery($subQueryCriteria, $alias);
 		if ($addAliasAndSelectColumns) {
@@ -1130,12 +1130,12 @@ class ModelCriteria extends Criteria
 	 *
 	 * @param     PropulsionPDO $con The connection object used by the query
 	 */
-	protected function basePreSelect(PropulsionPDO $con) : mixed
+	protected function basePreSelect(PropulsionPDO $con)
 	{
 		return $this->preSelect($con);
 	}
 
-	protected function preSelect(PropulsionPDO $con) : mixed
+	protected function preSelect(PropulsionPDO $con)
 	{
 		return null;
 	}
@@ -1195,7 +1195,12 @@ class ModelCriteria extends Criteria
 			$class = $this->getModelName();
 			$obj = new $class();
 			foreach ($this->keys() as $key) {
-				$obj->setByName($key, $this->getValue($key), BasePeer::TYPE_COLNAME);
+				$value = $this->getValue($key);
+				$columnName = (false !== $dotPos = strrpos($key, '.')) ? substr($key, $dotPos + 1) : $key;
+				if ($this->getTableMap()->containsColumn($columnName)) {
+					$value = $this->unconvertValueForColumn($value, $this->getTableMap()->getColumn($columnName));
+				}
+				$obj->setByName($key, $value, BasePeer::TYPE_COLNAME);
 			}
 			$ret = $this->getFormatter()->formatRecord($obj);
 		}
@@ -1221,7 +1226,7 @@ class ModelCriteria extends Criteria
 		$pkCols = $this->getTableMap()->getPrimaryKeys();
 		if (count($pkCols) == 1) {
 			// simple primary key
-			$pkCol = $pkCols[0];
+			$pkCol = reset($pkCols);
 			$this->add($pkCol->getFullyQualifiedName(), $key);
 			return $this->findOne($con);
 		} else {
@@ -1814,13 +1819,51 @@ class ModelCriteria extends Criteria
 				$value = serialize($value);
 			}
 		} elseif ($colMap->getType() == 'ARRAY' && is_array($value)) {
-			$value = '| ' . implode(' | ', $value) . ' |';
+			// Must match the exact " | a | b | "-with-surrounding-spaces format
+			// ObjectBuilder's buildCriteria()/hydrate() serialize array columns to
+			// (see ObjectBuilder::addBuildCriteria() and the hydrate() regex), or a plain
+			// "column = ?" comparison against a real array value never matches a stored row.
+			$value = ' | ' . implode(' | ', $value) . ' | ';
 		} elseif ($colMap->getType() == 'ENUM') {
 			if (is_array($value)) {
 				$value = array_map(array($colMap, 'getValueSetKey'), $value);
 			} else {
 				$value = $colMap->getValueSetKey($value);
 			}
+		}
+
+		return $value;
+	}
+
+	/**
+	 * Reverses convertValueForColumn()'s transformation, for findOneOrCreate()'s benefit:
+	 * query-builder filter methods (filterByStyle(), filterByTags(), ...) store ENUM columns
+	 * as their internal index and ARRAY columns as a '%| value |%'-style LIKE pattern in the
+	 * Criteria's own map, not the original label/array value a column setter actually accepts.
+	 * findOneOrCreate() needs the original value back to populate a freshly-created object when
+	 * the query itself found no match.
+	 *
+	 * @param  mixed     $value  The stored criterion value to convert back
+	 * @param  ColumnMap $colMap The ColumnMap object
+	 * @return mixed             The converted value
+	 */
+	protected function unconvertValueForColumn(mixed $value, ColumnMap $colMap) : mixed
+	{
+		if ($value === null) {
+			return $value;
+		}
+		if ($colMap->getType() == 'ENUM') {
+			$valueSet = $colMap->getValueSet();
+			if (is_array($value)) {
+				return array_map(fn($v) => $valueSet[$v] ?? $v, $value);
+			}
+			return $valueSet[$value] ?? $value;
+		} elseif ($colMap->getType() == 'ARRAY' && is_string($value)) {
+			$trimmed = trim(trim($value, '%|'));
+			if ($trimmed === '') {
+				return array();
+			}
+			return array_map('trim', explode('|', $trimmed));
 		}
 
 		return $value;
