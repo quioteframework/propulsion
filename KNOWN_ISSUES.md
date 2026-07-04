@@ -638,6 +638,118 @@ worked through the hook-wiring and segfault issues (bisect by running
 `testsuite/generator/behavior/<name>/` in isolation, find the first real
 error, root-cause it, repeat).
 
+**Follow-up: `nested_set` behavior cluster — fixed.** Root cause of
+essentially all ~89 `NestedSetBehaviorObjectBuilderModifierTest`/
+`NestedSetBehaviorObjectBuilderModifierWithScopeTest`/
+`NestedSetBehaviorQueryBuilderModifierTest`/
+`NestedSetBehaviorQueryBuilderModifierWithScopeTest`/
+`NestedSetBehaviorPeerBuilderModifierTest`/
+`NestedSetBehaviorPeerBuilderModifierWithScopeTest` failures: this was
+never actually a builder-hook-wiring gap (the `8caa48c`/this-phase fix
+already covers `nested_set` like every other behavior) — it was
+`NestedSetBehavior{Object,Peer}BuilderModifier::getColumnAttribute()`
+generating `$this->{lowercased_column_name}` (e.g. `$this->tree_left`)
+inside the `getLeftValue()`/`getRightValue()`/`getLevel()`/
+`getScopeValue()` proxy accessors. That matched
+`PHP5ObjectBuilder`'s property-naming convention
+(`strtolower($col->getName())`) exactly, but the promoted `ObjectBuilder`
+declares object properties by column *PhpName* instead (e.g.
+`$this->TreeLeft`) — so every proxy accessor silently read/wrote a
+nonexistent dynamic property. Left/right/level always round-tripped as
+`null` after a save+reload, cascading into `TREE_LEFT > NULL` SQL errors,
+broken tree math, and near-total failure across all six test classes.
+Fixed by having `getColumnAttribute()` return the column's PhpName
+instead of a lowercased column name, in both the Object and Peer
+builder modifiers (`generator/Lib/Behavior/NestedSet/
+NestedSetBehaviorObjectBuilderModifier.php`/
+`NestedSetBehaviorPeerBuilderModifier.php`). This is a `nested_set`-behavior-
+specific fix, not a generic builder-hook change like the `8caa48c` one --
+worth the other parallel engineers (`i18n`/`sortable`/generic
+`ObjectBuilder` gaps) double-checking whether their behaviors have an
+analogous stale "reference the PHP5 property-naming convention by hand"
+spot, since this class of bug (a behavior modifier assuming PHP5's
+codegen conventions instead of querying the column for its real name)
+wouldn't be caught by anything that only audits hook *wiring*.
+
+With that fixed, two more real, previously-unreached bugs in
+`NestedSetBehaviorQueryBuilderModifier` surfaced (pre-existing, not
+introduced by PHP5 removal -- this file is shared between old and new
+builders, so both always generated this):
+- `orderByLevel()` ordered by `RIGHT_COL` descending/ascending. That
+  coincidentally puts the root first (it always has the largest right
+  value) but past that interleaves subtrees in a postorder-ish sequence
+  instead of grouping same-level nodes together. Fixed to order by
+  `LEVEL_COL`, with `LEFT_COL` (branch/natural order) as a tiebreaker.
+  This also let `testOrderByLevel` (called out above under cluster #5,
+  "This test did not perform any assertions") get its dropped
+  `assertEquals()` calls restored -- the real bug it had been left
+  disabled to avoid hitting.
+- `treeRoots()` had no `ORDER BY` at all. With scoping enabled there's
+  one root per scope, all sharing `LEFT_COL = 1` with nothing else to
+  order by, so Postgres was free to return them in whatever order it
+  pleased -- passing or failing depending on unrelated global suite
+  state (it reliably passed under `--filter NestedSetBehavior` alone but
+  intermittently failed inside a full-suite run). Added a deterministic
+  `SCOPE_COL` ascending order when scoping is in use.
+
+Also replaced `NestedSetBehaviorObjectBuilderModifierTest::testObjectAttributes`'s
+call to `assertClassHasAttribute()` (removed in PHPUnit 10+, same class
+of fix as commit `0186ecb`'s `assertInternalType()` removals) with the
+direct `property_exists()` replacement.
+
+Verified with `../vendor/bin/phpunit -c phpunit.xml --filter
+NestedSetBehavior`: 121 tests, 39 errors + 58 failures -> 0 errors, 0
+failures (1 pre-existing, unrelated risky test). Full suite (Docker/
+Postgres, fixture `build/` dirs removed first): 143 errors/184 failures
+-> 105 errors/125 failures, confirmed as a real improvement and not
+just moved elsewhere by an A/B run with `--exclude-filter
+'VersionableBehaviorObjectBuilderModifierTest::'` on both sides (144
+errors/192 failures before this fix vs. 106 errors/138 failures after,
+out of the same 2160 tests) -- see the note immediately below for why
+that one class had to be excluded to get a clean full-suite number at
+all.
+
+**Unrelated discovery while running the full suite for verification: a
+real PHP-engine-crashing infinite-recursion bug in the `versionable`
+behavior, not fixed here (out of `nested_set` scope).**
+`VersionableBehaviorObjectBuilderModifierTest` (specifically at least
+`testToVersionPreservesVersionedReferrerObjects` and
+`testReferrerVersion`, and very possibly the rest of that class) segfaults
+the PHP process outright under this environment's PHP 8.5 -- confirmed
+reproducible identically with and without the `nested_set` fix in this
+section, so it's pre-existing, not a regression from anything here. Root
+cause (visible in the C-level stack captured once `pcov` was disabled so
+PHPUnit's own child-process guard could catch it as "premature end of
+PHP process" instead of the parent segfaulting): `BaseVersionableBehaviorTest4::
+isVersioningNecessary()` and `BaseVersionableBehaviorTest5::
+isVersioningNecessary()` call each other in an unbounded mutual
+recursion (visible as thousands of alternating stack frames between the
+two), blowing the C stack until the process segfaults. This crashes the
+*entire* PHPUnit run (not just the one test) unless that test class is
+excluded via `--exclude-filter 'VersionableBehaviorObjectBuilderModifierTest::'`,
+which is why the full-suite comparison above needed it. Flagging
+explicitly for whichever pass ends up owning `versionable` (not
+called out as one of the three behaviors -- `i18n`/`sortable`/generic
+`ObjectBuilder` -- already assigned to parallel work at the top of this
+Phase 3.5 section, so it may not have an owner yet) since a single test
+class currently makes `vendor/bin/phpunit -c phpunit.xml` (no filter)
+uncompletable in this environment.
+
+**Separate, smaller discovery, also out of scope and not fixed:** even
+with `versionable` excluded, five `nested_set` peer tests
+(`NestedSetBehaviorPeerBuilderModifierTest::testMakeRoomForLeaf`/
+`testUpdateLoadedNodes`/`testRetrieveTree`,
+`NestedSetBehaviorPeerBuilderModifierWithScopeTest::testRetrieveRoots`/
+`testRetrieveTree`) fail only inside a full-suite run, never under
+`--filter NestedSetBehavior` alone -- off-by-one left/right values and a
+`Table9` instance where a `PublicTable9` (the test's own subclass) was
+expected. This is the same already-documented class of order-dependent,
+instance-pool/global-state cross-test bleed described elsewhere in this
+file (e.g. the `DatabaseMapTest::testAddTableObject` flakiness noted
+under the `Propel*` -> `Propulsion*` rename section), not a new bug this
+pass introduced -- left alone rather than chased down given the time
+already spent isolating the two crash-class issues above.
+
 ### Phase 4 — Worker-safety rework (ServiceContainer/Session split)
 
 This is the actual motivating goal from `PROPULSION_WORKER_REWORK.md`
