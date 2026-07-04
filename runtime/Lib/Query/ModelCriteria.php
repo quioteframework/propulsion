@@ -1819,7 +1819,11 @@ class ModelCriteria extends Criteria
 				$value = serialize($value);
 			}
 		} elseif ($colMap->getType() == 'ARRAY' && is_array($value)) {
-			$value = '| ' . implode(' | ', $value) . ' |';
+			// Must match the exact " | a | b | "-with-surrounding-spaces format
+			// ObjectBuilder's buildCriteria()/hydrate() serialize array columns to
+			// (see ObjectBuilder::addBuildCriteria() and the hydrate() regex), or a plain
+			// "column = ?" comparison against a real array value never matches a stored row.
+			$value = ' | ' . implode(' | ', $value) . ' | ';
 		} elseif ($colMap->getType() == 'ENUM') {
 			if (is_array($value)) {
 				$value = array_map(array($colMap, 'getValueSetKey'), $value);
