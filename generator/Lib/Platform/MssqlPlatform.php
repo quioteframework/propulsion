@@ -24,7 +24,23 @@ use Propulsion\Generator\Model\ForeignKey;
 
 class MssqlPlatform extends DefaultPlatform
 {
-	protected static $dropCount = 0;
+	/**
+	 * Counter used to generate unique cursor/variable names (@reftable_N,
+	 * @constraintname_N) across every DROP TABLE block emitted into the same
+	 * generated script -- needed because SQL Server scopes DECLARE'd variables to
+	 * the whole batch, so two tables' DROP blocks in the same script can't reuse
+	 * the same names. Deliberately an *instance* property, not a class-level
+	 * static: SqlManager::loadDataModels() creates exactly one platform instance
+	 * per generation run and shares it across every schema file that targets the
+	 * same database (see AppData::setPlatform()), so instance-scoping still gives
+	 * correct uniqueness across a whole real run's concatenated output -- while a
+	 * class-level static previously leaked across unrelated calls sharing the same
+	 * PHP process (e.g. every test in this class instantiates its own
+	 * MssqlPlatform, so a static counter never reset between test methods,
+	 * silently coupling each test's expected output to how many DROP blocks every
+	 * *other* test that happened to run earlier had already emitted).
+	 */
+	protected $dropCount = 0;
 
 	/**
 	 * Initializes db specific domain mapping.
@@ -81,12 +97,12 @@ IF EXISTS (SELECT 1 FROM sysobjects WHERE type ='RI' AND name='" . $fk->getName(
 ";
 		}
 
-		self::$dropCount++;
+		$this->dropCount++;
 
 		$ret .= "
 IF EXISTS (SELECT 1 FROM sysobjects WHERE type = 'U' AND name = '" . $table->getName() . "')
 BEGIN
-	DECLARE @reftable_" . self::$dropCount . " nvarchar(60), @constraintname_" . self::$dropCount . " nvarchar(60)
+	DECLARE @reftable_" . $this->dropCount . " nvarchar(60), @constraintname_" . $this->dropCount . " nvarchar(60)
 	DECLARE refcursor CURSOR FOR
 	select reftables.name tablename, cons.name constraintname
 		from sysobjects tables,
@@ -98,11 +114,11 @@ BEGIN
 			and reftables.id = ref.fkeyid
 			and tables.name = '" . $table->getName() . "'
 	OPEN refcursor
-	FETCH NEXT from refcursor into @reftable_" . self::$dropCount . ", @constraintname_" . self::$dropCount . "
+	FETCH NEXT from refcursor into @reftable_" . $this->dropCount . ", @constraintname_" . $this->dropCount . "
 	while @@FETCH_STATUS = 0
 	BEGIN
-		exec ('alter table '+@reftable_" . self::$dropCount . "+' drop constraint '+@constraintname_" . self::$dropCount . ")
-		FETCH NEXT from refcursor into @reftable_" . self::$dropCount . ", @constraintname_" . self::$dropCount . "
+		exec ('alter table '+@reftable_" . $this->dropCount . "+' drop constraint '+@constraintname_" . $this->dropCount . ")
+		FETCH NEXT from refcursor into @reftable_" . $this->dropCount . ", @constraintname_" . $this->dropCount . "
 	END
 	CLOSE refcursor
 	DEALLOCATE refcursor
