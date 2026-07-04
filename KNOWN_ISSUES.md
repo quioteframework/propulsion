@@ -7,9 +7,8 @@ history (`git log`); every fix commit explains its own root cause in full.
 
 ## Test suite status
 
-**Full suite (Docker/Postgres) is green: 2248 tests, 0 errors, 0 failures, 0
-risky, 13 skipped.** No-Docker mode (`PROPULSION_SKIP_INTEGRATION=1`) agrees
-exactly. (The `MssqlPlatformTest` order-dependent flake mentioned in earlier
+**Full suite (Docker/Postgres) is green: 2252 tests, 0 errors, 0 failures, 0
+risky, 14 skipped.** (The `MssqlPlatformTest` order-dependent flake mentioned in earlier
 drafts of this section is fixed — see the `Propel*`/rename-era commit history
 around `MssqlPlatform::$dropCount` if curious; it's no longer an issue.)
 
@@ -143,14 +142,58 @@ categories, not one:
     one worker thread; this harness doesn't test cross-thread behavior
     (each thread has its own independent `Propulsion`/`Session` statics
     anyway, so there is nothing cross-thread to bleed).
-- **Phing `Task` classes** (`generator/Lib/Task/*`, 15 files) now have real
-  test coverage (`test/testsuite/generator/task/`) and are confirmed working,
-  but `generator/bin/propel-gen` itself was actually broken for *every*
-  project until this pass fixed it — see below. The tasks are not all
-  deletable yet: **Migrations and Diff are the only remaining tasks with no
-  console-app equivalent** (see "Console-app migration status" below for why,
-  and what does now have one). OM parity was proven (not obsoleted) earlier;
-  this pass added SchemaReverse, Graphviz, and SQLExec console equivalents too.
+- **Phing is fully removed from this project.** `phing/phing` is gone from
+  `composer.json`, `generator/Lib/Task/*` (all 15 files, including
+  `BasePropulsionMigrationTask`), `generator/bin/propel-gen`(`.bat`),
+  `generator/autoload-fix.php`, `generator/build*.xml`/`build.properties*`,
+  and the `generator/pear/`/`runtime/pear/` Phing PEAR-packaging Tasks are all
+  deleted, and the six `Reverse/*SchemaParser` classes no longer import
+  `Phing\Task`/`Phing\Project` (their optional `$task` logging parameter is
+  now `mixed $task = null`, since it was only ever used behind an
+  `if ($task)` guard and every real caller already passed `null`). The
+  console app (`bin/propulsion`) is now the only entry point; every Phing
+  task listed below has a console command doing the same job (bullet history
+  kept for context on the bugs found/fixed along the way).
+  - **Shared migration-execution logic**: the transaction-wrapping/
+    per-statement-ledger-recording/stop-at-first-failure logic that used to
+    live on `BasePropulsionMigrationTask::runMigrationDirection()` was
+    extracted into `PropulsionMigrationManager::runMigrationDirection()`
+    (throws a plain `MigrationExecutionException`, no Phing types) before the
+    Phing task was deleted, so the `migration:up`/`migration:down` console
+    commands and the old Phing task always executed migrations through
+    exactly the same code path — there was never a second, divergent
+    implementation to keep in sync.
+  - **Test coverage kept, not lost**: deleting `test/testsuite/generator/task/*`
+    (the Phing-task-specific tests) did not remove real regression coverage --
+    it was either redundant with per-Manager/Command tests that already existed
+    (`SchemaReverseManagerTest`/`SchemaReverseCommandTest`,
+    `SqlExecManagerTest`/`SqlExecCommandTest`, `GraphvizManagerTest`) or moved
+    to a Phing-free equivalent: `PropulsionMigrationManagerTest` (direct
+    coverage of `runMigrationDirection()`, including the transactional-vs-
+    non-transactional-DDL-platform split and the statement-failure/ledger
+    bug-fix regressions) and `PropulsionDatabaseComparatorTest` (the
+    two-schema-versions structural-diff case, which never depended on Phing
+    to begin with), plus `MigrationCommandsTest`/`SqlDiffCommandTest` proving
+    the console entry points wire the shared logic up correctly (including
+    the non-zero-exit-code-on-failure regression guard). `PropulsionOMTask`'s
+    old Task-vs-console byte-for-byte parity test is gone since there's only
+    one path left to test now; OM generation itself remains exercised
+    end-to-end by every fixture-backed test in the suite (via
+    `IntegrationDatabase::ensureClassesGenerated()`, which calls the same
+    `ModelManager` the console `model:build` command uses).
+  - **Not ported, deleted outright** (per already-documented scope decisions
+    below): `PropulsionDataDumpTask`/`PropulsionDataSQLTask` (no console
+    equivalent, deliberately -- see "Console-app migration status" below) and
+    `PropulsionConvertConfTask` (should be deprecated, not preserved -- see
+    its own entry below). `generator/Lib/Builder/Util/XmlToDataSQL.php` and
+    `PropulsionStringReader.php` were deleted alongside `PropulsionDataSQLTask`
+    since they existed solely to support it and had real `Phing\...` imports
+    of their own; the one test that used to reach `PropulsionConvertConfTask`
+    for its `simpleXmlToArray()` XML-to-array helper
+    (`MysqlSchemaParserTest`) now carries a small test-local, Phing-free port
+    of just that one static method instead of extending the deleted Task.
+  - Below is the history of how these tasks were audited, confirmed correct,
+    and ported, kept for context:
   - **Root cause fixed**: `generator/default.properties` declared
     `propel.project`, `propel.project.dir`, and `propel.targetPackage` as
     templates referencing each other in the same file (e.g.
@@ -383,18 +426,34 @@ categories, not one:
       console `data:dump`/`data:sql` pair shows up.
     - `PropulsionConvertConfTask` — see the dedicated entry below; explicitly
       **should not** get a console equivalent at all.
-  - **Explicitly out of scope for this pass, still Phing-only**: Migrations
-    (`PropulsionMigrationManager`, `PropulsionMigration{Up,Down,Status}Task`,
-    `BasePropulsionMigrationTask`) and Diff (`PropulsionSQLDiffTask`) — a
-    different engineer is concurrently rewriting the migration-ledger internals
-    (including a `PropulsionPlatformInterface::supportsTransactionalDDL()`
-    addition touching every `*Platform` class), so this pass deliberately left
-    all of those files, plus `PropulsionMigrationTaskTest.php`, untouched to
-    avoid colliding with that work. **This means `phing/phing` (the composer
-    dependency), `generator/bin/propel-gen`, and `generator/Lib/Task/*` as a
-    whole still cannot be removed** — Migrations and Diff remain Phing-only
-    until that concurrent work lands and a `migration:*`/`diff` console path
-    can be built the same way the commands above were.
+    - `migration:status` / `migration:up` / `migration:down`
+      (`Propulsion\Generator\Command\Migration{Status,Up,Down}Command`, sharing
+      option-wiring via `AbstractMigrationCommand`) — new, replacing
+      `PropulsionMigration{Status,Up,Down}Task`/`BasePropulsionMigrationTask`.
+      Execution itself (transaction wrapping, per-statement ledger recording,
+      stop-at-first-failure) lives in
+      `PropulsionMigrationManager::runMigrationDirection()`, called directly by
+      these commands -- there is exactly one implementation of "how a migration
+      direction executes" now that the Phing task adapter is gone (see the
+      "Phing is fully removed" entry above for how the two were kept in sync
+      right up until the task was deleted). A statement failure returns
+      `Command::FAILURE` (non-zero exit) with the per-statement ledger detail
+      printed, never a silent success. Covered by `MigrationCommandsTest`
+      (a real `status` -> `up` -> `down` cycle, plus statement-failure exits
+      non-zero for both directions without flipping applied state) and
+      `PropulsionMigrationManagerTest` (the shared engine's detailed behavior,
+      including the transactional-vs-non-transactional-DDL-platform split).
+    - `sql:diff` (`Propulsion\Generator\Manager\SqlDiffManager` /
+      `Propulsion\Generator\Command\SqlDiffCommand`, alias `diff`) — new,
+      replacing `PropulsionSQLDiffTask`. Same scope as the original Task
+      (deliberately **not** expanded): compares a live database (via a
+      `--buildtime-conf` connection) against a schema.xml file and generates a
+      `PropulsionMigration_<timestamp>.php` migration class; there is still no
+      "two schema.xml files" comparison mode. Covered by `SqlDiffCommandTest`
+      against a real Postgres testcontainer (live-database-drift generates a
+      migration class; an already-matching schema reports nothing to migrate)
+      and `PropulsionDatabaseComparatorTest` (the shared diff engine on two
+      schema.xml versions, unchanged from before).
 - **`PropulsionConvertConfTask` should be deprecated, not preserved.** It
   exists to convert the old XML runtime/buildtime config format
   (`runtime-conf.xml`/`build.properties`) into the PHP array config this

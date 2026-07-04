@@ -28,7 +28,7 @@ class MysqlSchemaParserTest extends TestCase
 		$xmlDom = new DOMDocument();
 		$xmlDom->load(dirname(__FILE__) . '/../../../../fixtures/reverse/mysql/runtime-conf.xml');
 		$xml = simplexml_load_string($xmlDom->saveXML());
-		$phpconf = OpenedPropulsionConvertConfTask::simpleXmlToArray($xml);
+		$phpconf = MysqlSchemaParserTestConfConverter::simpleXmlToArray($xml);
 
 		Propulsion::setConfiguration($phpconf);
         Propulsion::initialize();
@@ -82,10 +82,68 @@ class MysqlSchemaParserTest extends TestCase
     }
 }
 
-class OpenedPropulsionConvertConfTask extends PropulsionConvertConfTask
+/**
+ * A minimal, test-local port of the XML-runtime-conf-to-PHP-array conversion
+ * logic that used to live in the now-deleted Phing PropulsionConvertConfTask
+ * (see KNOWN_ISSUES.md -- that Task was deliberately not given a console
+ * equivalent and was removed along with the rest of the Phing task classes).
+ * This is the only remaining test that needs it, purely to turn a hand-written
+ * runtime-conf.xml fixture into the array shape Propulsion::setConfiguration()
+ * expects; ported verbatim rather than re-derived, since it has zero Phing
+ * dependency of its own (pure SimpleXMLElement -> array conversion).
+ */
+class MysqlSchemaParserTestConfConverter
 {
 	public static function simpleXmlToArray($xml)
 	{
-		return parent::simpleXmlToArray($xml);
+		$ar = array();
+
+		foreach ($xml->children() as $k => $v) {
+			$child = self::simpleXmlToArray($v);
+
+			// if it's not an array, then it was empty, thus a value/string
+			if (count($child) == 0) {
+				$child = self::getConvertedXmlValue($v);
+			}
+
+			// add the child's attributes as if they were children
+			foreach ($v->attributes() as $ak => $av) {
+				if (!is_array($child)) {
+					$child = array('value' => $child);
+				}
+
+				if ($ak == 'id') {
+					// special exception: if there is a key named 'id'
+					// then we will name the current key after that id
+					$k = self::getConvertedXmlValue($av);
+				} else {
+					$child[$ak] = self::getConvertedXmlValue($av);
+				}
+			}
+
+			if (!in_array($k, array_keys($ar))) {
+				$ar[$k] = $child;
+			} else {
+				if (!is_array($ar[$k]) || !isset($ar[$k][0])) {
+					$ar[$k] = array($ar[$k]);
+				}
+				$ar[$k][] = $child;
+			}
+		}
+
+		return $ar;
+	}
+
+	private static function getConvertedXmlValue($value)
+	{
+		$value = (string) $value;
+		$lwr = strtolower($value);
+		if ($lwr === 'false') {
+			$value = false;
+		} elseif ($lwr === 'true') {
+			$value = true;
+		}
+
+		return $value;
 	}
 }

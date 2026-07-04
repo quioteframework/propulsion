@@ -441,13 +441,14 @@ class PropulsionMigrationManager
 	 * the given SQL map (a migration class' getUpSQL()/getDownSQL() return
 	 * value), recording the outcome of every attempt in the migration ledger.
 	 *
-	 * This is the single, Phing-free implementation of "how a migration
-	 * direction actually executes" -- both BasePropulsionMigrationTask (the
-	 * Phing task adapter, which wraps the MigrationExecutionException this
-	 * throws into a Phing\Exception\BuildException) and the console
-	 * migration:up/migration:down commands call this same method, so the
-	 * transaction-wrapping and ledger-recording semantics can never drift
-	 * between the two entry points.
+	 * This is the single implementation of "how a migration direction
+	 * actually executes". It was originally shared between this class and a
+	 * Phing task adapter (BasePropulsionMigrationTask, which wrapped the
+	 * MigrationExecutionException this throws into a
+	 * Phing\Exception\BuildException) during the migration off Phing; that
+	 * task has since been deleted entirely (see KNOWN_ISSUES.md), and the
+	 * console migration:up/migration:down commands are now this method's
+	 * only caller.
 	 *
 	 * Statements are executed sequentially; on the first failure, execution
 	 * stops immediately (remaining statements are recorded as

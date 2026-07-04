@@ -25,10 +25,13 @@ use Propulsion\Generator\Model\Column;
 use Propulsion\Generator\Model\ColumnDefaultValue;
 use Propulsion\Generator\Model\ForeignKey;
 use Propulsion\Generator\Model\Index;
-use Phing\Task;
 use \PDO;
 class MssqlSchemaParser extends BaseSchemaParser
 {
+	/**
+	 * Verbose logging level for optional $task->log() calls (matches the historical build-tool's verbose-log level).
+	 */
+	private const MSG_VERBOSE = 4;
 
 	/**
 	 * Map MSSQL native types to Propulsion types.
@@ -85,7 +88,7 @@ class MssqlSchemaParser extends BaseSchemaParser
 	/**
 	 *
 	 */
-	public function parse(Database $database, ?Task $task = null)
+	public function parse(Database $database, mixed $task = null)
 	{
 		$stmt = $this->dbh->query("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME <> 'dtproperties'");
 

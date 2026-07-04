@@ -11,20 +11,21 @@ use Propulsion\Generator\Util\PropulsionMigrationManager;
 use Propulsion\Generator\Util\MigrationExecutionException;
 
 /**
- * Console replacement for the Phing-based PropulsionMigrationUpTask: executes
- * the next pending migration's Up SQL against the configured datasource(s).
+ * Console replacement for the former Phing-based PropulsionMigrationUpTask
+ * (Phing itself has since been removed from this project entirely -- see
+ * KNOWN_ISSUES.md): executes the next pending migration's Up SQL against the
+ * configured datasource(s).
  *
- * The actual statement-execution/transaction/ledger-recording logic is shared
- * with the Phing task (and migration:down) via
- * PropulsionMigrationManager::runMigrationDirection() -- see that method's
- * doc comment and BasePropulsionMigrationTask::runMigrationDirection() for
- * why there is exactly one implementation of this behavior.
+ * The actual statement-execution/transaction/ledger-recording logic lives in
+ * PropulsionMigrationManager::runMigrationDirection() (shared with
+ * migration:down) -- see that method's doc comment for the full
+ * transaction/ledger semantics.
  *
  * On a statement failure, this command returns Command::FAILURE (a non-zero
- * process exit code) -- this is the console-world equivalent of the
- * `Phing\Exception\BuildException`-not-`return false` fix from the migration
- * ledger redesign (see KNOWN_ISSUES.md): a half-applied migration must never
- * exit 0.
+ * process exit code) -- this is the console-world equivalent of a bug fixed
+ * during the migration ledger redesign (see KNOWN_ISSUES.md), where the old
+ * Phing task signaled failure via `return false` from Task::main(), which
+ * does not fail a Phing build: a half-applied migration must never exit 0.
  */
 #[AsCommand(
     name: 'migration:up',

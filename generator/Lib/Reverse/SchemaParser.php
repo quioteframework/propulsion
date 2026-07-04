@@ -19,7 +19,6 @@ namespace Propulsion\Generator\Reverse;
 
  use Propulsion\Generator\Config\GeneratorConfigInterface;
  use Propulsion\Generator\Model\Database;
- use Phing\Task;
 interface SchemaParser
 {
 
@@ -61,11 +60,14 @@ interface SchemaParser
 	 * Parse the schema and populate passed-in Database model object.
 	 *
 	 * @param      Database $database
-	 * @param 	   Task $task
+	 * @param      mixed $task Optional caller-provided logging sink. Historically a
+	 *             Phing\Task (behind an `if ($task) $task->log(...)` guard, only ever
+	 *             used for optional verbose-level logging -- never a hard dependency);
+	 *             the console commands (schema:reverse, sql:diff) always pass null.
 	 *
 	 * @return     int number of generated tables
 	 */
-	public function parse(Database $database, ?Task $task = null);
+	public function parse(Database $database, mixed $task = null);
 
 	public function setMigrationTable(string $migrationTable);
 }

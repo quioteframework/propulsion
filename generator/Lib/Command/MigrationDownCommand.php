@@ -11,14 +11,14 @@ use Propulsion\Generator\Util\PropulsionMigrationManager;
 use Propulsion\Generator\Util\MigrationExecutionException;
 
 /**
- * Console replacement for the Phing-based PropulsionMigrationDownTask: reverts
- * the most-recently-applied migration's Down SQL against the configured
+ * Console replacement for the former Phing-based PropulsionMigrationDownTask
+ * (see KNOWN_ISSUES.md -- Phing has since been removed entirely): reverts the
+ * most-recently-applied migration's Down SQL against the configured
  * datasource(s).
  *
- * See MigrationUpCommand's doc comment: the actual execution logic is shared
- * with the Phing task via PropulsionMigrationManager::runMigrationDirection(),
- * and a statement failure returns Command::FAILURE (non-zero exit), never a
- * silent success.
+ * See MigrationUpCommand's doc comment: the actual execution logic lives in
+ * PropulsionMigrationManager::runMigrationDirection(), and a statement
+ * failure returns Command::FAILURE (non-zero exit), never a silent success.
  */
 #[AsCommand(
     name: 'migration:down',
