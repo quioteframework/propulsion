@@ -10,11 +10,12 @@ jobs:
   unit:
     name: Unit tests (no Docker)
     runs-on: ubuntu-latest
-    # As of this writing the suite has ~160 known, tracked failures unrelated to
-    # this job's setup (see KNOWN_ISSUES.md -- other work is in progress on them
-    # in parallel). Non-blocking for now so CI is still useful signal without
-    # turning every PR red over pre-existing issues; flip this to false once
-    # those clusters are fixed.
+    # Non-blocking: under PROPULSION_SKIP_INTEGRATION=1, ~77 tests error out
+    # because they depend on the Docker-built fixtures but aren't individually
+    # guarded with a markTestSkipped()/class_exists() check the way most of the
+    # suite is (see KNOWN_ISSUES.md). The "integration" job below runs the same
+    # suite with Docker available and is blocking. Flip this to false once the
+    # remaining no-Docker guards are added.
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -54,12 +55,8 @@ jobs:
   integration:
     name: Full suite (with Docker/Postgres)
     runs-on: ubuntu-latest
-    # Best-effort tier: as of this writing the suite has known, tracked failures
-    # unrelated to Docker/Postgres itself (see KNOWN_ISSUES.md), so this job isn't
-    # required to pass yet. It still runs on every push/PR so regressions in the
-    # ~63 Docker-dependent integration tests (and any progress fixing the known
-    # failures) are visible without blocking merges.
-    continue-on-error: true
+    # Blocking: this is the source of truth for suite health (see
+    # KNOWN_ISSUES.md).
     steps:
       - uses: actions/checkout@v4
 
