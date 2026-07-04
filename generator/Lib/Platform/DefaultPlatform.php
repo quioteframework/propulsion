@@ -1088,6 +1088,14 @@ ALTER TABLE %s ADD
 		return true;
 	}
 
+	/**
+	 * @see        PropulsionPlatformInterface::supportsTransactionalDDL()
+	 */
+	public function supportsTransactionalDDL()
+	{
+		return false;
+	}
+
 	public function supportsVarcharWithoutSize()
 	{
 		return false;

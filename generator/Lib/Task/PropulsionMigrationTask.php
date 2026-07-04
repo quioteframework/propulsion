@@ -10,8 +10,6 @@
 namespace Propulsion\Generator\Task;
 use Propulsion\Generator\Util\PropulsionMigrationManager;
 use Phing\Project;
-use PDOException;
-use Propulsion\Generator\Util\PropulsionSQLParser;
 
 /**
  * This Task executes the next migrations up
@@ -31,7 +29,7 @@ class PropulsionMigrationTask extends BasePropulsionMigrationTask
 		$manager->setMigrationTable($this->getMigrationTable());
 		$manager->setMigrationDir($this->getOutputDirectory());
 
-		if (!$nextMigrationTimestamp = $manager->getFirstUpMigrationTimestamp()) {
+		if (!$manager->getFirstUpMigrationTimestamp()) {
 			$this->log('All migrations were already executed - nothing to migrate.');
 			return false;
 		}
@@ -50,49 +48,14 @@ class PropulsionMigrationTask extends BasePropulsionMigrationTask
 				$this->log('preUp() returned false. Aborting migration.', Project::MSG_ERR);
 				return false;
 			}
-			foreach ($migration->getUpSQL() as $datasource => $sql) {
-				$connection = $manager->getConnection($datasource);
-				$this->log(sprintf(
-					'Connecting to database "%s" using DSN "%s"',
-					$datasource,
-					$connection['dsn']
-				), Project::MSG_VERBOSE);
-				$pdo = $manager->getPdoConnection($datasource);
-				$res = 0;
-				$statements = PropulsionSQLParser::parseString($sql);
-				foreach ($statements as $statement) {
-					try {
-						$this->log(sprintf('Executing statement "%s"', $statement), Project::MSG_VERBOSE);
-						$stmt = $pdo->prepare($statement);
-						$stmt->execute();
-						$res++;
-					} catch (PDOException $e) {
-						$this->log(sprintf('Failed to execute SQL "%s"', $statement), Project::MSG_ERR);
-						// continue
-					}
-				}
-				if (!$res) {
-					$this->log('No statement was executed. The version was not updated.');
-					$this->log(sprintf(
-						'Please review the code in "%s"',
-						$manager->getMigrationDir() . DIRECTORY_SEPARATOR . $manager->getMigrationClassName($timestamp)
-					));
-					$this->log('Migration aborted', Project::MSG_ERR);
-					return false;
-				}
-				$this->log(sprintf(
-					'%d of %d SQL statements executed successfully on datasource "%s"',
-					$res,
-					count($statements),
-					$datasource
-				));
-				$manager->updateLatestMigrationTimestamp($datasource, $timestamp);
-				$this->log(sprintf(
-					'Updated latest migration date to %d for datasource "%s"',
-					$timestamp,
-					$datasource
-				), Project::MSG_VERBOSE);
-			}
+
+			// Executes every datasource's up SQL, recording the outcome in
+			// the migration ledger and throwing a BuildException (failing
+			// the Phing build) on the first statement failure -- see
+			// BasePropulsionMigrationTask::runMigrationDirection() for the
+			// full transaction/ledger semantics.
+			$this->runMigrationDirection($manager, $timestamp, 'up', $migration->getUpSQL());
+
 			$migration->postUp($manager);
 		}
 
