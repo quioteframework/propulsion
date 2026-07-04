@@ -17,6 +17,32 @@ use PHPUnit\Framework\TestCase;
  */
 class PropulsionPDOTest extends TestCase
 {
+	/**
+	 * Every test here exercises a real PDO round-trip against the live Bookstore
+	 * fixture database (transactions, save(), doSelect(), query logging, ...) --
+	 * genuinely integration-tier, not just generated-code shape -- so, like
+	 * BookstoreTestBase::setUp(), skip cleanly when Docker/Postgres isn't available
+	 * (PROPULSION_SKIP_INTEGRATION=1 or no Docker at all) instead of erroring on an
+	 * unresolvable [bookstore] datasource. Deliberately doesn't extend
+	 * BookstoreTestBase itself (unlike most other DB-touching tests in this suite):
+	 * that base class's own setUp()/tearDown() open/close an outer transaction around
+	 * every test, which would throw off this file's own nested-transaction-count
+	 * assertions (e.g. testNestedTransactionCommit expects count 0 before its first
+	 * beginTransaction() call).
+	 */
+	protected function setUp(): void
+	{
+		parent::setUp();
+		try {
+			IntegrationDatabase::ensureReady();
+		} catch (\RuntimeException $e) {
+			$this->markTestSkipped($e->getMessage());
+		}
+		if (!Propulsion::isInit()) {
+			set_include_path(get_include_path() . PATH_SEPARATOR . realpath(IntegrationDatabase::classesDir()));
+			Propulsion::init(IntegrationDatabase::confFile());
+		}
+	}
 
 	public function testSetAttribute()
 	{
