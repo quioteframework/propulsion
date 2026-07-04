@@ -29,5 +29,11 @@
   },
   "bin": [
     "bin/propulsion"
-  ]
+  ],
+  "scripts": {
+    "test:cleanup-containers": [
+      "docker ps -aq --filter label=propulsion.test-container=true | xargs -r docker stop --",
+      "docker ps -aq --filter label=propulsion.test-container=true | xargs -r docker rm --"
+    ]
+  }
 }

@@ -43,6 +43,17 @@ use Propulsion\Generator\Manager\SqlManager;
  */
 class IntegrationDatabase
 {
+    /**
+     * Applied to every testcontainer this class starts, so a leaked container
+     * (register_shutdown_function() doesn't run on kill -9 or a timeout-killed
+     * process -- see KNOWN_ISSUES.md) can always be found and cleaned up later
+     * regardless of its random generated name: `docker ps -aq --filter
+     * label=propulsion.test-container=true`. Cleanup uses `docker stop`/`docker
+     * rm`, not a signal sent directly to the container's own process, so this
+     * works the same way regardless of the host OS running the test suite.
+     */
+    public const CONTAINER_LABELS = ['propulsion.test-container' => 'true'];
+
     private static ?StartedGenericContainer $container = null;
     private static bool $attempted = false;
     private static ?string $skipReason = null;
@@ -360,6 +371,7 @@ class IntegrationDatabase
                 self::$container = (new MySQLContainer())
                     ->withMySQLUser('propulsion', 'propulsion')
                     ->withMySQLDatabase('propulsion_test')
+                    ->withLabels(self::CONTAINER_LABELS)
                     ->start();
             } catch (\Throwable $e) {
                 throw new \RuntimeException('Could not start the MySQL testcontainer (is Docker running?): ' . $e->getMessage());
@@ -370,6 +382,7 @@ class IntegrationDatabase
                     ->withPostgresUser('propulsion')
                     ->withPostgresPassword('propulsion')
                     ->withPostgresDatabase('propulsion_test')
+                    ->withLabels(self::CONTAINER_LABELS)
                     ->start();
             } catch (\Throwable $e) {
                 throw new \RuntimeException('Could not start the Postgres testcontainer (is Docker running?): ' . $e->getMessage());
