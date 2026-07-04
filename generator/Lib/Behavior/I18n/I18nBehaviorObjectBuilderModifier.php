@@ -183,8 +183,22 @@ class I18nBehaviorObjectBuilderModifier
 			$objectBuilder->addMutatorOpenOpen($functionStatement, $column);
 		}
 		$comment = preg_replace('/^\t/m', '', $comment);
-		$comment = str_replace('@return     ' . $i18nTablePhpName, '@return     ' . $tablePhpName, $comment);
+		// addMutatorComment()/addTemporalMutatorComment() were called on the i18n
+		// table's own ObjectBuilder (needed so getClassname() etc. reflect the i18n
+		// table's columns), so both the doc comment's "@return" line and (more
+		// importantly, since this is now a real PHP return type declaration, not
+		// just a docblock under PHP5) the actual method signature's return type
+		// say the i18n table's classname (e.g. BaseFooI18n) -- but the composed
+		// translated-column setter actually returns $this, the *outer* table's
+		// object (e.g. Foo). A plain string replace of the classname fixes both;
+		// the old PHP5-era '@return     '-prefixed replace only patched the
+		// (then purely cosmetic) docblock text and never touched the signature,
+		// which was harmless when nothing was strictly typed but throws a hard
+		// TypeError ("Return value must be of type BaseFooI18n, Foo returned")
+		// now that addMutatorOpenOpen() emits a real ": $returnType" hint.
+		$comment = str_replace($i18nTablePhpName, $tablePhpName, $comment);
 		$functionStatement = preg_replace('/^\t/m', '', $functionStatement);
+		$functionStatement = str_replace($i18nTablePhpName, $tablePhpName, $functionStatement);
 		preg_match_all('/\$[a-z]+/i', $functionStatement, $params);
 		return $this->behavior->renderTemplate('objectTranslatedColumnSetter', array(
 			'comment'           => $comment,

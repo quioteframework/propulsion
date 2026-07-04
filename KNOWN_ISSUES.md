@@ -17,6 +17,12 @@ behavior-modifier hooks at all — since fixed — plus several
 still-unfixed, behavior-specific gaps in `nested_set`/`i18n`/`sortable`).
 See Phase 3.5 for the itemized list of what was fixed and what remains.
 
+**Update: the `i18n` cluster from the list above is now fixed** (see
+Phase 3.5's "Follow-up: `i18n` behavior cluster" subsection for the
+root-cause writeup) — **2200 tests, 106 errors, 182 failures, 12 skipped, 1
+risky** as of that fix. `nested_set` and `sortable` remain open, tracked
+separately.
+
 Prior to Phase 3.5, with Docker (full suite, confirmed by an actual
 combined run after all of the below landed together on `main`): **2184
 tests, 36 errors, 19 failures, 12 skipped, 2 risky**. Started from a suite
@@ -637,6 +643,97 @@ pass should work through the remaining clusters the same way this one
 worked through the hook-wiring and segfault issues (bisect by running
 `testsuite/generator/behavior/<name>/` in isolation, find the first real
 error, root-cause it, repeat).
+
+**Follow-up: `i18n` behavior cluster (`I18nBehaviorObjectBuilderModifierTest`/
+`I18nBehaviorQueryBuilderModifierTest`) fixed.** Scoped follow-up pass, done
+in isolation from the concurrent `nested_set`/`sortable` work also in
+progress on this cluster list (deliberately did not touch either of those
+behaviors' code, per instructions, even though the first bug found below
+is generic enough that it could theoretically also matter to them).
+
+Root cause #1 (generic, not i18n-specific -- **flagged for whoever is
+working `nested_set`/`sortable`**, though grepping confirmed neither
+actually depends on it): `I18nBehaviorObjectBuilderModifier::
+addTranslatedColumnGetter()`/`addTranslatedColumnSetter()`
+(`generator/Lib/Behavior/I18n/I18nBehaviorObjectBuilderModifier.php`)
+compose a translated-column getter/setter by asking a *second*
+`ObjectBuilder` instance (for the i18n side-table, obtained via
+`$this->builder->getNewObjectBuilder($i18nTable)`) to emit just the
+doc-comment and function-signature/opening-brace pieces of what would be
+that table's own plain accessor/mutator -- a pattern that requires the
+comment/signature generation to be split into small, independently
+callable, `public` pieces (`addDefaultAccessorComment()`/
+`addDefaultAccessorOpen()`/`addTemporalAccessorComment()`/
+`addTemporalAccessorOpen()`/`addMutatorComment()`/
+`addTemporalMutatorComment()`/`addMutatorOpenOpen()`), exactly the way
+`archaeology/php5-builders/PHP5ObjectBuilder.php` originally split
+`addDefaultAccessor()`/`addTemporalAccessor()`/`addMutatorOpen()` into
+comment/open/body/close quartets. The promoted `ObjectBuilder`
+(`generator/Lib/Builder/OM/ObjectBuilder.php`) never had this split --
+`addColumnAccessor()`/`addColumnMutator()` build the whole method (comment
+through closing brace) as one inline blob per column-type branch -- so
+every one of those seven method calls threw `Error: Call to undefined
+method`. This is a real completeness gap in the promoted `ObjectBuilder`'s
+public API surface (any future behavior modifier wanting to compose a
+method from the standard comment+signature the way i18n does would hit the
+same wall), not an i18n-only concern; it just happens that i18n is
+currently the only behavior exercising this composition pattern. Fixed by
+re-splitting `addColumnAccessor()`/`addColumnMutator()` into the same
+comment/open pieces (public, matching the PHP5 method names so the existing
+i18n call sites needed no renaming) plus the original combined body, with
+`addColumnAccessor()`/`addColumnMutator()` themselves now just calling the
+split pieces in sequence -- i.e. this was a refactor of the existing
+(verified byte-for-byte identical output via a before/after diff of
+`testsuite/generator/builder/om/` failures with `git stash`) logic, not new
+logic duplicated alongside it.
+
+Root cause #2 (i18n-specific): once root cause #1 unblocked codegen,
+`I18nBehaviorObjectBuilderModifierTest`/`I18nBehaviorQueryBuilderModifierTest`
+still failed with `TypeError: BaseFooI18n::setBar(): Return value must be of
+type BaseFooI18n, Foo returned`. `addTranslatedColumnSetter()` calls the
+above comment/open methods *on the i18n table's own `ObjectBuilder`
+instance*, so `$returnType` inside them (used for the composed setter's doc
+comment and, now that setters have real PHP return types, its actual `):
+$returnType` signature) is the i18n side-table's own classname
+(`BaseFooI18n`) -- but the spliced-together translated setter is pasted into
+the *outer* table's class (`Foo`) and actually `return $this;`s a `Foo`. The
+i18n modifier already had a `str_replace()` patching the doc comment's
+`@return` line for exactly this reason, but it matched PHP5's old
+5-space-indented `'@return     ' . $i18nTablePhpName` format, which no
+longer exists in the promoted builder's output (single space) -- so it had
+long since become a silent no-op even for the (cosmetic) doc comment, and,
+more importantly, never touched the real return-type declaration at all
+(harmless under PHP5, which had no return types to get wrong; a hard fatal
+now). Fixed by widening the replacement to a plain
+`str_replace($i18nTablePhpName, $tablePhpName, ...)` applied to both
+`$comment` and `$functionStatement`, which is format-independent and fixes
+the actual signature, not just the docblock.
+
+Verified: `--filter I18nBehavior` went from 56 tests / 38 errors (plus 3
+more from before root cause #1's fix landed piecemeal --
+`addDefaultAccessorComment` missing was the first error found, fixing it
+serially uncovered `addMutatorComment` next, then the return-type
+`TypeError`s) to **56 tests, 0 errors, 0 failures, 1 skipped** -- full green.
+Full suite (`cd test && rm -rf fixtures/*/build &&
+../vendor/bin/phpunit -c phpunit.xml`, Docker): **2200 tests, 106 errors,
+182 failures, 12 skipped, 1 risky**, down from this section's own
+143-errors/184-failures baseline above (the drop is 37 errors, matching
+this cluster's size, plus one file's warning noise; failures dropped by 2,
+consistent with a couple of the 56 having been counted as failures rather
+than errors). No regressions: independently confirmed via `git stash` that
+`testsuite/generator/builder/om/` (which exercises `addColumnAccessor()`/
+`addColumnMutator()` directly, i.e. the code this pass refactored) produces
+an *identical* failing-test list before and after this pass's changes.
+`generator/default.properties` and `generator/Lib/Config/
+QuickGeneratorConfig.php` were not touched and do not reference any
+`PHP5*` class in their final state (only pre-existing comments mention
+PHP5 historically, e.g. noting where it used to live).
+
+`nested_set`/`sortable` gaps are unaffected and explicitly out of scope for
+this pass (confirmed neither behavior's modifier calls any of the
+comment/open methods touched here); a follow-up pass on those should
+still bisect `testsuite/generator/behavior/<name>/` the way this file's
+Phase 3.5 section originally recommended.
 
 ### Phase 4 — Worker-safety rework (ServiceContainer/Session split)
 
