@@ -26,6 +26,7 @@ use Propulsion\Generator\Model\Database;
 use Propulsion\Generator\Model\Column;
 use Propulsion\Generator\Model\Unique;
 use Propulsion\Generator\Model\Diff\PropulsionColumnDiff;
+use Propulsion\Generator\Model\Diff\PropulsionDatabaseDiff;
 use Propulsion\Generator\Model\Index;
 
 class PgsqlPlatform extends DefaultPlatform
@@ -205,12 +206,87 @@ DROP SEQUENCE IF EXISTS %s;
 		};
 	}
 
-	protected function getCreateSchemaDDL($schemaName)
+	protected function getCreateSchemaDDL($schemaName, $ifNotExists = false)
 	{
 		$pattern = "
-CREATE SCHEMA %s;
+CREATE SCHEMA %s%s;
 ";
-		return sprintf($pattern, $this->quoteIdentifier($schemaName));
+		return sprintf($pattern, $ifNotExists ? 'IF NOT EXISTS ' : '', $this->quoteIdentifier($schemaName));
+	}
+
+	/**
+	 * Emits `CREATE SCHEMA IF NOT EXISTS` for every distinct schema referenced
+	 * by the given (newly-added, in a diff) tables' `schema="..."` attribute.
+	 *
+	 * Used by {@link getModifyDatabaseDDL()} so that a migration/diff adding a
+	 * brand-new schema-qualified table creates its schema first, the same way
+	 * {@link getAddSchemasDDL()} does for a full rebuild. `IF NOT EXISTS` is
+	 * used here (unlike getAddSchemasDDL()'s full-rebuild `CREATE SCHEMA`,
+	 * which intentionally errors on a name collision) since a diff only ever
+	 * runs against a database that may already have other tables -- possibly
+	 * in that same schema -- so re-declaring an already-existing schema must
+	 * not be a hard failure.
+	 *
+	 * @param      Table[] $tables
+	 * @return     string
+	 */
+	protected function getAddSchemasForTablesDDL(array $tables)
+	{
+		$ret = '';
+		$schemas = array();
+		foreach ($tables as $table) {
+			$schemaName = $table->getSchema();
+			if ($schemaName !== null && $schemaName !== '' && !isset($schemas[$schemaName])) {
+				$schemas[$schemaName] = true;
+				$ret .= $this->getCreateSchemaDDL($schemaName, true);
+			}
+			$vi = $table->getVendorInfoForType('pgsql');
+			if ($vi->hasParameter('schema') && !isset($schemas[$vi->getParameter('schema')])) {
+				$schemas[$vi->getParameter('schema')] = true;
+				$ret .= $this->getCreateSchemaDDL($vi->getParameter('schema'), true);
+			}
+		}
+		return $ret;
+	}
+
+	/**
+	 * Overrides the implementation from DefaultPlatform to create the schema
+	 * of any newly-added, schema-qualified table before its CREATE TABLE
+	 * statement -- see {@link getAddSchemasForTablesDDL()}.
+	 *
+	 * @return     string
+	 * @see        DefaultPlatform::getModifyDatabaseDDL
+	 */
+	public function getModifyDatabaseDDL(PropulsionDatabaseDiff $databaseDiff)
+	{
+		$ret = $this->getBeginDDL();
+
+		foreach ($databaseDiff->getRemovedTables() as $table) {
+			$ret .= $this->getDropTableDDL($table);
+		}
+
+		foreach ($databaseDiff->getRenamedTables() as $fromTableName => $toTableName) {
+			$ret .= $this->getRenameTableDDL($fromTableName, $toTableName);
+		}
+
+		$ret .= $this->getAddSchemasForTablesDDL($databaseDiff->getAddedTables());
+
+		foreach ($databaseDiff->getAddedTables() as $table) {
+			$ret .= $this->getAddTableDDL($table);
+			$ret .= $this->getAddIndicesDDL($table);
+		}
+
+		foreach ($databaseDiff->getModifiedTables() as $tableDiff) {
+			$ret .= $this->getModifyTableDDL($tableDiff);
+		}
+
+		foreach ($databaseDiff->getAddedTables() as $table) {
+			$ret .= $this->getAddForeignKeysDDL($table);
+		}
+
+		$ret .= $this->getEndDDL();
+
+		return $ret;
 	}
 
 	public function getUseSchemaDDL(Table $table)

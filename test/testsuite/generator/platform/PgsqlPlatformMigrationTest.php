@@ -56,6 +56,48 @@ END;
 	}
 
 	/**
+	 * Regression test: a diff/migration adding a brand-new table that uses
+	 * the `schema="..."` attribute used to emit fully schema-qualified DDL
+	 * (`CREATE TABLE "reporting"."summary" ...`) without ever creating the
+	 * schema itself -- getModifyDatabaseDDL() (unlike getAddTablesDDL(), the
+	 * full-rebuild path) never called anything equivalent to
+	 * getAddSchemasDDL(). Fixed by having PgsqlPlatform override
+	 * getModifyDatabaseDDL() to emit `CREATE SCHEMA IF NOT EXISTS` for any
+	 * newly-added table's schema first.
+	 */
+	public function testGetModifyDatabaseDDLCreatesSchemaForAddedTable()
+	{
+		$schema1 = <<<EOF
+<database name="test">
+	<table name="foo1">
+		<column name="id" primaryKey="true" type="INTEGER" autoIncrement="true" />
+	</table>
+</database>
+EOF;
+		$schema2 = <<<EOF
+<database name="test">
+	<table name="foo1">
+		<column name="id" primaryKey="true" type="INTEGER" autoIncrement="true" />
+	</table>
+	<table name="summary" schema="reporting">
+		<column name="id" primaryKey="true" type="INTEGER" autoIncrement="true" />
+	</table>
+</database>
+EOF;
+		$d1 = $this->getDatabaseFromSchema($schema1);
+		$d2 = $this->getDatabaseFromSchema($schema2);
+		$databaseDiff = PropulsionDatabaseComparator::computeDiff($d1, $d2);
+		$ddl = $this->getPlatform()->getModifyDatabaseDDL($databaseDiff);
+		$this->assertStringContainsString('CREATE SCHEMA IF NOT EXISTS "reporting";', $ddl);
+		$this->assertStringContainsString('CREATE TABLE "reporting"."summary"', $ddl);
+		$this->assertLessThan(
+			strpos($ddl, 'CREATE TABLE "reporting"."summary"'),
+			strpos($ddl, 'CREATE SCHEMA IF NOT EXISTS "reporting"'),
+			'CREATE SCHEMA must come before the CREATE TABLE that needs it'
+		);
+	}
+
+	/**
 	 * @dataProvider providerForTestGetRenameTableDDL
 	 */
 	#[\PHPUnit\Framework\Attributes\DataProvider('providerForTestGetRenameTableDDL')]
