@@ -442,10 +442,16 @@ class PropulsionPDOTest extends TestCase
 
 		$books = BookPeer::doSelect($c, $con);
 		$latestExecutedQuery = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` WHERE book.TITLE LIKE 'Harry%s'";
+		if (!Propulsion::getDB(BookPeer::DATABASE_NAME)->useQuoteIdentifier()) {
+			$latestExecutedQuery = str_replace('`', '', $latestExecutedQuery);
+		}
 		$this->assertEquals('log: ' . $latestExecutedQuery, $testLog->latestMessage, 'PropulsionPDO logs queries and populates bound parameters in debug mode');
 
 		BookPeer::doDeleteAll($con);
 		$latestExecutedQuery = "DELETE FROM `book`";
+		if (!Propulsion::getDB(BookPeer::DATABASE_NAME)->useQuoteIdentifier()) {
+			$latestExecutedQuery = str_replace('`', '', $latestExecutedQuery);
+		}
 		$this->assertEquals('log: ' . $latestExecutedQuery, $testLog->latestMessage, 'PropulsionPDO logs deletion queries in debug mode');
 
 		$latestExecutedQuery = 'DELETE FROM book WHERE 1=1';
