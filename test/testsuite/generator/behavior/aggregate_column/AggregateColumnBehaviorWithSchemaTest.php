@@ -59,6 +59,7 @@ class AggregateColumnBehaviorWithSchemaTest extends SchemasTestBase
 		ContestBookstoreContestQuery::create()->deleteAll($this->con);
 
 		$store = new BookstoreSchemasBookstore();
+		$store->setStoreName('Foo!');
 		$store->save($this->con);
 		$this->assertEquals(0, $store->computeTotalContestEntries($this->con), 'The compute method returns 0 for objects with no related objects');
 

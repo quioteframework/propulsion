@@ -63,14 +63,20 @@ class AggregateColumnRelationBehavior extends Behavior
 	{
 		$relationName = $this->getRelationName($builder);
 		$relatedClass = $this->getForeignTable()->getPhpName();
-		$search = "	public function set{$relationName}({$relatedClass} \$v = null)
-	{";
-		$replace = $search . "
+		// Match the FK relation setter's signature loosely (optional leading "?" on the
+		// parameter type, and any return type declaration) rather than the exact PHP5-era
+		// literal "public function setX(RelatedClass $v = null)\n\t{" this used to require --
+		// the promoted ObjectBuilder's addFKMutator() generates
+		// "public function setX(?RelatedClass $v = null): static\n\t{", which the old fixed
+		// string never matched, so this filter silently never fired and $this->oldX was
+		// never populated (GeneratedObjectRelTest et al -- see KNOWN_ISSUES.md).
+		$pattern = '/(public function set' . preg_quote($relationName, '/') . '\(\??' . preg_quote($relatedClass, '/') . ' \$v = null\)(?::\s*\S+)?\s*\{)/';
+		$replace = '$1' . "
 		// aggregate_column_relation behavior
 		if (null !== \$this->a{$relationName} && \$v !== \$this->a{$relationName}) {
 			\$this->old{$relationName} = \$this->a{$relationName};
 		}";
-		$script = str_replace($search, $replace, $script);
+		$script = preg_replace($pattern, $replace, $script);
 	}
 
 	public function preUpdateQuery($builder)
