@@ -294,7 +294,7 @@ public static function countList(\$scope, PropulsionPDO \$con = null)
 	\$c = new Criteria();
 	\$c->add($peerClassname::SCOPE_COL, \$scope);
 
-	return $peerClassname::doCount(\$c, \$con);
+	return $peerClassname::doCount(\$c, false, \$con);
 }
 ";
 	}
