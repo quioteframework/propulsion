@@ -23,6 +23,7 @@ namespace Propulsion\Generator\Util;
  use Propulsion\Generator\Model\IDMethod;
  use \Exception;
  use \PDO;
+ use \PDOException;
 
 class PropulsionMigrationManager
 {
@@ -433,6 +434,136 @@ class PropulsionMigrationManager
 		$stmt->bindValue(6, $success ? 1 : 0, PDO::PARAM_INT);
 		$stmt->bindValue(7, $statementLogJson, PDO::PARAM_STR);
 		$stmt->execute();
+	}
+
+	/**
+	 * Executes one migration direction ('up' or 'down') for every datasource in
+	 * the given SQL map (a migration class' getUpSQL()/getDownSQL() return
+	 * value), recording the outcome of every attempt in the migration ledger.
+	 *
+	 * This is the single, Phing-free implementation of "how a migration
+	 * direction actually executes" -- both BasePropulsionMigrationTask (the
+	 * Phing task adapter, which wraps the MigrationExecutionException this
+	 * throws into a Phing\Exception\BuildException) and the console
+	 * migration:up/migration:down commands call this same method, so the
+	 * transaction-wrapping and ledger-recording semantics can never drift
+	 * between the two entry points.
+	 *
+	 * Statements are executed sequentially; on the first failure, execution
+	 * stops immediately (remaining statements are recorded as
+	 * 'not_attempted', never run). On a platform whose DDL is genuinely
+	 * transactional (see PropulsionPlatformInterface::supportsTransactionalDDL()),
+	 * the whole batch is wrapped in a transaction that gets rolled back on
+	 * failure, so nothing partially applied survives in the real schema; on a
+	 * non-transactional platform, whatever succeeded before the failure
+	 * remains applied for real -- an inherent limitation of non-transactional
+	 * DDL, not papered over here. The ledger's per-statement log plus
+	 * success=false records it accurately either way.
+	 *
+	 * Every attempt (success or failure) gets exactly one ledger row via
+	 * recordMigrationRun() -- see that method's doc comment for why the
+	 * insert always goes through a separate connection from the one used to
+	 * run the DDL statements.
+	 *
+	 * @param      int $timestamp The migration's timestamp identifier.
+	 * @param      string $direction 'up' or 'down'.
+	 * @param      array $sqlByDatasource Keyed by datasource name, as
+	 *             returned by a migration class' getUpSQL()/getDownSQL().
+	 * @param      ?callable $logger Optional callback invoked as
+	 *             `function(string $message, bool $verbose = false): void`
+	 *             for progress/diagnostic messages; $verbose distinguishes
+	 *             detail-level messages (e.g. per-statement SQL) from
+	 *             summary-level ones.
+	 * @throws     MigrationExecutionException On the first statement failure
+	 *             for any datasource (after recording the failure in the
+	 *             ledger), or if a datasource has no SQL statements to
+	 *             execute at all.
+	 */
+	public function runMigrationDirection($timestamp, $direction, array $sqlByDatasource, ?callable $logger = null)
+	{
+		$logger = $logger ?? function ($message, $verbose = false) {};
+
+		foreach ($sqlByDatasource as $datasource => $sql) {
+			$connection = $this->getConnection($datasource);
+			$logger(sprintf(
+				'Connecting to database "%s" using DSN "%s"',
+				$datasource,
+				$connection['dsn']
+			), true);
+
+			$platform = $this->getPlatform($datasource);
+			$pdo = $this->getPdoConnection($datasource);
+			$statements = PropulsionSQLParser::parseString($sql);
+
+			if (!$statements) {
+				$logger('No statement was executed. The version was not updated.', false);
+				$logger(sprintf(
+					'Please review the code in "%s"',
+					$this->getMigrationDir() . DIRECTORY_SEPARATOR . self::getMigrationClassName($timestamp)
+				), false);
+				throw new MigrationExecutionException(sprintf(
+					'Migration %s aborted: no SQL statements found for datasource "%s".',
+					self::getMigrationClassName($timestamp),
+					$datasource
+				), $datasource, $timestamp, $direction, array());
+			}
+
+			$transactional = $platform->supportsTransactionalDDL();
+			if ($transactional) {
+				$pdo->beginTransaction();
+			}
+
+			$statementLog = array();
+			$failed = false;
+			$failureMessage = null;
+
+			foreach ($statements as $statement) {
+				if ($failed) {
+					$statementLog[] = array('sql' => $statement, 'status' => 'not_attempted');
+					continue;
+				}
+				try {
+					$logger(sprintf('Executing statement "%s"', $statement), true);
+					$stmt = $pdo->prepare($statement);
+					$stmt->execute();
+					$statementLog[] = array('sql' => $statement, 'status' => 'success');
+				} catch (PDOException $e) {
+					$logger(sprintf('Failed to execute SQL "%s": %s', $statement, $e->getMessage()), false);
+					$statementLog[] = array('sql' => $statement, 'status' => 'failed', 'error' => $e->getMessage());
+					$failed = true;
+					$failureMessage = $e->getMessage();
+				}
+			}
+
+			if ($transactional) {
+				if ($failed) {
+					$pdo->rollBack();
+				} else {
+					$pdo->commit();
+				}
+			}
+
+			$success = !$failed;
+
+			$this->recordMigrationRun($datasource, $timestamp, $direction, $sql, $success, $statementLog);
+
+			if ($failed) {
+				throw new MigrationExecutionException(sprintf(
+					'Migration %s failed on datasource "%s": %s. See the migration ledger ("%s") for the full per-statement log.',
+					self::getMigrationClassName($timestamp),
+					$datasource,
+					$failureMessage,
+					$this->getMigrationTable()
+				), $datasource, $timestamp, $direction, $statementLog);
+			}
+
+			$logger(sprintf(
+				'%d of %d SQL statements executed successfully on datasource "%s"',
+				count($statements),
+				count($statements),
+				$datasource
+			), false);
+		}
 	}
 
 	public function getMigrationTimestamps()
