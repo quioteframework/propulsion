@@ -10,6 +10,10 @@ use Propulsion\Generator\Command\InitCommand;
 use Propulsion\Generator\Command\SchemaReverseCommand;
 use Propulsion\Generator\Command\GraphvizBuildCommand;
 use Propulsion\Generator\Command\SqlExecCommand;
+use Propulsion\Generator\Command\SqlDiffCommand;
+use Propulsion\Generator\Command\MigrationStatusCommand;
+use Propulsion\Generator\Command\MigrationUpCommand;
+use Propulsion\Generator\Command\MigrationDownCommand;
 
 $application = new Application('Propulsion', '2.0.0-dev');
 
@@ -19,5 +23,9 @@ $application->addCommand(new InitCommand());
 $application->addCommand(new SchemaReverseCommand());
 $application->addCommand(new GraphvizBuildCommand());
 $application->addCommand(new SqlExecCommand());
+$application->addCommand(new SqlDiffCommand());
+$application->addCommand(new MigrationStatusCommand());
+$application->addCommand(new MigrationUpCommand());
+$application->addCommand(new MigrationDownCommand());
 
 $application->run();

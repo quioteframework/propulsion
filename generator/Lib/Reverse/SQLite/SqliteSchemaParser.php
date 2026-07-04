@@ -24,10 +24,13 @@ use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Model\Column;
 use Propulsion\Generator\Model\ColumnDefaultValue;
 use Propulsion\Generator\Model\Index;
-use Phing\Task;
 use \PDO;
 class SqliteSchemaParser extends BaseSchemaParser
 {
+	/**
+	 * Verbose logging level for optional $task->log() calls (matches the historical build-tool's verbose-log level).
+	 */
+	private const MSG_VERBOSE = 4;
 
 	/**
 	 * Map Sqlite native types to Propulsion types.
@@ -82,7 +85,7 @@ class SqliteSchemaParser extends BaseSchemaParser
 	/**
 	 *
 	 */
-	public function parse(Database $database, ?Task $task = null)
+	public function parse(Database $database, mixed $task = null)
 	{
 		$stmt = $this->dbh->query("SELECT name FROM sqlite_master WHERE type='table' UNION ALL SELECT name FROM sqlite_temp_master WHERE type='table' ORDER BY name;");
 

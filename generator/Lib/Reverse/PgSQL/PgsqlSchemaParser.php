@@ -28,11 +28,13 @@ use Propulsion\Generator\Model\Index;
 use Propulsion\Generator\Model\Unique;
 use Propulsion\Generator\Exception\EngineException;
 use \stdClass;
-use Phing\Task;
-use Phing\Project;
 use \PDO;
 class PgsqlSchemaParser extends BaseSchemaParser
 {
+	/**
+	 * Verbose logging level for optional $task->log() calls (matches the historical build-tool's verbose-log level).
+	 */
+	private const MSG_VERBOSE = 4;
 
 	/**
 	 * Map PostgreSQL native types to Propulsion types.
@@ -89,7 +91,7 @@ class PgsqlSchemaParser extends BaseSchemaParser
 	/**
 	 *
 	 */
-	public function parse(Database $database, ?Task $task = null)
+	public function parse(Database $database, mixed $task = null)
 	{
 		$stmt = $this->dbh->query("SELECT version() as ver");
 		$nativeVersion = $stmt->fetchColumn();
@@ -118,14 +120,14 @@ class PgsqlSchemaParser extends BaseSchemaParser
 		$tableWraps = array();
 
 		// First load the tables (important that this happen before filling out details of tables)
-		if ($task) $task->log("Reverse Engineering Tables", Project::MSG_VERBOSE);
+		if ($task) $task->log("Reverse Engineering Tables", self::MSG_VERBOSE);
 		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 			$name = $row['relname'];
 			$namespacename = $row['nspname'];
 			if ($name == $this->getMigrationTable()) {
 				continue;
 			}
-			if ($task) $task->log("  Adding table '" . $name . "' in schema '" . $namespacename . "'", Project::MSG_VERBOSE);
+			if ($task) $task->log("  Adding table '" . $name . "' in schema '" . $namespacename . "'", self::MSG_VERBOSE);
 			$oid = $row['oid'];
 			$table = new Table($name);
 			if ($namespacename != 'public') {
@@ -142,16 +144,16 @@ class PgsqlSchemaParser extends BaseSchemaParser
 		}
 
 		// Now populate only columns.
-		if ($task) $task->log("Reverse Engineering Columns", Project::MSG_VERBOSE);
+		if ($task) $task->log("Reverse Engineering Columns", self::MSG_VERBOSE);
 		foreach ($tableWraps as $wrap) {
-			if ($task) $task->log("  Adding columns for table '" . $wrap->table->getName() . "'", Project::MSG_VERBOSE);
+			if ($task) $task->log("  Adding columns for table '" . $wrap->table->getName() . "'", self::MSG_VERBOSE);
 			$this->addColumns($wrap->table, $wrap->oid, $version);
 		}
 
 		// Now add indexes and constraints.
-		if ($task) $task->log("Reverse Engineering Indices And Constraints", Project::MSG_VERBOSE);
+		if ($task) $task->log("Reverse Engineering Indices And Constraints", self::MSG_VERBOSE);
 		foreach ($tableWraps as $wrap) {
-			if ($task) $task->log("  Adding indices and constraints for table '" . $wrap->table->getName() . "'", Project::MSG_VERBOSE);
+			if ($task) $task->log("  Adding indices and constraints for table '" . $wrap->table->getName() . "'", self::MSG_VERBOSE);
 			$this->addForeignKeys($wrap->table, $wrap->oid, $version);
 			$this->addIndexes($wrap->table, $wrap->oid, $version);
 			$this->addPrimaryKey($wrap->table, $wrap->oid, $version);

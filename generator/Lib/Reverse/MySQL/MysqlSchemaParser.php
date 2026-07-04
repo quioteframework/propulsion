@@ -26,11 +26,13 @@ use Propulsion\Generator\Model\ColumnDefaultValue;
 use Propulsion\Generator\Model\ForeignKey;
 use Propulsion\Generator\Model\Index;
 use Propulsion\Generator\Model\Unique;
-use Phing\Task;
-use Phing\Project;
 use \PDO;
 class MysqlSchemaParser extends BaseSchemaParser
 {
+	/**
+	 * Verbose logging level for optional $task->log() calls (matches the historical build-tool's verbose-log level).
+	 */
+	private const MSG_VERBOSE = 4;
 
 	/**
 	 * @var        boolean
@@ -95,7 +97,7 @@ class MysqlSchemaParser extends BaseSchemaParser
 	/**
 	 *
 	 */
-	public function parse(Database $database, ?Task $task = null)
+	public function parse(Database $database, mixed $task = null)
 	{
 		$this->addVendorInfo = $this->getGeneratorConfig()->getBuildProperty('addVendorInfo');
 
@@ -105,7 +107,7 @@ class MysqlSchemaParser extends BaseSchemaParser
 		$tables = array();
 
 		if ($task) {
-			$task->log("Reverse Engineering Tables", Project::MSG_VERBOSE);
+			$task->log("Reverse Engineering Tables", self::MSG_VERBOSE);
 		}
 
 		while ($row = $stmt->fetch(PDO::FETCH_NUM)) {
@@ -117,7 +119,7 @@ class MysqlSchemaParser extends BaseSchemaParser
 			}
 
 			if ($task) {
-				$task->log("  Adding table '" . $name . "'", Project::MSG_VERBOSE);
+				$task->log("  Adding table '" . $name . "'", self::MSG_VERBOSE);
 			}
 
 			$table = new Table($name);
@@ -128,24 +130,24 @@ class MysqlSchemaParser extends BaseSchemaParser
 
 		// Now populate only columns.
 		if ($task) {
-			$task->log("Reverse Engineering Columns", Project::MSG_VERBOSE);
+			$task->log("Reverse Engineering Columns", self::MSG_VERBOSE);
 		}
 
 		foreach ($tables as $table) {
 			if ($task) {
-				$task->log("  Adding columns for table '" . $table->getName() . "'", Project::MSG_VERBOSE);
+				$task->log("  Adding columns for table '" . $table->getName() . "'", self::MSG_VERBOSE);
 			}
 			$this->addColumns($table);
 		}
 
 		// Now add indices and constraints.
 		if ($task) {
-			$task->log("Reverse Engineering Indices And Constraints", Project::MSG_VERBOSE);
+			$task->log("Reverse Engineering Indices And Constraints", self::MSG_VERBOSE);
 		}
 
 		foreach ($tables as $table) {
 			if ($task) {
-				$task->log("  Adding indices and constraints for table '" . $table->getName() . "'", Project::MSG_VERBOSE);
+				$task->log("  Adding indices and constraints for table '" . $table->getName() . "'", self::MSG_VERBOSE);
 			}
 
 			$this->addForeignKeys($table);

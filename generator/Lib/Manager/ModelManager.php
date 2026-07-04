@@ -14,13 +14,16 @@ use Propulsion\Generator\Config\GeneratorConfig;
 use Propulsion\Generator\Exception\EngineException;
 
 /**
- * Plain-PHP replacement for the Phing-based PropulsionOMTask/AbstractPropulsionDataModelTask
- * pair: loads XML schema files into a data model and writes the generated Object
- * Model classes (Peer/Object/TableMap/Query and friends) to disk.
+ * Plain-PHP replacement for the former Phing-based PropulsionOMTask/AbstractPropulsionDataModelTask
+ * pair (Phing itself has since been removed from this project entirely -- see
+ * KNOWN_ISSUES.md): loads XML schema files into a data model and writes the
+ * generated Object Model classes (Peer/Object/TableMap/Query and friends) to disk.
  *
- * Unlike the Phing task, this does not (yet) support the Fileset-driven multi-schema
- * packaging, XSLT normalization, or XSD validation steps -- those remain available
- * via the legacy `propel-gen` / Phing task path until this command reaches parity.
+ * Does not (yet) support the Fileset-driven multi-schema packaging, XSLT
+ * normalization, or XSD validation steps the old Phing task offered -- those were
+ * confirmed at output parity with this class for the common single/behavior-schema
+ * case (see PropulsionOMTaskTest's history in KNOWN_ISSUES.md) before the Phing
+ * task was retired; nothing currently depends on the packaging/XSLT/XSD features.
  */
 class ModelManager extends AbstractSchemaManager
 {

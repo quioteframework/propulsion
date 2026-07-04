@@ -27,11 +27,13 @@ use Propulsion\Generator\Model\ColumnDefaultValue;
 use Propulsion\Generator\Model\ForeignKey;
 use Propulsion\Generator\Model\Index;
 use Propulsion\Generator\Model\IdMethodParameter;
-use Phing\Task;
-use Phing\Project;
 use \PDO;
 class OracleSchemaParser extends BaseSchemaParser
 {
+	/**
+	 * Verbose logging level for optional $task->log() calls (matches the historical build-tool's verbose-log level).
+	 */
+	private const MSG_VERBOSE = 4;
 
 	/**
 	 * Map Oracle native types to Propulsion types.
@@ -82,7 +84,7 @@ class OracleSchemaParser extends BaseSchemaParser
 	 * Searches for tables in the database. Maybe we want to search also the views.
 	 * @param	Database $database The Database model class to add tables to.
 	 */
-	public function parse(Database $database, ?Task $task = null)
+	public function parse(Database $database, mixed $task = null)
 	{
 		$tables = array();
 		$stmt = $this->dbh->query("SELECT OBJECT_NAME FROM USER_OBJECTS WHERE OBJECT_TYPE = 'TABLE'");
@@ -91,7 +93,7 @@ class OracleSchemaParser extends BaseSchemaParser
 			'oracleAutoincrementSequencePattern'
 		);
 
-		if ($task) $task->log("Reverse Engineering Table Structures", Project::MSG_VERBOSE);
+		if ($task) $task->log("Reverse Engineering Table Structures", self::MSG_VERBOSE);
 		// First load the tables (important that this happen before filling out details of tables)
 		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 			if (strpos($row['OBJECT_NAME'], '$') !== false) {
@@ -103,7 +105,7 @@ class OracleSchemaParser extends BaseSchemaParser
 			}
 			$table = new Table($row['OBJECT_NAME']);
 			$table->setIdMethod($database->getDefaultIdMethod());
-			if ($task) $task->log("Adding table '" . $table->getName() . "'", Project::MSG_VERBOSE);
+			if ($task) $task->log("Adding table '" . $table->getName() . "'", self::MSG_VERBOSE);
 			$database->addTable($table);
 			// Add columns, primary keys and indexes.
 			$this->addColumns($table);
@@ -129,10 +131,10 @@ class OracleSchemaParser extends BaseSchemaParser
 			$tables[] = $table;
 		}
 
-		if ($task) $task->log("Reverse Engineering Foreign Keys", Project::MSG_VERBOSE);
+		if ($task) $task->log("Reverse Engineering Foreign Keys", self::MSG_VERBOSE);
 
 		foreach ($tables as $table) {
-			if ($task) $task->log("Adding foreign keys for table '" . $table->getName() . "'", Project::MSG_VERBOSE);
+			if ($task) $task->log("Adding foreign keys for table '" . $table->getName() . "'", self::MSG_VERBOSE);
 			$this->addForeignKeys($table);
 		}
 
