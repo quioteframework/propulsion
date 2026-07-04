@@ -160,4 +160,12 @@ class SqlitePlatform extends DefaultPlatform
 		return false;
 	}
 
+	/**
+	 * @see        PropulsionPlatformInterface::supportsTransactionalDDL()
+	 */
+	public function supportsTransactionalDDL()
+	{
+		return true;
+	}
+
 }

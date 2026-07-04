@@ -62,7 +62,7 @@ abstract class BaseSchemaParser implements SchemaParser
 	 *
 	 * @var string
 	 */
-	protected $migrationTable = 'propel_migration';
+	protected $migrationTable = 'propulsion_migration';
 
 	protected $platform;
 

@@ -348,6 +348,14 @@ DROP TABLE IF EXISTS %s CASCADE;
 		return true;
 	}
 
+	/**
+	 * @see        PropulsionPlatformInterface::supportsTransactionalDDL()
+	 */
+	public function supportsTransactionalDDL()
+	{
+		return true;
+	}
+
 	public function hasSize($sqlType)
 	{
 		return !("BYTEA" == $sqlType || "TEXT" == $sqlType || "DOUBLE PRECISION" == $sqlType);

@@ -186,6 +186,21 @@ interface PropulsionPlatformInterface
 	public function supportsMigrations();
 
 	/**
+	 * Whether this RDBMS's DDL statements (CREATE TABLE, ALTER TABLE, ...) are
+	 * genuinely transactional -- i.e. can be rolled back as part of a
+	 * transaction if a later statement in the same migration fails, leaving
+	 * no partial schema change behind.
+	 *
+	 * This is deliberately conservative: most RDBMS DDL is NOT safely
+	 * transactional (e.g. MySQL's DDL causes an implicit commit), so the
+	 * default implementation returns false. Only platforms with confirmed
+	 * transactional DDL (Postgres, SQLite) override this to true.
+	 *
+	 * @return boolean
+	 */
+	public function supportsTransactionalDDL();
+
+	/**
 	 * Wether RDBMS supports VARCHAR without explicit size
 	 * @return boolean
 	 */

@@ -20,6 +20,7 @@ namespace Propulsion\Generator\Util;
  use Propulsion\Generator\Model\Column;
  use Propulsion\Generator\Model\Table;
  use Propulsion\Generator\Model\Database;
+ use Propulsion\Generator\Model\IDMethod;
  use \Exception;
  use \PDO;
 
@@ -27,7 +28,7 @@ class PropulsionMigrationManager
 {
 	protected $connections;
 	protected $pdoConnections = array();
-	protected $migrationTable = 'propel_migration';
+	protected $migrationTable = 'propulsion_migration';
 	protected $migrationDir;
 
 	/**
@@ -61,20 +62,40 @@ class PropulsionMigrationManager
 	public function getPdoConnection($datasource)
 	{
 		if (!isset($pdoConnections[$datasource])) {
-			$buildConnection = $this->getConnection($datasource);
-			$dsn = str_replace("@DB@", $datasource, $buildConnection['dsn']);
-
-			// Set user + password to null if they are empty strings or missing
-			$username = isset($buildConnection['user']) && $buildConnection['user'] ? $buildConnection['user'] : null;
-			$password = isset($buildConnection['password']) && $buildConnection['password'] ? $buildConnection['password'] : null;
-
-			$pdo = new PDO($dsn, $username, $password);
-			$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+			$pdo = $this->createPdoConnection($datasource);
 
 			$pdoConnections[$datasource] = $pdo;
 		}
 
 		return $pdoConnections[$datasource];
+	}
+
+	/**
+	 * Opens and returns a brand-new PDO connection to the given datasource,
+	 * independent of whatever getPdoConnection() may or may not have cached.
+	 *
+	 * Used by recordMigrationRun() to guarantee the migration ledger insert
+	 * happens over a connection that is NOT part of whatever transaction the
+	 * caller may have open on its own connection for running the migration's
+	 * DDL statements -- see recordMigrationRun()'s doc comment for why that
+	 * matters.
+	 *
+	 * @param string $datasource
+	 * @return PDO
+	 */
+	protected function createPdoConnection($datasource)
+	{
+		$buildConnection = $this->getConnection($datasource);
+		$dsn = str_replace("@DB@", $datasource, $buildConnection['dsn']);
+
+		// Set user + password to null if they are empty strings or missing
+		$username = isset($buildConnection['user']) && $buildConnection['user'] ? $buildConnection['user'] : null;
+		$password = isset($buildConnection['password']) && $buildConnection['password'] ? $buildConnection['password'] : null;
+
+		$pdo = new PDO($dsn, $username, $password);
+		$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+		return $pdo;
 	}
 
 	public function getPlatform($datasource)
@@ -143,6 +164,93 @@ class PropulsionMigrationManager
 		return $this->migrationDir;
 	}
 
+	/**
+	 * Derives the "currently applied" migration timestamp for a single
+	 * datasource from the append-only migration ledger (see
+	 * createMigrationTable()/recordMigrationRun()): for each distinct
+	 * migration_timestamp recorded, only its most recent SUCCESSFUL row
+	 * (highest id among rows with success = true) matters, and a timestamp
+	 * counts as currently applied if that row's direction is 'up'. Returns
+	 * the max of all currently-applied timestamps, or 0 if none are applied
+	 * -- the same "0 means nothing applied yet" baseline the old single-row
+	 * `version` column used.
+	 *
+	 * Failed attempts (success = false), in either direction, are
+	 * deliberately excluded from this derivation entirely -- they're purely
+	 * an audit-log entry (see recordMigrationRun()), and never move the
+	 * applied-state pointer. This matters most for a failed "down": on a
+	 * transactional-DDL platform a failed down attempt rolls back to the
+	 * still-applied "up" state in the real schema, and the ledger must agree
+	 * -- if the failed down row were allowed to be "the most recent row"
+	 * regardless of success, the migration would be incorrectly reported as
+	 * no longer applied even though nothing was actually reverted.
+	 *
+	 * Throws \PDOException (uncaught) if the migration table doesn't exist --
+	 * callers (getOldestDatabaseVersion()) rely on this to detect a
+	 * not-yet-initialized datasource and create the table on the fly.
+	 *
+	 * @param string $datasource
+	 * @return int
+	 */
+	public function getCurrentVersion($datasource)
+	{
+		$pdo = $this->getPdoConnection($datasource);
+		$platform = $this->getPlatform($datasource);
+		$sql = sprintf(
+			'SELECT %s, %s, %s FROM %s ORDER BY %s ASC',
+			$platform->quoteIdentifier('migration_timestamp'),
+			$platform->quoteIdentifier('direction'),
+			$platform->quoteIdentifier('success'),
+			$this->getMigrationTable(),
+			$platform->quoteIdentifier('id')
+		);
+		$stmt = $pdo->prepare($sql);
+		$stmt->execute();
+
+		// Only the most recent SUCCESSFUL row (by insertion order / id) per
+		// timestamp matters -- iterating in ascending id order and
+		// overwriting only on success lets the last successful write for a
+		// given timestamp win, while failed attempts are skipped entirely
+		// and never overwrite a prior successful state.
+		$lastSuccessfulDirectionByTimestamp = array();
+		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+			if (!self::toBool($row['success'])) {
+				continue;
+			}
+			$timestamp = (int) $row['migration_timestamp'];
+			$lastSuccessfulDirectionByTimestamp[$timestamp] = $row['direction'];
+		}
+
+		$appliedTimestamps = array();
+		foreach ($lastSuccessfulDirectionByTimestamp as $timestamp => $direction) {
+			if ($direction === 'up') {
+				$appliedTimestamps[] = $timestamp;
+			}
+		}
+
+		return $appliedTimestamps ? max($appliedTimestamps) : 0;
+	}
+
+	/**
+	 * Returns every ledger row recorded for the given datasource, ordered by
+	 * insertion order (id ascending) -- i.e. the full audit trail of every
+	 * migration run/reversion attempt, successful or not. For
+	 * reporting/debugging use; the "currently applied" state itself is
+	 * derived by getCurrentVersion(), not read from here.
+	 *
+	 * @param string $datasource
+	 * @return array
+	 */
+	public function getMigrationLedger($datasource)
+	{
+		$pdo = $this->getPdoConnection($datasource);
+		$sql = sprintf('SELECT * FROM %s ORDER BY id ASC', $this->getMigrationTable());
+		$stmt = $pdo->prepare($sql);
+		$stmt->execute();
+
+		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
+
 	public function getOldestDatabaseVersion()
 	{
 		if (!$connections = $this->getConnections()) {
@@ -151,21 +259,13 @@ class PropulsionMigrationManager
 		$oldestMigrationTimestamp = null;
 		$migrationTimestamps = array();
 		foreach ($connections as $name => $params) {
-			$pdo = $this->getPdoConnection($name);
-			$sql = sprintf('SELECT version FROM %s', $this->getMigrationTable());
-
 			try {
-				$stmt = $pdo->prepare($sql);
-				$stmt->execute();
 				// Use !== false (not a truthy check) so a legitimate version of 0 --
-				// the documented "no migrations applied yet" baseline written by
-				// createMigrationTable()/a "down" back to the start -- isn't mistaken
+				// the documented "no migrations applied yet" baseline, and what a
+				// full "down" back to the start leaves behind -- isn't mistaken
 				// for "no row fetched", which would incorrectly return null here
 				// instead of 0.
-				$migrationTimestamp = $stmt->fetchColumn();
-				if ($migrationTimestamp !== false) {
-					$migrationTimestamps[$name] = (int) $migrationTimestamp;
-				}
+				$migrationTimestamps[$name] = $this->getCurrentVersion($name);
 			} catch (\PDOException $e) {
 				$this->createMigrationTable($name);
 				$oldestMigrationTimestamp = 0;
@@ -182,7 +282,8 @@ class PropulsionMigrationManager
 	public function migrationTableExists($datasource)
 	{
 		$pdo = $this->getPdoConnection($datasource);
-		$sql = sprintf('SELECT version FROM %s', $this->getMigrationTable());
+		$platform = $this->getPlatform($datasource);
+		$sql = sprintf('SELECT %s FROM %s', $platform->quoteIdentifier('id'), $this->getMigrationTable());
 		$stmt = $pdo->prepare($sql);
 		try {
 			$stmt->execute();
@@ -192,6 +293,20 @@ class PropulsionMigrationManager
 		}
 	}
 
+	/**
+	 * Creates the migration ledger table.
+	 *
+	 * NOTE: this is a breaking schema change from the old single-row
+	 * `propel_migration` table (a single `version` column, mutated via
+	 * DELETE + INSERT on every migration run). The new table is an
+	 * append-only ledger -- every migration run/reversion attempt gets a new
+	 * row, never updated or deleted -- so a project with an existing
+	 * old-shape migration table needs to drop it and let this method
+	 * recreate it in the new shape; there is no automatic migration-of-the-
+	 * migration-table. See KNOWN_ISSUES.md.
+	 *
+	 * @param string $datasource
+	 */
 	public function createMigrationTable($datasource)
 	{
 		$platform = $this->getPlatform($datasource);
@@ -200,10 +315,52 @@ class PropulsionMigrationManager
 		$database->setPlatform($platform);
 		$table = new Table($this->getMigrationTable());
 		$database->addTable($table);
-		$column = new Column('version');
-		$column->getDomain()->copy($platform->getDomainForType('INTEGER'));
-		$column->setDefaultValue(0);
-		$table->addColumn($column);
+		$table->setIdMethod(IDMethod::NATIVE);
+
+		$idColumn = new Column('id');
+		$idColumn->getDomain()->copy($platform->getDomainForType('INTEGER'));
+		$idColumn->setNotNull(true);
+		$idColumn->setAutoIncrement(true);
+		$idColumn->setPrimaryKey(true);
+		$table->addColumn($idColumn);
+
+		$timestampColumn = new Column('migration_timestamp');
+		$timestampColumn->getDomain()->copy($platform->getDomainForType('INTEGER'));
+		$timestampColumn->setNotNull(true);
+		$table->addColumn($timestampColumn);
+
+		$nameColumn = new Column('migration_name');
+		$nameColumn->getDomain()->copy($platform->getDomainForType('VARCHAR'));
+		$nameColumn->setSize(255);
+		$nameColumn->setNotNull(true);
+		$table->addColumn($nameColumn);
+
+		$directionColumn = new Column('direction');
+		$directionColumn->getDomain()->copy($platform->getDomainForType('VARCHAR'));
+		$directionColumn->setSize(4);
+		$directionColumn->setNotNull(true);
+		$table->addColumn($directionColumn);
+
+		$checksumColumn = new Column('checksum');
+		$checksumColumn->getDomain()->copy($platform->getDomainForType('VARCHAR'));
+		$checksumColumn->setSize(64);
+		$checksumColumn->setNotNull(true);
+		$table->addColumn($checksumColumn);
+
+		$appliedAtColumn = new Column('applied_at');
+		$appliedAtColumn->getDomain()->copy($platform->getDomainForType('TIMESTAMP'));
+		$appliedAtColumn->setNotNull(true);
+		$table->addColumn($appliedAtColumn);
+
+		$successColumn = new Column('success');
+		$successColumn->getDomain()->copy($platform->getDomainForType('BOOLEAN'));
+		$successColumn->setNotNull(true);
+		$table->addColumn($successColumn);
+
+		$statementLogColumn = new Column('statement_log');
+		$statementLogColumn->getDomain()->copy($platform->getDomainForType('LONGVARCHAR'));
+		$table->addColumn($statementLogColumn);
+
 		// insert the table into the database
 		$statements = $platform->getAddTableDDL($table);
 		$pdo = $this->getPdoConnection($datasource);
@@ -213,22 +370,69 @@ class PropulsionMigrationManager
 		}
 	}
 
-	public function updateLatestMigrationTimestamp($datasource, $timestamp)
+	/**
+	 * Appends a new row to the migration ledger recording one migration
+	 * run/reversion attempt -- never updates or deletes an existing row, so
+	 * the ledger is a complete, permanent audit trail (see
+	 * createMigrationTable()'s doc comment).
+	 *
+	 * Always writes through a brand-new, dedicated PDO connection (see
+	 * createPdoConnection()) rather than whatever connection the caller used
+	 * to run the migration's DDL statements. This is deliberate: on a
+	 * transactional-DDL platform (see
+	 * PropulsionPlatformInterface::supportsTransactionalDDL()), the caller
+	 * wraps the DDL statements in a transaction and rolls the whole thing
+	 * back on failure -- if the ledger insert were part of that same
+	 * transaction, a failed attempt's ledger row would vanish along with the
+	 * rollback, silently defeating the "record every attempt, successful or
+	 * not" requirement this table exists to satisfy. A fresh connection is
+	 * always in its own autocommit transaction, so this insert commits
+	 * immediately and independently of whatever happens to the DDL
+	 * connection/transaction.
+	 *
+	 * @param string $datasource
+	 * @param int $timestamp The migration's timestamp identifier.
+	 * @param string $direction 'up' or 'down'.
+	 * @param string $sql The exact (pre-statement-splitting) SQL string that
+	 *                    was executed for this direction -- checksummed via
+	 *                    sha256 and stored so a future validate/status command
+	 *                    could detect a migration file edited after it ran.
+	 * @param bool $success Whether this attempt fully succeeded.
+	 * @param array $statementLog List of
+	 *                    ['sql' => ..., 'status' => 'success'|'failed'|'not_attempted', 'error' => ...]
+	 *                    entries, one per statement in this direction's
+	 *                    migration ('error' only present when status is
+	 *                    'failed').
+	 */
+	public function recordMigrationRun($datasource, $timestamp, $direction, $sql, $success, array $statementLog)
 	{
 		$platform = $this->getPlatform($datasource);
-		$pdo = $this->getPdoConnection($datasource);
-		$sql = sprintf('DELETE FROM %s', $this->getMigrationTable());
-		$pdo->beginTransaction();
-		$stmt = $pdo->prepare($sql);
-		$stmt->execute();
-		$sql = sprintf('INSERT INTO %s (%s) VALUES (?)',
+		$migrationName = self::getMigrationClassName($timestamp);
+		$checksum = hash('sha256', (string) $sql);
+		$statementLogJson = json_encode($statementLog);
+
+		$pdo = $this->createPdoConnection($datasource);
+
+		$sqlInsert = sprintf(
+			'INSERT INTO %s (%s, %s, %s, %s, %s, %s, %s) VALUES (?, ?, ?, ?, ?, ?, ?)',
 			$this->getMigrationTable(),
-			$platform->quoteIdentifier('version')
+			$platform->quoteIdentifier('migration_timestamp'),
+			$platform->quoteIdentifier('migration_name'),
+			$platform->quoteIdentifier('direction'),
+			$platform->quoteIdentifier('checksum'),
+			$platform->quoteIdentifier('applied_at'),
+			$platform->quoteIdentifier('success'),
+			$platform->quoteIdentifier('statement_log')
 		);
-		$stmt = $pdo->prepare($sql);
-		$stmt->bindParam(1, $timestamp, PDO::PARAM_INT);
+		$stmt = $pdo->prepare($sqlInsert);
+		$stmt->bindValue(1, $timestamp, PDO::PARAM_INT);
+		$stmt->bindValue(2, $migrationName, PDO::PARAM_STR);
+		$stmt->bindValue(3, $direction, PDO::PARAM_STR);
+		$stmt->bindValue(4, $checksum, PDO::PARAM_STR);
+		$stmt->bindValue(5, date('Y-m-d H:i:s'), PDO::PARAM_STR);
+		$stmt->bindValue(6, $success ? 1 : 0, PDO::PARAM_INT);
+		$stmt->bindValue(7, $statementLogJson, PDO::PARAM_STR);
 		$stmt->execute();
-		$pdo->commit();
 	}
 
 	public function getMigrationTimestamps()
@@ -292,6 +496,29 @@ class PropulsionMigrationManager
 	public static function getMigrationClassName($timestamp)
 	{
 		return sprintf('PropulsionMigration_%d', $timestamp);
+	}
+
+	/**
+	 * Normalizes a value fetched back from a BOOLEAN-domain column into a
+	 * real PHP bool. Necessary because different PDO drivers represent a
+	 * fetched boolean differently -- e.g. PDO_PGSQL commonly returns the
+	 * native textual form ('t'/'f') rather than PHP true/false, and a naive
+	 * `(bool) $value` cast would treat the non-empty string 'f' as truthy.
+	 *
+	 * @param mixed $value
+	 * @return bool
+	 */
+	protected static function toBool($value)
+	{
+		if (is_bool($value)) {
+			return $value;
+		}
+		if ($value === null) {
+			return false;
+		}
+		$normalized = strtolower(trim((string) $value));
+
+		return in_array($normalized, array('1', 't', 'true', 'y', 'yes'), true);
 	}
 
 	public function getMigrationObject($timestamp)
