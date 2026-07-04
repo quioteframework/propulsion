@@ -117,6 +117,76 @@ class SqlDiffCommandTest extends TestCase
     }
 
     /**
+     * Same scenario as testCommandGeneratesMigrationClassForLiveDatabaseDrift(),
+     * but via the recommended plain-PHP-array buildtime config file
+     * (--buildtime-conf pointing at a .php file returning
+     * ['default' => ..., 'datasources' => [...]]) instead of the legacy
+     * buildtime-conf.xml format.
+     */
+    public function testCommandGeneratesMigrationClassForLiveDatabaseDriftUsingPhpConfigFile(): void
+    {
+        try {
+            $conn = IntegrationDatabase::containerConnection();
+        } catch (\RuntimeException $e) {
+            $this->markTestSkipped($e->getMessage());
+        }
+
+        $this->dbName = 'propulsion_test_sqldiff_command_php';
+        $adminDsn = "pgsql:host={$conn['host']};port={$conn['port']};dbname=propulsion_test";
+        $admin = new PDO($adminDsn, 'propulsion', 'propulsion');
+        $admin->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        if (!$admin->query('SELECT 1 FROM pg_database WHERE datname = ' . $admin->quote($this->dbName))->fetchColumn()) {
+            $admin->exec('CREATE DATABASE ' . $this->dbName);
+        }
+
+        $dsn = "pgsql:host={$conn['host']};port={$conn['port']};dbname={$this->dbName}";
+        $this->pdo = new PDO($dsn, 'propulsion', 'propulsion');
+        $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+        $this->pdo->exec('DROP TABLE IF EXISTS diff_book');
+        $this->pdo->exec('DROP TABLE IF EXISTS diff_author');
+        $this->pdo->exec('CREATE TABLE diff_author (id SERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL)');
+        $this->pdo->exec('CREATE TABLE diff_book (id SERIAL PRIMARY KEY, title VARCHAR(100) NOT NULL)');
+
+        $buildtimeConfigPhpFile = $this->migrationDir . '/buildtime-conf.php';
+        file_put_contents($buildtimeConfigPhpFile, '<?php return ' . var_export([
+            'default' => 'diff_parity',
+            'datasources' => [
+                'diff_parity' => [
+                    'adapter' => 'pgsql',
+                    'dsn' => $dsn,
+                    'user' => 'propulsion',
+                    'password' => 'propulsion',
+                ],
+            ],
+        ], true) . ';');
+
+        try {
+            $application = new Application();
+            $application->addCommand(new SqlDiffCommand());
+            $tester = new CommandTester($application->find('sql:diff'));
+
+            $exitCode = $tester->execute([
+                'schema' => $this->fixtureDir . '/schema-v2.xml',
+                '--buildtime-conf' => $buildtimeConfigPhpFile,
+                '--migration-dir' => $this->migrationDir,
+                '--database' => 'pgsql',
+            ]);
+
+            $this->assertSame(0, $exitCode, $tester->getDisplay());
+
+            $migrationFiles = glob($this->migrationDir . '/PropulsionMigration_*.php');
+            $this->assertNotEmpty($migrationFiles, 'A migration class file should have been generated');
+
+            $body = file_get_contents($migrationFiles[0]);
+            $this->assertMatchesRegularExpression('/author_id/i', $body);
+        } finally {
+            $this->pdo->exec('DROP TABLE IF EXISTS diff_book');
+            $this->pdo->exec('DROP TABLE IF EXISTS diff_author');
+        }
+    }
+
+    /**
      * Includes a DECIMAL(10,2) column deliberately: this is the regression
      * case for the PgsqlSchemaParser NUMERIC-typmod-decoding bug documented
      * in KNOWN_ISSUES.md (a reversed NUMERIC(p,s) column's `size` didn't

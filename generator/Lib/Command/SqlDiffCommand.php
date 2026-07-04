@@ -34,7 +34,7 @@ class SqlDiffCommand extends Command
         $this
             ->addArgument('schema', InputArgument::OPTIONAL, 'Schema file or directory', './schema')
             ->addOption('migration-dir', 'o', InputOption::VALUE_REQUIRED, 'Output directory for the generated migration class', './migrations')
-            ->addOption('buildtime-conf', null, InputOption::VALUE_REQUIRED, 'Path to a buildtime-conf.xml file describing the datasource connection(s) to diff against')
+            ->addOption('buildtime-conf', null, InputOption::VALUE_REQUIRED, 'Path to a build-time connection config file describing the datasource(s) to diff against: a plain PHP file returning [\'default\' => ..., \'datasources\' => [...]] (recommended), or a legacy buildtime-conf.xml file')
             ->addOption('config', 'c', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Build properties file overriding generator/default.properties (repeatable; later files win)', [])
             ->addOption('database', 'd', InputOption::VALUE_REQUIRED, 'Target database adapter (mysql, pgsql, sqlite, ...)')
             ->addOption('case-insensitive', null, InputOption::VALUE_NONE, 'Perform a case-insensitive structure comparison')
@@ -44,7 +44,17 @@ The <info>sql:diff</info> command connects to a live database (via
 generating a <info>PropulsionMigration_&lt;timestamp&gt;.php</info> migration
 class capturing the up/down SQL for any difference found.
 
-<info>php bin/propulsion sql:diff schema.xml --buildtime-conf=buildtime-conf.xml --database=pgsql --migration-dir=./migrations</info>
+<info>php bin/propulsion sql:diff schema.xml --buildtime-conf=buildtime-conf.php --database=pgsql --migration-dir=./migrations</info>
+
+Where buildtime-conf.php is a plain PHP file returning:
+<comment>  return [
+      'default' => 'bookstore',
+      'datasources' => [
+          'bookstore' => ['adapter' => 'pgsql', 'dsn' => 'pgsql:host=localhost;dbname=mydb', 'user' => 'me', 'password' => 'secret'],
+      ],
+  ];</comment>
+
+A legacy buildtime-conf.xml file (deprecated) is also still accepted.
 EOT
             );
     }

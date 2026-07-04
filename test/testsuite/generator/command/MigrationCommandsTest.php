@@ -44,6 +44,7 @@ class MigrationCommandsTest extends TestCase
     private ?PDO $pdo = null;
     private string $migrationDir;
     private string $buildtimeConfFile;
+    private string $buildtimeConfigPhpFile;
     private string $dsn;
     private string $platform;
 
@@ -83,6 +84,19 @@ class MigrationCommandsTest extends TestCase
             htmlspecialchars($this->dsn, ENT_XML1),
             $this->platform
         ));
+
+        $this->buildtimeConfigPhpFile = $this->migrationDir . '/buildtime-conf.php';
+        file_put_contents($this->buildtimeConfigPhpFile, '<?php return ' . var_export([
+            'default' => self::DATASOURCE,
+            'datasources' => [
+                self::DATASOURCE => [
+                    'adapter' => $this->platform,
+                    'dsn' => $this->dsn,
+                    'user' => 'propulsion',
+                    'password' => 'propulsion',
+                ],
+            ],
+        ], true) . ';');
     }
 
     protected function tearDown(): void
@@ -218,6 +232,48 @@ class MigrationCommandsTest extends TestCase
         $ledger = $manager->getMigrationLedger(self::DATASOURCE);
         $this->assertCount(2, $ledger);
         $this->assertFalse($this->isTruthy($ledger[1]['success']));
+    }
+
+    /**
+     * Same status -> up -> down cycle as
+     * testStatusUpDownCycleAgainstRealDatabase(), but via the recommended
+     * plain-PHP-array buildtime config file (--buildtime-conf pointing at a
+     * .php file returning ['default' => ..., 'datasources' => [...]]) instead
+     * of the legacy buildtime-conf.xml format -- proves GeneratorConfig's
+     * extension-based dispatch (see getBuildConnections()/
+     * loadBuildConnectionsFile()) actually wires a PHP config all the way
+     * through the console commands, not just at the GeneratorConfig unit level.
+     */
+    public function testStatusUpDownCycleAgainstRealDatabaseUsingPhpConfigFile(): void
+    {
+        $timestamp = 1750000300;
+        $this->writeMigrationFile($timestamp, [
+            self::DATASOURCE => 'ALTER TABLE mig_cmd_book ADD COLUMN subtitle VARCHAR(120);',
+        ], [
+            self::DATASOURCE => 'ALTER TABLE mig_cmd_book DROP COLUMN subtitle;',
+        ]);
+
+        $args = [
+            '--migration-dir' => $this->migrationDir,
+            '--migration-table' => self::MIGRATION_TABLE,
+            '--buildtime-conf' => $this->buildtimeConfigPhpFile,
+            '--database' => $this->platform,
+        ];
+
+        $statusTester = $this->tester(new MigrationStatusCommand(), 'migration:status');
+        $exitCode = $statusTester->execute($args);
+        $this->assertSame(0, $exitCode, $statusTester->getDisplay());
+        $this->assertStringContainsString('PropulsionMigration_' . $timestamp, $statusTester->getDisplay());
+
+        $upTester = $this->tester(new MigrationUpCommand(), 'migration:up');
+        $exitCode = $upTester->execute($args);
+        $this->assertSame(0, $exitCode, $upTester->getDisplay());
+        $this->assertTrue($this->columnExists('subtitle'), 'migration:up should have added the column for real');
+
+        $downTester = $this->tester(new MigrationDownCommand(), 'migration:down');
+        $exitCode = $downTester->execute($args);
+        $this->assertSame(0, $exitCode, $downTester->getDisplay());
+        $this->assertFalse($this->columnExists('subtitle'), 'migration:down should have dropped the column for real');
     }
 
     public function testStatusCommandFailsCleanlyWithNoConnectionSettings(): void

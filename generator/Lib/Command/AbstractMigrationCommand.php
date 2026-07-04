@@ -20,7 +20,7 @@ abstract class AbstractMigrationCommand extends Command
         $this
             ->addOption('migration-dir', 'o', InputOption::VALUE_REQUIRED, 'Directory containing PropulsionMigration_<timestamp>.php migration classes', './migrations')
             ->addOption('migration-table', null, InputOption::VALUE_REQUIRED, 'Migration ledger table name', 'propulsion_migration')
-            ->addOption('buildtime-conf', null, InputOption::VALUE_REQUIRED, 'Path to a buildtime-conf.xml file describing the datasource connection(s) to migrate')
+            ->addOption('buildtime-conf', null, InputOption::VALUE_REQUIRED, 'Path to a build-time connection config file describing the datasource(s) to migrate: a plain PHP file returning [\'default\' => ..., \'datasources\' => [...]] (recommended), or a legacy buildtime-conf.xml file')
             ->addOption('config', 'c', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Build properties file overriding generator/default.properties (repeatable; later files win)', [])
             ->addOption('database', 'd', InputOption::VALUE_REQUIRED, 'Target database adapter (mysql, pgsql, sqlite, ...)');
 
