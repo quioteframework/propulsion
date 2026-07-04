@@ -82,6 +82,39 @@ class BasePeer
 	const TYPE_NUM = 'num';
 
 	/**
+	 * Generic, table-name-taking counterpart to each generated Peer's own static
+	 * getFieldNames($type). Every generated Peer class (e.g. BookPeer) already implements
+	 * this against its own table; this delegates to the right one by naming convention
+	 * (<Classname>Peer), so callers that only know the model's class name at runtime (not
+	 * which generated Peer that maps to) don't have to look it up themselves.
+	 *
+	 * @param      string $classname The PHP name of the model class (e.g. "Book").
+	 * @param      string $type The type of fieldnames to return: one of the class type
+	 *                     constants TYPE_PHPNAME, TYPE_STUDLYPHPNAME, TYPE_COLNAME,
+	 *                     TYPE_FIELDNAME, TYPE_NUM.
+	 * @return     array A list of field names
+	 */
+	public static function getFieldNames($classname, $type = self::TYPE_PHPNAME)
+	{
+		return call_user_func(array($classname . 'Peer', 'getFieldNames'), $type);
+	}
+
+	/**
+	 * Generic, table-name-taking counterpart to each generated Peer's own static
+	 * translateFieldName($name, $fromType, $toType). See getFieldNames() above.
+	 *
+	 * @param      string $classname The PHP name of the model class (e.g. "Book").
+	 * @param      string $name
+	 * @param      string $fromType
+	 * @param      string $toType
+	 * @return     mixed
+	 */
+	public static function translateFieldName($classname, $name, $fromType, $toType)
+	{
+		return call_user_func(array($classname . 'Peer', 'translateFieldName'), $name, $fromType, $toType);
+	}
+
+	/**
 	 * Method to perform deletes based on values and keys in a
 	 * Criteria.
 	 *
