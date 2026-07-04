@@ -10,8 +10,6 @@
 namespace Propulsion\Generator\Task;
 use Propulsion\Generator\Util\PropulsionMigrationManager;
 use Phing\Project;
-use PDOException;
-use Propulsion\Generator\Util\PropulsionSQLParser;
 
 /**
  * This Task executes the next migration down
@@ -42,67 +40,30 @@ class PropulsionMigrationDownTask extends BasePropulsionMigrationTask
 			$manager->getMigrationClassName($nextMigrationTimestamp)
 		));
 
-		if ($nbPreviousTimestamps = count($previousTimestamps)) {
-			$previousTimestamp = array_pop($previousTimestamps);
-		} else {
-			$previousTimestamp = 0;
-		}
-
 		$migration = $manager->getMigrationObject($nextMigrationTimestamp);
 		if (false === $migration->preDown($manager)) {
 			$this->log('preDown() returned false. Aborting migration.', Project::MSG_ERR);
 			return false;
 		}
 
-		foreach ($migration->getDownSQL() as $datasource => $sql) {
-			$connection = $manager->getConnection($datasource);
-			$this->log(sprintf(
-				'Connecting to database "%s" using DSN "%s"',
-				$datasource,
-				$connection['dsn']
-			), Project::MSG_VERBOSE);
-			$pdo = $manager->getPdoConnection($datasource);
-			$res = 0;
-			$statements = PropulsionSQLParser::parseString($sql);
-			foreach ($statements as $statement) {
-				try {
-					$this->log(sprintf('Executing statement "%s"', $statement), Project::MSG_VERBOSE);
-					$stmt = $pdo->prepare($statement);
-					$stmt->execute();
-					$res++;
-				} catch (PDOException $e) {
-					$this->log(sprintf('Failed to execute SQL "%s"', $statement), Project::MSG_ERR);
-					// continue
-				}
-			}
-			if (!$res) {
-				$this->log('No statement was executed. The version was not updated.');
-				$this->log(sprintf(
-					'Please review the code in "%s"',
-					$manager->getMigrationDir() . DIRECTORY_SEPARATOR . $manager->getMigrationClassName($nextMigrationTimestamp)
-				));
-				$this->log('Migration aborted', Project::MSG_ERR);
-				return false;
-			}
-			$this->log(sprintf(
-				'%d of %d SQL statements executed successfully on datasource "%s"',
-				$res,
-				count($statements),
-				$datasource
-			));
-
-			$manager->updateLatestMigrationTimestamp($datasource, $previousTimestamp);
-			$this->log(sprintf(
-				'Downgraded migration date to %d for datasource "%s"',
-				$previousTimestamp,
-				$datasource
-			), Project::MSG_VERBOSE);
-		}
+		// Executes every datasource's down SQL, recording the outcome in the
+		// migration ledger and throwing a BuildException (failing the Phing
+		// build) on the first statement failure -- see
+		// BasePropulsionMigrationTask::runMigrationDirection() for the full
+		// transaction/ledger semantics. Unlike the old
+		// updateLatestMigrationTimestamp()-based approach, there's no need to
+		// separately compute "the previous timestamp to fall back to" here:
+		// once this migration's ledger row records direction=down/success, it
+		// naturally drops out of PropulsionMigrationManager::getCurrentVersion()'s
+		// "currently applied" set, revealing whatever timestamp (if any) is
+		// still applied below it.
+		$this->runMigrationDirection($manager, $nextMigrationTimestamp, 'down', $migration->getDownSQL());
 
 		$migration->postDown($manager);
 
-		if ($nbPreviousTimestamps) {
-			$this->log(sprintf('Reverse migration complete. %d more migrations available for reverse.', $nbPreviousTimestamps));
+		$remainingTimestamps = $manager->getAlreadyExecutedMigrationTimestamps();
+		if ($nbRemainingTimestamps = count($remainingTimestamps)) {
+			$this->log(sprintf('Reverse migration complete. %d more migrations available for reverse.', $nbRemainingTimestamps));
 		} else {
 			$this->log('Reverse migration complete. No more migration available for reverse');
 		}
