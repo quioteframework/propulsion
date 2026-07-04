@@ -47,12 +47,71 @@ blocking.
   to find and remove them via `docker stop`/`docker rm` — works the same
   regardless of host OS, since it goes through the Docker daemon rather
   than sending a signal directly.
-- **Worker-safety test matrix not run.** Phase 4a/4b (below) built the
-  `ServiceContainer`/`Session` split and unit-tested it directly, but the
-  actual worker-mode property (no object bleed across requests, connection
-  persistence, memory doesn't grow under sustained load) needs a real
-  worker harness (FrankenPHP or equivalent) this repo doesn't have. Nothing
-  to do here until such a harness exists.
+- **Worker-safety test matrix**: built, green. `test/worker/` is a real
+  FrankenPHP (`dunglas/frankenphp:php8.5`) worker-mode Docker harness plus a
+  black-box driver (`test/worker/driver.php`) that builds the image, starts a
+  container, and makes real sequential HTTP requests against it with curl,
+  asserting on JSON responses -- proving the properties Phase 4a/4b's
+  `ServiceContainer`/`Session` split exists to deliver actually hold under a
+  real persistent-worker process, not just in the unit tests
+  (`test/testsuite/runtime/{ServiceContainer,Session,SessionResetTransaction}Test.php`)
+  that exercise `Session::reset()` directly. Run via `composer test:worker`
+  (skips cleanly if Docker isn't available, or if `PROPULSION_SKIP_INTEGRATION=1`
+  is set, matching `IntegrationDatabase`'s convention; its container is
+  labeled `propulsion.test-container=true` so a leaked container is covered
+  by `composer test:cleanup-containers` same as the Postgres/MySQL
+  testcontainers). Set `WORKER_TEST_LOAD_REQUESTS` to change the sustained-load
+  request count (default 500).
+
+  What it proves, all six green as of this writing:
+  - No object bleed across requests: request A pools an instance
+    (`Session::addPooledInstance()`, the same call a generated Peer's
+    `addInstanceToPool()` makes), request B on the same worker process
+    doesn't see it after the boundary `Session::reset()` call.
+  - Dangling transaction cleanup: request A opens a transaction against a
+    real SQLite-backed `PropulsionPDO` connection and returns without
+    committing/rolling back (simulating an app bug); request B neither
+    inherits an open transaction nor sees the uncommitted row -- proving
+    `Session::reset()`'s `forceRollBack()` call actually runs at the request
+    boundary. A control case (a *committed* row surviving the reset) rules
+    out the trivial "wipe the whole DB every request" false-pass.
+  - Connection persistence: the same `PropulsionPDO` object (by
+    `spl_object_id()`) is reused across requests in the same worker --
+    process-scoped state is not torn down per request, which would defeat
+    the performance point of worker mode.
+  - `forceMasterConnection` isolation: request A sets it `true`; request B
+    starts back at the default `false`.
+  - Memory doesn't grow unboundedly under sustained load: 500 requests each
+    adding a uniquely-keyed pooled instance and committing a row show
+    exactly flat memory (same `memory_get_usage()` reading at the start and
+    end of the run in local testing) and an empty instance pool afterward --
+    a real regression test for the "growing instance pools never getting
+    cleared" failure mode this whole rework was meant to prevent.
+
+  Deliberate scope choices, worth knowing if this needs extending later:
+  - Uses SQLite, not Postgres: `dunglas/frankenphp` images ship `pdo_sqlite`
+    but not `pdo_pgsql` (would need a custom image layer with
+    `install-php-extensions pdo_pgsql`, plus a Postgres testcontainer wired
+    up the way `IntegrationDatabase` does it). SQLite still exercises a real
+    `PropulsionPDO` connection/transaction/adapter code path end-to-end, so
+    it proves the same property; it does not prove anything Postgres-adapter-
+    specific.
+  - Drives `Session`'s pooling API directly (`addPooledInstance()`/
+    `getPooledInstance()`) rather than through generated Peer classes --
+    running the code generator inside the worker image would add moving
+    parts (schema, build step, fixture DB) without adding certainty, since
+    the actual worker-safety contract lives entirely in
+    `Session`/`ServiceContainer`/`PropulsionPDO`, not in generated-code
+    boilerplate that just calls through to it.
+  - The FrankenPHP worker is pinned to exactly one thread/instance
+    (`worker /app/test/worker/public/index.php 1` in `test/worker/Caddyfile`)
+    so the test driver's sequential requests are guaranteed to hit the same
+    process -- FrankenPHP's default is one worker instance per CPU thread,
+    which would make "did request B share a process with request A"
+    non-deterministic otherwise. A production deployment would run more than
+    one worker thread; this harness doesn't test cross-thread behavior
+    (each thread has its own independent `Propulsion`/`Session` statics
+    anyway, so there is nothing cross-thread to bleed).
 - **Phing `Task` classes** (`generator/Lib/Task/*`, 15 files) are still
   present, gated on proving output parity between the Phing path
   (`generator/bin/propel-gen`) and the `bin/propulsion` console path. No
@@ -121,8 +180,9 @@ instance pools delegate to `Session` (no more per-class `static $instances`
 arrays); `Session::reset()` force-rolls-back open transactions and clears
 pools. Instance pooling defaults to on. See `runtime/Lib/ServiceContainer.php`,
 `runtime/Lib/Session.php`, and `test/testsuite/runtime/{ServiceContainer,Session,SessionResetTransaction}Test.php`
-for the actual contract. What's left: the worker test matrix (see "Open
-issues" above).
+for the actual contract. The worker test matrix proving this actually holds
+under a real persistent-worker process now exists too -- see `test/worker/`
+and the "Worker-safety test matrix" entry under "Open issues" above.
 
 ### `Propel*` → `Propulsion*` class rename
 
