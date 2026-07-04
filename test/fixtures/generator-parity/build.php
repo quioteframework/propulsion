@@ -6,9 +6,9 @@
  * being built.
  */
 return [
-    'propel.project' => 'generator_parity',
-    'propel.database' => 'pgsql',
-    'propel.database.url' => 'pgsql:dbname=propulsion_test',
-    'propel.disableIdentifierQuoting' => 'true',
-    'propel.targetPackage' => 'generator_parity',
+    'propulsion.project' => 'generator_parity',
+    'propulsion.database' => 'pgsql',
+    'propulsion.database.url' => 'pgsql:dbname=propulsion_test',
+    'propulsion.disableIdentifierQuoting' => 'true',
+    'propulsion.targetPackage' => 'generator_parity',
 ];

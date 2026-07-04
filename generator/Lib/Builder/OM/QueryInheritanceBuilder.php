@@ -192,7 +192,7 @@ class "  .$this->getClassname() . " extends " . $baseClassname . " {
 		// which (since Phase 3's promotion of the PHP84 builders to canonical) declares
 		// a typed create(?string, ?Criteria): self signature by default -- match it, or
 		// PHP fatals on an incompatible override. Only the legacy PHP5QueryBuilder path
-		// (explicit propel.targetPlatform=php5) leaves create() untyped, so match that
+		// (explicit propulsion.targetPlatform=php5) leaves create() untyped, so match that
 		// instead when that's what was used to build the parent class.
 		$isLegacyPhp5 = $this->getGeneratorConfig()
 			&& $this->getGeneratorConfig()->getBuildProperty('targetPlatform') === 'php5';

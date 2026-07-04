@@ -72,7 +72,7 @@ abstract class AbstractObjectBuilder extends OMBuilder
 
 	/**
 	 * Whether to add the generic mutator methods (setByName(), setByPosition(), fromArray()).
-	 * This is based on the build property propel.addGenericMutators, and also whether the
+	 * This is based on the build property propulsion.addGenericMutators, and also whether the
 	 * table is read-only or an alias.
 	 */
 	protected function isAddGenericMutators()
@@ -83,7 +83,7 @@ abstract class AbstractObjectBuilder extends OMBuilder
 
 	/**
 	 * Whether to add the generic accessor methods (getByName(), getByPosition(), toArray()).
-	 * This is based on the build property propel.addGenericAccessors, and also whether the
+	 * This is based on the build property propulsion.addGenericAccessors, and also whether the
 	 * table is an alias.
 	 */
 	protected function isAddGenericAccessors()
@@ -94,7 +94,7 @@ abstract class AbstractObjectBuilder extends OMBuilder
 
 	/**
 	 * Whether to add the validate() method.
-	 * This is based on the build property propel.addValidateMethod
+	 * This is based on the build property propulsion.addValidateMethod
 	 */
 	protected function isAddValidateMethod()
 	{

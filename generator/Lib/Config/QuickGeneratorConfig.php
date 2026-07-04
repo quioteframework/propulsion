@@ -39,7 +39,7 @@ namespace Propulsion\Generator\Config;
 class QuickGeneratorConfig implements GeneratorConfigInterface
 {
 	// These used to hardcode the PHP5* builders (independently of
-	// generator/default.php's propel.builder.*.class keys -- this class is used by
+	// generator/default.php's propulsion.builder.*.class keys -- this class is used by
 	// PropulsionQuickBuilder, the ad-hoc-schema builder most behavior unit tests use, and
 	// has its own separate builder registry). Since the PHP5 builders were removed
 	// entirely (see archaeology/php5-builders/, KNOWN_ISSUES.md), these now point at the
@@ -99,7 +99,7 @@ class QuickGeneratorConfig implements GeneratorConfigInterface
 	/**
 	 * Parses the passed-in properties, renaming and saving eligible properties in this object.
 	 *
-	 * Renames the propel.xxx properties to just xxx and renames any xxx.yyy properties
+	 * Renames the propulsion.xxx properties to just xxx and renames any xxx.yyy properties
 	 * to xxxYyy as PHP doesn't like the xxx.yyy syntax.
 	 *
 	 * @param			 mixed $props Array or Iterator
@@ -110,8 +110,8 @@ class QuickGeneratorConfig implements GeneratorConfigInterface
 
 		$renamedPropulsionProps = array();
 		foreach ($props as $key => $propValue) {
-			if (strpos($key, "propel.") === 0) {
-				$newKey = substr($key, strlen("propel."));
+			if (strpos($key, "propulsion.") === 0) {
+				$newKey = substr($key, strlen("propulsion."));
 				$j = strpos($newKey, '.');
 				while ($j !== false) {
 					$newKey =	 substr($newKey, 0, $j) . ucfirst(substr($newKey, $j + 1));

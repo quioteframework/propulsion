@@ -54,10 +54,10 @@ abstract class AbstractMigrationCommand extends Command
 
         $overrides = [];
         if ($database = $input->getOption('database')) {
-            $overrides['propel.database'] = $database;
+            $overrides['propulsion.database'] = $database;
         }
         if ($buildtimeConf = $input->getOption('buildtime-conf')) {
-            $overrides['propel.buildtimeConfFile'] = $buildtimeConf;
+            $overrides['propulsion.buildtimeConfFile'] = $buildtimeConf;
         }
 
         return GeneratorConfig::createFromPropertiesFile(

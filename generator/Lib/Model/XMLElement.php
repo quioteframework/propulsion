@@ -149,7 +149,7 @@ abstract class XMLElement
 
   /**
    * Find the best class name for a given behavior
-   * Looks in build.properties for path like propel.behavior.[bname].class
+   * Looks in build.properties for path like propulsion.behavior.[bname].class
    * If not found, tries to autoload [Bname]Behavior
    * If no success, returns 'Behavior'
    *
@@ -169,7 +169,7 @@ abstract class XMLElement
       return $class;
     }
 
-    throw new \InvalidArgumentException(sprintf('Unknown behavior "%s"; make sure you configured the propel.behavior.%s.class setting in your build.properties', $bname, $bname));
+    throw new \InvalidArgumentException(sprintf('Unknown behavior "%s"; make sure you configured the propulsion.behavior.%s.class setting in your build.properties', $bname, $bname));
   }
 
 	/**

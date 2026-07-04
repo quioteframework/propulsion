@@ -17,11 +17,11 @@ progress.
 **PostgreSQL is the recommended and default database for new projects**
 (PostgreSQL 15+; see `KNOWN_ISSUES.md` for the version-support note). It's
 what this codebase's own test suite, CI, and code generator default to —
-`generator/default.php`'s `propel.database` is `pgsql` out of the box, and
+`generator/default.php`'s `propulsion.database` is `pgsql` out of the box, and
 `PgsqlPlatform` gets the most feature-parity attention of the bundled
 platforms. MySQL, SQLite, Oracle, and MSSQL/SQL Server are also supported and
 exercised by the test suite, and remain a simple per-project override — set
-`propel.database` in your own `build.php` (a plain PHP file returning an
+`propulsion.database` in your own `build.php` (a plain PHP file returning an
 array; `--config`, repeatable, on the console commands — a legacy
 `build.properties` text file is also still accepted), or pass `--database`
 directly, if you need a different target.

@@ -9,7 +9,7 @@
  * path.
  */
 return [
-    'propel.behavior.test_all_hooks.class' => 'test.tools.helpers.bookstore.behavior.Testallhooksbehavior',
-    'propel.behavior.do_nothing.class' => 'test.tools.helpers.bookstore.behavior.DonothingBehavior',
-    'propel.behavior.add_class.class' => 'test.tools.helpers.bookstore.behavior.AddClassBehavior',
+    'propulsion.behavior.test_all_hooks.class' => 'test.tools.helpers.bookstore.behavior.Testallhooksbehavior',
+    'propulsion.behavior.do_nothing.class' => 'test.tools.helpers.bookstore.behavior.DonothingBehavior',
+    'propulsion.behavior.add_class.class' => 'test.tools.helpers.bookstore.behavior.AddClassBehavior',
 ];

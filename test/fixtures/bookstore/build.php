@@ -10,21 +10,21 @@
  * you cannot refer to any properties set therein via ${...} interpolation.
  */
 return [
-    'propel.project' => 'bookstore',
-    'propel.database' => 'mysql',
-    'propel.database.url' => 'mysql:dbname=test',
-    'propel.mysql.tableType' => 'InnoDB',
-    'propel.disableIdentifierQuoting' => 'true',
-    'propel.schema.autoPrefix' => 'true',
+    'propulsion.project' => 'bookstore',
+    'propulsion.database' => 'mysql',
+    'propulsion.database.url' => 'mysql:dbname=test',
+    'propulsion.mysql.tableType' => 'InnoDB',
+    'propulsion.disableIdentifierQuoting' => 'true',
+    'propulsion.schema.autoPrefix' => 'true',
 
     // For MySQL or Oracle, you also need to specify username & password
-    // 'propel.database.user' => '[db username]',
-    // 'propel.database.password' => '[db password]',
+    // 'propulsion.database.user' => '[db username]',
+    // 'propulsion.database.password' => '[db password]',
 
-    'propel.targetPackage' => 'bookstore',
+    'propulsion.targetPackage' => 'bookstore',
 
     // We need to test behavior hooks
-    'propel.behavior.test_all_hooks.class' => '../test.tools.helpers.bookstore.behavior.Testallhooksbehavior',
-    'propel.behavior.do_nothing.class' => '../test.tools.helpers.bookstore.behavior.DonothingBehavior',
-    'propel.behavior.add_class.class' => '../test.tools.helpers.bookstore.behavior.AddClassBehavior',
+    'propulsion.behavior.test_all_hooks.class' => '../test.tools.helpers.bookstore.behavior.Testallhooksbehavior',
+    'propulsion.behavior.do_nothing.class' => '../test.tools.helpers.bookstore.behavior.DonothingBehavior',
+    'propulsion.behavior.add_class.class' => '../test.tools.helpers.bookstore.behavior.AddClassBehavior',
 ];

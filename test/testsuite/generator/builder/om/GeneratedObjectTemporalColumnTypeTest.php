@@ -12,7 +12,7 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * Tests the generated objects for temporal column types accessor & mutator.
- * This requires that the model was built with propel.useDateTimeClass=true
+ * This requires that the model was built with propulsion.useDateTimeClass=true
  *
  * @author     Francois Zaninotto
  * @package    generator.builder.om

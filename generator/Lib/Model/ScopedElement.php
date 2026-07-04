@@ -27,7 +27,7 @@ abstract class ScopedElement extends XMLElement
 
 	/**
 	 * Whether the package was automatically overridden.
-	 * If propel.schema.autoPackage or propel.namespace.AutoPackage is true.
+	 * If propulsion.schema.autoPackage or propulsion.namespace.AutoPackage is true.
 	 */
 	protected $pkgOverridden = false;
 

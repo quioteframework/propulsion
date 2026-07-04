@@ -240,27 +240,27 @@ categories, not one:
   - Below is the history of how these tasks were audited, confirmed correct,
     and ported, kept for context:
   - **Root cause fixed**: `generator/default.properties` declared
-    `propel.project`, `propel.project.dir`, and `propel.targetPackage` as
+    `propulsion.project`, `propulsion.project.dir`, and `propulsion.targetPackage` as
     templates referencing each other in the same file (e.g.
-    `propel.project.dir = ${propel.home}/projects/${propel.project}`). Phing's
+    `propulsion.project.dir = ${propulsion.home}/projects/${propulsion.project}`). Phing's
     `<property file=...>` resolves placeholders against that file's own
     just-parsed table before ever falling back to the live project table, so
-    every directory property derived from `propel.project.dir`
-    (`propel.schema.dir`, `propel.output.dir`, `propel.php.dir`,
-    `propel.sql.dir`, `propel.migration.dir`, ...) silently resolved to the
+    every directory property derived from `propulsion.project.dir`
+    (`propulsion.schema.dir`, `propulsion.output.dir`, `propulsion.php.dir`,
+    `propulsion.sql.dir`, `propulsion.migration.dir`, ...) silently resolved to the
     file-local empty default instead of whatever `propel-gen`/`build.xml` had
     actually set — meaning `propel-gen <task>` failed with "No schema files
     were found" for every single project, unconditionally. Moved those three
     properties into `generator/build-propel.xml` as plain `<property>` tasks
     (which substitute against the live project table) instead. Also fixed
-    `propel.reverse.parser.class` and `propel.builder.datasql.class`, which
-    had the same "`${propel.database}`-templated path" bug in a different
-    shape: `Reverse\${propel.database}\${propel.database}SchemaParser` and
-    `Builder\SQL\${propel.database}\${propel.database}DataSQLBuilder` can
+    `propulsion.reverse.parser.class` and `propulsion.builder.datasql.class`, which
+    had the same "`${propulsion.database}`-templated path" bug in a different
+    shape: `Reverse\${propulsion.database}\${propulsion.database}SchemaParser` and
+    `Builder\SQL\${propulsion.database}\${propulsion.database}DataSQLBuilder` can
     never resolve, because those directories/namespaces are cased `MySQL`/
-    `PgSQL`/`MSSQL`/... while `propel.database` is always lowercase — replaced
+    `PgSQL`/`MSSQL`/... while `propulsion.database` is always lowercase — replaced
     both with explicit per-database class properties, matching the existing
-    `propel.platform.*.class` convention.
+    `propulsion.platform.*.class` convention.
   - **OM** (`PropulsionOMTask`): confirmed at parity — `PropulsionOMTaskTest`
     generates the same schema (FK + a built-in behavior) through
     `PropulsionOMTask` and the console `model:build` path
@@ -365,7 +365,7 @@ categories, not one:
     reinterpreting an old single-row `version` as a synthetic ledger history
     would be guessing at data that was never recorded, e.g. which migrations
     actually succeeded per statement). The default table name (configurable
-    via `getMigrationTable()`/`setMigrationTable()`/`propel.migration.table`,
+    via `getMigrationTable()`/`setMigrationTable()`/`propulsion.migration.table`,
     unchanged) is also renamed from `propel_migration` to
     `propulsion_migration` as part of this pass, matching this fork's
     `Propel*` → `Propulsion*` identity rename elsewhere — a project relying on
@@ -381,7 +381,7 @@ categories, not one:
     referencing the expected table; `PropulsionDataDumpTask` dumps a real row
     from a live table into `dataset`-format XML; `PropulsionDataSQLTask`
     converts a small hand-written data XML file into `INSERT` SQL (this is
-    also what surfaced the `propel.builder.datasql.class` bug fixed above).
+    also what surfaced the `propulsion.builder.datasql.class` bug fixed above).
 - **Console-app migration status** (moving off Phing entirely in favor of
   `symfony/console`/`bin/propulsion`, tracked separately from the Phing-task
   parity audit above). Every `*Manager`/`*Command` pair below follows the
@@ -538,7 +538,7 @@ categories, not one:
       ],
   ];
   ```
-  A `propel.buildtimeConfigArray` build property (an array set directly,
+  A `propulsion.buildtimeConfigArray` build property (an array set directly,
   rather than a file path) is also supported for programmatic/ad-hoc use, in
   the same shape.
 
@@ -565,7 +565,7 @@ categories, not one:
   (plain PHP array, same content).** The same reasoning as the buildtime-conf
   precedent above applies one level up: `GeneratorConfig::parsePropertiesFile()`
   now dispatches on file extension, so a `.php` file is `require`d and
-  expected to `return` a flat `['propel.foo' => ..., ...]` array, while
+  expected to `return` a flat `['propulsion.foo' => ..., ...]` array, while
   anything else still falls through to the legacy Ant/Phing `.properties`
   text parser -- kept, again, because a project's own `build.properties` is
   user-authored content outside this repo, not provably safe to break.
@@ -579,10 +579,10 @@ categories, not one:
   (all internal test fixtures, same reasoning) were converted the same way,
   to `build.php`/`build.propulsion.php`.
 - **Fixed: Postgres promoted to the documented/default database.**
-  `generator/default.php`'s `propel.database` now defaults to `pgsql`
+  `generator/default.php`'s `propulsion.database` now defaults to `pgsql`
   (still a plain per-project override via a project's own `build.php`
   or the console commands' `--database` flag -- every consumer of
-  `propel.database` already goes through `GeneratorConfig`'s default ->
+  `propulsion.database` already goes through `GeneratorConfig`'s default ->
   project-override -> explicit-override merge order, so nothing relied on the
   old empty default). The README now has a "Database support" section
   recommending Postgres for new projects and explaining why (this codebase's

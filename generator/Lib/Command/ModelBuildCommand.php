@@ -90,10 +90,10 @@ EOT
 
         $overrides = [];
         if ($database = $input->getOption('database')) {
-            $overrides['propel.database'] = $database;
+            $overrides['propulsion.database'] = $database;
         }
         if ($targetPlatform = $input->getOption('target-platform')) {
-            $overrides['propel.targetPlatform'] = $targetPlatform;
+            $overrides['propulsion.targetPlatform'] = $targetPlatform;
         }
 
         return GeneratorConfig::createFromPropertiesFile(

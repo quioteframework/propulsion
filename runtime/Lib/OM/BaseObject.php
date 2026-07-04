@@ -93,8 +93,8 @@ abstract class BaseObject
 	// declared abstract, unlike the two above: ObjectBuilder only generates them when
 	// isAddGenericAccessors()/isAddGenericMutators() are true, which is false for read-only or
 	// alias tables (see addClassBody()'s `if (!$table->isReadOnly())`/`if
-	// ($this->isAddGenericMutators())` guards) or when the propel.addGenericAccessors/
-	// propel.addGenericMutators build properties are turned off. A real `abstract` declaration
+	// ($this->isAddGenericMutators())` guards) or when the propulsion.addGenericAccessors/
+	// propulsion.addGenericMutators build properties are turned off. A real `abstract` declaration
 	// requires every concrete subclass to implement it -- e.g. a read-only view's generated
 	// class (ContestView in the test fixtures) has no fromArray() at all, so declaring it
 	// abstract here made that class fatal to even load ("contains 1 abstract method and must

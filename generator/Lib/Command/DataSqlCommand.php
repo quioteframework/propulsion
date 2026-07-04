@@ -83,7 +83,7 @@ EOT
 
         $overrides = [];
         if ($database = $input->getOption('database')) {
-            $overrides['propel.database'] = $database;
+            $overrides['propulsion.database'] = $database;
         }
 
         return GeneratorConfig::createFromPropertiesFile(

@@ -35,9 +35,9 @@ class GeneratorConfigTest extends TestCase
 		require $file;
 
 		$generator = new GeneratorConfig();
-		$generator->setBuildProperty('propel.foo.bar', 'Foobar');
+		$generator->setBuildProperty('propulsion.foo.bar', 'Foobar');
 
-		$this->assertSame('Foobar', $generator->getClassname('propel.foo.bar'));
+		$this->assertSame('Foobar', $generator->getClassname('propulsion.foo.bar'));
 	}
 
 	public function testGetClassnameWithClassAndNamespace()
@@ -52,9 +52,9 @@ class GeneratorConfigTest extends TestCase
 		require $file;
 
 		$generator = new GeneratorConfig();
-		$generator->setBuildProperty('propel.foo.bar', '\Foo\Test\FoobarWithNS');
+		$generator->setBuildProperty('propulsion.foo.bar', '\Foo\Test\FoobarWithNS');
 
-		$this->assertSame('\Foo\Test\FoobarWithNS', $generator->getClassname('propel.foo.bar'));
+		$this->assertSame('\Foo\Test\FoobarWithNS', $generator->getClassname('propulsion.foo.bar'));
 	}
 
 	/**
@@ -64,12 +64,12 @@ class GeneratorConfigTest extends TestCase
 	{
 		$this->expectException(EngineException::class);
 		$generator = new GeneratorConfig();
-		$generator->getClassname('propel.foo.bar');
+		$generator->getClassname('propulsion.foo.bar');
 	}
 
 	/**
 	 * The recommended build-time connection config format: a plain PHP array
-	 * passed directly via the `propel.buildtimeConfigArray` build property
+	 * passed directly via the `propulsion.buildtimeConfigArray` build property
 	 * (e.g. an ad-hoc `--config` override), in the same shape
 	 * getBuildConnections() returns. See KNOWN_ISSUES.md for why this
 	 * supersedes the legacy buildtime-conf.xml format.
@@ -96,7 +96,7 @@ class GeneratorConfigTest extends TestCase
 
 	/**
 	 * Same format as testGetBuildConnectionsFromDirectPhpArray(), but loaded
-	 * from a `.php` file via `propel.buildtimeConfFile` -- the file-based
+	 * from a `.php` file via `propulsion.buildtimeConfFile` -- the file-based
 	 * equivalent of --buildtime-conf pointing at a plain PHP config file
 	 * instead of the legacy XML format.
 	 */

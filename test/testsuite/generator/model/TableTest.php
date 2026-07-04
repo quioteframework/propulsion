@@ -65,7 +65,7 @@ EOF;
 		$appData = $xmlToAppData->parseString($schema);
 		$table = $appData->getDatabase('test1')->getTable('table1');
 		$config = new GeneratorConfig();
-		$config->setBuildProperties(array('propel.foo.bar.class' => 'bazz'));
+		$config->setBuildProperties(array('propulsion.foo.bar.class' => 'bazz'));
 		$table->getDatabase()->getAppData()->setGeneratorConfig($config);
 		$this->assertThat($table->getGeneratorConfig(), $this->isInstanceOf('GeneratorConfig'), 'getGeneratorConfig() returns an instance of the generator configuration');
 		$this->assertEquals($table->getGeneratorConfig()->getBuildProperty('fooBarClass'), 'bazz', 'getGeneratorConfig() returns the instance of the generator configuration used in the platform');
@@ -78,8 +78,8 @@ EOF;
 		$xmlToAppData = new XmlToAppData(new DefaultPlatform());
 		$config = new GeneratorConfig();
 		$config->setBuildProperties(array(
-			'propel.platform.class' => 'propel.engine.platform.DefaultPlatform',
-			'propel.behavior.timestampable.class' => 'behavior.TimestampableBehavior'
+			'propulsion.platform.class' => 'propel.engine.platform.DefaultPlatform',
+			'propulsion.behavior.timestampable.class' => 'behavior.TimestampableBehavior'
 		));
 		$xmlToAppData->setGeneratorConfig($config);
 		$schema = <<<EOF
@@ -307,7 +307,7 @@ EOF;
 </database>
 EOF;
 		$config = new GeneratorConfig();
-		$config->setBuildProperties(array('propel.namespace.autoPackage' => 'true'));
+		$config->setBuildProperties(array('propulsion.namespace.autoPackage' => 'true'));
 		$xmlToAppData = new XmlToAppData(new DefaultPlatform());
 		$xmlToAppData->setGeneratorConfig($config);
 		$table = $xmlToAppData->parseString($schema)->getDatabase('DB')->getTable('table');
@@ -325,7 +325,7 @@ EOF;
 </database>
 EOF;
 		$config = new GeneratorConfig();
-		$config->setBuildProperties(array('propel.namespace.autoPackage' => 'true'));
+		$config->setBuildProperties(array('propulsion.namespace.autoPackage' => 'true'));
 		$xmlToAppData = new XmlToAppData(new DefaultPlatform());
 		$xmlToAppData->setGeneratorConfig($config);
 		$table = $xmlToAppData->parseString($schema)->getDatabase('DB')->getTable('table');
@@ -343,7 +343,7 @@ EOF;
 </database>
 EOF;
 		$config = new GeneratorConfig();
-		$config->setBuildProperties(array('propel.namespace.autoPackage' => 'true'));
+		$config->setBuildProperties(array('propulsion.namespace.autoPackage' => 'true'));
 		$xmlToAppData = new XmlToAppData(new DefaultPlatform());
 		$xmlToAppData->setGeneratorConfig($config);
 		$table = $xmlToAppData->parseString($schema)->getDatabase('DB')->getTable('table');
@@ -407,7 +407,7 @@ EOF;
 		$doc->formatOutput = true;
 
 		$config = new GeneratorConfig();
-		$config->setBuildProperties(array('propel.namespace.autoPackage' => 'true'));
+		$config->setBuildProperties(array('propulsion.namespace.autoPackage' => 'true'));
 
 		$appData = new AppData();
 		$appData->setGeneratorConfig($config);

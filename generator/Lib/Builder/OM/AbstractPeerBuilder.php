@@ -245,7 +245,7 @@ abstract class AbstractPeerBuilder extends OMBuilder
 
 	/**
 	 * Whether to add the generic mutator methods (setByName(), setByPosition(), fromArray()).
-	 * This is based on the build property propel.addGenericMutators, and also whether the
+	 * This is based on the build property propulsion.addGenericMutators, and also whether the
 	 * table is read-only or an alias.
 	 * @return     boolean
 	 */
@@ -257,7 +257,7 @@ abstract class AbstractPeerBuilder extends OMBuilder
 
 	/**
 	 * Whether to add the generic accessor methods (getByName(), getByPosition(), toArray()).
-	 * This is based on the build property propel.addGenericAccessors, and also whether the
+	 * This is based on the build property propulsion.addGenericAccessors, and also whether the
 	 * table is an alias.
 	 * @return     boolean
 	 */

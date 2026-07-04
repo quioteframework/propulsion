@@ -6,15 +6,15 @@
  * being built.
  */
 return [
-    'propel.targetPackage' => 'treetest',
-    'propel.project' => 'treetest',
+    'propulsion.targetPackage' => 'treetest',
+    'propulsion.project' => 'treetest',
 
-    'propel.database' => 'sqlite',
-    'propel.database.url' => 'sqlite:/var/tmp/treetest.db',
+    'propulsion.database' => 'sqlite',
+    'propulsion.database.url' => 'sqlite:/var/tmp/treetest.db',
 
-    // 'propel.database' => 'mysql',
-    // 'propel.database.url' => 'mysql://localhost/test',
+    // 'propulsion.database' => 'mysql',
+    // 'propulsion.database.url' => 'mysql://localhost/test',
 
-    // 'propel.database' => 'codebase',
-    // 'propel.database.url' => 'odbc://localhost/Driver=CodeBaseOdbcStand;DBQ=test;?adapter=CodeBase',
+    // 'propulsion.database' => 'codebase',
+    // 'propulsion.database.url' => 'odbc://localhost/Driver=CodeBaseOdbcStand;DBQ=test;?adapter=CodeBase',
 ];

@@ -52,7 +52,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 	 * Builds a GeneratorConfig from the generator's default config file, one or
 	 * more optional user-supplied override files, and an array of ad-hoc
 	 * overrides -- without requiring Phing. Each file is either a plain PHP
-	 * file returning a flat `['propel.foo' => ..., ...]` array (recommended,
+	 * file returning a flat `['propulsion.foo' => ..., ...]` array (recommended,
 	 * dispatched by a `.php` extension -- see generator/default.php), or a
 	 * legacy Phing/Ant-style `.properties` text file (`key = value` lines,
 	 * one per line).
@@ -60,7 +60,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 	 * @param      string $defaultPropertiesFile Path to generator/default.php.
 	 * @param      string|string[]|null $overridePropertiesFiles One or more override files,
 	 *             applied in order (later files win on conflicting keys).
-	 * @param      array<string,mixed> $overrides Raw `propel.*`-prefixed overrides, e.g. ['propel.targetPlatform' => 'php84'].
+	 * @param      array<string,mixed> $overrides Raw `propulsion.*`-prefixed overrides, e.g. ['propulsion.targetPlatform' => 'php84'].
 	 */
 	public static function createFromPropertiesFile(string $defaultPropertiesFile, string|array|null $overridePropertiesFiles = null, array $overrides = []): self
 	{
@@ -80,7 +80,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 
 	/**
 	 * Loads a build-properties file, dispatched by extension: a `.php` file is
-	 * `require`d and expected to `return` a flat `['propel.foo' => ..., ...]`
+	 * `require`d and expected to `return` a flat `['propulsion.foo' => ..., ...]`
 	 * array directly (recommended -- see NOTICE.md/KNOWN_ISSUES.md), while
 	 * anything else falls back to the legacy Ant/Phing `.properties` text
 	 * format, for the same reason `loadBuildConnectionsFile()` keeps XML
@@ -123,10 +123,10 @@ class GeneratorConfig implements GeneratorConfigInterface
 	}
 
 	/**
-	 * Resolves Ant/Phing-style `${propel.some.key}` placeholders against the
+	 * Resolves Ant/Phing-style `${propulsion.some.key}` placeholders against the
 	 * properties themselves, innermost-first, so e.g.
-	 * `propel.platform.class = ${propel.platform.${propel.database}.class}`
-	 * resolves in two passes once `propel.database` is set.
+	 * `propulsion.platform.class = ${propulsion.platform.${propulsion.database}.class}`
+	 * resolves in two passes once `propulsion.database` is set.
 	 *
 	 * @param      array<string,mixed> $props
 	 * @return     array<string,mixed>
@@ -166,7 +166,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 	/**
 	 * Parses the passed-in properties, renaming and saving eligible properties in this object.
 	 *
-	 * Renames the propel.xxx properties to just xxx and renames any xxx.yyy properties
+	 * Renames the propulsion.xxx properties to just xxx and renames any xxx.yyy properties
 	 * to xxxYyy as PHP doesn't like the xxx.yyy syntax.
 	 *
 	 * @param      mixed $props Array or Iterator
@@ -177,8 +177,8 @@ class GeneratorConfig implements GeneratorConfigInterface
 
 		$renamedPropulsionProps = array();
 		foreach ($props as $key => $propValue) {
-			if (strpos($key, "propel.") === 0) {
-				$newKey = substr($key, strlen("propel."));
+			if (strpos($key, "propulsion.") === 0) {
+				$newKey = substr($key, strlen("propulsion."));
 				$j = strpos($newKey, '.');
 				while ($j !== false) {
 					$newKey =  substr($newKey, 0, $j) . ucfirst(substr($newKey, $j + 1));
@@ -306,11 +306,11 @@ class GeneratorConfig implements GeneratorConfigInterface
 
 		// Check for platform-specific builder first. 'php5' used to be special-cased
 		// here to always skip straight to the unsuffixed default -- back when the
-		// unsuffixed propel.builder.*.class keys *were* the PHP5 builders. Since
+		// unsuffixed propulsion.builder.*.class keys *were* the PHP5 builders. Since
 		// Phase 3 (see KNOWN_ISSUES.md) promoted the modern (formerly PHP84) builders
 		// to the unsuffixed defaults, 'php5' now needs the same platform-specific
 		// override lookup as any other explicit targetPlatform value, so that
-		// propel.builder.*.php5.class overrides remain reachable.
+		// propulsion.builder.*.php5.class overrides remain reachable.
 		if ($platform) {
 			$platformPropname = 'builder' . ucfirst(strtolower($type)) . ucfirst($platform) . 'Class';
 			if ($this->getBuildProperty($platformPropname)) {
@@ -335,7 +335,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 		if (null !== $buildConnection['adapter']) {
 			$clazz = 'Propulsion\\Generator\\Platform\\' . ucfirst($buildConnection['adapter']) . 'Platform';
 		} elseif ($this->getBuildProperty('platformClass')) {
-			// propel.platform.class = platform.${propel.database}Platform by default
+			// propulsion.platform.class = platform.${propulsion.database}Platform by default
 			$clazz = $this->getClassname('platformClass');
 		} else {
 			return null;
@@ -423,18 +423,18 @@ class GeneratorConfig implements GeneratorConfigInterface
 	 * Looks up build-time database connection info (adapter/dsn/user/password,
 	 * keyed by datasource id, with one marked as default) from, in order:
 	 *
-	 *  - a `propel.buildtimeConfigArray` build property: a plain PHP array,
+	 *  - a `propulsion.buildtimeConfigArray` build property: a plain PHP array,
 	 *    already in the shape this method returns (see
 	 *    {@see applyBuildConnectionsArray()}), e.g. set programmatically or
 	 *    via an ad-hoc `--config` override. This is the recommended path --
 	 *    see KNOWN_ISSUES.md.
-	 *  - a `propel.buildtimeConfFile` build property naming either a plain
+	 *  - a `propulsion.buildtimeConfFile` build property naming either a plain
 	 *    PHP file (recommended -- returns the same array shape as above,
 	 *    loaded via `require`) or a legacy `buildtime-conf.xml` file (kept
 	 *    for backward compatibility with existing project configs -- see
 	 *    {@see parseBuildConnections()}), tried at a direct path, CWD, or a
 	 *    repository `build/propel/` directory.
-	 *  - a `propel.buildtimeConf` base64-encoded XML string build property
+	 *  - a `propulsion.buildtimeConf` base64-encoded XML string build property
 	 *    (legacy; command-line-friendly since it avoids whitespace).
 	 *
 	 * @return array<string,array{adapter:?string,dsn:?string,user:?string,password:?string}>
@@ -451,7 +451,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 				$buildTimeConfigPath = $buildTimeConfFileName ? $this->getBuildProperty('projectDir') . DIRECTORY_SEPARATOR . $buildTimeConfFileName : null;
 
 				if ($buildTimeConfigString = $this->getBuildProperty('buildtimeConf')) {
-					// configuration passed as propel.buildtimeConf string
+					// configuration passed as propulsion.buildtimeConf string
 					// probably using the command line, which doesn't accept whitespace
 					// therefore base64 encoded
 					$this->parseBuildConnections(base64_decode($buildTimeConfigString));
@@ -526,7 +526,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 	 * Parses the legacy `buildtime-conf.xml` format. Kept for backward
 	 * compatibility with existing project configs -- see
 	 * {@see getBuildConnections()} and KNOWN_ISSUES.md for why the plain-PHP
-	 * array format (a `.php` file, or `propel.buildtimeConfigArray`) is
+	 * array format (a `.php` file, or `propulsion.buildtimeConfigArray`) is
 	 * recommended for new configs instead.
 	 */
 	protected function parseBuildConnections($xmlString)

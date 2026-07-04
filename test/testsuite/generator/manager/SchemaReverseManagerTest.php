@@ -76,7 +76,7 @@ class SchemaReverseManagerTest extends TestCase
         return GeneratorConfig::createFromPropertiesFile(
             dirname(__DIR__, 4) . '/generator/default.php',
             null,
-            ['propel.database' => 'pgsql']
+            ['propulsion.database' => 'pgsql']
         );
     }
 

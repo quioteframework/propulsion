@@ -6,15 +6,15 @@
  * being built.
  */
 return [
-    'propel.project' => 'bookstore_namespaced',
-    'propel.database' => 'mysql',
-    'propel.database.url' => 'mysql:dbname=test',
-    'propel.mysql.tableType' => 'InnoDB',
-    'propel.disableIdentifierQuoting' => 'true',
+    'propulsion.project' => 'bookstore_namespaced',
+    'propulsion.database' => 'mysql',
+    'propulsion.database.url' => 'mysql:dbname=test',
+    'propulsion.mysql.tableType' => 'InnoDB',
+    'propulsion.disableIdentifierQuoting' => 'true',
 
     // For MySQL or Oracle, you also need to specify username & password
-    // 'propel.database.user' => '[db username]',
-    // 'propel.database.password' => '[db password]',
+    // 'propulsion.database.user' => '[db username]',
+    // 'propulsion.database.password' => '[db password]',
 
-    'propel.targetPackage' => 'bookstore',
+    'propulsion.targetPackage' => 'bookstore',
 ];

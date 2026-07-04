@@ -6,10 +6,10 @@
  * being built.
  */
 return [
-    'propel.project' => 'bookstore',
-    'propel.database' => 'mysql',
-    'propel.database.url' => 'mysql:dbname=test',
-    'propel.mysql.tableType' => 'InnoDB',
-    'propel.disableIdentifierQuoting' => 'true',
-    'propel.schema.autoPrefix' => 'true',
+    'propulsion.project' => 'bookstore',
+    'propulsion.database' => 'mysql',
+    'propulsion.database.url' => 'mysql:dbname=test',
+    'propulsion.mysql.tableType' => 'InnoDB',
+    'propulsion.disableIdentifierQuoting' => 'true',
+    'propulsion.schema.autoPrefix' => 'true',
 ];

@@ -232,7 +232,7 @@ class IntegrationDatabase
                 $fixtureDir . '/build.php',
                 $fixtureDir . '/build.propulsion.php',
             ],
-            ['propel.database' => $platform]
+            ['propulsion.database' => $platform]
         );
 
         $schemas = glob($fixtureDir . '/*schema.xml');
@@ -323,7 +323,7 @@ class IntegrationDatabase
      * Same idea as ensureReady()/ensureNamespacedReady(), for the separate "schemas"
      * fixture project (test/fixtures/schemas/schema.xml) used by the *WithSchema(s)
      * tests: its tables use a `schema="..."` attribute (Propulsion's "multiple schemas in
-     * one database" support) combined with `propel.schema.autoPrefix`, which bakes the
+     * one database" support) combined with `propulsion.schema.autoPrefix`, which bakes the
      * schema name into the generated PHP class/table names (e.g.
      * `BookstoreSchemasBookstore`, `ContestBookstoreContest`) rather than needing real
      * Postgres `CREATE SCHEMA`/`search_path` support -- so, like the bookstore fixtures,
@@ -373,7 +373,7 @@ class IntegrationDatabase
         $config = GeneratorConfig::createFromPropertiesFile(
             $repoRoot . '/generator/default.php',
             [$fixtureDir . '/build.php'],
-            ['propel.database' => 'pgsql']
+            ['propulsion.database' => 'pgsql']
         );
 
         $schemas = glob($fixtureDir . '/*schema.xml');
@@ -504,7 +504,7 @@ class IntegrationDatabase
         $config = GeneratorConfig::createFromPropertiesFile(
             $repoRoot . '/generator/default.php',
             [$fixtureDir . '/build.php'],
-            ['propel.database' => 'pgsql', 'propel.targetPlatform' => 'php84']
+            ['propulsion.database' => 'pgsql', 'propulsion.targetPlatform' => 'php84']
         );
 
         $schemas = glob($fixtureDir . '/*schema.xml');

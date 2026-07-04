@@ -6,10 +6,10 @@
  * being built.
  */
 return [
-    'propel.project' => 'bookstore-packaged',
-    'propel.database' => 'sqlite',
-    'propel.database.url' => 'sqlite:/var/tmp/test.db',
+    'propulsion.project' => 'bookstore-packaged',
+    'propulsion.database' => 'sqlite',
+    'propulsion.database.url' => 'sqlite:/var/tmp/test.db',
 
-    'propel.targetPackage' => 'bookstore-packaged',
-    'propel.packageObjectModel' => 'true',
+    'propulsion.targetPackage' => 'bookstore-packaged',
+    'propulsion.packageObjectModel' => 'true',
 ];

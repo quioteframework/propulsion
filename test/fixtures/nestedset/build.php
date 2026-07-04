@@ -6,20 +6,20 @@
  * being built.
  */
 return [
-    'propel.project' => 'nestedset',
-    'propel.database' => 'sqlite',
-    'propel.database.url' => 'sqlite:/var/tmp/nestedset.db',
+    'propulsion.project' => 'nestedset',
+    'propulsion.database' => 'sqlite',
+    'propulsion.database.url' => 'sqlite:/var/tmp/nestedset.db',
 
     // For MySQL or Oracle, you also need to specify username & password
-    // 'propel.database.user' => '[db username]',
-    // 'propel.database.password' => '[db password]',
+    // 'propulsion.database.user' => '[db username]',
+    // 'propulsion.database.password' => '[db password]',
 
-    'propel.targetPackage' => 'nestedset',
+    'propulsion.targetPackage' => 'nestedset',
 
     // The unit tests need to test this stuff
-    'propel.addGenericAccessors' => 'true',
-    'propel.addGenericMutators' => 'true',
+    'propulsion.addGenericAccessors' => 'true',
+    'propulsion.addGenericMutators' => 'true',
 
     // Use the new PHP 5.2 DateTime class
-    'propel.useDateTimeClass' => 'true',
+    'propulsion.useDateTimeClass' => 'true',
 ];

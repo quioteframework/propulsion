@@ -482,7 +482,7 @@ abstract class OMBuilder extends DataModelBuilder
 
 	/**
 	 * Whether to add the include statements.
-	 * This is based on the build property propel.addIncludes
+	 * This is based on the build property propulsion.addIncludes
 	 */
 	protected function isAddIncludes()
 	{
