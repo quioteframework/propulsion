@@ -7,11 +7,17 @@ use Symfony\Component\Console\Application;
 use Propulsion\Generator\Command\ModelBuildCommand;
 use Propulsion\Generator\Command\SqlBuildCommand;
 use Propulsion\Generator\Command\InitCommand;
+use Propulsion\Generator\Command\SchemaReverseCommand;
+use Propulsion\Generator\Command\GraphvizBuildCommand;
+use Propulsion\Generator\Command\SqlExecCommand;
 
 $application = new Application('Propulsion', '2.0.0-dev');
 
 $application->addCommand(new ModelBuildCommand());
 $application->addCommand(new SqlBuildCommand());
 $application->addCommand(new InitCommand());
+$application->addCommand(new SchemaReverseCommand());
+$application->addCommand(new GraphvizBuildCommand());
+$application->addCommand(new SqlExecCommand());
 
 $application->run();

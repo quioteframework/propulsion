@@ -7,7 +7,7 @@ history (`git log`); every fix commit explains its own root cause in full.
 
 ## Test suite status
 
-**Full suite (Docker/Postgres) is green: 2233 tests, 0 errors, 0 failures, 0
+**Full suite (Docker/Postgres) is green: 2248 tests, 0 errors, 0 failures, 0
 risky, 13 skipped.** No-Docker mode (`PROPULSION_SKIP_INTEGRATION=1`) agrees
 exactly. (The `MssqlPlatformTest` order-dependent flake mentioned in earlier
 drafts of this section is fixed — see the `Propel*`/rename-era commit history
@@ -146,10 +146,11 @@ categories, not one:
 - **Phing `Task` classes** (`generator/Lib/Task/*`, 15 files) now have real
   test coverage (`test/testsuite/generator/task/`) and are confirmed working,
   but `generator/bin/propel-gen` itself was actually broken for *every*
-  project until this pass fixed it — see below. The tasks are not yet
-  deletable: they're the only path for SchemaReverse/Diff/Migrations (the
-  console app has no equivalents), and OM parity is now proven rather than
-  assumed, not obsoleted.
+  project until this pass fixed it — see below. The tasks are not all
+  deletable yet: **Migrations and Diff are the only remaining tasks with no
+  console-app equivalent** (see "Console-app migration status" below for why,
+  and what does now have one). OM parity was proven (not obsoleted) earlier;
+  this pass added SchemaReverse, Graphviz, and SQLExec console equivalents too.
   - **Root cause fixed**: `generator/default.properties` declared
     `propel.project`, `propel.project.dir`, and `propel.targetPackage` as
     templates referencing each other in the same file (e.g.
@@ -220,6 +221,107 @@ categories, not one:
     from a live table into `dataset`-format XML; `PropulsionDataSQLTask`
     converts a small hand-written data XML file into `INSERT` SQL (this is
     also what surfaced the `propel.builder.datasql.class` bug fixed above).
+- **Console-app migration status** (moving off Phing entirely in favor of
+  `symfony/console`/`bin/propulsion`, tracked separately from the Phing-task
+  parity audit above). Every `*Manager`/`*Command` pair below follows the
+  `ModelManager`/`ModelBuildCommand` template: a plain-PHP `Manager` class in
+  `generator/Lib/Manager/` with no Phing types anywhere in it, wrapped by a
+  thin `Command` class in `generator/Lib/Command/` using Symfony Console's
+  `Command`/`InputInterface`/`OutputInterface`/`ConsoleLogger` (PSR-3) API.
+  - **Done, with console equivalents now**:
+    - `model:build` (`ModelManager`) and `sql:build` (`SqlManager`) — done
+      previously; `PropulsionOMTask` confirmed at byte-for-byte parity (see
+      above), `PropulsionSQLTask` is fully superseded by `SqlManager` (its own
+      docblock already said so; confirmed rather than re-ported).
+    - `schema:reverse` (`Propulsion\Generator\Manager\SchemaReverseManager` /
+      `Propulsion\Generator\Command\SchemaReverseCommand`, alias `reverse`) —
+      new. Connects to a live database via plain `\PDO` (matching
+      `Phing\Task\System\Pdo\PDOTask::getConnection()`'s exact behavior:
+      `PDO::ATTR_ERRMODE_EXCEPTION` always, `PDO::ATTR_AUTOCOMMIT` best-effort),
+      then calls the same `GeneratorConfig::getConfiguredPlatform()` /
+      `getConfiguredSchemaParser()` / `SchemaParser::parse()` pipeline
+      `PropulsionSchemaReverseTask` used, passing `null` for the optional
+      `?Phing\Task $task` parameter (every concrete `SchemaParser::parse()`
+      implementation only ever uses it for `Project::MSG_VERBOSE`-level
+      logging behind an `if ($task)` guard — never a hard dependency — so this
+      reproduces exactly what running the old task without `-verbose` did).
+      `SchemaReverseCommand` takes `--dsn`/`--user`/`--password` directly
+      (mirroring the old Task's own `setUrl`/`setUserid`/`setPassword`
+      attributes) rather than reading a project's build-connections, since
+      reverse-engineering an arbitrary live database is the whole point.
+      `test/testsuite/generator/manager/SchemaReverseManagerTest.php` and
+      `test/testsuite/generator/command/SchemaReverseCommandTest.php` cover it
+      against a real Postgres testcontainer (same two-table/one-FK schema as
+      `PropulsionSchemaReverseTaskTest`); the two paths agree on
+      tables/columns/types/FK (a byte-for-byte comparison wasn't attempted —
+      the two writers are free to differ on incidental XML formatting).
+      While porting, found and fixed a real crash bug in the ported
+      `addValidators()`/`getRuleMessage()` code (not otherwise
+      test-covered, so never noticed either here or in the original Task,
+      which has the identical bug): `compact()` produces a string-keyed
+      array, and passing that through `call_user_func_array('sprintf', ...)`
+      is interpreted as PHP 8.1+ named arguments, which `sprintf()` rejects
+      outright (`ArgumentCountError`). Fixed in the port with
+      `array_values(compact(...))`; **not** back-ported to
+      `PropulsionSchemaReverseTask` itself (out of scope — that class is
+      being left alone per this pass's own ground rules, and the bug is
+      latent/untriggered there today since no test exercises
+      `setAddValidators()`). The pre-existing `PgsqlSchemaParserV12Plus`
+      `NUMERIC` precision/scale decoding bug (noted above) carries over
+      unchanged, as instructed — this pass only ports, it doesn't fix.
+    - `graph:build` (`GraphvizManager` / `GraphvizBuildCommand`, alias
+      `graphviz`) — new. Pure in-memory schema-to-`.dot` generation (extends
+      `AbstractSchemaManager` like `SqlManager`/`ModelManager` do, since it
+      loads existing schema.xml files rather than connecting to a database);
+      straightforward port, no behavioral surprises. Covered by
+      `GraphvizManagerTest`/`GraphvizBuildCommandTest` (no database needed).
+    - `sql:exec` (`SqlExecManager` / `SqlExecCommand`) — new, deliberately
+      **simplified** relative to `PropulsionSQLExec`. The original Task read a
+      Phing-`Properties`-format `sqldbmap` file mapping many `.sql` files to
+      many different per-database DSNs in a single run — useful inside a
+      multi-schema Phing build where `PropulsionSQLTask` had just produced one
+      `.sql` file per database, with no other way to know which file belonged
+      to which connection. A standalone console command has no such build
+      context to draw that map from, so `sql:exec` instead takes one explicit
+      `--dsn` and an explicit, ordered list of `.sql` file arguments and runs
+      them all against that single connection — same execution semantics
+      (`--autocommit`, `--on-error=abort|continue`) minus the file-to-database
+      routing machinery. Covered by `SqlExecManagerTest`/`SqlExecCommandTest`
+      against a real Postgres testcontainer, including both `abort` (stops and
+      rolls back on the first bad statement) and `continue` (skips it, keeps
+      going) behavior.
+  - **Deliberately not ported this pass**:
+    - `PropulsionDataDumpTask` (dumps live table rows to `dataset`-format XML)
+      and `PropulsionDataSQLTask` (converts that XML into `INSERT` SQL) —
+      these two only make sense as a matched pair forming a live-database-row
+      round-trip fixture/snapshot pipeline, and (like `PropulsionSQLExec`
+      above) their coordination between multiple schema files and multiple
+      output files is entirely driven by Phing `Properties`-format
+      `datadbmap`/`sqldbmap` files tied to a multi-schema Phing build — there
+      is no natural "one invocation, one DSN, one file" reduction the way
+      `PropulsionSQLExec` had (`sql:exec`'s simplification of dropping the
+      file-routing map still leaves a coherent single-purpose command; doing
+      the same to Dump+SQL would mean inventing a new, different two-command
+      convention rather than "porting" anything recognizable). They're also
+      the least-used of the five lower-priority tasks in practice (test-data
+      snapshotting, not schema/DDL code generation, which is the console
+      app's actual focus so far). Both remain fully working as Phing tasks
+      (`LowerPriorityTaskSmokeTest`); revisit if a concrete use case for a
+      console `data:dump`/`data:sql` pair shows up.
+    - `PropulsionConvertConfTask` — see the dedicated entry below; explicitly
+      **should not** get a console equivalent at all.
+  - **Explicitly out of scope for this pass, still Phing-only**: Migrations
+    (`PropulsionMigrationManager`, `PropulsionMigration{Up,Down,Status}Task`,
+    `BasePropulsionMigrationTask`) and Diff (`PropulsionSQLDiffTask`) — a
+    different engineer is concurrently rewriting the migration-ledger internals
+    (including a `PropulsionPlatformInterface::supportsTransactionalDDL()`
+    addition touching every `*Platform` class), so this pass deliberately left
+    all of those files, plus `PropulsionMigrationTaskTest.php`, untouched to
+    avoid colliding with that work. **This means `phing/phing` (the composer
+    dependency), `generator/bin/propel-gen`, and `generator/Lib/Task/*` as a
+    whole still cannot be removed** — Migrations and Diff remain Phing-only
+    until that concurrent work lands and a `migration:*`/`diff` console path
+    can be built the same way the commands above were.
 - **`PropulsionConvertConfTask` should be deprecated, not preserved.** It
   exists to convert the old XML runtime/buildtime config format
   (`runtime-conf.xml`/`build.properties`) into the PHP array config this
