@@ -1337,6 +1337,29 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			\$this->$phpname = \$value;
 			\$this->modifiedColumns[] = " . $this->getColumnConstant($col) . ";
 		}
+";
+			// A column can be the local side of more than one foreign key (this is what
+			// GeneratedObjectRelTest::testMultiFkImplication exercises: BookstoreContestEntry's
+			// BOOKSTORE_ID column is implicated in both its aBookstore and aBookstoreContest
+			// relations). Setting the raw FK column directly (as opposed to going through the
+			// generated setBookstore()/setBookstoreContest() relation setters, which already
+			// keep the cached related object in sync themselves) left any cached related
+			// object stale -- ported from PHP5ObjectBuilder::addMutatorCloseBody(), which
+			// already invalidated every implicated relation's cached object whenever its own
+			// local key no longer matches.
+			if ($col->isForeignKey()) {
+				$table = $this->getTable();
+				foreach ($col->getForeignKeys() as $fk) {
+					$tblFK = $table->getDatabase()->getTable($fk->getForeignTableName());
+					$colFK = $tblFK->getColumn($fk->getMappedForeignColumn($col->getName()));
+					$varName = $this->getFKVarName($fk);
+					$script .= "
+		if (\$this->$varName !== null && \$this->{$varName}->get" . $colFK->getPhpName() . "() !== \$value) {
+			\$this->$varName = null;
+		}";
+				}
+			}
+			$script .= "
 
 		return \$this;
 	}";
@@ -3349,6 +3372,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$selfRelationName = $this->getFKPhpNameAffix($refFK, false);
 		$relatedQueryClassName = $this->getNewStubQueryBuilder($crossFK->getForeignTable())->getClassname();
 		$crossRefTableName = $refFK->getTableName();
+		$collName = $this->getCrossFKVarName($crossFK);
 
 		$script .= "
 	/**
@@ -3363,7 +3387,15 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	public function count$relatedName(?Criteria \$criteria = null, bool \$distinct = false, ?PropulsionPDO \$con = null): int
 	{
+		// A new (unsaved) object can't be counted from the database, but addBook()-style
+		// cross-FK adders already populate the in-memory collection before the first
+		// save() -- fall back to that count instead of unconditionally returning 0, the
+		// same collection-aware pattern already used by plain (non-cross) referrer
+		// count<Fk>() methods (see KNOWN_ISSUES.md's Phase 3.5 completeness audit).
 		if (\$this->isNew()) {
+			if (null === \$criteria && null !== \$this->$collName) {
+				return count(\$this->$collName);
+			}
 			return 0;
 		}
 
