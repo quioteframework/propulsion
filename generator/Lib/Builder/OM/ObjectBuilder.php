@@ -465,9 +465,17 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 
 		$this->addConstants($script);
 		$this->addProperties($script);
-		
-		// Always add constructor and applyDefaultValues for PHP 8.4 to ensure typed properties are initialized
-		$this->addApplyDefaultValues($script);
+
+		// Typed properties are always initialized via their declaration-time defaults
+		// (see addProperties()), so applyDefaultValues() is only actually needed --
+		// and, matching PHP5ObjectBuilder/GeneratedObjectTest::testHasApplyDefaultValues's
+		// expected contract, only generated -- for tables that have a real column
+		// default to apply. The constructor itself is still always emitted (it also
+		// calls parent::__construct()); it just conditionally skips the
+		// applyDefaultValues() call for tables that don't have the method.
+		if ($this->hasDefaultValues()) {
+			$this->addApplyDefaultValues($script);
+		}
 		$this->addConstructor($script);
 		
 		$this->addColumnAccessorMethods($script);
@@ -681,7 +689,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	protected function addConstructor(&$script)
 	{
 		$table = $this->getTable();
-		
+		$applyDefaultsCall = $this->hasDefaultValues() ? "
+		\$this->applyDefaultValues();" : '';
+
 		$script .= "
 
 	/**
@@ -690,8 +700,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	public function __construct()
 	{
-		parent::__construct();
-		\$this->applyDefaultValues();
+		parent::__construct();{$applyDefaultsCall}
 	}";
 	}
 
@@ -1136,8 +1145,26 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	{
 		if (\$value !== null && !(\$value instanceof DateTimeInterface)) {
 			\$value = is_int(\$value) ? (new DateTime())->setTimestamp(\$value) : new DateTime((string) \$value);
-		}
-		if (\$this->$phpname != \$value) {
+		}";
+				$defaultValueCol = $col->getDefaultValue();
+				if ($defaultValueCol !== null && !$defaultValueCol->isExpression()) {
+					// PHP5ObjectBuilder::addTemporalMutator() treats explicitly (re-)setting a
+					// column to its own schema default as a real modification even when the
+					// value doesn't actually change -- e.g. `new Review()` (which applies the
+					// default via applyDefaultValues()) followed by an explicit
+					// setReviewDate() call to that same default date is expected to mark the
+					// object modified, since the caller's explicit call is what should count,
+					// not whether the resulting value happens to match what was already there.
+					$fmt = var_export($this->getTemporalFormatter($col), true);
+					$defaultValueString = $this->getDefaultValueString($col);
+					$script .= "
+		\$matchesDefault = \$value !== null && \$value->format($fmt) === $defaultValueString;
+		if (\$this->$phpname != \$value || \$matchesDefault) {";
+				} else {
+					$script .= "
+		if (\$this->$phpname != \$value) {";
+				}
+				$script .= "
 			\$this->$phpname = \$value;
 			\$this->modifiedColumns[] = " . $this->getColumnConstant($col) . ";
 		}
@@ -1879,7 +1906,11 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		\$affectedRows = 0;
 		if (!\$this->alreadyInSave) {
 			\$this->alreadyInSave = true;";
-		
+		if ($reloadOnInsert || $reloadOnUpdate) {
+			$script .= "
+			\$reloadObject = false;";
+		}
+
 		if (count($table->getForeignKeys())) {
 			$script .= "
 
@@ -1931,15 +1962,38 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			}
 			
 			$script .= "
-					\$pk = " . $this->getNewPeerBuilder($table)->getBasePeerClassname() . "::doInsert(\$criteria, \$con);
+					\$pk = " . $this->getNewPeerBuilder($table)->getBasePeerClassname() . "::doInsert(\$criteria, \$con);";
+			if ($reloadOnInsert) {
+				$script .= "
+					if (!\$skipReload) {
+						\$reloadObject = true;
+					}";
+			}
+			$script .= "
 					\$affectedRows += 1;";
 					
 			if ($table->getIdMethod() != IDMethod::NO_ID_METHOD) {
 				if (count($pks = $table->getPrimaryKey())) {
 					foreach ($pks as $pk) {
 						if ($pk->isAutoIncrement()) {
-							$script .= "
+							if ($table->isAllowPkInsert()) {
+								// For an allowPkInsert table, BasePeer::doInsert() only
+								// generates/returns a new id ($pk here) when the caller didn't
+								// already supply one -- on a sequence-based platform (e.g.
+								// Postgres), $pk comes back null when the criteria already had
+								// an explicit value, since the id-generation step is skipped
+								// entirely (see BasePeer::doInsert()'s !$criteria->keyContainsValue()
+								// guard). Overwriting the caller's already-set primary key with
+								// that null unconditionally, as PHP5ObjectBuilder never did, would
+								// silently erase it.
+								$script .= "
+					if (\$pk !== null) {
+						\$this->set" . $pk->getPhpName() . "(\$pk);
+					}";
+							} else {
+								$script .= "
 					\$this->set" . $pk->getPhpName() . "(\$pk);";
+							}
 						}
 					}
 				}
@@ -1947,7 +2001,14 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			
 			$script .= "
 					\$this->setNew(false);
-				} else {
+				} else {";
+		if ($reloadOnUpdate) {
+			$script .= "
+					if (!\$skipReload) {
+						\$reloadObject = true;
+					}";
+		}
+		$script .= "
 					\$affectedRows += " . $this->getPeerClassname() . "::doUpdateThis(\$this, \$con);
 				}
 				\$this->resetModified();
@@ -1995,7 +2056,20 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		}
 
 		$script .= "
-			\$this->alreadyInSave = false;
+			\$this->alreadyInSave = false;";
+		if ($reloadOnInsert || $reloadOnUpdate) {
+			// Ported from PHP5ObjectBuilder::addDoSave(): tables with reloadOnInsert/
+			// reloadOnUpdate schema attributes (used for DB-computed default
+			// expressions, e.g. `created_at` columns with a NOW()-style default) need an
+			// actual reload() after the insert/update to pick up the value the database
+			// computed -- entirely missing before (the $skipReload parameter and its
+			// plumbing existed, but nothing ever set $reloadObject or called reload()).
+			$script .= "
+			if (\$reloadObject) {
+				\$this->reload(false, \$con);
+			}";
+		}
+		$script .= "
 		}
 		return \$affectedRows;
 	}";
