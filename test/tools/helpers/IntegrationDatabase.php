@@ -53,6 +53,16 @@ class IntegrationDatabase
         return $platform === 'mysql' ? 'mysql' : 'pgsql';
     }
 
+    /**
+     * Public accessor for tests that need to skip themselves on a platform
+     * they don't apply to (e.g. a test exercising MySQL's loose numeric
+     * coercion in WHERE clauses, which Postgres correctly rejects instead).
+     */
+    public static function currentPlatform(): string
+    {
+        return self::platform();
+    }
+
     private static bool $namespacedAttempted = false;
     private static ?string $namespacedSkipReason = null;
 

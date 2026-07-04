@@ -50,8 +50,17 @@ class GeneratedPeerDoSelectTest extends BookstoreEmptyTestBase
 
 		$c = new Criteria();
 		$c->add(BookPeer::ID, 'foo');
-		$res = BookPeer::doSelect($c);
-		$this->assertEquals(array(), $res, 'doSelect() accepts an incorrect Criteria');
+		if (IntegrationDatabase::currentPlatform() === 'mysql') {
+			// MySQL loosely coerces a non-numeric string to 0 in an integer
+			// comparison, matching no rows.
+			$res = BookPeer::doSelect($c);
+			$this->assertEquals(array(), $res, 'doSelect() accepts an incorrect Criteria');
+		} else {
+			// Postgres correctly rejects invalid integer input outright rather
+			// than silently coercing it.
+			$this->expectException(PropulsionException::class);
+			BookPeer::doSelect($c);
+		}
 	}
 
 	/**
@@ -164,8 +173,17 @@ class GeneratedPeerDoSelectTest extends BookstoreEmptyTestBase
 
 		$c = new Criteria();
 		$c->add(BookPeer::ID, 'foo');
-		$res = BookPeer::doSelectOne($c);
-		$this->assertNull($res, 'doSelectOne() returns null if the Criteria matches no record');
+		if (IntegrationDatabase::currentPlatform() === 'mysql') {
+			// MySQL loosely coerces a non-numeric string to 0 in an integer
+			// comparison, matching no rows.
+			$res = BookPeer::doSelectOne($c);
+			$this->assertNull($res, 'doSelectOne() returns null if the Criteria matches no record');
+		} else {
+			// Postgres correctly rejects invalid integer input outright rather
+			// than silently coercing it.
+			$this->expectException(PropulsionException::class);
+			BookPeer::doSelectOne($c);
+		}
 	}
 
 	public function testObjectInstances()

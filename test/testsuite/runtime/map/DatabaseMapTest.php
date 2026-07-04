@@ -137,9 +137,14 @@ class TestDatabaseBuilder
   protected static $tmap = null;
   public static function getDmap()
   {
-    if (is_null(self::$dmap)) {
-        self::$dmap = new DatabaseMap('foodb');
-    }
+    // Always fresh, not memoized: several DatabaseMapTest methods add tables
+    // ('foo', 'foo2', ...) to whatever map this returns. A single cached
+    // instance shared across every test method leaks tables from one test
+    // into the next -- order-dependent (PHPUnit's "depends,defects"
+    // executionOrder reorders methods run-to-run), surfacing as spurious
+    // "tables are empty by default" failures for whichever test happens to
+    // run after another that already added the same table name.
+    self::$dmap = new DatabaseMap('foodb');
     return self::$dmap;
   }
   public static function setTmap($tmap)
