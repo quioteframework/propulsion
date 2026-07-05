@@ -35,7 +35,7 @@ class QueryBuilder extends OMBuilder
         if (!$pkg) {
             $pkg = $this->getBuildProperty('targetPackage');
         }
-        return $pkg . ".om";
+        return $pkg . "." . $this->getOmPackageSegment();
     }
 
     public function getNamespace()

@@ -181,6 +181,15 @@ abstract class OMBuilder extends DataModelBuilder
 	}
 
 	/**
+	 * Returns the package suffix used for OM classes.
+	 */
+	protected function getOmPackageSegment(): string
+	{
+		$segment = (string) $this->getGeneratorConfig()->getBuildProperty('namespaceOm');
+		return $segment !== '' ? $segment : 'OM';
+	}
+
+	/**
 	 * Return the user-defined namespace for this table,
 	 * or the database namespace otherwise.
 	 *

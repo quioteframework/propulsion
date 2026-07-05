@@ -31,7 +31,7 @@ class NodeBuilder extends AbstractObjectBuilder
 	 */
 	public function getPackage(): string
 	{
-		return parent::getPackage() . ".om";
+		return parent::getPackage() . "." . $this->getOmPackageSegment();
 	}
 
 	public function getNamespace(): ?string

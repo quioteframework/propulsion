@@ -43,7 +43,7 @@ class QueryInheritanceBuilder extends OMBuilder
 	 */
 	public function getPackage()
 	{
-		return ($this->getChild()->getPackage() ? $this->getChild()->getPackage() : parent::getPackage()) . ".om";
+		return ($this->getChild()->getPackage() ? $this->getChild()->getPackage() : parent::getPackage()) . "." . $this->getOmPackageSegment();
 	}
 
 	public function getNamespace(): ?string

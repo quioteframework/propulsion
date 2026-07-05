@@ -21,7 +21,8 @@
   "require-dev": {
     "phpunit/phpunit": "^12.0",
     "testcontainers/testcontainers": "^1.0",
-    "phpstan/phpstan": "^2.2"
+    "phpstan/phpstan": "^2.2",
+    "symfony/http-client": "^8.1"
   },
   "autoload": {
     "psr-4": {

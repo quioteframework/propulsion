@@ -38,7 +38,7 @@ class PeerBuilder extends AbstractPeerBuilder
 	 */
 	public function getPackage(): string
 	{
-		return parent::getPackage() . ".om";
+		return parent::getPackage() . "." . $this->getOmPackageSegment();
 	}
 
 	public function getNamespace(): string
