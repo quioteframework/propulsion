@@ -7,7 +7,7 @@
     {
       "name": "Markus Lervik",
       "email": "markus@saake.li"
-    }
+    },
     {
       "name": "Propel 1 contributors"
     }
@@ -39,5 +39,10 @@
     ],
     "test:worker": "php test/worker/driver.php",
     "analyse": "phpstan analyse"
+  },
+  "config": {
+    "allow-plugins": {
+      "php-http/discovery": true
+    }
   }
 }
