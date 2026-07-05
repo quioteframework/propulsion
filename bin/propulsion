@@ -1,7 +1,22 @@
 #!/usr/bin/env php
 <?php
 
-require_once __DIR__ . '/../vendor/autoload.php';
+$autoloadCandidates = [
+    __DIR__ . '/../vendor/autoload.php',
+    __DIR__ . '/../../../autoload.php',
+];
+
+foreach ($autoloadCandidates as $autoloadPath) {
+    if (is_file($autoloadPath)) {
+        require_once $autoloadPath;
+        break;
+    }
+}
+
+if (!class_exists(\Composer\Autoload\ClassLoader::class, false)) {
+    fwrite(STDERR, "Could not find Composer autoload.php.\n");
+    exit(1);
+}
 
 use Symfony\Component\Console\Application;
 use Propulsion\Generator\Command\ModelBuildCommand;
@@ -17,7 +32,7 @@ use Propulsion\Generator\Command\MigrationDownCommand;
 use Propulsion\Generator\Command\DataDumpCommand;
 use Propulsion\Generator\Command\DataSqlCommand;
 
-$application = new Application('Propulsion', '2.0.0-dev');
+$application = new Application('Propulsion', '1.0.0-dev');
 
 $application->addCommand(new ModelBuildCommand());
 $application->addCommand(new SqlBuildCommand());
