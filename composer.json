@@ -5,9 +5,11 @@
   "license": "MIT",
   "authors": [
     {
-      "name": "William Durand",
-      "email": "william.durand1@gmail.com",
-      "homepage": "http://www.willdurand.fr"
+      "name": "Markus Lervik",
+      "email": "markus@saake.li"
+    }
+    {
+      "name": "Propel 1 contributors"
     }
   ],
   "require": {
