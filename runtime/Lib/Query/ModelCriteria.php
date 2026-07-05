@@ -895,11 +895,12 @@ class ModelCriteria extends Criteria
 	/**
 	 * Initializes a secondary ModelCriteria object, to be later merged with the current object
 	 *
+	 * @template T of ModelCriteria
 	 * @see       ModelCriteria::endUse()
 	 * @param     string $relationName Relation name or alias
-	 * @param     string $secondaryCriteriaClass Classname for the ModelCriteria to be used
+	 * @param     class-string<T>|null $secondaryCriteriaClass Classname for the ModelCriteria to be used
 	 *
-	* @return    ModelCriteria The secondary criteria object
+	 * @return    ($secondaryCriteriaClass is null ? static : T) The secondary criteria object
 	 */
     public function useQuery(string $relationName, ?string $secondaryCriteriaClass = null) : ModelCriteria
 	{

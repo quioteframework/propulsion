@@ -552,11 +552,9 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         }
         \$query = new " . $this->getStubQueryBuilder()->getClassname() . "();
         if (null !== \$modelAlias) {
-            /** @var ModelCriteria \$query */
             \$query->setModelAlias(\$modelAlias);
         }
         if (\$criteria instanceof Criteria) {
-            /** @var Criteria \$query */
             \$query->mergeWith(\$criteria);
         }
         return \$query;
@@ -743,7 +741,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      *
      * @param     mixed \$key Primary key to use for the query
      *
-     * @return    " . $this->getStubQueryBuilder()->getClassname() . " The current query, for fluid interface
+     * @return    static The current query, for fluid interface
      */
     public function filterByPrimaryKey(\$key)
     {";
@@ -785,7 +783,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      *
      * @param     array \$keys The list of primary key to use for the query
      *
-     * @return    " . $this->getStubQueryBuilder()->getClassname() . " The current query, for fluid interface
+     * @return    static The current query, for fluid interface
      */
     public function filterByPrimaryKeys(\$keys)
     {";
@@ -910,7 +908,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         $script .= "
      * @param     string \$comparison Operator to use for the column comparison, defaults to Criteria::EQUAL
      *
-     * @return    " . $this->getStubQueryBuilder()->getClassname() . " The current query, for fluid interface
+     * @return    static The current query, for fluid interface
      */
     public function filterBy$colPhpName(\$$variableName = null, \$comparison = null)
     {";
@@ -1120,7 +1118,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * @param     mixed \$$variableName The value to use as filter
      * @param     string \$comparison Operator to use for the column comparison, defaults to Criteria::CONTAINS_ALL
      *
-     * @return    " . $this->getStubQueryBuilder()->getClassname() . " The current query, for fluid interface
+     * @return    static The current query, for fluid interface
      */
     public function filterBy$singularPhpName(\$$variableName = null, \$comparison = null)
     {
@@ -1175,7 +1173,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         $script .= "
      * @param     string \$comparison Operator to use for the column comparison, defaults to Criteria::EQUAL
      *
-     * @return    $queryClass The current query, for fluid interface
+     * @return    static The current query, for fluid interface
      */
     public function filterBy$relationName($objectName, \$comparison = null)
     {
@@ -1236,7 +1234,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * @param     $fkPhpName $objectName  the related object to use as filter
      * @param     string \$comparison Operator to use for the column comparison, defaults to Criteria::EQUAL
      *
-     * @return    $queryClass The current query, for fluid interface
+     * @return    static The current query, for fluid interface
      */
     public function filterBy$relationName($objectName, \$comparison = null)
     {
@@ -1313,7 +1311,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * @param     string \$relationAlias optional alias for the relation
      * @param     string \$joinType Accepted values are null, 'left join', 'right join', 'inner join'
      *
-     * @return    ". $queryClass . " The current query, for fluid interface
+     * @return    static The current query, for fluid interface
      */
     public function join" . $relationName . "(\$relationAlias = null, \$joinType = " . $joinType . ")
     {
@@ -1436,7 +1434,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * @param     $fkFQCN $objectName the related object to use as filter
      * @param     string \$comparison Operator to use for the column comparison, defaults to Criteria::EQUAL
      *
-     * @return    $queryClass The current query, for fluid interface
+     * @return    static The current query, for fluid interface
      */
     public function filterBy{$directRelName}($objectName, \$comparison = Criteria::EQUAL): $queryClass
     {
@@ -1457,7 +1455,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * @param     $fkFQCN $objectName the related object to use as filter
      * @param     string \$comparison Operator to use for the column comparison, defaults to Criteria::EQUAL
      *
-     * @return    $queryClass The current query, for fluid interface
+     * @return    static The current query, for fluid interface
      */
     public function filterBy{$relName}($objectName, \$comparison = Criteria::EQUAL): $queryClass
     {
@@ -1484,7 +1482,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      *
      * @param     $class $objectName Object to remove from the list of results
      *
-     * @return    " . $this->getStubQueryBuilder()->getClassname() . " The current query, for fluid interface
+     * @return    static The current query, for fluid interface
      */
     public function prune($objectName = null)
     {
