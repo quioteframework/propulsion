@@ -190,6 +190,15 @@ abstract class OMBuilder extends DataModelBuilder
 	}
 
 	/**
+	 * Returns the package suffix used for map classes.
+	 */
+	protected function getMapPackageSegment(): string
+	{
+		$segment = (string) $this->getGeneratorConfig()->getBuildProperty('namespaceMap');
+		return $segment !== '' ? $segment : 'Map';
+	}
+
+	/**
 	 * Return the user-defined namespace for this table,
 	 * or the database namespace otherwise.
 	 *

@@ -35,13 +35,16 @@ class TableMapBuilder extends OMBuilder
 		if (!$pkg) {
 			$pkg = $this->getBuildProperty('targetPackage');
 		}
-		// Capitalized "Map" (not the legacy PHP5TableMapBuilder's lowercase "map") is
-		// intentional, for PSR-4-friendly <SchemaName>/Map (and .../OM) directory naming.
-		// Legacy require_once()-based tests that hardcode the old lowercase "bookstore/map/"
-		// path need updating to match, rather than this being reverted -- see
-		// FieldnameRelatedTest and TableBehaviorTest.
-		return $pkg . ".Map";
+		return $pkg . "." . $this->getMapPackageSegment();
     }
+
+	public function getNamespace()
+	{
+		if ($namespace = parent::getNamespace()) {
+			return $namespace . '\\' . $this->getMapPackageSegment();
+		}
+		return null;
+	}
 
     /**
      * Returns the name of the current class being built.
