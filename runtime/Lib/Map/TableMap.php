@@ -432,7 +432,7 @@ class TableMap
    * @param      string $fkTable A String with the foreign key table name.
    * @param      string $fkColumn A String with the foreign key column name.
    * @param      boolean $isNotNull Whether column does not allow NULL values.
-   * @param      int $size An int specifying the size.
+   * @param      int|null $size An int specifying the size.
    * @param      string $defaultValue The default value for this column.
    * @return     ColumnMap Newly added ForeignKey column.
    */
@@ -449,7 +449,7 @@ class TableMap
    * @param      string $fkTable A String with the foreign key table name.
    * @param      string $fkColumn A String with the foreign key column name.
    * @param      boolean $isNotNull Whether column does not allow NULL values.
-   * @param      int $size An int specifying the size.
+   * @param      int|null $size An int specifying the size.
    * @param      string $defaultValue The default value for this column.
    * @return     ColumnMap Newly created foreign pkey column.
    */

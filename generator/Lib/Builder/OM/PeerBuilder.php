@@ -339,7 +339,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	{
 		$dbName = $this->getDatabase()->getName();
 		$tableName = $this->getTable()->getName();
-		$tablePhpName = $this->getTable()->isAbstract() ? '' : addslashes($this->getStubObjectBuilder()->getFullyQualifiedClassname());
+		$isAbstract = $this->getTable()->isAbstract();
+		$tablePhpName = $isAbstract ? '' : addslashes($this->getStubObjectBuilder()->getFullyQualifiedClassname());
+		$objectClass = $this->getObjectClassname();
 		$script .= "
 	/** the default database name for this class */
 	const DATABASE_NAME = '$dbName';
@@ -347,10 +349,15 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/** the table name for this class */
 	const TABLE_NAME = '$tableName';
 
-	/** the related Propulsion class for this table */
+	/**
+	 * the related Propulsion class for this table" . ($isAbstract ? " (empty; this table is abstract)" : "") . "
+" . ($isAbstract ? "" : "	 * @var class-string<$objectClass>\n") . "	 */
 	const OM_CLASS = '$tablePhpName';
 
-	/** A class that can be returned by this peer. */
+	/**
+	 * A class that can be returned by this peer.
+	 * @var class-string<$objectClass>
+	 */
 	const CLASS_DEFAULT = '".$this->getStubObjectBuilder()->getFullyQualifiedClassname()."';
 
 	/** the related TableMap class for this table */
@@ -437,6 +444,8 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 *
 	 * first dimension keys are the type constants
 	 * e.g. self::\$fieldNames[self::TYPE_PHPNAME][0] = 'Id'
+	 *
+	 * @var array<string, array<int, int|string>>
 	 */
 	protected static \$fieldNames = array (
 		BasePeer::TYPE_PHPNAME => array (";
@@ -484,6 +493,8 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 *
 	 * first dimension keys are the type constants
 	 * e.g. self::\$fieldNames[BasePeer::TYPE_PHPNAME]['Id'] = 0
+	 *
+	 * @var array<string, array<int|string, int>>
 	 */
 	protected static \$fieldKeys = array (
 		BasePeer::TYPE_PHPNAME => array (";
@@ -553,7 +564,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
      * @param      string \$type The type of fieldnames to return:
      *                      One of the class type constants BasePeer::TYPE_PHPNAME, BasePeer::TYPE_STUDLYPHPNAME
      *                      BasePeer::TYPE_COLNAME, BasePeer::TYPE_FIELDNAME, BasePeer::TYPE_NUM
-     * @return     array A list of field names
+     * @return     array<int, int|string> A list of field names
      */
     static public function getFieldNames(string \$type = BasePeer::TYPE_PHPNAME)
 	{
@@ -638,7 +649,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Add a TableMap instance to the database for this peer class.
 	 */
-	public static function buildTableMap()
+	public static function buildTableMap(): void
 	{
 	  \$dbMap = Propulsion::getDatabaseMap(".$this->getClassname()."::DATABASE_NAME);
 	  if (!\$dbMap->hasTable(".$this->getClassname()."::TABLE_NAME))
@@ -737,8 +748,10 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 		if (\$values instanceof Criteria) {
 			\$criteria = clone \$values; // rename for clarity
-		} else {
+		} elseif (\$values instanceof ".$this->getObjectClassname().") {
 			\$criteria = \$values->buildCriteria(); // build Criteria from ".$this->getObjectClassname()." object
+		} else {
+			throw new PropulsionException('".$this->getPeerClassname()."::doInsert() expects a Criteria or ".$this->getObjectClassname()." instance, got ' . (is_object(\$values) ? get_class(\$values) : gettype(\$values)));
 		}
 ";
 
@@ -852,9 +865,11 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		}
 
 		$script .= "
-		} else { // \$values is ".$this->getObjectClassname()." object
+		} elseif (\$values instanceof ".$this->getObjectClassname().") { // \$values is ".$this->getObjectClassname()." object
 			\$criteria = \$values->buildCriteria(); // gets full criteria
 			\$selectCriteria = \$values->buildPkeyCriteria(); // gets criteria w/ primary key(s)
+		} else {
+			throw new PropulsionException('".$this->getPeerClassname()."::doUpdateThis() expects a Criteria or ".$this->getObjectClassname()." instance, got ' . (is_object(\$values) ? get_class(\$values) : gettype(\$values)));
 		}
 
 		// set the correct dbName
@@ -876,7 +891,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 *
 	 * @param      Criteria \$criteria The Criteria object used to build the SELECT statement.
 	 * @param      PropulsionPDO \$con
-	 * @return     array Array of selected Objects
+	 * @return     array<int, ".$this->getObjectClassname()."> Array of selected Objects
 	 * @throws     PropulsionException Any exceptions caught during processing will be
 	 *		 rethrown wrapped into a PropulsionException.
 	 */
@@ -897,7 +912,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 *
 	 * @param      Criteria \$criteria object used to create the SELECT statement.
 	 * @param      PropulsionPDO \$con
-	 * @return     ".$this->getObjectClassname()."
+	 * @return     ".$this->getObjectClassname()."|null
 	 * @throws     PropulsionException Any exceptions caught during processing will be
 	 *		 rethrown wrapped into a PropulsionException.
 	 */
@@ -1015,7 +1030,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		// BasePeer returns a PDOStatement
 		\$stmt = ".$this->basePeerClassname."::doCount(\$criteria, \$con);
 
-		if (\$row = \$stmt->fetch(PDO::FETCH_NUM)) {
+		if (is_array(\$row = \$stmt->fetch(PDO::FETCH_NUM)) && is_numeric(\$row[0] ?? null)) {
 			\$count = (int) \$row[0];
 		} else {
 			\$count = 0; // no rows returned; we infer that means 0 matches.
@@ -1038,7 +1053,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * objects that inherit from the default.
 	 *
 	 * @param \\PDOStatement \$stmt
-	 * @return array
+	 * @return array<int, ".$this->getObjectClassname().">
 	 * @throws PropulsionException Any exceptions caught during processing will be rethrown wrapped into a PropulsionException.
 	 */
 	public static function populateObjects(\\PDOStatement \$stmt): array
@@ -1054,6 +1069,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		$script .= "
 		// populate the object(s)
 		while (\$row = \$stmt->fetch(PDO::FETCH_NUM)) {
+			if (!is_array(\$row)) {
+				continue;
+			}
 			\$key = self::getPrimaryKeyHashFromRow(\$row, 0);
 			if (null !== (\$obj = self::getInstanceFromPool(\$key))) {
 				// We no longer rehydrate the object, since this can cause data loss.
@@ -1209,8 +1227,18 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		$script .= "
 				\$key = " . $this->getInstancePoolKeySnippet($php) . ";";
 
+		if (count($pks) > 1) {
+			$scalarChecks = array();
+			for ($i = 0; $i < count($pks); $i++) {
+				$scalarChecks[] = "is_scalar(\$value[$i])";
+			}
+			$multiPkCond = "is_array(\$value) && count(\$value) === " . count($pks) . " && " . implode(' && ', $scalarChecks);
+		} else {
+			$multiPkCond = "is_scalar(\$value)";
+		}
+
 		$script .= "
-			} elseif (" . (count($pks) > 1 ? "is_array(\$value) && count(\$value) === " . count($pks) : "is_scalar(\$value)") . ") {
+			} elseif (" . $multiPkCond . ") {
 				// assume we've been passed a primary key";
 
 		if (count($pks) > 1) {
@@ -1306,7 +1334,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Retrieves a string version of the primary key from the DB resultset row that can be used to uniquely identify a row in this table.
 	 *
-	 * @param array \$row PropulsionPDO resultset row.
+	 * @param array<int, mixed> \$row PropulsionPDO resultset row.
 	 * @param int \$startcol The 0-based offset for reading from the resultset row.
 	 * @return ?string A string version of PK or null if the components of primary key in result array are all null.
 	 */
@@ -1523,6 +1551,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			}
 
 			foreach (\$cols as \$colName) {
+				if (!\is_string(\$colName)) {
+					continue;
+				}
 				if (\$tableMap->containsColumn(\$colName)) {
 					\$get = 'get' . \$tableMap->getColumn(\$colName)->getPhpName();
 					\$columns[\$colName] = \$obj->\$get();
@@ -1551,8 +1582,8 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * This method delegates to doValidateThis for the actual validation logic.
 	 *
 	 * @param      string \$dbName The name of the database
-	 * @param      string \$tableName The name of the table  
-	 * @param      array \$columns Array of column names as key and column values as value.
+	 * @param      string \$tableName The name of the table
+	 * @param      array<string, mixed> \$columns Array of column names as key and column values as value.
 	 *
 	 * @return     mixed TRUE if all columns are valid or the error message of the first invalid column.
 	 */
@@ -1636,11 +1667,13 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			$script .= "
 			// primary key is composite; we therefore, expect
 			// the primary key passed to be an array of pkey values
+			\$values = (array) \$values;
 			if (count(\$values) == count(\$values, COUNT_RECURSIVE)) {
 				// array is not multi-dimensional
 				\$values = array(\$values);
 			}
-			foreach (\$values as \$value) {";
+			foreach (\$values as \$value) {
+				\$value = (array) \$value;";
 			$i=0;
 			foreach ($table->getPrimaryKey() as $col) {
 				if ($i == 0) {
@@ -1710,8 +1743,12 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		}
 
 		$script .= "
-			\$affectedRows += {$this->basePeerClassname}::doDelete(\$criteria, \$con);
-			".$this->getPeerClassname()."::clearRelatedInstancePool();
+			\$affectedRows += {$this->basePeerClassname}::doDelete(\$criteria, \$con);";
+		if ($this->hasClearRelatedInstancePoolEffect()) {
+			$script .= "
+			".$this->getPeerClassname()."::clearRelatedInstancePool();";
+		}
+		$script .= "
 			\$con->commit();
 			return \$affectedRows;
 		} catch (PropulsionException \$e) {
@@ -1755,6 +1792,25 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	}
 
 	/**
+	 * Whether clearRelatedInstancePool() will actually have a non-empty body for this
+	 * table, i.e. whether there is at least one referrer FK with ON DELETE CASCADE/SETNULL
+	 * that is not for-reference-only. Used to avoid emitting calls to a method that is
+	 * provably a no-op (which PHPStan flags as a useless statement).
+	 */
+	protected function hasClearRelatedInstancePoolEffect(): bool
+	{
+		foreach ($this->getTable()->getReferrers() as $fk) {
+			$tblFK = $fk->getTable();
+			if (!$tblFK->isForReferenceOnly()) {
+				if ($fk->getOnDelete() == ForeignKey::CASCADE || $fk->getOnDelete() == ForeignKey::SETNULL) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Adds method to clear the instance pool of related tables.
 	 * @param      string &$script The script will be modified in this method.
 	 */
@@ -1766,7 +1822,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * Method to invalidate the instance pool of all tables related to " . $table->getName() . "
 	 * by a foreign key with ON DELETE CASCADE
 	 */
-	public static function clearRelatedInstancePool()
+	public static function clearRelatedInstancePool(): void
 	{";
 		// Handle ON DELETE CASCADE for updating instance pool
 
@@ -1809,7 +1865,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * For tables with a single-column primary key, that simple pkey value will be returned.  For tables with
 	 * a multi-column primary key, an array of the primary key columns will be returned.
 	 *
-	 * @param      array \$row PropulsionPDO resultset row.
+	 * @param      array<int, mixed> \$row PropulsionPDO resultset row.
 	 * @param      int \$startcol The 0-based offset for reading from the resultset row.
 	 * @return     mixed The primary key of the row
 	 */
@@ -1858,11 +1914,11 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Populates an object of the default type or an object that inherit from the default.
 	 *
-	 * @param      array \$row PropulsionPDO resultset row.
+	 * @param      array<int, mixed> \$row PropulsionPDO resultset row.
 	 * @param      int \$startcol The 0-based offset for reading from the resultset row.
 	 * @throws     PropulsionException Any exceptions caught during processing will be
 	 *		 rethrown wrapped into a PropulsionException.
-	 * @return     array (" . $this->getStubObjectBuilder()->getClassName(). " object, last column rank)
+	 * @return     array{0: ?" . $this->getObjectClassname() . ", 1: int} (" . $this->getStubObjectBuilder()->getClassName(). " object, last column rank)
 	 */
 	public static function populateObject(array \$row, int \$startcol = 0)
 	{
@@ -1911,9 +1967,10 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * The returned Class will contain objects of the default type or
 	 * objects that inherit from the default.
 	 *
-	 * @param      array \$row PropulsionPDO result row.
+	 * @param      array<int, mixed> \$row PropulsionPDO result row.
 	 * @param      int \$colnum Column to examine for OM class information (first is 0).
 	 * @param      boolean \$withPrefix Whether or not to return the path with the class name
+	 * @return     class-string<".$this->getObjectClassname()."> path.to.ClassName
 	 * @throws     PropulsionException Any exceptions caught during processing will be
 	 *		 rethrown wrapped into a PropulsionException.
 	 */
@@ -1976,7 +2033,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * (e.g. path.to.MyClass -> 'path/to/MyClass.php')
 	 *
 	 * @param      boolean \$withPrefix Whether or not to return the path with the class name
-	 * @return     string path.to.ClassName
+	 * @return     class-string<".$this->getObjectClassname()."> path.to.ClassName
 	 */
 	public static function getOMClass(bool \$withPrefix = true)
 	{
@@ -2039,8 +2096,12 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			// Because this db requires some delete cascade/set null emulation, we have to
 			// clear the cached instance *after* the emulation has happened (since
 			// instances get re-added by the select statement contained therein).
-			".$this->getPeerClassname()."::clearInstancePool();
-			".$this->getPeerClassname()."::clearRelatedInstancePool();
+			".$this->getPeerClassname()."::clearInstancePool();";
+		if ($this->hasClearRelatedInstancePoolEffect()) {
+			$script .= "
+			".$this->getPeerClassname()."::clearRelatedInstancePool();";
+		}
+		$script .= "
 			\$con->commit();
 			return \$affectedRows;
 		} catch (PropulsionException \$e) {
@@ -2107,8 +2168,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Retrieve multiple objects by pkey.
 	 *
-	 * @param      array \$pks List of primary keys
+	 * @param      array<int, mixed> \$pks List of primary keys
 	 * @param      ?PropulsionPDO \$con the connection to use
+	 * @return     array<int, ".$this->getObjectClassname()."> The matching objects
 	 * @throws     PropulsionException Any exceptions caught during processing will be
 	 *		 rethrown wrapped into a PropulsionException.
 	 */
@@ -2478,7 +2540,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * @param      Criteria  \$criteria
 	 * @param      ?PropulsionPDO \$con
 	 * @param      string    \$join_behavior the type of joins to use, defaults to $join_behavior
-	 * @return     array Array of $className objects.
+	 * @return     array<int, $className> Array of $className objects.
 	 * @throws     PropulsionException Any exceptions caught during processing will be
 	 *		 rethrown wrapped into a PropulsionException.
 	 */
@@ -2505,6 +2567,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		\$results = array();
 
 		while (\$row = \$stmt->fetch(PDO::FETCH_NUM)) {
+			if (!is_array(\$row)) {
+				continue;
+			}
 			\$key1 = " . $this->getPeerClassname() . "::getPrimaryKeyHashFromRow(\$row, 0);
 			if (null !== (\$obj1 = " . $this->getPeerClassname() . "::getInstanceFromPool(\$key1))) {
 				// We no longer rehydrate the object, since this can cause data loss.
@@ -2633,7 +2698,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			$script .= "
 		\$stmt = " . $this->basePeerClassname . "::doCount(\$criteria, \$con);
 
-		if (\$row = \$stmt->fetch(PDO::FETCH_NUM)) {
+		if (is_array(\$row = \$stmt->fetch(PDO::FETCH_NUM)) && is_numeric(\$row[0] ?? null)) {
 			\$count = (int) \$row[0];
 		} else {
 			\$count = 0; // no rows returned; we infer that means 0 matches.
@@ -2662,7 +2727,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * @param      Criteria  \$criteria
 	 * @param      ?PropulsionPDO \$con
 	 * @param      string    \$join_behavior the type of joins to use, defaults to $join_behavior
-	 * @return     array Array of $className objects.
+	 * @return     array<int, $className> Array of $className objects.
 	 * @throws     PropulsionException Any exceptions caught during processing will be
 	 *		 rethrown wrapped into a PropulsionException.
 	 */
@@ -2709,6 +2774,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		\$results = array();
 
 		while (\$row = \$stmt->fetch(PDO::FETCH_NUM)) {
+			if (!is_array(\$row)) {
+				continue;
+			}
 			\$key1 = " . $this->getPeerClassname() . "::getPrimaryKeyHashFromRow(\$row, 0);
 			if (null !== (\$obj1 = " . $this->getPeerClassname() . "::getInstanceFromPool(\$key1))) {
 				// We no longer rehydrate the object, since this can cause data loss.
@@ -2846,7 +2914,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		$script .= "
 		\$stmt = " . $this->basePeerClassname . "::doCount(\$criteria, \$con);
 
-		if (\$row = \$stmt->fetch(PDO::FETCH_NUM)) {
+		if (is_array(\$row = \$stmt->fetch(PDO::FETCH_NUM)) && is_numeric(\$row[0] ?? null)) {
 			\$count = (int) \$row[0];
 		} else {
 			\$count = 0; // no rows returned; we infer that means 0 matches.
@@ -2881,7 +2949,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * @param      Criteria  \$criteria
 	 * @param      ?PropulsionPDO \$con
 	 * @param      string    \$join_behavior the type of joins to use, defaults to $join_behavior
-	 * @return     array Array of " . $this->getObjectClassname() . " objects.
+	 * @return     array<int, " . $this->getObjectClassname() . "> Array of " . $this->getObjectClassname() . " objects.
 	 * @throws     PropulsionException Any exceptions caught during processing will be
 	 *		 rethrown wrapped into a PropulsionException.
 	 */
@@ -2934,6 +3002,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		\$results = array();
 
 		while (\$row = \$stmt->fetch(PDO::FETCH_NUM)) {
+			if (!is_array(\$row)) {
+				continue;
+			}
 			\$key1 = " . $this->getPeerClassname() . "::getPrimaryKeyHashFromRow(\$row, 0);
 			if (null !== (\$obj1 = " . $this->getPeerClassname() . "::getInstanceFromPool(\$key1))) {
 				// We no longer rehydrate the object, since this can cause data loss.
@@ -3082,7 +3153,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			$script .= "
 		\$stmt = " . $this->basePeerClassname . "::doCount(\$criteria, \$con);
 
-		if (\$row = \$stmt->fetch(PDO::FETCH_NUM)) {
+		if (is_array(\$row = \$stmt->fetch(PDO::FETCH_NUM)) && is_numeric(\$row[0] ?? null)) {
 			\$count = (int) \$row[0];
 		} else {
 			\$count = 0; // no rows returned; we infer that means 0 matches.

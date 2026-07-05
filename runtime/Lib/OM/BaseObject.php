@@ -58,7 +58,7 @@ abstract class BaseObject
 	/**
 	 * The columns that have been modified in current object.
 	 * Tracking modified columns allows us to only update modified columns.
-	 * @var        array
+	 * @var        array<int,string>
 	 */
 	protected array $modifiedColumns = array();
 

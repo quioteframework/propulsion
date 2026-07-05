@@ -27,7 +27,8 @@ interface Persistent
 	/**
 	 * getter for the object primaryKey.
 	 *
-	 * @return     object the object primaryKey as an Object
+	 * @return     mixed the object primaryKey: a scalar for a single-column key,
+	 *             an array of scalars for a composite key, or null if unset.
 	 */
 	public function getPrimaryKey();
 

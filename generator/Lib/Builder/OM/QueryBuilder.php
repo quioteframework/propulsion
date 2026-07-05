@@ -125,9 +125,11 @@ class QueryBuilder extends OMBuilder
             $phpType = $this->getModernPhpType($column);
             // Convert ?T to T|null for union types (PHPDoc doesn't support ?T in unions)
             $baseType = ltrim($phpType, '?');
-            $filterType = $baseType . '|array' . (str_starts_with($phpType, '?') ? '|null' : '');
+            // The array form covers both IN-style lists (int keys) and range filters
+            // (string 'min'/'max' keys), so the value type can't be narrowed further than mixed.
+            $filterType = $baseType . '|array<int|string, mixed>' . (str_starts_with($phpType, '?') ? '|null' : '');
             $script .= "
- * @method     $queryClass filterBy" . $column->getPhpName() . "($filterType \$" . $column->getName() . ", ?string \$comparison = null) Filter by the " . $column->getName() . " column";
+ * @method     static filterBy" . $column->getPhpName() . "($filterType \$" . $column->getName() . ", ?string \$comparison = null) Filter by the " . $column->getName() . " column";
         }
 
         // Override signatures with modern type hints
@@ -136,11 +138,11 @@ class QueryBuilder extends OMBuilder
  * @method     $queryClass leftJoin(string \$relation) Adds a LEFT JOIN clause to the query
  * @method     $queryClass rightJoin(string \$relation) Adds a RIGHT JOIN clause to the query
  * @method     $queryClass innerJoin(string \$relation) Adds a INNER JOIN clause to the query
- * @method     $queryClass joinWith(string \$relation, ?string \$joinType = null) Adds a join with the columns of the related table
- * @method     $queryClass addJoinObject(\\Propulsion\\Query\\ModelJoin \$join, ?string \$name = null) Adds a join object to the query
+ * @method     static joinWith(string \$relation, ?string \$joinType = null) Adds a join with the columns of the related table
+ * @method     static addJoinObject(\\Propulsion\\Query\\ModelJoin \$join, ?string \$name = null) Adds a join object to the query
  * @method     $queryClass useQuery(string \$relationName, ?string \$secondTableAlias = null) Use the relation as sub query
- * @method     $queryClass mergeWith(\\Propulsion\\Query\\Criteria \$criteria) Merge the conditions of another Criteria into this one
- * @method     $queryClass addUsingAlias(string \$column, mixed \$value, ?string \$comparison = null) Add a condition using a column alias
+ * @method     static mergeWith(\\Propulsion\\Query\\Criteria \$criteria) Merge the conditions of another Criteria into this one
+ * @method     static addUsingAlias(string \$column, mixed \$value, ?string \$comparison = null) Add a condition using a column alias
  *";
 
         // Modern typed XXXjoinYYY() methods for IDE completion
@@ -173,7 +175,7 @@ class QueryBuilder extends OMBuilder
  * @method     int count(?PropulsionPDO \$con = null) Count the number of matching records
  * @method     \\Propulsion\\Util\\PropulsionModelPager paginate(int \$page = 1, int \$maxPerPage = 10, ?PropulsionPDO \$con = null) Paginate the results
  * @method     int delete(?PropulsionPDO \$con = null) Delete matching records
- * @method     int update(array \$values, ?PropulsionPDO \$con = null, bool \$forceIndividualSaves = false) Update matching records
+ * @method     int update(array<string, mixed> \$values, ?PropulsionPDO \$con = null, bool \$forceIndividualSaves = false) Update matching records
  *";
 
         // Modern typed findBy() methods with proper type hints
@@ -229,28 +231,28 @@ class QueryBuilder extends OMBuilder
         // Add @method annotations for inherited Criteria methods to fix fluent interface
         $script .= "
  *
- * @method     $queryClass add(string \$column, mixed \$value = null, ?string \$comparison = null) Add a condition to the query
- * @method     $queryClass addCond(string \$name, string \$column, mixed \$value = null, ?string \$comparison = null) Add a named condition
- * @method     $queryClass addOr(string \$column, mixed \$value = null, ?string \$comparison = null) Add an OR condition
- * @method     $queryClass addAnd(string \$column, mixed \$value = null, ?string \$comparison = null) Add an AND condition
- * @method     $queryClass where(string|array \$clause, mixed \$value = null) Add a WHERE clause to the query
- * @method     $queryClass condition(string \$conditionName, string \$clause, mixed \$value = null) Add a named condition
- * @method     $queryClass mergeWith(\\Propulsion\\Query\\Criteria \$criteria) Merge conditions from another Criteria object
- * @method     $queryClass addJoin(string \$left, string \$right, ?string \$joinType = null) Add a join condition
- * @method     $queryClass addGroupByColumn(string \$column) Add a GROUP BY column
- * @method     $queryClass addSelectColumn(string \$column) Add a column to the SELECT clause
- * @method     $queryClass addSelfSelectColumns() Add the columns of the current table to the SELECT clause
- * @method     $queryClass addHaving(\\Propulsion\\Query\\Criterion \$having) Add a HAVING condition
- * @method     $queryClass addAscendingOrderByColumn(string \$column) Add ascending order by column
- * @method     $queryClass addDescendingOrderByColumn(string \$column) Add descending order by column
- * @method     $queryClass setIgnoreCase(bool \$ignoreCase) Set ignore case flag for string comparisons
- * @method     $queryClass setDistinct() Add DISTINCT modifier to the query
- * @method     $queryClass setLimit(int \$limit) Set the maximum number of records to return
- * @method     $queryClass setOffset(int \$offset) Set the number of records to skip
- * @method     $queryClass setComment(?string \$comment) Set a comment for the query
- * @method     $queryClass limit(int \$limit) Alias for setLimit()
- * @method     $queryClass offset(int \$offset) Alias for setOffset()
- * @method     $queryClass distinct() Alias for setDistinct()
+ * @method     static add(string|\\Propulsion\\Query\\Criterion|null \$column, mixed \$value = null, ?string \$comparison = null) Add a condition to the query
+ * @method     static addCond(string \$name, string|\\Propulsion\\Query\\Criterion|null \$column, mixed \$value = null, ?string \$comparison = null) Add a named condition
+ * @method     static addOr(string|\\Propulsion\\Query\\Criterion|null \$column, mixed \$value = null, ?string \$comparison = null) Add an OR condition
+ * @method     static addAnd(string|\\Propulsion\\Query\\Criterion|null \$column, mixed \$value = null, ?string \$comparison = null) Add an AND condition
+ * @method     static where(string|array<int, string> \$clause, mixed \$value = null) Add a WHERE clause to the query
+ * @method     static condition(string \$conditionName, string \$clause, mixed \$value = null) Add a named condition
+ * @method     static mergeWith(\\Propulsion\\Query\\Criteria \$criteria) Merge conditions from another Criteria object
+ * @method     static addJoin(string \$left, string \$right, ?string \$joinType = null) Add a join condition
+ * @method     static addGroupByColumn(string \$column) Add a GROUP BY column
+ * @method     static addSelectColumn(string \$column) Add a column to the SELECT clause
+ * @method     static addSelfSelectColumns() Add the columns of the current table to the SELECT clause
+ * @method     static addHaving(\\Propulsion\\Query\\Criterion \$having) Add a HAVING condition
+ * @method     static addAscendingOrderByColumn(string \$column) Add ascending order by column
+ * @method     static addDescendingOrderByColumn(string \$column) Add descending order by column
+ * @method     static setIgnoreCase(bool \$ignoreCase) Set ignore case flag for string comparisons
+ * @method     static setDistinct() Add DISTINCT modifier to the query
+ * @method     static setLimit(int \$limit) Set the maximum number of records to return
+ * @method     static setOffset(int \$offset) Set the number of records to skip
+ * @method     static setComment(?string \$comment) Set a comment for the query
+ * @method     static limit(int \$limit) Alias for setLimit()
+ * @method     static offset(int \$offset) Alias for setOffset()
+ * @method     static distinct() Alias for setDistinct()
  *
  */
 abstract class ".$this->getClassname()." extends " . $parentClass . "
@@ -625,6 +627,25 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
     }
 
     /**
+     * Returns a precise PHPDoc type for the value of a single primary key.
+     * @param      \Propulsion\Generator\Model\Column[] $pks The primary key columns of the table, in order.
+     * @return     string A PHPDoc type: the column's own type for a single-column key,
+     *                     or an `array{0: T0, 1: T1, ...}` shape for a composite key.
+     */
+    protected function getPrimaryKeyPhpDocType(array $pks): string
+    {
+        if (count($pks) === 1) {
+            return ltrim($this->getModernPhpType($pks[0]), '?');
+        }
+        $shapeParts = array();
+        foreach ($pks as $i => $col) {
+            $shapeParts[]= $i . ': ' . ltrim($this->getModernPhpType($col), '?');
+        }
+
+        return 'array{'. join(', ', $shapeParts) . '}';
+    }
+
+    /**
      * Adds the findPk method for this object.
      * @param      string &$script The script will be modified in this method.
      */
@@ -637,19 +658,14 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         $script .= "
     /**
      * Find object by primary key";
+        $pkType = $this->getPrimaryKeyPhpDocType($pks);
         if (count($pks) === 1) {
-            $pkType = 'mixed';
             $script .= "
      * Use instance pooling to avoid a database query if the object exists
      * <code>
      * \$obj  = \$c->findPk(12, \$con);";
         } else {
             $examplePk = array_slice(array(12, 34, 56, 78, 91), 0, count($pks));
-            $colNames = array();
-            foreach ($pks as $col) {
-                $colNames[]= '$' . $col->getName();
-            }
-            $pkType = 'array['. join(', ', $colNames) . ']';
             $script .= "
      * <code>
      * \$obj = \$c->findPk(array(" . join(', ', $examplePk) . "), \$con);";
@@ -701,6 +717,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         $table = $this->getTable();
         $pks = $table->getPrimaryKey();
         $count = count($pks);
+        $keysType = 'array<int, ' . $this->getPrimaryKeyPhpDocType($pks) . '>';
         $script .= "
     /**
      * Find objects by primary key
@@ -714,7 +731,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         }
         $script .= "
      * </code>
-     * @param     array \$keys Primary keys to use for the query
+     * @param     " . $keysType . " \$keys Primary keys to use for the query
      * @param     PropulsionPDO \$con an optional connection object
      *
      * @return    PropulsionObjectCollection the list of results, formatted by the current formatter
@@ -777,18 +794,19 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      */
     protected function addFilterByPrimaryKeys(&$script)
     {
+        $table = $this->getTable();
+        $pks = $table->getPrimaryKey();
+        $keysType = 'array<int, ' . $this->getPrimaryKeyPhpDocType($pks) . '>';
         $script .= "
     /**
      * Filter the query by a list of primary keys
      *
-     * @param     array \$keys The list of primary key to use for the query
+     * @param     " . $keysType . " \$keys The list of primary key to use for the query
      *
      * @return    static The current query, for fluid interface
      */
     public function filterByPrimaryKeys(\$keys)
     {";
-        $table = $this->getTable();
-        $pks = $table->getPrimaryKey();
         if (count($pks) === 1) {
             // simple primary key
             $col = $pks[0];
@@ -884,10 +902,12 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * <code>
      * \$query->filterBy$colPhpName('fooValue');   // WHERE $colName = 'fooValue'
      * \$query->filterBy$colPhpName('%fooValue%'); // WHERE $colName LIKE '%fooValue%'
+     * \$query->filterBy$colPhpName(array('foo', 'bar')); // WHERE $colName IN ('foo', 'bar')
      * </code>
      *
-     * @param     string \$$variableName The value to use as filter.
-     *              Accepts wildcards (* and % trigger a LIKE)";
+     * @param     string|array<int|string, mixed> \$$variableName The value to use as filter.
+     *              Accepts wildcards (* and % trigger a LIKE).
+     *              Use array values for in_array() equivalent.";
         } elseif ($col->isBooleanType()) {
             $script .= "
      * Example usage:
@@ -1230,8 +1250,15 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         $script .= "
     /**
      * Filter the query by a related $fkPhpName object
-     *
-     * @param     $fkPhpName $objectName  the related object to use as filter
+     *";
+        if ($fk->isComposite()) {
+            $script .= "
+     * @param     $fkPhpName $objectName  the related object to use as filter";
+        } else {
+            $script .= "
+     * @param     $fkPhpName|PropulsionObjectCollection $objectName  the related object(s) to use as filter";
+        }
+        $script .= "
      * @param     string \$comparison Operator to use for the column comparison, defaults to Criteria::EQUAL
      *
      * @return    static The current query, for fluid interface
@@ -1322,7 +1349,10 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         \$join = new ModelJoin();
         \$join->setJoinType(\$joinType);
         \$join->setRelationMap(\$relationMap, \$this->useAliasInSQL ? \$this->getModelAlias() : null, \$relationAlias);
-        if (\$previousJoin = \$this->getPreviousJoin()) {
+        // getPreviousJoin() is typed to the base Join class (Criteria::addJoin() can add plain
+        // Join objects too), but the joins chained here are always ModelJoin instances built by
+        // this same generated code; narrow with instanceof rather than widening setPreviousJoin().
+        if ((\$previousJoin = \$this->getPreviousJoin()) instanceof ModelJoin) {
             \$join->setPreviousJoin(\$previousJoin);
         }
 
@@ -1351,6 +1381,12 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         $queryClass = $fkQueryBuilder->getClassname();
         if ($namespace = $fkQueryBuilder->getNamespace()) {
             $queryClass = '\\' . $namespace . '\\' . $queryClass;
+        } else {
+            // No namespace on the related table: still fully-qualify with a leading
+            // backslash so this string, embedded as a PHPDoc @return type inside a
+            // *namespaced* caller file, resolves to the global namespace instead of
+            // being misread as relative to the caller's own namespace.
+            $queryClass = '\\' . $queryClass;
         }
         $relationName = $this->getFKPhpNameAffix($fk);
         $joinType = $this->getJoinType($fk);
@@ -1369,6 +1405,12 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         $queryClass = $fkQueryBuilder->getClassname();
         if ($namespace = $fkQueryBuilder->getNamespace()) {
             $queryClass = '\\' . $namespace . '\\' . $queryClass;
+        } else {
+            // No namespace on the related table: still fully-qualify with a leading
+            // backslash so this string, embedded as a PHPDoc @return type inside a
+            // *namespaced* caller file, resolves to the global namespace instead of
+            // being misread as relative to the caller's own namespace.
+            $queryClass = '\\' . $queryClass;
         }
         $relationName = $this->getRefFKPhpNameAffix($fk);
         $joinType = $this->getJoinType($fk);
@@ -1434,7 +1476,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * @param     $fkFQCN $objectName the related object to use as filter
      * @param     string \$comparison Operator to use for the column comparison, defaults to Criteria::EQUAL
      *
-     * @return    static The current query, for fluid interface
+     * @return    $queryClass The current query, for fluid interface
      */
     public function filterBy{$directRelName}($objectName, \$comparison = Criteria::EQUAL): $queryClass
     {
@@ -1455,7 +1497,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * @param     $fkFQCN $objectName the related object to use as filter
      * @param     string \$comparison Operator to use for the column comparison, defaults to Criteria::EQUAL
      *
-     * @return    static The current query, for fluid interface
+     * @return    $queryClass The current query, for fluid interface
      */
     public function filterBy{$relName}($objectName, \$comparison = Criteria::EQUAL): $queryClass
     {

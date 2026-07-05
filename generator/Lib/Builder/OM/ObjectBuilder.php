@@ -686,6 +686,10 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	protected bool \$new = true;
 	protected bool \$deleted = false;
+
+	/**
+	 * @var array<int,string>
+	 */
 	protected array \$modifiedColumns = [];";
 
 		// Lets behaviors add extra properties (e.g. the nested_set behavior's left/right/
@@ -1064,14 +1068,18 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 ";
 		if ($col->isLobType()) {
 			$script .= "
-			if (\$row !== false && \$row[0] !== null) {
+			if (is_array(\$row) && \$row[0] !== null) {
 				if (is_resource(\$row[0])) {
 					// Some PDO drivers (e.g. pgsql, for bytea columns) already return a
 					// stream for a LOB column; only string results need wrapping.
 					\$this->$phpname = \$row[0];
 				} else {
-					\$this->$phpname = fopen('php://memory', 'r+');
-					fwrite(\$this->$phpname, \$row[0]);
+					\$fp = fopen('php://memory', 'r+');
+					if (\$fp === false) {
+						throw new PropulsionException('Unable to open php://memory stream for [$clo] column.');
+					}
+					fwrite(\$fp, (string) \$row[0]);
+					\$this->$phpname = \$fp;
 				}
 				rewind(\$this->$phpname);
 			} else {
@@ -1082,7 +1090,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			$phpType = $col->getPhpType();
 			$castType = match($phpType) { 'double' => 'float', 'integer' => 'int', 'boolean' => 'bool', default => $phpType };
 			$script .= "
-			\$this->$phpname = (\$row !== false && \$row[0] !== null) ? ($castType) \$row[0] : null;
+			\$this->$phpname = (is_array(\$row) && \$row[0] !== null) ? ($castType) \$row[0] : null;
 ";
 		}
 		$script .= "
@@ -1197,7 +1205,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$paramType = $this->getPhp84TypeHint($col);
 		$returnType = $this->getClassname();
 
-		if ($col->isTemporalType()) {
+		if ($col->isTemporalType() || $col->isLobType()) {
 			$this->declareClass('Propulsion\\Exception\\PropulsionException');
 		}
 
@@ -1225,6 +1233,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	{
 		if (\$value !== null && !is_resource(\$value)) {
 			\$fp = fopen('php://memory', 'r+');
+			if (\$fp === false) {
+				throw new PropulsionException('Unable to open php://memory stream for [$colname] column.');
+			}
 			fwrite(\$fp, (string) \$value);
 			rewind(\$fp);
 			\$value = \$fp;
@@ -1708,7 +1719,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Hydrates (populates) the object variables with values from the database resultset.
 	 *
-	 * @param array \$row Database result row
+	 * @param array<int,mixed> \$row Database result row
 	 * @param int \$startcol The 0-based offset for reading from the resultset row.
 	 * @param bool \$rehydrate Whether this object is being re-hydrated from the database.
 	 * @return int Next column offset
@@ -1892,7 +1903,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	public function getByName(string \$name, string \$type = BasePeer::TYPE_PHPNAME): mixed
 	{
-		\$pos = ".$this->getPeerClassname()."::translateFieldName(\$name, \$type, BasePeer::TYPE_NUM);
+		// translateFieldName(..., BasePeer::TYPE_NUM) always resolves to the
+		// 0-based column position for this target type.
+		\$pos = (int) ".$this->getPeerClassname()."::translateFieldName(\$name, \$type, BasePeer::TYPE_NUM);
 		return \$this->getByPosition(\$pos);
 	}";
 	}
@@ -2193,6 +2206,12 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 				if (count($pks = $table->getPrimaryKey())) {
 					foreach ($pks as $pk) {
 						if ($pk->isAutoIncrement()) {
+							// BasePeer::doInsert() only declares @return mixed, since the
+							// primary key it hands back may be an int (sequence/autoincrement)
+							// or a string (e.g. a driver's lastInsertId()) depending on platform
+							// and id-generation strategy -- narrow it to what this column's
+							// setter actually accepts.
+							$pkCastExpr = $this->getColumnValueCastExpr($pk, '$pk');
 							if ($table->isAllowPkInsert()) {
 								// For an allowPkInsert table, BasePeer::doInsert() only
 								// generates/returns a new id ($pk here) when the caller didn't
@@ -2205,11 +2224,11 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 								// silently erase it.
 								$script .= "
 					if (\$pk !== null) {
-						\$this->set" . $pk->getPhpName() . "(\$pk);
+						\$this->set" . $pk->getPhpName() . "($pkCastExpr);
 					}";
 							} else {
 								$script .= "
-					\$this->set" . $pk->getPhpName() . "(\$pk);";
+					\$this->set" . $pk->getPhpName() . "($pkCastExpr);";
 							}
 						}
 					}
@@ -2330,7 +2349,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		\$stmt = " . $this->getPeerClassname() . "::doSelectStmt(\$this->buildPkeyCriteria(), \$con);
 		\$row = \$stmt->fetch(PDO::FETCH_NUM);
 		\$stmt->closeCursor();
-		if (!\$row) {
+		if (!is_array(\$row)) {
 			throw new PropulsionException('Cannot find matching row in the database to reload object values.');
 		}
 		\$this->hydrate(\$row, 0, true); // rehydrate";
@@ -2406,14 +2425,14 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 *                    BasePeer::TYPE_COLNAME, BasePeer::TYPE_FIELDNAME, BasePeer::TYPE_NUM.
 	 *                    Defaults to BasePeer::TYPE_PHPNAME.
 	 * @param bool \$includeLazyLoadColumns (optional) Whether to include lazy loaded columns. Defaults to TRUE.
-	 * @param array \$alreadyDumpedObjects List of objects to skip to avoid recursion";
+	 * @param array<string,array<string,bool>> \$alreadyDumpedObjects List of objects to skip to avoid recursion";
 		if ($hasFks) {
 			$script .= "
 	 * @param bool \$includeForeignObjects (optional) Whether to include hydrated related objects. Default to FALSE.";
 		}
 		$script .= "
 	 *
-	 * @return array an associative array containing the field names (as keys) and field values
+	 * @return array<string,mixed>|string an associative array containing the field names (as keys) and field values
 	 */
 	public function toArray(string \$keyType = BasePeer::TYPE_PHPNAME, ?bool \$includeLazyLoadColumns = true, array \$alreadyDumpedObjects = array()" . ($hasFks ? ", bool \$includeForeignObjects = false" : '') . "): array|string
 	{
@@ -2482,7 +2501,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	public function setByName(string \$name, mixed \$value, string \$type = BasePeer::TYPE_PHPNAME): void
 	{
-		\$pos = ".$this->getPeerClassname()."::translateFieldName(\$name, \$type, BasePeer::TYPE_NUM);
+		// translateFieldName(..., BasePeer::TYPE_NUM) always resolves to the
+		// 0-based column position for this target type.
+		\$pos = (int) ".$this->getPeerClassname()."::translateFieldName(\$name, \$type, BasePeer::TYPE_NUM);
 		\$this->setByPosition(\$pos, \$value);
 	}
 ";
@@ -2536,7 +2557,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * BasePeer::TYPE_COLNAME, BasePeer::TYPE_FIELDNAME, BasePeer::TYPE_NUM.
 	 * The default key type is the column's phpname (e.g. 'AuthorId')
 	 *
-	 * @param array \$arr An array to populate the object from.
+	 * @param array<string|int,mixed> \$arr An array to populate the object from.
 	 * @param string \$keyType The type of keys the array uses.
 	 * @return void
 	 */
@@ -2545,8 +2566,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		\$keys = ".$this->getPeerClassname()."::getFieldNames(\$keyType);";
 		foreach ($table->getColumns() as $num => $col) {
 			$cfc = $col->getPhpName();
+			$castExpr = $this->getColumnValueCastExpr($col, "\$arr[\$keys[$num]]");
 			$script .= "
-		if (array_key_exists(\$keys[$num], \$arr)) \$this->set$cfc(\$arr[\$keys[$num]]);";
+		if (array_key_exists(\$keys[$num], \$arr)) \$this->set$cfc($castExpr);";
 		}
 		$script .= "
 	}
@@ -2649,7 +2671,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Returns the composite primary key for this object.
 	 * The array elements will be in same order as the primary key columns in the table schema.
-	 * @return array
+	 * @return array<int,mixed>
 	 */
 	public function getPrimaryKey(): array
 	{
@@ -2672,6 +2694,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		
 		if (count($pks) == 1) {
 			$phpname = $pks[0]->getPhpName();
+			$castExpr = $this->getColumnValueCastExpr($pks[0], '$key');
 			$script .= "
 
 	/**
@@ -2682,7 +2705,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	public function setPrimaryKey(mixed \$key): void
 	{
-		\$this->set$phpname(\$key);
+		\$this->set$phpname($castExpr);
 	}";
 		} else {
 			$script .= "
@@ -2690,23 +2713,62 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Set the composite primary key.
 	 *
-	 * @param mixed \$keys The primary key columns as array.
+	 * @param array<int,mixed> \$keys The primary key columns as array.
 	 * @return void
 	 */
 	public function setPrimaryKey(mixed \$keys): void
-	{";
+	{
+		if (!is_array(\$keys)) {
+			return;
+		}";
 			$i = 0;
 			foreach ($pks as $pk) {
 				$phpname = $pk->getPhpName();
+				$castExpr = $this->getColumnValueCastExpr($pk, "\$keys[$i]");
 				$script .= "
-		\$this->set$phpname(\$keys[$i]);";
+		\$this->set$phpname($castExpr);";
 				$i++;
 			}
 			$script .= "
 	}";
 		}
 	}
-	
+
+	/**
+	 * Builds a PHP expression that safely narrows a mixed value (e.g. an element
+	 * of the array passed to setPrimaryKey()) to the scalar type the column's
+	 * setter actually declares, preserving null. Mirrors the casts already
+	 * applied in addHydrate() for the same columns coming from a raw DB row.
+	 */
+	protected function getColumnValueCastExpr(Column $col, string $varExpr): string
+	{
+		if ($col->isBooleanType()) {
+			$castType = 'bool';
+		} elseif ($col->isNumericType()) {
+			$phpType = $col->getPhpType();
+			$castType = match($phpType) { 'double' => 'float', 'integer' => 'int', default => $phpType };
+		} elseif ($col->isTemporalType()) {
+			// The mutator accepts DateTimeInterface|string|int|null. A mixed caller-supplied
+			// value already of one of those types is passed through unchanged (the common
+			// case); anything else scalar is stringified, and non-scalar/non-DateTimeInterface
+			// values (which the setter can't handle anyway) become null rather than fataling
+			// on an invalid (string) cast of an object.
+			return "($varExpr === null || $varExpr instanceof \\DateTimeInterface || is_int($varExpr) || is_string($varExpr) ? $varExpr : (is_scalar($varExpr) ? (string) $varExpr : null))";
+		} elseif (
+			$col->getType() === PropulsionTypes::PHP_ARRAY
+			|| $col->getType() === PropulsionTypes::OBJECT
+			|| $col->isLobType()
+		) {
+			// These setters already accept a broader union (mixed, a resource, etc.) or need
+			// value-specific handling; passing the raw value through preserves existing
+			// behavior for these rare/exotic primary key types.
+			return $varExpr;
+		} else {
+			$castType = 'string';
+		}
+		return "($varExpr === null ? null : ($castType) $varExpr)";
+	}
+
 	protected function addIsPrimaryKeyNull(&$script): void
 	{
 		$table = $this->getTable();
@@ -2750,7 +2812,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * If desired, this method can also make copies of all associated (fkey referrers)
 	 * objects.
 	 *
-	 * @param object \$copyObj An object of $className (or compatible) type.
+	 * @param static \$copyObj An object of $className (or compatible) type.
 	 * @param bool \$deepCopy Whether to also copy all rows that refer (by fkey) to the current row.
 	 * @param bool \$makeNew Whether to reset autoincrement PKs and make the object new.
 	 * @throws PropulsionException
@@ -2842,10 +2904,10 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * objects.
 	 *
 	 * @param bool \$deepCopy Whether to also copy all rows that refer (by fkey) to the current row.
-	 * @return $className Clone of current object.
+	 * @return static Clone of current object.
 	 * @throws PropulsionException
 	 */
-	public function copy(bool \$deepCopy = false): $className
+	public function copy(bool \$deepCopy = false): static
 	{
 		// we use get_class(), because this might be a subclass
 		\$clazz = get_class(\$this);
@@ -3086,6 +3148,10 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$this->declareClassFromBuilder($this->getStubObjectBuilder());
 		
 		$relatedObjectClassName = $this->getNewStubObjectBuilder($refFK->getTable())->getClassname();
+		// NOTE: Use fully-qualified class name here (instead of short class) so that
+		// PropulsionObjectCollection::save() method_exists(<model>, 'save') succeeds --
+		// see addRefFKInit()/init$relCol() above, which this must stay consistent with.
+		$relatedObjectFQCN = $this->getNewStubObjectBuilder($refFK->getTable())->getFullyQualifiedClassname();
 		$relCol = $this->getRefFKPhpNameAffix($refFK, true);
 		$collName = $this->getRefFKCollVarName($refFK);
 
@@ -3101,7 +3167,10 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	public function add" . $this->getRefFKPhpNameAffix($refFK, false) . "($relatedObjectClassName \$l): static
 	{
 		if (\$this->{$collName} === null) {
-			\$this->init$relCol();
+			// Inlined equivalent of init$relCol() so the non-null assignment is
+			// visible to static analysis within this method's scope.
+			\$this->{$collName} = new PropulsionObjectCollection();
+			\$this->{$collName}->setModel('$relatedObjectFQCN');
 		}
 
 		if (!\$this->{$collName}->contains(\$l)) { // only add it if the **same** object is not already associated
@@ -3532,11 +3601,12 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 				$varName = $this->getRefFKCollVarName($refFK);
 				$script .= "
 		if (\$deep && \$this->{$varName}) {
-			if (is_array(\$this->{$varName})) {
-				foreach (\$this->{$varName} as \$o) {
-					if (method_exists(\$o, 'clearAllReferences')) {
-						\$o->clearAllReferences(\$deep);
-					}
+			// {$varName} is always a PropulsionObjectCollection (never a plain array);
+			// the old is_array() guard here was always false and this branch was
+			// consequently dead code.
+			foreach (\$this->{$varName} as \$o) {
+				if (method_exists(\$o, 'clearAllReferences')) {
+					\$o->clearAllReferences(\$deep);
 				}
 			}
 		}";
@@ -3626,6 +3696,8 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 
 	/**
 	 * Catches calls to virtual methods
+	 *
+	 * @param array<int,mixed> \$params
 	 */
 	public function __call(string \$name, array \$params): mixed
 	{
@@ -3648,6 +3720,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 
 	/**
 	 * Array to store validation failures.
+	 * @var array<string,string>
 	 */
 	protected array \$validationFailures = [];";
 	}
@@ -3659,7 +3732,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Gets any ValidationFailed objects that resulted from last call to validate().
 	 *
-	 * @return array Array of ValidationFailed objects
+	 * @return array<string,string> Array of ValidationFailed objects
 	 */
 	public function getValidationFailures(): array
 	{
@@ -3675,10 +3748,10 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * Validates the object and returns true if it's valid or false if it's not.
 	 * If \$columns is specified, only those columns are validated.
 	 *
-	 * @param array|string \$columns Column name or array of column names to validate
+	 * @param array<int,string>|string|null \$columns Column name or array of column names to validate
 	 * @return bool True if valid, false otherwise
 	 */
-	public function validate(\$columns = null)
+	public function validate(array|string|null \$columns = null): bool
 	{
 		\$res = \$this->doValidate(\$columns);
 		if (\$res === true) {
@@ -3702,10 +3775,10 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * also be validated.  If all pass then <code>true</code> is returned; otherwise
 	 * an aggreagated array of ValidationFailed objects will be returned.
 	 *
-	 * @param      array \$columns Array of column names to validate.
-	 * @return     mixed <code>true</code> if all validations pass; array of <code>ValidationFailed</code> objets otherwise.
+	 * @param      array<int,string>|string|null \$columns Array of column names to validate.
+	 * @return     bool|array<string,string> <code>true</code> if all validations pass; array of <code>ValidationFailed</code> objets otherwise.
 	 */
-	protected function doValidate(\$columns = null)
+	protected function doValidate(array|string|null \$columns = null): bool|array
 	{
 		\$failureMap = array();
 		if (!\$this->alreadyInValidation) {
@@ -3734,7 +3807,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$script .= "
 
 			if ((\$retval = " . $this->getPeerClassname() . "::doValidateThis(\$this, \$columns)) !== true) {
-				\$failureMap = array_merge(\$failureMap, \$retval);
+				if (is_array(\$retval)) {
+					\$failureMap = array_merge(\$failureMap, \$retval);
+				}
 			}
 
 ";
