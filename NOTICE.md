@@ -4,8 +4,8 @@ Propulsion is a hard fork of [Propel 1](https://github.com/propelorm/Propel1),
 the PHP object-relational mapper originally created by Hans Lellelid, based
 on the Apache Torque project, and later maintained by the Propel community
 (notably David Zuelke, François Zaninotto, and William Durand). This
-repository's `CHANGELOG` and `WHATS_NEW` files are carried over unedited from
-that project and stop at Propel's 1.6.1 release (2011-06-14), which is the
+repository's `CHANGELOG` and `WHATS_NEW` files are saved in the archaeology
+folder and stop at Propel's 1.6.1 release (2011-06-14), which is the
 point this fork branched from.
 
 Propel 1 development had wound down and the project was effectively
