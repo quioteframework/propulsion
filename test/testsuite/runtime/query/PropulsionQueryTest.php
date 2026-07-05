@@ -13,7 +13,6 @@
  *
  * @author     Francois Zaninotto
  * @version    $Id: PropulsionQueryTest.php 1351 2009-12-04 22:05:01Z francois $
- * @package    runtime.query
  */
 class PropulsionQueryTest extends BookstoreTestBase
 {

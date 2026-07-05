@@ -13,7 +13,6 @@
  *
  * @author     Francois Zaninotto
  * @version    $Id: PropulsionObjectFormatterTest.php 1374 2009-12-26 23:21:37Z francois $
- * @package    runtime.formatter
  */
 class PropulsionObjectFormatterInheritanceTest extends BookstoreEmptyTestBase
 {

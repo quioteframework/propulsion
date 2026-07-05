@@ -14,7 +14,6 @@
  *
  * @author     Hans Lellelid <hans@xmpl.org> (Propel)
  * @version    $Revision$
- * @package    propel.generator.model
  */
 
  use PDO;

@@ -1,6 +1,5 @@
 <?php
 
-
 use PHPUnit\Framework\TestCase;
 /**
  * This file is part of the Propulsion package.
@@ -15,7 +14,6 @@ use PHPUnit\Framework\TestCase;
  *
  * @author     Alan Pinstein
  * @author     Soenke Ruempler
- * @package    runtime.util
  */
 class PropulsionDateTimeTest extends TestCase
 {

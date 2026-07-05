@@ -12,7 +12,6 @@
  * Tests the generated classes by behaviors.
  *
  * @author     Francois Zaninotto
- * @package    generator.behavior
  */
 class AddClassBehaviorTest extends BookstoreTestBase
 {

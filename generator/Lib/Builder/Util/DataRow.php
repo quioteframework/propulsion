@@ -17,7 +17,6 @@ use Propulsion\Generator\Model\Table;
  * Used by DataSQLBuilder::buildRowSql() -- see DataDumpManager/DataSqlManager
  * for where rows are actually produced/consumed.
  *
- * @package    propel.generator.builder.util
  */
 class DataRow
 {

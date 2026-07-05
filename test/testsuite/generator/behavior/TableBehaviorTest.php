@@ -1,6 +1,5 @@
 <?php
 
-
 use PHPUnit\Framework\TestCase;
 /**
  * This file is part of the Propulsion package.
@@ -14,7 +13,6 @@ use PHPUnit\Framework\TestCase;
  * Tests the table structure behavior hooks.
  *
  * @author     Francois Zaninotto
- * @package    generator.behavior
  */
 class TableBehaviorTest extends TestCase
 {

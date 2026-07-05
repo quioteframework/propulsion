@@ -1,6 +1,5 @@
 <?php
 
-
 use PHPUnit\Framework\TestCase;
 /**
  * This file is part of the Propulsion package.
@@ -14,7 +13,6 @@ use PHPUnit\Framework\TestCase;
  * Tests for the StandardEnglishPluralizer class
  *
  * @version    $Revision$
- * @package    generator.builder.util
  */
 class StandardEnglishPluralizerTest extends TestCase
 {

@@ -21,7 +21,6 @@
  * method for the exact contents of the database.
  *
  * @see        CmsDataPopulator
- * @package    generator.builder.om
  */
 class GeneratedNestedSetObjectTest extends CmsTestBase
 {

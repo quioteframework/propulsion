@@ -1,6 +1,5 @@
 <?php
 
-
 use PHPUnit\Framework\TestCase;
 /*
  *	$Id$
@@ -16,7 +15,6 @@ use PHPUnit\Framework\TestCase;
  *
  * @author     François Zaninotto
  * @version    $Revision$
- * @package    generator.behavior.archivable
  */
 class ArchivableBehaviorTest extends TestCase
 {

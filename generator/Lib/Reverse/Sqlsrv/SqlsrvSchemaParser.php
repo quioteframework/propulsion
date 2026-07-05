@@ -14,7 +14,6 @@ namespace Propulsion\Generator\Reverse\Sqlsrv;
  *
  * @author     Benjamin Runnels <kraven@kraven.org>
  * @version    $Revision$
- * @package    propel.generator.reverse.sqlsrv
  */
 use Propulsion\Generator\Reverse\MSSQL\MssqlSchemaParser;
 

@@ -12,7 +12,6 @@ namespace Propulsion\Generator\Behavior;
  * Gives a model class the ability to delegate methods to a relationship.
  *
  * @author     François Zaninotto
- * @package    propel.generator.behavior
  */
 use Propulsion\Generator\Model\Behavior;
 use Propulsion\Generator\Model\ForeignKey;

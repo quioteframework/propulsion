@@ -20,7 +20,6 @@ namespace Propulsion\Generator\Builder\OM;
  * - Exception handling with typed exceptions
  *
  * @author     GitHub Copilot
- * @package    propel.generator.builder.om
  */
 use Propulsion\Generator\Exception\EngineException;
 
@@ -98,7 +97,6 @@ class NodePeerBuilder extends AbstractPeerBuilder
  *";
 		}
 		$script .= "
- * @package    propel.generator.".$this->getPackage()."
  */
 abstract class ".$this->getClassname()."
 {

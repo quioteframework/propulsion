@@ -14,7 +14,6 @@ namespace Propulsion\Generator\Builder\Util;
  *
  * @author     François Zaninotto
  * @version    $Revision$
- * @package    propel.generator.builder.util
  */
 class PropulsionTemplate
 {

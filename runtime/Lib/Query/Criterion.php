@@ -16,7 +16,6 @@ namespace Propulsion\Query;
  *
  * @author     Hans Lellelid <hans@xmpl.org> (Propel)
  * @version    $Revision$
- * @package    propel.runtime.query
  */
  use Propulsion\Propulsion;
  use Propulsion\Adapter\DBAdapter;

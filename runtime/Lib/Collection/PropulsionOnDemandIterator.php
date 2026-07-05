@@ -20,7 +20,6 @@ use PDO;
  * Class for iterating over a statement and returning one Propulsion object at a time
  *
  * @author     Francois Zaninotto
- * @package    propel.runtime.collection
  */
 class PropulsionOnDemandIterator implements Iterator
 {

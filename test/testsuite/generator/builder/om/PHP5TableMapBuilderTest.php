@@ -16,7 +16,6 @@
  *
  * @author     François Zaninotto
  * @version    $Id$
- * @package    generator.builder.om
  */
 class PHP5TableMapBuilderTest extends BookstoreTestBase
 {

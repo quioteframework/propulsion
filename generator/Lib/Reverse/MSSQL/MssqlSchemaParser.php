@@ -15,7 +15,6 @@ namespace Propulsion\Generator\Reverse\MSSQL;
  *
  * @author     Hans Lellelid <hans@xmpl.org>
  * @version    $Revision$
- * @package    propel.generator.reverse.mssql
  */
 use Propulsion\Generator\Reverse\BaseSchemaParser;
 use Propulsion\Generator\Model\PropulsionTypes;
@@ -84,9 +83,6 @@ class MssqlSchemaParser extends BaseSchemaParser
 		return self::$mssqlTypeMap;
 	}
 
-	/**
-	 *
-	 */
 	public function parse(Database $database, mixed $task = null)
 	{
 		$stmt = $this->dbh->query("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME <> 'dtproperties'");

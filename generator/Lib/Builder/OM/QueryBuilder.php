@@ -19,7 +19,6 @@ namespace Propulsion\Generator\Builder\OM;
  *
  * @author     Francois Zaninotto
  * @author     Modernized for PHP 8.4
- * @package    propel.generator.builder.om
  */
 use Propulsion\Generator\Model\PropulsionTypes;
 use Propulsion\Generator\Model\ForeignKey;
@@ -253,7 +252,6 @@ class QueryBuilder extends OMBuilder
  * @method     $queryClass offset(int \$offset) Alias for setOffset()
  * @method     $queryClass distinct() Alias for setDistinct()
  *
- * @package    propel.generator.".$this->getPackage()."
  */
 abstract class ".$this->getClassname()." extends " . $parentClass . "
 {

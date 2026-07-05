@@ -18,7 +18,6 @@ namespace Propulsion\Config;
  *
  * @author     Veikko M�kinen <veikko@veikko.fi>
  * @version    $Revision$
- * @package    propel.runtime.config
  */
 
 use Propulsion\Exception\PropulsionException;

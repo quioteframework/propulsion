@@ -14,7 +14,6 @@ namespace Propulsion\Generator\Behavior\Archivable;
  *
  * @author    Francois Zaninotto
  * @version		$Revision$
- * @package		propel.generator.archivable
  */
 
 use Propulsion\Generator\Model\Behavior;

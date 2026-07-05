@@ -13,7 +13,6 @@
  *
  * @author     Francois Zaninotto
  * @version    $Id$
- * @package    runtime.formatter
  */
 class PropulsionArrayFormatterTest extends BookstoreEmptyTestBase
 {

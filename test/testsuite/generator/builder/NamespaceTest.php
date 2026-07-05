@@ -1,6 +1,5 @@
 <?php
 
-
 use PHPUnit\Framework\TestCase;
 /**
  * This file is part of the Propulsion package.
@@ -17,7 +16,6 @@ require_once dirname(__FILE__) . '/../../../tools/helpers/IntegrationDatabase.ph
  * Requires a build of the 'namespaced' fixture
  *
  * @version    $Revision$
- * @package    generator.builder
  */
 class NamespaceTest extends TestCase
 {

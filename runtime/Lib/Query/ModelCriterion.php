@@ -14,7 +14,6 @@ namespace Propulsion\Query;
  *
  * @author     Francois
  * @version    $Revision$
- * @package    propel.runtime.query
  */
 
  use Propulsion\Map\ColumnMap;

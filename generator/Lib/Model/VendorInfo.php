@@ -7,7 +7,6 @@ namespace Propulsion\Generator\Model;
  *
  * @author     Hans Lellelid <hans@xmpl.org>
  * @version    $Revision$
- * @package    propel.generator.model
  */
 class VendorInfo extends XMLElement
 {

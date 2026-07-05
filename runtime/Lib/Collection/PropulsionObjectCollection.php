@@ -13,7 +13,6 @@ namespace Propulsion\Collection;
  * Class for iterating over a list of Propulsion objects
  *
  * @author     Francois Zaninotto
- * @package    propel.runtime.collection
  */
 
  use Propulsion\Connection\PropulsionPDO;

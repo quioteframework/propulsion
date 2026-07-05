@@ -20,7 +20,6 @@ namespace Propulsion\Generator\Builder\OM;
  * - Modern inheritance patterns
  *
  * @author     GitHub Copilot
- * @package    propel.generator.builder.om
  */
 use Propulsion\Generator\Model\Inheritance;
 use Propulsion\Generator\Exception\EngineException;
@@ -145,7 +144,6 @@ class MultiExtendObjectBuilder extends AbstractObjectBuilder
  * application requirements. This class will only be generated as
  * long as it does not already exist in the output directory.
  *
- * @package    propel.generator.".$this->getPackage()."
  */
 class ".$this->getClassname()." extends ".$this->getParentClassname()."
 {

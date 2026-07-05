@@ -1,6 +1,5 @@
 <?php
 
-
 use PHPUnit\Framework\TestCase;
 /*
  *	$Id: VersionableBehaviorTest.php 1460 2010-01-17 22:36:48Z francois $
@@ -16,7 +15,6 @@ use PHPUnit\Framework\TestCase;
  *
  * @author     François Zaninotto
  * @version    $Revision$
- * @package    generator.behavior.i18n
  */
 class I18nBehaviorPeerBuilderModifierTest extends TestCase
 {

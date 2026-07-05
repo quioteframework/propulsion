@@ -17,7 +17,6 @@ namespace Propulsion\Generator\Builder\OM;
  *
  *
  * @author     François Zaninotto
- * @package    propel.generator.builder.om
  */
 use Propulsion\Generator\Model\Inheritance;
 use Propulsion\Generator\Exception\EngineException;
@@ -125,7 +124,6 @@ require '".$requiredClassFilePath."';
  * application requirements.  This class will only be generated as
  * long as it does not already exist in the output directory.
  *
- * @package    propel.generator.".$this->getPackage()."
  */
 class "  .$this->getClassname() . " extends " . $baseClassname . " {
 ";

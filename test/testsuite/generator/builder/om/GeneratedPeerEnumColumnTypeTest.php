@@ -1,6 +1,5 @@
 <?php
 
-
 use PHPUnit\Framework\TestCase;
 /**
  * This file is part of the Propulsion package.
@@ -14,7 +13,6 @@ use PHPUnit\Framework\TestCase;
  * Tests the generated Peer classes for enum column type constants
  *
  * @author     Francois Zaninotto
- * @package    generator.builder.om
  */
 class GeneratedPeerEnumColumnTypeTest extends TestCase
 {

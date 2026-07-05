@@ -18,7 +18,6 @@ use Propulsion\Generator\Builder\Util\PropulsionTemplate;
  *
  * @author     François Zaninotto
  * @version    $Revision$
- * @package    propel.generator.model
  */
 class Behavior extends XMLElement
 {

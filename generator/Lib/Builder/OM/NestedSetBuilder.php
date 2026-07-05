@@ -21,7 +21,6 @@ namespace Propulsion\Generator\Builder\OM;
  * - Modern exception handling
  *
  * @author     GitHub Copilot
- * @package    propel.generator.builder.om
  */
 class NestedSetBuilder extends AbstractObjectBuilder
 {
@@ -105,7 +104,6 @@ class NestedSetBuilder extends AbstractObjectBuilder
 		}
 		$script .= "
  * @deprecated  Since Propulsion 1.5. Use the nested_set behavior instead of the NestedSet treeMode
- * @package    propel.generator.".$this->getPackage()."
  */
 abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->getClassname()." implements Propulsion\OM\NodeObject
 {

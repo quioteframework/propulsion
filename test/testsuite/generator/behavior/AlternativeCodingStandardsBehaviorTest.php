@@ -1,6 +1,5 @@
 <?php
 
-
 use PHPUnit\Framework\TestCase;
 /*
  *	$Id: TimestampableBehaviorTest.php 2035 2010-11-14 17:54:27Z francois $
@@ -16,7 +15,6 @@ use PHPUnit\Framework\TestCase;
  *
  * @author     François Zaninotto
  * @version    $Revision$
- * @package    generator.behavior
  */
 class AlternativeCodingStandardsBehaviorTest extends TestCase
 {

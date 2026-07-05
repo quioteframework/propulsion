@@ -13,7 +13,6 @@
  *
  * @author     François Zaninotto
  * @version    $Id: ModelJoinTest.php 1347 2009-12-03 21:06:36Z francois $
- * @package    runtime.query
  */
 class ModelWithTest extends BookstoreTestBase
 {

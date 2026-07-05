@@ -1,6 +1,5 @@
 <?php
 
-
 use PHPUnit\Framework\TestCase;
 /**
  * This file is part of the Propulsion package.
@@ -17,7 +16,6 @@ set_include_path(get_include_path().PATH_SEPARATOR.dirname(__FILE__).'/../../../
  *
  * @author      William Durand
  * @version     $Revision$
- * @package     propel.generator.reverse.mysql
  */
 class MysqlSchemaParserTest extends TestCase
 {

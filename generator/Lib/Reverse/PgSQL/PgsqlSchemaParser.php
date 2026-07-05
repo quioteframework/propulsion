@@ -25,7 +25,6 @@ namespace Propulsion\Generator\Reverse\PgSQL;
  *
  * @author     Hans Lellelid <hans@xmpl.org>
  * @version    $Revision$
- * @package    propel.generator.reverse.pgsql
  */
 use Propulsion\Generator\Reverse\BaseSchemaParser;
 use Propulsion\Generator\Model\PropulsionTypes;
@@ -99,9 +98,6 @@ class PgsqlSchemaParser extends BaseSchemaParser
 		return self::$pgsqlTypeMap;
 	}
 
-	/**
-	 *
-	 */
 	public function parse(Database $database, mixed $task = null)
 	{
 		$stmt = $this->dbh->query("SELECT version() as ver");

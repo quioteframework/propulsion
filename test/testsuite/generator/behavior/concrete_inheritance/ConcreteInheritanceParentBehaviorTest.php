@@ -14,7 +14,6 @@
  *
  * @author    François Zaniontto
  * @version   $Revision$
- * @package   generator.behavior.concrete_inheritance
  */
 class ConcreteInheritanceParentBehaviorTest extends BookstoreTestBase
 {

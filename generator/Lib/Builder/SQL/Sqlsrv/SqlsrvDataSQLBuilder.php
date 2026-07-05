@@ -14,7 +14,6 @@ namespace Propulsion\Generator\Builder\SQL\Sqlsrv;
  *
  * @author     Benjamin Runnels
  * @version    $Revision$
- * @package    propel.generator.builder.sql.sqlsrv
  */
 use Propulsion\Generator\Builder\SQL\DataSQLBuilder;
 class SqlsrvDataSQLBuilder extends DataSQLBuilder

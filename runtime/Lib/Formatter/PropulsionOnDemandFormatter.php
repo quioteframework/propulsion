@@ -16,7 +16,6 @@ namespace Propulsion\Formatter;
  *
  * @author     Francois Zaninotto
  * @version    $Revision$
- * @package    propel.runtime.formatter
  */
 
  use Propulsion\Query\ModelCriteria;

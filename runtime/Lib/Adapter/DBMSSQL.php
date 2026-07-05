@@ -14,7 +14,6 @@ namespace Propulsion\Adapter;
  *
  * @author     Hans Lellelid <hans@xmpl.org> (Propel)
  * @version    $Revision$
- * @package    propel.runtime.adapter
  */
 use PDO;
 use Propulsion\Exception\PropulsionException;

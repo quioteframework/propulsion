@@ -16,7 +16,6 @@ namespace Propulsion\Util;
  *
  * @author     Hans Lellelid <hans@xmpl.org> (Propel)
  * @version    $Revision$
- * @package    propel.runtime.util
  */
 
  use \PDO;

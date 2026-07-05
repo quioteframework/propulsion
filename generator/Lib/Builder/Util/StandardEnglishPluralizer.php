@@ -19,7 +19,6 @@ namespace Propulsion\Generator\Builder\Util;
  *
  * @author     paul.hanssen
  * @version    $Revision$
- * @package    propel.generator.builder.util
  */
 class StandardEnglishPluralizer implements Pluralizer
 {

@@ -21,7 +21,6 @@
  *
  * @see        BookstoreDataPopulator
  * @author     Hans Lellelid <hans@xmpl.org>
- * @package    generator.builder.om
  */
 class GeneratedPeerTest extends BookstoreTestBase
 {

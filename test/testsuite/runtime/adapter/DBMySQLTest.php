@@ -13,7 +13,6 @@
  *
  * @see        BookstoreDataPopulator
  * @author     William Durand
- * @package    runtime.adapter
  */
 class DBMySQLTest extends BookstoreTestBase
 {

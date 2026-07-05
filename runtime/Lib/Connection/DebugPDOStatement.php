@@ -18,7 +18,6 @@ use \PDO;
  * @author     Oliver Schonrock <oliver@realtsp.com>
  * @author     Jarno Rantanen <jarno.rantanen@tkk.fi>
  * @since      2007-07-12
- * @package    propel.runtime.connection
  */
 class DebugPDOStatement extends \PDOStatement
 {

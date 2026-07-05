@@ -13,7 +13,6 @@ namespace Propulsion\Generator\Builder\SQL;
  * Baseclass for SQL data dump SQL building classes.
  *
  * @author     Hans Lellelid <hans@xmpl.org>
- * @package    propel.generator.builder.sql
  */
 use Propulsion\Generator\Builder\DataModelBuilder;
 use Propulsion\Generator\Builder\Util\DataRow;

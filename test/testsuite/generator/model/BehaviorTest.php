@@ -1,6 +1,5 @@
 <?php
 
-
 use PHPUnit\Framework\TestCase;
 /**
  * This file is part of the Propulsion package.
@@ -15,7 +14,6 @@ use PHPUnit\Framework\TestCase;
  *
  * @author     <a href="mailto:mpoeschl@marmot.at>Martin Poeschl</a>
  * @version    $Revision$
- * @package    generator.model
  */
 class BehaviorTest extends TestCase {
 

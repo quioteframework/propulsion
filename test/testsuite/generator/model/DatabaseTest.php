@@ -1,6 +1,5 @@
 <?php
 
-
 use PHPUnit\Framework\TestCase;
 /*
  *	$Id: TableTest.php 1965 2010-09-21 17:44:12Z francois $
@@ -15,7 +14,6 @@ use PHPUnit\Framework\TestCase;
  * Tests for Database model class.
  *
  * @version    $Revision$
- * @package    generator.model
  */
 class DatabaseTest extends TestCase
 {

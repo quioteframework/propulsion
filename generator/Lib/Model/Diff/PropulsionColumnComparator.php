@@ -14,7 +14,6 @@ namespace Propulsion\Generator\Model\Diff;
  * Heavily inspired by Doctrine2's Migrations
  * (see http://github.com/doctrine/dbal/tree/master/lib/Doctrine/DBAL/Schema/)
  *
- * @package    propel.generator.model.diff
  */
 use Propulsion\Generator\Model\Column;
 class PropulsionColumnComparator

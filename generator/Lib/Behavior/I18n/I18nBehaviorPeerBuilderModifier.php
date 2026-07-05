@@ -15,7 +15,6 @@ namespace Propulsion\Generator\Behavior\I18n;
  *
  * @author     François Zaninotto
  * @version    $Revision$
- * @package    propel.generator.behavior.i18n
  */
 class I18nBehaviorPeerBuilderModifier
 {

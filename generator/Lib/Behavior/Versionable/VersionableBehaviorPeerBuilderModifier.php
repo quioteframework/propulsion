@@ -13,7 +13,6 @@ namespace Propulsion\Generator\Behavior\Versionable;
  * Behavior to add versionable columns and abilities
  *
  * @author     François Zaninotto
- * @package    propel.generator.behavior.versionable
  */
 class VersionableBehaviorPeerBuilderModifier
 {

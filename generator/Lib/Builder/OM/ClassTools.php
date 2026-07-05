@@ -13,7 +13,6 @@ namespace Propulsion\Generator\Builder\OM;
  *
  * @author     Hans Lellelid <hans@xmpl.org>
  * @version    $Revision$
- * @package    propel.generator.builder.om
  */
 
  use Propulsion\Generator\Model\Table;
@@ -78,40 +77,43 @@ class ClassTools
 	}
 
 	/**
-	 * Gets the basePeer path if specified for table/db.
-	 * If not, will return 'propel.util.BasePeer'
+	 * Gets the basePeer classname if specified for table/db.
+	 * If not, will return 'BasePeer' (i.e. \Propulsion\Util\BasePeer, brought
+	 * into scope by the builder's own declareClass() call).
 	 * @return     string
 	 */
 	public static function getBasePeer(Table $table) {
 		$class = $table->getBasePeer();
 		if ($class === null) {
-			$class = "propel.util.BasePeer";
+			$class = "BasePeer";
 		}
 		return $class;
 	}
 
 	/**
-	 * Gets the baseClass path if specified for table/db.
-	 * If not, will return 'propel.om.BaseObject'
+	 * Gets the baseClass classname if specified for table/db.
+	 * If not, will return 'BaseObject' (i.e. \Propulsion\OM\BaseObject,
+	 * brought into scope by the builder's own declareClass() call).
 	 * @return     string
 	 */
 	public static function getBaseClass(Table $table) {
 		$class = $table->getBaseClass();
 		if ($class === null) {
-			$class = "propel.om.BaseObject";
+			$class = "BaseObject";
 		}
 		return $class;
 	}
 
 	/**
-	 * Gets the interface path if specified for table.
-	 * If not, will return 'propel.om.Persistent'.
+	 * Gets the interface classname if specified for table.
+	 * If not, will return 'Persistent' (i.e. \Propulsion\OM\Persistent,
+	 * brought into scope by the builder's own declareClass() call).
 	 * @return     string
 	 */
 	public static function getInterface(Table $table) {
 		$interface = $table->getInterface();
 		if ($interface === null && !$table->isReadOnly()) {
-			$interface = "propel.om.Persistent";
+			$interface = "Persistent";
 		}
 		return $interface;
 	}

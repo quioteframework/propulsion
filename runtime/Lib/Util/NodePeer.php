@@ -14,7 +14,6 @@ namespace Propulsion\Util;
  *
  * @author     Heltem <heltem@o2php.com> (Propel)
  * @version    $Revision$
- * @package    propel.runtime.util
  */
 use Propulsion\Connection\PropulsionPDO;
 use Propulsion\Exception\PropulsionException;

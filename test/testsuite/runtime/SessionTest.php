@@ -22,7 +22,6 @@ use Propulsion\Session;
  * rollback behavior of reset() needs a real connection and lives in
  * SessionResetTransactionTest instead.
  *
- * @package    runtime
  */
 class SessionTest extends TestCase
 {

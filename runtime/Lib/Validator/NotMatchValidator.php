@@ -34,7 +34,6 @@ namespace Propulsion\Validator;
  * @author     Michael Aichler <aichler@mediacluster.de>
  * @author     Hans Lellelid <hans@xmpl.org>
  * @version    $Revision$
- * @package    propel.runtime.validator
  */
 
 use Propulsion\Map\ValidatorMap;

@@ -14,7 +14,6 @@
  *
  * @author		Francois Zaninotto
  * @version		$Revision$
- * @package		generator.behavior.sortable
  */
 class SortableBehaviorQueryBuilderModifierTest extends BookstoreSortableTestBase
 {

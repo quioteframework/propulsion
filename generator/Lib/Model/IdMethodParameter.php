@@ -16,7 +16,6 @@ namespace Propulsion\Generator\Model;
  * @author     John McNally <jmcnally@collab.net> (Torque)
  * @author     Daniel Rall <dlr@collab.net> (Torque)
  * @version    $Revision$
- * @package    propel.generator.model
  */
 class IdMethodParameter extends XMLElement
 {

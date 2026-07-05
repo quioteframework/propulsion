@@ -21,7 +21,6 @@
  *
  * @see        BookstoreDataPopulator
  * @author     Hans Lellelid <hans@xmpl.org>
- * @package    misc
  */
 class CharacterEncodingTest extends BookstoreTestBase
 {

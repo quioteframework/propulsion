@@ -16,7 +16,6 @@ namespace Propulsion\Generator\Reverse\Oracle;
  * @author     Hans Lellelid <hans@xmpl.org>
  * @author     Guillermo Gutierrez <ggutierrez@dailycosas.net> (Adaptation)
  * @version    $Revision$
- * @package    propel.generator.reverse.oracle
  */
 use Propulsion\Generator\Reverse\BaseSchemaParser;
 use Propulsion\Generator\Model\PropulsionTypes;

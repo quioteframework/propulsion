@@ -15,7 +15,6 @@ namespace Propulsion\Parser;
  * http://code.google.com/p/php-csv-utils/
  *
  * @author     Francois Zaninotto
- * @package    propel.runtime.parser
  */
 class PropulsionCSVParser extends PropulsionParser
 {

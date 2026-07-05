@@ -14,7 +14,6 @@
  *
  * @author		 François Zaninotto
  * @version		$Revision$
- * @package		generator.behavior.aggregate_column
  */
 class AggregateColumnBehaviorWithSchemaTest extends SchemasTestBase
 {

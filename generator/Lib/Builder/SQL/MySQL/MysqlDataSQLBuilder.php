@@ -13,7 +13,6 @@ namespace Propulsion\Generator\Builder\SQL\MySQL;
  * MySQL class for building data dump SQL.
  *
  * @author     Hans Lellelid <hans@xmpl.org>
- * @package    propel.generator.builder.sql.mysql
  */
 use Propulsion\Generator\Builder\SQL\DataSQLBuilder;
 

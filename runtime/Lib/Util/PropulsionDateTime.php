@@ -19,7 +19,6 @@ namespace Propulsion\Util;
  * @author     Alan Pinstein
  * @author     Soenke Ruempler
  * @author     Hans Lellelid
- * @package    propel.runtime.util
  */
  use \DateTime;
 use DateTimeImmutable;

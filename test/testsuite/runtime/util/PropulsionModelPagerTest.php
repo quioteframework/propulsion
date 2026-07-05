@@ -13,7 +13,6 @@
  *
  * @author		 Francois Zaninotto
  * @version		 $Id: PropulsionModelPagerTest.php
- * @package		 runtime.util
  */
 class PropulsionModelPagerTest extends BookstoreEmptyTestBase
 {

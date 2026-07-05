@@ -16,7 +16,6 @@ namespace Propulsion\Adapter;
  * @author     Jon S. Stevens <jon@clearink.com> (Torque)
  * @author     Brett McLaughlin <bmclaugh@algx.net> (Torque)
  * @version    $Revision$
- * @package    propel.runtime.adapter
  */
 use PDO;
 

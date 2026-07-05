@@ -23,7 +23,6 @@ namespace Propulsion\Query;
  * @author     Henning P. Schmiedehausen <hps@intermeta.de> (Torque)
  * @author     Sam Joseph <sam@neurogrid.com> (Torque)
  * @version    $Revision$
- * @package    propel.runtime.query
  */
 
  use Propulsion\Propulsion;
@@ -957,7 +956,6 @@ class Criteria implements \IteratorAggregate
 		}
 		return $this;
 	}
-
 
 	/**
 	 * Get the array of Joins.

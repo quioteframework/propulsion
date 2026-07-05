@@ -15,7 +15,6 @@ namespace Propulsion\Generator\Reverse\MySQL;
  *
  * @author     Hans Lellelid <hans@xmpl.org>
  * @version    $Revision$
- * @package    propel.generator.reverse.mysql
  */
 use Propulsion\Generator\Reverse\BaseSchemaParser;
 use Propulsion\Generator\Model\PropulsionTypes;
@@ -94,9 +93,6 @@ class MysqlSchemaParser extends BaseSchemaParser
 		return self::$mysqlTypeMap;
 	}
 
-	/**
-	 *
-	 */
 	public function parse(Database $database, mixed $task = null)
 	{
 		$this->addVendorInfo = $this->getGeneratorConfig()->getBuildProperty('addVendorInfo');

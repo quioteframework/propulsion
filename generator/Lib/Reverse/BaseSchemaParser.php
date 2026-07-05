@@ -14,7 +14,6 @@ namespace Propulsion\Generator\Reverse;
  *
  * @author     Hans Lellelid <hans@xmpl.org>
  * @version    $Revision$
- * @package    propel.generator.reverse
  * @method     void setMigrationTable(string $migrationTable)
  */
 use Propulsion\Generator\Config\GeneratorConfig;

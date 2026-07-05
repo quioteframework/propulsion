@@ -19,7 +19,6 @@ use Propulsion\Exception\PropulsionException;
  *
  * @author     Benjamin Runnels
  * @version    $Revision$
- * @package    propel.runtime.formatter
  */
 class PropulsionSimpleArrayFormatter extends PropulsionFormatter {
 	protected $collectionName = 'Propulsion\\Collection\\PropulsionArrayCollection';

@@ -13,7 +13,6 @@
  *
  * @author     Ulf Hermann
  * @version    $Id$
- * @package    runtime.map
  */
 class RelatedMapSymmetricalWithSchemasTest extends SchemasTestBase
 {

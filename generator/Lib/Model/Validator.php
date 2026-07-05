@@ -14,7 +14,6 @@ namespace Propulsion\Generator\Model;
  *
  * @author     Michael Aichler <aichler@mediacluster.de> (Propel)
  * @version    $Revision$
- * @package    propel.generator.model
  */
 class Validator extends XMLElement
 {

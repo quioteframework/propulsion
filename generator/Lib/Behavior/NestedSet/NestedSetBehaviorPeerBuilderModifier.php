@@ -14,7 +14,6 @@ namespace Propulsion\Generator\Behavior\NestedSet;
  *
  * @author     François Zaninotto
  * @author     heltem <heltem@o2php.com>
- * @package    propel.generator.behavior.nestedset
  */
 class NestedSetBehaviorPeerBuilderModifier
 {

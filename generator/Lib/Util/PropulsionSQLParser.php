@@ -17,7 +17,6 @@ use PDO;
  *
  * @author     François Zaninotto
  * @version    $Revision$
- * @package    propel.generator.util
  */
 class PropulsionSQLParser
 {

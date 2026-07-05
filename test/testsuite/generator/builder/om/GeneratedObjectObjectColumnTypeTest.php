@@ -1,6 +1,5 @@
 <?php
 
-
 use PHPUnit\Framework\TestCase;
 /**
  * This file is part of the Propulsion package.
@@ -14,7 +13,6 @@ use PHPUnit\Framework\TestCase;
  * Tests the generated objects for object column types accessor & mutator
  *
  * @author     Francois Zaninotto
- * @package    generator.builder.om
  */
 class GeneratedObjectObjectColumnTypeTest extends TestCase
 {

@@ -22,6 +22,5 @@ namespace Propulsion\Generator\Exception;
  * @author     Daniel Rall <dlr@collab.net> (Torque)
  * @author     Jason van Zyl <jvz@apache.org> (Torque)
  * @version    $Revision$
- * @package    propel.generator.exception
  */
 class EngineException extends \Exception {}

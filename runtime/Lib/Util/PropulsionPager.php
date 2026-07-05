@@ -89,7 +89,6 @@ namespace Propulsion\Util;
  * @author	   Niklas Närhinen <niklas@narhinen.net>
  * @version    $Revision$
  * @copyright  Copyright (c) 2004 Rob Halff: LGPL - See LICENCE
- * @package    propel.runtime.util
  */
 use Propulsion\Query\Criteria;
 

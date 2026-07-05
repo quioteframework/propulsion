@@ -21,7 +21,6 @@ namespace Propulsion\Map;
  *
  * @author     Francois Zaninotto
  * @version    $Revision$
- * @package    propel.runtime.map
  */
 
 class RelationMap
@@ -258,7 +257,6 @@ class RelationMap
   {
   	return ($this->getType() == RelationMap::MANY_TO_ONE) ? $this->getForeignColumns() : $this->getLocalColumns();
   }
-
 
   /**
    * Set the onUpdate behavior

@@ -1,6 +1,5 @@
 <?php
 
-
 use PHPUnit\Framework\TestCase;
 /**
  * This file is part of the Propulsion package.
@@ -22,7 +21,6 @@ use PHPUnit\Framework\TestCase;
  *
  * @author     François Zaninotto
  * @version    $Id$
- * @package    generator.builder.om
  */
 class PHP5ObjectBuilderTest extends TestCase
 {

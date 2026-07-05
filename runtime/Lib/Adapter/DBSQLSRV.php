@@ -14,7 +14,6 @@ namespace Propulsion\Adapter;
  *
  * @author     Benjamin Runnels
  * @version    $Revision$
- * @package    propel.runtime.adapter
  */
 use PDO;
 use PDOStatement;

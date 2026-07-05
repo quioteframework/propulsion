@@ -1,6 +1,5 @@
 <?php
 
-
 use PHPUnit\Framework\TestCase;
 /*
  *	$Id$
@@ -16,7 +15,6 @@ use PHPUnit\Framework\TestCase;
  *
  * @author     Martin Poeschl (mpoeschl@marmot.at)
  * @version    $Revision$
- * @package    generator.model
  */
 class TableTest extends TestCase
 {

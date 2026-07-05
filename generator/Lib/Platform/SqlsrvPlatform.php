@@ -14,7 +14,6 @@ namespace Propulsion\Generator\Platform;
  *
  * @author     Benjamin Runnels
  * @version    $Revision$
- * @package    propel.generator.platform
  */
 class SqlsrvPlatform extends MssqlPlatform
 {

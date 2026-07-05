@@ -28,7 +28,6 @@ namespace Propulsion\Adapter;
  * @author     Brett McLaughlin <bmclaugh@algx.net> (Torque)
  * @author     Daniel Rall <dlr@finemaltcoding.com> (Torque)
  * @version    $Revision$
- * @package    propel.runtime.adapter
  */
 use Propulsion\Exception\PropulsionException;
 use PDO;
@@ -205,7 +204,6 @@ abstract class DBAdapter
 	 * @return    string
 	 */
 	public abstract function strLength($s);
-
 
 	/**
 	 * Quotes database objec identifiers (table names, col names, sequences, etc.).

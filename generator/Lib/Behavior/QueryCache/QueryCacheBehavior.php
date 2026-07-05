@@ -14,7 +14,6 @@ namespace Propulsion\Generator\Behavior\QueryCache;;
  *
  * @author     François Zaninotto
  * @version    $Revision$
- * @package    propel.generator.behavior.cacheable
  */
 use Propulsion\Generator\Model\Behavior;
 class QueryCacheBehavior extends Behavior

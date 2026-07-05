@@ -1,6 +1,5 @@
 <?php
 
-
 use PHPUnit\Framework\TestCase;
 /**
  * This file is part of the Propulsion package.
@@ -14,7 +13,6 @@ use PHPUnit\Framework\TestCase;
  * Test for PropulsionConfiguration class
  *
  * @author     Francois Zaninotto
- * @package    runtime.config
  */
 class PropulsionConfigurationTest extends TestCase
 {

@@ -13,7 +13,6 @@
  *
  * @author     François Zaninotto
  * @version    $Id$
- * @package    runtime.map
  */
 class ColumnMapTest extends BookstoreTestBase
 {

@@ -12,7 +12,6 @@ namespace Propulsion\Exception;
  * The base class of all exceptions thrown by Propulsion.
  * @author     Hans Lellelid <hans@xmpl.org>
  * @version    $Revision$
- * @package    propel.runtime.exception
  */
 class PropulsionException extends \Exception
 {

@@ -14,7 +14,6 @@
  *
  * @author     François Zaninotto
  * @version    $Revision$
- * @package    generator.behavior.sluggable
  */
 class SluggableBehaviorTest extends BookstoreTestBase
 {

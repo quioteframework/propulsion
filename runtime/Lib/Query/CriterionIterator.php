@@ -16,7 +16,6 @@ namespace Propulsion\Query;
  *
  * @author     Hans Lellelid <hans@xmpl.org>
  * @version    $Revision$
- * @package    propel.runtime.query
  */
 class CriterionIterator implements \Iterator
 {

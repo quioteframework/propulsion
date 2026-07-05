@@ -15,7 +15,6 @@ namespace Propulsion\Generator\Behavior\Sortable;
  *
  * @author      Massimiliano Arione
  * @version     $Revision$
- * @package     propel.generator.behavior.sortable
  */
 use Propulsion\Generator\Model\Behavior;
 class SortableBehavior extends Behavior

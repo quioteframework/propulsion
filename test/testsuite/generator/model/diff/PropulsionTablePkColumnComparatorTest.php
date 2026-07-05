@@ -1,6 +1,5 @@
 <?php
 
-
 use PHPUnit\Framework\TestCase;
 /*
  *	$Id: TableTest.php 1891 2010-08-09 15:03:18Z francois $
@@ -14,7 +13,6 @@ use PHPUnit\Framework\TestCase;
 /**
  * Tests for the Column methods of the PropulsionTableComparator service class.
  *
- * @package    generator.model.diff
  */
 class PropulsionTablePkColumnComparatorTest extends TestCase
 {

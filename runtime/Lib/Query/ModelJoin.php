@@ -13,7 +13,6 @@ namespace Propulsion\Query;
  * A ModelJoin is a Join object tied to a RelationMap object
  *
  * @author     Francois Zaninotto (Propel)
- * @package    propel.runtime.query
  */
 
  use Propulsion\Map\RelationMap;

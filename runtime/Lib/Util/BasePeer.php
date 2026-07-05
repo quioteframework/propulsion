@@ -25,7 +25,6 @@ namespace Propulsion\Util;
  * @author     Brett McLaughlin <bmclaugh@algx.net> (Torque)
  * @author     Stephen Haberman <stephenh@chase3000.com> (Torque)
  * @version    $Revision$
- * @package    propel.runtime.util
  */
 
  use Propulsion\Query\Criteria;

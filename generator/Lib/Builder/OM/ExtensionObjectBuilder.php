@@ -16,7 +16,6 @@ namespace Propulsion\Generator\Builder\OM;
  * business logic, custom behavior, etc. Using modern PHP 8.4 features.
  *
  * @author     Modernized for PHP 8.4
- * @package    propel.generator.builder.om
  */
 class ExtensionObjectBuilder extends AbstractObjectBuilder
 {
@@ -101,7 +100,6 @@ class ExtensionObjectBuilder extends AbstractObjectBuilder
  * application requirements.  This class will only be generated as
  * long as it does not already exist in the output directory.
  *
- * @package    propel.generator.".$this->getPackage()."
  */
 class ".$this->getClassname()." extends $baseClassname
 {

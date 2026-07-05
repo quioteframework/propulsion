@@ -15,7 +15,6 @@ namespace Propulsion\Generator\Config;
  * A class that holds build properties and provide a class loading mechanism for the generator.
  *
  * @author     Hans Lellelid <hans@xmpl.org>
- * @package    propel.generator.config
  */
 
 use Propulsion\Generator\Exception\EngineException;

@@ -20,7 +20,6 @@ namespace Propulsion\Generator\Builder\Util;
  * @author     Martin Poeschl <mpoeschl@marmot.at> (Torque)
  * @author     Daniel Rall <dlr@collab.net> (Torque)
  * @version    $Revision$
- * @package    propel.generator.builder.util
  */
 
  use Propulsion\Generator\Platform\PropulsionPlatformInterface;

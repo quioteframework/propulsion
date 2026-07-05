@@ -13,7 +13,6 @@
  *
  * @author     Francois Zaninotto
  * @version    $Id$
- * @package    runtime.query
  */
 class SubQueryTest extends BookstoreTestBase
 {

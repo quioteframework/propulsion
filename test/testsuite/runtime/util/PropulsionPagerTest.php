@@ -13,7 +13,6 @@
  *
  * @author     Niklas Närhinen <niklas@narhinen.net>
  * @version    $Id: PropulsionPagerTest.php
- * @package    runtime.util
  */
 class PropulsionPagerTest extends BookstoreEmptyTestBase
 {

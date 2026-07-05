@@ -30,7 +30,6 @@ namespace Propulsion\Util;
  *
  * @author     Francois Zaninotto
  * @version    $Revision$
- * @package    propel.runtime.util
  */
 class PropulsionConditionalProxy
 {

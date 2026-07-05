@@ -22,7 +22,6 @@
  *
  * @see        BookstoreDataPopulator
  * @author     Michael Aichler <aichler@mediacluster.de>
- * @package    runtime.validator
  */
 class ValidatorTest extends BookstoreEmptyTestBase
 {

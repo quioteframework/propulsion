@@ -17,7 +17,6 @@ namespace Propulsion\Adapter;
  * @author     Brett McLaughlin <bmclaugh@algx.net> (Torque)
  * @author     Daniel Rall <dlr@finemaltcoding.com> (Torque)
  * @version    $Revision$
- * @package    propel.runtime.adapter
  */
 use PDO;
 use PDOStatement;
@@ -88,7 +87,6 @@ class DBMySQL extends DBAdapter
 	{
 		return "CHAR_LENGTH($s)";
 	}
-
 
 	/**
 	 * Locks the specified table.

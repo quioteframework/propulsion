@@ -23,7 +23,6 @@ namespace Propulsion\Map;
  * @author     John D. McNally <jmcnally@collab.net> (Torque)
  * @author     Daniel Rall <dlr@collab.net> (Torque)
  * @version    $Revision$
- * @package    propel.runtime.map
  */
 
  use Propulsion\Exception\PropulsionException;

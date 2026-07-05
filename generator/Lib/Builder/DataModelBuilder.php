@@ -21,7 +21,6 @@ namespace Propulsion\Generator\Builder;
  * anyway.
  *
  * @author     Hans Lellelid <hans@xmpl.org>
- * @package    propel.generator.builder
  */
 
 use Propulsion\Generator\Builder\OM\AbstractObjectBuilder;

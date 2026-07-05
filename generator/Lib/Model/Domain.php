@@ -15,7 +15,6 @@
  * @author     Hans Lellelid <hans@xmpl.org> (Propel)
  * @author     Martin Poeschl <mpoeschl@marmot.at> (Torque)
  * @version    $Revision$
- * @package    propel.generator.model
  */
 use Propulsion\Generator\Exception\EngineException;
 class Domain extends XMLElement

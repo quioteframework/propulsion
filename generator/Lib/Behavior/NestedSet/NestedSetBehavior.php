@@ -13,7 +13,6 @@ namespace Propulsion\Generator\Behavior\NestedSet;
  * Behavior to adds nested set tree structure columns and abilities
  *
  * @author     François Zaninotto
- * @package    propel.generator.behavior.nestedset
  */
 use Propulsion\Generator\Model\Behavior;
 use Propulsion\Generator\Model\Table;

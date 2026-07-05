@@ -1,6 +1,5 @@
 <?php
 
-
 use PHPUnit\Framework\TestCase;
 /**
  * This file is part of the Propulsion package.
@@ -13,7 +12,6 @@ use PHPUnit\Framework\TestCase;
 /**
  * Tests the generated Object classes for lazy load columns.
  *
- * @package    generator.builder.om
  */
 class GeneratedObjectLazyLoadTest extends TestCase
 {

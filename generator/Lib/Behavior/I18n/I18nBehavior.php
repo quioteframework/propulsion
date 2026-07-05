@@ -14,7 +14,6 @@ namespace Propulsion\Generator\Behavior\I18n;
  *
  * @author    Francois Zaninotto
  * @version		$Revision$
- * @package		propel.generator.behavior.i18n
  */
 use Propulsion\Generator\Model\Behavior;
 use Propulsion\Generator\Exception\EngineException;

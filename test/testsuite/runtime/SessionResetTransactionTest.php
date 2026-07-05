@@ -14,7 +14,6 @@
  * through Propulsion's connection/database-map machinery. See KNOWN_ISSUES.md,
  * "Phase 4 -- Worker-safety rework (ServiceContainer/Session split)".
  *
- * @package    runtime
  */
 class SessionResetTransactionTest extends BookstoreTestBase
 {

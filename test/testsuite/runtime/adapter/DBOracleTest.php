@@ -13,7 +13,6 @@
  *
  * @see        BookstoreDataPopulator
  * @author     Francois EZaninotto
- * @package    runtime.adapter
  */
 class DBOracleTest extends BookstoreTestBase
 {

@@ -17,7 +17,6 @@ namespace Propulsion\Generator\Builder\OM;
  * Node classes, Nested Set classes, etc.
  *
  * @author     Hans Lellelid <hans@xmpl.org>
- * @package    propel.generator.builder.om
  */
 use Propulsion\Generator\Builder\DataModelBuilder;
 use \Exception;
@@ -322,14 +321,15 @@ abstract class OMBuilder extends DataModelBuilder
 	}
 
 	/**
-	 * Gets the basePeer path if specified for table/db.
-	 * If not, will return 'propel.util.BasePeer'
+	 * Gets the basePeer classname if specified for table/db.
+	 * If not, will return 'BasePeer' (i.e. \Propulsion\Util\BasePeer,
+	 * brought into scope by the builder's own declareClass() call).
 	 * @return     string
 	 */
 	public function getBasePeer(Table $table) {
 		$class = $table->getBasePeer();
 		if ($class === null) {
-			$class = "propel.util.BasePeer";
+			$class = "BasePeer";
 		}
 		return $class;
 	}

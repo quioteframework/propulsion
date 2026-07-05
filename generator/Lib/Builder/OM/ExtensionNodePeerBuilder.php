@@ -22,7 +22,6 @@ namespace Propulsion\Generator\Builder\OM;
  * - Constructor property promotion where applicable
  *
  * @author     GitHub Copilot
- * @package    propel.generator.builder.om
  */
 class ExtensionNodePeerBuilder extends AbstractPeerBuilder
 {
@@ -95,7 +94,6 @@ if (!class_exists('{$this->getNodePeerBuilder()->getClassname()}')) {
  * - Proper exception handling with typed exceptions
  * - Modern array syntax and null coalescing operators
  *
- * @package    propel.generator." . $this->getPackage() . "
  */
 class " . $this->getClassname() . " extends $baseClassname
 {

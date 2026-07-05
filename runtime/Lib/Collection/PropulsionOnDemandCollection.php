@@ -13,7 +13,6 @@ namespace Propulsion\Collection;
  * Class for iterating over a statement and returning one Propulsion object at a time
  *
  * @author     Francois Zaninotto
- * @package    propel.runtime.collection
  */
 use PDOStatement;
 use Propulsion\Exception\PropulsionException;
@@ -211,7 +210,6 @@ class PropulsionOnDemandCollection extends PropulsionCollection
 		throw new PropulsionException('The On Demand Collection is read only');
 	}
 
-
 	public function exchangeArray($input) : array
 	{
 		throw new PropulsionException('The On Demand Collection is read only');
@@ -231,7 +229,6 @@ class PropulsionOnDemandCollection extends PropulsionCollection
 	{
 		throw new PropulsionException('The On Demand Collection is read only');
 	}
-
 
 	public function natcasesort() : true
 	{

@@ -13,7 +13,6 @@ namespace Propulsion\Parser;
  * XML parser. Converts data between associative array and XML formats
  *
  * @author     Francois Zaninotto
- * @package    propel.runtime.parser
  */
 class PropulsionXMLParser extends PropulsionParser
 {
@@ -88,7 +87,6 @@ class PropulsionXMLParser extends PropulsionParser
 	{
 		return $this->listFromArray($array, $rootElementName, $charset);
 	}
-
 
 	/**
  	 * @param  array $array

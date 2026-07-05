@@ -22,7 +22,6 @@ namespace Propulsion\Map;
  * @author     Hans Lellelid <hans@xmpl.org> (Propel)
  * @author     John D. McNally <jmcnally@collab.net> (Torque)
  * @version    $Revision$
- * @package    propel.runtime.map
  */
 
  use Propulsion\Util\PropulsionColumnTypes;

@@ -10,10 +10,6 @@ use PHPUnit\Framework\TestCase;
  * @license    MIT License
  */
 
-/**
- *
- * @package    generator.util
- */
 class PropulsionPHPParserTest extends TestCase
 {
 	public static function basicClassCodeProvider()

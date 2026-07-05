@@ -1,6 +1,5 @@
 <?php
 
-
 use PHPUnit\Framework\TestCase;
 use Propulsion\Generator\Util\PropulsionSQLParser;
 
@@ -12,10 +11,6 @@ use Propulsion\Generator\Util\PropulsionSQLParser;
  * @license    MIT License
  */
 
-/**
- *
- * @package    generator.util
- */
 class PropulsionSQLParserTest extends TestCase
 {
 	public static function stripSqlCommentsDataProvider()

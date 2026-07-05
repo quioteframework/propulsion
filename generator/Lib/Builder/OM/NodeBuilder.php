@@ -21,7 +21,6 @@ namespace Propulsion\Generator\Builder\OM;
  * - Null coalescing and arrow functions
  *
  * @author     GitHub Copilot
- * @package    propel.generator.builder.om
  */
 class NodeBuilder extends AbstractObjectBuilder
 {
@@ -97,7 +96,6 @@ class NodeBuilder extends AbstractObjectBuilder
  *";
 		}
 		$script .= "
- * @package    propel.generator.".$this->getPackage()."
  */
 abstract class ".$this->getClassname()." implements \\IteratorAggregate
 {

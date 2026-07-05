@@ -20,7 +20,6 @@ namespace Propulsion\Generator\Builder\OM;
  * - Exception handling with typed exceptions
  *
  * @author     GitHub Copilot
- * @package    propel.generator.builder.om
  */
 use Propulsion\Generator\Exception\EngineException;
 
@@ -112,7 +111,6 @@ class NestedSetPeerBuilder extends AbstractPeerBuilder
 		}
 		$script .= "
  * @deprecated  Since Propulsion 1.5. Use the nested_set behavior instead of the NestedSet treeMode
- * @package    propel.generator.".$this->getPackage()."
  */
 abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getClassname()." implements NodePeer
 {

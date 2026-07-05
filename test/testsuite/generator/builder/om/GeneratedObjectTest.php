@@ -22,7 +22,6 @@
  *
  * @see        BookstoreDataPopulator
  * @author     Hans Lellelid <hans@xmpl.org>
- * @package    generator.builder.om
  */
 class GeneratedObjectTest extends BookstoreEmptyTestBase
 {
@@ -280,9 +279,6 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
         $this->assertSame($emp, $retrieved, "Expected same object (from instance pool)");
     }
 
-    /**
-     *
-     */
     public function testObjectInstances_Fkeys()
     {
         // Establish a relationship between one employee and account
@@ -487,9 +483,6 @@ class GeneratedObjectTest extends BookstoreEmptyTestBase
 
     }
 
-    /**
-     *
-     */
     public function testNoColsModified()
     {
         $e1 = new BookstoreEmployee();

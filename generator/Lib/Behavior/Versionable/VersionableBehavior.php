@@ -14,7 +14,6 @@ namespace Propulsion\Generator\Behavior\Versionable;
  *
  * @author    Francois Zaninotto
  * @version		$Revision$
- * @package		propel.generator.behavior.versionable
  */
 use Propulsion\Generator\Model\Behavior;
 use Propulsion\Generator\Model\ForeignKey;

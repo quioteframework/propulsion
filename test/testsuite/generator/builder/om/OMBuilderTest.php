@@ -1,6 +1,5 @@
 <?php
 
-
 use PHPUnit\Framework\TestCase;
 /**
  * This file is part of the Propulsion package.
@@ -15,7 +14,6 @@ use PHPUnit\Framework\TestCase;
  *
  * @author     François Zaninotto
  * @version    $Id: OMBuilderBuilderTest.php 1347 2009-12-03 21:06:36Z francois $
- * @package    generator.builder.om
  */
 class OMBuilderTest extends TestCase
 {

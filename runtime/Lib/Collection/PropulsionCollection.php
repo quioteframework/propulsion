@@ -24,7 +24,6 @@ namespace Propulsion\Collection;
  * @method     string toCSV(boolean $usePrefix, boolean $includeLazyLoadColumns) Export the collection to a CSV string
  *
  * @author     Francois Zaninotto
- * @package    propel.runtime.collection
  */
 
  use Propulsion\Formatter\PropulsionFormatter;

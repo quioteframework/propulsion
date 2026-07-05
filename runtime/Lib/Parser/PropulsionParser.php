@@ -14,7 +14,6 @@ namespace Propulsion\Parser;
  *
  * @author     Francois Zaninotto (Propel)
  * @author     Jonathan H. Wage <jwage@mac.com> (Doctrine_Parser)
- * @package    propel.runtime.parser
  */
 use Propulsion\Exception\PropulsionException;
 abstract class PropulsionParser

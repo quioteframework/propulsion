@@ -13,7 +13,6 @@
  *
  * @author     François Zaninotto
  * @version    $Id$
- * @package    runtime.map
  */
 class GeneratedRelationMapTest extends BookstoreTestBase
 {

@@ -1,6 +1,5 @@
 <?php
 
-
 use PHPUnit\Framework\TestCase;
 /**
  * This file is part of the Propulsion package.
@@ -15,7 +14,6 @@ use PHPUnit\Framework\TestCase;
  * This requires that the model was built with propulsion.useDateTimeClass=true
  *
  * @author     Francois Zaninotto
- * @package    generator.builder.om
  */
 class GeneratedObjectTemporalColumnTypeTest extends TestCase
 {

@@ -17,7 +17,6 @@
  * @author     Byron Foster <byron_foster@yahoo.com> (Torque)
  * @author     Bernd Goldschmidt <bgoldschmidt@rapidsoft.de>
  * @version    $Revision$
- * @package    propel.generator.model
  */
 class PhpNameGenerator implements NameGenerator
 {

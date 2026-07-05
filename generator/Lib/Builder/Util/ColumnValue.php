@@ -14,7 +14,6 @@ use Propulsion\Generator\Model\Column;
 /**
  * A single column's value within a DataRow.
  *
- * @package    propel.generator.builder.util
  */
 class ColumnValue
 {

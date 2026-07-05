@@ -17,7 +17,6 @@ use Propulsion\Generator\Config\GeneratorConfig;
  *
  * @author     Hans Lellelid <hans@xmpl.org>
  * @version    $Revision$
- * @package    propel.generator.model
  */
 abstract class XMLElement
 {

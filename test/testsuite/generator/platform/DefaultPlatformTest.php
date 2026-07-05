@@ -1,6 +1,5 @@
 <?php
 
-
 use PHPUnit\Framework\TestCase;
 /**
  * This file is part of the Propulsion package.
@@ -10,10 +9,6 @@ use PHPUnit\Framework\TestCase;
  * @license    MIT License
  */
 
-/**
- *
- * @package    generator.platform
- */
 class DefaultPlatformTest extends TestCase
 {
 	protected $platform;

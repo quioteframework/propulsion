@@ -13,7 +13,6 @@ namespace Propulsion\Generator\Builder\SQL\MSSQL;
  * MS SQL Server class for building data dump SQL.
  *
  * @author     Hans Lellelid <hans@xmpl.org>
- * @package    propel.generator.builder.sql.mssql
  */
 use Propulsion\Generator\Builder\SQL\DataSQLBuilder;
 class MssqlDataSQLBuilder extends DataSQLBuilder

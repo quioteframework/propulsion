@@ -16,7 +16,6 @@ namespace Propulsion\Generator\Behavior\ConcreteInheritance;
  *
  * @author     François Zaninotto
  * @version    $Revision$
- * @package    propel.generator.behavior.concrete_inheritance
  */
 
  use Propulsion\Generator\Model\Behavior;

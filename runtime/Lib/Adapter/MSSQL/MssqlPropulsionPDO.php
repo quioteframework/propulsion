@@ -9,11 +9,9 @@
  */
 namespace Propulsion\Adapter\MSSQL;
 
-
 /**
  * dblib doesn't support transactions so we need to add a workaround for transactions, last insert ID, and quoting
  *
- * @package    propel.runtime.adapter.MSSQL
  */
 use Propulsion\Connection\PropulsionPDO;
 use Propulsion\Exception\PropulsionException;

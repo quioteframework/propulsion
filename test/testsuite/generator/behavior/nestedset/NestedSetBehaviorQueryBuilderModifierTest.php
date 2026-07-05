@@ -14,7 +14,6 @@
  *
  * @author		François Zaninotto
  * @version		$Revision$
- * @package		generator.behavior.nestedset
  */
 class NestedSetBehaviorQueryBuilderModifierTest extends BookstoreNestedSetTestBase
 {

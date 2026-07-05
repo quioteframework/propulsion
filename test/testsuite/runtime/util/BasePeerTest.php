@@ -13,7 +13,6 @@
  *
  * @see        BookstoreDataPopulator
  * @author     Hans Lellelid <hans@xmpl.org>
- * @package    runtime.util
  */
 class BasePeerTest extends BookstoreTestBase
 {
@@ -101,9 +100,6 @@ class BasePeerTest extends BookstoreTestBase
 		$this->assertEquals('SortTest4', $rows[3]->getStoreName());
 	}
 
-	/**
-	 *
-	 */
 	public function testMixedJoinOrder()
 	{
 		$this->markTestSkipped('Famous cross join problem, to be solved one day');

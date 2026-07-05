@@ -12,7 +12,6 @@
  * Tests the generated Object behavior hooks.
  *
  * @author     Francois Zaninotto
- * @package    generator.behavior
  */
 class ObjectBehaviorTest extends BookstoreTestBase
 {

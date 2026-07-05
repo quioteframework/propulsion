@@ -14,7 +14,6 @@
  *
  * @author     Hans Lellelid <hans@xmpl.org>
  * @version    $Revision$
- * @package    propel.generator.model
  */
 class ColumnDefaultValue
 {
@@ -110,6 +109,5 @@ class ColumnDefaultValue
 		}
 		return false; // Can't help, they are different
 	}
-
 
 }

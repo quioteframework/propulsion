@@ -9,7 +9,6 @@
  */
 namespace Propulsion\Validator;
 
-
 /**
  * Simple class that serves as a container for any information about a failed validation.
  *
@@ -21,7 +20,6 @@ namespace Propulsion\Validator;
  *
  * @author     Hans Lellelid <hans@xmpl.org>
  * @version    $Revision$
- * @package    propel.runtime.validator
  * @see        BasePeer::doValidate()
  */
 class ValidationFailed {

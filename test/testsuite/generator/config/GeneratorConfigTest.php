@@ -1,6 +1,5 @@
 <?php
 
-
 use PHPUnit\Framework\TestCase;
 /**
  * This file is part of the Propulsion package.
@@ -12,7 +11,6 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * @author	William Durand <william.durand1@gmail.com>
- * @package	propel.generator.config
  */
 class GeneratorConfigTest extends TestCase
 {

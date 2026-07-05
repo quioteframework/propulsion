@@ -20,7 +20,6 @@ namespace Propulsion\Generator\Builder\OM;
  * - Readonly interface contracts where applicable
  *
  * @author     GitHub Copilot
- * @package    propel.generator.builder.om
  */
 class InterfaceBuilder extends AbstractObjectBuilder
 {
@@ -79,7 +78,6 @@ class InterfaceBuilder extends AbstractObjectBuilder
  * application requirements. This interface will only be generated as
  * long as it does not already exist in the output directory.
  *
- * @package    propel.generator.".$this->getPackage()."
  */
 interface ".$this->getClassname()."
 {

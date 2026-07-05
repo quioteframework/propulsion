@@ -20,7 +20,6 @@ use Symfony\Component\Yaml\Yaml;
  * already a dependency of this project's own tooling.
  *
  * @author     Francois Zaninotto
- * @package    propel.runtime.parser
  */
 class PropulsionYAMLParser extends PropulsionParser
 {

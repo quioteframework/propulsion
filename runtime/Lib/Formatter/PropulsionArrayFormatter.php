@@ -15,7 +15,6 @@ namespace Propulsion\Formatter;
  *
  * @author     Francois Zaninotto
  * @version    $Revision$
- * @package    propel.runtime.formatter
  */
 
  use \PDO;
@@ -99,7 +98,6 @@ class PropulsionArrayFormatter extends PropulsionFormatter
 	{
 		return false;
 	}
-
 
 	/**
 	 * Hydrates a series of objects from a result row

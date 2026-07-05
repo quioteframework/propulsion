@@ -16,7 +16,6 @@ namespace Propulsion\Generator\Platform;
  * @author     Martin Poeschl <mpoeschl@marmot.at> (Torque)
  * @author     Denis Dalmais
  * @version    $Revision$
- * @package    propel.generator.platform
  */
 
  use Propulsion\Generator\Model\Domain;

@@ -22,7 +22,6 @@ use DOMDocument;
  * @author     Jason van Zyl <jvanzyl@apache.org> (Torque)
  * @author     Daniel Rall <dlr@collab.net> (Torque)
  * @version    $Revision$
- * @package    propel.generator.model
  */
 class Unique extends Index
 {

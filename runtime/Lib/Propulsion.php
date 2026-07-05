@@ -24,7 +24,6 @@ namespace Propulsion;
  * @author     Henning P. Schmiedehausen <hps@intermeta.de> (Torque)
  * @author     Kurt Schrader <kschrader@karmalab.org> (Torque)
  * @version    $Revision$
- * @package    propel.runtime
  */
 use Propulsion\Config\PropulsionConfiguration;
 use Propulsion\Exception\PropulsionException;
@@ -178,7 +177,6 @@ class Propulsion
 	 *             -- see Session::getForceMasterConnection()/setForceMasterConnection().
 	 */
 	private static ?Session $session = null;
-
 
 	/**
 	 * Initializes Propulsion

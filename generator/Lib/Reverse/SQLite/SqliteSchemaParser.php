@@ -15,7 +15,6 @@ namespace Propulsion\Generator\Reverse\SQLite;
  *
  * @author     Hans Lellelid <hans@xmpl.org>
  * @version    $Revision$
- * @package    propel.generator.reverse.sqlite
  */
 use Propulsion\Generator\Reverse\BaseSchemaParser;
 use Propulsion\Generator\Model\PropulsionTypes;
@@ -82,9 +81,6 @@ class SqliteSchemaParser extends BaseSchemaParser
 		return self::$sqliteTypeMap;
 	}
 
-	/**
-	 *
-	 */
 	public function parse(Database $database, mixed $task = null)
 	{
 		$stmt = $this->dbh->query("SELECT name FROM sqlite_master WHERE type='table' UNION ALL SELECT name FROM sqlite_temp_master WHERE type='table' ORDER BY name;");

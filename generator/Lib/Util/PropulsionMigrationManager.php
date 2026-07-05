@@ -14,7 +14,6 @@ namespace Propulsion\Generator\Util;
  *
  * @author     François Zaninotto
  * @version    $Revision$
- * @package    propel.generator.util
  */
 
  use Propulsion\Generator\Model\Column;

@@ -18,7 +18,6 @@ use Propulsion\Generator\Exception\EngineException;
  * @author     Daniel Rall <dlr@finemaltcoding.com> (Torque)
  * @author     Byron Foster <byron_foster@yahoo.com> (Torque)
  * @version    $Revision$
- * @package    propel.generator.model
  */
 interface NameGenerator
 {

@@ -17,7 +17,6 @@ namespace Propulsion\Generator\Model;
  * @author     Daniel Rall <dlr@finemaltcoding.com>
  * @author     Ulf Hermann <ulfhermann@kulturserver.de>
  * @version    $Revision$
- * @package    propel.generator.model
  */
 class ForeignKey extends XMLElement
 {

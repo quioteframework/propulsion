@@ -19,7 +19,6 @@ if (file_exists($bookstoreConfFile)) {
  *
  * @author     François Zaninotto
  * @version    $Id$
- * @package    runtime.query
  */
 class JoinTest extends BaseTestCase
 {

@@ -13,7 +13,6 @@ namespace Propulsion\Parser;
  * JSON parser. Converts data between associative array and JSON formats
  *
  * @author     Francois Zaninotto
- * @package    propel.runtime.parser
  */
 class PropulsionJSONParser extends PropulsionParser
 {

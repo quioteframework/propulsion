@@ -22,7 +22,6 @@ namespace Propulsion\Validator;
  *
  * @author     Michael Aichler <aichler@mediacluster.de>
  * @version    $Revision$
- * @package    propel.runtime.validator
  */
 
 use Propulsion\Map\ValidatorMap;

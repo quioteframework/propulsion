@@ -16,7 +16,6 @@ namespace Propulsion\OM;
  * @author     John D. McNally <jmcnally@collab.net> (Torque)
  * @author     Fedor K. <fedor@apache.org> (Torque)
  * @version    $Revision$
- * @package    propel.runtime.om
  */
 
 use Propulsion\Connection\PropulsionPDO;
@@ -40,7 +39,6 @@ interface Persistent
 	 * @throws     \Exception This method might throw an exception
 	 */
 	public function setPrimaryKey(mixed $primaryKey);
-
 
 	/**
 	 * Returns whether the object has been modified, since it was

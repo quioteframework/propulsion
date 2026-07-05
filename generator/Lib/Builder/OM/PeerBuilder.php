@@ -21,7 +21,6 @@ namespace Propulsion\Generator\Builder\OM;
  * - Exception handling with typed exceptions
  *
  * @author     GitHub Copilot
- * @package    propel.generator.builder.om
  */
 use Propulsion\Generator\Model\ForeignKey;
 use Propulsion\Generator\Exception\EngineException;
@@ -138,7 +137,6 @@ class PeerBuilder extends AbstractPeerBuilder
 
 		$script .= "
  *
- * @package    " . $this->getPackage() . "
  */
 abstract class " . $this->getClassname() . $extendingPeerClass . "
 {";

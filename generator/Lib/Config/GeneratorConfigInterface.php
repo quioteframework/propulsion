@@ -9,11 +9,6 @@
  */
 namespace Propulsion\Generator\Config;
 
-/**
- *
- * @package      propel.generator.config
- */
-
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Builder\DataModelBuilder;
 use Propulsion\Generator\Builder\Util\Pluralizer;

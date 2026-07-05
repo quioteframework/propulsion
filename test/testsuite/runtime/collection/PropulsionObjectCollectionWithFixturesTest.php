@@ -13,7 +13,6 @@
  *
  * @author     Francois Zaninotto
  * @version    $Id$
- * @package    runtime.collection
  */
 class PropulsionObjectCollectionWithFixturesTest extends BookstoreEmptyTestBase
 {

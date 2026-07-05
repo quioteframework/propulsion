@@ -13,7 +13,6 @@ namespace Propulsion\Generator\Behavior\AggregateColumn;
  *
  * @author     François Zaninotto
  * @version    $Revision$
- * @package    propel.generator.behavior.aggregate_column
  */
 
 use Propulsion\Generator\Model\Behavior;

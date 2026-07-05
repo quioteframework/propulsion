@@ -17,7 +17,6 @@ namespace Propulsion\Generator\Builder\OM;
  * including typed properties, readonly constants, and enhanced type safety.
  *
  * @author     Modernized for PHP 8.4
- * @package    propel.generator.builder.om
  */
 use Propulsion\Generator\Model\IDMethod;
 use Propulsion\Generator\Platform\PropulsionPlatformInterface;
@@ -196,7 +195,6 @@ class TableMapBuilder extends OMBuilder
  * ORDER BY clause to know whether it needs to apply SQL to make the ORDER BY case-insensitive
  * (i.e. if it's a text column type).
  *
- * @package    propel.generator.".$this->getPackage()."
  */
 class ".$this->getClassname()." extends \Propulsion\Map\TableMap
 {

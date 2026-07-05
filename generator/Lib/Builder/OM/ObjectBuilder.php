@@ -22,7 +22,6 @@ namespace Propulsion\Generator\Builder\OM;
  * - Proper return types and parameter types
  *
  * @author     GitHub Copilot
- * @package    propel.generator.builder.om
  */
 use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\Column;
@@ -412,7 +411,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 		$interface = $this->getInterface();
 		$parentClass = $this->getBehaviorContent('parentClass');
 		$parentClass = (null !== $parentClass) ? $parentClass : ClassTools::classname($this->getBaseClass());
-		$implements = $interface == "propel.om.Persistent" ? " implements Persistent" : "";
+		$implements = $interface == "Persistent" ? " implements Persistent" : "";
 
 		$script .= "
 /**
@@ -444,7 +443,6 @@ class ObjectBuilder extends AbstractObjectBuilder
  * @method     string toJSON(bool \$includeLazyLoadColumns = true) Export the object to a JSON string
  * @method     string toCSV(bool \$includeLazyLoadColumns = true) Export the object to a CSV string
  *
- * @package    " . $this->getPackage() . "
  */";
 
 		// Add use statements for Propulsion classes
@@ -3717,7 +3715,6 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		if (!\$this->alreadyInValidation) {
 			\$this->alreadyInValidation = true;
 			\$retval = null;
-
 
 ";
 

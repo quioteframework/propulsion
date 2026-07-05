@@ -14,7 +14,6 @@ namespace Propulsion\Generator\Model;
  *
  * @author     Ulf Hermann <ulfhermann@kulturserver.de>
  * @version    $Revision$
- * @package    propel.generator.model
  */
 abstract class ScopedElement extends XMLElement
 {

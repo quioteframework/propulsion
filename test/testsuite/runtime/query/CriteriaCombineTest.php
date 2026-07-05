@@ -23,7 +23,6 @@ if (file_exists($bookstoreConfFile)) {
  *
  * @author     Francois Zaninotto
  * @version    $Id$
- * @package    runtime.query
  */
 class CriteriaCombineTest extends BaseTestCase
 {

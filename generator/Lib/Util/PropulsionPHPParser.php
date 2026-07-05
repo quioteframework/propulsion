@@ -30,7 +30,6 @@ else {
  *
  * @author     François Zaninotto
  * @version    $Revision$
- * @package    propel.generator.util
  */
 class PropulsionPHPParser
 {

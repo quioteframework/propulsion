@@ -14,7 +14,6 @@
  *
  * @author		Massimiliano Arione
  * @version		$Revision$
- * @package		generator.behavior.sortable
  */
 class SortableBehaviorTest extends BookstoreTestBase
 {

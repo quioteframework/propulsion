@@ -14,7 +14,6 @@ namespace Propulsion\Generator\Reverse;
  *
  * @author     Hans Lellelid <hans@xmpl.org>
  * @version    $Revision$
- * @package    propel.generator.reverse
  */
 
  use Propulsion\Generator\Config\GeneratorConfigInterface;

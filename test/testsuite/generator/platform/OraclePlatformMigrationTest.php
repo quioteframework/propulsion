@@ -8,10 +8,6 @@
  * @license    MIT License
  */
 
-/**
- *
- * @package    generator.platform
- */
 class OraclePlatformMigrationTest extends PlatformMigrationTestProvider
 {
 	/**

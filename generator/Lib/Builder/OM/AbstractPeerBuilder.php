@@ -22,7 +22,6 @@ use Propulsion\Generator\Model\Column;
  * methods.
  *
  * @author     Hans Lellelid <hans@xmpl.org>
- * @package    propel.generator.builder.om
  * @method void addConstantsAndAttributes(string &$script)
  * @method void addTranslateFieldName(string &$script)
  * @method void addGetFieldNames(string &$script)
@@ -77,7 +76,6 @@ abstract class AbstractPeerBuilder extends OMBuilder
 			$this->basePeerClassname = substr($this->basePeerClassname, $pos + 1);
 		}
 	}
-
 
 	
 	/**
@@ -282,7 +280,6 @@ abstract class AbstractPeerBuilder extends OMBuilder
 		}
 		return $retrieveMethod;
 	}
-
 
 	/**
 	 * COMPATIBILITY: Get the column constant name (e.g. PeerName::COLUMN_NAME).

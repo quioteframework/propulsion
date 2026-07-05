@@ -15,7 +15,6 @@ use Propulsion\ServiceContainer;
  * the worker-safety rework (phase 4a). See KNOWN_ISSUES.md, "Phase 4 --
  * Worker-safety rework (ServiceContainer/Session split)".
  *
- * @package    runtime
  */
 class ServiceContainerTest extends BookstoreTestBase
 {

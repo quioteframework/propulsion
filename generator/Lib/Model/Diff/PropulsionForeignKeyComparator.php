@@ -16,7 +16,6 @@ use Propulsion\Generator\Model\ForeignKey;
  * Heavily inspired by Doctrine2's Migrations
  * (see http://github.com/doctrine/dbal/tree/master/lib/Doctrine/DBAL/Schema/)
  *
- * @package     propel.generator.model.diff
  */
 class PropulsionForeignKeyComparator
 {

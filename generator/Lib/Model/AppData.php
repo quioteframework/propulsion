@@ -17,7 +17,6 @@
  * @author     John McNally <jmcnally@collab.net> (Torque)
  * @author     Daniel Rall <dlr@finemaltcoding.com> (Torque)
  * @version    $Revision$
- * @package    propel.generator.model
  */
 use Propulsion\Generator\Platform\PropulsionPlatformInterface;
 use Propulsion\Generator\Config\GeneratorConfig;

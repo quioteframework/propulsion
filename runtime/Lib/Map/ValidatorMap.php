@@ -21,7 +21,6 @@ namespace Propulsion\Map;
  *
  * @author     Michael Aichler <aichler@mediacluster.de>
  * @version    $Revision$
- * @package    propel.runtime.map
  */
 class ValidatorMap
 {

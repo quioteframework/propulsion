@@ -10,7 +10,6 @@
 
 /**
  * provider for platform DDL unit tests
- * @package    generator.platform
  */
 abstract class PlatformTestProvider extends PlatformTestBase
 {

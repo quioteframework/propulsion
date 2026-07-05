@@ -24,7 +24,6 @@ namespace Propulsion\Query;
  *
  * @author     François Zaninotto
  * @version    $Revision$
- * @package    propel.runtime.query
  */
 
  use Propulsion\Propulsion;

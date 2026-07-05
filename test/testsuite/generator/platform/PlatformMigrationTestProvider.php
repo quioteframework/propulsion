@@ -10,7 +10,6 @@
 
 /**
  * provider for platform migration unit tests
- * @package    generator.platform
  */
 abstract class PlatformMigrationTestProvider extends PlatformTestBase
 {

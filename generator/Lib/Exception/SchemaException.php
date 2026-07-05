@@ -13,6 +13,5 @@ namespace Propulsion\Generator\Exception;
  * Class for exceptions thrown during schema parsing
  *
  * @version    $Revision$
- * @package    propel.generator.exception
  */
 class SchemaException extends \Exception {}

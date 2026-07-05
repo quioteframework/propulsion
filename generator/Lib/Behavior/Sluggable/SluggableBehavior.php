@@ -14,7 +14,6 @@ namespace Propulsion\Generator\Behavior\Sluggable;
  * @author    Francois Zaninotto
  * @author    Massimiliano Arione
  * @version		$Revision$
- * @package		propel.generator.behavior.sluggable
  */
 use Propulsion\Generator\Model\Behavior;
 use Propulsion\Generator\Model\Unique;

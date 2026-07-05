@@ -15,7 +15,6 @@
  * @author     Michael Aichler <aichler@mediacluster.de> (Propel)
  * @author     John McNally <jmcnally@collab.net> (Intake)
  * @version    $Revision$
- * @package    propel.generator.model
  */
 class Rule extends XMLElement
 {

@@ -14,7 +14,6 @@ namespace Propulsion\Generator\Behavior;
  *
  * @author     François Zaninotto
  * @version    $Revision$
- * @package    propel.generator.behavior
  */
 use Propulsion\Generator\Model\Behavior;
 

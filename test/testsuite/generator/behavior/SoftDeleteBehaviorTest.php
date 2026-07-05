@@ -14,7 +14,6 @@
  *
  * @author		 François Zaninotto
  * @version		$Revision$
- * @package		generator.behavior
  */
 class SoftDeleteBehaviorTest extends BookstoreTestBase
 {

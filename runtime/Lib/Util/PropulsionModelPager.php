@@ -16,7 +16,6 @@ namespace Propulsion\Util;
  * @author		 Fabien Potencier <fabien.potencier@symfony-project.com>
  * @author		 François Zaninotto
  * @version		 $Revision$
- * @package		 propel.runtime.query
  */
 
  use Propulsion\Query\ModelCriteria;
