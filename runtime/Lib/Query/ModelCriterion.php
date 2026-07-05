@@ -27,7 +27,7 @@ class ModelCriterion extends Criterion
 	 * Create a new instance.
 	 *
 	 * @param      Criteria $outer The outer class (this is an "inner" class).
-	 * @param      ColumnMap $column A Column object to help escaping the value
+	 * @param      ColumnMap|string $column A Column object to help escaping the value, or a TABLE.COLUMN string.
 	 * @param      mixed $value
 	 * @param      string $comparison, among ModelCriteria::MODEL_CLAUSE
 	 * @param      string $clause A simple pseudo-SQL clause, e.g. 'foo.BAR LIKE ?'
@@ -49,7 +49,7 @@ class ModelCriterion extends Criterion
 				$this->column = substr($column, $dotPos+1, strlen($column));
 			}
 		}
-		$this->comparison = ($comparison === null ? Criteria::EQUAL : $comparison);
+		$this->comparison = $comparison;
 		$this->clause = $clause;
 		$this->init($outer);
 	}
@@ -227,12 +227,12 @@ class ModelCriterion extends Criterion
 		$critConjunctions = $crit->getConjunctions();
 		$critClauses = $crit->getClauses();
 		for ($i=0; $i < $clausesLength && $isEquiv; $i++) {
-			$isEquiv = $isEquiv && ($this->conjunctions[$i] === $critConjunctions[$i]);
+			$isEquiv = ($this->conjunctions[$i] === $critConjunctions[$i]);
 			$isEquiv = $isEquiv && ($this->clauses[$i] === $critClauses[$i]);
 		}
 
 		if ($isEquiv) {
-			$isEquiv = $isEquiv && $this->value === $crit->getValue();
+			$isEquiv = $this->value === $crit->getValue();
 		}
 
 		return $isEquiv;

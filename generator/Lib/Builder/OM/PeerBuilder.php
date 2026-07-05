@@ -44,7 +44,7 @@ class PeerBuilder extends AbstractPeerBuilder
 	public function getNamespace(): string
 	{
 		if ($namespace = parent::getNamespace()) {
-			if ($this->getGeneratorConfig() && $omns = $this->getGeneratorConfig()->getBuildProperty('namespaceOm')) {
+			if ($omns = $this->getGeneratorConfig()->getBuildProperty('namespaceOm')) {
 				return $namespace . '\\' . $omns;
 			} else {
 				return $namespace;
@@ -68,8 +68,6 @@ class PeerBuilder extends AbstractPeerBuilder
 	 */
 	protected function validateModel(): void
 	{
-		parent::validateModel();
-
 		$table = $this->getTable();
 
 		// Check to see if any of the column constants are PHP reserved words.

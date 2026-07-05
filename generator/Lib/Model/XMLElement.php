@@ -81,7 +81,7 @@ abstract class XMLElement
 	/**
 	 * Converts value specified in XML to a boolean value.
 	 * This is to support the default value when used w/ a boolean column.
-	 * @param string|int $val
+	 * @param string|int|null $val
 	 * @return bool
 	 */
 	protected function booleanValue($val)

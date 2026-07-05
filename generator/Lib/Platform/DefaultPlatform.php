@@ -43,7 +43,7 @@ class DefaultPlatform implements PropulsionPlatformInterface
 	protected $schemaDomainMap;
 
 	/**
-	 * @var        PDO Database connection.
+	 * @var        PDO|null Database connection.
 	 */
 	protected $con;
 
@@ -73,7 +73,7 @@ class DefaultPlatform implements PropulsionPlatformInterface
 
 	/**
 	 * Returns the database connection to use for this Platform class.
-	 * @return     PDO The database connection or NULL if none has been set.
+	 * @return     PDO|null The database connection or NULL if none has been set.
 	 */
 	public function getConnection()
 	{

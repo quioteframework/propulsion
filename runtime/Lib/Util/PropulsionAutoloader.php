@@ -23,6 +23,9 @@ class PropulsionAutoloader
 
 	static protected $instance = null;
 
+	/** @var \Closure|null The callback registered with spl_autoload_register(). */
+	static protected $registeredCallback = null;
+
 	protected $classes = array();
 
 	/**
@@ -48,7 +51,14 @@ class PropulsionAutoloader
 	{
 		ini_set('unserialize_callback_func', 'spl_autoload_call');
 
-		if (false === spl_autoload_register(array(self::getInstance(), 'autoload'))) {
+		// spl_autoload_register() only accepts a callback with a void return type;
+		// wrap the (bool-returning) autoload() method in a closure to satisfy that,
+		// and keep a reference to it so unregister() can remove the exact same callback.
+		self::$registeredCallback = function (string $class): void {
+			self::getInstance()->autoload($class);
+		};
+
+		if (false === spl_autoload_register(self::$registeredCallback)) {
 			throw new Exception(sprintf('Unable to register %s::autoload as an autoloading method.', get_class(self::getInstance())));
 		}
 	}
@@ -60,7 +70,10 @@ class PropulsionAutoloader
 	 */
 	static public function unregister()
 	{
-		spl_autoload_unregister(array(self::getInstance(), 'autoload'));
+		if (self::$registeredCallback !== null) {
+			spl_autoload_unregister(self::$registeredCallback);
+			self::$registeredCallback = null;
+		}
 	}
 
 	/**
@@ -103,7 +116,7 @@ class PropulsionAutoloader
 	 *
 	 * @return boolean Returns true if the class has been loaded
 	 */
-	public function autoload($class)
+	public function autoload(string $class): bool
 	{
 		if (isset($this->classes[$class])) {
 			require $this->classes[$class];

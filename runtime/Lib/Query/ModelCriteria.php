@@ -1273,6 +1273,9 @@ class ModelCriteria extends Criteria
 		if ($con === null) {
 			$con = Propulsion::getConnection($this->getDbName(), Propulsion::CONNECTION_READ);
 		}
+		if (!$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
+		}
 
 		// check that the columns of the main class are already added (if this is the primary ModelCriteria)
 		if (!$this->hasSelectClause() && !$this->getPrimaryCriteria()) {
@@ -1400,6 +1403,9 @@ class ModelCriteria extends Criteria
 		if ($con === null) {
 			$con = Propulsion::getConnection($this->getDbName(), Propulsion::CONNECTION_READ);
 		}
+		if (!$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
+		}
 
 		$criteria = $this->isKeepQuery() ? clone $this : $this;
 		$criteria->setDbName($this->getDbName()); // Set the correct dbName
@@ -1427,6 +1433,9 @@ class ModelCriteria extends Criteria
 		$db = Propulsion::getDB($this->getDbName());
 		if ($con === null) {
 			$con = Propulsion::getConnection($this->getDbName(), Propulsion::CONNECTION_READ);
+		}
+		if (!$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
 		}
 
 		// check that the columns of the main class are already added (if this is the primary ModelCriteria)
@@ -1464,7 +1473,7 @@ class ModelCriteria extends Criteria
 			$stmt = $con->prepare($sql);
 			$db->bindValues($stmt, $params, $dbMap);
 			$stmt->execute();
-		} catch (PropulsionException $e) {
+		} catch (Exception $e) {
 			if ($stmt) {
 				$stmt = null; // close
 			}
@@ -1542,6 +1551,9 @@ class ModelCriteria extends Criteria
 		if ($con === null) {
 			$con = Propulsion::getConnection($this->getDbName(), Propulsion::CONNECTION_WRITE);
 		}
+		if (!$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
+		}
 
 		$criteria = $this->isKeepQuery() ? clone $this : $this;
 		$criteria->setDbName($this->getDbName());
@@ -1589,6 +1601,9 @@ class ModelCriteria extends Criteria
 		if ($con === null) {
 			$con = Propulsion::getConnection($this->getDbName(), Propulsion::CONNECTION_WRITE);
 		}
+		if (!$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
+		}
 		$con->beginTransaction();
 		try {
 			if(!$affectedRows = $this->basePreDelete($con)) {
@@ -1601,8 +1616,6 @@ class ModelCriteria extends Criteria
 			$con->rollBack();
 			throw $e;
 		}
-
-		return $affectedRows;
 	}
 
 	/**
@@ -1676,15 +1689,15 @@ class ModelCriteria extends Criteria
 	*/
 	public function update(array $values, ?PropulsionPDO $con = null, bool $forceIndividualSaves = false)
 	{
-		if (!is_array($values)) {
-			throw new PropulsionException('set() expects an array as first argument');
-		}
 		if (count($this->getJoins())) {
 			throw new PropulsionException('set() does not support multitable updates, please do not use join()');
 		}
 
 		if ($con === null) {
 			$con = Propulsion::getConnection($this->getDbName(), Propulsion::CONNECTION_WRITE);
+		}
+		if (!$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
 		}
 
 		$criteria = $this->isKeepQuery() ? clone $this : $this;
@@ -1817,7 +1830,7 @@ class ModelCriteria extends Criteria
 	 */
 	protected function convertValueForColumn(mixed $value, ColumnMap $colMap) : mixed
 	{
-		if ($colMap->getType() == 'OBJECT' && is_object($value)) {
+		if ($colMap->getType() == 'OBJECT' && (is_object($value) || is_array($value))) {
 			if (is_array($value)) {
 				$value = array_map('serialize', $value);
 			} else {

@@ -22,7 +22,6 @@ use PDO;
 use PDOStatement;
 use PDOException;
 use Exception;
-use Propulsion\Exception\PropulsionException;
 use Propulsion\Map\ColumnMap;
 use Propulsion\Map\DatabaseMap;
 use Propulsion\Query\Criteria;
@@ -218,18 +217,9 @@ class DBMySQL extends DBAdapter
 		$params = parent::prepareParams($params);
 
 		if(isset($params['settings']['charset']['value'])) {
-			if(version_compare(PHP_VERSION, '5.3.6', '<')) {
-				throw new PropulsionException(<<<EXCEPTION
-Connection option "charset" cannot be used for MySQL connections in PHP versions older than 5.3.6.
-Please refer to http://www.propelorm.org/ticket/1360 for instructions and details about the implications of
-using a SET NAMES statement in the "queries" setting.
-EXCEPTION
-			);
-			} else {
-				if(strpos($params['dsn'], ';charset=') === false) {
-					$params['dsn'] .= ';charset=' . $params['settings']['charset']['value'];
-					unset($params['settings']['charset']);
-				}
+			if(strpos($params['dsn'], ';charset=') === false) {
+				$params['dsn'] .= ';charset=' . $params['settings']['charset']['value'];
+				unset($params['settings']['charset']);
 			}
 		}
 

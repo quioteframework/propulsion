@@ -37,7 +37,7 @@ class AppData
 
 	/**
 	 * The generator configuration
-	 * @var        GeneratorConfig
+	 * @var        GeneratorConfig|null
 	 */
 	protected $generatorConfig;
 
@@ -98,7 +98,7 @@ class AppData
 	/**
 	 * Get the generator configuration
 	 *
-	 * @return GeneratorConfig
+	 * @return GeneratorConfig|null
 	 */
 	public function getGeneratorConfig()
 	{

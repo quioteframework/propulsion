@@ -49,7 +49,7 @@ class QueryInheritanceBuilder extends OMBuilder
 	public function getNamespace(): ?string
 	{
 		if ($namespace = parent::getNamespace()) {
-			if ($this->getGeneratorConfig() && $omns = $this->getGeneratorConfig()->getBuildProperty('namespaceOm')) {
+			if ($omns = $this->getGeneratorConfig()->getBuildProperty('namespaceOm')) {
 				return $namespace . '\\' . $omns;
 			} else {
 				return $namespace;
@@ -192,8 +192,7 @@ class "  .$this->getClassname() . " extends " . $baseClassname . " {
 		// PHP fatals on an incompatible override. Only the legacy PHP5QueryBuilder path
 		// (explicit propulsion.targetPlatform=php5) leaves create() untyped, so match that
 		// instead when that's what was used to build the parent class.
-		$isLegacyPhp5 = $this->getGeneratorConfig()
-			&& $this->getGeneratorConfig()->getBuildProperty('targetPlatform') === 'php5';
+		$isLegacyPhp5 = $this->getGeneratorConfig()->getBuildProperty('targetPlatform') === 'php5';
 		$signature = $isLegacyPhp5
 			? "public static function create(\$modelAlias = null, \$criteria = null)"
 			: "public static function create(?string \$modelAlias = null, ?Criteria \$criteria = null): " . $classname;

@@ -35,13 +35,9 @@ abstract class AbstractMigrationCommand extends Command
         $config = $this->loadConfiguration($input);
 
         $manager = new PropulsionMigrationManager();
-        // GeneratorConfig::getBuildConnections() can return null (rather than
-        // an empty array) when a buildtimeConfFile is configured/defaulted
-        // but no matching file is found anywhere it looks -- normalize to []
-        // so downstream code (PropulsionMigrationManager::getOldestDatabaseVersion(),
-        // this command's own foreach over getConnections()) sees a consistent,
-        // iterable "no connections configured" state instead of null.
-        $manager->setConnections($config->getBuildConnections() ?? []);
+        // GeneratorConfig::getBuildConnections() always normalizes to [] itself
+        // when no buildtimeConfFile/array/string source is configured or found.
+        $manager->setConnections($config->getBuildConnections());
         $manager->setMigrationTable($input->getOption('migration-table'));
         $manager->setMigrationDir($input->getOption('migration-dir'));
 

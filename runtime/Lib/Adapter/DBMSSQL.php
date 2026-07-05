@@ -137,15 +137,18 @@ class DBMSSQL extends DBAdapter
 	 * @see       DBAdapter::applyLimit()
 	 * @author    Benjamin Runnels <kraven@kraven.org>
 	 *
-	 * @param     string   $sql
-	 * @param     integer  $offset
-	 * @param     integer  $limit
+	 * @param     string      $sql
+	 * @param     int|string  $offset  Expected to be numeric; validated at runtime since
+	 *                                 this method has no native parameter type and is part
+	 *                                 of a public, pluggable adapter interface.
+	 * @param     int|string  $limit   Expected to be numeric; validated at runtime (see $offset).
 	 *
 	 * @return    void
 	 */
 	public function applyLimit(&$sql, $offset, $limit, $criteria = null)
 	{
-		// make sure offset and limit are numeric
+		// make sure offset and limit are numeric (defends against non-numeric values being
+		// interpolated directly into the SQL string below)
 		if(! is_numeric($offset) || ! is_numeric($limit))
 		{
 			throw new PropulsionException('DBMSSQL::applyLimit() expects a number for argument 2 and 3');

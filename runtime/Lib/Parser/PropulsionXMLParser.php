@@ -159,7 +159,9 @@ class PropulsionXMLParser extends PropulsionParser
 		$array = array();
 		$elementNames = array();
 		foreach ($data->childNodes as $element) {
-			if ($element->nodeType == XML_TEXT_NODE) {
+			if (!$element instanceof \DOMElement) {
+				// skip text, comment, CDATA, and other non-element nodes; only
+				// elements are turned into array entries
 				continue;
 			}
 			$name = $element->nodeName;

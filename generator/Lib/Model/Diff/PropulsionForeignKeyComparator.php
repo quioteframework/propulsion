@@ -40,7 +40,7 @@ class PropulsionForeignKeyComparator
 			return true;
 		}
 		$test = $caseInsensitive ?
-			strtolower($fromFk->getForeignTableName() ?? '') != strtolower($toFk->getForeignTableName() ?? '') :
+			strtolower($fromFk->getForeignTableName()) != strtolower($toFk->getForeignTableName()) :
 			$fromFk->getForeignTableName() != $toFk->getForeignTableName();
 		if ($test) {
 			return true;

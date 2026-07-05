@@ -50,8 +50,6 @@ class XmlToAppData
 
 	private $encoding;
 
-	private $firstPass;
-
 	/* two-dimensional array,
 		first dimension is for schemas(key is the path to the schema file),
 		second is for tags within the schema */
@@ -68,7 +66,6 @@ class XmlToAppData
 	{
 		$this->app = new AppData($defaultPlatform);
 		$this->defaultPackage = $defaultPackage;
-		$this->firstPass = true;
 		$this->encoding = $encoding;
 	}
 
@@ -118,7 +115,7 @@ class XmlToAppData
 		$this->schemasTagsStack[$xmlFile] = array();
 		$this->currentXmlFile = $xmlFile;
 
-		$parser = xml_parser_create();
+		$parser = xml_parser_create($this->encoding);
 		xml_parser_set_option($parser, XML_OPTION_CASE_FOLDING, 0);
 		xml_set_element_handler($parser, [$this, 'startElement'], [$this, 'endElement']);
 		if (!xml_parse($parser, $xmlString)) {
@@ -364,10 +361,6 @@ class XmlToAppData
 	 */
 	public function endElement($parser, $name)
 	{
-		if (self::DEBUG) {
-			print("endElement(" . $name . ") called\n");
-		}
-
 		$this->popCurrentSchemaTag();
 	}
 

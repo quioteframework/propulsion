@@ -56,9 +56,9 @@ class PropulsionDateTime extends DateTime
 			return true;
 		}
 
-		$month = date('m', $stamp);
-		$day   = date('d', $stamp);
-		$year  = date('Y', $stamp);
+		$month = (int) date('m', $stamp);
+		$day   = (int) date('d', $stamp);
+		$year  = (int) date('Y', $stamp);
 
 		return checkdate($month, $day, $year);
 	}

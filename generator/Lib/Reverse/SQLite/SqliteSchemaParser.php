@@ -27,11 +27,6 @@ use \PDO;
 class SqliteSchemaParser extends BaseSchemaParser
 {
 	/**
-	 * Verbose logging level for optional $task->log() calls (matches the historical build-tool's verbose-log level).
-	 */
-	private const MSG_VERBOSE = 4;
-
-	/**
 	 * Map Sqlite native types to Propulsion types.
 	 *
 	 * There really aren't any SQLite native types, so we're just

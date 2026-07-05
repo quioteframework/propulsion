@@ -146,7 +146,7 @@ ALTER SESSION SET NLS_TIMESTAMP_FORMAT='YYYY-MM-DD HH24:MI:SS';
 
 	public function getAddPrimaryKeyDDL(Table $table)
 	{
-		if (is_array($table->getPrimaryKey()) && count($table->getPrimaryKey())) {
+		if (count($table->getPrimaryKey())) {
 			return parent::getAddPrimaryKeyDDL($table);
 		}
 

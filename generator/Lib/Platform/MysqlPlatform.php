@@ -417,7 +417,7 @@ DROP INDEX %s ON %s;
 	{
 		$type = '';
 		$vendorInfo = $index->getVendorInfoForType($this->getDatabaseType());
-		if ($vendorInfo && $vendorInfo->getParameter('Index_type')) {
+		if ($vendorInfo->getParameter('Index_type')) {
 			$type = $vendorInfo->getParameter('Index_type') . ' ';
 		} elseif ($index->isUnique()) {
 			$type = 'UNIQUE ';

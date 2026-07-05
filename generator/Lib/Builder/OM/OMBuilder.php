@@ -296,7 +296,7 @@ abstract class OMBuilder extends DataModelBuilder
 	/**
 	 * Get the column constant name (e.g. PeerName::COLUMN_NAME).
 	 *
-	 * @param      Column $col The column we need a name for.
+	 * @param      Column|null $col The column we need a name for.
 	 * @param      string $classname The Peer classname to use.
 	 *
 	 * @return     string If $classname is provided, then will return $classname::COLUMN_NAME; if not, then the peername is looked up for current table to yield $currTablePeer::COLUMN_NAME.

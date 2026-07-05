@@ -120,7 +120,7 @@ class Table extends ScopedElement implements IDMethod
 	/**
 	 * The Database that this table belongs to.
 	 *
-	 * @var       Database
+	 * @var       Database|null
 	 */
 	private $database;
 
@@ -431,10 +431,6 @@ class Table extends ScopedElement implements IDMethod
 	 */
 	private function doHeavyIndexing()
 	{
-		if (self::DEBUG) {
-			print("doHeavyIndex() called on table " . $this->getName()."\n");
-		}
-
 		$pk = $this->getPrimaryKey();
 		$size = count($pk);
 
@@ -621,7 +617,7 @@ class Table extends ScopedElement implements IDMethod
 	/**
 	 * Gets the value of base class for classes produced from this table.
 	 *
-	 * @return    string The base class for classes produced from this table.
+	 * @return    string|null The base class for classes produced from this table.
 	 */
 	public function getBaseClass()
 	{
@@ -645,7 +641,7 @@ class Table extends ScopedElement implements IDMethod
 
 	/**
 	 * Get the value of basePeer.
-	 * @return    string Value of basePeer.
+	 * @return    string|null Value of basePeer.
 	 */
 	public function getBasePeer()
 	{
@@ -806,7 +802,7 @@ class Table extends ScopedElement implements IDMethod
 	/**
 	 * Gets the column that subclasses of the class representing this
 	 * table can be produced from.
-	 * @return    Column
+	 * @return    Column|null
 	 */
 	public function getChildrenColumn()
 	{
@@ -1382,7 +1378,7 @@ class Table extends ScopedElement implements IDMethod
 
 	/**
 	 * Interface which objects for this table will implement
-	 * @return    string Value of interface.
+	 * @return    string|null Value of interface.
 	 */
 	public function getInterface()
 	{
@@ -1622,7 +1618,7 @@ class Table extends ScopedElement implements IDMethod
 	/**
 	 * Get the database that contains this table.
 	 *
-	 * @return    Database
+	 * @return    Database|null
 	 */
 	public function getDatabase()
 	{
@@ -1744,7 +1740,7 @@ class Table extends ScopedElement implements IDMethod
 		}
 
 		if ($this->getIsCrossRef()) {
-			$tableNode->setAttribute('isCrossRef', $this->getIsCrossRef());
+			$tableNode->setAttribute('isCrossRef', var_export($this->getIsCrossRef(), true));
 		}
 
 		foreach ($this->columnList as $col) {

@@ -39,9 +39,6 @@ namespace Propulsion\Util;
 class BasePeer
 {
 
-	/** Array (hash) that contains the cached mapBuilders. */
-	private static $mapBuilders = array();
-
 	/** Array (hash) that contains cached validators */
 	private static $validatorMap = array();
 
@@ -604,7 +601,7 @@ class BasePeer
 	 * in the given Criteria object.
 	 *
 	 * @param      Criteria $criteria A Criteria.
-	 * @return     ColumnMap If the Criteria object contains a primary
+	 * @return     ColumnMap|null If the Criteria object contains a primary
 	 *		  key, or null if it doesn't.
 	 * @throws     PropulsionException
 	 */

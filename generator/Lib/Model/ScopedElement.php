@@ -20,7 +20,7 @@ abstract class ScopedElement extends XMLElement
 	/**
 	 * The package for the generated OM.
 	 *
-	 * @var       string
+	 * @var       string|null
 	 */
 	protected $pkg;
 
@@ -33,14 +33,14 @@ abstract class ScopedElement extends XMLElement
 	/**
 	 * Namespace for the generated OM.
 	 *
-	 * @var       string
+	 * @var       string|null
 	 */
 	protected $namespace;
 
 	/**
 	 * Schema this element belongs to.
 	 *
-	 * @var       string
+	 * @var       string|null
 	 */
 	protected $schema;
 
@@ -64,7 +64,7 @@ abstract class ScopedElement extends XMLElement
 
 	/**
 	 * Get the value of the namespace.
-	 * @return    string value of namespace.
+	 * @return    string|null value of namespace.
 	 */
 	public function getNamespace()
 	{
@@ -73,7 +73,7 @@ abstract class ScopedElement extends XMLElement
 
 	/**
 	 * Set the value of the namespace.
-	 * @param      string $v Value to assign to namespace.
+	 * @param      string|null $v Value to assign to namespace.
 	 */
 	public function setNamespace($v)
 	{
@@ -89,7 +89,7 @@ abstract class ScopedElement extends XMLElement
 
 	/**
 	 * Get the value of package.
-	 * @return     string Value of package.
+	 * @return     string|null Value of package.
 	 */
 	public function getPackage()
 	{
@@ -98,7 +98,7 @@ abstract class ScopedElement extends XMLElement
 
 	/**
 	 * Set the value of package.
-	 * @param      string $v Value to assign to package.
+	 * @param      string|null $v Value to assign to package.
 	 */
 	public function setPackage($v)
 	{
@@ -111,7 +111,7 @@ abstract class ScopedElement extends XMLElement
 
 	/**
 	 * Get the value of schema.
-	 * @return     string Value of schema.
+	 * @return     string|null Value of schema.
 	 */
 	public function getSchema()
 	{
@@ -120,7 +120,7 @@ abstract class ScopedElement extends XMLElement
 
 	/**
 	 * Set the value of schema.
-	 * @param      string $v Value to assign to schema.
+	 * @param      string|null $v Value to assign to schema.
 	 */
 	public function setSchema($v)
 	{

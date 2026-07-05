@@ -63,103 +63,103 @@ abstract class DataModelBuilder
 
 	/**
 	 * Peer builder class for current table.
-	 * @var        AbstractPeerBuilder
+	 * @var        AbstractPeerBuilder|null
 	 */
 	private $peerBuilder;
 
 	/**
 	 * Stub Peer builder class for current table.
-	 * @var        AbstractPeerBuilder
+	 * @var        AbstractPeerBuilder|null
 	 */
 	private $stubPeerBuilder;
 
 	/**
 	 * Object builder class for current table.
-	 * @var        AbstractObjectBuilder
+	 * @var        AbstractObjectBuilder|null
 	 */
 	private $objectBuilder;
 
 	/**
 	 * Stub Object builder class for current table.
-	 * @var        AbstractObjectBuilder
+	 * @var        AbstractObjectBuilder|null
 	 */
 	private $stubObjectBuilder;
 
 	/**
 	 * Query builder class for current table.
-	 * @var        QueryBuilder
+	 * @var        QueryBuilder|null
 	 */
 	private $queryBuilder;
 
 	/**
 	 * Stub Query builder class for current table.
-	 * @var        OMBuilder
+	 * @var        OMBuilder|null
 	 */
 	private $stubQueryBuilder;
 
 	/**
 	 * TableMap builder class for current table.
-	 * @var        TableMapBuilder
+	 * @var        TableMapBuilder|null
 	 */
 	protected $tablemapBuilder;
 
 	/**
 	 * Stub Interface builder class for current table.
-	 * @var        AbstractObjectBuilder
+	 * @var        AbstractObjectBuilder|null
 	 */
 	private $interfaceBuilder;
 
 	/**
 	 * Stub child object for current table.
-	 * @var        MultiExtendObjectBuilder
+	 * @var        MultiExtendObjectBuilder|null
 	 */
 	private $multiExtendObjectBuilder;
 
 	/**
 	 * Node object builder for current table.
-	 * @var        AbstractObjectBuilder
+	 * @var        AbstractObjectBuilder|null
 	 */
 	private $nodeBuilder;
 
 	/**
 	 * Node peer builder for current table.
-	 * @var        AbstractPeerBuilder
+	 * @var        AbstractPeerBuilder|null
 	 */
 	private $nodePeerBuilder;
 
 	/**
 	 * Stub node object builder for current table.
-	 * @var        AbstractObjectBuilder
+	 * @var        AbstractObjectBuilder|null
 	 */
 	private $stubNodeBuilder;
 
 	/**
 	 * Stub node peer builder for current table.
-	 * @var        AbstractPeerBuilder
+	 * @var        AbstractPeerBuilder|null
 	 */
 	private $stubNodePeerBuilder;
 
 	/**
 	 * NestedSet object builder for current table.
-	 * @var        AbstractObjectBuilder
+	 * @var        AbstractObjectBuilder|null
 	 */
 	private $nestedSetBuilder;
 
 	/**
 	 * NestedSet peer builder for current table.
-	 * @var        AbstractPeerBuilder
+	 * @var        AbstractPeerBuilder|null
 	 */
 	private $nestedSetPeerBuilder;
 
 	/**
 	 * The Data-SQL builder for current table.
-	 * @var        DataSQLBuilder
+	 * @var        DataSQLBuilder|null
 	 */
 	private $dataSqlBuilder;
 
 	/**
 	 * The Pluralizer class to use.
-	 * @var        Pluralizer
+	 * @var        Pluralizer|null
 	 */
 	private $pluralizer;
 
@@ -552,10 +552,7 @@ abstract class DataModelBuilder
 	 */
 	public function getBuildProperty($name)
 	{
-		if ($this->getGeneratorConfig()) {
-			return $this->getGeneratorConfig()->getBuildProperty($name);
-		}
-		return null; // just to be explicit
+		return $this->getGeneratorConfig()->getBuildProperty($name);
 	}
 
 	/**
@@ -594,9 +591,7 @@ abstract class DataModelBuilder
 	{
 		if (null === $this->platform) {
 			// try to load the platform from the table
-			if ($this->getTable() && $this->getTable()->getDatabase()) {
-				$this->setPlatform($this->getTable()->getDatabase()->getPlatform());
-			}
+			$this->setPlatform($this->getTable()->getDatabase()->getPlatform());
 		}
 		return $this->platform;
 	}
@@ -617,9 +612,7 @@ abstract class DataModelBuilder
 	 */
 	public function getDatabase()
 	{
-		if ($this->getTable()) {
-			return $this->getTable()->getDatabase();
-		}
+		return $this->getTable()->getDatabase();
 	}
 
 	/**

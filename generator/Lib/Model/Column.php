@@ -36,7 +36,6 @@ class Column extends XMLElement
 	private $phpName = null;
 	private $phpNamingMethod;
 	private $isNotNull = false;
-	private $size;
 	private $namePrefix;
 	private $accessorVisibility;
 	private $mutatorVisibility;
@@ -69,7 +68,6 @@ class Column extends XMLElement
 	private $isUnique = false;
 	private $isAutoIncrement = false;
 	private $isLazyLoad = false;
-	private $defaultValue;
 	private $referrers;
 	private $isPrimaryString = false;
 
@@ -89,7 +87,7 @@ class Column extends XMLElement
 	protected $valueSet = array();
 
 	/**
-	 * @var				 Domain The domain object associated with this Column.
+	 * @var				 Domain|null The domain object associated with this Column.
 	 */
 	private $domain;
 
@@ -1019,7 +1017,7 @@ class Column extends XMLElement
 
 	/**
 	 * Set the size of the column
-	 * @param			 string $newSize
+	 * @param			 int|string|null $newSize
 	 */
 	public function setSize($newSize)
 	{
@@ -1103,7 +1101,7 @@ class Column extends XMLElement
 
 	/**
 	 * Get the default value object for this column.
-	 * @return		 ColumnDefaultValue
+	 * @return		 ColumnDefaultValue|null
 	 * @see				 Domain::getDefaultValue()
 	 */
 	public function getDefaultValue()
@@ -1179,7 +1177,7 @@ class Column extends XMLElement
 		$this->setType($tn);
 
 		if ($size !== null) {
-			$this->size = $size;
+			$this->domain->setSize($size);
 		}
 
 		if (strpos($tn, "CHAR") !== false) {
@@ -1243,7 +1241,7 @@ class Column extends XMLElement
 	/**
 	 * Get the platform/adapter impl.
 	 *
-	 * @return		 PropulsionPlatformInterface
+	 * @return		 PropulsionPlatformInterface|null
 	 */
 	public function getPlatform()
 	{

@@ -27,7 +27,6 @@ class Database extends ScopedElement
 
 	private $platform;
 	private $tableList = array();
-	private $curColumn;
 	private $name;
 
 	private $baseClass;
@@ -90,7 +89,7 @@ class Database extends ScopedElement
 	/**
 	 * Returns the PropulsionPlatformInterface implementation for this database.
 	 *
-	 * @return     PropulsionPlatformInterface a Platform implementation
+	 * @return     PropulsionPlatformInterface|null a Platform implementation, or null if not set
 	 */
 	public function getPlatform()
 	{
@@ -125,7 +124,7 @@ class Database extends ScopedElement
 
 	/**
 	 * Get the value of baseClass.
-	 * @return     string Value of baseClass.
+	 * @return     string|null Value of baseClass.
 	 */
 	public function getBaseClass()
 	{
@@ -134,7 +133,7 @@ class Database extends ScopedElement
 
 	/**
 	 * Set the value of baseClass.
-	 * @param      string $v Value to assign to baseClass.
+	 * @param      string|null $v Value to assign to baseClass.
 	 */
 	public function setBaseClass($v)
 	{
@@ -143,7 +142,7 @@ class Database extends ScopedElement
 
 	/**
 	 * Get the value of basePeer.
-	 * @return     string Value of basePeer.
+	 * @return     string|null Value of basePeer.
 	 */
 	public function getBasePeer()
 	{
@@ -152,7 +151,7 @@ class Database extends ScopedElement
 
 	/**
 	 * Set the value of basePeer.
-	 * @param      string $v Value to assign to basePeer.
+	 * @param      string|null $v Value to assign to basePeer.
 	 */
 	public function setBasePeer($v)
 	{

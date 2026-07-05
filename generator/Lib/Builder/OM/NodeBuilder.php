@@ -37,7 +37,7 @@ class NodeBuilder extends AbstractObjectBuilder
 	public function getNamespace(): ?string
 	{
 		if ($namespace = parent::getNamespace()) {
-			if ($this->getGeneratorConfig() && $omns = $this->getGeneratorConfig()->getBuildProperty('namespaceOm')) {
+			if ($omns = $this->getGeneratorConfig()->getBuildProperty('namespaceOm')) {
 				return $namespace . '\\' . $omns;
 			} else {
 				return $namespace;

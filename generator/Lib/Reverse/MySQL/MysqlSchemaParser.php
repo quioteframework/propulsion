@@ -319,7 +319,7 @@ class MysqlSchemaParser extends BaseSchemaParser
 					foreach (array_keys($fkactions) as $fkaction) {
 						$result = NULL;
 						preg_match('/' . $fkaction . ' (' . ForeignKey::CASCADE . '|' . ForeignKey::SETNULL . ')/', $fkey, $result);
-						if ($result && is_array($result) && isset($result[1])) {
+						if ($result) {
 							$fkactions[$fkaction] = $result[1];
 						}
 					}

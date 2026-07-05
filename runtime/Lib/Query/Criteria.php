@@ -395,7 +395,7 @@ class Criteria implements \IteratorAggregate
 	/**
 	 * Returns the table name associated with an alias.
 	 *
-	 * @param      string $alias
+	 * @param      string|null $alias
 	 * @return     string|null $string
 	 */
 	public function getTableForAlias($alias): string|null
@@ -774,7 +774,7 @@ class Criteria implements \IteratorAggregate
 	 * so the Column name must be something like 'TABLE.id'.
 	 *
 	 * @param      string $name name to combine the criterion later
-	 * @param      string $p1 The column to run the comparison on, or Criterion object.
+	 * @param      string|Criterion $p1 The column to run the comparison on, or Criterion object.
 	 * @param      mixed $value
 	 * @param      string $comparison A String.
 	 *
@@ -1361,7 +1361,7 @@ class Criteria implements \IteratorAggregate
 	/**
 	 * Get Having Criterion.
 	 *
-	 * @return     Criterion A Criterion object that is the having clause.
+	 * @return     Criterion|null A Criterion object that is the having clause, or null if none was set.
 	 */
 	public function getHaving()
 	{
@@ -1539,7 +1539,7 @@ class Criteria implements \IteratorAggregate
 		foreach ($criteria->getMap() as $key => $criterion) {
 			if ($isFirstCondition && $this->defaultCombineOperator == Criteria::LOGICAL_OR) {
 				$this->addOr($criterion, null, null, false);
-				$this->defaultCombineOperator == Criteria::LOGICAL_AND;
+				$this->defaultCombineOperator = Criteria::LOGICAL_AND;
 			} elseif ($this->containsKey($key)) {
 				$this->addAnd($criterion);
 			} else {

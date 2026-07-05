@@ -136,7 +136,7 @@ class TableMap
   /**
    * Get the name of the Table.
    *
-   * @return     string A String with the name of the table.
+   * @return     string|null A String with the name of the table.
    */
   public function getName()
   {
@@ -175,7 +175,7 @@ class TableMap
 
   /**
    * Get the Classname of the Propulsion Class belonging to this table.
-   * @return     string
+   * @return     string|null
    */
   public function getClassname()
   {
@@ -267,7 +267,7 @@ class TableMap
   /**
    * Sets the name of the sequencxe used to generate a key
    *
-   * @param      $pkInfo information needed to generate a key
+   * @param      string|null $pkInfo information needed to generate a key
    */
   public function setPrimaryKeyMethodInfo($pkInfo)
   {
@@ -277,7 +277,7 @@ class TableMap
   /**
    * Get the name of the sequence used to generate a primary key
    *
-   * @return     object
+   * @return     string|null
    */
   public function getPrimaryKeyMethodInfo()
   {
@@ -495,14 +495,12 @@ class TableMap
     }
 
     $col = $this->getColumn($columnName);
-    if ($col !== null) {
-      $validator = new ValidatorMap($col);
-      $validator->setName($name);
-      $validator->setClass($classname);
-      $validator->setValue($value);
-      $validator->setMessage($message);
-      $col->addValidator($validator);
-    }
+    $validator = new ValidatorMap($col);
+    $validator->setName($name);
+    $validator->setClass($classname);
+    $validator->setValue($value);
+    $validator->setMessage($message);
+    $col->addValidator($validator);
   }
 
   /**
@@ -755,15 +753,4 @@ class TableMap
     return $out;
   }
 
-  /**
-   * Makes the first letter caps and the rest lowercase.
-   *
-   * @deprecated Not used anywhere in Propulsion.
-   * @param      string $data A String.
-   * @return     string A String with data processed.
-   */
-  private function firstLetterCaps($data)
-  {
-    return(ucfirst(strtolower($data)));
-  }
 }

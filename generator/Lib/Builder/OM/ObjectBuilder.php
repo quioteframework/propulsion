@@ -45,7 +45,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 	public function getNamespace()
 	{
 		if ($namespace = parent::getNamespace()) {
-			if ($this->getGeneratorConfig() && $omns = $this->getGeneratorConfig()->getBuildProperty('namespaceOm')) {
+			if ($omns = $this->getGeneratorConfig()->getBuildProperty('namespaceOm')) {
 				return $namespace . '\\' . $omns;
 			} else {
 				return $namespace;
@@ -73,8 +73,6 @@ class ObjectBuilder extends AbstractObjectBuilder
 	 */
 	protected function validateModel()
 	{
-		parent::validateModel();
-
 		$table = $this->getTable();
 
 		// Check to see whether any generated foreign key names
@@ -154,7 +152,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 			} catch (\Exception $x) {
 				// prevent endless loop when timezone is undefined
 				date_default_timezone_set('America/Los_Angeles');
-				throw new EngineException(sprintf('Unable to parse default temporal value "%s" for column "%s"', $col->getDefaultValueString(), $col->getFullyQualifiedName()), $x);
+				throw new EngineException(sprintf('Unable to parse default temporal value "%s" for column "%s"', $col->getDefaultValueString(), $col->getFullyQualifiedName()), 0, $x);
 			}
 		} elseif ($col->isEnumType()) {
 			$valueSet = $col->getValueSet();
@@ -3523,17 +3521,16 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	public function clearAllReferences(bool \$deep = false): void
 	{";
 		
-		if ($deep = true) {
-			foreach ($table->getReferrers() as $refFK) {
-				if ($refFK->isLocalPrimaryKey()) {
-					$varName = $this->getPKRefFKVarName($refFK);
-					$script .= "
+		foreach ($table->getReferrers() as $refFK) {
+			if ($refFK->isLocalPrimaryKey()) {
+				$varName = $this->getPKRefFKVarName($refFK);
+				$script .= "
 		if (\$deep && \$this->{$varName}) {
 			\$this->{$varName}->clearAllReferences(\$deep);
 		}";
-				} else {
-					$varName = $this->getRefFKCollVarName($refFK);
-					$script .= "
+			} else {
+				$varName = $this->getRefFKCollVarName($refFK);
+				$script .= "
 		if (\$deep && \$this->{$varName}) {
 			if (is_array(\$this->{$varName})) {
 				foreach (\$this->{$varName} as \$o) {
@@ -3543,7 +3540,6 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 				}
 			}
 		}";
-				}
 			}
 		}
 

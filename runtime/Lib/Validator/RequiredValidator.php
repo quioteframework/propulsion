@@ -33,7 +33,7 @@ class RequiredValidator implements BasicValidator
 	 * @see       BasicValidator::isValid()
 	 *
 	 * @param     ValidatorMap  $map
-	 * @param     string        $str
+	 * @param     string|null   $str
 	 *
 	 * @return    boolean
 	 */

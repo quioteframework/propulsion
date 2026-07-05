@@ -16,35 +16,21 @@ namespace Propulsion\Exception;
 class PropulsionException extends \Exception
 {
 	/**
-	 * The nested "cause" exception.
-	 *
-	 * @var       \Exception
-	 */
-	protected $cause;
-
-	/**
-	 * Emulates wrapped exceptions for PHP < 5.3
-	 *
-	 * @param     string     $message
-	 * @param     \Exception  $previous
+	 * @param     string|\Exception|null $message A message string, or (if called with a single
+	 *            argument) the wrapped exception itself -- in which case the message is empty.
+	 * @param     \Exception|null $previous
 	 *
 	 * @return    PropulsionException
 	 */
 	public function __construct($message = null, ?\Exception $previous = null)
 	{
-		if ($previous === null && $message instanceof \Exception) {
+		if ($message instanceof \Exception) {
 			$previous = $message;
-			$message = "";
+			$message = '';
 		}
-
 		if ($previous !== null) {
 			$message .= " [wrapped: " . $previous->getMessage() ."]";
-			if (version_compare(PHP_VERSION, '5.3.0') >= 0) {
-				parent::__construct($message, 0, $previous);
-			} else {
-				parent::__construct($message);
-				$this->cause = $previous;
-			}
+			parent::__construct($message, 0, $previous);
 		} else {
 			parent::__construct($message);
 		}
@@ -58,10 +44,6 @@ class PropulsionException extends \Exception
 	 */
 	public function getCause(): \Exception|\Throwable|null
 	{
-		if (version_compare(PHP_VERSION, '5.3.0') >= 0) {
-			return $this->getPrevious();
-		} else {
-			return $this->cause;
-		}
+		return $this->getPrevious();
 	}
 }

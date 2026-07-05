@@ -39,6 +39,9 @@ class PropulsionObjectCollection extends PropulsionCollection
 		if (null === $con) {
 			$con = $this->getConnection(Propulsion::CONNECTION_WRITE);
 		}
+		if (!$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
+		}
 		$con->beginTransaction();
 		try {
 			/** @var BaseObject $element */
@@ -64,6 +67,9 @@ class PropulsionObjectCollection extends PropulsionCollection
 		}
 		if (null === $con) {
 			$con = $this->getConnection(Propulsion::CONNECTION_WRITE);
+		}
+		if (!$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
 		}
 		$con->beginTransaction();
 		try {

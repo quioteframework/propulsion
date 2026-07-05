@@ -76,7 +76,7 @@ class PgsqlDataSQLBuilder extends DataSQLBuilder
 
 	/**
 	 * Get SQL value to insert for Postgres BOOLEAN column.
-	 * @param      boolean $value
+	 * @param      mixed $value
 	 * @return     string The representation of boolean for Postgres ('t' or 'f').
 	 */
 	protected function getBooleanSql($value)

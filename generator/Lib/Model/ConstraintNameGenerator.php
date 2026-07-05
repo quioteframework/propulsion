@@ -51,11 +51,6 @@ class ConstraintNameGenerator implements NameGenerator
 			$maxColumnNameLength = (int) $db->getPlatform()->getMaxColumnNameLength();
 			$maxBodyLength = ($maxColumnNameLength - strlen($namePostfix)
 					- strlen($constraintNbr) - 2);
-
-			if (self::DEBUG) {
-				print("maxColumnNameLength=" . $maxColumnNameLength
-						. " maxBodyLength=" . $maxBodyLength . "\n");
-			}
 		} catch (EngineException $e) {
 			echo $e;
 			throw $e;

@@ -766,7 +766,7 @@ class PropulsionPDO extends \PDO
 					break;
 
 				case 'querycount':
-					$value = str_pad($this->getQueryCount(), $this->getLoggingConfig('details.querycount.pad', 2), ' ', STR_PAD_LEFT);
+					$value = str_pad((string) $this->getQueryCount(), $this->getLoggingConfig('details.querycount.pad', 2), ' ', STR_PAD_LEFT);
 					break;
 
 				case 'method':

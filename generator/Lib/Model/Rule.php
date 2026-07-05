@@ -134,7 +134,7 @@ class Rule extends XMLElement
 
 	/**
 	 * Gets the value parameter for this validator rule.
-	 * @return     string
+	 * @return     string|null
 	 */
 	public function getValue()
 	{
@@ -178,8 +178,8 @@ class Rule extends XMLElement
 		$ruleNode = $node->appendChild($doc->createElement('rule'));
 		$ruleNode->setAttribute('name', $this->getName());
 
-		if ($this->getValue() !== null) {
-			$ruleNode->setAttribute('value', $this->getValue());
+		if (($value = $this->getValue()) !== null) {
+			$ruleNode->setAttribute('value', $value);
 		}
 
 		if ($this->classname !== null) {

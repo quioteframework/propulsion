@@ -67,7 +67,7 @@ class Criterion
 	 * Create a new instance.
 	 *
 	 * @param      Criteria $outer The outer class (this is an "inner" class).
-	 * @param      string $column TABLE.COLUMN format.
+	 * @param      string|null $column TABLE.COLUMN format, or null for a custom expression with no column.
 	 * @param      mixed $value
 	 * @param      string $comparison
 	 */
@@ -133,7 +133,7 @@ class Criterion
 	/**
 	 * Get the table name.
 	 *
-	 * @return     string A String with the table name.
+	 * @return     string|null A String with the table name, or null for an aliased/unqualified column.
 	 */
 	public function getTable()
 	{
@@ -457,12 +457,12 @@ class Criterion
 		$critConjunctions = $crit->getConjunctions();
 		$critClauses = $crit->getClauses();
 		for ($i=0; $i < $clausesLength && $isEquiv; $i++) {
-			$isEquiv = $isEquiv && ($this->conjunctions[$i] === $critConjunctions[$i]);
+			$isEquiv = ($this->conjunctions[$i] === $critConjunctions[$i]);
 			$isEquiv = $isEquiv && ($this->clauses[$i] === $critClauses[$i]);
 		}
 
 		if ($isEquiv) {
-			$isEquiv = $isEquiv && $this->value === $crit->getValue();
+			$isEquiv = $this->value === $crit->getValue();
 		}
 
 		return $isEquiv;

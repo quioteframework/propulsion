@@ -190,8 +190,6 @@ class Propulsion
 			throw new PropulsionException("Propulsion cannot be initialized without a valid configuration. Please check the log files for further details.");
 		}
 
-		self::configureLogging();
-
 		// reset the connection map (this should enable runtime changes of connection params)
 		self::$connectionMap = array();
 
@@ -222,10 +220,6 @@ class Propulsion
 	 * file -- bring your own PSR-3 logger and register it with Propulsion::setLogger()
 	 * (typically right after Propulsion::init()). Without one, Propulsion::log() is a no-op.
 	 */
-	protected static function configureLogging()
-	{
-	}
-
 	/**
 	 * Initialization of Propulsion a PHP (array) configuration file.
 	 *
@@ -348,9 +342,6 @@ class Propulsion
 	{
 		if ($name === null) {
 			$name = self::getDefaultDB();
-			if ($name === null) {
-				throw new PropulsionException("DatabaseMap name is null!");
-			}
 		}
 
 		if (!isset(self::$dbMaps[$name])) {
@@ -364,7 +355,7 @@ class Propulsion
 	/**
 	 * Sets the database map object to use for specified datasource.
 	 *
-	 * @param      string $name The datasource name.
+	 * @param      string|null $name The datasource name.
 	 * @param      DatabaseMap $map The database map object to use for specified datasource.
 	 */
 	public static function setDatabaseMap($name, DatabaseMap $map)
@@ -483,7 +474,7 @@ class Propulsion
 	/**
 	 * Sets a Connection for specified datasource name.
 	 *
-	 * @param      string $name The datasource name for the connection being set.
+	 * @param      string|null $name The datasource name for the connection being set.
 	 * @param      PropulsionPDO $con The PDO connection.
 	 * @param      string $mode Whether this is a READ or WRITE connection (Propulsion::CONNECTION_READ, Propulsion::CONNECTION_WRITE)
 	 */
@@ -806,7 +797,7 @@ class Propulsion
 	/**
 	 * Sets a database adapter for specified datasource.
 	 *
-	 * @param      string $name The datasource name.
+	 * @param      string|null $name The datasource name.
 	 * @param      DBAdapter $adapter The DBAdapter implementation to use.
 	 */
 	public static function setDB($name, DBAdapter $adapter)

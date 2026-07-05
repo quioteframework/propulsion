@@ -66,9 +66,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 		$props = self::parsePropertiesFile($defaultPropertiesFile);
 
 		foreach ((array) $overridePropertiesFiles as $overrideFile) {
-			if ($overrideFile !== null) {
-				$props = array_merge($props, self::parsePropertiesFile($overrideFile));
-			}
+			$props = array_merge($props, self::parsePropertiesFile($overrideFile));
 		}
 
 		$props = array_merge($props, $overrides);

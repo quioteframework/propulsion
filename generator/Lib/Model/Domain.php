@@ -41,17 +41,17 @@ class Domain extends XMLElement
 	private $scale;
 
 	/**
-	 * @var        string Propulsion type from schema
+	 * @var        string|null Propulsion type from schema
 	 */
 	private $propelType;
 
 	/**
-	 * @var        string The SQL type to use for this column
+	 * @var        string|null The SQL type to use for this column
 	 */
 	private $sqlType;
 
 	/**
-	 * @var        ColumnDefaultValue A default value
+	 * @var        ColumnDefaultValue|null A default value
 	 */
 	private $defaultValue;
 
@@ -64,10 +64,10 @@ class Domain extends XMLElement
 	 * Creates a new Domain object.
 	 * If this domain needs a name, it must be specified manually.
 	 *
-	 * @param      string $type Propulsion type.
-	 * @param      string $sqlType SQL type.
-	 * @param      string $size
-	 * @param      string $scale
+	 * @param      string|null $type Propulsion type.
+	 * @param      string|null $sqlType SQL type.
+	 * @param      int|string|null $size
+	 * @param      int|string|null $scale
 	 */
 	public function __construct($type = null, $sqlType = null, $size = null, $scale = null)
 	{
@@ -224,7 +224,7 @@ class Domain extends XMLElement
 	}
 
 	/**
-	 * @return     string Returns the propelType.
+	 * @return     string|null Returns the propelType.
 	 */
 	public function getType()
 	{
@@ -232,7 +232,7 @@ class Domain extends XMLElement
 	}
 
 	/**
-	 * @param      string $propelType The PropulsionTypes type to set.
+	 * @param      string|null $propelType The PropulsionTypes type to set.
 	 */
 	public function setType($propelType)
 	{
@@ -242,7 +242,7 @@ class Domain extends XMLElement
 	/**
 	 * Replaces the type if the new value is not null.
 	 *
-	 * @param      string $value The tyep to set.
+	 * @param      string|null $value The tyep to set.
 	 */
 	public function replaceType($value)
 	{
@@ -253,7 +253,7 @@ class Domain extends XMLElement
 
 	/**
 	 * Gets the default value object.
-	 * @return     ColumnDefaultValue The default value object for this domain.
+	 * @return     ColumnDefaultValue|null The default value object for this domain.
 	 */
 	public function getDefaultValue()
 	{
@@ -302,7 +302,7 @@ class Domain extends XMLElement
 	}
 
 	/**
-	 * @return     string Returns the sqlType.
+	 * @return     string|null Returns the sqlType.
 	 */
 	public function getSqlType()
 	{
@@ -310,7 +310,7 @@ class Domain extends XMLElement
 	}
 
 	/**
-	 * @param      string $sqlType The sqlType to set.
+	 * @param      string|null $sqlType The sqlType to set.
 	 */
 	public function setSqlType($sqlType)
 	{
@@ -319,7 +319,7 @@ class Domain extends XMLElement
 
 	/**
 	 * Replaces the SQL type if the new value is not null.
-	 * @param      string $sqlType The native SQL type to use for this domain.
+	 * @param      string|null $sqlType The native SQL type to use for this domain.
 	 */
 	public function replaceSqlType($sqlType)
 	{
