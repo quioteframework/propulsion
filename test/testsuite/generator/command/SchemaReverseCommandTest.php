@@ -59,7 +59,7 @@ class SchemaReverseCommandTest extends TestCase
         if ($this->pdo !== null) {
             $this->pdo->exec('DROP TABLE IF EXISTS cmd_rev_widget');
         }
-        if (is_file($this->outputFile)) {
+        if (isset($this->outputFile) && is_file($this->outputFile)) {
             unlink($this->outputFile);
         }
         parent::tearDown();

@@ -91,7 +91,7 @@ EOT
             $this->pdo->exec('DROP TABLE IF EXISTS dump_widget');
             $this->pdo->exec('DROP TABLE IF EXISTS dump_widget_target');
         }
-        if (is_dir($this->workDir)) {
+        if (isset($this->workDir) && is_dir($this->workDir)) {
             $iterator = new RecursiveIteratorIterator(
                 new RecursiveDirectoryIterator($this->workDir, FilesystemIterator::SKIP_DOTS),
                 RecursiveIteratorIterator::CHILD_FIRST

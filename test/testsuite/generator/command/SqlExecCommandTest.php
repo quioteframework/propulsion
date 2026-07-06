@@ -57,7 +57,7 @@ class SqlExecCommandTest extends TestCase
         if ($this->pdo !== null) {
             $this->pdo->exec('DROP TABLE IF EXISTS cmd_sqlexec_widget');
         }
-        if (is_dir($this->outDir)) {
+        if (isset($this->outDir) && is_dir($this->outDir)) {
             $iterator = new RecursiveIteratorIterator(
                 new RecursiveDirectoryIterator($this->outDir, FilesystemIterator::SKIP_DOTS),
                 RecursiveIteratorIterator::CHILD_FIRST
