@@ -17,10 +17,12 @@ namespace Propulsion\Generator\Behavior\Versionable;
  */
 use Propulsion\Generator\Model\Behavior;
 use Propulsion\Generator\Model\ForeignKey;
+use Propulsion\Generator\Model\Table;
 
 class VersionableBehavior extends Behavior
 {
   // default parameters value
+  /** @var array<string, string> */
   protected $parameters = [
     "version_column" => "version",
     "version_table" => "",
@@ -32,14 +34,15 @@ class VersionableBehavior extends Behavior
     "version_comment_column" => "version_comment",
   ];
 
-  protected $versionTable,
-    $objectBuilderModifier,
-    $queryBuilderModifier,
-    $peerBuilderModifier;
+  protected ?Table $versionTable = null;
+  protected ?VersionableBehaviorObjectBuilderModifier $objectBuilderModifier = null;
+  protected ?VersionableBehaviorQueryBuilderModifier $queryBuilderModifier = null;
+  protected ?VersionableBehaviorPeerBuilderModifier $peerBuilderModifier = null;
 
+  /** @var int */
   protected $tableModificationOrder = 80;
 
-  public function modifyTable()
+  public function modifyTable(): void
   {
     $this->addVersionColumn();
     $this->addLogColumns();
@@ -47,7 +50,7 @@ class VersionableBehavior extends Behavior
     $this->addForeignKeyVersionColumns();
   }
 
-  protected function addVersionColumn()
+  protected function addVersionColumn(): void
   {
     $table = $this->getTable();
     // add the version column
@@ -60,7 +63,7 @@ class VersionableBehavior extends Behavior
     }
   }
 
-  protected function addLogColumns()
+  protected function addLogColumns(): void
   {
     $table = $this->getTable();
     if (
@@ -94,7 +97,7 @@ class VersionableBehavior extends Behavior
     }
   }
 
-  protected function addVersionTable()
+  protected function addVersionTable(): void
   {
     $table = $this->getTable();
     $database = $table->getDatabase();
@@ -156,7 +159,7 @@ class VersionableBehavior extends Behavior
     }
   }
 
-  public function addForeignKeyVersionColumns()
+  public function addForeignKeyVersionColumns(): void
   {
     $table = $this->getTable();
     $versionTable = $this->versionTable;
@@ -189,17 +192,18 @@ class VersionableBehavior extends Behavior
     }
   }
 
-  public function getVersionTable()
+  public function getVersionTable(): ?Table
   {
     return $this->versionTable;
   }
 
-  public function getVersionTablePhpName()
+  public function getVersionTablePhpName(): string
   {
     return $this->getTable()->getPhpName() . "Version";
   }
 
-  public function getVersionableFks()
+  /** @return array<int, ForeignKey> */
+  public function getVersionableFks(): array
   {
     $versionableFKs = [];
     if ($fks = $this->getTable()->getForeignKeys()) {
@@ -215,7 +219,8 @@ class VersionableBehavior extends Behavior
     return $versionableFKs;
   }
 
-  public function getVersionableReferrers()
+  /** @return array<int, ForeignKey> */
+  public function getVersionableReferrers(): array
   {
     $versionableReferrers = [];
     if ($fks = $this->getTable()->getReferrers()) {
@@ -231,21 +236,21 @@ class VersionableBehavior extends Behavior
     return $versionableReferrers;
   }
 
-  public function getReferrerIdsColumn(ForeignKey $fk)
+  public function getReferrerIdsColumn(ForeignKey $fk): \Propulsion\Generator\Model\Column
   {
     $fkTableName = $fk->getTable()->getName();
     $fkIdsColumnName = $fkTableName . "_ids";
     return $this->versionTable->getColumn($fkIdsColumnName);
   }
 
-  public function getReferrerVersionsColumn(ForeignKey $fk)
+  public function getReferrerVersionsColumn(ForeignKey $fk): \Propulsion\Generator\Model\Column
   {
     $fkTableName = $fk->getTable()->getName();
     $fkIdsColumnName = $fkTableName . "_versions";
     return $this->versionTable->getColumn($fkIdsColumnName);
   }
 
-  public function getObjectBuilderModifier()
+  public function getObjectBuilderModifier(): VersionableBehaviorObjectBuilderModifier
   {
     if (is_null($this->objectBuilderModifier)) {
       $this->objectBuilderModifier = new VersionableBehaviorObjectBuilderModifier(
@@ -255,7 +260,7 @@ class VersionableBehavior extends Behavior
     return $this->objectBuilderModifier;
   }
 
-  public function getQueryBuilderModifier()
+  public function getQueryBuilderModifier(): VersionableBehaviorQueryBuilderModifier
   {
     if (is_null($this->queryBuilderModifier)) {
       $this->queryBuilderModifier = new VersionableBehaviorQueryBuilderModifier(
@@ -265,7 +270,7 @@ class VersionableBehavior extends Behavior
     return $this->queryBuilderModifier;
   }
 
-  public function getPeerBuilderModifier()
+  public function getPeerBuilderModifier(): VersionableBehaviorPeerBuilderModifier
   {
     if (is_null($this->peerBuilderModifier)) {
       $this->peerBuilderModifier = new VersionableBehaviorPeerBuilderModifier(

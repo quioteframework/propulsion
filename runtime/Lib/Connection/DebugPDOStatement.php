@@ -33,7 +33,7 @@ class DebugPDOStatement extends \PDOStatement
 	 * This is only used in logging the binding of variables.
 	 *
 	 * @see       self::bindValue()
-	 * @var       array
+	 * @var       array<int,string>
 	 */
 	protected static $typeMap = array(
 		PDO::PARAM_BOOL => "PDO::PARAM_BOOL",
@@ -44,7 +44,7 @@ class DebugPDOStatement extends \PDOStatement
 	);
 
 	/**
-	 * @var       array  The values that have been bound
+	 * @var       array<string,mixed>  The values that have been bound
 	 */
 	protected $boundValues = array();
 
@@ -82,7 +82,7 @@ class DebugPDOStatement extends \PDOStatement
 	 * Executes a prepared statement.  Returns a boolean value indicating success.
 	 * Overridden for query counting and logging.
 	 *
-	 * @param     array|null  $input_parameters
+	 * @param     array<int|string,mixed>|null  $input_parameters
 	 * @return    boolean
 	 */
 	public function execute(array|null $input_parameters = null) : bool

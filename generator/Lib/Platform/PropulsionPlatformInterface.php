@@ -39,12 +39,12 @@ interface PropulsionPlatformInterface
 	 */
 	const SERIAL = "serial";
 
-	public function getSequenceName(Table $table);
+	public function getSequenceName(Table $table): ?string;
 	/**
 	 * Sets a database connection to use (for quoting, etc.).
 	 * @param      \PDO|null $con The database connection to use in this Platform class.
 	 */
-	public function setConnection(?\PDO $con = null);
+	public function setConnection(?\PDO $con = null): void;
 
 	/**
 	 * Returns the database connection to use for this Platform class.
@@ -57,7 +57,7 @@ interface PropulsionPlatformInterface
 	 *
 	 * @param      GeneratorConfig $config
 	 */
-	public function setGeneratorConfig(GeneratorConfig $config);
+	public function setGeneratorConfig(GeneratorConfig $config): void;
 
 	/**
 	 * Returns the short name of the database type that this platform represents.
@@ -92,7 +92,7 @@ interface PropulsionPlatformInterface
 	 * @return     string The RDBMS-specific SQL fragment for <code>NULL</code>
 	 * or <code>NOT NULL</code>.
 	 */
-	public function getNullString($notNull);
+	public function getNullString(bool $notNull);
 
 	/**
 	 * @return     string The RDBMS-specific SQL fragment for autoincrement.

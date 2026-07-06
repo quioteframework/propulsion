@@ -23,14 +23,14 @@ class Index extends XMLElement
 	/** enables debug output */
 	const DEBUG = false;
 
-	private $indexName;
-	private $parentTable;
+	private ?string $indexName;
+	private ?Table $parentTable = null;
 
-	/** @var        array string[] */
-	private $indexColumns;
+	/** @var        string[] */
+	private array $indexColumns = array();
 
-	/** @var        array  */
-	private $indexColumnSizes = array();
+	/** @var        array<string, int|string> */
+	private array $indexColumnSizes = array();
 
 	/**
 	 * Creates a new Index instance.
@@ -42,7 +42,7 @@ class Index extends XMLElement
 		$this->indexName = $name;
 	}
 
-	private function createName()
+	private function createName(): void
 	{
 		$table = $this->getTable();
 		$inputs = array();
@@ -68,7 +68,7 @@ class Index extends XMLElement
 	 * Sets up the Index object based on the attributes that were passed to loadFromXML().
 	 * @see        parent::loadFromXML()
 	 */
-	protected function setupObject()
+	protected function setupObject(): void
 	{
 		$this->indexName = $this->getAttribute("name");
 	}
@@ -77,7 +77,7 @@ class Index extends XMLElement
 	 * @see        #isUnique()
 	 * @deprecated Use isUnique() instead.
 	 */
-	public function getIsUnique()
+	public function getIsUnique(): bool
 	{
 		return $this->isUnique();
 	}
@@ -85,7 +85,7 @@ class Index extends XMLElement
 	/**
 	 * Returns the uniqueness of this index.
 	 */
-	public function isUnique()
+	public function isUnique(): bool
 	{
 		return false;
 	}
@@ -94,7 +94,7 @@ class Index extends XMLElement
 	 * @see        #getName()
 	 * @deprecated Use getName() instead.
 	 */
-	public function getIndexName()
+	public function getIndexName(): ?string
 	{
 		return $this->getName();
 	}
@@ -102,7 +102,7 @@ class Index extends XMLElement
 	/**
 	 * Gets the name of this index.
 	 */
-	public function getName()
+	public function getName(): ?string
 	{
 		if ($this->indexName === null) {
 			try {
@@ -123,7 +123,7 @@ class Index extends XMLElement
 	 * @see        #setName(String name)
 	 * @deprecated Use setName(String name) instead.
 	 */
-	public function setIndexName($name)
+	public function setIndexName(?string $name): void
 	{
 		$this->setName($name);
 	}
@@ -131,7 +131,7 @@ class Index extends XMLElement
 	/**
 	 * Set the name of this index.
 	 */
-	public function setName($name)
+	public function setName(?string $name): void
 	{
 		$this->indexName = $name;
 	}
@@ -139,7 +139,7 @@ class Index extends XMLElement
 	/**
 	 * Set the parent Table of the index
 	 */
-	public function setTable(Table $parent)
+	public function setTable(Table $parent): void
 	{
 		$this->parentTable = $parent;
 	}
@@ -147,7 +147,7 @@ class Index extends XMLElement
 	/**
 	 * Get the parent Table of the index
 	 */
-	public function getTable()
+	public function getTable(): ?Table
 	{
 		return $this->parentTable;
 	}
@@ -155,16 +155,16 @@ class Index extends XMLElement
 	/**
 	 * Returns the Name of the table the index is in
 	 */
-	public function getTableName()
+	public function getTableName(): ?string
 	{
 		return $this->parentTable->getName();
 	}
 
 	/**
 	 * Adds a new column to an index.
-	 * @param      mixed $data Column or attributes from XML.
+	 * @param      array<string, mixed>|Column $data Column or attributes from XML.
 	 */
-	public function addColumn($data)
+	public function addColumn($data): void
 	{
 		if ($data instanceof Column) {
 			$column = $data;
@@ -185,9 +185,9 @@ class Index extends XMLElement
 	/**
 	 * Sets array of columns to use for index.
 	 *
-	 * @param      array $indexColumns Column[]
+	 * @param      array<int, Column> $indexColumns
 	 */
-	public function setColumns(array $indexColumns)
+	public function setColumns(array $indexColumns): void
 	{
 		$this->indexColumns = array();
 		$this->indexColumnSizes = array();
@@ -222,7 +222,7 @@ class Index extends XMLElement
 	/**
 	 * Reset the column sizes. Useful for generated indices for FKs
 	 */
-	public function resetColumnSize()
+	public function resetColumnSize(): void
 	{
 		$this->indexColumnSizes = array();
 	}
@@ -231,7 +231,7 @@ class Index extends XMLElement
 	 * @see        #getColumnList()
 	 * @deprecated Use getColumnList() instead (which is not deprecated too!)
 	 */
-	public function getIndexColumnList()
+	public function getIndexColumnList(): string
 	{
 		return $this->getColumnList();
 	}
@@ -240,7 +240,7 @@ class Index extends XMLElement
 	 * Return a comma delimited string of the columns which compose this index.
 	 * @deprecated because Column::makeList() is deprecated; use the array-returning getColumns() instead.
 	 */
-	public function getColumnList()
+	public function getColumnList(): string
 	{
 		return Column::makeList($this->getColumns(), $this->getTable()->getDatabase()->getPlatform());
 	}
@@ -248,8 +248,9 @@ class Index extends XMLElement
 	/**
 	 * @see        #getColumns()
 	 * @deprecated Use getColumns() instead.
+	 * @return     string[]
 	 */
-	public function getIndexColumns()
+	public function getIndexColumns(): array
 	{
 		return $this->getColumns();
 	}
@@ -293,9 +294,9 @@ class Index extends XMLElement
 
 	/**
 	 * Return the list of local columns. You should not edit this list.
-	 * @return     array string[]
+	 * @return     string[]
 	 */
-	public function getColumns()
+	public function getColumns(): array
 	{
 		return $this->indexColumns;
 	}
@@ -303,7 +304,7 @@ class Index extends XMLElement
 	/**
 	 * @see        XMLElement::appendXml(\DOMNode)
 	 */
-	public function appendXml(\DOMNode $node)
+	public function appendXml(\DOMNode $node): void
 	{
 		$doc = ($node instanceof \DOMDocument) ? $node : $node->ownerDocument;
 

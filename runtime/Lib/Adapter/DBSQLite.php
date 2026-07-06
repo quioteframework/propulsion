@@ -29,7 +29,7 @@ class DBSQLite extends DBAdapter
 	 *
 	 * @throws    PropulsionException If the specified charset doesn't match sqlite_libencoding()
 	 */
-	public function setCharset(PDO $con, $charset)
+	public function setCharset(PDO $con, $charset): void
 	{
 	}
 
@@ -111,7 +111,7 @@ class DBSQLite extends DBAdapter
 	 * @param     integer  $offset
 	 * @param     integer  $limit
 	 */
-	public function applyLimit(&$sql, $offset, $limit, $criteria = null)
+	public function applyLimit(&$sql, $offset, $limit, $criteria = null): void
 	{
 		if ( $limit > 0 ) {
 			$sql .= " LIMIT " . $limit . ($offset > 0 ? " OFFSET " . $offset : "");
@@ -124,7 +124,7 @@ class DBSQLite extends DBAdapter
 	 * @param     string  $seed
 	 * @return    string
 	 */
-	public function random($seed = NULL)
+	public function random($seed = NULL): string
 	{
 		return 'random()';
 	}

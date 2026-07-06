@@ -139,7 +139,7 @@ class DBPostgres extends DBAdapter
 	 * @param     integer  $offset
 	 * @param     integer  $limit
 	 */
-	public function applyLimit(&$sql, $offset, $limit, $criteria = null)
+	public function applyLimit(&$sql, $offset, $limit, $criteria = null): void
 	{
 		if ( $limit > 0 ) {
 			$sql .= " LIMIT ".$limit;
@@ -155,7 +155,7 @@ class DBPostgres extends DBAdapter
 	 * @param     string  $seed
 	 * @return    string
 	 */
-	public function random($seed=NULL)
+	public function random($seed=NULL): string
 	{
 		return 'random()';
 	}

@@ -45,7 +45,7 @@ abstract class DBAdapter
 
 	/**
 	 * Propulsion driver to Propulsion adapter map.
-	 * @var array
+	 * @var array<string,string>
 	 */
 	private static $adapters = array(
 		'mysql'  => 'Propulsion\Adapter\DBMySQL',
@@ -82,8 +82,8 @@ abstract class DBAdapter
 	/**
 	 * Prepare connection parameters.
 	 *
-	 * @param array	$settings
-	 * @return array
+	 * @param array<string,mixed> $settings
+	 * @return array<string,mixed>
 	 */
 	public function prepareParams($settings)
 	{
@@ -102,9 +102,9 @@ abstract class DBAdapter
 	 * @see       setCharset()
 	 *
 	 * @param     PDO    $con  A PDO connection instance.
-	 * @param     array  $settings  An array of settings.
+	 * @param     array<string,mixed>  $settings  An array of settings.
 	 */
-	public function initConnection(PDO $con, array $settings)
+	public function initConnection(PDO $con, array $settings): void
 	{
 		if (isset($settings['charset']['value'])) {
 			$this->setCharset($con, $settings['charset']['value']);
@@ -129,7 +129,7 @@ abstract class DBAdapter
 	 * @param     PDO     $con  A $PDO PDO connection instance.
 	 * @param     string  $charset  The $string charset encoding.
 	 */
-	public function setCharset(PDO $con, $charset)
+	public function setCharset(PDO $con, $charset): void
 	{
 		$con->exec("SET NAMES '" . $charset . "'");
 	}
@@ -348,11 +348,11 @@ abstract class DBAdapter
 	 * Allows manipulation of the query string before PDOStatement is instantiated.
 	 *
 	 * @param     string       $sql  The sql statement
-	 * @param     array        $params  array('column' => ..., 'table' => ..., 'value' => ...)
+	 * @param     array<int,array<string,mixed>>  $params  array('column' => ..., 'table' => ..., 'value' => ...)
 	 * @param     Criteria     $values
 	 * @param     DatabaseMap  $dbMap
 	 */
-	public function cleanupSQL(&$sql, array &$params, Criteria $values, DatabaseMap $dbMap)
+	public function cleanupSQL(&$sql, array &$params, Criteria $values, DatabaseMap $dbMap): void
 	{
 	}
 
@@ -364,14 +364,18 @@ abstract class DBAdapter
 	 * @param     integer  $limit
 	 * @param     Criteria $criteria  Optional Criteria object, used by some adapters (e.g. DBOracle) to build the LIMIT clause.
 	 */
-	public abstract function applyLimit(&$sql, $offset, $limit, $criteria = null);
+	public abstract function applyLimit(&$sql, $offset, $limit, $criteria = null): void;
 
 	/**
 	 * Gets the SQL string that this adapter uses for getting a random number.
 	 *
+	 * Nullable: DBNone's implementation returns nothing (this adapter is used when
+	 * there is no database installed), while every other adapter returns a SQL
+	 * fragment string.
+	 *
 	 * @param     mixed $seed (optional) seed value for databases that support this
 	 */
-	public abstract function random($seed = null);
+	public abstract function random($seed = null): ?string;
 
 	/**
 	 * Returns the "DELETE FROM <table> [AS <alias>]" part of DELETE query.
@@ -407,12 +411,12 @@ abstract class DBAdapter
 	 * Move from BasePeer to DBAdapter and turn from static to non static
 	 *
 	 * @param     Criteria  $criteria
-	 * @param     array     $fromClause
+	 * @param     array<int,string> $fromClause
 	 * @param     boolean   $aliasAll
 	 *
 	 * @return    string
 	 */
-	public function createSelectSqlPart(Criteria $criteria, &$fromClause, $aliasAll = false)
+	public function createSelectSqlPart(Criteria $criteria, &$fromClause, $aliasAll = false): string
 	{
 		$selectClause = array();
 
@@ -534,10 +538,10 @@ abstract class DBAdapter
 	 * </code>
 	 *
 	 * @param     \PDOStatement  $stmt
-	 * @param     array         $params  array('column' => ..., 'table' => ..., 'value' => ...)
+	 * @param     array<int,array<string,mixed>>  $params  array('column' => ..., 'table' => ..., 'value' => ...)
 	 * @param     DatabaseMap   $dbMap
 	 */
-	public function bindValues(\PDOStatement $stmt, array $params, DatabaseMap $dbMap)
+	public function bindValues(\PDOStatement $stmt, array $params, DatabaseMap $dbMap): void
 	{
 		$position = 0;
 		foreach ($params as $param) {

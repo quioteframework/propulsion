@@ -23,13 +23,19 @@
 
 use Propulsion\Generator\Model\Behavior;
 use Propulsion\Generator\Model\ForeignKey;
+use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Builder\OM\AbstractObjectBuilder;
+use Propulsion\Generator\Builder\OM\ObjectBuilder;
+use Propulsion\Generator\Builder\OM\OMBuilder;
 use Propulsion\Generator\Builder\OM\QueryBuilder;
 use Propulsion\Generator\Builder\OM\AbstractPeerBuilder;
 
 class ConcreteInheritanceBehavior extends Behavior
 {
-	// default parameters value
+	/**
+	 * default parameters value
+	 * @var array<string, mixed>
+	 */
 	protected $parameters = array(
 		'extends'             => '',
 		'descendant_column'   => 'descendant_class',
@@ -37,11 +43,11 @@ class ConcreteInheritanceBehavior extends Behavior
 		'schema'              => ''
 	);
 
-	protected $builder;
+	protected ?ObjectBuilder $builder = null;
 
-	protected $isParentChild;
+	protected ?bool $isParentChild = null;
 
-	public function modifyTable()
+	public function modifyTable(): void
 	{
 		$table = $this->getTable();
 		$parentTable = $this->getParentTable();
@@ -124,7 +130,7 @@ class ConcreteInheritanceBehavior extends Behavior
 
 	}
 
-	protected function getParentTable()
+	protected function getParentTable(): ?Table
 	{
 		$database = $this->getTable()->getDatabase();
 		$tableName = $database->getTablePrefix() . $this->getParameter('extends');
@@ -134,12 +140,12 @@ class ConcreteInheritanceBehavior extends Behavior
 		return $database->getTable($tableName);
 	}
 
-	protected function isCopyData()
+	protected function isCopyData(): bool
 	{
 		return $this->getParameter('copy_data_to_parent') == 'true';
 	}
 
-	public function parentClass($builder)
+	public function parentClass(OMBuilder $builder): ?string
 	{
 		$parentTable = $this->getParentTable();
 		// Match against the builder base classes (via instanceof) rather than
@@ -164,7 +170,7 @@ class ConcreteInheritanceBehavior extends Behavior
 		return null;
 	}
 
-	public function preSave($script)
+	public function preSave(ObjectBuilder $builder): ?string
 	{
 		if ($this->isCopyData()) {
 			return "\$parent = \$this->getSyncParent(\$con);
@@ -172,20 +178,24 @@ class ConcreteInheritanceBehavior extends Behavior
 \$this->setPrimaryKey(\$parent->getPrimaryKey());
 ";
 		}
+
+		return null;
 	}
 
-	public function postDelete($script)
+	public function postDelete(ObjectBuilder $builder): ?string
 	{
 		if ($this->isCopyData()) {
 			return "\$this->getParentOrCreate(\$con)->delete(\$con);
 ";
 		}
+
+		return null;
 	}
 
-	public function objectMethods($builder)
+	public function objectMethods(ObjectBuilder $builder): ?string
 	{
 		if (!$this->isCopyData()) {
-			return;
+			return null;
 		}
 		$this->builder = $builder;
 		$script = '';
@@ -195,7 +205,7 @@ class ConcreteInheritanceBehavior extends Behavior
 		return $script;
 	}
 
-	protected function addObjectGetParentOrCreate(&$script)
+	protected function addObjectGetParentOrCreate(string &$script): void
 	{
 		$parentTable = $this->getParentTable();
 		$parentClass = $this->builder->getNewStubObjectBuilder($parentTable)->getClassname();
@@ -218,7 +228,7 @@ public function getParentOrCreate(\$con = null)
 ";
 	}
 
-	protected function addObjectGetSyncParent(&$script)
+	protected function addObjectGetSyncParent(string &$script): void
 	{
 		$parentTable = $this->getParentTable();
 		$pkeys = $parentTable->getPrimaryKey();

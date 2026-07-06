@@ -97,7 +97,10 @@ EOT
         );
     }
 
-    private function findSchemaFiles($path): array
+    /**
+     * @return array<int, string>
+     */
+    private function findSchemaFiles(string $path): array
     {
         if (is_file($path)) {
             return [$path];

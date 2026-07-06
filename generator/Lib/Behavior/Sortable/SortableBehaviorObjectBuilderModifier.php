@@ -9,6 +9,9 @@
  */
 namespace Propulsion\Generator\Behavior\Sortable;
 
+use Propulsion\Generator\Builder\OM\ObjectBuilder;
+use Propulsion\Generator\Model\Table;
+
 /**
  * Behavior to add sortable columns and abilities
  *
@@ -17,30 +20,35 @@ namespace Propulsion\Generator\Behavior\Sortable;
  */
 class SortableBehaviorObjectBuilderModifier
 {
-	protected $behavior, $table, $builder, $objectClassname, $peerClassname, $queryClassname;
+	protected SortableBehavior $behavior;
+	protected Table $table;
+	protected ?ObjectBuilder $builder = null;
+	protected ?string $objectClassname = null;
+	protected ?string $peerClassname = null;
+	protected ?string $queryClassname = null;
 
-	public function __construct($behavior)
+	public function __construct(SortableBehavior $behavior)
 	{
 		$this->behavior = $behavior;
 		$this->table = $behavior->getTable();
 	}
 
-	protected function getParameter($key)
+	protected function getParameter(string $key): string
 	{
 		return $this->behavior->getParameter($key);
 	}
 
-	protected function getColumnAttribute($name)
+	protected function getColumnAttribute(string $name): string
 	{
 		return strtolower($this->behavior->getColumnForParameter($name)->getName());
 	}
 
-	protected function getColumnPhpName($name)
+	protected function getColumnPhpName(string $name): string
 	{
 		return $this->behavior->getColumnForParameter($name)->getPhpName();
 	}
 
-	protected function setBuilder($builder)
+	protected function setBuilder(ObjectBuilder $builder): void
 	{
 		$this->builder = $builder;
 		$this->objectClassname = $builder->getStubObjectBuilder()->getClassname();
@@ -53,7 +61,7 @@ class SortableBehaviorObjectBuilderModifier
 	 *
 	 * @return string The related getter, e.g. 'getRank'
 	 */
-	protected function getColumnGetter($columnName = 'rank_column')
+	protected function getColumnGetter(string $columnName = 'rank_column'): string
 	{
 		return 'get' . $this->behavior->getColumnForParameter($columnName)->getPhpName();
 	}
@@ -63,17 +71,17 @@ class SortableBehaviorObjectBuilderModifier
 	 *
 	 * @return string The related setter, e.g. 'setRank'
 	 */
-	protected function getColumnSetter($columnName = 'rank_column')
+	protected function getColumnSetter(string $columnName = 'rank_column'): string
 	{
 		return 'set' . $this->behavior->getColumnForParameter($columnName)->getPhpName();
 	}
 
-	public function preSave($builder)
+	public function preSave(ObjectBuilder $builder): string
 	{
 		return "\$this->processSortableQueries(\$con);";
 	}
 
-	public function preInsert($builder)
+	public function preInsert(ObjectBuilder $builder): string
 	{
 		$useScope = $this->behavior->useScope();
 		$this->setBuilder($builder);
@@ -83,7 +91,7 @@ class SortableBehaviorObjectBuilderModifier
 ";
 	}
 
-	public function preDelete($builder)
+	public function preDelete(ObjectBuilder $builder): string
 	{
 		$useScope = $this->behavior->useScope();
 		$this->setBuilder($builder);
@@ -93,7 +101,7 @@ class SortableBehaviorObjectBuilderModifier
 ";
 	}
 
-	public function objectAttributes($builder)
+	public function objectAttributes(ObjectBuilder $builder): string
 	{
 		return "
 /**
@@ -104,7 +112,7 @@ protected \$sortableQueries = array();
 ";
 	}
 
-	public function objectMethods($builder)
+	public function objectMethods(ObjectBuilder $builder): string
 	{
 		$this->setBuilder($builder);
 		$script = '';
@@ -137,7 +145,7 @@ protected \$sortableQueries = array();
 	/**
 	 * Get the wraps for getter/setter, if the rank column has not the default name
 	 */
-	protected function addRankAccessors(&$script)
+	protected function addRankAccessors(string &$script): void
 	{
     $script .= "
 /**
@@ -166,7 +174,7 @@ public function setRank(\$v)
 	/**
 	 * Get the wraps for getter/setter, if the scope column has not the default name
 	 */
-	protected function addScopeAccessors(&$script)
+	protected function addScopeAccessors(string &$script): void
 	{
     $script .= "
 /**
@@ -192,7 +200,7 @@ public function setScopeValue(\$v)
 ";
 	}
 
-	protected function addIsFirst(&$script)
+	protected function addIsFirst(string &$script): void
 	{
 		$script .= "
 /**
@@ -207,7 +215,7 @@ public function isFirst()
 ";
 	}
 
-	protected function addIsLast(&$script)
+	protected function addIsLast(string &$script): void
 	{
 		$useScope = $this->behavior->useScope();
 		$script .= "
@@ -225,7 +233,7 @@ public function isLast(?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addGetNext(&$script)
+	protected function addGetNext(string &$script): void
 	{
 		$useScope = $this->behavior->useScope();
 		$script .= "
@@ -254,7 +262,7 @@ public function getNext(?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addGetPrevious(&$script)
+	protected function addGetPrevious(string &$script): void
 	{
 		$useScope = $this->behavior->useScope();
 		$script .= "
@@ -282,7 +290,7 @@ public function getPrevious(?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addInsertAtRank(&$script)
+	protected function addInsertAtRank(string &$script): void
 	{
 		$useScope = $this->behavior->useScope();
 		$peerClassname = $this->peerClassname;
@@ -326,7 +334,7 @@ public function insertAtRank(\$rank, ?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addInsertAtBottom(&$script)
+	protected function addInsertAtBottom(string &$script): void
 	{
 		$useScope = $this->behavior->useScope();
 		$script .= "
@@ -356,7 +364,7 @@ public function insertAtBottom(?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addInsertAtTop(&$script)
+	protected function addInsertAtTop(string &$script): void
 	{
 		$script .= "
 /**
@@ -372,7 +380,7 @@ public function insertAtTop()
 ";
 	}
 
-	protected function addMoveToRank(&$script)
+	protected function addMoveToRank(string &$script): void
 	{
 		$useScope = $this->behavior->useScope();
 		$peerClassname = $this->peerClassname;
@@ -425,7 +433,7 @@ public function moveToRank(\$newRank, ?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addSwapWith(&$script)
+	protected function addSwapWith(string &$script): void
 	{
 		$script .= "
 /**
@@ -462,7 +470,7 @@ public function swapWith(\$object, ?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addMoveUp(&$script)
+	protected function addMoveUp(string &$script): void
 	{
 		$script .= "
 /**
@@ -495,7 +503,7 @@ public function moveUp(?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addMoveDown(&$script)
+	protected function addMoveDown(string &$script): void
 	{
 		$script .= "
 /**
@@ -528,7 +536,7 @@ public function moveDown(?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addMoveToTop(&$script)
+	protected function addMoveToTop(string &$script): void
 	{
 		$script .= "
 /**
@@ -548,7 +556,7 @@ public function moveToTop(?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addMoveToBottom(&$script)
+	protected function addMoveToBottom(string &$script): void
 	{
 		$useScope = $this->behavior->useScope();
 		$script .= "
@@ -582,7 +590,7 @@ public function moveToBottom(?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addRemoveFromList(&$script)
+	protected function addRemoveFromList(string &$script): void
 	{
 		$useScope = $this->behavior->useScope();
 		$peerClassname = $this->peerClassname;
@@ -613,7 +621,7 @@ public function removeFromList()
 ";
 	}
 
-	protected function addProcessSortableQueries(&$script)
+	protected function addProcessSortableQueries(string &$script): void
 	{
 		$script .= "
 /**

@@ -26,10 +26,10 @@ namespace Propulsion\Formatter;
  
 class PropulsionOnDemandFormatter extends PropulsionObjectFormatter
 {
-	protected $collectionName = 'Propulsion\\Collection\\PropulsionOnDemandCollection';
-	protected $isSingleTableInheritance = false;
+	protected string $collectionName = 'Propulsion\\Collection\\PropulsionOnDemandCollection';
+	protected bool $isSingleTableInheritance = false;
 
-	public function init(ModelCriteria $criteria)
+	public function init(ModelCriteria $criteria): static
 	{
 		parent::init($criteria);
 		$this->isSingleTableInheritance = $criteria->getTableMap()->isSingleTableInheritance();
@@ -37,7 +37,7 @@ class PropulsionOnDemandFormatter extends PropulsionObjectFormatter
 		return $this;
 	}
 
-	public function format(PDOStatement $stmt)
+	public function format(PDOStatement $stmt): mixed
 	{
 		$this->checkInit();
 		if ($this->isWithOneToMany()) {
@@ -56,12 +56,12 @@ class PropulsionOnDemandFormatter extends PropulsionObjectFormatter
 	 * The first object to hydrate is the model of the Criteria
 	 * The following objects (the ones added by way of ModelCriteria::with()) are linked to the first one
 	 *
-	 *  @param    array  $row associative array indexed by column number,
+	 *  @param    array<int, mixed>  $row associative array indexed by column number,
 	 *                   as returned by PDOStatement::fetch(PDO::FETCH_NUM)
 	 *
 	 * @return    BaseObject
 	 */
-	public function getAllObjectsFromRow($row)
+	public function getAllObjectsFromRow(array $row): BaseObject
 	{
 		$col = 0;
 		// main object

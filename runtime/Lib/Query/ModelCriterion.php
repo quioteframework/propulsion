@@ -21,6 +21,7 @@ namespace Propulsion\Query;
  use Propulsion\Exception\PropulsionException;
 class ModelCriterion extends Criterion
 {
+	/** @var string|null */
 	protected $clause = '';
 
 	/**
@@ -54,7 +55,7 @@ class ModelCriterion extends Criterion
 		$this->init($outer);
 	}
 
-	public function getClause()
+	public function getClause(): ?string
 	{
 		return $this->clause;
 	}
@@ -68,9 +69,10 @@ class ModelCriterion extends Criterion
 	 * code is duplicated here.
 	 *
 	 * @param      string &$sb The string that will receive the Prepared Statement
-	 * @param      array $params A list to which Prepared Statement parameters will be appended
+	 * @param      array<int, array{table: string|null, column: string|null, value: mixed}> $params A list to which Prepared Statement parameters will be appended
+	 * @return     void
 	 */
-	protected function dispatchPsHandling(&$sb, array &$params)
+	protected function dispatchPsHandling(&$sb, array &$params): void
 	{
 		switch ($this->comparison) {
 			case Criteria::CUSTOM:
@@ -117,9 +119,10 @@ class ModelCriterion extends Criterion
 	 * For regular model clauses, e.g. 'book.TITLE = ?'
 	 *
 	 * @param      string &$sb The string that will receive the Prepared Statement
-	 * @param      array $params A list to which Prepared Statement parameters will be appended
+	 * @param      array<int, array{table: string|null, column: string|null, value: mixed}> $params A list to which Prepared Statement parameters will be appended
+	 * @return     void
 	 */
-	public function appendModelClauseToPs(&$sb, array &$params)
+	public function appendModelClauseToPs(&$sb, array &$params): void
 	{
 		if ($this->value !== null) {
 			$params[] = array('table' => $this->realtable, 'column' => $this->column, 'value' => $this->value);
@@ -135,9 +138,10 @@ class ModelCriterion extends Criterion
 	 * Handles case insensitivity for VARCHAR columns
 	 *
 	 * @param      string &$sb The string that will receive the Prepared Statement
-	 * @param      array $params A list to which Prepared Statement parameters will be appended
+	 * @param      array<int, array{table: string|null, column: string|null, value: mixed}> $params A list to which Prepared Statement parameters will be appended
+	 * @return     void
 	 */
-	public function appendModelClauseLikeToPs(&$sb, array &$params)
+	public function appendModelClauseLikeToPs(&$sb, array &$params): void
 	{
 		// LIKE is case insensitive in mySQL and SQLite, but not in PostGres
 		// If the column is case insensitive, use ILIKE / NOT ILIKE instead of LIKE / NOT LIKE
@@ -152,9 +156,10 @@ class ModelCriterion extends Criterion
 	 * For ternary model clauses, e.G 'book.ID BETWEEN ? AND ?'
 	 *
 	 * @param      string &$sb The string that will receive the Prepared Statement
-	 * @param      array $params A list to which Prepared Statement parameters will be appended
+	 * @param      array<int, array{table: string|null, column: string|null, value: mixed}> $params A list to which Prepared Statement parameters will be appended
+	 * @return     void
 	 */
-	public function appendModelClauseSeveralToPs(&$sb, array &$params)
+	public function appendModelClauseSeveralToPs(&$sb, array &$params): void
 	{
 		$clause = $this->clause;
 		foreach ((array) $this->value as $value) {
@@ -175,9 +180,10 @@ class ModelCriterion extends Criterion
 	 * For IN or NOT IN model clauses, e.g. 'book.TITLE NOT IN ?'
 	 *
 	 * @param      string &$sb The string that will receive the Prepared Statement
-	 * @param      array $params A list to which Prepared Statement parameters will be appended
+	 * @param      array<int, array{table: string|null, column: string|null, value: mixed}> $params A list to which Prepared Statement parameters will be appended
+	 * @return     void
 	 */
-	public function appendModelClauseArrayToPs(&$sb, array &$params)
+	public function appendModelClauseArrayToPs(&$sb, array &$params): void
 	{
 		$_bindParams = array(); // the param names used in query building
 		$_idxstart = count($params);
@@ -198,6 +204,7 @@ class ModelCriterion extends Criterion
 	/**
 	 * This method checks another Criteria to see if they contain
 	 * the same attributes and hashtable entries.
+	 * @param      mixed $obj
 	 * @return     boolean
 	 */
 	public function equals($obj)
@@ -240,6 +247,7 @@ class ModelCriterion extends Criterion
 
 	/**
 	 * Returns a hash code value for the object.
+	 * @return int
 	 */
 	public function hashCode()
 	{
@@ -273,7 +281,7 @@ class ModelCriterion extends Criterion
 	 * taken from http://www.php.net/manual/en/function.str-replace.php
 	 *
 	 */
-	protected static function strReplaceOnce($search, $replace, $subject)
+	protected static function strReplaceOnce(string $search, string $replace, string $subject): string
 	{
     $firstChar = strpos($subject, $search);
     if($firstChar !== false) {

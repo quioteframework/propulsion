@@ -34,6 +34,7 @@ class ConstraintNameGenerator implements NameGenerator
 	 * and the fourth is a <code>Integer</code> indicating the number
 	 * of this contraint.
 	 *
+	 * @param      array<int, mixed> $inputs
 	 * @see        NameGenerator
 	 * @throws     EngineException
 	 */

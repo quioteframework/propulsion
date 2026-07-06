@@ -20,23 +20,31 @@ namespace Propulsion\Generator\Util;
  use Propulsion\Generator\Model\Table;
  use Propulsion\Generator\Model\Database;
  use Propulsion\Generator\Model\IDMethod;
+ use Propulsion\Generator\Platform\DefaultPlatform;
  use \Exception;
  use \PDO;
  use \PDOException;
 
 class PropulsionMigrationManager
 {
-	protected $connections;
+	/**
+	 * @var        array<string, array<string, mixed>>
+	 */
+	protected $connections = array();
+
+	/**
+	 * @var        array<string, PDO>
+	 */
 	protected $pdoConnections = array();
-	protected $migrationTable = 'propulsion_migration';
-	protected $migrationDir;
+	protected string $migrationTable = 'propulsion_migration';
+	protected ?string $migrationDir = null;
 
 	/**
 	 * Set the database connection settings
 	 *
-	 * @param array $connections
+	 * @param array<string, array<string, mixed>> $connections
 	 */
-	public function setConnections($connections)
+	public function setConnections($connections): void
 	{
 		$this->connections = $connections;
 	}
@@ -44,14 +52,17 @@ class PropulsionMigrationManager
 	/**
 	 * Get the database connection settings
 	 *
-	 * @return array
+	 * @return array<string, array<string, mixed>>
 	 */
 	public function getConnections()
 	{
 		return $this->connections;
 	}
 
-	public function getConnection($datasource)
+	/**
+	 * @return array<string, mixed>
+	 */
+	public function getConnection(string $datasource)
 	{
 		if (!isset($this->connections[$datasource])) {
 			throw new \InvalidArgumentException(sprintf('Unkown datasource "%s"', $datasource));
@@ -59,7 +70,7 @@ class PropulsionMigrationManager
 		return $this->connections[$datasource];
 	}
 
-	public function getPdoConnection($datasource)
+	public function getPdoConnection(string $datasource): PDO
 	{
 		if (!isset($this->pdoConnections[$datasource])) {
 			$pdo = $this->createPdoConnection($datasource);
@@ -98,7 +109,7 @@ class PropulsionMigrationManager
 		return $pdo;
 	}
 
-	public function getPlatform($datasource)
+	public function getPlatform(string $datasource): DefaultPlatform
 	{
 		$params = $this->getConnection($datasource);
 		$adapter = $params['adapter'];
@@ -129,7 +140,7 @@ class PropulsionMigrationManager
 	 *
 	 * @param string $migrationTable
 	 */
-	public function setMigrationTable($migrationTable)
+	public function setMigrationTable($migrationTable): void
 	{
 		$this->migrationTable = $migrationTable;
 	}
@@ -149,7 +160,7 @@ class PropulsionMigrationManager
 	 *
 	 * @param string $migrationDir
 	 */
-	public function setMigrationDir($migrationDir)
+	public function setMigrationDir($migrationDir): void
 	{
 		$this->migrationDir = $migrationDir;
 	}
@@ -239,7 +250,7 @@ class PropulsionMigrationManager
 	 * derived by getCurrentVersion(), not read from here.
 	 *
 	 * @param string $datasource
-	 * @return array
+	 * @return array<int, array<string, mixed>>
 	 */
 	public function getMigrationLedger($datasource)
 	{
@@ -251,7 +262,7 @@ class PropulsionMigrationManager
 		return $stmt->fetchAll(PDO::FETCH_ASSOC);
 	}
 
-	public function getOldestDatabaseVersion()
+	public function getOldestDatabaseVersion(): int
 	{
 		if (!$connections = $this->getConnections()) {
 			throw new Exception('You must define database connection settings in a build-time connection config file (a buildtime-conf.php returning [\'default\' => ..., \'datasources\' => [...]], or a legacy buildtime-conf.xml) to use migrations');
@@ -279,7 +290,7 @@ class PropulsionMigrationManager
 		return $oldestMigrationTimestamp;
 	}
 
-	public function migrationTableExists($datasource)
+	public function migrationTableExists(string $datasource): bool
 	{
 		$pdo = $this->getPdoConnection($datasource);
 		$platform = $this->getPlatform($datasource);
@@ -307,7 +318,7 @@ class PropulsionMigrationManager
 	 *
 	 * @param string $datasource
 	 */
-	public function createMigrationTable($datasource)
+	public function createMigrationTable($datasource): void
 	{
 		$platform = $this->getPlatform($datasource);
 		// modelize the table
@@ -398,13 +409,13 @@ class PropulsionMigrationManager
 	 *                    sha256 and stored so a future validate/status command
 	 *                    could detect a migration file edited after it ran.
 	 * @param bool $success Whether this attempt fully succeeded.
-	 * @param array $statementLog List of
+	 * @param array<int, array<string, mixed>> $statementLog List of
 	 *                    ['sql' => ..., 'status' => 'success'|'failed'|'not_attempted', 'error' => ...]
 	 *                    entries, one per statement in this direction's
 	 *                    migration ('error' only present when status is
 	 *                    'failed').
 	 */
-	public function recordMigrationRun($datasource, $timestamp, $direction, $sql, $success, array $statementLog)
+	public function recordMigrationRun($datasource, $timestamp, $direction, $sql, $success, array $statementLog): void
 	{
 		$platform = $this->getPlatform($datasource);
 		$migrationName = self::getMigrationClassName($timestamp);
@@ -467,7 +478,7 @@ class PropulsionMigrationManager
 	 *
 	 * @param      int $timestamp The migration's timestamp identifier.
 	 * @param      string $direction 'up' or 'down'.
-	 * @param      array $sqlByDatasource Keyed by datasource name, as
+	 * @param      array<string, string> $sqlByDatasource Keyed by datasource name, as
 	 *             returned by a migration class' getUpSQL()/getDownSQL().
 	 * @param      ?callable $logger Optional callback invoked as
 	 *             `function(string $message, bool $verbose = false): void`
@@ -479,7 +490,7 @@ class PropulsionMigrationManager
 	 *             ledger), or if a datasource has no SQL statements to
 	 *             execute at all.
 	 */
-	public function runMigrationDirection($timestamp, $direction, array $sqlByDatasource, ?callable $logger = null)
+	public function runMigrationDirection($timestamp, $direction, array $sqlByDatasource, ?callable $logger = null): void
 	{
 		$logger = $logger ?? function ($message, $verbose = false) {};
 
@@ -566,7 +577,10 @@ class PropulsionMigrationManager
 		}
 	}
 
-	public function getMigrationTimestamps()
+	/**
+	 * @return array<int, int>
+	 */
+	public function getMigrationTimestamps(): array
 	{
 		$path = $this->getMigrationDir();
 		$migrationTimestamps = array();
@@ -583,7 +597,10 @@ class PropulsionMigrationManager
 		return $migrationTimestamps;
 	}
 
-	public function getValidMigrationTimestamps()
+	/**
+	 * @return array<int, int>
+	 */
+	public function getValidMigrationTimestamps(): array
 	{
 		$oldestMigrationTimestamp = $this->getOldestDatabaseVersion();
 		$migrationTimestamps = $this->getMigrationTimestamps();
@@ -598,7 +615,10 @@ class PropulsionMigrationManager
 		return $migrationTimestamps;
 	}
 
-	public function getAlreadyExecutedMigrationTimestamps()
+	/**
+	 * @return array<int, int>
+	 */
+	public function getAlreadyExecutedMigrationTimestamps(): array
 	{
 		$oldestMigrationTimestamp = $this->getOldestDatabaseVersion();
 		$migrationTimestamps = $this->getMigrationTimestamps();
@@ -613,18 +633,18 @@ class PropulsionMigrationManager
 		return $migrationTimestamps;
 	}
 
-	public function getFirstUpMigrationTimestamp()
+	public function getFirstUpMigrationTimestamp(): ?int
 	{
 		$validTimestamps = $this->getValidMigrationTimestamps();
 		return array_shift($validTimestamps);
 	}
 
-	public function getFirstDownMigrationTimestamp()
+	public function getFirstDownMigrationTimestamp(): int
 	{
 		return $this->getOldestDatabaseVersion();
 	}
 
-	public static function getMigrationClassName($timestamp)
+	public static function getMigrationClassName(int $timestamp): string
 	{
 		return sprintf('PropulsionMigration_%d', $timestamp);
 	}
@@ -652,7 +672,7 @@ class PropulsionMigrationManager
 		return in_array($normalized, array('1', 't', 'true', 'y', 'yes'), true);
 	}
 
-	public function getMigrationObject($timestamp)
+	public function getMigrationObject(int $timestamp): mixed
 	{
 		$className = $this->getMigrationClassName($timestamp);
 		require_once sprintf('%s/%s.php',
@@ -662,7 +682,11 @@ class PropulsionMigrationManager
 		return new $className();
 	}
 
-	public function getMigrationClassBody($migrationsUp, $migrationsDown, $timestamp)
+	/**
+	 * @param array<string, string> $migrationsUp
+	 * @param array<string, string> $migrationsDown
+	 */
+	public function getMigrationClassBody($migrationsUp, $migrationsDown, int $timestamp): string
 	{
 		$timeInWords = date('Y-m-d H:i:s', $timestamp);
 		$migrationAuthor = ($author = $this->getUser()) ? 'by ' . $author : '';
@@ -727,12 +751,12 @@ EOP;
 		return $migrationClassBody;
 	}
 
-	public static function getMigrationFileName($timestamp)
+	public static function getMigrationFileName(int $timestamp): string
 	{
 		return sprintf('%s.php', self::getMigrationClassName($timestamp));
 	}
 
-	public static function getUser()
+	public static function getUser(): string
 	{
 		if (function_exists('posix_getuid')) {
 			$currentUser = posix_getpwuid(posix_getuid());

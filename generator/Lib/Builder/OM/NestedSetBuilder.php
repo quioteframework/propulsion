@@ -59,7 +59,7 @@ class NestedSetBuilder extends AbstractObjectBuilder
 	 * Adds the include() statements for files that this class depends on or utilizes.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addIncludes(&$script = null)
+	protected function addIncludes(&$script = null): void
 	{
 		// PHP 8.4 uses namespaces and autoloading, but the generated code below still
 		// references these short class names, so they must be declared here for the
@@ -223,7 +223,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addGetIterator(&$script): void
+	protected function addGetIterator(string &$script): void
 	{
 		$script .= "
 	/**
@@ -236,7 +236,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addSave(&$script): void
+	protected function addSave(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -263,7 +263,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addDelete(&$script): void
+	protected function addDelete(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -284,7 +284,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addMakeRoot(&$script): void
+	protected function addMakeRoot(string &$script): void
 	{
 		$objectClassName = $this->getStubObjectBuilder()->getClassname();
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
@@ -303,7 +303,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addGetLevel(&$script): void
+	protected function addGetLevel(string &$script): void
 	{
 		// Must accept an optional PropulsionPDO connection and lazily compute the level via the
 		// Peer if not already set, to match the Propulsion\OM\NodeObject interface signature
@@ -326,7 +326,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addGetPath(&$script): void
+	protected function addGetPath(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -340,7 +340,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addGetNumberOfChildren(&$script): void
+	protected function addGetNumberOfChildren(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -354,7 +354,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addGetNumberOfDescendants(&$script): void
+	protected function addGetNumberOfDescendants(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -368,7 +368,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addGetChildren(&$script): void
+	protected function addGetChildren(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -388,7 +388,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addGetDescendants(&$script): void
+	protected function addGetDescendants(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -404,7 +404,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addSetLevel(&$script): void
+	protected function addSetLevel(string &$script): void
 	{
 		// No return type here: Propulsion\OM\NodeObject::setLevel($level) is untyped, and
 		// (for reasons that only surface once this builder is actually used to build a class
@@ -424,7 +424,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addSetChildren(&$script): void
+	protected function addSetChildren(string &$script): void
 	{
 		$script .= "
 	/**
@@ -438,7 +438,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addSetParentNode(&$script): void
+	protected function addSetParentNode(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -453,7 +453,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addSetPrevSibling(&$script): void
+	protected function addSetPrevSibling(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -469,7 +469,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addSetNextSibling(&$script): void
+	protected function addSetNextSibling(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -485,7 +485,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addIsRoot(&$script): void
+	protected function addIsRoot(string &$script): void
 	{
 		$script .= "
 	/**
@@ -498,7 +498,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addIsLeaf(&$script): void
+	protected function addIsLeaf(string &$script): void
 	{
 		$script .= "
 	/**
@@ -511,7 +511,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addIsEqualTo(&$script): void
+	protected function addIsEqualTo(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -525,7 +525,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addHasParent(&$script): void
+	protected function addHasParent(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -542,7 +542,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addHasChildren(&$script): void
+	protected function addHasChildren(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -556,7 +556,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addHasPrevSibling(&$script): void
+	protected function addHasPrevSibling(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -573,7 +573,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addHasNextSibling(&$script): void
+	protected function addHasNextSibling(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -590,7 +590,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addRetrieveParent(&$script): void
+	protected function addRetrieveParent(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -610,7 +610,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addRetrieveFirstChild(&$script): void
+	protected function addRetrieveFirstChild(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -633,7 +633,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addRetrieveLastChild(&$script): void
+	protected function addRetrieveLastChild(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -657,7 +657,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addRetrievePrevSibling(&$script): void
+	protected function addRetrievePrevSibling(string &$script): void
 	{
 		$script .= "
 	/**
@@ -675,7 +675,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addRetrieveNextSibling(&$script): void
+	protected function addRetrieveNextSibling(string &$script): void
 	{
 		$script .= "
 	/**
@@ -693,7 +693,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addInsertAsFirstChildOf(&$script): void
+	protected function addInsertAsFirstChildOf(string &$script): void
 	{
 		$objectClassName = $this->getStubObjectBuilder()->getClassname();
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
@@ -715,7 +715,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addInsertAsLastChildOf(&$script): void
+	protected function addInsertAsLastChildOf(string &$script): void
 	{
 		$objectClassName = $this->getStubObjectBuilder()->getClassname();
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
@@ -737,7 +737,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addInsertAsPrevSiblingOf(&$script): void
+	protected function addInsertAsPrevSiblingOf(string &$script): void
 	{
 		$objectClassName = $this->getStubObjectBuilder()->getClassname();
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
@@ -759,7 +759,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addInsertAsNextSiblingOf(&$script): void
+	protected function addInsertAsNextSiblingOf(string &$script): void
 	{
 		$objectClassName = $this->getStubObjectBuilder()->getClassname();
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
@@ -781,7 +781,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addMoveToFirstChildOf(&$script): void
+	protected function addMoveToFirstChildOf(string &$script): void
 	{
 		$objectClassName = $this->getStubObjectBuilder()->getClassname();
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
@@ -802,7 +802,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addMoveToLastChildOf(&$script): void
+	protected function addMoveToLastChildOf(string &$script): void
 	{
 		$objectClassName = $this->getStubObjectBuilder()->getClassname();
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
@@ -823,7 +823,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addMoveToPrevSiblingOf(&$script): void
+	protected function addMoveToPrevSiblingOf(string &$script): void
 	{
 		$objectClassName = $this->getStubObjectBuilder()->getClassname();
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
@@ -844,7 +844,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addMoveToNextSiblingOf(&$script): void
+	protected function addMoveToNextSiblingOf(string &$script): void
 	{
 		$objectClassName = $this->getStubObjectBuilder()->getClassname();
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
@@ -865,7 +865,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addInsertAsParentOf(&$script): void
+	protected function addInsertAsParentOf(string &$script): void
 	{
 		$objectClassName = $this->getStubObjectBuilder()->getClassname();
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
@@ -883,7 +883,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addGetLeft(&$script): void
+	protected function addGetLeft(string &$script): void
 	{
 		$table = $this->getTable();
 
@@ -916,7 +916,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addGetRight(&$script): void
+	protected function addGetRight(string &$script): void
 	{
 		$table = $this->getTable();
 
@@ -949,7 +949,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addGetScopeId(&$script): void
+	protected function addGetScopeId(string &$script): void
 	{
 		$table = $this->getTable();
 
@@ -981,7 +981,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addSetLeft(&$script): void
+	protected function addSetLeft(string &$script): void
 	{
 		$table = $this->getTable();
 
@@ -1008,7 +1008,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addSetRight(&$script): void
+	protected function addSetRight(string &$script): void
 	{
 		$table = $this->getTable();
 
@@ -1035,7 +1035,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 ";
 	}
 
-	protected function addSetScopeId(&$script): void
+	protected function addSetScopeId(string &$script): void
 	{
 		$table = $this->getTable();
 

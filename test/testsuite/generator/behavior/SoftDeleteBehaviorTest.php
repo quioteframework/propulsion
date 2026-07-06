@@ -408,7 +408,7 @@ if (class_exists(Table4::class)) {
 
 	class PostdeletehookedTable4 extends Table4
 	{
-		public function postDelete(?PropulsionPDO $con = null)
+		public function postDelete(?PropulsionPDO $con = null): void
 		{
 			parent::postDelete($con);
 			$this->setTitle('post-deleted');

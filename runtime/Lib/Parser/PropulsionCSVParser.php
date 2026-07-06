@@ -25,16 +25,16 @@ class PropulsionCSVParser extends PropulsionParser
 
 	// these settings are predefined for Excel CSV format
 
-	public $delimiter = ',';
-	public $lineTerminator = "\r\n";
-	public $quotechar = '"';
-	public $escapechar = "\\";
-	public $quoting = self::QUOTE_MINIMAL;
+	public string $delimiter = ',';
+	public string $lineTerminator = "\r\n";
+	public string $quotechar = '"';
+	public string $escapechar = "\\";
+	public int $quoting = self::QUOTE_MINIMAL;
 
 	/**
 	 * Converts data from an associative array to CSV.
 	 *
-	 * @param  array   $array Source data to convert
+	 * @param  array<mixed>   $array Source data to convert
 	 * @param  boolean $isList Whether the input data contains more than one row
 	 * @param  boolean $includeHeading Whether the output should contain a heading line
 	 *
@@ -60,6 +60,10 @@ class PropulsionCSVParser extends PropulsionParser
 		return implode($this->lineTerminator, $rows) . $this->lineTerminator;
 	}
 
+	/**
+	 * @param  array<mixed> $array
+	 * @return string
+	 */
 	public function listFromArray($array)
 	{
 		return $this->fromArray($array, true);
@@ -68,10 +72,10 @@ class PropulsionCSVParser extends PropulsionParser
 	/**
 	 * Accepts a row of data and returns it formatted
 	 *
-	 * @param array	$row	An array of data to be formatted for output to the file
-	 * @return array	The formatted array
+	 * @param array<int|string, mixed>	$row	An array of data to be formatted for output to the file
+	 * @return array<int|string, mixed>	The formatted array
 	 */
-	protected function formatRow($row)
+	protected function formatRow(array $row): array
 	{
 		foreach ($row as &$column) {
 			if (!is_scalar($column)) {
@@ -159,7 +163,7 @@ class PropulsionCSVParser extends PropulsionParser
 	/**
 	 * Alias for PropulsionCSVParser::fromArray()
 	 *
-	 * @param  array   $array Source data to convert
+	 * @param  array<mixed>   $array Source data to convert
 	 * @param  boolean $isList Whether the input data contains more than one row
 	 * @param  boolean $includeHeading Whether the output should contain a heading line
 	 *
@@ -177,7 +181,7 @@ class PropulsionCSVParser extends PropulsionParser
 	 * @param  boolean $isList Whether the input data contains more than one row
 	 * @param  boolean $includeHeading Whether the input contains a heading line
 	 *
-	 * @return array   Converted data
+	 * @return array<mixed>   Converted data
 	 */
 	public function toArray($data, $isList = false, $includeHeading = true)
 	{
@@ -212,12 +216,19 @@ class PropulsionCSVParser extends PropulsionParser
 		return $array;
 	}
 
+	/**
+	 * @param  string $array Source data to convert, as a CSV string
+	 * @return array<mixed>
+	 */
 	public function listToArray($array)
 	{
 		return $this->toArray($array, true);
 	}
 
-	protected function getColumns($row)
+	/**
+	 * @return array<int, string>
+	 */
+	protected function getColumns(string $row): array
 	{
 		$delim = preg_quote($this->delimiter, '/');
 		preg_match_all('/(".+?"|[^' . $delim . ']+)(' . $delim . '|$)/', $row, $matches);
@@ -227,10 +238,10 @@ class PropulsionCSVParser extends PropulsionParser
 	/**
 	 * Accepts a formatted row of data and returns it raw
 	 *
-	 * @param array $row An array of data from a CSV output
-	 * @return array The cleaned up array
+	 * @param array<int, string> $row An array of data from a CSV output
+	 * @return array<int, mixed> The cleaned up array
 	 */
-	protected function cleanupRow($row)
+	protected function cleanupRow(array $row): array
 	{
 		foreach ($row as $key => $column) {
 			if ($this->isQuoted($column)) {
@@ -247,13 +258,16 @@ class PropulsionCSVParser extends PropulsionParser
 		return $row;
 	}
 
-	protected function isQuoted($input)
+	/**
+	 * @return int|false
+	 */
+	protected function isQuoted(string $input)
 	{
 		$quote = preg_quote($this->quotechar, '/');
 		return preg_match('/^' . $quote . '.*' . $quote . '$/', $input);
 	}
 
-	protected function unescape($input)
+	protected function unescape(string $input): string
 	{
 		return str_replace(
 			$this->escapechar . $this->quotechar,
@@ -262,15 +276,17 @@ class PropulsionCSVParser extends PropulsionParser
 		);
 	}
 
-	protected function unquote($input)
+	protected function unquote(string $input): string
 	{
 		return trim($input, $this->quotechar);
 	}
 
 	/**
 	 * Checks whether a value from CSV output is serialized
+	 *
+	 * @return int|false
 	 */
-	protected function isSerialized($input)
+	protected function isSerialized(string $input)
 	{
 		return preg_match('/^\w\:\d+\:\{/', $input);
 	}
@@ -293,7 +309,7 @@ class PropulsionCSVParser extends PropulsionParser
 	 * @param  boolean $isList Whether the input data contains more than one row
 	 * @param  boolean $includeHeading Whether the input contains a heading line
 	 *
-	 * @return array   Converted data
+	 * @return array<mixed>   Converted data
 	 */
 	public function fromCSV($data, $isList = false, $includeHeading = true)
 	{

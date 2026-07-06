@@ -41,6 +41,7 @@ namespace Propulsion\Generator\Behavior;
 class AlternativeCodingStandardsBehavior extends Behavior
 {
 	// default parameters value
+  /** @var array<string,string|int> */
   protected $parameters = array(
   	'brackets_newline'        => 'true',
   	'remove_closing_comments' => 'true',
@@ -49,39 +50,39 @@ class AlternativeCodingStandardsBehavior extends Behavior
   	'strip_comments'          => 'false'
   );
 
-	public function objectFilter(&$script)
+	public function objectFilter(string &$script): void
 	{
-		return $this->filter($script);
+		$this->filter($script);
 	}
 
-	public function extensionObjectFilter(&$script)
+	public function extensionObjectFilter(string &$script): void
 	{
-		return $this->filter($script);
+		$this->filter($script);
 	}
 
-	public function queryFilter(&$script)
+	public function queryFilter(string &$script): void
 	{
-		return $this->filter($script);
+		$this->filter($script);
 	}
 
-	public function extensionQueryFilter(&$script)
+	public function extensionQueryFilter(string &$script): void
 	{
-		return $this->filter($script);
+		$this->filter($script);
 	}
 
-	public function peerFilter(&$script)
+	public function peerFilter(string &$script): void
 	{
-		return $this->filter($script);
+		$this->filter($script);
 	}
 
-	public function extensionPeerFilter(&$script)
+	public function extensionPeerFilter(string &$script): void
 	{
-		return $this->filter($script);
+		$this->filter($script);
 	}
 
-	public function tableMapFilter(&$script)
+	public function tableMapFilter(string &$script): void
 	{
-		return $this->filter($script);
+		$this->filter($script);
 	}
 
 	/**
@@ -89,7 +90,7 @@ class AlternativeCodingStandardsBehavior extends Behavior
 	 *
 	 * @param string $script A script string to be filtered, passed as reference
 	 */
-	protected function filter(&$script)
+	protected function filter(string &$script): void
 	{
 		$filter = array();
 		if($this->getParameter('brackets_newline') == 'true') {

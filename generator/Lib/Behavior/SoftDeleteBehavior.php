@@ -18,19 +18,26 @@ namespace Propulsion\Generator\Behavior;
  * @version    $Revision$
  */
 
- use Propulsion\Generator\Model\Behavior;
+ use Propulsion\Generator\Builder\OM\ObjectBuilder;
+use Propulsion\Generator\Builder\OM\PeerBuilder;
+use Propulsion\Generator\Builder\OM\QueryBuilder;
+use Propulsion\Generator\Model\Behavior;
 class SoftDeleteBehavior extends Behavior
 {
 	// default parameters value
+	/** @var array<string,string> */
 	protected $parameters = array(
 		'deleted_column' => 'deleted_at',
 	);
 
+	// Reused across objectMethods()/queryMethods()/staticMethods(), which are
+	// invoked with an ObjectBuilder, QueryBuilder or PeerBuilder respectively.
+	/** @var mixed */
 	protected $builder;
 	/**
 	 * Add the deleted_column to the current table
 	 */
-	public function modifyTable()
+	public function modifyTable(): void
 	{
 		if(!$this->getTable()->hasColumn($this->getParameter('deleted_column'))) {
 			$this->getTable()->addColumn(array(
@@ -40,12 +47,12 @@ class SoftDeleteBehavior extends Behavior
 		}
 	}
 
-	protected function getColumnSetter()
+	protected function getColumnSetter(): string
 	{
 		return 'set' . $this->getColumnForParameter('deleted_column')->getPhpName();
 	}
 
-	public function objectMethods($builder)
+	public function objectMethods(ObjectBuilder $builder): string
 	{
 		$this->builder = $builder;
 		$script = '';
@@ -54,7 +61,7 @@ class SoftDeleteBehavior extends Behavior
 		return $script;
 	}
 
-	public function addObjectForceDelete(&$script)
+	public function addObjectForceDelete(string &$script): void
 	{
 		$peerClassName = $this->builder->getPeerClassname();
 		$script .= "
@@ -74,7 +81,7 @@ public function forceDelete(?PropulsionPDO \$con = null)
 ";
 	}
 
-	public function addObjectUndelete(&$script)
+	public function addObjectUndelete(string &$script): void
 	{
 		$script .= "
 /**
@@ -90,7 +97,7 @@ public function unDelete(?PropulsionPDO \$con = null)
 ";
 	}
 
-	public function preDelete($builder)
+	public function preDelete(ObjectBuilder $builder): string
 	{
 		$script = "if (!empty(\$ret) && {$builder->getStubQueryBuilder()->getClassname()}::isSoftDeleteEnabled()) {";
 
@@ -118,14 +125,14 @@ public function unDelete(?PropulsionPDO \$con = null)
 		return $script;
 	}
 
-	public function queryAttributes()
+	public function queryAttributes(): string
 	{
 		return "protected static \$softDelete = true;
 protected \$localSoftDelete = true;
 ";
 	}
 
-	public function queryMethods($builder)
+	public function queryMethods(QueryBuilder $builder): string
 	{
 		$this->builder = $builder;
 		$script = '';
@@ -141,7 +148,7 @@ protected \$localSoftDelete = true;
 		return $script;
 	}
 
-	public function addQueryIncludeDeleted(&$script)
+	public function addQueryIncludeDeleted(string &$script): void
 	{
 		$script .= "
 /**
@@ -160,7 +167,7 @@ public function includeDeleted()
 ";
 	}
 
-	public function addQuerySoftDelete(&$script)
+	public function addQuerySoftDelete(string &$script): void
 	{
 		$script .= "
 /**
@@ -177,7 +184,7 @@ public function softDelete(?PropulsionPDO \$con = null)
 ";
 	}
 
-	public function addQueryForceDelete(&$script)
+	public function addQueryForceDelete(string &$script): void
 	{
 		$script .= "
 /**
@@ -194,7 +201,7 @@ public function forceDelete(?PropulsionPDO \$con = null)
 ";
 	}
 
-	public function addQueryForceDeleteAll(&$script)
+	public function addQueryForceDeleteAll(string &$script): void
 	{
 		$script .= "
 /**
@@ -210,7 +217,7 @@ public function forceDeleteAll(?PropulsionPDO \$con = null)
 ";
 	}
 
-	public function addQueryUnDelete(&$script)
+	public function addQueryUnDelete(string &$script): void
 	{
 		$script .= "
 /**
@@ -227,7 +234,7 @@ public function unDelete(?PropulsionPDO \$con = null)
 ";
 	}
 
-	public function addQueryEnableSoftDelete(&$script)
+	public function addQueryEnableSoftDelete(string &$script): void
 	{
 		$script .= "
 /**
@@ -240,7 +247,7 @@ public static function enableSoftDelete()
 ";
 	}
 
-	public function addQueryDisableSoftDelete(&$script)
+	public function addQueryDisableSoftDelete(string &$script): void
 	{
 		$script .= "
 /**
@@ -253,7 +260,7 @@ public static function disableSoftDelete()
 ";
 	}
 
-	public function addQueryIsSoftDeleteEnabled(&$script)
+	public function addQueryIsSoftDeleteEnabled(string &$script): void
 	{
 		$script .= "
 /**
@@ -268,7 +275,7 @@ public static function isSoftDeleteEnabled()
 ";
 	}
 
-	public function preSelectQuery($builder)
+	public function preSelectQuery(QueryBuilder $builder): string
 	{
 		return <<<EOT
 if ({$builder->getStubQueryBuilder()->getClassname()}::isSoftDeleteEnabled() && \$this->localSoftDelete) {
@@ -279,7 +286,7 @@ if ({$builder->getStubQueryBuilder()->getClassname()}::isSoftDeleteEnabled() && 
 EOT;
 	}
 
-	public function preDeleteQuery($builder)
+	public function preDeleteQuery(QueryBuilder $builder): string
 	{
 		return <<<EOT
 if ({$builder->getStubQueryBuilder()->getClassname()}::isSoftDeleteEnabled() && \$this->localSoftDelete) {
@@ -290,7 +297,7 @@ if ({$builder->getStubQueryBuilder()->getClassname()}::isSoftDeleteEnabled() && 
 EOT;
 	}
 
-	public function staticMethods($builder)
+	public function staticMethods(PeerBuilder $builder): string
 	{
 		$builder->declareClassFromBuilder($builder->getStubQueryBuilder());
 		$this->builder = $builder;
@@ -306,7 +313,7 @@ EOT;
 		return $script;
 	}
 
-	public function addPeerEnableSoftDelete(&$script)
+	public function addPeerEnableSoftDelete(string &$script): void
 	{
 		$script .= "
 /**
@@ -321,7 +328,7 @@ public static function enableSoftDelete()
 ";
 	}
 
-	public function addPeerDisableSoftDelete(&$script)
+	public function addPeerDisableSoftDelete(string &$script): void
 	{
 		$script .= "
 /**
@@ -334,7 +341,7 @@ public static function disableSoftDelete()
 ";
 	}
 
-	public function addPeerIsSoftDeleteEnabled(&$script)
+	public function addPeerIsSoftDeleteEnabled(string &$script): void
 	{
 		$script .= "
 /**
@@ -348,7 +355,7 @@ public static function isSoftDeleteEnabled()
 ";
 	}
 
-	public function addPeerDoSoftDelete(&$script)
+	public function addPeerDoSoftDelete(string &$script): void
 	{
 		$script .= "
 /**
@@ -399,7 +406,7 @@ public static function doSoftDelete(\$values, ?PropulsionPDO \$con = null)
 ";
 	}
 
-	public function addPeerDoDelete2(&$script)
+	public function addPeerDoDelete2(string &$script): void
 	{
 		$script .= "
 /**
@@ -422,7 +429,7 @@ public static function doDelete2(\$values, ?PropulsionPDO \$con = null)
 }";
 	}
 
-	public function addPeerDoSoftDeleteAll(&$script)
+	public function addPeerDoSoftDeleteAll(string &$script): void
 	{
 		$script .= "
 /**
@@ -448,7 +455,7 @@ public static function doSoftDeleteAll(?PropulsionPDO \$con = null)
 ";
 	}
 
-	public function addPeerDoDeleteAll2(&$script)
+	public function addPeerDoDeleteAll2(string &$script): void
 	{
 		$script .= "
 /**
@@ -470,7 +477,7 @@ public static function doDeleteAll2(?PropulsionPDO \$con = null)
 ";
 	}
 
-	public function preSelect($builder)
+	public function preSelect(PeerBuilder $builder): string
 	{
 		return <<<EOT
 if ({$builder->getStubQueryBuilder()->getClassname()}::isSoftDeleteEnabled()) {
@@ -481,7 +488,7 @@ if ({$builder->getStubQueryBuilder()->getClassname()}::isSoftDeleteEnabled()) {
 EOT;
 	}
 
-	public function peerFilter(&$script)
+	public function peerFilter(string &$script): void
 	{
 		$script = str_replace(array(
 			'public static function doDelete(',

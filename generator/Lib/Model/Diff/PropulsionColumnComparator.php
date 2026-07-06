@@ -45,7 +45,10 @@ class PropulsionColumnComparator
 		}
 	}
 
-	static function compareColumns(Column $fromColumn, Column $toColumn)
+	/**
+	 * @return array<string, array<int, mixed>>
+	 */
+	static function compareColumns(Column $fromColumn, Column $toColumn): array
 	{
 		$changedProperties = array();
 

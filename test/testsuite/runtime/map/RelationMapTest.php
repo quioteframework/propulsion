@@ -50,14 +50,16 @@ class RelationMapTest extends TestCase
 
   public function testProperties()
   {
-    $properties = array('type', 'onUpdate', 'onDelete');
-    foreach ($properties as $property)
+    // 'type' is an int (one of the MANY_TO_ONE/ONE_TO_MANY/ONE_TO_ONE constants);
+    // onUpdate/onDelete are strings (an SQL clause fragment, e.g. 'CASCADE').
+    $properties = array('type' => RelationMap::MANY_TO_ONE, 'onUpdate' => 'foo_value', 'onDelete' => 'foo_value');
+    foreach ($properties as $property => $testValue)
     {
       $getter = 'get' . ucfirst($property);
       $setter = 'set' . ucfirst($property);
       $this->assertNull($this->rmap->$getter(), "A new relation has no $property");
-      $this->rmap->$setter('foo_value');
-      $this->assertEquals('foo_value', $this->rmap->$getter(), "The $property is set by setType()");
+      $this->rmap->$setter($testValue);
+      $this->assertEquals($testValue, $this->rmap->$getter(), "The $property is set by setType()");
     }
   }
 

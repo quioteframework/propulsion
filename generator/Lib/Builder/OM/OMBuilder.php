@@ -28,16 +28,32 @@ abstract class OMBuilder extends DataModelBuilder
 	/**
 	 * Declared fully qualified classnames, to build the 'namespace' statements
    * according to this table's namespace.
-   * @var array
+   * @var array<string, list<string>>
 	 */
-	protected $declaredClasses = array();
+	protected array $declaredClasses = array();
 
-	protected $columnName;
+	protected ?string $columnName = null;
 
-	abstract protected function addIncludes(&$includes = null);
-	abstract protected function addClassOpen(&$scrript);
-	abstract protected function addClassBody(&$script);
-	abstract protected function addClassClose(&$script);
+	/**
+	 * @param string &$includes The script will be modified in this method.
+	 * @return void
+	 */
+	abstract protected function addIncludes(string &$includes = '');
+	/**
+	 * @param string &$scrript The script will be modified in this method.
+	 * @return void
+	 */
+	abstract protected function addClassOpen(string &$scrript);
+	/**
+	 * @param string &$script The script will be modified in this method.
+	 * @return void
+	 */
+	abstract protected function addClassBody(string &$script);
+	/**
+	 * @param string &$script The script will be modified in this method.
+	 * @return void
+	 */
+	abstract protected function addClassClose(string &$script);
 
 	/**
 	 * Builds the PHP source for current class and returns it as a string.
@@ -81,6 +97,8 @@ abstract class OMBuilder extends DataModelBuilder
 	 * This method may emit warnings for code which may cause problems
 	 * and will throw exceptions for errors that will definitely cause
 	 * problems.
+	 *
+	 * @return void
 	 */
 	protected function validateModel()
 	{
@@ -93,7 +111,7 @@ abstract class OMBuilder extends DataModelBuilder
 	 *
 	 * @return     string Some code
 	 */
-	public function buildObjectInstanceCreationCode($objName, $clsName)
+	public function buildObjectInstanceCreationCode(string $objName, string $clsName): string
 	{
 		return "$objName = new $clsName();";
 	}
@@ -209,7 +227,7 @@ abstract class OMBuilder extends DataModelBuilder
 		return $this->getTable()->getNamespace();
 	}
 
-	public function declareClassNamespace($class, $namespace = '')
+	public function declareClassNamespace(string $class, ?string $namespace = ''): void
 	{
 		$namespace ??= '';
 		if (isset($this->declaredClasses[$namespace])
@@ -219,7 +237,7 @@ abstract class OMBuilder extends DataModelBuilder
 		$this->declaredClasses[$namespace][] = $class;
 	}
 
-	public function declareClass($fullyQualifiedClassName)
+	public function declareClass(string $fullyQualifiedClassName): void
 	{
 		$fullyQualifiedClassName = trim($fullyQualifiedClassName, '\\');
 		if (($pos = strrpos($fullyQualifiedClassName, '\\')) !== false) {
@@ -230,12 +248,15 @@ abstract class OMBuilder extends DataModelBuilder
 		}
 	}
 
-	public function declareClassFromBuilder($builder)
+	public function declareClassFromBuilder(OMBuilder $builder): void
 	{
 		$this->declareClassNamespace($builder->getClassname(), $builder->getNamespace());
 	}
 
-	public function declareClasses()
+	/**
+	 * Declares multiple classes at once (variadic via func_get_args()).
+	 */
+	public function declareClasses(): void
 	{
 		$args = func_get_args();
 		foreach ($args as $class) {
@@ -243,7 +264,10 @@ abstract class OMBuilder extends DataModelBuilder
 		}
 	}
 
-	public function getDeclaredClasses($namespace = null)
+	/**
+	 * @return array<string, list<string>>|list<string>
+	 */
+	public function getDeclaredClasses(?string $namespace = null): array
 	{
 		if (null !== $namespace && isset($this->declaredClasses[$namespace])) {
 			return $this->declaredClasses[$namespace];
@@ -252,7 +276,7 @@ abstract class OMBuilder extends DataModelBuilder
 		}
 	}
 
-	public function getNamespaceStatement()
+	public function getNamespaceStatement(): ?string
 	{
 		$namespace = $this->getNamespace();
 		if ($namespace != '') {
@@ -260,9 +284,10 @@ abstract class OMBuilder extends DataModelBuilder
 
 ", $namespace);
 		}
+		return null;
 	}
 
-	public function getUseStatements($ignoredNamespace = null)
+	public function getUseStatements(?string $ignoredNamespace = null): string
 	{
 		$script = '';
 		$declaredClasses = $this->declaredClasses;
@@ -468,7 +493,7 @@ abstract class OMBuilder extends DataModelBuilder
 		}
 	}
 
-	protected static function getRefRelatedBySuffix(ForeignKey $fk)
+	protected static function getRefRelatedBySuffix(ForeignKey $fk): string
 	{
 		$relCol = '';
 		foreach ($fk->getLocalForeignMapping() as $localColumnName => $foreignColumnName) {
@@ -502,9 +527,9 @@ abstract class OMBuilder extends DataModelBuilder
 	 * Whether to add the include statements.
 	 * This is based on the build property propulsion.addIncludes
 	 */
-	protected function isAddIncludes()
+	protected function isAddIncludes(): bool
 	{
-		return $this->getBuildProperty('addIncludes');
+		return (bool) $this->getBuildProperty('addIncludes');
 	}
 
 	/**
@@ -529,8 +554,9 @@ abstract class OMBuilder extends DataModelBuilder
    * @param string $hookName The name of the hook as called from one of this class methods, e.g. "preSave"
    * @param string $modifier The name of the modifier object providing the method in the behavior
 	 * @param string &$script The script will be modified in this method.
+   * @return void
    */
-  public function applyBehaviorModifierBase($hookName, $modifier, &$script, $tab = "		")
+  public function applyBehaviorModifierBase(string $hookName, string $modifier, string &$script, string $tab = "		"): void
   {
     $modifierGetter = 'get' . $modifier;
     foreach ($this->getTable()->getBehaviors() as $behavior) {
@@ -557,8 +583,9 @@ abstract class OMBuilder extends DataModelBuilder
    * Checks whether any registered behavior content creator on that table exists a contentName
    * @param string $contentName The name of the content as called from one of this class methods, e.g. "parentClassname"
    * @param string $modifier The name of the modifier object providing the method in the behavior
+   * @return mixed
    */
-  public function getBehaviorContentBase($contentName, $modifier)
+  public function getBehaviorContentBase(string $contentName, string $modifier): mixed
   {
     $modifierGetter = 'get' . $modifier;
     foreach ($this->getTable()->getBehaviors() as $behavior) {
@@ -567,6 +594,7 @@ abstract class OMBuilder extends DataModelBuilder
         return $modifier->$contentName($this);
       }
     }
+    return null;
   }
 
 }

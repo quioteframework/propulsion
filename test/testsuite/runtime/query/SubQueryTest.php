@@ -221,9 +221,9 @@ class SubQueryTest extends BookstoreTestBase
 if (class_exists(BookQuery::class)) {
 	class TestableBookQuery extends BookQuery
 	{
-		public function configureSelectColumns()
+		public function configureSelectColumns(): void
 		{
-			return parent::configureSelectColumns();
+			parent::configureSelectColumns();
 		}
 	}
 }

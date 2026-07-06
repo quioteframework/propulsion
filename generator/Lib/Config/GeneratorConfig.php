@@ -31,11 +31,18 @@ class GeneratorConfig implements GeneratorConfigInterface
 	/**
 	 * The build properties.
 	 *
-	 * @var        array
+	 * @var        array<string,mixed>
 	 */
 	private $buildProperties = array();
 
+	/**
+	 * @var array<string,array{adapter:?string,dsn:?string,user:?string,password:?string}>|null
+	 */
 	protected $buildConnections = null;
+
+	/**
+	 * @var string|null
+	 */
 	protected $defaultBuildConnection = null;
 
 	/**
@@ -153,7 +160,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 
 	/**
 	 * Gets the build properties.
-	 * @return     array
+	 * @return     array<string,mixed>
 	 */
 	public function getBuildProperties()
 	{
@@ -168,7 +175,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 	 *
 	 * @param      mixed $props Array or Iterator
 	 */
-	public function setBuildProperties($props)
+	public function setBuildProperties($props): void
 	{
 		$this->buildProperties = array();
 
@@ -203,7 +210,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 	 * @param      string $name
 	 * @param      mixed $value
 	 */
-	public function setBuildProperty($name, $value)
+	public function setBuildProperty($name, $value): void
 	{
 		if ($value === 'true') {
 			$value = true;
@@ -326,7 +333,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 	 * @param      PDO $con
 	 * @return     PropulsionPlatformInterface|null
 	 */
-	public function getConfiguredPlatform(?\PDO $con = null, $database = null)
+	public function getConfiguredPlatform(?\PDO $con = null, ?string $database = null)
 	{
 		$buildConnection = $this->getBuildConnection($database);
 		if (null !== $buildConnection['adapter']) {
@@ -373,7 +380,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 	 * @param      string $type The type of builder ('ddl', 'sql', etc.)
 	 * @return     DataModelBuilder
 	 */
-	public function getConfiguredBuilder(mixed $table, $type, $cache = true)
+	public function getConfiguredBuilder(mixed $table, $type, bool $cache = true)
 	{
 		$classname = $this->getBuilderClassname($type);
 		$builder = new $classname($table);
@@ -411,7 +418,10 @@ class GeneratorConfig implements GeneratorConfigInterface
 		return $ret;
 	}
 
-	public function setBuildConnections($buildConnections)
+	/**
+	 * @param array<string,array{adapter:?string,dsn:?string,user:?string,password:?string}> $buildConnections
+	 */
+	public function setBuildConnections(array $buildConnections): void
 	{
 		$this->buildConnections = $buildConnections;
 	}
@@ -526,7 +536,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 	 * array format (a `.php` file, or `propulsion.buildtimeConfigArray`) is
 	 * recommended for new configs instead.
 	 */
-	protected function parseBuildConnections($xmlString)
+	protected function parseBuildConnections(string $xmlString): void
 	{
 		$conf = simplexml_load_string($xmlString);
 		$this->defaultBuildConnection = (string) $conf->propel->datasources['default'];
@@ -542,7 +552,10 @@ class GeneratorConfig implements GeneratorConfigInterface
 		$this->buildConnections = $buildConnections;
 	}
 
-	public function getBuildConnection($databaseName = null)
+	/**
+	 * @return array{adapter:?string,dsn:?string,user:?string,password:?string}
+	 */
+	public function getBuildConnection(?string $databaseName = null): array
 	{
 		$connections = $this->getBuildConnections();
 		if (null === $databaseName) {
@@ -562,7 +575,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 		}
 	}
 
-	public function getBuildPDO($database)
+	public function getBuildPDO(string $database): PDO
 	{
 		$buildConnection = $this->getBuildConnection($database);
 		$dsn = str_replace("@DB@", $database, $buildConnection['dsn']);

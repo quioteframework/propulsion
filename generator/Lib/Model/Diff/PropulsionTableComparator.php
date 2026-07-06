@@ -20,14 +20,14 @@ use Propulsion\Generator\Model\Column;
  */
 class PropulsionTableComparator
 {
-	protected $tableDiff;
+	protected PropulsionTableDiff $tableDiff;
 
-	public function __construct($tableDiff = null)
+	public function __construct(?PropulsionTableDiff $tableDiff = null)
 	{
 		$this->tableDiff = (null === $tableDiff) ? new PropulsionTableDiff() : $tableDiff;
 	}
 
-	public function getTableDiff()
+	public function getTableDiff(): PropulsionTableDiff
 	{
 		return $this->tableDiff;
 	}
@@ -37,7 +37,7 @@ class PropulsionTableComparator
 	 *
 	 * @param Table $fromTable
 	 */
-	public function setFromTable(Table $fromTable)
+	public function setFromTable(Table $fromTable): void
 	{
 		$this->tableDiff->setFromTable($fromTable);
 	}
@@ -57,7 +57,7 @@ class PropulsionTableComparator
 	 *
 	 * @param Table $toTable
 	 */
-	public function setToTable(Table $toTable)
+	public function setToTable(Table $toTable): void
 	{
 		$this->tableDiff->setToTable($toTable);
 	}

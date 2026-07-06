@@ -25,67 +25,67 @@ namespace Propulsion\Map;
 class ValidatorMap
 {
 	/** rule name of this validator */
-	private $name;
+	private ?string $name = null;
 	/** the dot-path to class to use for validator */
-	private $classname;
+	private ?string $classname = null;
 	/** value to check against */
-	private $value;
+	private ?string $value = null;
 	/** execption message thrown on invalid input */
-	private $message;
+	private ?string $message = null;
 	/** related column */
-	private $column;
+	private ColumnMap $column;
 
-	public function __construct($containingColumn)
+	public function __construct(ColumnMap $containingColumn)
 	{
 		$this->column = $containingColumn;
 	}
 
-	public function getColumn()
+	public function getColumn(): ColumnMap
 	{
 		return $this->column;
 	}
 
-	public function getColumnName()
+	public function getColumnName(): string
 	{
 		return $this->column->getColumnName();
 	}
 
-	public function setName($name)
+	public function setName(string $name): void
 	{
 		$this->name = $name;
 	}
 
-	public function setClass($classname)
+	public function setClass(string $classname): void
 	{
 		$this->classname = $classname;
 	}
 
-	public function setValue($value)
+	public function setValue(string $value): void
 	{
 		$this->value = $value;
 	}
 
-	public function setMessage($message)
+	public function setMessage(string $message): void
 	{
 		$this->message = $message;
 	}
 
-	public function getName()
+	public function getName(): ?string
 	{
 		return $this->name;
 	}
 
-	public function getClass()
+	public function getClass(): ?string
 	{
 		return $this->classname;
 	}
 
-	public function getValue()
+	public function getValue(): ?string
 	{
 		return $this->value;
 	}
 
-	public function getMessage()
+	public function getMessage(): ?string
 	{
 		return $this->message;
 	}

@@ -60,7 +60,7 @@ class NestedSetPeerBuilder extends AbstractPeerBuilder
 	 * Adds the include() statements for files that this class depends on or utilizes.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addIncludes(&$script = null)
+	protected function addIncludes(&$script = null): void
 	{
 		// PHP 8.4 uses namespaces and autoloading, but the generated code below still
 		// references these short class names, so they must be declared here for the
@@ -278,7 +278,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addCreateRoot(&$script): void
+	protected function addCreateRoot(string &$script): void
 	{
 		$objectClassname = $this->getStubObjectBuilder()->getClassname();
 		$script .= "
@@ -299,7 +299,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addRetrieveRoot(&$script): void
+	protected function addRetrieveRoot(string &$script): void
 	{
 		$objectClassname = $this->getStubObjectBuilder()->getClassname();
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
@@ -324,7 +324,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addInsertAsFirstChildOf(&$script): void
+	protected function addInsertAsFirstChildOf(string &$script): void
 	{
 		$script .= "
 	/**
@@ -351,7 +351,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addInsertAsLastChildOf(&$script): void
+	protected function addInsertAsLastChildOf(string &$script): void
 	{
 		$script .= "
 	/**
@@ -378,7 +378,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addInsertAsPrevSiblingOf(&$script): void
+	protected function addInsertAsPrevSiblingOf(string &$script): void
 	{
 		$script .= "
 	/**
@@ -408,7 +408,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addInsertAsNextSiblingOf(&$script): void
+	protected function addInsertAsNextSiblingOf(string &$script): void
 	{
 		$script .= "
 	/**
@@ -438,7 +438,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addInsertAsParentOf(&$script): void
+	protected function addInsertAsParentOf(string &$script): void
 	{
 		$script .= "
 	/**
@@ -473,7 +473,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addInsertRoot(&$script): void
+	protected function addInsertRoot(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -497,7 +497,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 	 * PHP5's NodePeer implementations exposed separately. Ported from
 	 * PHP5NestedSetPeerBuilder::addDeleteRoot()/addDeleteNode().
 	 */
-	protected function addDeleteTree(&$script): void
+	protected function addDeleteTree(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -543,7 +543,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addMoveToFirstChildOf(&$script): void
+	protected function addMoveToFirstChildOf(string &$script): void
 	{
 		$script .= "
 	/**
@@ -563,7 +563,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addMoveToLastChildOf(&$script): void
+	protected function addMoveToLastChildOf(string &$script): void
 	{
 		$script .= "
 	/**
@@ -583,7 +583,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addMoveToPrevSiblingOf(&$script): void
+	protected function addMoveToPrevSiblingOf(string &$script): void
 	{
 		$script .= "
 	/**
@@ -603,7 +603,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addMoveToNextSiblingOf(&$script): void
+	protected function addMoveToNextSiblingOf(string &$script): void
 	{
 		$script .= "
 	/**
@@ -623,7 +623,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addRetrieveFirstChild(&$script): void
+	protected function addRetrieveFirstChild(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -645,7 +645,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addRetrieveLastChild(&$script): void
+	protected function addRetrieveLastChild(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -667,7 +667,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addRetrievePrevSibling(&$script): void
+	protected function addRetrievePrevSibling(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -690,7 +690,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addRetrieveNextSibling(&$script): void
+	protected function addRetrieveNextSibling(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -713,7 +713,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addRetrieveTree(&$script): void
+	protected function addRetrieveTree(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$objectClassname = $this->getStubObjectBuilder()->getClassname();
@@ -751,7 +751,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addRetrieveBranch(&$script): void
+	protected function addRetrieveBranch(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -765,7 +765,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addRetrieveChildren(&$script): void
+	protected function addRetrieveChildren(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -788,7 +788,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addRetrieveDescendants(&$script): void
+	protected function addRetrieveDescendants(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -811,7 +811,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addRetrieveSiblings(&$script): void
+	protected function addRetrieveSiblings(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -830,7 +830,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addRetrieveParent(&$script): void
+	protected function addRetrieveParent(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -862,7 +862,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addGetLevel(&$script): void
+	protected function addGetLevel(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -894,7 +894,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addGetNumberOfChildren(&$script): void
+	protected function addGetNumberOfChildren(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -909,7 +909,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addGetNumberOfDescendants(&$script): void
+	protected function addGetNumberOfDescendants(string &$script): void
 	{
 		$script .= "
 	/**
@@ -924,7 +924,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addGetPath(&$script): void
+	protected function addGetPath(string &$script): void
 	{
 		$script .= "
 	/**
@@ -947,7 +947,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addIsValid(&$script): void
+	protected function addIsValid(string &$script): void
 	{
 		$script .= "
 	/**
@@ -960,7 +960,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addIsRoot(&$script): void
+	protected function addIsRoot(string &$script): void
 	{
 		$script .= "
 	/**
@@ -973,7 +973,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addIsLeaf(&$script): void
+	protected function addIsLeaf(string &$script): void
 	{
 		$script .= "
 	/**
@@ -986,7 +986,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addIsChildOf(&$script): void
+	protected function addIsChildOf(string &$script): void
 	{
 		$script .= "
 	/**
@@ -999,7 +999,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addIsEqualTo(&$script): void
+	protected function addIsEqualTo(string &$script): void
 	{
 		$script .= "
 	/**
@@ -1016,7 +1016,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addHasParent(&$script): void
+	protected function addHasParent(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -1030,7 +1030,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addHasPrevSibling(&$script): void
+	protected function addHasPrevSibling(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -1044,7 +1044,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addHasNextSibling(&$script): void
+	protected function addHasNextSibling(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -1058,7 +1058,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addHasChildren(&$script): void
+	protected function addHasChildren(string &$script): void
 	{
 		$script .= "
 	/**
@@ -1071,7 +1071,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addDeleteDescendants(&$script): void
+	protected function addDeleteDescendants(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -1109,7 +1109,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addGetNode(&$script): void
+	protected function addGetNode(string &$script): void
 	{
 		$objectClassname = $this->getStubObjectBuilder()->getClassname();
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
@@ -1131,7 +1131,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addHydrateDescendants(&$script): void
+	protected function addHydrateDescendants(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$objectClassname = $this->getStubObjectBuilder()->getClassname();
@@ -1185,7 +1185,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addHydrateChildren(&$script): void
+	protected function addHydrateChildren(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$objectClassname = $this->getStubObjectBuilder()->getClassname();
@@ -1225,7 +1225,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 ";
 	}
 
-	protected function addUpdateLoadedNode(&$script): void
+	protected function addUpdateLoadedNode(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$table = $this->getTable();
@@ -1285,7 +1285,7 @@ $rightSetterLine
 ";
 	}
 
-	protected function addUpdateDBNode(&$script): void
+	protected function addUpdateDBNode(string &$script): void
 	{
 		$script .= "
 	/**
@@ -1314,7 +1314,7 @@ $rightSetterLine
 ";
 	}
 
-	protected function addShiftRLValues(&$script): void
+	protected function addShiftRLValues(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -1381,7 +1381,7 @@ $rightSetterLine
 ";
 	}
 
-	protected function addShiftRLRange(&$script): void
+	protected function addShiftRLRange(string &$script): void
 	{
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
 		$script .= "
@@ -1443,31 +1443,31 @@ $rightSetterLine
 	 * No PHP5 precedent and no NodePeer interface obligation exists for this method name;
 	 * left as an intentional no-op. See KNOWN_ISSUES.md / port commit message for details.
 	 */
-	protected function addShiftLevel(&$script): void { /* Not applicable to treeMode="NestedSet": level is always computed on demand via getLevel(), never persisted or shifted in bulk. */ }
+	protected function addShiftLevel(string &$script): void { /* Not applicable to treeMode="NestedSet": level is always computed on demand via getLevel(), never persisted or shifted in bulk. */ }
 
 	/**
 	 * No PHP5 precedent and no NodePeer interface obligation exists for this method name;
 	 * left as an intentional no-op -- PHP5's insert*Of() methods make room directly via
 	 * shiftRLValues() rather than through a separate "make room for leaf" step.
 	 */
-	protected function addMakeRoomForLeaf(&$script): void { /* See addInsertAsFirstChildOf()/addInsertAsLastChildOf(): room-making is inlined via shiftRLValues(). */ }
+	protected function addMakeRoomForLeaf(string &$script): void { /* See addInsertAsFirstChildOf()/addInsertAsLastChildOf(): room-making is inlined via shiftRLValues(). */ }
 
 	/**
 	 * No PHP5 precedent and no NodePeer interface obligation exists for this method name;
 	 * left as an intentional no-op. Levels are recomputed lazily per-node by getLevel(),
 	 * so there is nothing to "fix" in bulk for this legacy treeMode.
 	 */
-	protected function addFixLevels(&$script): void { /* Not applicable to treeMode="NestedSet"; levels are computed lazily, not stored/cached tree-wide. */ }
+	protected function addFixLevels(string &$script): void { /* Not applicable to treeMode="NestedSet"; levels are computed lazily, not stored/cached tree-wide. */ }
 
 	/**
 	 * No PHP5 precedent and no NodePeer interface obligation exists for this method name;
 	 * left as an intentional no-op.
 	 */
-	protected function addGetMaxRight(&$script): void { /* Not part of the legacy NodePeer contract; no PHP5 precedent to port. */ }
+	protected function addGetMaxRight(string &$script): void { /* Not part of the legacy NodePeer contract; no PHP5 precedent to port. */ }
 
 	/**
 	 * No PHP5 precedent and no NodePeer interface obligation exists for this method name;
 	 * left as an intentional no-op.
 	 */
-	protected function addGetLastScope(&$script): void { /* Not part of the legacy NodePeer contract; no PHP5 precedent to port. */ }
+	protected function addGetLastScope(string &$script): void { /* Not part of the legacy NodePeer contract; no PHP5 precedent to port. */ }
 }

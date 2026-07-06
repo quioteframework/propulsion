@@ -13,6 +13,7 @@ namespace Propulsion\Generator\Util;
 use Propulsion\Generator\Config\GeneratorConfigInterface;
 use \PDO;
 use PDOStatement;
+use Propulsion\Adapter\DBAdapter;
 use Propulsion\Adapter\DBSQLite;
 use \Propulsion\Connection\PropulsionPDO;
 use Propulsion\Generator\Builder\OM\ExtensionQueryInheritanceBuilder;
@@ -21,6 +22,7 @@ use Propulsion\Generator\Builder\OM\OMBuilder;
 use Propulsion\Generator\Builder\OM\QueryInheritanceBuilder;
 use Propulsion\Generator\Builder\Util\XmlToAppData;
 use Propulsion\Generator\Config\QuickGeneratorConfig;
+use Propulsion\Generator\Model\Database;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Platform\DefaultPlatform;
 use Propulsion\Generator\Platform\PropulsionPlatformInterface;
@@ -29,9 +31,12 @@ use \Propulsion\Propulsion;
 
 class PropulsionQuickBuilder
 {
-	protected $schema, $platform, $config, $database;
+	protected ?string $schema = null;
+	protected ?PropulsionPlatformInterface $platform = null;
+	protected ?GeneratorConfigInterface $config = null;
+	protected ?Database $database = null;
 
-	public function setSchema($schema)
+	public function setSchema(string $schema): void
 	{
 		$this->schema = $schema;
 	}
@@ -41,7 +46,7 @@ class PropulsionQuickBuilder
 	 *
 	 * @param PropulsionPlatformInterface $platform
 	 */
-	public function setPlatform($platform)
+	public function setPlatform(PropulsionPlatformInterface $platform): void
 	{
 		$this->platform = $platform;
 	}
@@ -51,7 +56,7 @@ class PropulsionQuickBuilder
 	 *
 	 * @return PropulsionPlatformInterface
 	 */
-	public function getPlatform()
+	public function getPlatform(): PropulsionPlatformInterface
 	{
 		if (null === $this->platform) {
 			$this->platform = new SqlitePlatform();
@@ -64,7 +69,7 @@ class PropulsionQuickBuilder
 	 *
 	 * @param GeneratorConfigInterface $config
 	 */
-	public function setConfig(GeneratorConfigInterface $config)
+	public function setConfig(GeneratorConfigInterface $config): void
 	{
 		$this->config = $config;
 	}
@@ -82,14 +87,14 @@ class PropulsionQuickBuilder
 		return $this->config;
 	}
 
-	public static function buildSchema($schema, $dsn = null, $user = null, $pass = null, $adapter = null)
+	public static function buildSchema(string $schema, ?string $dsn = null, ?string $user = null, ?string $pass = null, ?DBAdapter $adapter = null): PropulsionPDO
 	{
 		$builder = new self;
 		$builder->setSchema($schema);
 		return $builder->build($dsn, $user, $pass, $adapter);
 	}
 
-	public function build($dsn = null, $user = null, $pass = null, $adapter = null)
+	public function build(?string $dsn = null, ?string $user = null, ?string $pass = null, ?DBAdapter $adapter = null): PropulsionPDO
 	{
 		if (null === $dsn) {
 			$dsn = 'sqlite::memory:';
@@ -111,7 +116,7 @@ class PropulsionQuickBuilder
 		return $con;
 	}
 
-	public function getDatabase()
+	public function getDatabase(): ?Database
 	{
 		if (null === $this->database) {
 			$xtad = new XmlToAppData($this->getPlatform());
@@ -121,7 +126,7 @@ class PropulsionQuickBuilder
 		return $this->database;
 	}
 
-	public function buildSQL(PDO $con)
+	public function buildSQL(PDO $con): int
 	{
 		$statements = PropulsionSQLParser::parseString($this->getSQL());
 		foreach ($statements as $statement) {
@@ -138,7 +143,7 @@ class PropulsionQuickBuilder
 		return count($statements);
 	}
 
-	public function getSQL()
+	public function getSQL(): string
 	{
 		$platform = $this->getPlatform();
 		return $platform instanceof DefaultPlatform ? $platform->getAddTablesDDL($this->getDatabase()) : '';
@@ -179,12 +184,12 @@ class PropulsionQuickBuilder
 		return $builder instanceof OMBuilder ? $builder->build() : '';
 	}
 
-	public function buildClasses()
+	public function buildClasses(): void
 	{
 		eval($this->getClasses());
 	}
 
-	public function getClasses()
+	public function getClasses(): string
 	{
 		$script = '';
 		foreach ($this->getDatabase()->getTables() as $table) {
@@ -193,7 +198,7 @@ class PropulsionQuickBuilder
 		return $script;
 	}
 
-	public function getClassesForTable(Table $table)
+	public function getClassesForTable(Table $table): string
 	{
 		$script = '';
 
@@ -252,7 +257,7 @@ class PropulsionQuickBuilder
 		return $script;
 	}
 
-	public static function debugClassesForTable($schema, $tableName)
+	public static function debugClassesForTable(string $schema, string $tableName): void
 	{
 		$builder = new self;
 		$builder->setSchema($schema);

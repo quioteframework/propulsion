@@ -20,17 +20,21 @@ use Propulsion\Generator\Model\Table;
  */
 class PropulsionDatabaseDiff
 {
-	protected $addedTables = array();
-	protected $removedTables = array();
-	protected $modifiedTables = array();
-	protected $renamedTables = array();
+	/** @var array<string, Table> */
+	protected array $addedTables = array();
+	/** @var array<string, Table> */
+	protected array $removedTables = array();
+	/** @var array<string, PropulsionTableDiff> */
+	protected array $modifiedTables = array();
+	/** @var array<string, string> */
+	protected array $renamedTables = array();
 
 	/**
 	 * Setter for the addedTables property
 	 *
-	 * @param array $addedTables
+	 * @param array<string, Table> $addedTables
 	 */
-	public function setAddedTables($addedTables)
+	public function setAddedTables($addedTables): void
 	{
 		$this->addedTables = $addedTables;
 	}
@@ -41,7 +45,7 @@ class PropulsionDatabaseDiff
 	 * @param string $tableName
 	 * @param Table $addedTable
 	 */
-	public function addAddedTable($tableName, Table $addedTable)
+	public function addAddedTable($tableName, Table $addedTable): void
 	{
 		$this->addedTables[$tableName] = $addedTable;
 	}
@@ -51,7 +55,7 @@ class PropulsionDatabaseDiff
 	 *
 	 * @param string $tableName
 	 */
-	public function removeAddedTable($tableName)
+	public function removeAddedTable($tableName): void
 	{
 		unset($this->addedTables[$tableName]);
 	}
@@ -59,7 +63,7 @@ class PropulsionDatabaseDiff
 	/**
 	 * Getter for the addedTables property
 	 *
-	 * @return array
+	 * @return array<string, Table>
 	 */
 	public function getAddedTables()
 	{
@@ -91,9 +95,9 @@ class PropulsionDatabaseDiff
 	/**
 	 * Setter for the removedTables property
 	 *
-	 * @param array $removedTables
+	 * @param array<string, Table> $removedTables
 	 */
-	public function setRemovedTables($removedTables)
+	public function setRemovedTables($removedTables): void
 	{
 		$this->removedTables = $removedTables;
 	}
@@ -104,7 +108,7 @@ class PropulsionDatabaseDiff
 	 * @param string $tableName
 	 * @param Table $removedTable
 	 */
-	public function addRemovedTable($tableName, Table $removedTable)
+	public function addRemovedTable($tableName, Table $removedTable): void
 	{
 		$this->removedTables[$tableName] = $removedTable;
 	}
@@ -114,7 +118,7 @@ class PropulsionDatabaseDiff
 	 *
 	 * @param string $tableName
 	 */
-	public function removeRemovedTable($tableName)
+	public function removeRemovedTable($tableName): void
 	{
 		unset($this->removedTables[$tableName]);
 	}
@@ -122,7 +126,7 @@ class PropulsionDatabaseDiff
 	/**
 	 * Getter for the removedTables property
 	 *
-	 * @return array
+	 * @return array<string, Table>
 	 */
 	public function getRemovedTables()
 	{
@@ -154,9 +158,9 @@ class PropulsionDatabaseDiff
 	/**
 	 * Setter for the modifiedTables property
 	 *
-	 * @param array $modifiedTables
+	 * @param array<string, PropulsionTableDiff> $modifiedTables
 	 */
-	public function setModifiedTables($modifiedTables)
+	public function setModifiedTables($modifiedTables): void
 	{
 		$this->modifiedTables = $modifiedTables;
 	}
@@ -167,7 +171,7 @@ class PropulsionDatabaseDiff
 	 * @param string $tableName
 	 * @param PropulsionTableDiff $modifiedTable
 	 */
-	public function addModifiedTable($tableName, PropulsionTableDiff $modifiedTable)
+	public function addModifiedTable($tableName, PropulsionTableDiff $modifiedTable): void
 	{
 		$this->modifiedTables[$tableName] = $modifiedTable;
 	}
@@ -185,7 +189,7 @@ class PropulsionDatabaseDiff
 	/**
 	 * Getter for the modifiedTables property
 	 *
-	 * @return array
+	 * @return array<string, PropulsionTableDiff>
 	 */
 	public function getModifiedTables()
 	{
@@ -195,9 +199,9 @@ class PropulsionDatabaseDiff
 	/**
 	 * Setter for the renamedTables property
 	 *
-	 * @param array $renamedTables
+	 * @param array<string, string> $renamedTables
 	 */
-	public function setRenamedTables($renamedTables)
+	public function setRenamedTables($renamedTables): void
 	{
 		$this->renamedTables = $renamedTables;
 	}
@@ -208,7 +212,7 @@ class PropulsionDatabaseDiff
 	 * @param string $fromName
 	 * @param string $toName
 	 */
-	public function addRenamedTable($fromName, $toName)
+	public function addRenamedTable($fromName, $toName): void
 	{
 		$this->renamedTables[$fromName] = $toName;
 	}
@@ -216,7 +220,7 @@ class PropulsionDatabaseDiff
 	/**
 	 * Getter for the renamedTables property
 	 *
-	 * @return array
+	 * @return array<string, string>
 	 */
 	public function getRenamedTables()
 	{

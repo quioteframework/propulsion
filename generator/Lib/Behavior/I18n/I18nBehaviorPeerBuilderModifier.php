@@ -18,14 +18,14 @@ namespace Propulsion\Generator\Behavior\I18n;
  */
 class I18nBehaviorPeerBuilderModifier
 {
-	protected $behavior;
+	protected I18nBehavior $behavior;
 
-	public function __construct($behavior)
+	public function __construct(I18nBehavior $behavior)
 	{
 		$this->behavior = $behavior;
 	}
 
-	public function staticConstants()
+	public function staticConstants(): string
 	{
 		return "
 /**

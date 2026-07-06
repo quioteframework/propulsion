@@ -16,42 +16,42 @@ namespace Propulsion\Generator\Behavior\Versionable;
  */
 class VersionableBehaviorQueryBuilderModifier
 {
-  protected $behavior,
-    $table,
-    $builder,
-    $objectClassname,
-    $peerClassname,
-    $queryClassname;
+  protected VersionableBehavior $behavior;
+  protected \Propulsion\Generator\Model\Table $table;
+  protected \Propulsion\Generator\Builder\OM\QueryBuilder $builder;
+  protected string $objectClassname;
+  protected string $peerClassname;
+  protected string $queryClassname;
 
-  public function __construct($behavior)
+  public function __construct(VersionableBehavior $behavior)
   {
     $this->behavior = $behavior;
     $this->table = $behavior->getTable();
   }
 
-  protected function getParameter($key)
+  protected function getParameter(string $key): mixed
   {
     return $this->behavior->getParameter($key);
   }
 
-  protected function getColumnAttribute($name = "version_column")
+  protected function getColumnAttribute(string $name = "version_column"): string
   {
     return strtolower($this->behavior->getColumnForParameter($name)->getName());
   }
 
-  protected function getColumnPhpName($name = "version_column")
+  protected function getColumnPhpName(string $name = "version_column"): string
   {
     return $this->behavior->getColumnForParameter($name)->getPhpName();
   }
 
-  protected function getVersionQueryClassName()
+  protected function getVersionQueryClassName(): string
   {
     return $this->builder
       ->getNewStubQueryBuilder($this->behavior->getVersionTable())
       ->getClassname();
   }
 
-  protected function setBuilder($builder)
+  protected function setBuilder(\Propulsion\Generator\Builder\OM\QueryBuilder $builder): void
   {
     $this->builder = $builder;
     $this->objectClassname = $builder->getStubObjectBuilder()->getClassname();
@@ -64,7 +64,7 @@ class VersionableBehaviorQueryBuilderModifier
    *
    * @return string The related getter, e.g. 'getVersion'
    */
-  protected function getColumnGetter($name = "version_column")
+  protected function getColumnGetter(string $name = "version_column"): string
   {
     return "get" . $this->getColumnPhpName($name);
   }
@@ -74,12 +74,12 @@ class VersionableBehaviorQueryBuilderModifier
    *
    * @return string The related setter, e.g. 'setVersion'
    */
-  protected function getColumnSetter($name = "version_column")
+  protected function getColumnSetter(string $name = "version_column"): string
   {
     return "set" . $this->getColumnPhpName($name);
   }
 
-  public function queryMethods($builder)
+  public function queryMethods(\Propulsion\Generator\Builder\OM\QueryBuilder $builder): string
   {
     $this->setBuilder($builder);
     $script = "";
@@ -91,7 +91,7 @@ class VersionableBehaviorQueryBuilderModifier
     return $script;
   }
 
-  protected function addFilterByVersion(&$script)
+  protected function addFilterByVersion(string &$script): void
   {
     $script .=
       "
@@ -111,7 +111,7 @@ public function filterByVersion(\$version = null, \$comparison = null)
 ";
   }
 
-  protected function addOrderByVersion(&$script)
+  protected function addOrderByVersion(string &$script): void
   {
     $script .=
       "

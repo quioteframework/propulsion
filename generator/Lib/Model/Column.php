@@ -29,16 +29,17 @@ class Column extends XMLElement
 
 	const DEFAULT_TYPE = "VARCHAR";
 	const DEFAULT_VISIBILITY = 'public';
-	public static $valid_visibilities = array('public', 'protected', 'private');
+	/** @var string[] */
+	public static array $valid_visibilities = array('public', 'protected', 'private');
 
-	private $name;
-	private $description;
-	private $phpName = null;
-	private $phpNamingMethod;
-	private $isNotNull = false;
-	private $namePrefix;
-	private $accessorVisibility;
-	private $mutatorVisibility;
+	private ?string $name = null;
+	private ?string $description = null;
+	private ?string $phpName = null;
+	private ?string $phpNamingMethod = null;
+	private bool $isNotNull = false;
+	private ?string $namePrefix = null;
+	private ?string $accessorVisibility = null;
+	private ?string $mutatorVisibility = null;
 
 	/**
 	 * The name to use for the Peer constant that identifies this column.
@@ -58,33 +59,35 @@ class Column extends XMLElement
 	 */
 	private $parentTable;
 
-	private $position;
-	private $isPrimaryKey = false;
-	private $isNodeKey = false;
-	private $nodeKeySep;
-	private $isNestedSetLeftKey = false;
-	private $isNestedSetRightKey = false;
-	private $isTreeScopeKey = false;
-	private $isUnique = false;
-	private $isAutoIncrement = false;
-	private $isLazyLoad = false;
-	private $referrers;
-	private $isPrimaryString = false;
+	private ?int $position = null;
+	private bool $isPrimaryKey = false;
+	private bool $isNodeKey = false;
+	private ?string $nodeKeySep = null;
+	private bool $isNestedSetLeftKey = false;
+	private bool $isNestedSetRightKey = false;
+	private bool $isTreeScopeKey = false;
+	private bool $isUnique = false;
+	private bool $isAutoIncrement = false;
+	private bool $isLazyLoad = false;
+	/** @var ForeignKey[]|null */
+	private ?array $referrers = null;
+	private bool $isPrimaryString = false;
 
 	// only one type is supported currently, which assumes the
 	// column either contains the classnames or a key to
 	// classnames specified in the schema.	Others may be
 	// supported later.
-	private $inheritanceType;
-	private $isInheritance;
-	private $isEnumeratedClasses;
-	private $inheritanceList;
-	private $needsTransactionInPostgres; //maybe this can be retrieved from vendorSpecificInfo
+	private ?string $inheritanceType = null;
+	private bool $isInheritance = false;
+	private bool $isEnumeratedClasses = false;
+	/** @var Inheritance[]|null */
+	private ?array $inheritanceList = null;
+	private bool $needsTransactionInPostgres = false; //maybe this can be retrieved from vendorSpecificInfo
 
 	/**
-	 * @var array Stores the possible values of an ENUM column
+	 * @var string[] Stores the possible values of an ENUM column
 	 */
-	protected $valueSet = array();
+	protected array $valueSet = array();
 
 	/**
 	 * @var				 Domain|null The domain object associated with this Column.
@@ -96,7 +99,7 @@ class Column extends XMLElement
 	 *
 	 * @param			 string|null $name Column name
 	 */
-	public function __construct($name = null)
+	public function __construct(?string $name = null)
 	{
 		$this->name = $name;
 	}
@@ -104,11 +107,11 @@ class Column extends XMLElement
 	/**
 	 * Return a comma delimited string listing the specified columns.
 	 *
-	 * @param			 Column[]|string[] $columns Either a list of <code>Column</code> objects, or
+	 * @param			 array<int, Column|string> $columns Either a list of <code>Column</code> objects, or
 	 * a list of <code>String</code> objects with column names.
 	 * @deprecated Use the Platform::getColumnListDDL() method instead
 	 */
-	public static function makeList($columns, PropulsionPlatformInterface $platform)
+	public static function makeList(array $columns, PropulsionPlatformInterface $platform): string
 	{
 		$list = array();
 		foreach ($columns as $col) {
@@ -124,7 +127,7 @@ class Column extends XMLElement
 	 * Sets up the Column object based on the attributes that were passed to loadFromXML().
 	 * @see				 parent::loadFromXML()
 	 */
-	protected function setupObject()
+	protected function setupObject(): void
 	{
 		try {
 			$dom = $this->getAttribute("domain");
@@ -255,7 +258,7 @@ class Column extends XMLElement
 	 * Sets domain for this column
 	 * @param		 Domain $domain
 	 */
-	public function setDomain(Domain $domain)
+	public function setDomain(Domain $domain): void
 	{
 		$this->domain = $domain;
 	}
@@ -263,15 +266,15 @@ class Column extends XMLElement
 	/**
 	 * Returns table.column
 	 */
-	public function getFullyQualifiedName()
+	public function getFullyQualifiedName(): string
 	{
-		return ($this->parentTable->getName() . '.' . strtoupper($this->getName()));
+		return ($this->parentTable->getName() . '.' . strtoupper((string) $this->getName()));
 	}
 
 	/**
 	 * Get the name of the column
 	 */
-	public function getName()
+	public function getName(): ?string
 	{
 		return $this->name;
 	}
@@ -279,7 +282,7 @@ class Column extends XMLElement
 	/**
 	 * Set the name of the column
 	 */
-	public function setName($newName)
+	public function setName(?string $newName): void
 	{
 		$this->name = $newName;
 	}
@@ -287,7 +290,7 @@ class Column extends XMLElement
 	/**
 	 * Determines whether a column name is plural
 	 */
-	public function isNamePlural()
+	public function isNamePlural(): bool
 	{
 		return $this->getSingularName() != $this->name;
 	}
@@ -295,15 +298,15 @@ class Column extends XMLElement
 	/**
 	 * Gets the singular name for the column
 	 */
-	public function getSingularName()
+	public function getSingularName(): string
 	{
-		return rtrim($this->name, 's');
+		return rtrim((string) $this->name, 's');
 	}
 
 	/**
 	 * Get the description for the Table
 	 */
-	public function getDescription()
+	public function getDescription(): ?string
 	{
 		return $this->description;
 	}
@@ -311,9 +314,9 @@ class Column extends XMLElement
 	/**
 	 * Set the description for the Table
 	 *
-	 * @param			 string $newDescription Description for the Table
+	 * @param			 string|null $newDescription Description for the Table
 	 */
-	public function setDescription($newDescription)
+	public function setDescription(?string $newDescription): void
 	{
 		$this->description = $newDescription;
 	}
@@ -340,7 +343,7 @@ class Column extends XMLElement
 	 *
 	 * @param		String $phpName PhpName to be set
 	 */
-	public function setPhpName($phpName = null)
+	public function setPhpName(?string $phpName = null): void
 	{
 		if ($phpName == null) {
 			$this->phpName = self::generatePhpName($this->name, $this->phpNamingMethod, $this->namePrefix);
@@ -382,7 +385,7 @@ class Column extends XMLElement
 	 * Set the visibility of the accessor methods for this column / attribute
 	 * @param			 $newVisibility string
 	 */
-	public function setAccessorVisibility($newVisibility) {
+	public function setAccessorVisibility(string $newVisibility): void {
 		if (in_array($newVisibility, self::$valid_visibilities)) {
 			$this->accessorVisibility = $newVisibility;
 		} else {
@@ -407,7 +410,7 @@ class Column extends XMLElement
 	 * Set the visibility of the mutator methods for this column / attribute
 	 * @param			 $newVisibility string
 	 */
-	public function setMutatorVisibility($newVisibility) {
+	public function setMutatorVisibility(string $newVisibility): void {
 		if (in_array($newVisibility, self::$valid_visibilities)) {
 			$this->mutatorVisibility = $newVisibility;
 		} else {
@@ -428,19 +431,19 @@ class Column extends XMLElement
 		return $classname.'::'.$const;
 	}
 
-	public function getConstantColumnName()
+	public function getConstantColumnName(): string
 	{
 		// was it overridden in schema.xml ?
 		if ($this->getPeerName()) {
 			return strtoupper($this->getPeerName());
 		} else {
-			return strtoupper($this->getName());
+			return strtoupper((string) $this->getName());
 		}
 	}
 
 	/**
 	 * Get the Peer constant name that will identify this column.
-	 * @return		 string
+	 * @return		 string|null
 	 */
 	public function getPeerName() {
 		return $this->peerName;
@@ -448,9 +451,9 @@ class Column extends XMLElement
 
 	/**
 	 * Set the Peer constant name that will identify this column.
-	 * @param			 $name string
+	 * @param			 string|null $name
 	 */
-	public function setPeerName($name) {
+	public function setPeerName(?string $name): void {
 		$this->peerName = $name;
 	}
 
@@ -474,7 +477,7 @@ class Column extends XMLElement
 	 * Get the location of this column within the table (one-based).
 	 * @return		 int value of position.
 	 */
-	public function getPosition()
+	public function getPosition(): ?int
 	{
 		return $this->position;
 	}
@@ -483,7 +486,7 @@ class Column extends XMLElement
 	 * Get the location of this column within the table (one-based).
 	 * @param			 int $v Value to assign to position.
 	 */
-	public function setPosition($v)
+	public function setPosition(int $v): void
 	{
 		$this->position = $v;
 	}
@@ -491,13 +494,14 @@ class Column extends XMLElement
 	/**
 	 * Set the parent Table of the column
 	 */
-	public function setTable(Table $parent)
+	public function setTable(Table $parent): void
 	{
 		$this->parentTable = $parent;
 	}
 
 	/**
 	 * Get the parent Table of the column
+	 * @return Table|null
 	 */
 	public function getTable()
 	{
@@ -507,7 +511,7 @@ class Column extends XMLElement
 	/**
 	 * Returns the Name of the table the column is in
 	 */
-	public function getTableName()
+	public function getTableName(): string
 	{
 		return $this->parentTable->getName();
 	}
@@ -515,9 +519,9 @@ class Column extends XMLElement
 	/**
 	 * Adds a new inheritance definition to the inheritance list and set the
 	 * parent column of the inheritance to the current column
-	 * @param			 mixed $inhdata Inheritance or XML data.
+	 * @param			 Inheritance|array<string,mixed> $inhdata Inheritance or XML data.
 	 */
-	public function addInheritance($inhdata)
+	public function addInheritance($inhdata): Inheritance
 	{
 		if ($inhdata instanceof Inheritance) {
 			$inh = $inhdata;
@@ -538,7 +542,10 @@ class Column extends XMLElement
 	/**
 	 * Get the inheritance definitions.
 	 */
-	public function getChildren()
+	/**
+	 * @return Inheritance[]|null
+	 */
+	public function getChildren(): ?array
 	{
 		return $this->inheritanceList;
 	}
@@ -547,7 +554,7 @@ class Column extends XMLElement
 	 * Determine if this column is a normal property or specifies a
 	 * the classes that are represented in the table containing this column.
 	 */
-	public function isInheritance()
+	public function isInheritance(): bool
 	{
 		return $this->isInheritance;
 	}
@@ -555,7 +562,7 @@ class Column extends XMLElement
 	/**
 	 * Determine if possible classes have been enumerated in the xml file.
 	 */
-	public function isEnumeratedClasses()
+	public function isEnumeratedClasses(): bool
 	{
 		return $this->isEnumeratedClasses;
 	}
@@ -563,7 +570,7 @@ class Column extends XMLElement
 	/**
 	 * Return the isNotNull property of the column
 	 */
-	public function isNotNull()
+	public function isNotNull(): bool
 	{
 		return $this->isNotNull;
 	}
@@ -571,9 +578,9 @@ class Column extends XMLElement
 	/**
 	 * Set the isNotNull property of the column
 	 */
-	public function setNotNull($status)
+	public function setNotNull(bool $status): void
 	{
-		$this->isNotNull = (bool) $status;
+		$this->isNotNull = $status;
 	}
 
 	/**
@@ -591,16 +598,16 @@ class Column extends XMLElement
 	 * i.e. whether its value is the default string representation of the table
 	 * @param			 boolean $v
 	 */
-	public function setPrimaryString($v)
+	public function setPrimaryString(bool $v): void
 	{
-		$this->isPrimaryString = (bool) $v;
+		$this->isPrimaryString = $v;
 	}
 
 	/**
 	 * Return true if the column is the primary string,
 	 * i.e. if its value is the default string representation of the table
 	 */
-	public function isPrimaryString()
+	public function isPrimaryString(): bool
 	{
 		return $this->isPrimaryString;
 	}
@@ -609,15 +616,15 @@ class Column extends XMLElement
 	 * Set whether the column is a primary key or not.
 	 * @param			 boolean $v
 	 */
-	public function setPrimaryKey($v)
+	public function setPrimaryKey(bool $v): void
 	{
-		$this->isPrimaryKey = (bool) $v;
+		$this->isPrimaryKey = $v;
 	}
 
 	/**
 	 * Return true if the column is a primary key
 	 */
-	public function isPrimaryKey()
+	public function isPrimaryKey(): bool
 	{
 		return $this->isPrimaryKey;
 	}
@@ -625,15 +632,15 @@ class Column extends XMLElement
 	/**
 	 * Set if the column is the node key of a tree
 	 */
-	public function setNodeKey($nk)
+	public function setNodeKey(bool $nk): void
 	{
-		$this->isNodeKey = (bool) $nk;
+		$this->isNodeKey = $nk;
 	}
 
 	/**
 	 * Return true if the column is a node key of a tree
 	 */
-	public function isNodeKey()
+	public function isNodeKey(): bool
 	{
 		return $this->isNodeKey;
 	}
@@ -641,15 +648,15 @@ class Column extends XMLElement
 	/**
 	 * Set if the column is the node key of a tree
 	 */
-	public function setNodeKeySep($sep)
+	public function setNodeKeySep(string $sep): void
 	{
-		$this->nodeKeySep = (string) $sep;
+		$this->nodeKeySep = $sep;
 	}
 
 	/**
 	 * Return true if the column is a node key of a tree
 	 */
-	public function getNodeKeySep()
+	public function getNodeKeySep(): ?string
 	{
 		return $this->nodeKeySep;
 	}
@@ -657,15 +664,15 @@ class Column extends XMLElement
 	/**
 	 * Set if the column is the nested set left key of a tree
 	 */
-	public function setNestedSetLeftKey($nslk)
+	public function setNestedSetLeftKey(bool $nslk): void
 	{
-		$this->isNestedSetLeftKey = (bool) $nslk;
+		$this->isNestedSetLeftKey = $nslk;
 	}
 
 	/**
 	 * Return true if the column is a nested set key of a tree
 	 */
-	public function isNestedSetLeftKey()
+	public function isNestedSetLeftKey(): bool
 	{
 		return $this->isNestedSetLeftKey;
 	}
@@ -673,15 +680,15 @@ class Column extends XMLElement
 	/**
 	 * Set if the column is the nested set right key of a tree
 	 */
-	public function setNestedSetRightKey($nsrk)
+	public function setNestedSetRightKey(bool $nsrk): void
 	{
-		$this->isNestedSetRightKey = (bool) $nsrk;
+		$this->isNestedSetRightKey = $nsrk;
 	}
 
 	/**
 	 * Return true if the column is a nested set right key of a tree
 	 */
-	public function isNestedSetRightKey()
+	public function isNestedSetRightKey(): bool
 	{
 		return $this->isNestedSetRightKey;
 	}
@@ -689,16 +696,16 @@ class Column extends XMLElement
 	/**
 	 * Set if the column is the scope key of a tree
 	 */
-	public function setTreeScopeKey($tsk)
+	public function setTreeScopeKey(bool $tsk): void
 	{
-		$this->isTreeScopeKey = (bool) $tsk;
+		$this->isTreeScopeKey = $tsk;
 	}
 
 	/**
 	 * Return true if the column is a scope key of a tree
 	 * @return		 boolean
 	 */
-	public function isTreeScopeKey()
+	public function isTreeScopeKey(): bool
 	{
 		return $this->isTreeScopeKey;
 	}
@@ -707,7 +714,7 @@ class Column extends XMLElement
 	 * Set true if the column is UNIQUE
 	 * @param			 boolean $u
 	 */
-	public function setUnique($u)
+	public function setUnique(bool $u): void
 	{
 		$this->isUnique = $u;
 	}
@@ -750,9 +757,9 @@ class Column extends XMLElement
 
 	/**
 	 * Get the foreign key objects for this column (if it is a foreign key or part of a foreign key)
-	 * @return		 array
+	 * @return		 ForeignKey[]
 	 */
-	public function getForeignKeys()
+	public function getForeignKeys(): array
 	{
 		return $this->parentTable->getColumnForeignKeys($this->name);
 	}
@@ -760,7 +767,7 @@ class Column extends XMLElement
 	/**
 	 * Adds the foreign key from another table that refers to this column.
 	 */
-	public function addReferrer(ForeignKey $fk)
+	public function addReferrer(ForeignKey $fk): void
 	{
 		if ($this->referrers === null) {
 			$this->referrers = array();
@@ -770,8 +777,9 @@ class Column extends XMLElement
 
 	/**
 	 * Get list of references to this column.
+	 * @return ForeignKey[]
 	 */
-	public function getReferrers()
+	public function getReferrers(): array
 	{
 		if ($this->referrers === null) {
 			$this->referrers = array();
@@ -779,17 +787,17 @@ class Column extends XMLElement
 		return $this->referrers;
 	}
 
-	public function hasReferrers()
+	public function hasReferrers(): bool
 	{
 		return $this->referrers !== null;
 	}
 
-	public function hasReferrer(ForeignKey $fk)
+	public function hasReferrer(ForeignKey $fk): bool
 	{
 		return $this->hasReferrers() && in_array($fk, $this->referrers, true);
 	}
 
-	public function clearReferrers()
+	public function clearReferrers(): void
 	{
 		$this->referrers = null;
 	}
@@ -802,7 +810,7 @@ class Column extends XMLElement
 	 *
 	 * @param			 string $propelType
 	 */
-	public function setDomainForType($propelType)
+	public function setDomainForType(string $propelType): void
 	{
 		$this->getDomain()->copy($this->getPlatform()->getDomainForType($propelType));
 	}
@@ -812,7 +820,7 @@ class Column extends XMLElement
 	 * @param			 string $propelType
 	 * @see				 Domain::setType()
 	 */
-	public function setType($propelType)
+	public function setType(string $propelType): void
 	{
 		$this->getDomain()->setType($propelType);
 		if ($propelType == PropulsionTypes::VARBINARY|| $propelType == PropulsionTypes::LONGVARBINARY || $propelType == PropulsionTypes::BLOB) {
@@ -842,12 +850,12 @@ class Column extends XMLElement
 	/**
 	 * Returns the column type as given in the schema as an object
 	 */
-	public function getPropulsionType()
+	public function getPropulsionType(): ?string
 	{
 		return $this->getType();
 	}
 
-	public function isDefaultSqlType(?PropulsionPlatformInterface $platform = null)
+	public function isDefaultSqlType(?PropulsionPlatformInterface $platform = null): bool
 	{
 		if (null === $this->domain || null === $this->domain->getSqlType() || null === $platform) {
 			return true;
@@ -871,7 +879,7 @@ class Column extends XMLElement
 	/**
 	 * Utility method to see if the column is text type.
 	 */
-	public function isTextType()
+	public function isTextType(): bool
 	{
 		return PropulsionTypes::isTextType($this->getType());
 	}
@@ -914,18 +922,18 @@ class Column extends XMLElement
 
 	/**
 	 * Sets the list of possible values for an ENUM column
-	 * @param array $valueSet
+	 * @param string[] $valueSet
 	 */
-	public function setValueSet($valueSet)
+	public function setValueSet(array $valueSet): void
 	{
 		$this->valueSet = $valueSet;
 	}
 
 	/**
 	 * Returns the list of possible values for an ENUM column
-	 * @return array
+	 * @return string[]
 	 */
-	public function getValueSet()
+	public function getValueSet(): array
 	{
 		return $this->valueSet;
 	}
@@ -933,7 +941,7 @@ class Column extends XMLElement
 	/**
 	 * @see				 XMLElement::appendXml(\DOMNode)
 	 */
-	public function appendXml(\DOMNode $node)
+	public function appendXml(\DOMNode $node): void
 	{
 		$doc = ($node instanceof \DOMDocument) ? $node : $node->ownerDocument;
 
@@ -1019,7 +1027,7 @@ class Column extends XMLElement
 	 * Set the size of the column
 	 * @param			 int|string|null $newSize
 	 */
-	public function setSize($newSize)
+	public function setSize($newSize): void
 	{
 		$this->domain->setSize($newSize);
 	}
@@ -1035,9 +1043,9 @@ class Column extends XMLElement
 
 	/**
 	 * Set the scale of the column
-	 * @param			 string $newScale
+	 * @param			 int|string|null $newScale
 	 */
-	public function setScale($newScale)
+	public function setScale($newScale): void
 	{
 		$this->domain->setScale($newScale);
 	}
@@ -1046,7 +1054,7 @@ class Column extends XMLElement
 	 * Return the size in brackets for use in an sql
 	 * schema if the type is String.	Otherwise return an empty string
 	 */
-	public function printSize()
+	public function printSize(): string
 	{
 		return $this->domain->printSize();
 	}
@@ -1089,7 +1097,7 @@ class Column extends XMLElement
 	 *
 	 * @param ColumnDefaultValue|scalar $def Column default value
 	 */
-	public function setDefaultValue($def)
+	public function setDefaultValue($def): static
 	{
 		if (!$def instanceof ColumnDefaultValue) {
 			$def = new ColumnDefaultValue($def, ColumnDefaultValue::TYPE_VALUE);
@@ -1123,7 +1131,7 @@ class Column extends XMLElement
 	 * Return auto increment/sequence string for the target database. We need to
 	 * pass in the props for the target database!
 	 */
-	public function isAutoIncrement()
+	public function isAutoIncrement(): bool
 	{
 		return $this->isAutoIncrement;
 	}
@@ -1132,7 +1140,7 @@ class Column extends XMLElement
 	 * Return true if the columns has to be lazy loaded, i.e. if a runtime query
 	 * on the table doesn't hydrate this column, but a getter does.
 	 */
-	public function isLazyLoad()
+	public function isLazyLoad(): bool
 	{
 		return $this->isLazyLoad;
 	}
@@ -1160,7 +1168,7 @@ class Column extends XMLElement
 	 * Set the auto increment value.
 	 * Use isAutoIncrement() to find out if it is set or not.
 	 */
-	public function setAutoIncrement($value)
+	public function setAutoIncrement(mixed $value): void
 	{
 		$this->isAutoIncrement = (bool) $value;
 	}
@@ -1170,8 +1178,10 @@ class Column extends XMLElement
 	 * (normally a string from an sql input file)
 	 *
 	 * @deprecated Do not use; this will be removed in next release.
+	 * @param      string $typeName
+	 * @param      int|string|null $size
 	 */
-	public function setTypeFromString($typeName, $size)
+	public function setTypeFromString($typeName, $size): void
 	{
 		$tn = strtoupper($typeName);
 		$this->setType($tn);
@@ -1248,11 +1258,14 @@ class Column extends XMLElement
 		return $this->getTable()->getDatabase()->getPlatform();
 	}
 
-	public function hasPlatform()
+	public function hasPlatform(): bool
 	{
 		return null !== $this->getTable() && null !== $this->getTable()->getDatabase() && null !== $this->getTable()->getDatabase()->getPlatform();
 	}
 
+	/**
+	 * @return Validator|null
+	 */
 	public function getValidator()
 	{
 		foreach ($this->getTable()->getValidators() as $validator) {
@@ -1260,6 +1273,8 @@ class Column extends XMLElement
 				return $validator;
 			}
 		}
+
+		return null;
 	}
 
 	public function __clone()
@@ -1267,7 +1282,7 @@ class Column extends XMLElement
 		$this->referrers = null;
 	}
 
-	public static function generatePhpName($name, $phpNamingMethod = PhpNameGenerator::CONV_METHOD_CLEAN, $namePrefix = null) {
+	public static function generatePhpName(?string $name, ?string $phpNamingMethod = PhpNameGenerator::CONV_METHOD_CLEAN, ?string $namePrefix = null): string {
 		return NameFactory::generateName(NameFactory::PHP_GENERATOR, array($name, $phpNamingMethod, $namePrefix));
 	}
 }

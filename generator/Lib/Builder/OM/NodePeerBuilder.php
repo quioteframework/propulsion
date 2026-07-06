@@ -60,7 +60,7 @@ class NodePeerBuilder extends AbstractPeerBuilder
 	 * Adds the include() statements for files that this class depends on or utilizes.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addIncludes(&$script = null)
+	protected function addIncludes(&$script = null): void
 	{
 		// PHP 8.4 uses namespaces and autoloading, so includes are minimal
 	}
@@ -182,13 +182,13 @@ abstract class ".$this->getClassname()."
 
 	// Placeholder methods - in a complete implementation, these would contain
 	// the full modernized logic from the PHP5 version
-	protected function addRetrieveParent(&$script): void { /* Implementation */ }
-	protected function addRetrieveChildren(&$script): void { /* Implementation */ }
-	protected function addRetrieveDescendants(&$script): void { /* Implementation */ }
-	protected function addRetrieveSiblings(&$script): void { /* Implementation */ }
-	protected function addRetrievePrevSibling(&$script): void { /* Implementation */ }
-	protected function addRetrieveNextSibling(&$script): void { /* Implementation */ }
-	protected function addRetrieveFirstChild(&$script): void { /* Implementation */ }
-	protected function addRetrieveLastChild(&$script): void { /* Implementation */ }
-	protected function addDeleteTree(&$script): void { /* Implementation */ }
+	protected function addRetrieveParent(string &$script): void { /* Implementation */ }
+	protected function addRetrieveChildren(string &$script): void { /* Implementation */ }
+	protected function addRetrieveDescendants(string &$script): void { /* Implementation */ }
+	protected function addRetrieveSiblings(string &$script): void { /* Implementation */ }
+	protected function addRetrievePrevSibling(string &$script): void { /* Implementation */ }
+	protected function addRetrieveNextSibling(string &$script): void { /* Implementation */ }
+	protected function addRetrieveFirstChild(string &$script): void { /* Implementation */ }
+	protected function addRetrieveLastChild(string &$script): void { /* Implementation */ }
+	protected function addDeleteTree(string &$script): void { /* Implementation */ }
 }

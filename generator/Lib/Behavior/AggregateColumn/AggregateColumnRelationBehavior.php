@@ -15,18 +15,26 @@ namespace Propulsion\Generator\Behavior\AggregateColumn;
  * @version    $Revision$
  */
 
+use Propulsion\Generator\Builder\OM\ObjectBuilder;
+use Propulsion\Generator\Builder\OM\OMBuilder;
+use Propulsion\Generator\Builder\OM\QueryBuilder;
 use Propulsion\Generator\Model\Behavior;
+use Propulsion\Generator\Model\ForeignKey;
+use Propulsion\Generator\Model\Table;
 
 class AggregateColumnRelationBehavior extends Behavior
 {
 
-	// default parameters value
+	/**
+	 * default parameters value
+	 * @var array<string, mixed>
+	 */
 	protected $parameters = array(
 		'foreign_table' => '',
 		'update_method' => '',
 	);
 
-	public function postSave($builder)
+	public function postSave(ObjectBuilder $builder): string
 	{
 		$relationName = $this->getRelationName($builder);
 		return "\$this->updateRelated{$relationName}(\$con);";
@@ -35,19 +43,19 @@ class AggregateColumnRelationBehavior extends Behavior
 	// no need for a postDelete() hook, since delete() uses Query::delete(),
 	// which already has a hook
 
-	public function objectAttributes($builder)
+	public function objectAttributes(ObjectBuilder $builder): string
 	{
 		$relationName = $this->getRelationName($builder);
 		return "protected \$old{$relationName};
 ";
 	}
 
-	public function objectMethods($builder)
+	public function objectMethods(ObjectBuilder $builder): string
 	{
 		return $this->addObjectUpdateRelated($builder);
 	}
 
-	protected function addObjectUpdateRelated($builder)
+	protected function addObjectUpdateRelated(ObjectBuilder $builder): string
 	{
 		$relationName = $this->getRelationName($builder);
 		$updateMethodName = $this->getParameter('update_method');
@@ -58,7 +66,10 @@ class AggregateColumnRelationBehavior extends Behavior
 		));
 	}
 
-	public function objectFilter(&$script, $builder)
+	/**
+	 * @param string|null $script
+	 */
+	public function objectFilter(&$script, ObjectBuilder $builder): void
 	{
 		$relationName = $this->getRelationName($builder);
 		$relatedClass = $this->getForeignTable()->getPhpName();
@@ -78,39 +89,39 @@ class AggregateColumnRelationBehavior extends Behavior
 		$script = preg_replace($pattern, $replace, $script);
 	}
 
-	public function preUpdateQuery($builder)
+	public function preUpdateQuery(QueryBuilder $builder): string
 	{
 		return $this->getFindRelated($builder);
 	}
 
-	public function preDeleteQuery($builder)
+	public function preDeleteQuery(QueryBuilder $builder): string
 	{
 		return $this->getFindRelated($builder);
 	}
 
-	protected function getFindRelated($builder)
+	protected function getFindRelated(QueryBuilder $builder): string
 	{
 		$relationName = $this->getRelationName($builder);
 		return "\$this->findRelated{$relationName}s(\$con);";
 	}
 
-	public function postUpdateQuery($builder)
+	public function postUpdateQuery(QueryBuilder $builder): string
 	{
 		return $this->getUpdateRelated($builder);
 	}
 
-	public function postDeleteQuery($builder)
+	public function postDeleteQuery(QueryBuilder $builder): string
 	{
 		return $this->getUpdateRelated($builder);
 	}
 
-	protected function getUpdateRelated($builder)
+	protected function getUpdateRelated(QueryBuilder $builder): string
 	{
 		$relationName = $this->getRelationName($builder);
 		return "\$this->updateRelated{$relationName}s(\$con);";
 	}
 
-	public function queryAttributes($builder)
+	public function queryAttributes(QueryBuilder $builder): string
 	{
 		$relationName = $this->getRelationName($builder);
 		$variableName = self::lcfirst($relationName);
@@ -118,7 +129,7 @@ class AggregateColumnRelationBehavior extends Behavior
 ";
 	}
 
-	public function queryMethods($builder)
+	public function queryMethods(QueryBuilder $builder): string
 	{
 		$script = '';
 		$script .= $this->addQueryFindRelated($builder);
@@ -127,7 +138,7 @@ class AggregateColumnRelationBehavior extends Behavior
 		return $script;
 	}
 
-	protected function addQueryFindRelated($builder)
+	protected function addQueryFindRelated(QueryBuilder $builder): string
 	{
 		$foreignKey = $this->getForeignKey();
 		$relationName = $this->getRelationName($builder);
@@ -140,7 +151,7 @@ class AggregateColumnRelationBehavior extends Behavior
 		));
 	}
 
-	protected function addQueryUpdateRelated($builder)
+	protected function addQueryUpdateRelated(QueryBuilder $builder): string
 	{
 		$relationName = $this->getRelationName($builder);
 		return $this->renderTemplate('queryUpdateRelated', array(
@@ -150,12 +161,12 @@ class AggregateColumnRelationBehavior extends Behavior
 		));
 	}
 
-	protected function getForeignTable()
+	protected function getForeignTable(): ?Table
 	{
 		return $this->getTable()->getDatabase()->getTable($this->getParameter('foreign_table'));
 	}
 
-	protected function getForeignKey()
+	protected function getForeignKey(): ?ForeignKey
 	{
 		$foreignTable = $this->getForeignTable();
 		// let's infer the relation from the foreign table
@@ -164,12 +175,12 @@ class AggregateColumnRelationBehavior extends Behavior
 		return array_shift($fks);
 	}
 
-	protected function getRelationName($builder)
+	protected function getRelationName(OMBuilder $builder): string
 	{
 		return $builder->getFKPhpNameAffix($this->getForeignKey());
 	}
 
-	protected static function lcfirst($input)
+	protected static function lcfirst(string $input): string
 	{
 		// no lcfirst in php<5.3...
 		$input[0] = strtolower($input[0]);

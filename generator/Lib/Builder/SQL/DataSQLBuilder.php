@@ -25,7 +25,7 @@ abstract class DataSQLBuilder extends DataModelBuilder
 	 *
 	 * This can be used, for example, to clear any stored start/end SQL.
 	 */
-	public static function reset()
+	public static function reset(): void
 	{
 		// does nothing by default
 	}
@@ -232,7 +232,7 @@ abstract class DataSQLBuilder extends DataModelBuilder
 	 * @param      string $value
 	 * @return     string
 	 */
-	protected function getTimeSql($paramIndex, $value)
+	protected function getTimeSql(mixed $paramIndex, $value)
 	{
 		return "'" . date('H:i:s', strtotime($value)) . "'";
 	}

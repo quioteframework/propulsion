@@ -26,16 +26,17 @@ class PropulsionOnDemandCollection extends PropulsionCollection
 	 */
 	protected $iterator;
 
-	protected
-		$currentRow,
-		$currentKey = -1;
+	/** @var mixed */
+	protected $currentRow;
+
+	protected int $currentKey = -1;
 	protected ?bool $isValid = null;
 
 	/**
 	 * @param     PropulsionObjectFormatter $formatter
 	 * @param     PDOStatement $stmt
 	 */
-	public function initIterator(PropulsionObjectFormatter $formatter, PDOStatement $stmt)
+	public function initIterator(PropulsionObjectFormatter $formatter, PDOStatement $stmt): void
 	{
 		$this->iterator = new PropulsionOnDemandIterator($formatter, $stmt);
 	}
@@ -52,7 +53,7 @@ class PropulsionOnDemandCollection extends PropulsionCollection
 	 *                               BasePeer::TYPE_STUDLYPHPNAME, BasePeer::TYPE_COLNAME, BasePeer::TYPE_FIELDNAME,
 	 *                               BasePeer::TYPE_NUM. Defaults to BasePeer::TYPE_PHPNAME.
 	 * @param     boolean $includeLazyLoadColumns (optional) Whether to include lazy loaded columns. Defaults to TRUE.
-	 * @param     array   $alreadyDumpedObjects List of objects to skip to avoid recursion
+	 * @param     array<array-key,mixed>   $alreadyDumpedObjects List of objects to skip to avoid recursion
 	 *
 	 * <code>
 	 * $bookCollection->toArray();
@@ -72,9 +73,9 @@ class PropulsionOnDemandCollection extends PropulsionCollection
 	 * )
 	 * </code>
 	 *
-	 * @return    array
+	 * @return    array<array-key,mixed>
 	 */
-	public function toArray($keyColumn = null, $usePrefix = false, $keyType = BasePeer::TYPE_PHPNAME, $includeLazyLoadColumns = true, $alreadyDumpedObjects = array())
+	public function toArray($keyColumn = null, $usePrefix = false, $keyType = BasePeer::TYPE_PHPNAME, $includeLazyLoadColumns = true, $alreadyDumpedObjects = array()): array
 	{
 		$ret = array();
 		$keyGetterMethod = 'get' . $keyColumn;
@@ -94,9 +95,9 @@ class PropulsionOnDemandCollection extends PropulsionCollection
 	 * Each object is populated from an array and the result is stored
 	 * Does not empty the collection before adding the data from the array
 	 *
-	 * @param    array  $arr
+	 * @param    array<array-key,mixed>  $arr
 	 */
-	public function fromArray($arr)
+	public function fromArray($arr): void
 	{
 		throw new PropulsionException('The On Demand Collection is read only');
 	}
@@ -210,6 +211,9 @@ class PropulsionOnDemandCollection extends PropulsionCollection
 		throw new PropulsionException('The On Demand Collection is read only');
 	}
 
+	/**
+	 * @return array<array-key,mixed>
+	 */
 	public function exchangeArray($input) : array
 	{
 		throw new PropulsionException('The On Demand Collection is read only');

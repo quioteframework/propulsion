@@ -31,7 +31,7 @@ class Validator extends XMLElement
 	/**
 	 * The rules for the validation.
 	 *
-	 * @var        array Rule[]
+	 * @var        Rule[]
 	 */
 	private $ruleList = array();
 
@@ -53,7 +53,7 @@ class Validator extends XMLElement
 	 * Sets up the Validator object based on the attributes that were passed to loadFromXML().
 	 * @see        parent::loadFromXML()
 	 */
-	protected function setupObject()
+	protected function setupObject(): void
 	{
 		$this->column = $this->getTable()->getColumn($this->getAttribute("column"));
 		$this->translate = $this->getAttribute("translate", $this->getTable()->getDatabase()->getDefaultTranslateMethod());;
@@ -85,7 +85,7 @@ class Validator extends XMLElement
 
 	/**
 	 * Gets an array of all added rules for this validator.
-	 * @return     array Rule[]
+	 * @return     Rule[]
 	 */
 	public function getRules()
 	{
@@ -106,7 +106,7 @@ class Validator extends XMLElement
 	 * @param      Column $column
 	 * @see        Table::addValidator()
 	 */
-	public function setColumn(Column $column)
+	public function setColumn(Column $column): void
 	{
 		$this->column = $column;
 	}
@@ -124,7 +124,7 @@ class Validator extends XMLElement
 	 * Set the owning Table.
 	 * @param      Table $table
 	 */
-	public function setTable(Table $table)
+	public function setTable(Table $table): void
 	{
 		$this->table = $table;
 	}
@@ -143,7 +143,7 @@ class Validator extends XMLElement
 	 * Currently only "gettext" and "none" are supported.  The default is "none".
 	 * @param      string $method Translation method ("gettext", "none").
 	 */
-	public function setTranslate($method)
+	public function setTranslate($method): void
 	{
 		$this->translate = $method;
 	}
@@ -161,7 +161,7 @@ class Validator extends XMLElement
 	/**
 	 * @see        XMLElement::appendXml(\DOMNode)
 	 */
-	public function appendXml(\DOMNode $node)
+	public function appendXml(\DOMNode $node): void
 	{
 		$doc = ($node instanceof \DOMDocument) ? $node : $node->ownerDocument;
 

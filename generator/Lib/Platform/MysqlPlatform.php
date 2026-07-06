@@ -31,13 +31,13 @@ use Propulsion\Generator\Model\Diff\PropulsionColumnDiff;
 class MysqlPlatform extends DefaultPlatform
 {
 
-	protected $tableEngineKeyword = 'ENGINE';  // overwritten in build.properties
-	protected $defaultTableEngine = 'MyISAM';  // overwritten in build.properties
+	protected string $tableEngineKeyword = 'ENGINE';  // overwritten in build.properties
+	protected string $defaultTableEngine = 'MyISAM';  // overwritten in build.properties
 
 	/**
 	 * Initializes db specific domain mapping.
 	 */
-	protected function initialize()
+	protected function initialize(): void
 	{
 		parent::initialize();
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::BOOLEAN, "TINYINT", 1));
@@ -54,7 +54,7 @@ class MysqlPlatform extends DefaultPlatform
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::ENUM, "TINYINT"));
 	}
 
-	public function setGeneratorConfig(GeneratorConfig $generatorConfig)
+	public function setGeneratorConfig(GeneratorConfig $generatorConfig): void
 	{
 		if ($defaultTableEngine = $generatorConfig->getBuildProperty('mysqlTableType')) {
 			$this->defaultTableEngine = $defaultTableEngine;
@@ -69,7 +69,7 @@ class MysqlPlatform extends DefaultPlatform
 	 *
 	 * @param string $tableEngineKeyword
 	 */
-	function setTableEngineKeyword($tableEngineKeyword)
+	function setTableEngineKeyword($tableEngineKeyword): void
 	{
 		$this->tableEngineKeyword = $tableEngineKeyword;
 	}
@@ -89,7 +89,7 @@ class MysqlPlatform extends DefaultPlatform
 	 *
 	 * @param string $defaultTableEngine
 	 */
-	function setDefaultTableEngine($defaultTableEngine)
+	function setDefaultTableEngine($defaultTableEngine): void
 	{
 		$this->defaultTableEngine = $defaultTableEngine;
 	}
@@ -211,7 +211,10 @@ CREATE TABLE %s
 		);
 	}
 
-	protected function getTableOptions(Table $table)
+	/**
+	 * @return     string[]
+	 */
+	protected function getTableOptions(Table $table): array
 	{
 		$dbVI = $table->getDatabase()->getVendorInfoForType('mysql');
 		$tableVI = $table->getVendorInfoForType('mysql');
@@ -413,7 +416,7 @@ DROP INDEX %s ON %s;
 		);
 	}
 
-	protected function getIndexType(Index $index)
+	protected function getIndexType(Index $index): string
 	{
 		$type = '';
 		$vendorInfo = $index->getVendorInfoForType($this->getDatabaseType());
@@ -447,7 +450,7 @@ ALTER TABLE %s DROP FOREIGN KEY %s;
 		);
 	}
 
-	public function getCommentBlockDDL($comment)
+	public function getCommentBlockDDL(string $comment): string
 	{
 		$pattern = "
 -- ---------------------------------------------------------------------
@@ -492,7 +495,7 @@ ALTER TABLE %s DROP FOREIGN KEY %s;
 	 * Builds the DDL SQL to rename a table
 	 * @return     string
 	 */
-	public function getRenameTableDDL($fromTableName, $toTableName)
+	public function getRenameTableDDL(string $fromTableName, string $toTableName)
 	{
 		$pattern = "
 RENAME TABLE %s TO %s;
@@ -523,7 +526,7 @@ ALTER TABLE %s DROP %s;
 	 * Builds the DDL SQL to rename a column
 	 * @return     string
 	 */
-	public function getRenameColumnDDL($fromColumn, $toColumn)
+	public function getRenameColumnDDL(Column $fromColumn, Column $toColumn)
 	{
 		return $this->getChangeColumnDDL($fromColumn, $toColumn);
 	}
@@ -542,7 +545,7 @@ ALTER TABLE %s DROP %s;
 	 * Builds the DDL SQL to change a column
 	 * @return     string
 	 */
-	public function getChangeColumnDDL($fromColumn, Column $toColumn)
+	public function getChangeColumnDDL(Column $fromColumn, Column $toColumn)
 	{
 		$pattern = "
 ALTER TABLE %s CHANGE %s %s;
@@ -558,7 +561,10 @@ ALTER TABLE %s CHANGE %s %s;
 	 *
 	 * @return     string
 	 */
-	public function getModifyColumnsDDL($columnDiffs)
+	/**
+	 * @param      array<string, PropulsionColumnDiff> $columnDiffs
+	 */
+	public function getModifyColumnsDDL(array $columnDiffs)
 	{
 		$ret = '';
 		foreach ($columnDiffs as $columnDiff) {

@@ -9,11 +9,15 @@
  */
 namespace Propulsion\Generator\Manager;
 
+use Propulsion\Generator\Builder\DataModelBuilder;
 use Propulsion\Generator\Builder\OM\ExtensionQueryInheritanceBuilder;
 use Propulsion\Generator\Builder\OM\MultiExtendObjectBuilder;
+use Propulsion\Generator\Builder\OM\OMBuilder;
 use Propulsion\Generator\Builder\OM\QueryInheritanceBuilder;
 use Propulsion\Generator\Config\GeneratorConfig;
 use Propulsion\Generator\Exception\EngineException;
+use Propulsion\Generator\Model\Table;
+use Propulsion\Generator\Platform\DefaultPlatform;
 
 /**
  * Plain-PHP replacement for the former Phing-based PropulsionOMTask/AbstractPropulsionDataModelTask
@@ -53,7 +57,10 @@ class ModelManager extends AbstractSchemaManager
         foreach ($dataModels as $dataModel) {
             foreach ($dataModel->getDatabases() as $database) {
                 if ($this->generatorConfig->getBuildProperty('disableIdentifierQuoting')) {
-                    $database->getPlatform()->setIdentifierQuoting(false);
+                    $platform = $database->getPlatform();
+                    if ($platform instanceof DefaultPlatform) {
+                        $platform->setIdentifierQuoting(false);
+                    }
                 }
 
                 foreach ($database->getTables() as $table) {
@@ -67,7 +74,7 @@ class ModelManager extends AbstractSchemaManager
         return $totalWritten;
     }
 
-    private function buildTable($table): int
+    private function buildTable(Table $table): int
     {
         $generatorConfig = $this->generatorConfig;
         $written = 0;
@@ -155,8 +162,16 @@ class ModelManager extends AbstractSchemaManager
         return $written;
     }
 
-    private function writeBuilderOutput($builder, bool $overwrite = true): int
+    private function writeBuilderOutput(DataModelBuilder $builder, bool $overwrite = true): int
     {
+        if (!$builder instanceof OMBuilder) {
+            throw new EngineException(sprintf(
+                'Expected an OMBuilder instance for %s, got %s.',
+                $builder->getTable()->getName(),
+                $builder::class
+            ));
+        }
+
         $path = $this->outputDir . DIRECTORY_SEPARATOR . $builder->getClassFilePath();
         $this->ensureDirExists(dirname($path));
 

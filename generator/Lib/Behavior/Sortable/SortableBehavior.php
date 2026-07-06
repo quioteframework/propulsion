@@ -20,18 +20,21 @@ use Propulsion\Generator\Model\Behavior;
 class SortableBehavior extends Behavior
 {
 	// default parameters value
+	/** @var array<string, string> */
 	protected $parameters = array(
 		'rank_column'  => 'sortable_rank',
 		'use_scope'    => 'false',
 		'scope_column' => 'sortable_scope',
 	);
 
-	protected $objectBuilderModifier, $queryBuilderModifier, $peerBuilderModifier;
+	protected ?SortableBehaviorObjectBuilderModifier $objectBuilderModifier = null;
+	protected ?SortableBehaviorQueryBuilderModifier $queryBuilderModifier = null;
+	protected ?SortableBehaviorPeerBuilderModifier $peerBuilderModifier = null;
 
 	/**
 	 * Add the rank_column to the current table
 	 */
-	public function modifyTable()
+	public function modifyTable(): void
 	{
 		if (!$this->getTable()->hasColumn($this->getParameter('rank_column'))) {
 			$this->getTable()->addColumn(array(
@@ -48,7 +51,7 @@ class SortableBehavior extends Behavior
 		}
 	}
 
-	public function getObjectBuilderModifier()
+	public function getObjectBuilderModifier(): SortableBehaviorObjectBuilderModifier
 	{
 		if (is_null($this->objectBuilderModifier)) {
 			$this->objectBuilderModifier = new SortableBehaviorObjectBuilderModifier($this);
@@ -56,7 +59,7 @@ class SortableBehavior extends Behavior
 		return $this->objectBuilderModifier;
 	}
 
-	public function getQueryBuilderModifier()
+	public function getQueryBuilderModifier(): SortableBehaviorQueryBuilderModifier
 	{
 		if (is_null($this->queryBuilderModifier)) {
 			$this->queryBuilderModifier = new SortableBehaviorQueryBuilderModifier($this);
@@ -64,7 +67,7 @@ class SortableBehavior extends Behavior
 		return $this->queryBuilderModifier;
 	}
 
-	public function getPeerBuilderModifier()
+	public function getPeerBuilderModifier(): SortableBehaviorPeerBuilderModifier
 	{
 		if (is_null($this->peerBuilderModifier)) {
 			$this->peerBuilderModifier = new SortableBehaviorPeerBuilderModifier($this);
@@ -72,7 +75,7 @@ class SortableBehavior extends Behavior
 		return $this->peerBuilderModifier;
 	}
 
-	public function useScope()
+	public function useScope(): bool
 	{
 		return $this->getParameter('use_scope') == 'true';
 	}

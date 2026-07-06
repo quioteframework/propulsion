@@ -62,8 +62,8 @@ use Propulsion\Generator\Model\Column;
 abstract class AbstractPeerBuilder extends OMBuilder
 {
 
-	protected $basePeerClass;
-	protected $basePeerClassname;
+	protected string $basePeerClass;
+	protected string $basePeerClassname;
 
 	/**
 	 * Constructs a new AbstractPeerBuilder subclass.
@@ -82,7 +82,7 @@ abstract class AbstractPeerBuilder extends OMBuilder
 	 * Adds the addSelectColumns(), doCount(), etc. methods.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addSelectMethods(&$script)
+	protected function addSelectMethods(&$script): void
 	{
 		$this->addAddSelectColumns($script);
 
@@ -112,7 +112,7 @@ abstract class AbstractPeerBuilder extends OMBuilder
 	 * Adds the correct getOMClass() method, depending on whether this table uses inheritance.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addGetOMClassMethod(&$script)
+	protected function addGetOMClassMethod(&$script): void
 	{
 		$table = $this->getTable();
 		if ($table->getChildrenColumn()) {
@@ -130,7 +130,7 @@ abstract class AbstractPeerBuilder extends OMBuilder
 	 * Adds the doInsert(), doUpdate(), doDeleteAll(), doValidate(), etc. methods.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addUpdateMethods(&$script)
+	protected function addUpdateMethods(&$script): void
 	{
 		$this->addDoInsert($script);
 		$this->addDoUpdate($script);
@@ -149,7 +149,7 @@ abstract class AbstractPeerBuilder extends OMBuilder
 	 * Adds the retrieveByPK() (and possibly retrieveByPKs()) method(s) appropriate for this class.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addRetrieveByPKMethods(&$script)
+	protected function addRetrieveByPKMethods(&$script): void
 	{
 		if (count($this->getTable()->getPrimaryKey()) === 1) {
 			$this->addRetrieveByPK_SinglePK($script);
@@ -170,7 +170,7 @@ abstract class AbstractPeerBuilder extends OMBuilder
 	 *
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addClassBody(&$script)
+	protected function addClassBody(&$script): void
 	{
 
 		$table = $this->getTable();
@@ -323,16 +323,16 @@ abstract class AbstractPeerBuilder extends OMBuilder
    * @param string $hookName The name of the hook as called from one of this class methods, e.g. "preSave"
 	 * @param string &$script The script will be modified in this method.
    */
-  public function applyBehaviorModifier($hookName, &$script, $tab = "		")
+  public function applyBehaviorModifier($hookName, &$script, string $tab = "		"): void
   {
-    return $this->applyBehaviorModifierBase($hookName, 'PeerBuilderModifier', $script, $tab);
+    $this->applyBehaviorModifierBase($hookName, 'PeerBuilderModifier', $script, $tab);
   }
 
 	/**
 	 * Checks whether any registered behavior content creator on that table exists a contentName
 	 * @param string $contentName The name of the content as called from one of this class methods, e.g. "parentClassname"
 	 */
-	public function getBehaviorContent($contentName)
+	public function getBehaviorContent($contentName): mixed
 	{
 		return $this->getBehaviorContentBase($contentName, 'PeerBuilderModifier');
 	}

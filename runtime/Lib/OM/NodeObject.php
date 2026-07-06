@@ -19,6 +19,9 @@ namespace Propulsion\OM;
 use Propulsion\Connection\PropulsionPDO;
 use Propulsion\Exception\PropulsionException;
 
+/**
+ * @extends \IteratorAggregate<int,NodeObject>
+ */
 interface NodeObject extends \IteratorAggregate
 {
 	/**
@@ -59,7 +62,7 @@ interface NodeObject extends \IteratorAggregate
 	 * Get the path to the node in the tree
 	 *
 	 * @param      PropulsionPDO $con	Connection to use.
-	 * @return     array
+	 * @return     array<int,NodeObject>
 	 */
 	public function getPath(?PropulsionPDO $con = null);
 
@@ -83,7 +86,7 @@ interface NodeObject extends \IteratorAggregate
 	 * Gets the children for the node
 	 *
 	 * @param      PropulsionPDO $con	Connection to use.
-	 * @return     array
+	 * @return     array<int,NodeObject>
 	 */
 	public function getChildren(?PropulsionPDO $con = null);
 
@@ -91,7 +94,7 @@ interface NodeObject extends \IteratorAggregate
 	 * Gets the descendants for the node
 	 *
 	 * @param      PropulsionPDO $con	Connection to use.
- 	 * @return     array
+ 	 * @return     array<int,NodeObject>
 	 */
 	public function getDescendants(?PropulsionPDO $con = null);
 

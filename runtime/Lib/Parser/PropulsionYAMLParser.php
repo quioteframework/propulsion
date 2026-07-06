@@ -27,7 +27,7 @@ class PropulsionYAMLParser extends PropulsionParser
 	/**
 	 * Converts data from an associative array to YAML.
 	 *
-	 * @param  array $array Source data to convert
+	 * @param  array<mixed> $array Source data to convert
 	 * @return string Converted data, as a YAML string
 	 */
 	public function fromArray($array)
@@ -38,7 +38,7 @@ class PropulsionYAMLParser extends PropulsionParser
 	/**
 	 * Alias for PropulsionYAMLParser::fromArray()
 	 *
-	 * @param  array $array Source data to convert
+	 * @param  array<mixed> $array Source data to convert
 	 * @return string Converted data, as a YAML string
 	 */
 	public function toYAML($array)
@@ -50,7 +50,7 @@ class PropulsionYAMLParser extends PropulsionParser
 	 * Converts data from YAML to an associative array.
 	 *
 	 * @param  string $data Source data to convert, as a YAML string
-	 * @return array Converted data
+	 * @return array<mixed> Converted data
 	 */
 	public function toArray($data)
 	{
@@ -61,7 +61,7 @@ class PropulsionYAMLParser extends PropulsionParser
 	 * Alias for PropulsionYAMLParser::toArray()
 	 *
 	 * @param  string $data Source data to convert, as a YAML string
-	 * @return array Converted data
+	 * @return array<mixed> Converted data
 	 */
 	public function fromYAML($data)
 	{

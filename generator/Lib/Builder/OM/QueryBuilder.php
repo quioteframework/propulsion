@@ -22,6 +22,8 @@ namespace Propulsion\Generator\Builder\OM;
  */
 use Propulsion\Generator\Model\PropulsionTypes;
 use Propulsion\Generator\Model\ForeignKey;
+use Propulsion\Generator\Model\Column;
+use Propulsion\Generator\Model\Table;
 class QueryBuilder extends OMBuilder
 {
 
@@ -63,7 +65,7 @@ class QueryBuilder extends OMBuilder
      * Adds the include() statements for files that this class depends on or utilizes.
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addIncludes(&$script = null)
+    protected function addIncludes(&$script = null): void
     {
     }
 
@@ -262,7 +264,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
     /**
      * Get modern PHP 8.4 type for a column
      */
-    protected function getModernPhpType($column): string
+    protected function getModernPhpType(Column $column): string
     {
         if ($column->isTemporalType()) {
             $this->declareClass('\\DateTimeInterface');
@@ -311,7 +313,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
     /**
      * Override getUseStatements to provide PHP 8.4 compatible use statements with deduplication
      */
-    public function getUseStatements($ignoredNamespace = null)
+    public function getUseStatements(?string $ignoredNamespace = null): string
     {
         $script = '';
         $declaredClasses = $this->declaredClasses;
@@ -388,7 +390,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      *
      * @see        AbstractObjectBuilder::addClassBody()
      */
-    protected function addClassBody(&$script): void
+    protected function addClassBody(string &$script): void
     {
         // Declare essential classes for Base*Query classes with proper namespaces
         $this->declareClass('Propulsion\Query\ModelCriteria');
@@ -454,7 +456,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Closes class.
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addClassClose(&$script)
+    protected function addClassClose(&$script): void
     {
         $script .= "
 } // " . $this->getClassname() . "";
@@ -486,7 +488,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * kept only in case a behavior calls it directly).
      * @param      string &$script The script will be modified in this method.
      **/
-    protected function addConstructorComment(&$script)
+    protected function addConstructorComment(&$script): void
     {
         $script .= "
     /**
@@ -502,7 +504,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Adds the function declaration for the constructor
      * @param      string &$script The script will be modified in this method.
      **/
-    protected function addConstructorOpen(&$script)
+    protected function addConstructorOpen(&$script): void
     {
         $table = $this->getTable();
         $script .= "
@@ -514,7 +516,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Adds the function body for the constructor
      * @param      string &$script The script will be modified in this method.
      **/
-    protected function addConstructorBody(&$script)
+    protected function addConstructorBody(&$script): void
     {
         $script .= "
         parent::__construct(\$dbName, \$modelName, \$modelAlias);";
@@ -524,7 +526,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Adds the function close for the constructor
      * @param      string &$script The script will be modified in this method.
      **/
-    protected function addConstructorClose(&$script)
+    protected function addConstructorClose(&$script): void
     {
         $script .= "
     }
@@ -568,7 +570,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * only in case a behavior calls it directly).
      * @param      string &$script The script will be modified in this method.
      **/
-    protected function addFactoryComment(&$script)
+    protected function addFactoryComment(&$script): void
     {
         $classname = $this->getNewStubQueryBuilder($this->getTable())->getClassname();
         $script .= "
@@ -586,7 +588,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Adds the function declaration for the factory
      * @param      string &$script The script will be modified in this method.
      **/
-    protected function addFactoryOpen(&$script)
+    protected function addFactoryOpen(&$script): void
     {
         $script .= "
     public static function create(\$modelAlias = null, \$criteria = null)
@@ -597,7 +599,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Adds the function body for the factory
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addFactoryBody(&$script)
+    protected function addFactoryBody(&$script): void
     {
         $classname = $this->getNewStubQueryBuilder($this->getTable())->getClassname();
         $script .= "
@@ -618,7 +620,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Adds the function close for the factory
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addFactoryClose(&$script)
+    protected function addFactoryClose(&$script): void
     {
         $script .= "
     }
@@ -648,7 +650,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Adds the findPk method for this object.
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addFindPk(&$script)
+    protected function addFindPk(&$script): void
     {
         $table = $this->getTable();
         $pks = $table->getPrimaryKey();
@@ -710,7 +712,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Adds the findPks method for this object.
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addFindPks(&$script)
+    protected function addFindPks(&$script): void
     {
         $this->declareClasses('PropulsionPDO', 'PropulsionObjectCollection');
         $table = $this->getTable();
@@ -749,7 +751,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Adds the filterByPrimaryKey method for this object.
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addFilterByPrimaryKey(&$script)
+    protected function addFilterByPrimaryKey(&$script): void
     {
         $script .= "
     /**
@@ -791,7 +793,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Adds the filterByPrimaryKey method for this object.
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addFilterByPrimaryKeys(&$script)
+    protected function addFilterByPrimaryKeys(&$script): void
     {
         $table = $this->getTable();
         $pks = $table->getPrimaryKey();
@@ -846,7 +848,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Adds the filterByCol method for this object.
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addFilterByCol(&$script, $col)
+    protected function addFilterByCol(&$script, Column $col): void
     {
         $colPhpName = $col->getPhpName();
         $colName = $col->getName();
@@ -1124,7 +1126,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Adds the singular filterByCol method for an Arry column.
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addFilterByArrayCol(&$script, $col)
+    protected function addFilterByArrayCol(&$script, Column $col): void
     {
         $colPhpName = $col->getPhpName();
         $singularPhpName = rtrim($colPhpName, 's');
@@ -1167,7 +1169,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Adds the filterByFk method for this object.
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addFilterByFk(&$script, $fk)
+    protected function addFilterByFk(&$script, ForeignKey $fk): void
     {
         $this->declareClasses('PropulsionObjectCollection', 'PropulsionException');
         $table = $this->getTable();
@@ -1235,7 +1237,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Adds the filterByRefFk method for this object.
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addFilterByRefFk(&$script, $fk)
+    protected function addFilterByRefFk(&$script, ForeignKey $fk): void
     {
         $this->declareClasses('PropulsionObjectCollection', 'PropulsionException');
         $table = $this->getTable();
@@ -1300,7 +1302,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Adds the joinFk method for this object.
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addJoinFk(&$script, ForeignKey $fk)
+    protected function addJoinFk(&$script, ForeignKey $fk): void
     {
         $table = $this->getTable();
         $queryClass = $this->getStubQueryBuilder()->getClassname();
@@ -1314,7 +1316,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Adds the joinRefFk method for this object.
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addJoinRefFk(&$script, ForeignKey $fk)
+    protected function addJoinRefFk(&$script, ForeignKey $fk): void
     {
         $table = $this->getTable();
         $queryClass = $this->getStubQueryBuilder()->getClassname();
@@ -1328,7 +1330,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Adds a joinRelated method for this object.
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addJoinRelated(&$script, $fkTable, $queryClass, $relationName, $joinType)
+    protected function addJoinRelated(&$script, Table $fkTable, string $queryClass, string $relationName, string $joinType): void
     {
         $script .= "
     /**
@@ -1372,7 +1374,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Adds the useFkQuery method for this object.
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addUseFkQuery(&$script, ForeignKey $fk)
+    protected function addUseFkQuery(&$script, ForeignKey $fk): void
     {
         $table = $this->getTable();
         $fkTable = $fk->getForeignTable();
@@ -1396,7 +1398,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Adds the useFkQuery method for this object.
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addUseRefFkQuery(&$script, ForeignKey $fk)
+    protected function addUseRefFkQuery(&$script, ForeignKey $fk): void
     {
         $table = $this->getTable();
         $fkTable = $this->getTable()->getDatabase()->getTable($fk->getTableName());
@@ -1420,7 +1422,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Adds a useRelatedQuery method for this object.
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addUseRelatedQuery(&$script, $fkTable, $queryClass, $relationName, $joinType)
+    protected function addUseRelatedQuery(&$script, Table $fkTable, string $queryClass, string $relationName, string $joinType): void
     {
         $script .= "
     /**
@@ -1512,7 +1514,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Adds the prune method for this object.
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addPrune(&$script)
+    protected function addPrune(&$script): void
     {
         $table = $this->getTable();
         $class = $this->getStubObjectBuilder()->getClassname();
@@ -1561,7 +1563,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Adds the basePreSelect hook for this object.
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addBasePreSelect(&$script)
+    protected function addBasePreSelect(&$script): void
     {
         $behaviorCode = '';
         $this->applyBehaviorModifier('preSelectQuery', $behaviorCode, "		");
@@ -1586,7 +1588,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Adds the basePreDelete hook for this object.
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addBasePreDelete(&$script)
+    protected function addBasePreDelete(&$script): void
     {
         $behaviorCode = '';
         $this->applyBehaviorModifier('preDeleteQuery', $behaviorCode, "		");
@@ -1611,7 +1613,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Adds the basePostDelete hook for this object.
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addBasePostDelete(&$script)
+    protected function addBasePostDelete(&$script): void
     {
         $behaviorCode = '';
         $this->applyBehaviorModifier('postDeleteQuery', $behaviorCode, "		");
@@ -1637,7 +1639,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Adds the basePreUpdate hook for this object.
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addBasePreUpdate(&$script)
+    protected function addBasePreUpdate(&$script): void
     {
         $behaviorCode = '';
         $this->applyBehaviorModifier('preUpdateQuery', $behaviorCode, "		");
@@ -1664,7 +1666,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * Adds the basePostUpdate hook for this object.
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addBasePostUpdate(&$script)
+    protected function addBasePostUpdate(&$script): void
     {
         $behaviorCode = '';
         $this->applyBehaviorModifier('postUpdateQuery', $behaviorCode, "		");
@@ -1701,16 +1703,17 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * @param string $hookName The name of the hook as called from one of this class methods, e.g. "preSave"
      * @param string &$script The script will be modified in this method.
      */
-    public function applyBehaviorModifier($hookName, &$script, $tab = "		")
+    public function applyBehaviorModifier(string $hookName, string &$script, string $tab = "		"): void
     {
-        return $this->applyBehaviorModifierBase($hookName, 'QueryBuilderModifier', $script, $tab);
+        $this->applyBehaviorModifierBase($hookName, 'QueryBuilderModifier', $script, $tab);
     }
 
     /**
      * Checks whether any registered behavior content creator on that table exists a contentName
      * @param string $contentName The name of the content as called from one of this class methods, e.g. "parentClassname"
+     * @return mixed
      */
-    public function getBehaviorContent($contentName)
+    public function getBehaviorContent($contentName): mixed
     {
         return $this->getBehaviorContentBase($contentName, 'QueryBuilderModifier');
     }

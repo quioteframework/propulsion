@@ -15,11 +15,13 @@ namespace Propulsion\Generator\Behavior\Sluggable;
  * @author    Massimiliano Arione
  * @version		$Revision$
  */
+use Propulsion\Generator\Builder\OM\OMBuilder;
 use Propulsion\Generator\Model\Behavior;
 use Propulsion\Generator\Model\Unique;
 class SluggableBehavior extends Behavior
 {
 	// default parameters value
+	/** @var array<string, string> */
 	protected $parameters = array(
 		'slug_column'     => 'slug',
 		'slug_pattern'    => '',
@@ -29,12 +31,12 @@ class SluggableBehavior extends Behavior
 		'permanent'       => 'false'
 	);
 
-	protected $builder;
+	protected ?OMBuilder $builder = null;
 
 	/**
 	 * Add the slug_column to the current table
 	 */
-	public function modifyTable()
+	public function modifyTable(): void
 	{
 		if(!$this->getTable()->hasColumn($this->getParameter('slug_column'))) {
 			$this->getTable()->addColumn(array(
@@ -75,7 +77,7 @@ class SluggableBehavior extends Behavior
 	 *
 	 * @return string The code to put at the hook
 	 */
-	public function preSave($builder)
+	public function preSave(OMBuilder $builder): string
 	{
 		$const = $builder->getColumnConstant($this->getColumnForParameter('slug_column'));
 		$script = "
@@ -96,7 +98,7 @@ if (\$this->isColumnModified($const) && \$this->{$this->getColumnGetter()}()) {
 		return $script;
 	}
 
-	public function objectMethods($builder)
+	public function objectMethods(OMBuilder $builder): string
 	{
 		$this->builder = $builder;
 		$script = '';
@@ -113,7 +115,7 @@ if (\$this->isColumnModified($const) && \$this->{$this->getColumnGetter()}()) {
 		return $script;
 	}
 
-	protected function addSlugSetter(&$script)
+	protected function addSlugSetter(string &$script): void
 	{
 		$script .= "
 /**
@@ -129,7 +131,7 @@ public function setSlug(\$v)
 ";
 	}
 
-	protected function addSlugGetter(&$script)
+	protected function addSlugGetter(string &$script): void
 	{
 		$script .= "
 /**
@@ -144,7 +146,7 @@ public function getSlug()
 ";
 	}
 
-	protected function addCreateSlug(&$script)
+	protected function addCreateSlug(string &$script): void
 	{
 		$script .= "
 /**
@@ -163,7 +165,7 @@ protected function createSlug()
 ";
 	}
 
-	protected function addCreateRawSlug(&$script)
+	protected function addCreateRawSlug(string &$script): string
 	{
 		$pattern = $this->getParameter('slug_pattern');
 		$script .= "
@@ -186,7 +188,7 @@ protected function createRawSlug()
 		return $script;
 	}
 
-	public function addCleanupSlugPart(&$script)
+	public function addCleanupSlugPart(string &$script): void
 	{
 		$script .= "
 /**
@@ -230,7 +232,7 @@ protected static function cleanupSlugPart(\$slug, \$replacement = '" . $this->ge
 ";
 	}
 
-	public function addLimitSlugSize(&$script)
+	public function addLimitSlugSize(string &$script): void
 	{
 		$size = $this->getColumnForParameter('slug_column')->getSize();
 		$script .= "
@@ -253,7 +255,7 @@ protected static function limitSlugSize(\$slug, \$incrementReservedSpace = 3)
 ";
 	}
 
-	public function addMakeSlugUnique(&$script)
+	public function addMakeSlugUnique(string &$script): void
 	{
 		$script .= "
 
@@ -286,7 +288,7 @@ protected function makeSlugUnique(\$slug, \$separator = '" . $this->getParameter
 ";
 	}
 
-	public function queryMethods($builder)
+	public function queryMethods(OMBuilder $builder): string
 	{
 		$this->builder = $builder;
 		$script = '';
@@ -298,7 +300,7 @@ protected function makeSlugUnique(\$slug, \$separator = '" . $this->getParameter
 		return $script;
 	}
 
-	protected function addFilterBySlug(&$script)
+	protected function addFilterBySlug(string &$script): void
 	{
 		$script .= "
 /**
@@ -315,7 +317,7 @@ public function filterBySlug(\$slug)
 ";
 	}
 
-	protected function addFindOneBySlug(&$script)
+	protected function addFindOneBySlug(string &$script): void
 	{
 		$script .= "
 /**

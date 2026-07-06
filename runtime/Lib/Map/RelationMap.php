@@ -36,15 +36,17 @@ class RelationMap
     LOCAL_TO_FOREIGN = 0,
     LEFT_TO_RIGHT = 1;
 
-  protected
-    $name,
-    $pluralName,
-    $type,
-    $localTable,
-    $foreignTable,
-    $localColumns = array(),
-    $foreignColumns = array(),
-    $onUpdate, $onDelete;
+  protected string $name;
+  protected ?string $pluralName = null;
+  protected ?int $type = null;
+  protected ?TableMap $localTable = null;
+  protected ?TableMap $foreignTable = null;
+  /** @var ColumnMap[] */
+  protected array $localColumns = array();
+  /** @var ColumnMap[] */
+  protected array $foreignColumns = array();
+  protected ?string $onUpdate = null;
+  protected ?string $onDelete = null;
 
   /**
    * Constructor.
@@ -66,7 +68,7 @@ class RelationMap
     return $this->name;
   }
 
-  public function setPluralName($pluralName)
+  public function setPluralName(string $pluralName): void
   {
     $this->pluralName = $pluralName;
   }
@@ -86,7 +88,7 @@ class RelationMap
    *
    * @param      integer $type The relation type (either self::MANY_TO_ONE, self::ONE_TO_MANY, or self::ONE_TO_ONE)
    */
-  public function setType($type)
+  public function setType($type): void
   {
     $this->type = $type;
   }
@@ -106,7 +108,7 @@ class RelationMap
    *
    * @param      TableMap $table The local table for this relationship
    */
-  public function setLocalTable($table)
+  public function setLocalTable($table): void
   {
     $this->localTable = $table;
   }
@@ -126,7 +128,7 @@ class RelationMap
    *
    * @param      TableMap $table The foreign table for this relationship
    */
-  public function setForeignTable($table)
+  public function setForeignTable($table): void
   {
     $this->foreignTable = $table;
   }
@@ -167,7 +169,7 @@ class RelationMap
    * @param   ColumnMap $local The local column
    * @param   ColumnMap $foreign The foreign column
    */
-  public function addColumnMapping(ColumnMap $local, ColumnMap $foreign)
+  public function addColumnMapping(ColumnMap $local, ColumnMap $foreign): void
   {
     $this->localColumns[] = $local;
     $this->foreignColumns[] = $foreign;
@@ -180,9 +182,9 @@ class RelationMap
 	 *  - If the value is RelationMap::LEFT_TO_RIGHT, then the returned array is left => right
 	 *
 	 * @param     int $direction How the associative array must return columns
-	 * @return    array Associative array (local => foreign) of fully qualified column names
+	 * @return    array<string, string> Associative array (local => foreign) of fully qualified column names
 	 */
-	public function getColumnMappings($direction = RelationMap::LOCAL_TO_FOREIGN)
+	public function getColumnMappings($direction = RelationMap::LOCAL_TO_FOREIGN): array
 	{
 		$h = array();
 		if ($direction == RelationMap::LEFT_TO_RIGHT && $this->getType() == RelationMap::MANY_TO_ONE) {
@@ -221,9 +223,9 @@ class RelationMap
   /**
    * Get the local columns
    *
-   * @return      array list of ColumnMap objects
+   * @return      ColumnMap[] list of ColumnMap objects
    */
-  public function getLocalColumns()
+  public function getLocalColumns(): array
   {
     return $this->localColumns;
   }
@@ -231,9 +233,9 @@ class RelationMap
   /**
    * Get the foreign columns
    *
-   * @return      array list of ColumnMap objects
+   * @return      ColumnMap[] list of ColumnMap objects
    */
-  public function getForeignColumns()
+  public function getForeignColumns(): array
   {
     return $this->foreignColumns;
   }
@@ -241,9 +243,9 @@ class RelationMap
 	/**
    * Get the left columns of the relation
    *
-   * @return    array of ColumnMap objects
+   * @return    ColumnMap[] of ColumnMap objects
    */
-  public function getLeftColumns()
+  public function getLeftColumns(): array
   {
   	return ($this->getType() == RelationMap::MANY_TO_ONE) ? $this->getLocalColumns() : $this->getForeignColumns();
   }
@@ -251,9 +253,9 @@ class RelationMap
   /**
    * Get the right columns of the relation
    *
-   * @return    array of ColumnMap objects
+   * @return    ColumnMap[] of ColumnMap objects
    */
-  public function getRightColumns()
+  public function getRightColumns(): array
   {
   	return ($this->getType() == RelationMap::MANY_TO_ONE) ? $this->getForeignColumns() : $this->getLocalColumns();
   }
@@ -263,7 +265,7 @@ class RelationMap
    *
    * @param      string $onUpdate
    */
-  public function setOnUpdate($onUpdate)
+  public function setOnUpdate($onUpdate): void
   {
     $this->onUpdate = $onUpdate;
   }
@@ -283,7 +285,7 @@ class RelationMap
    *
    * @param      string $onDelete
    */
-  public function setOnDelete($onDelete)
+  public function setOnDelete($onDelete): void
   {
     $this->onDelete = $onDelete;
   }

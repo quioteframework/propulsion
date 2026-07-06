@@ -34,6 +34,7 @@ class NameFactory
 	/**
 	 * The cache of <code>NameGenerator</code> algorithms in use for
 	 * name generation, keyed by fully qualified class name.
+	 * @var        array<string, NameGenerator>
 	 */
 	private static $algorithms = array();
 
@@ -42,6 +43,7 @@ class NameFactory
 	 *
 	 * @param      string $name The fully qualified class name of the name
 	 * generation algorithm to retrieve.
+	 * @return     NameGenerator
 	 */
 	protected static function getAlgorithm($name)
 	{
@@ -57,7 +59,7 @@ class NameFactory
 	 *
 	 * @param      string $algorithmName The fully qualified class name of the {@link NameGenerator}
 	 *             implementation to use to generate names.
-	 * @param      array $inputs Inputs used to generate a name.
+	 * @param      array<int, mixed> $inputs Inputs used to generate a name.
 	 * @return     string The generated name.
 	 * @throws     EngineException
 	 */

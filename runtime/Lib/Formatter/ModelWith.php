@@ -19,16 +19,16 @@ namespace Propulsion\Formatter;
  use Propulsion\Map\RelationMap;
 class ModelWith
 {
-	protected $modelName = '';
-	protected $modelPeerName = '';
-	protected $isSingleTableInheritance = false;
-	protected $isAdd = false;
-	protected $isWithOneToMany = false;
-	protected $relationName = '';
-	protected $relationMethod = '';
-	protected $initMethod = '';
-	protected $leftPhpName;
-	protected $rightPhpName;
+	protected string $modelName = '';
+	protected string $modelPeerName = '';
+	protected bool $isSingleTableInheritance = false;
+	protected bool $isAdd = false;
+	protected bool $isWithOneToMany = false;
+	protected string $relationName = '';
+	protected string $relationMethod = '';
+	protected string $initMethod = '';
+	protected ?string $leftPhpName = null;
+	protected ?string $rightPhpName = null;
 
 	public function __construct(?ModelJoin $join = null)
 	{
@@ -43,7 +43,7 @@ class ModelWith
 	 *
 	 * @param ModelJoin $join
 	 */
-	public function init(ModelJoin $join)
+	public function init(ModelJoin $join): void
 	{
 		$tableMap = $join->getTableMap();
 		$this->modelName = $tableMap->getClassname();
@@ -68,109 +68,109 @@ class ModelWith
 
 	// DataObject getters & setters
 
-	public function setModelName($modelName)
+	public function setModelName(string $modelName): void
 	{
 		$this->modelName = $modelName;
 	}
 
-	public function getModelName()
+	public function getModelName(): string
 	{
 		return $this->modelName;
 	}
 
-	public function setModelPeerName($modelPeerName)
+	public function setModelPeerName(string $modelPeerName): void
 	{
 		$this->modelPeerName = $modelPeerName;
 	}
 
-	public function getModelPeerName()
+	public function getModelPeerName(): string
 	{
 		return $this->modelPeerName;
 	}
 
-	public function setIsSingleTableInheritance($isSingleTableInheritance)
+	public function setIsSingleTableInheritance(bool $isSingleTableInheritance): void
 	{
 		$this->isSingleTableInheritance = $isSingleTableInheritance;
 	}
 
-	public function isSingleTableInheritance()
+	public function isSingleTableInheritance(): bool
 	{
 		return $this->isSingleTableInheritance;
 	}
 
-	public function setIsAdd($isAdd)
+	public function setIsAdd(bool $isAdd): void
 	{
 		$this->isAdd = $isAdd;
 	}
 
-	public function isAdd()
+	public function isAdd(): bool
 	{
 		return $this->isAdd;
 	}
 
-	public function setIsWithOneToMany($isWithOneToMany)
+	public function setIsWithOneToMany(bool $isWithOneToMany): void
 	{
 		$this->isWithOneToMany = $isWithOneToMany;
 	}
 
-	public function isWithOneToMany()
+	public function isWithOneToMany(): bool
 	{
 		return $this->isWithOneToMany;
 	}
 
-	public function setRelationName($relationName)
+	public function setRelationName(string $relationName): void
 	{
 		$this->relationName = $relationName;
 	}
 
-	public function getRelationName()
+	public function getRelationName(): string
 	{
 		return $this->relationName;
 	}
 
-	public function setRelationMethod($relationMethod)
+	public function setRelationMethod(string $relationMethod): void
 	{
 		$this->relationMethod = $relationMethod;
 	}
 
-	public function getRelationMethod()
+	public function getRelationMethod(): string
 	{
 		return $this->relationMethod;
 	}
 
-	public function setInitMethod($initMethod)
+	public function setInitMethod(string $initMethod): void
 	{
 		$this->initMethod = $initMethod;
 	}
 
-	public function getInitMethod()
+	public function getInitMethod(): string
 	{
 		return $this->initMethod;
 	}
 
-	public function setLeftPhpName($leftPhpName)
+	public function setLeftPhpName(?string $leftPhpName): void
 	{
 		$this->leftPhpName = $leftPhpName;
 	}
 
-	public function getLeftPhpName()
+	public function getLeftPhpName(): ?string
 	{
 		return $this->leftPhpName;
 	}
 
-	public function setRightPhpName($rightPhpName)
+	public function setRightPhpName(?string $rightPhpName): void
 	{
 		$this->rightPhpName = $rightPhpName;
 	}
 
-	public function getRightPhpName()
+	public function getRightPhpName(): ?string
 	{
 		return $this->rightPhpName;
 	}
 
 	// Utility methods
 
-	public function isPrimary()
+	public function isPrimary(): bool
 	{
 		return null === $this->leftPhpName;
 	}

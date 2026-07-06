@@ -9,6 +9,10 @@
  */
 namespace Propulsion\Generator\Behavior\Sortable;
 
+use Propulsion\Generator\Builder\OM\QueryBuilder;
+use Propulsion\Generator\Model\Column;
+use Propulsion\Generator\Model\Table;
+
 /**
  * Behavior to add sortable query methods
  *
@@ -16,25 +20,30 @@ namespace Propulsion\Generator\Behavior\Sortable;
  */
 class SortableBehaviorQueryBuilderModifier
 {
-	protected $behavior, $table, $builder, $objectClassname, $peerClassname, $queryClassname;
+	protected SortableBehavior $behavior;
+	protected Table $table;
+	protected ?QueryBuilder $builder = null;
+	protected ?string $objectClassname = null;
+	protected ?string $peerClassname = null;
+	protected ?string $queryClassname = null;
 
-	public function __construct($behavior)
+	public function __construct(SortableBehavior $behavior)
 	{
 		$this->behavior = $behavior;
 		$this->table = $behavior->getTable();
 	}
 
-	protected function getParameter($key)
+	protected function getParameter(string $key): string
 	{
 		return $this->behavior->getParameter($key);
 	}
 
-	protected function getColumn($name)
+	protected function getColumn(string $name): Column
 	{
 		return $this->behavior->getColumnForParameter($name);
 	}
 
-	protected function setBuilder($builder)
+	protected function setBuilder(QueryBuilder $builder): void
 	{
 		$this->builder = $builder;
 		$this->objectClassname = $builder->getStubObjectBuilder()->getClassname();
@@ -42,7 +51,7 @@ class SortableBehaviorQueryBuilderModifier
 		$this->peerClassname = $builder->getStubPeerBuilder()->getClassname();
 	}
 
-	public function queryMethods($builder)
+	public function queryMethods(QueryBuilder $builder): string
 	{
 		$this->setBuilder($builder);
 		$script = '';
@@ -69,7 +78,7 @@ class SortableBehaviorQueryBuilderModifier
 		return $script;
 	}
 
-	protected function addInList(&$script)
+	protected function addInList(string &$script): void
 	{
 		$script .= "
 /**
@@ -86,7 +95,7 @@ public function inList(\$scope = null)
 ";
 	}
 
-	protected function addFilterByRank(&$script)
+	protected function addFilterByRank(string &$script): void
 	{
 		$useScope = $this->behavior->useScope();
 		$peerClassname = $this->peerClassname;
@@ -116,7 +125,7 @@ public function filterByRank(\$rank" . ($useScope ? ", \$scope = null" : "") . "
 ";
 	}
 
-	protected function addOrderByRank(&$script)
+	protected function addOrderByRank(string &$script): void
 	{
 		$script .= "
 /**
@@ -144,7 +153,7 @@ public function orderByRank(\$order = Criteria::ASC)
 ";
 	}
 
-	protected function addFindOneByRank(&$script)
+	protected function addFindOneByRank(string &$script): void
 	{
 		$useScope = $this->behavior->useScope();
 		$peerClassname = $this->peerClassname;
@@ -171,7 +180,7 @@ public function findOneByRank(\$rank, " . ($useScope ? "\$scope = null, " : "") 
 ";
 	}
 
-	protected function addFindList(&$script)
+	protected function addFindList(string &$script): void
 	{
 		$useScope = $this->behavior->useScope();
 		$script .= "
@@ -201,7 +210,7 @@ public function findList(" . ($useScope ? "\$scope = null, " : "") . "\$con = nu
 ";
 	}
 
-	protected function addGetMaxRank(&$script)
+	protected function addGetMaxRank(string &$script): void
 	{
 		$this->builder->declareClasses('Propulsion');
 		$useScope = $this->behavior->useScope();
@@ -237,7 +246,7 @@ public function getMaxRank(" . ($useScope ? "\$scope = null, " : "") . "?Propuls
 ";
 	}
 
-	protected function addReorder(&$script)
+	protected function addReorder(string &$script): void
 	{
 		$this->builder->declareClasses('Propulsion');
 		$peerClassname = $this->peerClassname;

@@ -93,7 +93,7 @@ class PeerBuilder extends AbstractPeerBuilder
 	 * Adds the include() statements for files that this class depends on or utilizes.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addIncludes(&$script = null)
+	protected function addIncludes(&$script = null): void
 	{
 		// PHP 8.4 uses namespaces and autoloading, so includes are minimal
 	}
@@ -102,7 +102,7 @@ class PeerBuilder extends AbstractPeerBuilder
 	 * Adds class phpdoc comment and opening of class.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addClassOpen(&$script)
+	protected function addClassOpen(&$script): void
 	{
 		$table = $this->getTable();
 		$tableName = $table->getName();
@@ -143,7 +143,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds the constants for the class
 	 */
-	protected function addConstants(&$script)
+	protected function addConstants(string &$script): void
 	{
 		$table = $this->getTable();
 
@@ -181,7 +181,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds static properties for metadata
 	 */
-	protected function addStaticProperties(&$script)
+	protected function addStaticProperties(string &$script): void
 	{
 		$table = $this->getTable();
 
@@ -237,7 +237,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds the main class body
 	 */
-	protected function addClassBody(&$script)
+	protected function addClassBody(&$script): void
 	{
 		// Declare essential classes for Base*Peer classes
 		$this->declareClassFromBuilder($this->getStubPeerBuilder());
@@ -261,8 +261,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 	/**
 	 * Override getUseStatements to provide PHP 8.4 compatible use statements with deduplication
+	 * @param      ?string $ignoredNamespace
 	 */
-	public function getUseStatements($ignoredNamespace = null)
+	public function getUseStatements($ignoredNamespace = null): string
 	{
 		$script = '';
 		$declaredClasses = $this->declaredClasses;
@@ -335,7 +336,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds constant and variable declarations that go at the top of the class.
 	 */
-	protected function addConstantsAndAttributes(&$script)
+	protected function addConstantsAndAttributes(string &$script): void
 	{
 		$dbName = $this->getDatabase()->getName();
 		$tableName = $this->getTable()->getName();
@@ -399,7 +400,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds the COLUMN_NAME contants to the class definition.
 	 */
-	protected function addColumnNameConstants(&$script)
+	protected function addColumnNameConstants(string &$script): void
 	{
 		foreach ($this->getTable()->getColumns() as $col) {
 			$script .= "
@@ -412,7 +413,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds the valueSet constants for ENUM columns.
 	 */
-	protected function addEnumColumnConstants(&$script)
+	protected function addEnumColumnConstants(string &$script): void
 	{
 		foreach ($this->getTable()->getColumns() as $col) {
 			if ($col->isEnumType()) {
@@ -428,12 +429,12 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		}
 	}
 
-	protected function getEnumValueConstant($value)
+	protected function getEnumValueConstant(string $value): string
 	{
 		return strtoupper(preg_replace('/[^a-zA-Z0-9_\x7f-\xff]/', '_', $value));
 	}
 
-	protected function addFieldNamesAttribute(&$script)
+	protected function addFieldNamesAttribute(string &$script): void
 	{
 		$table = $this->getTable();
 		$tableColumns = $table->getColumns();
@@ -482,7 +483,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 ";
 	}
 
-	protected function addFieldKeysAttribute(&$script)
+	protected function addFieldKeysAttribute(string &$script): void
 	{
 		$table = $this->getTable();
 		$tableColumns = $table->getColumns();
@@ -534,7 +535,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds the valueSet attributes for ENUM columns.
 	 */
-	protected function addEnumColumnAttributes(&$script)
+	protected function addEnumColumnAttributes(string &$script): void
 	{
 		$script .= "
 	/** The enumerated values for this table */
@@ -556,7 +557,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 ";
 	}
 
-	protected function addGetFieldNames(&$script)
+	protected function addGetFieldNames(string &$script): void
 	{
 		$script .= "    /**
      * Returns an array of field names.
@@ -579,7 +580,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds the getValueSets() method.
 	 */
-	protected function addGetValueSets(&$script)
+	protected function addGetValueSets(string &$script): void
 	{
 		$this->declareClassFromBuilder($this->getTableMapBuilder());
 		$callingClass = $this->getStubPeerBuilder()->getClassname();
@@ -598,7 +599,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds the getValueSet() method.
 	 */
-	protected function addGetValueSet(&$script)
+	protected function addGetValueSet(string &$script): void
 	{
 		$this->declareClassFromBuilder($this->getTableMapBuilder());
 		$script .= "
@@ -617,7 +618,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds the alias() utility method.
 	 */
-	protected function addAlias(&$script)
+	protected function addAlias(string &$script): void
 	{
 		$script .= "
 	/**
@@ -642,7 +643,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds the buildTableMap() method.
 	 */
-	protected function addBuildTableMap(&$script)
+	protected function addBuildTableMap(string &$script): void
 	{
 		$this->declareClassFromBuilder($this->getTableMapBuilder());
 		$script .= "
@@ -663,7 +664,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds the getTableMap() method.
 	 */
-	protected function addGetTableMap(&$script)
+	protected function addGetTableMap(string &$script): void
 	{
 		$script .= "
 	/**
@@ -727,7 +728,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds doInsert method - matches PHP5PeerBuilder signature
 	 */
-	protected function addDoInsert(&$script)
+	protected function addDoInsert(string &$script): void
 	{
 		$table = $this->getTable();
 		$script .= "
@@ -802,7 +803,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 ";
 	}
 
-	protected function addTranslateFieldName(&$script)
+	protected function addTranslateFieldName(string &$script): void
 	{
 		$script .= "    /**
      * Translates a fieldname to another type
@@ -829,7 +830,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds doUpdateThis method - PHP 8.4 LSP compliant version of doUpdate
 	 */
-	protected function addDoUpdate(&$script)
+	protected function addDoUpdate(string &$script): void
 	{
 		$table = $this->getTable();
 		$script .= "
@@ -889,7 +890,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds doSelect method - matches PHP5PeerBuilder signature
 	 */
-	protected function addDoSelect(&$script)
+	protected function addDoSelect(string &$script): void
 	{
 		$script .= "
 	/**
@@ -910,7 +911,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds doSelectOne method - matches PHP5PeerBuilder signature
 	 */
-	protected function addDoSelectOne(&$script)
+	protected function addDoSelectOne(string &$script): void
 	{
 		$script .= "
 	/**
@@ -937,7 +938,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds doSelectStmt method - matches PHP5PeerBuilder signature
 	 */
-	protected function addDoSelectStmt(&$script)
+	protected function addDoSelectStmt(string &$script): void
 	{
 		$script .= "
 	/**
@@ -984,7 +985,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds doCount method - wrapper pattern for PHP 8.4 compatibility
 	 */
-	protected function addDoCount(&$script)
+	protected function addDoCount(string &$script): void
 	{
 		$script .= "
 	/**
@@ -1055,7 +1056,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds populateObjects method - matches PHP5PeerBuilder
 	 */
-	protected function addPopulateObjects(&$script)
+	protected function addPopulateObjects(string &$script): void
 	{
 		$table = $this->getTable();
 		$script .= "
@@ -1120,7 +1121,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds addSelectColumns method
 	 */
-	protected function addAddSelectColumns(&$script)
+	protected function addAddSelectColumns(string &$script): void
 	{
 		$table = $this->getTable();
 		$script .= "
@@ -1165,7 +1166,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds instance pool methods
 	 */
-	protected function addInstancePoolMethods(&$script)
+	protected function addInstancePoolMethods(string &$script): void
 	{
 		$this->addAddInstanceToPool($script);
 		$this->addRemoveInstanceFromPool($script);
@@ -1178,7 +1179,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds addInstanceToPool method
 	 */
-	protected function addAddInstanceToPool(&$script)
+	protected function addAddInstanceToPool(string &$script): void
 	{
 		$table = $this->getTable();
 		$objectClass = $this->getStubObjectBuilder()->getFullyQualifiedClassname();
@@ -1213,7 +1214,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds removeInstanceFromPool method
 	 */
-	protected function addRemoveInstanceFromPool(&$script)
+	protected function addRemoveInstanceFromPool(string &$script): void
 	{
 		$table = $this->getTable();
 		$objectClass = $this->getStubObjectBuilder()->getFullyQualifiedClassname();
@@ -1277,7 +1278,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds clearInstancePool method
 	 */
-	protected function addClearInstancePool(&$script)
+	protected function addClearInstancePool(string &$script): void
 	{
 		$script .= "
 
@@ -1293,7 +1294,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds getInstanceFromPool method
 	 */
-	protected function addGetInstanceFromPool(&$script)
+	protected function addGetInstanceFromPool(string &$script): void
 	{
 		$objectClass = $this->getStubObjectBuilder()->getFullyQualifiedClassname();
 		$script .= "
@@ -1318,7 +1319,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds getInstancePool method
 	 */
-	protected function addGetInstancePool(&$script)
+	protected function addGetInstancePool(string &$script): void
 	{
 		$objectClass = $this->getStubObjectBuilder()->getFullyQualifiedClassname();
 		$script .= "
@@ -1343,7 +1344,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds getPrimaryKeyHashFromRow method
 	 */
-	protected function addGetPrimaryKeyHash(&$script)
+	protected function addGetPrimaryKeyHash(string &$script): void
 	{
 		$script .= "
 
@@ -1405,7 +1406,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Helper method to get first primary key column
 	 */
-	protected function getFirstPrimaryKeyColumn()
+	protected function getFirstPrimaryKeyColumn(): ?Column
 	{
 		$pks = $this->getTable()->getPrimaryKey();
 		return $pks[0] ?? null;
@@ -1438,7 +1439,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds retrieveByPK method with enhanced type safety
 	 */
-	protected function addRetrieveByPK(&$script)
+	protected function addRetrieveByPK(string &$script): void
 	{
 		$table = $this->getTable();
 		$primaryKeys = $table->getPrimaryKey();
@@ -1511,7 +1512,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds remaining peer methods with modern PHP patterns
 	 */
-	protected function addRetrieveByPKs(&$script)
+	protected function addRetrieveByPKs(string &$script): void
 	{
 		$firstPk = $this->getFirstPrimaryKeyColumn();
 		
@@ -1549,7 +1550,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds doValidateThis method - PHP 8.4 LSP compliant version of doValidate
 	 */
-	protected function addDoValidate(&$script)
+	protected function addDoValidate(string &$script): void
 	{
 		$table = $this->getTable();
 		$script .= "
@@ -1635,7 +1636,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds doDelete method - matches PHP5PeerBuilder signature
 	 */
-	protected function addDoDelete(&$script)
+	protected function addDoDelete(string &$script): void
 	{
 		$table = $this->getTable();
 		$emulateCascade = $this->isDeleteCascadeEmulationNeeded() || $this->isDeleteSetNullEmulationNeeded();
@@ -1802,8 +1803,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 	/**
 	 * Closes class.
+	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addClassClose(&$script)
+	protected function addClassClose(&$script): void
 	{
 		// apply behaviors
 		$this->applyBehaviorModifier('staticMethods', $script, "	");
@@ -1820,8 +1822,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 	/**
 	 * Helper method to get lazy load columns
+	 * @return     array<int, Column>
 	 */
-	protected function getLazyLoadColumns()
+	protected function getLazyLoadColumns(): array
 	{
 		$lazyColumns = [];
 		foreach ($this->getTable()->getColumns() as $col) {
@@ -1855,7 +1858,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * Adds method to clear the instance pool of related tables.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addClearRelatedInstancePool(&$script)
+	protected function addClearRelatedInstancePool(string &$script): void
 	{
 		$table = $this->getTable();
 		$script .= "
@@ -1898,7 +1901,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		 * Adds method to get the primary key from a row
 		 * @param      string &$script The script will be modified in this method.
 		 */
-		protected function addGetPrimaryKeyFromRow(&$script)
+		protected function addGetPrimaryKeyFromRow(string &$script): void
 		{
 			$script .= "
 	/**
@@ -1948,7 +1951,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * Adds the populateObject() method.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addPopulateObject(&$script)
+	protected function addPopulateObject(string &$script): void
 	{
 		$table = $this->getTable();
 		$script .= "
@@ -2000,7 +2003,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * Adds a getOMClass() for tables that use single-table inheritance.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addGetOMClass_Inheritance(&$script)
+	protected function addGetOMClass_Inheritance(string &$script): void
 	{
 		$col = $this->getTable()->getChildrenColumn();
 		$script .= "
@@ -2065,7 +2068,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * Adds a getOMClass() for non-abstract tables that do note use inheritance.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addGetOMClass_NoInheritance(&$script)
+	protected function addGetOMClass_NoInheritance(string &$script): void
 	{
 		$script .= "
 	/**
@@ -2090,7 +2093,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * Adds a getOMClass() signature for abstract tables that do not have inheritance.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addGetOMClass_NoInheritance_Abstract(&$script)
+	protected function addGetOMClass_NoInheritance_Abstract(string &$script): void
 	{
 		$script .= "
 	/**
@@ -2107,7 +2110,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * Adds the doDeleteAll() method.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addDoDeleteAll(&$script)
+	protected function addDoDeleteAll(string &$script): void
 	{
 		$table = $this->getTable();
 		$script .= "
@@ -2163,7 +2166,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * Adds the retrieveByPK method for tables with single-column primary key.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addRetrieveByPK_SinglePK(&$script)
+	protected function addRetrieveByPK_SinglePK(string &$script): void
 	{
 		$table = $this->getTable();
 		$pks = $table->getPrimaryKey();
@@ -2211,7 +2214,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * Adds the retrieveByPKs method for tables with single-column primary key.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addRetrieveByPKs_SinglePK(&$script)
+	protected function addRetrieveByPKs_SinglePK(string &$script): void
 	{
 		$table = $this->getTable();
 		$script .= "
@@ -2253,7 +2256,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * Adds the retrieveByPK method for tables with multi-column primary key.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addRetrieveByPK_MultiPK(&$script)
+	protected function addRetrieveByPK_MultiPK(string &$script): void
 	{
 		$table = $this->getTable();
 		$script .= "
@@ -2312,7 +2315,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * Adds the doOnDeleteCascade() method, which provides ON DELETE CASCADE emulation.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addDoOnDeleteCascade(&$script)
+	protected function addDoOnDeleteCascade(string &$script): void
 	{
 		$table = $this->getTable();
 		$script .= "
@@ -2391,7 +2394,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * Adds the doOnDeleteSetNull() method, which provides ON DELETE SET NULL emulation.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addDoOnDeleteSetNull(&$script)
+	protected function addDoOnDeleteSetNull(string &$script): void
 	{
 		$table = $this->getTable();
 		$script .= "
@@ -2478,7 +2481,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * include-foreign-objects path) as long as PHP5PeerBuilder was the
 	 * default.
 	 */
-	protected function addSelectMethods(&$script)
+	protected function addSelectMethods(&$script): void
 	{
 		$table = $this->getTable();
 
@@ -2517,7 +2520,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Returns the desired join behavior, as set in the build properties.
 	 */
-	protected function getJoinBehavior()
+	protected function getJoinBehavior(): string
 	{
 		return $this->getGeneratorConfig()->getBuildProperty('useLeftJoinsInDoJoinMethods') ? 'Criteria::LEFT_JOIN' : 'Criteria::INNER_JOIN';
 	}
@@ -2526,7 +2529,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * Builds the addJoin()/addMultipleJoin() call(s) needed to join $table to
 	 * $joinTable across foreign key $fk.
 	 */
-	public function addCriteriaJoin(ForeignKey $fk, Table $table, Table $joinTable, $joinedTablePeerBuilder)
+	public function addCriteriaJoin(ForeignKey $fk, Table $table, Table $joinTable, AbstractPeerBuilder $joinedTablePeerBuilder): string
 	{
 		$script = '';
 		$lfMap = $fk->getLocalForeignMapping();
@@ -2560,7 +2563,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds the doSelectJoin<Fk>() methods.
 	 */
-	protected function addDoSelectJoin(&$script)
+	protected function addDoSelectJoin(string &$script): void
 	{
 		$table = $this->getTable();
 		$className = $this->getObjectClassname();
@@ -2692,7 +2695,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds the doCountJoin<Fk>() methods.
 	 */
-	protected function addDoCountJoin(&$script)
+	protected function addDoCountJoin(string &$script): void
 	{
 		$table = $this->getTable();
 
@@ -2772,7 +2775,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds the doSelectJoinAll() method.
 	 */
-	protected function addDoSelectJoinAll(&$script)
+	protected function addDoSelectJoinAll(string &$script): void
 	{
 		$table = $this->getTable();
 		$className = $this->getObjectClassname();
@@ -2921,7 +2924,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds the doCountJoinAll() method.
 	 */
-	protected function addDoCountJoinAll(&$script)
+	protected function addDoCountJoinAll(string &$script): void
 	{
 		$table = $this->getTable();
 		$join_behavior = $this->getJoinBehavior();
@@ -2989,7 +2992,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds the doSelectJoinAllExcept*() methods.
 	 */
-	protected function addDoSelectJoinAllExcept(&$script)
+	protected function addDoSelectJoinAllExcept(string &$script): void
 	{
 		$table = $this->getTable();
 		$join_behavior = $this->getJoinBehavior();
@@ -3152,7 +3155,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds the doCountJoinAllExcept*() methods.
 	 */
-	protected function addDoCountJoinAllExcept(&$script)
+	protected function addDoCountJoinAllExcept(string &$script): void
 	{
 		$table = $this->getTable();
 		$join_behavior = $this->getJoinBehavior();

@@ -16,14 +16,17 @@ namespace Propulsion\Query;
  *
  * @author     Hans Lellelid <hans@xmpl.org>
  * @version    $Revision$
+ *
+ * @implements \Iterator<string, Criterion>
  */
 class CriterionIterator implements \Iterator
 {
 
-	private $idx = 0;
-	private $criteria;
-	private $criteriaKeys;
-	private $criteriaSize;
+	private int $idx = 0;
+	private Criteria $criteria;
+	/** @var array<int, string> */
+	private array $criteriaKeys;
+	private int $criteriaSize;
 
 	public function __construct(Criteria $criteria) {
 		$this->criteria = $criteria;
@@ -39,7 +42,7 @@ class CriterionIterator implements \Iterator
 		return $this->idx < $this->criteriaSize;
 	}
 
-	public function key(): mixed {
+	public function key(): string {
 		return $this->criteriaKeys[$this->idx];
 	}
 

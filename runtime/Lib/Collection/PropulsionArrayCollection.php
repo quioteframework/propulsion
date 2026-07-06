@@ -22,6 +22,7 @@ use Propulsion\Util\BasePeer;
 
 class PropulsionArrayCollection extends PropulsionCollection
 {
+	/** @var BaseObject|null */
 	protected $workerObject;
 
 	/**
@@ -29,7 +30,7 @@ class PropulsionArrayCollection extends PropulsionCollection
 	 *
 	 * @param     PropulsionPDO  $con
 	 */
-	public function save($con = null)
+	public function save($con = null): void
 	{
 		if (!method_exists($this->getModel(), 'save')) {
 			throw new PropulsionException('Cannot save objects on a read-only model');
@@ -60,7 +61,7 @@ class PropulsionArrayCollection extends PropulsionCollection
 	 *
 	 * @param     PropulsionPDO  $con
 	 */
-	public function delete($con = null)
+	public function delete($con = null): void
 	{
 		if (!method_exists($this->getModel(), 'delete')) {
 			throw new PropulsionException('Cannot delete objects on a read-only model');
@@ -90,9 +91,9 @@ class PropulsionArrayCollection extends PropulsionCollection
 	 * Get an array of the primary keys of all the objects in the collection
 	 *
 	 * @param     boolean  $usePrefix
-	 * @return    array  The list of the primary keys of the collection
+	 * @return    array<array-key,mixed>  The list of the primary keys of the collection
 	 */
-	public function getPrimaryKeys($usePrefix = true)
+	public function getPrimaryKeys($usePrefix = true): array
 	{
 		$callable = array($this->getPeerClass(), 'getPrimaryKeyFromRow');
 		$ret = array();
@@ -109,9 +110,9 @@ class PropulsionArrayCollection extends PropulsionCollection
 	 * Uses the object model to force the column types
 	 * Does not empty the collection before adding the data from the array
 	 *
-	 * @param     array  $arr
+	 * @param     array<int,array<array-key,mixed>>  $arr
 	 */
-	public function fromArray($arr)
+	public function fromArray($arr): void
 	{
 		$obj  = $this->getWorkerObject();
 		foreach ($arr as $element) {
@@ -148,9 +149,10 @@ class PropulsionArrayCollection extends PropulsionCollection
 	 * )
 	 * </code>
 	 *
-	 * @return    array
+	 * @param     array<array-key,mixed> $alreadyDumpedObjects
+	 * @return    array<array-key,mixed>
 	 */
-	public function toArray($keyColumn = null, $usePrefix = false, $keyType = BasePeer::TYPE_PHPNAME, $includeLazyLoadColumns = true, $alreadyDumpedObjects = array())
+	public function toArray($keyColumn = null, $usePrefix = false, $keyType = BasePeer::TYPE_PHPNAME, $includeLazyLoadColumns = true, $alreadyDumpedObjects = array()): array
 	{
 		$ret = array();
 		foreach ($this as $key => $element) {
@@ -168,7 +170,7 @@ class PropulsionArrayCollection extends PropulsionCollection
 	 * @param     string   $keyColumn
 	 * @param     boolean  $usePrefix
 	 *
-	 * @return    array
+	 * @return    array<array-key,mixed>
 	 */
 	public function getArrayCopy($keyColumn = null, $usePrefix = false): array
 	{
@@ -190,9 +192,9 @@ class PropulsionArrayCollection extends PropulsionCollection
 	 * @param     string  $keyColumn
 	 * @param     string  $valueColumn
 	 *
-	 * @return    array
+	 * @return    array<array-key,mixed>
 	 */
-	public function toKeyValue($keyColumn, $valueColumn)
+	public function toKeyValue($keyColumn, $valueColumn): array
 	{
 		$ret = array();
 		foreach ($this as $obj) {

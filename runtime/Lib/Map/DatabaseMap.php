@@ -35,10 +35,10 @@ class DatabaseMap
   /** @var string Name of the database. */
   protected $name;
 
-  /** @var array TableMap[] Tables in the database, using table name as key */
+  /** @var array<string, TableMap> Tables in the database, using table name as key */
   protected $tables = array();
 
-  /** @var array TableMap[] Tables in the database, using table phpName as key */
+  /** @var array<string, TableMap> Tables in the database, using table phpName as key */
   protected $tablesByPhpName = array();
 
   /**
@@ -78,7 +78,7 @@ class DatabaseMap
    *
    * @param      TableMap $table The table to add
    */
-  public function addTableObject(TableMap $table)
+  public function addTableObject(TableMap $table): void
   {
     $table->setDatabaseMap($this);
     $this->tables[$table->getName() ?? ''] = $table;
@@ -136,9 +136,9 @@ class DatabaseMap
   /**
    * Get a TableMap[] of all of the tables in the database.
    *
-   * @return     array A TableMap[].
+   * @return     array<string, TableMap> A TableMap[].
    */
-  public function getTables()
+  public function getTables(): array
   {
     return $this->tables;
   }
@@ -151,7 +151,7 @@ class DatabaseMap
    * @return     ColumnMap A TableMap
    * @throws     PropulsionException if the table is undefined, or if the table is undefined
    */
-  public function getColumn($qualifiedColumnName)
+  public function getColumn(string $qualifiedColumnName)
   {
     list($tableName, $columnName) = explode('.', $qualifiedColumnName);
     return $this->getTable($tableName)->getColumn($columnName, false);
@@ -171,7 +171,7 @@ class DatabaseMap
     return $this->hasTable($name);
   }
 
-  public function getTableByPhpName($phpName)
+  public function getTableByPhpName(string $phpName): TableMap
   {
     $phpName = ltrim($phpName, '\\'); // Normalize key
     if (array_key_exists($phpName, $this->tablesByPhpName)) {

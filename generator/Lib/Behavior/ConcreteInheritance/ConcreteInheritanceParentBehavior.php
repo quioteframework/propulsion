@@ -18,17 +18,21 @@ namespace Propulsion\Generator\Behavior\ConcreteInheritance;
  * @version    $Revision$
  */
 
+ use Propulsion\Generator\Builder\OM\ObjectBuilder;
  use Propulsion\Generator\Model\Behavior;
 
 class ConcreteInheritanceParentBehavior extends Behavior
 {
-	// default parameters value
+	/**
+	 * default parameters value
+	 * @var array<string, mixed>
+	 */
 	protected $parameters = array(
 		'descendant_column' => 'descendant_class'
 	);
 
-	protected $builder;
-	public function modifyTable()
+	protected ?ObjectBuilder $builder = null;
+	public function modifyTable(): void
 	{
 		$table = $this->getTable();
 		if (!$table->hasColumn($this->getParameter('descendant_column'))) {
@@ -40,12 +44,12 @@ class ConcreteInheritanceParentBehavior extends Behavior
 		}
 	}
 
-	protected function getColumnGetter()
+	protected function getColumnGetter(): string
 	{
 		return 'get' . $this->getColumnForParameter('descendant_column')->getPhpName();
 	}
 
-	public function objectMethods($builder)
+	public function objectMethods(ObjectBuilder $builder): string
 	{
 		$this->builder = $builder;
 		$script = '';
@@ -55,7 +59,7 @@ class ConcreteInheritanceParentBehavior extends Behavior
 		return $script;
 	}
 
-	protected function addHasChildObject(&$script)
+	protected function addHasChildObject(string &$script): void
 	{
 		$script .= "
 /**
@@ -70,7 +74,7 @@ public function hasChildObject()
 ";
 	}
 
-	protected function addGetChildObject(&$script)
+	protected function addGetChildObject(string &$script): void
 	{
 		$script .= "
 /**

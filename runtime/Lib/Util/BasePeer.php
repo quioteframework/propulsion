@@ -39,8 +39,12 @@ namespace Propulsion\Util;
 class BasePeer
 {
 
-	/** Array (hash) that contains cached validators */
-	private static $validatorMap = array();
+	/**
+	 * Array (hash) that contains cached validators
+	 *
+	 * @var array<string, BasicValidator>
+	 */
+	private static array $validatorMap = array();
 
 	/**
 	 * phpname type
@@ -89,7 +93,7 @@ class BasePeer
 	 * @param      string $type The type of fieldnames to return: one of the class type
 	 *                     constants TYPE_PHPNAME, TYPE_STUDLYPHPNAME, TYPE_COLNAME,
 	 *                     TYPE_FIELDNAME, TYPE_NUM.
-	 * @return     array A list of field names
+	 * @return     array<int, string> A list of field names
 	 */
 	public static function getFieldNames($classname, $type = self::TYPE_PHPNAME)
 	{
@@ -573,7 +577,8 @@ class BasePeer
 	 *
 	 * @param      string $dbName The name of the database
 	 * @param      string $tableName The name of the table
-	 * @param      array $columns Array of column names as key and column values as value.
+	 * @param      array<string, mixed> $columns Array of column names as key and column values as value.
+	 * @return     array<string, ValidationFailed>|true
 	 */
 	public static function doValidate($dbName, $tableName, $columns)
 	{
@@ -631,7 +636,7 @@ class BasePeer
 	 * This is implemented in a service class rather than in Criteria itself
 	 * in order to avoid doing the tests when it's not necessary (e.g. for SELECTs)
 	 */
-	public static function needsSelectAliases(Criteria $criteria)
+	public static function needsSelectAliases(Criteria $criteria): bool
 	{
 		$columnNames = array();
 		foreach ($criteria->getSelectColumns() as $fullyQualifiedColumnName) {
@@ -656,7 +661,7 @@ class BasePeer
 	 * is to let the PDO layer handle all escaping & value formatting.
 	 *
 	 * @param      Criteria $criteria Criteria for the SELECT query.
-	 * @param      array &$params Parameters that are to be replaced in prepared statement.
+	 * @param      array<mixed> &$params Parameters that are to be replaced in prepared statement.
 	 * @return     string
 	 * @throws     PropulsionException Trouble creating the query string.
 	 */
@@ -871,9 +876,9 @@ class BasePeer
 	/**
 	 * Builds a params array, like the kind populated by Criterion::appendPsTo().
 	 * This is useful for building an array even when it is not using the appendPsTo() method.
-	 * @param      array $columns
+	 * @param      array<int, string> $columns
 	 * @param      Criteria $values
-	 * @return     array params array('column' => ..., 'table' => ..., 'value' => ...)
+	 * @return     array<int, array<string, mixed>> params array('column' => ..., 'table' => ..., 'value' => ...)
 	 */
 	private static function buildParams($columns, Criteria $values)
 	{

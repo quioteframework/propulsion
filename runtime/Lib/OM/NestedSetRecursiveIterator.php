@@ -12,16 +12,25 @@ namespace Propulsion\OM;
 /**
  * Pre-order node iterator for Node objects.
  *
+ * This is intentionally duck-typed rather than requiring the NodeObject
+ * interface: the modern nested_set behavior generates plain ActiveRecord
+ * objects with the same method names (getPath()/getAncestors(),
+ * retrieveNextSibling()/getNextSibling(), retrieveFirstChild()/getFirstChild())
+ * without necessarily implementing NodeObject, alongside the legacy
+ * NodeObject-interface-based treeMode objects, which do.
+ *
  * @author     Heltem <heltem@o2php.com>
  * @version    $Revision$
+ *
+ * @implements \RecursiveIterator<string, object>
  */
 class NestedSetRecursiveIterator implements \RecursiveIterator
 {
-	protected $topNode = null;
+	protected ?object $topNode = null;
 
-	protected $curNode = null;
+	protected ?object $curNode = null;
 
-	public function __construct($node)
+	public function __construct(object $node)
 	{
 		$this->topNode = $node;
 		$this->curNode = $node;
@@ -77,6 +86,9 @@ class NestedSetRecursiveIterator implements \RecursiveIterator
 		return $this->curNode->hasChildren();
 	}
 
+	/**
+	 * @return \RecursiveIterator<string, object>
+	 */
 	public function getChildren() : \RecursiveIterator
 	{
 		$method = method_exists($this->curNode, 'retrieveFirstChild') ? 'retrieveFirstChild' : 'getFirstChild';

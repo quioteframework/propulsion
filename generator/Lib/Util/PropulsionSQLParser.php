@@ -20,11 +20,11 @@ use PDO;
  */
 class PropulsionSQLParser
 {
-	protected $delimiter = ';';
+	protected string $delimiter = ';';
 
-	protected $sql = '';
-	protected $len = 0;
-	protected $pos = 0;
+	protected string $sql = '';
+	protected int $len = 0;
+	protected int $pos = 0;
 
 	/**
 	 * Sets the inner SQL string for this object.
@@ -32,7 +32,7 @@ class PropulsionSQLParser
 	 *
 	 * @param string $sql The SQL string to parse
 	 */
-	public function setSQL($sql)
+	public function setSQL($sql): void
 	{
 		$this->sql = $sql;
 		$this->pos = 0;
@@ -81,12 +81,12 @@ class PropulsionSQLParser
 	 * Execute a list of DDL statements based on an array
 	 * Does not use transactions since they are not supported in DDL statements
 	 *
-	 * @param array $statements a list of SQL statements
+	 * @param array<int, string> $statements a list of SQL statements
 	 * @param PDO $connection a connection object
 	 *
 	 * @return integer the number of executed statements
 	 */
-	protected static function executeStatements($statements, $connection)
+	protected static function executeStatements(array $statements, $connection)
 	{
 		foreach ($statements as $statement) {
 			$stmt = $connection->prepare($statement);
@@ -121,7 +121,7 @@ class PropulsionSQLParser
 	 * </code>
 	 * @param string $input The SQL code to parse
 	 *
-	 * @return array A list of SQL statement strings
+	 * @return array<int, string> A list of SQL statement strings
 	 */
 	public static function parseString($input)
 	{
@@ -150,7 +150,7 @@ class PropulsionSQLParser
 	 * </code>
 	 * @param string $file The absolute path to the file to parse
 	 *
-	 * @return array A list of SQL statement strings
+	 * @return array<int, string> A list of SQL statement strings
 	 */
 	public static function parseFile($file)
 	{
@@ -160,12 +160,12 @@ class PropulsionSQLParser
 		return self::parseString(file_get_contents($file));
 	}
 
-	public function convertLineFeedsToUnixStyle()
+	public function convertLineFeedsToUnixStyle(): void
 	{
 		$this->setSQL(str_replace(array("\r\n", "\r"), "\n", $this->sql));
 	}
 
-	public function stripSQLCommentLines()
+	public function stripSQLCommentLines(): void
 	{
 		$this->setSQL(preg_replace(array(
 			'#^\s*(//|--|\#).*(\n|$)#m',    // //, --, or # style comments
@@ -176,7 +176,7 @@ class PropulsionSQLParser
 	/**
 	 * Explodes the inner SQL string into statements based on the SQL statement delimiter (;)
 	 *
-	 * @return array A list of SQL statement strings
+	 * @return array<int, string> A list of SQL statement strings
 	 */
 	public function explodeIntoStatements()
 	{

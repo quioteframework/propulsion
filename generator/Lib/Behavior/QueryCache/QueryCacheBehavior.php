@@ -15,18 +15,20 @@ namespace Propulsion\Generator\Behavior\QueryCache;;
  * @author     François Zaninotto
  * @version    $Revision$
  */
+use Propulsion\Generator\Builder\OM\OMBuilder;
 use Propulsion\Generator\Model\Behavior;
 class QueryCacheBehavior extends Behavior
 {
 	// default parameters value
+	/** @var array<string, mixed> */
 	protected $parameters = array(
 		'backend'     => 'apc',
 		'lifetime'    => 3600,
 	);
 
-	protected $peerClassname;
+	protected string $peerClassname = '';
 
-	public function queryAttributes($builder)
+	public function queryAttributes(OMBuilder $builder): string
 	{
 		$script = "protected \$queryKey = '';
 ";
@@ -47,7 +49,7 @@ class QueryCacheBehavior extends Behavior
 		return $script;
 	}
 
-	public function queryMethods($builder)
+	public function queryMethods(OMBuilder $builder): string
 	{
 		$this->peerClassname = $builder->getStubPeerBuilder()->getClassname();
 		$script = '';
@@ -62,7 +64,7 @@ class QueryCacheBehavior extends Behavior
 		return $script;
 	}
 
-	protected function addSetQueryKey(&$script)
+	protected function addSetQueryKey(string &$script): void
 	{
 		$script .= "
 public function setQueryKey(\$key)
@@ -73,7 +75,7 @@ public function setQueryKey(\$key)
 ";
 	}
 
-	protected function addGetQueryKey(&$script)
+	protected function addGetQueryKey(string &$script): void
 	{
 		$script .= "
 public function getQueryKey()
@@ -83,7 +85,7 @@ public function getQueryKey()
 ";
 	}
 
-	protected function addCacheContains(&$script)
+	protected function addCacheContains(string &$script): void
 	{
 		$script .= "
 public function cacheContains(\$key)
@@ -109,7 +111,7 @@ public function cacheContains(\$key)
 ";
 	}
 
-	protected function addCacheStore(&$script)
+	protected function addCacheStore(string &$script): void
 	{
 		$script .= "
 public function cacheStore(\$key, \$value, \$lifetime = " .$this->getParameter('lifetime') . ")
@@ -134,7 +136,7 @@ public function cacheStore(\$key, \$value, \$lifetime = " .$this->getParameter('
 ";
 	}
 
-	protected function addCacheFetch(&$script)
+	protected function addCacheFetch(string &$script): void
 	{
 		$script .= "
 public function cacheFetch(\$key)
@@ -159,7 +161,7 @@ public function cacheFetch(\$key)
 ";
 	}
 
-	protected function addGetSelectStatement(&$script)
+	protected function addGetSelectStatement(string &$script): void
 	{
 		$script .= "
 protected function getSelectStatement(\$con = null)
@@ -204,7 +206,7 @@ protected function getSelectStatement(\$con = null)
 ";
 	}
 
-	protected function addGetCountStatement(&$script)
+	protected function addGetCountStatement(string &$script): void
 	{
 		$script .= "
 protected function getCountStatement(\$con = null)

@@ -45,6 +45,6 @@ interface GeneratorConfigInterface
 	 * @param      string $name
 	 * @param      mixed $value
 	 */
-	public function setBuildProperty($name, $value);
+	public function setBuildProperty($name, $value): void;
 
 }

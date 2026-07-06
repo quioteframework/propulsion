@@ -18,16 +18,17 @@ namespace Propulsion\Generator\Model\Diff;
 use Propulsion\Generator\Model\Column;
 class PropulsionColumnDiff
 {
-	protected $changedProperties = array();
-	protected $fromColumn;
-	protected $toColumn;
+	/** @var array<string, array<int, mixed>> */
+	protected array $changedProperties = array();
+	protected ?Column $fromColumn = null;
+	protected ?Column $toColumn = null;
 
 	/**
 	 * Setter for the changedProperties property
 	 *
-	 * @param array $changedProperties
+	 * @param array<string, array<int, mixed>> $changedProperties
 	 */
-	public function setChangedProperties($changedProperties)
+	public function setChangedProperties($changedProperties): void
 	{
 		$this->changedProperties = $changedProperties;
 	}
@@ -35,7 +36,7 @@ class PropulsionColumnDiff
 	/**
 	 * Getter for the changedProperties property
 	 *
-	 * @return array
+	 * @return array<string, array<int, mixed>>
 	 */
 	public function getChangedProperties()
 	{
@@ -47,7 +48,7 @@ class PropulsionColumnDiff
 	 *
 	 * @param Column $fromColumn
 	 */
-	public function setFromColumn(Column $fromColumn)
+	public function setFromColumn(Column $fromColumn): void
 	{
 		$this->fromColumn = $fromColumn;
 	}
@@ -55,7 +56,7 @@ class PropulsionColumnDiff
 	/**
 	 * Getter for the fromColumn property
 	 *
-	 * @return Column
+	 * @return Column|null
 	 */
 	public function getFromColumn()
 	{
@@ -67,7 +68,7 @@ class PropulsionColumnDiff
 	 *
 	 * @param Column $toColumn
 	 */
-	public function setToColumn(Column $toColumn)
+	public function setToColumn(Column $toColumn): void
 	{
 		$this->toColumn = $toColumn;
 	}
@@ -75,7 +76,7 @@ class PropulsionColumnDiff
 	/**
 	 * Getter for the toColumn property
 	 *
-	 * @return Column
+	 * @return Column|null
 	 */
 	public function getToColumn()
 	{

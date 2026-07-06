@@ -18,14 +18,15 @@ use PDOStatement;
  * @version    $Revision$
  */
 use Propulsion\Exception\PropulsionException;
+use Propulsion\OM\BaseObject;
 class PropulsionStatementFormatter extends PropulsionFormatter
 {
-	public function format(PDOStatement $stmt)
+	public function format(PDOStatement $stmt): PDOStatement
 	{
 		return $stmt;
 	}
 
-	public function formatOne(PDOStatement $stmt)
+	public function formatOne(PDOStatement $stmt): ?PDOStatement
 	{
 		if ($stmt->rowCount() == 0) {
 			return null;
@@ -34,12 +35,12 @@ class PropulsionStatementFormatter extends PropulsionFormatter
 		}
 	}
 
-	public function formatRecord($record = null)
+	public function formatRecord(?BaseObject $record = null): mixed
 	{
 		throw new PropulsionException('The Statement formatter cannot transform a record into a statement');
 	}
 
-	public function isObjectFormatter()
+	public function isObjectFormatter(): bool
 	{
 		return false;
 	}

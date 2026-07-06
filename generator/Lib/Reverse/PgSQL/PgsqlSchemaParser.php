@@ -48,10 +48,10 @@ class PgsqlSchemaParser extends BaseSchemaParser
 
 	/**
 	 * Map PostgreSQL native types to Propulsion types.
-	 * @var        array
+	 *
+	 * @var        array<string, string>
 	 */
-	 /** Map MySQL native types to Propulsion (JDBC) types. */
-	private static $pgsqlTypeMap = array(
+	private static array $pgsqlTypeMap = array(
 				'bool' => PropulsionTypes::BOOLEAN,
 				'boolean' => PropulsionTypes::BOOLEAN,
 				'tinyint' => PropulsionTypes::TINYINT,
@@ -91,9 +91,9 @@ class PgsqlSchemaParser extends BaseSchemaParser
 	/**
 	 * Gets a type mapping from native types to Propulsion types
 	 *
-	 * @return     array
+	 * @return     array<string, string>
 	 */
-	protected function getTypeMapping()
+	protected function getTypeMapping(): array
 	{
 		return self::$pgsqlTypeMap;
 	}
@@ -177,7 +177,7 @@ class PgsqlSchemaParser extends BaseSchemaParser
 	 * @param      int $oid The table OID
 	 * @param      string $version The database version.
 	 */
-	protected function addColumns(Table $table, $oid, $version)
+	protected function addColumns(Table $table, int $oid, string $version): void
 	{
 		// Get the columns, types, etc.
 		// Based on code from pgAdmin3 (http://www.pgadmin.org/)
@@ -286,7 +286,10 @@ class PgsqlSchemaParser extends BaseSchemaParser
 
 	} // addColumn()
 
-	private function processLengthScale($intTypmod, $strName)
+	/**
+	 * @return array<string, mixed>
+	 */
+	private function processLengthScale(int $intTypmod, string $strName): array
 	{
 		// Define the return array
 		$arrRetVal = array ('length'=>null, 'scale'=>null);
@@ -331,7 +334,10 @@ class PgsqlSchemaParser extends BaseSchemaParser
 		return $arrRetVal;
 	} // private function processLengthScale ($intTypmod, $strName)
 
-	private function processDomain($strDomain)
+	/**
+	 * @return array<string, mixed>
+	 */
+	private function processDomain(string $strDomain): array
 	{
 		if (strlen(trim ($strDomain)) < 1) {
 			throw new EngineException ("Invalid domain name [" . $strDomain . "]");
@@ -374,7 +380,7 @@ class PgsqlSchemaParser extends BaseSchemaParser
 	/**
 	 * Load foreign keys for this table.
 	 */
-	protected function addForeignKeys(Table $table, $oid, $version)
+	protected function addForeignKeys(Table $table, int $oid, string $version): void
 	{
 		$database = $table->getDatabase();
 		$stmt = $this->dbh->prepare("SELECT
@@ -468,7 +474,7 @@ class PgsqlSchemaParser extends BaseSchemaParser
 	/**
 	 * Load indexes for this table
 	 */
-	protected function addIndexes(Table $table, $oid, $version)
+	protected function addIndexes(Table $table, int $oid, string $version): void
 	{
 		$stmt = $this->dbh->prepare("SELECT
 										DISTINCT ON(cls.relname)
@@ -522,7 +528,7 @@ class PgsqlSchemaParser extends BaseSchemaParser
 	/**
 	 * Loads the primary key for this table.
 	 */
-	protected function addPrimaryKey(Table $table, $oid, $version)
+	protected function addPrimaryKey(Table $table, int $oid, string $version): void
 	{
 
 		$stmt = $this->dbh->prepare("SELECT

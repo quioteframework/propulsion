@@ -135,7 +135,7 @@ class TestableOMBuilder2 extends OMBuilder
 		return parent::getRelatedBySuffix($fk);
 	}
 
-	public static function getRefRelatedBySuffix(ForeignKey $fk)
+	public static function getRefRelatedBySuffix(ForeignKey $fk): string
 	{
 		return parent::getRefRelatedBySuffix($fk);
 	}

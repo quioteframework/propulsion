@@ -14,12 +14,19 @@ namespace Propulsion\Generator\Behavior\AggregateColumn;
  * @author     François Zaninotto
  * @version    $Revision$
  */
+ use Propulsion\Generator\Builder\OM\ObjectBuilder;
  use Propulsion\Generator\Model\Behavior;
+ use Propulsion\Generator\Model\Column;
+ use Propulsion\Generator\Model\ForeignKey;
+ use Propulsion\Generator\Model\Table;
 
 class AggregateColumnBehavior extends Behavior
 {
 
-	// default parameters value
+	/**
+	 * default parameters value
+	 * @var array<string, mixed>
+	 */
 	protected $parameters = array(
 		'name'           => null,
 		'expression'     => null,
@@ -30,7 +37,7 @@ class AggregateColumnBehavior extends Behavior
 	/**
 	 * Add the aggregate key to the current table
 	 */
-	public function modifyTable()
+	public function modifyTable(): void
 	{
 		$table = $this->getTable();
 		if (!$columnName = $this->getParameter('name')) {
@@ -57,7 +64,7 @@ class AggregateColumnBehavior extends Behavior
 		}
 	}
 
-	public function objectMethods($builder)
+	public function objectMethods(ObjectBuilder $builder): string
 	{
 		if (!$foreignTableName = $this->getParameter('foreign_table')) {
 			throw new \InvalidArgumentException(sprintf('You must define a \'foreign_table\' parameter for the \'aggregate_column\' behavior in the \'%s\' table', $this->getTable()->getName()));
@@ -69,7 +76,7 @@ class AggregateColumnBehavior extends Behavior
 		return $script;
 	}
 
-	protected function addObjectCompute()
+	protected function addObjectCompute(): string
 	{
 		$conditions = array();
 		$bindings = array();
@@ -95,14 +102,14 @@ class AggregateColumnBehavior extends Behavior
 		));
 	}
 
-	protected function addObjectUpdate()
+	protected function addObjectUpdate(): string
 	{
 		return $this->renderTemplate('objectUpdate', array(
 			'column'  => $this->getColumn(),
 		));
 	}
 
-	protected function getForeignTable()
+	protected function getForeignTable(): ?Table
 	{
 		$database = $this->getTable()->getDatabase();
 		$tableName = $database->getTablePrefix() . $this->getParameter('foreign_table');
@@ -112,7 +119,7 @@ class AggregateColumnBehavior extends Behavior
 		return $database->getTable($tableName);
 	}
 
-	protected function getForeignKey()
+	protected function getForeignKey(): ?ForeignKey
 	{
 		$foreignTable = $this->getForeignTable();
 		// let's infer the relation from the foreign table
@@ -124,7 +131,7 @@ class AggregateColumnBehavior extends Behavior
 		return array_shift($fks);
 	}
 
-	protected function getColumn()
+	protected function getColumn(): ?Column
 	{
 		return $this->getTable()->getColumn($this->getParameter('name'));
 	}

@@ -25,6 +25,7 @@ class I18nBehavior extends Behavior
 	const DEFAULT_LOCALE = 'en_EN';
 
 	// default parameters value
+	/** @var array<string, string|null> */
 	protected $parameters = array(
 		'i18n_table'    => '%TABLE%_i18n',
 		'i18n_phpname'  => '%PHPNAME%I18n',
@@ -34,15 +35,15 @@ class I18nBehavior extends Behavior
 		'locale_alias'  => '',
 	);
 
+	/** @var int */
 	protected $tableModificationOrder = 70;
 
-	protected
-		$objectBuilderModifier,
-		$queryBuilderModifier,
-		$peerBuilderModifier,
-		$i18nTable;
+	protected ?I18nBehaviorObjectBuilderModifier $objectBuilderModifier = null;
+	protected ?I18nBehaviorQueryBuilderModifier $queryBuilderModifier = null;
+	protected ?I18nBehaviorPeerBuilderModifier $peerBuilderModifier = null;
+	protected ?\Propulsion\Generator\Model\Table $i18nTable = null;
 
-	public function modifyDatabase()
+	public function modifyDatabase(): void
 	{
 		foreach ($this->getDatabase()->getTables() as $table) {
 			if ($table->hasBehavior('i18n') && !$table->getBehavior('i18n')->getParameter('default_locale')) {
@@ -54,7 +55,7 @@ class I18nBehavior extends Behavior
 		}
 	}
 
-	public function modifyTable()
+	public function modifyTable(): void
 	{
 		$this->addI18nTable();
 		$this->relateI18nTableToMainTable();
@@ -62,7 +63,7 @@ class I18nBehavior extends Behavior
 		$this->moveI18nColumns();
 	}
 
-	protected function addI18nTable()
+	protected function addI18nTable(): void
 	{
 		$table = $this->getTable();
 		$database = $table->getDatabase();
@@ -84,7 +85,7 @@ class I18nBehavior extends Behavior
 		}
 	}
 
-	protected function relateI18nTableToMainTable()
+	protected function relateI18nTableToMainTable(): void
 	{
 		$table = $this->getTable();
 		$i18nTable = $this->i18nTable;
@@ -114,7 +115,7 @@ class I18nBehavior extends Behavior
 		$i18nTable->addForeignKey($fk);
 	}
 
-	protected function addLocaleColumnToI18n()
+	protected function addLocaleColumnToI18n(): void
 	{
 		$localeColumnName = $this->getLocaleColumnName();
 		if (!$this->i18nTable->hasColumn($localeColumnName)) {
@@ -131,7 +132,7 @@ class I18nBehavior extends Behavior
 	/**
 	 * Moves i18n columns from the main table to the i18n table
 	 */
-	protected function moveI18nColumns()
+	protected function moveI18nColumns(): void
 	{
 		$table = $this->getTable();
 		$i18nTable = $this->i18nTable;
@@ -156,22 +157,23 @@ class I18nBehavior extends Behavior
 		}
 	}
 
-	protected function getI18nTableName()
+	protected function getI18nTableName(): string
 	{
 		return $this->replaceTokens($this->getParameter('i18n_table'));
 	}
 
-	protected function getI18nTablePhpName()
+	protected function getI18nTablePhpName(): string
 	{
 		return $this->replaceTokens($this->getParameter('i18n_phpname'));
 	}
 
-	protected function getLocaleColumnName()
+	protected function getLocaleColumnName(): string
 	{
 		return $this->replaceTokens($this->getParameter('locale_column'));
 	}
 
-	protected function getI18nColumnNamesFromConfig()
+	/** @return array<int, string> */
+	protected function getI18nColumnNamesFromConfig(): array
 	{
 		$columnNames = explode(',', $this->getParameter('i18n_columns'));
 		foreach ($columnNames as $key => $columnName) {
@@ -184,7 +186,7 @@ class I18nBehavior extends Behavior
 		return $columnNames;
 	}
 
-	public function getDefaultLocale()
+	public function getDefaultLocale(): string
 	{
 		if (!$defaultLocale = $this->getParameter('default_locale')) {
 			$defaultLocale = self::DEFAULT_LOCALE;
@@ -192,26 +194,28 @@ class I18nBehavior extends Behavior
 		return $defaultLocale;
 	}
 
-	public function getI18nTable()
+	public function getI18nTable(): ?\Propulsion\Generator\Model\Table
 	{
 		return $this->i18nTable;
 	}
 
-	public function getI18nForeignKey()
+	public function getI18nForeignKey(): ?ForeignKey
 	{
 		foreach ($this->i18nTable->getForeignKeys() as $fk) {
 			if ($fk->getForeignTableName() == $this->table->getName()) {
 				return $fk;
 			}
 		}
+		return null;
 	}
 
-	public function getLocaleColumn()
+	public function getLocaleColumn(): \Propulsion\Generator\Model\Column
 	{
 		return $this->getI18nTable()->getColumn($this->getLocaleColumnName());
 	}
 
-	public function getI18nColumns()
+	/** @return array<int, \Propulsion\Generator\Model\Column> */
+	public function getI18nColumns(): array
 	{
 		$columns = array();
 		$i18nTable = $this->getI18nTable();
@@ -234,7 +238,7 @@ class I18nBehavior extends Behavior
 		return $columns;
 	}
 
-	public function replaceTokens($string)
+	public function replaceTokens(string $string): string
 	{
 		$table = $this->getTable();
 		return strtr($string, array(
@@ -243,7 +247,7 @@ class I18nBehavior extends Behavior
 		));
 	}
 
-	public function getObjectBuilderModifier()
+	public function getObjectBuilderModifier(): I18nBehaviorObjectBuilderModifier
 	{
 		if (is_null($this->objectBuilderModifier)) {
 			$this->objectBuilderModifier = new I18nBehaviorObjectBuilderModifier($this);
@@ -251,7 +255,7 @@ class I18nBehavior extends Behavior
 		return $this->objectBuilderModifier;
 	}
 
-	public function getQueryBuilderModifier()
+	public function getQueryBuilderModifier(): I18nBehaviorQueryBuilderModifier
 	{
 		if (is_null($this->queryBuilderModifier)) {
 			$this->queryBuilderModifier = new I18nBehaviorQueryBuilderModifier($this);
@@ -259,7 +263,7 @@ class I18nBehavior extends Behavior
 		return $this->queryBuilderModifier;
 	}
 
-	public function getPeerBuilderModifier()
+	public function getPeerBuilderModifier(): I18nBehaviorPeerBuilderModifier
 	{
 		if (is_null($this->peerBuilderModifier)) {
 			$this->peerBuilderModifier = new I18nBehaviorPeerBuilderModifier($this);

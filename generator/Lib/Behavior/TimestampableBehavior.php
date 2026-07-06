@@ -16,10 +16,13 @@ namespace Propulsion\Generator\Behavior;
  * @author     François Zaninotto
  * @version    $Revision$
  */
+use Propulsion\Generator\Builder\OM\ObjectBuilder;
+use Propulsion\Generator\Builder\OM\QueryBuilder;
 use Propulsion\Generator\Model\Behavior;
 class TimestampableBehavior extends Behavior
 {
 	// default parameters value
+	/** @var array<string,string> */
 	protected $parameters = array(
 		'create_column' => 'created_at',
 		'update_column' => 'updated_at'
@@ -28,7 +31,7 @@ class TimestampableBehavior extends Behavior
 	/**
 	 * Add the create_column and update_columns to the current table
 	 */
-	public function modifyTable()
+	public function modifyTable(): void
 	{
 		if(!$this->getTable()->hasColumn($this->getParameter('create_column'))) {
 			$this->getTable()->addColumn(array(
@@ -50,12 +53,15 @@ class TimestampableBehavior extends Behavior
 	 * @param     string $column One of the behavior colums, 'create_column' or 'update_column'
 	 * @return    string The related setter, 'setCreatedOn' or 'setUpdatedOn'
 	 */
-	protected function getColumnSetter($column)
+	protected function getColumnSetter(string $column): string
 	{
 		return 'set' . $this->getColumnForParameter($column)->getPhpName();
 	}
 
-	protected function getColumnConstant($columnName, $builder)
+	/**
+	 * @param ObjectBuilder|QueryBuilder $builder
+	 */
+	protected function getColumnConstant(string $columnName, $builder): string
 	{
 		return $builder->getColumnConstant($this->getColumnForParameter($columnName));
 	}
@@ -65,7 +71,7 @@ class TimestampableBehavior extends Behavior
 	 *
 	 * @return    string The code to put at the hook
 	 */
-	public function preUpdate($builder)
+	public function preUpdate(ObjectBuilder $builder): string
 	{
 		return "if (\$this->isModified() && !\$this->isColumnModified(" . $this->getColumnConstant('update_column', $builder) . ")) {
 	\$this->" . $this->getColumnSetter('update_column') . "(time());
@@ -77,7 +83,7 @@ class TimestampableBehavior extends Behavior
 	 *
 	 * @return    string The code to put at the hook
 	 */
-	public function preInsert($builder)
+	public function preInsert(ObjectBuilder $builder): string
 	{
 		return "if (!\$this->isColumnModified(" . $this->getColumnConstant('create_column', $builder) . ")) {
 	\$this->" . $this->getColumnSetter('create_column') . "(time());
@@ -87,7 +93,7 @@ if (!\$this->isColumnModified(" . $this->getColumnConstant('update_column', $bui
 }";
 	}
 
-	public function objectMethods($builder)
+	public function objectMethods(ObjectBuilder $builder): string
 	{
 		return "
 /**
@@ -103,7 +109,7 @@ public function keepUpdateDateUnchanged()
 ";
 	}
 
-	public function queryMethods($builder)
+	public function queryMethods(QueryBuilder $builder): string
 	{
 		$queryClassName = $builder->getStubQueryBuilder()->getClassname();
 		$updateColumnConstant = $this->getColumnConstant('update_column', $builder);

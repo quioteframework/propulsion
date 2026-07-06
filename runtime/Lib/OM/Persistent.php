@@ -72,7 +72,7 @@ interface Persistent
 	 *
 	 * @param      boolean $b the state of the object.
 	 */
-	public function setNew($b);
+	public function setNew($b): void;
 
 	/**
 	 * Resets (to false) the "modified" state for this object.

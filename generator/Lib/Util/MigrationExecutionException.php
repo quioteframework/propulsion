@@ -24,9 +24,9 @@ class MigrationExecutionException extends \RuntimeException
      * @param string $datasource The datasource on which the failure occurred.
      * @param int $timestamp The migration's timestamp identifier.
      * @param string $direction 'up' or 'down'.
-     * @param array $statementLog The exact per-statement log recorded in the
-     *              ledger for this attempt (possibly empty, when no statements
-     *              were found at all).
+     * @param array<int, array{sql: string, status: string, error?: string}> $statementLog
+     *              The exact per-statement log recorded in the ledger for this
+     *              attempt (possibly empty, when no statements were found at all).
      */
     public function __construct(
         string $message,
@@ -55,7 +55,7 @@ class MigrationExecutionException extends \RuntimeException
     }
 
     /**
-     * @return array List of ['sql' => ..., 'status' => 'success'|'failed'|'not_attempted', 'error' => ...] entries.
+     * @return array<int, array{sql: string, status: string, error?: string}> List of entries.
      */
     public function getStatementLog(): array
     {

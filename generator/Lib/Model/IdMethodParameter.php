@@ -20,15 +20,15 @@ namespace Propulsion\Generator\Model;
 class IdMethodParameter extends XMLElement
 {
 
-	private $name;
-	private $value;
-	private $parentTable;
+	private ?string $name = null;
+	private ?string $value = null;
+	private ?Table $parentTable = null;
 
    /**
 	 * Sets up the IdMethodParameter object based on the attributes that were passed to loadFromXML().
 	 * @see        parent::loadFromXML()
 	 */
-	protected function setupObject()
+	protected function setupObject(): void
 	{
 		$this->name = $this->getAttribute("name");
 		$this->value = $this->getAttribute("value");
@@ -37,7 +37,7 @@ class IdMethodParameter extends XMLElement
 	/**
 	 * Get the parameter name
 	 */
-	public function getName()
+	public function getName(): ?string
 	{
 		return $this->name;
 	}
@@ -45,7 +45,7 @@ class IdMethodParameter extends XMLElement
 	/**
 	 * Set the parameter name
 	 */
-	public function setName($name)
+	public function setName(?string $name): void
 	{
 		$this->name = $name;
 	}
@@ -53,7 +53,7 @@ class IdMethodParameter extends XMLElement
 	/**
 	 * Get the parameter value
 	 */
-	public function getValue()
+	public function getValue(): ?string
 	{
 		return $this->value;
 	}
@@ -61,7 +61,7 @@ class IdMethodParameter extends XMLElement
 	/**
 	 * Set the parameter value
 	 */
-	public function setValue($value)
+	public function setValue(?string $value): void
 	{
 		$this->value = $value;
 	}
@@ -69,7 +69,7 @@ class IdMethodParameter extends XMLElement
 	/**
 	 * Set the parent Table of the id method
 	 */
-	public function setTable(Table $parent)
+	public function setTable(Table $parent): void
 	{
 		$this->parentTable = $parent;
 	}
@@ -77,7 +77,7 @@ class IdMethodParameter extends XMLElement
 	/**
 	 * Get the parent Table of the id method
 	 */
-	public function getTable()
+	public function getTable(): ?Table
 	{
 		return $this->parentTable;
 	}
@@ -85,7 +85,7 @@ class IdMethodParameter extends XMLElement
 	/**
 	 * Returns the Name of the table the id method is in
 	 */
-	public function getTableName()
+	public function getTableName(): ?string
 	{
 		return $this->parentTable->getName();
 	}
@@ -93,7 +93,7 @@ class IdMethodParameter extends XMLElement
 	/**
 	 * @see        XMLElement::appendXml(\DOMNode)
 	 */
-	public function appendXml(\DOMNode $node)
+	public function appendXml(\DOMNode $node): void
 	{
 		$doc = ($node instanceof \DOMDocument) ? $node : $node->ownerDocument;
 

@@ -39,12 +39,12 @@ class MssqlPlatform extends DefaultPlatform
 	 * silently coupling each test's expected output to how many DROP blocks every
 	 * *other* test that happened to run earlier had already emitted).
 	 */
-	protected $dropCount = 0;
+	protected int $dropCount = 0;
 
 	/**
 	 * Initializes db specific domain mapping.
 	 */
-	protected function initialize()
+	protected function initialize(): void
 	{
 		parent::initialize();
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::INTEGER, "INT"));
@@ -71,7 +71,7 @@ class MssqlPlatform extends DefaultPlatform
 		return 128;
 	}
 
-	public function getNullString($notNull)
+	public function getNullString(bool $notNull)
 	{
 		return ($notNull ? "NOT NULL" : "NULL");
 	}

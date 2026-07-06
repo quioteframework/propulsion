@@ -22,7 +22,8 @@ namespace Propulsion\Generator\Builder\Util;
  */
 class StandardEnglishPluralizer implements Pluralizer
 {
-	protected $_plural = array(
+	/** @var array<string, string> */
+	protected array $_plural = array(
 		'(matr|vert|ind)(ix|ex)' => '\1ices',
 		'(alumn|bacill|cact|foc|fung|nucle|radi|stimul|syllab|termin|vir)us' => '\1i',
 		'(buffal|tomat)o' => '\1oes',
@@ -73,7 +74,8 @@ class StandardEnglishPluralizer implements Pluralizer
 		'life' => 'lives'
 	);
 
-	protected $_irregular = array(
+	/** @var array<string, string> */
+	protected array $_irregular = array(
 		'leaf'   => 'leaves',
 		'loaf'   => 'loaves',
 		'move'   => 'moves',
@@ -94,7 +96,8 @@ class StandardEnglishPluralizer implements Pluralizer
 		'alias' => 'aliases',
 	);
 
-	private $_uncountable = array(
+	/** @var list<string> */
+	private array $_uncountable = array(
 		'sheep',
 		'fish',
 		'deer',

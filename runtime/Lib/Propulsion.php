@@ -119,17 +119,20 @@ class Propulsion
 	private static $defaultDBName;
 
 	/**
-	 * @var        array The global cache of database maps
+	 * @var        array<string, DatabaseMap> The global cache of database maps
 	 */
 	private static $dbMaps = array();
 
 	/**
-	 * @var        array The cache of DB adapter keys
+	 * @var        array<string, DBAdapter> The cache of DB adapter keys
 	 */
 	private static $adapterMap = array();
 
 	/**
-	 * @var        array Cache of established connections (to eliminate overhead).
+	 * @var        array<string, array<string, mixed>> Cache of established connections (to eliminate overhead).
+	 *             Values are expected to be PDO|PropulsionPDO instances, but a
+	 *             misconfigured connection `classname` in the runtime config can
+	 *             put an arbitrary user-defined object here (see initConnection()).
 	 */
 	private static $connectionMap = array();
 
@@ -184,7 +187,7 @@ class Propulsion
 	 * @throws     PropulsionException Any exceptions caught during processing will be
 	 *                             rethrown wrapped into a PropulsionException.
 	 */
-	public static function initialize()
+	public static function initialize(): void
 	{
 		if (self::$configuration === null) {
 			throw new PropulsionException("Propulsion cannot be initialized without a valid configuration. Please check the log files for further details.");
@@ -204,7 +207,7 @@ class Propulsion
 	 * @throws     PropulsionException If configuration file cannot be opened.
 	 *                             (E_WARNING probably will also be raised by PHP)
 	 */
-	public static function configure($configFile)
+	public static function configure($configFile): void
 	{
 		$configuration = include($configFile);
 		if ($configuration === false) {
@@ -228,7 +231,7 @@ class Propulsion
 	 * @throws     PropulsionException Any exceptions caught during processing will be
 	 *                             rethrown wrapped into a PropulsionException.
 	 */
-	public static function init($c)
+	public static function init($c): void
 	{
 		self::configure($c);
 		self::initialize();
@@ -249,7 +252,7 @@ class Propulsion
 	 *
 	 * @param      mixed $c The Configuration (array or PropulsionConfiguration)
 	 */
-	public static function setConfiguration($c)
+	public static function setConfiguration($c): void
 	{
 		if (is_array($c)) {
 			if (isset($c['propel']) && is_array($c['propel'])) {
@@ -284,7 +287,7 @@ class Propulsion
 	 *
 	 * @param      LoggerInterface $logger The new logger to use.
 	 */
-	public static function setLogger(LoggerInterface $logger)
+	public static function setLogger(LoggerInterface $logger): void
 	{
 		self::$logger = $logger;
 	}
@@ -316,7 +319,7 @@ class Propulsion
 	 *
 	 * @param      string $message The message that will be logged.
 	 * @param      string $level One of the Psr\Log\LogLevel::* constants (also available as Propulsion::LOG_*).
-	 * @param      array  $context PSR-3 context array.
+	 * @param      array<string,mixed>  $context PSR-3 context array.
 	 *
 	 * @return     bool True if the message was logged successfully or no logger was used.
 	 */
@@ -358,7 +361,7 @@ class Propulsion
 	 * @param      string|null $name The datasource name.
 	 * @param      DatabaseMap $map The database map object to use for specified datasource.
 	 */
-	public static function setDatabaseMap($name, DatabaseMap $map)
+	public static function setDatabaseMap($name, DatabaseMap $map): void
 	{
 		if ($name === null) {
 			$name = self::getDefaultDB();
@@ -376,7 +379,7 @@ class Propulsion
 	 *
 	 * @param      boolean $bit True or False
 	 */
-	public static function setForceMasterConnection($bit)
+	public static function setForceMasterConnection($bit): void
 	{
 		self::getSession()->setForceMasterConnection((bool) $bit);
 	}
@@ -478,7 +481,7 @@ class Propulsion
 	 * @param      PropulsionPDO $con The PDO connection.
 	 * @param      string $mode Whether this is a READ or WRITE connection (Propulsion::CONNECTION_READ, Propulsion::CONNECTION_WRITE)
 	 */
-	public static function setConnection($name, PropulsionPDO $con, $mode = Propulsion::CONNECTION_WRITE)
+	public static function setConnection($name, PropulsionPDO $con, $mode = Propulsion::CONNECTION_WRITE): void
 	{
 		if ($name === null) {
 			$name = self::getDefaultDB();
@@ -660,7 +663,7 @@ class Propulsion
 	/**
 	 * Opens a new PDO connection for passed-in db name.
 	 *
-	 * @param      array $conparams Connection paramters.
+	 * @param      array<string,mixed> $conparams Connection paramters.
 	 * @param      string $name Datasource name.
 	 * @param      string $defaultClass The PDO subclass to instantiate if there is no explicit classname
 	 * 									specified in the connection params (default is Propulsion::CLASS_PROPEL_PDO)
@@ -694,6 +697,7 @@ class Propulsion
 
 		// load any driver options from the config file
 		// driver options are those PDO settings that have to be passed during the connection construction
+		/** @var array<int|string, mixed> $driver_options */
 		$driver_options = array();
 		if ( isset($conparams['options']) && is_array($conparams['options']) ) {
 			try {
@@ -713,6 +717,7 @@ class Propulsion
 		// load any connection options from the config file
 		// connection attributes are those PDO flags that have to be set on the initialized connection
 		if (isset($conparams['attributes']) && is_array($conparams['attributes'])) {
+			/** @var array<int|string, mixed> $attributes */
 			$attributes = array();
 			try {
 				self::processDriverOptions( $conparams['attributes'], $attributes );
@@ -735,12 +740,12 @@ class Propulsion
 	 *
 	 * Process the INI file flags to be passed to each connection.
 	 *
-	 * @param      array $source Where to find the list of constant flags and their new setting.
-	 * @param      array $write_to Put the data into here
+	 * @param      array<int|string, array{value: mixed}> $source Where to find the list of constant flags and their new setting.
+	 * @param      array<int|string, mixed> $write_to Put the data into here
 	 *
 	 * @throws     PropulsionException If invalid options were specified.
 	 */
-	private static function processDriverOptions(array $source, array &$write_to)
+	private static function processDriverOptions(array $source, array &$write_to): void
 	{
 		foreach ($source as $option => $optiondata) {
 			if (is_string($option) && strpos($option, '::') !== false) {
@@ -800,7 +805,7 @@ class Propulsion
 	 * @param      string|null $name The datasource name.
 	 * @param      DBAdapter $adapter The DBAdapter implementation to use.
 	 */
-	public static function setDB($name, DBAdapter $adapter)
+	public static function setDB($name, DBAdapter $adapter): void
 	{
 		if ($name === null) {
 			$name = self::getDefaultDB();
@@ -828,7 +833,7 @@ class Propulsion
 	 * This method frees any database connection handles that have been
 	 * opened by the getConnection() method.
 	 */
-	public static function close()
+	public static function close(): void
 	{
 		if (getenv('AGAVI_DEBUG_DATABASE')) {
 			self::log('[Propulsion::close] closing ' . count(self::$connectionMap) . ' connection groups', LogLevel::DEBUG);
@@ -896,7 +901,7 @@ class Propulsion
 	 *
 	 * @param      string $name The name of the class.
 	 */
-	public static function setDatabaseMapClass($name)
+	public static function setDatabaseMapClass($name): void
 	{
 		self::$databaseMapClass = $name;
 	}

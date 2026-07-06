@@ -35,7 +35,7 @@ class ExtensionPeerBuilder extends AbstractPeerBuilder
      * Inlined from the (now-archived) PHP5ExtensionPeerBuilder base.
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addClassClose(&$script)
+    protected function addClassClose(&$script): void
     {
         $script .= "
 } // " . $this->getClassname() . "
@@ -48,7 +48,7 @@ class ExtensionPeerBuilder extends AbstractPeerBuilder
      * For PHP 8.4, we use autoloading instead of require statements.
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addIncludes(&$script = null)
+    protected function addIncludes(&$script = null): void
     {
         // PHP 8.4 uses namespaces and autoloading, so no require statements needed
     }

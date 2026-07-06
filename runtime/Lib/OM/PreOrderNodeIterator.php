@@ -14,18 +14,27 @@ namespace Propulsion\OM;
  *
  * @author     Dave Lawson <dlawson@masterytech.com>
  * @version    $Revision$
+ *
+ * @implements \Iterator<mixed,mixed>
  */
 class PreOrderNodeIterator implements \Iterator
 {
+	/** @var mixed */
 	private $topNode = null;
 
+	/** @var mixed */
 	private $curNode = null;
 
-	private $querydb = false;
+	private bool $querydb = false;
 
+	/** @var mixed */
 	private $con = null;
 
-	public function __construct($node, $opts) {
+	/**
+	 * @param mixed              $node
+	 * @param array<string,mixed> $opts
+	 */
+	public function __construct($node, array $opts) {
 		$this->topNode = $node;
 		$this->curNode = $node;
 

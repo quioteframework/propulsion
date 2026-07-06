@@ -10,6 +10,7 @@
 namespace Propulsion\Generator\Manager;
 
 use Propulsion\Generator\Exception\EngineException;
+use Propulsion\Generator\Platform\DefaultPlatform;
 
 /**
  * Plain-PHP replacement for the Phing-based PropulsionSQLTask: loads XML schema files
@@ -49,6 +50,12 @@ class SqlManager extends AbstractSchemaManager
         foreach ($dataModels as $dataModel) {
             foreach ($dataModel->getDatabases() as $database) {
                 $platform = $database->getPlatform();
+                if (!$platform instanceof DefaultPlatform) {
+                    throw new EngineException(sprintf(
+                        "Unable to build SQL for database '%s': its configured platform must extend DefaultPlatform.",
+                        $database->getName()
+                    ));
+                }
 
                 if ($this->generatorConfig->getBuildProperty('disableIdentifierQuoting')) {
                     $platform->setIdentifierQuoting(false);

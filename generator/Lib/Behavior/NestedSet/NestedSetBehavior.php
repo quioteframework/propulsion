@@ -19,6 +19,7 @@ use Propulsion\Generator\Model\Table;
 class NestedSetBehavior extends Behavior
 {
 	// default parameters value
+	/** @var array<string, string> */
 	protected $parameters = array(
 		'left_column'		 => 'tree_left',
 		'right_column'	 => 'tree_right',
@@ -28,12 +29,14 @@ class NestedSetBehavior extends Behavior
 		'method_proxies' => 'false'
 	);
 
-	protected $objectBuilderModifier, $queryBuilderModifier, $peerBuilderModifier;
+	protected ?NestedSetBehaviorObjectBuilderModifier $objectBuilderModifier = null;
+	protected ?NestedSetBehaviorQueryBuilderModifier $queryBuilderModifier = null;
+	protected ?NestedSetBehaviorPeerBuilderModifier $peerBuilderModifier = null;
 
 	/**
 	 * Add the left, right and scope to the current table
 	 */
-	public function modifyTable()
+	public function modifyTable(): void
 	{
 		if(!$this->getTable()->hasColumn($this->getParameter('left_column'))) {
 			$this->getTable()->addColumn(array(
@@ -62,7 +65,7 @@ class NestedSetBehavior extends Behavior
 		}
 	}
 
-	public function getObjectBuilderModifier()
+	public function getObjectBuilderModifier(): NestedSetBehaviorObjectBuilderModifier
 	{
 		if (is_null($this->objectBuilderModifier))
 		{
@@ -71,7 +74,7 @@ class NestedSetBehavior extends Behavior
 		return $this->objectBuilderModifier;
 	}
 
-	public function getQueryBuilderModifier()
+	public function getQueryBuilderModifier(): NestedSetBehaviorQueryBuilderModifier
 	{
 		if (is_null($this->queryBuilderModifier))
 		{
@@ -80,7 +83,7 @@ class NestedSetBehavior extends Behavior
 		return $this->queryBuilderModifier;
 	}
 
-	public function getPeerBuilderModifier()
+	public function getPeerBuilderModifier(): NestedSetBehaviorPeerBuilderModifier
 	{
 		if (is_null($this->peerBuilderModifier))
 		{
@@ -89,7 +92,7 @@ class NestedSetBehavior extends Behavior
 		return $this->peerBuilderModifier;
 	}
 
-	public function useScope()
+	public function useScope(): bool
 	{
 		return $this->getParameter('use_scope') == 'true';
 	}

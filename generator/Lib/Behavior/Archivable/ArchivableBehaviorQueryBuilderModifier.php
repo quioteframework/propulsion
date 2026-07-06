@@ -13,22 +13,29 @@ namespace Propulsion\Generator\Behavior\Archivable;
  *
  * @author     François Zaninotto
  */
+use Propulsion\Generator\Builder\OM\QueryBuilder;
+use Propulsion\Generator\Model\Table;
+
 class ArchivableBehaviorQueryBuilderModifier
 {
-	protected $behavior, $table;
+	protected ArchivableBehavior $behavior;
+	protected Table $table;
 
-	public function __construct($behavior)
+	public function __construct(ArchivableBehavior $behavior)
 	{
 		$this->behavior = $behavior;
 		$this->table = $behavior->getTable();
 	}
 
-	protected function getParameter($key)
+	/**
+	 * @return mixed
+	 */
+	protected function getParameter(string $key)
 	{
 		return $this->behavior->getParameter($key);
 	}
 
-	public function queryAttributes($builder)
+	public function queryAttributes(QueryBuilder $builder): string
 	{
 		$script = '';
 		if ($this->behavior->isArchiveOnUpdate()) {
@@ -42,7 +49,7 @@ class ArchivableBehaviorQueryBuilderModifier
 		return $script;
 	}
 
-	public function preDeleteQuery($builder)
+	public function preDeleteQuery(QueryBuilder $builder): ?string
 	{
 		if ($this->behavior->isArchiveOnDelete()) {
 			return "
@@ -53,9 +60,11 @@ if (\$this->archiveOnDelete) {
 }
 ";
 		}
+
+		return null;
 	}
 
-	public function postUpdateQuery($builder)
+	public function postUpdateQuery(QueryBuilder $builder): ?string
 	{
 		if ($this->behavior->isArchiveOnUpdate()) {
 			return "
@@ -66,12 +75,14 @@ if (\$this->archiveOnUpdate) {
 }
 ";
 		}
+
+		return null;
 	}
 
 	/**
 	 * @return string the PHP code to be added to the builder
 	 */
-	public function queryMethods($builder)
+	public function queryMethods(QueryBuilder $builder): string
 	{
 		$script = '';
 		$script .= $this->addArchive($builder);
@@ -89,7 +100,7 @@ if (\$this->archiveOnUpdate) {
 	/**
 	 * @return string the PHP code to be added to the builder
 	 */
-	protected function addArchive($builder)
+	protected function addArchive(QueryBuilder $builder): string
 	{
 		return $this->behavior->renderTemplate('queryArchive', array(
 			'archiveTablePhpName' => $this->behavior->getArchiveTablePhpName($builder),
@@ -100,7 +111,7 @@ if (\$this->archiveOnUpdate) {
 	/**
 	 * @return string the PHP code to be added to the builder
 	 */
-	public function addSetArchiveOnUpdate($builder)
+	public function addSetArchiveOnUpdate(QueryBuilder $builder): string
 	{
 		return $this->behavior->renderTemplate('querySetArchiveOnUpdate');
 	}
@@ -108,7 +119,7 @@ if (\$this->archiveOnUpdate) {
 	/**
 	 * @return string the PHP code to be added to the builder
 	 */
-	public function addUpdateWithoutArchive($builder)
+	public function addUpdateWithoutArchive(QueryBuilder $builder): string
 	{
 		return $this->behavior->renderTemplate('queryUpdateWithoutArchive');
 	}
@@ -116,7 +127,7 @@ if (\$this->archiveOnUpdate) {
 	/**
 	 * @return string the PHP code to be added to the builder
 	 */
-	public function addSetArchiveOnDelete($builder)
+	public function addSetArchiveOnDelete(QueryBuilder $builder): string
 	{
 		return $this->behavior->renderTemplate('querySetArchiveOnDelete');
 	}
@@ -124,7 +135,7 @@ if (\$this->archiveOnUpdate) {
 	/**
 	 * @return string the PHP code to be added to the builder
 	 */
-	public function addDeleteWithoutArchive($builder)
+	public function addDeleteWithoutArchive(QueryBuilder $builder): string
 	{
 		return $this->behavior->renderTemplate('queryDeleteWithoutArchive');
 	}

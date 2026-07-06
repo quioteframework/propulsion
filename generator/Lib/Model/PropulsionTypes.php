@@ -49,25 +49,31 @@ class PropulsionTypes
 	const PHP_ARRAY = "ARRAY";
 	const ENUM = "ENUM";
 
-	protected static $creoleToPropulsionTypeMap = [];
-	
-	private static $TEXT_TYPES = array(
+	/** @var array<int|string, string> */
+	protected static array $creoleToPropulsionTypeMap = [];
+
+	/** @var string[] */
+	private static array $TEXT_TYPES = array(
 		self::CHAR, self::VARCHAR, self::LONGVARCHAR, self::CLOB, self::DATE, self::TIME, self::TIMESTAMP, self::BU_DATE, self::BU_TIMESTAMP
 	);
 
-	private static $LOB_TYPES = array(
+	/** @var string[] */
+	private static array $LOB_TYPES = array(
 		self::VARBINARY, self::LONGVARBINARY, self::BLOB
 	);
 
-	private static $TEMPORAL_TYPES = array(
+	/** @var string[] */
+	private static array $TEMPORAL_TYPES = array(
 		self::DATE, self::TIME, self::TIMESTAMP, self::BU_DATE, self::BU_TIMESTAMP
 	);
 
-	private static $NUMERIC_TYPES = array(
+	/** @var string[] */
+	private static array $NUMERIC_TYPES = array(
 		self::SMALLINT, self::TINYINT, self::INTEGER, self::BIGINT, self::FLOAT, self::DOUBLE, self::NUMERIC, self::DECIMAL, self::REAL
 	);
 
-	private static $BOOLEAN_TYPES = array(
+	/** @var string[] */
+	private static array $BOOLEAN_TYPES = array(
 		self::BOOLEAN, self::BOOLEAN_EMU
 	);
 
@@ -103,9 +109,9 @@ class PropulsionTypes
 	/**
 	 * Mapping between Propulsion types and PHP native types.
 	 *
-	 * @var        array
+	 * @var        array<string, string>
 	 */
-	private static $propelToPHPNativeMap = array(
+	private static array $propelToPHPNativeMap = array(
 			self::CHAR => self::CHAR_NATIVE_TYPE,
 			self::VARCHAR => self::VARCHAR_NATIVE_TYPE,
 			self::LONGVARCHAR => self::LONGVARCHAR_NATIVE_TYPE,
@@ -139,9 +145,9 @@ class PropulsionTypes
 	/**
 	 * Mapping between Propulsion types and Creole types (for rev-eng task)
 	 *
-	 * @var        array
+	 * @var        array<string, string>
 	 */
-	private static $propelTypeToCreoleTypeMap = array(
+	private static array $propelTypeToCreoleTypeMap = array(
 
 			self::CHAR => self::CHAR,
 			self::VARCHAR => self::VARCHAR,
@@ -179,9 +185,9 @@ class PropulsionTypes
 	/**
 	 * Mapping between Propulsion types and PDO type contants (for prepared statement setting).
 	 *
-	 * @var        array
+	 * @var        array<string, int>
 	 */
-	private static $propelTypeToPDOTypeMap = array(
+	private static array $propelTypeToPDOTypeMap = array(
 			self::CHAR => PDO::PARAM_STR,
 			self::VARCHAR => PDO::PARAM_STR,
 			self::LONGVARCHAR => PDO::PARAM_STR,
@@ -223,7 +229,7 @@ class PropulsionTypes
 	 * @param      $propelType The Propulsion type name.
 	 * @return     string Name of the native PHP type
 	 */
-	public static function getPhpNative($propelType)
+	public static function getPhpNative(string $propelType)
 	{
 		return self::$propelToPHPNativeMap[$propelType];
 	}
@@ -231,10 +237,10 @@ class PropulsionTypes
 	/**
 	 * Returns the correct Creole type _name_ for propel added types
 	 *
-	 * @param      $type the propel added type.
+	 * @param      string $type the propel added type.
 	 * @return     string Name of the the correct Creole type (e.g. "VARCHAR").
 	 */
-	public static function getCreoleType($type)
+	public static function getCreoleType(string $type)
 	{
 		return  self::$propelTypeToCreoleTypeMap[$type];
 	}
@@ -243,7 +249,7 @@ class PropulsionTypes
 	 * Resturns the PDO type (PDO::PARAM_* constant) value.
 	 * @return     int
 	 */
-	public static function getPDOType($type)
+	public static function getPDOType(string $type)
 	{
 		return self::$propelTypeToPDOTypeMap[$type];
 	}
@@ -266,7 +272,7 @@ class PropulsionTypes
 	/**
 	 * Get array of Propulsion types.
 	 *
-	 * @return     array string[]
+	 * @return     string[]
 	 */
 	public static function getPropulsionTypes()
 	{

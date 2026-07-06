@@ -32,14 +32,14 @@ interface SchemaParser
 	 *
 	 * @param      \PDO $dbh
 	 */
-	public function setConnection(\PDO $dbh);
+	public function setConnection(\PDO $dbh): void;
 
 	/**
 	 * Sets the GeneratorConfig to use in the parsing.
 	 *
 	 * @param      GeneratorConfigInterface $config
 	 */
-	public function setGeneratorConfig(GeneratorConfigInterface $config);
+	public function setGeneratorConfig(GeneratorConfigInterface $config): void;
 
 	/**
 	 * Gets a specific propel (renamed) property from the build.
@@ -51,9 +51,9 @@ interface SchemaParser
 
 	/**
 	 * Gets array of warning messages.
-	 * @return     array string[]
+	 * @return     array<int, string>
 	 */
-	public function getWarnings();
+	public function getWarnings(): array;
 
 	/**
 	 * Parse the schema and populate passed-in Database model object.
@@ -68,5 +68,5 @@ interface SchemaParser
 	 */
 	public function parse(Database $database, mixed $task = null);
 
-	public function setMigrationTable(string $migrationTable);
+	public function setMigrationTable(string $migrationTable): void;
 }

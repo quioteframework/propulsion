@@ -15,17 +15,25 @@ namespace Propulsion\Generator\Behavior\Archivable;
  * @author     François Zaninotto
  */
 
+use Propulsion\Generator\Builder\OM\ObjectBuilder;
+use Propulsion\Generator\Model\Table;
+
 class ArchivableBehaviorObjectBuilderModifier
 {
-	protected $behavior, $table, $builder;
+	protected ArchivableBehavior $behavior;
+	protected Table $table;
+	protected ?ObjectBuilder $builder = null;
 
-	public function __construct($behavior)
+	public function __construct(ArchivableBehavior $behavior)
 	{
 		$this->behavior = $behavior;
 		$this->table = $behavior->getTable();
 	}
 
-	protected function getParameter($key)
+	/**
+	 * @return mixed
+	 */
+	protected function getParameter(string $key)
 	{
 		return $this->behavior->getParameter($key);
 	}
@@ -33,7 +41,7 @@ class ArchivableBehaviorObjectBuilderModifier
 	/**
 	 * @return string the PHP code to be added to the builder
 	 */
-	public function objectAttributes($builder)
+	public function objectAttributes(ObjectBuilder $builder): string
 	{
 		$script = '';
 		if ($this->behavior->isArchiveOnInsert()) {
@@ -54,7 +62,7 @@ class ArchivableBehaviorObjectBuilderModifier
 	/**
 	 * @return string the PHP code to be added to the builder
 	 */
-	public function postInsert($builder)
+	public function postInsert(ObjectBuilder $builder): string
 	{
 		if ($this->behavior->isArchiveOnInsert()) {
 			return "if (\$this->archiveOnInsert) {
@@ -70,7 +78,7 @@ class ArchivableBehaviorObjectBuilderModifier
 	/**
 	 * @return string the PHP code to be added to the builder
 	 */
-	public function postUpdate($builder)
+	public function postUpdate(ObjectBuilder $builder): string
 	{
 		if ($this->behavior->isArchiveOnUpdate()) {
 			return "if (\$this->archiveOnUpdate) {
@@ -92,7 +100,7 @@ class ArchivableBehaviorObjectBuilderModifier
 	 *
 	 * @return string the PHP code to be added to the builder
 	 */
-	public function preDelete($builder)
+	public function preDelete(ObjectBuilder $builder): string
 	{
 		if ($this->behavior->isArchiveOnDelete()) {
 			return $this->behavior->renderTemplate('objectPreDelete', array(
@@ -107,7 +115,7 @@ class ArchivableBehaviorObjectBuilderModifier
 	/**
 	 * @return string the PHP code to be added to the builder
 	 */
-	public function objectMethods($builder)
+	public function objectMethods(ObjectBuilder $builder): string
 	{
 		$this->builder = $builder;
 		$script = '';
@@ -127,7 +135,7 @@ class ArchivableBehaviorObjectBuilderModifier
 	/**
 	 * @return string the PHP code to be added to the builder
 	 */
-	public function addGetArchive($builder)
+	public function addGetArchive(ObjectBuilder $builder): string
 	{
 		return $this->behavior->renderTemplate('objectGetArchive', array(
 			'archiveTablePhpName'   => $this->behavior->getArchiveTablePhpName($builder),
@@ -138,7 +146,7 @@ class ArchivableBehaviorObjectBuilderModifier
 	/**
 	 * @return string the PHP code to be added to the builder
 	 */
-	public function addArchive($builder)
+	public function addArchive(ObjectBuilder $builder): string
 	{
 		return $this->behavior->renderTemplate('objectArchive', array(
 			'archiveTablePhpName'   => $this->behavior->getArchiveTablePhpName($builder),
@@ -151,7 +159,7 @@ class ArchivableBehaviorObjectBuilderModifier
 	 *
 	 * @return string the PHP code to be added to the builder
 	 */
-	public function addRestoreFromArchive($builder)
+	public function addRestoreFromArchive(ObjectBuilder $builder): string
 	{
 		return $this->behavior->renderTemplate('objectRestoreFromArchive', array(
 			'objectClassname' => $this->builder->getObjectClassname(),
@@ -165,7 +173,7 @@ class ArchivableBehaviorObjectBuilderModifier
 	 *
 	 * @return string the PHP code to be added to the builder
 	 */
-	public function addPopulateFromArchive($builder)
+	public function addPopulateFromArchive(ObjectBuilder $builder): string
 	{
 		return $this->behavior->renderTemplate('objectPopulateFromArchive', array(
 			'archiveTablePhpName' => $this->behavior->getArchiveTablePhpName($builder),
@@ -178,7 +186,7 @@ class ArchivableBehaviorObjectBuilderModifier
 	/**
 	 * @return string the PHP code to be added to the builder
 	 */
-	public function addSaveWithoutArchive($builder)
+	public function addSaveWithoutArchive(ObjectBuilder $builder): string
 	{
 		return $this->behavior->renderTemplate('objectSaveWithoutArchive', array(
 			'objectClassname'   => $this->builder->getObjectClassname(),
@@ -190,7 +198,7 @@ class ArchivableBehaviorObjectBuilderModifier
 	/**
 	 * @return string the PHP code to be added to the builder
 	 */
-	public function addDeleteWithoutArchive($builder)
+	public function addDeleteWithoutArchive(ObjectBuilder $builder): string
 	{
 		return $this->behavior->renderTemplate('objectDeleteWithoutArchive', array(
 			'objectClassname' => $this->builder->getObjectClassname(),

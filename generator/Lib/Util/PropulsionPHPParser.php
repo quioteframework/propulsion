@@ -33,8 +33,8 @@ else {
  */
 class PropulsionPHPParser
 {
-	protected $code;
-	protected $isAddPhp = false;
+	protected string $code;
+	protected bool $isAddPhp = false;
 
 	/**
 	 * Parser constructor
@@ -43,7 +43,7 @@ class PropulsionPHPParser
 	 * @param boolean $isAddPhp Whether the supplied code needs a supplementary '<?php '
 	 *                          to be seen as code by the tokenizer.
 	 */
-	public function __construct($code, $isAddPhp = false)
+	public function __construct(string $code, bool $isAddPhp = false)
 	{
 		$this->code = $isAddPhp ? $this->addPhp($code) : $code;
 		$this->isAddPhp = $isAddPhp;
@@ -59,12 +59,12 @@ class PropulsionPHPParser
 		return $this->isAddPhp ? $this->removePhp($this->code) : $this->code;
 	}
 
-	protected function addPhp($code)
+	protected function addPhp(string $code): string
 	{
 	  return '<?php '. $code;
 	}
 
-	protected function removePhp($code)
+	protected function removePhp(string $code): string
 	{
 	  return substr($code, 6);
 	}

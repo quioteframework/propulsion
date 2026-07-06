@@ -34,7 +34,7 @@ class PgsqlPlatform extends DefaultPlatform
 	/**
 	 * Initializes db specific domain mapping.
 	 */
-	protected function initialize()
+	protected function initialize(): void
 	{
 		parent::initialize();
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::BOOLEAN, "BOOLEAN"));
@@ -103,7 +103,7 @@ class PgsqlPlatform extends DefaultPlatform
 	 *
 	 * @return     string
 	 */
-	public function getSequenceName(Table $table)
+	public function getSequenceName(Table $table): ?string
 	{
 		static $longNamesMap = array();
 		$result = null;
@@ -126,7 +126,7 @@ class PgsqlPlatform extends DefaultPlatform
 		return $result;
 	}
 
-	protected function getAddSequenceDDL(Table $table)
+	protected function getAddSequenceDDL(Table $table): ?string
 	{
 		if (
 			$table->getIdMethod() == IDMethod::NATIVE
@@ -140,9 +140,11 @@ CREATE SEQUENCE %s;
 				$this->quoteIdentifier(strtolower($this->getSequenceName($table)))
 			);
 		}
+
+		return null;
 	}
 
-	protected function getDropSequenceDDL(Table $table)
+	protected function getDropSequenceDDL(Table $table): ?string
 	{
 		if (
 			$table->getIdMethod() == IDMethod::NATIVE
@@ -156,6 +158,8 @@ DROP SEQUENCE IF EXISTS %s;
 				$this->quoteIdentifier(strtolower($this->getSequenceName($table)))
 			);
 		}
+
+		return null;
 	}
 
 	/**
@@ -178,7 +182,7 @@ DROP SEQUENCE IF EXISTS %s;
 	 *    `SET search_path` (see {@link getUseSchemaDDL()}) since -- unlike the
 	 *    `schema` attribute -- it does not change the table's qualified name.
 	 */
-	public function getAddSchemasDDL(Database $database)
+	public function getAddSchemasDDL(Database $database): string
 	{
 		$ret = '';
 		$schemas = array();
@@ -197,15 +201,17 @@ DROP SEQUENCE IF EXISTS %s;
 		return $ret;
 	}
 
-	public function getAddSchemaDDL(Table $table)
+	public function getAddSchemaDDL(Table $table): ?string
 	{
 		$vi = $table->getVendorInfoForType('pgsql');
 		if ($vi->hasParameter('schema')) {
 			return $this->getCreateSchemaDDL($vi->getParameter('schema'));
 		};
+
+		return null;
 	}
 
-	protected function getCreateSchemaDDL($schemaName, $ifNotExists = false)
+	protected function getCreateSchemaDDL(string $schemaName, bool $ifNotExists = false): string
 	{
 		$pattern = "
 CREATE SCHEMA %s%s;
@@ -288,7 +294,7 @@ CREATE SCHEMA %s%s;
 		return $ret;
 	}
 
-	public function getUseSchemaDDL(Table $table)
+	public function getUseSchemaDDL(Table $table): ?string
 	{
 		$vi = $table->getVendorInfoForType('pgsql');
 		if ($vi->hasParameter('schema')) {
@@ -297,9 +303,11 @@ SET search_path TO %s;
 ";
 			return sprintf($pattern, $this->quoteIdentifier($vi->getParameter('schema')));
 		}
+
+		return null;
 	}
 
-	public function getResetSchemaDDL(Table $table)
+	public function getResetSchemaDDL(Table $table): ?string
 	{
 		$vi = $table->getVendorInfoForType('pgsql');
 		if ($vi->hasParameter('schema')) {
@@ -307,6 +315,8 @@ SET search_path TO %s;
 SET search_path TO public;
 ";
 		}
+
+		return null;
 	}
 
 	public function getAddTablesDDL(Database $database)
@@ -377,7 +387,7 @@ COMMENT ON TABLE %s IS %s;
 		return $ret;
 	}
 
-	protected function getAddColumnsComments(Table $table)
+	protected function getAddColumnsComments(Table $table): string
 	{
 		$ret = '';
 		foreach ($table->getColumns() as $column) {
@@ -386,7 +396,7 @@ COMMENT ON TABLE %s IS %s;
 		return $ret;
 	}
 
-	protected function getAddColumnComment(Column $column)
+	protected function getAddColumnComment(Column $column): ?string
 	{
 		$pattern = "
 COMMENT ON COLUMN %s.%s IS %s;
@@ -399,6 +409,8 @@ COMMENT ON COLUMN %s.%s IS %s;
 				$this->quote($description)
 			);
 		}
+
+		return null;
 	}
 
 	public function getDropTableDDL(Table $table)
@@ -551,7 +563,10 @@ ALTER TABLE %s ALTER COLUMN %s;
 	 * @return     string
 	 * @see        DefaultPlatform::getModifyColumnsDDL
 	 */
-	public function getModifyColumnsDDL($columnDiffs)
+	/**
+	 * @param      array<string, PropulsionColumnDiff> $columnDiffs
+	 */
+	public function getModifyColumnsDDL(array $columnDiffs)
 	{
 		$ret = '';
 		foreach ($columnDiffs as $columnDiff) {
@@ -567,7 +582,10 @@ ALTER TABLE %s ALTER COLUMN %s;
 	 * @return     string
 	 * @see        DefaultPlatform::getAddColumnsDLL
 	 */
-	public function getAddColumnsDDL($columns)
+	/**
+	 * @param      array<string, Column> $columns
+	 */
+	public function getAddColumnsDDL(array $columns)
 	{
 		$ret = '';
 		foreach ($columns as $column) {

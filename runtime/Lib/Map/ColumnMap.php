@@ -31,43 +31,43 @@ class ColumnMap
 {
 
   // Propulsion type of the column
-  protected $type;
+  protected ?string $type = null;
 
   // Size of the column
-  protected $size = 0;
+  protected ?int $size = 0;
 
   // Is it a primary key?
-  protected $pk = false;
+  protected bool $pk = false;
 
   // Is null value allowed?
-  protected $notNull = false;
+  protected bool $notNull = false;
 
   // The default value for this column
-  protected $defaultValue;
+  protected mixed $defaultValue = null;
 
   // Name of the table that this column is related to
-  protected $relatedTableName = "";
+  protected string $relatedTableName = "";
 
   // Name of the column that this column is related to
-  protected $relatedColumnName = "";
+  protected string $relatedColumnName = "";
 
   // The TableMap for this column
-  protected $table;
+  protected TableMap $table;
 
   // The name of the column
-  protected $columnName;
+  protected string $columnName;
 
   // The php name of the column
-  protected $phpName;
+  protected ?string $phpName = null;
 
-  // The validators for this column
-  protected $validators = array();
+  /** @var ValidatorMap[] The validators for this column */
+  protected array $validators = array();
 
-  // The allowed values for an ENUM column
-  protected $valueSet = array();
+  /** @var array<int, string> The allowed values for an ENUM column */
+  protected array $valueSet = array();
 
   // Is this a primaryString column?
-  protected $isPkString = false;
+  protected bool $isPkString = false;
 
   /**
    * Constructor.
@@ -269,12 +269,13 @@ class ColumnMap
   /**
    * Set if this column may be null.
    *
-   * @param      boolean $nn True if column may be null.
+   * @param      boolean|null $nn True if column may be null. Null (e.g. from a caller
+   *                          that didn't specify a value) is treated the same as false.
    * @return     void
    */
   public function setNotNull($nn)
   {
-    $this->notNull = $nn;
+    $this->notNull = (bool) $nn;
   }
 
   /**
@@ -340,8 +341,9 @@ class ColumnMap
 
   /**
    * Get the RelationMap object for this foreign key
+   * @return     RelationMap|null
    */
-  public function getRelation()
+  public function getRelation(): ?RelationMap
   {
     if(!$this->relatedTableName) return null;
     foreach ($this->getTable()->getRelations() as $name => $relation)
@@ -355,6 +357,7 @@ class ColumnMap
         }
       }
     }
+    return null;
   }
 
   /**
@@ -413,17 +416,20 @@ class ColumnMap
     return $this->getRelatedTable()->getColumn($this->relatedColumnName);
   }
 
-  public function addValidator($validator)
+  public function addValidator(ValidatorMap $validator): void
   {
     $this->validators[] = $validator;
   }
 
-  public function hasValidators()
+  public function hasValidators(): bool
   {
     return count($this->validators) > 0;
   }
 
-  public function getValidators()
+  /**
+   * @return     ValidatorMap[]
+   */
+  public function getValidators(): array
   {
     return $this->validators;
   }
@@ -431,9 +437,9 @@ class ColumnMap
   /**
    * Set the valueSet of this column (only valid for ENUM columns).
    *
-   * @param      array $values A list of allowed values
+   * @param      array<int, string> $values A list of allowed values
    */
-  public function setValueSet($values)
+  public function setValueSet(array $values): void
   {
     $this->valueSet = $values;
   }
@@ -441,19 +447,19 @@ class ColumnMap
   /**
    * Get the valueSet of this column (only valid for ENUM columns).
    *
-   * @return     array A list of allowed values
+   * @return     array<int, string> A list of allowed values
    */
-  public function getValueSet()
+  public function getValueSet(): array
   {
     return $this->valueSet;
   }
 
-  public function isInValueSet($value)
+  public function isInValueSet(mixed $value): bool
   {
     return in_array($value, $this->valueSet);
   }
 
-  public function getValueSetKey($value)
+  public function getValueSetKey(mixed $value): int|string|false
   {
     return array_search($value, $this->valueSet);
   }
@@ -463,7 +469,7 @@ class ColumnMap
    * @param      string $str The expression we want to apply the ignore case formatting to (e.g. the column name).
    * @param      DBAdapter $db
    */
-  public function ignoreCase($str, DBAdapter $db)
+  public function ignoreCase($str, DBAdapter $db): string
   {
     if ($this->isText()) {
       return $db->ignoreCase($str);
@@ -494,7 +500,7 @@ class ColumnMap
    *
    * @param      boolean $pkString
    */
-  public function setPrimaryString($pkString)
+  public function setPrimaryString($pkString): void
   {
     $this->isPkString = (bool) $pkString;
   }

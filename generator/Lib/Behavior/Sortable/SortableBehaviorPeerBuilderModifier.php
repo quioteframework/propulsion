@@ -9,6 +9,9 @@
  */
 namespace Propulsion\Generator\Behavior\Sortable;
 
+use Propulsion\Generator\Builder\OM\PeerBuilder;
+use Propulsion\Generator\Model\Table;
+
 /**
  * Behavior to add sortable peer methods
  *
@@ -17,42 +20,46 @@ namespace Propulsion\Generator\Behavior\Sortable;
  */
 class SortableBehaviorPeerBuilderModifier
 {
-	protected $behavior, $table, $builder, $objectClassname, $peerClassname, $queryClassname;
+	protected SortableBehavior $behavior;
+	protected Table $table;
+	protected ?PeerBuilder $builder = null;
+	protected ?string $objectClassname = null;
+	protected ?string $peerClassname = null;
 
-	public function __construct($behavior)
+	public function __construct(SortableBehavior $behavior)
 	{
 		$this->behavior = $behavior;
 		$this->table = $behavior->getTable();
 	}
 
-	protected function getParameter($key)
+	protected function getParameter(string $key): string
 	{
 		return $this->behavior->getParameter($key);
 	}
 
-	protected function getColumnAttribute($name)
+	protected function getColumnAttribute(string $name): string
 	{
 		return strtolower($this->behavior->getColumnForParameter($name)->getName());
 	}
 
-		protected function getColumnConstant($name)
+		protected function getColumnConstant(string $name): string
 	{
 		return strtoupper($this->behavior->getColumnForParameter($name)->getName());
 	}
 
-	protected function getColumnPhpName($name)
+	protected function getColumnPhpName(string $name): string
 	{
 		return $this->behavior->getColumnForParameter($name)->getPhpName();
 	}
 
-	protected function setBuilder($builder)
+	protected function setBuilder(PeerBuilder $builder): void
 	{
 		$this->builder = $builder;
 		$this->objectClassname = $builder->getStubObjectBuilder()->getClassname();
 		$this->peerClassname = $builder->getStubPeerBuilder()->getClassname();
 	}
 
-	public function staticAttributes($builder)
+	public function staticAttributes(PeerBuilder $builder): string
 	{
 		$tableName = $this->table->getName();
 		$script = "
@@ -79,7 +86,7 @@ const SCOPE_COL = '" . $tableName . '.' . $this->getColumnConstant('scope_column
 	 *
 	 * @return string
 	 */
-	public function staticMethods($builder)
+	public function staticMethods(PeerBuilder $builder): string
 	{
 		$this->setBuilder($builder);
 		$script = '';
@@ -98,7 +105,7 @@ const SCOPE_COL = '" . $tableName . '.' . $this->getColumnConstant('scope_column
 		return $script;
 	}
 
-	protected function addGetMaxRank(&$script)
+	protected function addGetMaxRank(string &$script): void
 	{
 		$useScope = $this->behavior->useScope();
 		$script .= "
@@ -134,7 +141,7 @@ public static function getMaxRank(" . ($useScope ? "\$scope = null, " : "") . "?
 ";
 	}
 
-	protected function addRetrieveByRank(&$script)
+	protected function addRetrieveByRank(string &$script): void
 	{
 		$peerClassname = $this->peerClassname;
 		$useScope = $this->behavior->useScope();
@@ -171,7 +178,7 @@ public static function retrieveByRank(\$rank, " . ($useScope ? "\$scope = null, 
 ";
 	}
 
-	protected function addReorder(&$script)
+	protected function addReorder(string &$script): void
 	{
 		$peerClassname = $this->peerClassname;
 		$columnGetter = 'get' . $this->behavior->getColumnForParameter('rank_column')->getPhpName();
@@ -215,7 +222,7 @@ public static function reorder(array \$order, ?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addDoSelectOrderByRank(&$script)
+	protected function addDoSelectOrderByRank(string &$script): void
 	{
 		$peerClassname = $this->peerClassname;
 		$script .= "
@@ -253,7 +260,7 @@ public static function doSelectOrderByRank(?Criteria \$criteria = null, \$order 
 ";
 	}
 
-	protected function addRetrieveList(&$script)
+	protected function addRetrieveList(string &$script): void
 	{
 		$peerClassname = $this->peerClassname;
 		$script .= "
@@ -276,7 +283,7 @@ public static function retrieveList(\$scope, \$order = Criteria::ASC, ?Propulsio
 ";
 	}
 
-	protected function addCountList(&$script)
+	protected function addCountList(string &$script): void
 	{
 		$peerClassname = $this->peerClassname;
 		$script .= "
@@ -298,7 +305,7 @@ public static function countList(\$scope, ?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addDeleteList(&$script)
+	protected function addDeleteList(string &$script): void
 	{
 		$peerClassname = $this->peerClassname;
 		$script .= "
@@ -319,7 +326,7 @@ public static function deleteList(\$scope, ?PropulsionPDO \$con = null)
 }
 ";
 	}
-	protected function addShiftRank(&$script)
+	protected function addShiftRank(string &$script): void
 	{
 		$useScope = $this->behavior->useScope();
 		$peerClassname = $this->peerClassname;

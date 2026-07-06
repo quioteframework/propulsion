@@ -159,7 +159,7 @@ class TestDatabaseBuilder
 
 class BazTableMap extends TableMap
 {
-  public function initialize()
+  public function initialize(): void
   {
     $this->setName('baz');
     $this->setPhpName('Baz');

@@ -21,20 +21,34 @@ namespace Propulsion\Config;
  */
 
 use Propulsion\Exception\PropulsionException;
+/**
+ * @implements \ArrayAccess<string, mixed>
+ */
 class PropulsionConfiguration implements \ArrayAccess
 {
 	const TYPE_ARRAY = 1;
 	const TYPE_ARRAY_FLAT = 2;
 	const TYPE_OBJECT = 3;
 
+	/**
+	 * @var array<string, mixed>
+	 */
 	protected $parameters = array();
+
+	/**
+	 * @var array<string, mixed>
+	 */
 	protected $flattenedParameters = array();
+
+	/**
+	 * @var bool
+	 */
 	protected $isFlattened = false;
 
 	/**
 	 * Construct a new configuration container
 	 *
-	 * @param     array  $parameters
+	 * @param     array<string, mixed>  $parameters
 	 */
 	public function __construct(array $parameters = array())
 	{
@@ -68,7 +82,7 @@ class PropulsionConfiguration implements \ArrayAccess
 	 * @see       http://www.php.net/ArrayAccess
 	 *
 	 * @param     string  $offset
-	 * @return    array
+	 * @return    mixed
 	 */
 	public function offsetGet($offset): mixed
 	{
@@ -124,8 +138,9 @@ class PropulsionConfiguration implements \ArrayAccess
 	 *
 	 * @param     string  $name  Configuration item name (name.space.name)
 	 * @param     mixed   $value  Value to be stored
+	 * @param     bool    $autoFlattenArrays
 	 */
-	public function setParameter($name, $value, $autoFlattenArrays = true)
+	public function setParameter($name, $value, $autoFlattenArrays = true): void
 	{
 		$param = &$this->parameters;
 		$parts = explode('.', $name); //name.space.name
@@ -162,7 +177,7 @@ class PropulsionConfiguration implements \ArrayAccess
 	}
 
 	/**
-	 * @return    array
+	 * @return    array<string, mixed>
 	 */
 	public function getFlattenedParameters()
 	{
@@ -173,7 +188,7 @@ class PropulsionConfiguration implements \ArrayAccess
 		return $this->flattenedParameters;
 	}
 
-	protected function flattenParameters()
+	protected function flattenParameters(): void
 	{
 		$result = array();
 		$it = new PropulsionConfigurationIterator(new \RecursiveArrayIterator($this->parameters), \RecursiveIteratorIterator::SELF_FIRST);

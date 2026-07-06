@@ -25,7 +25,7 @@ class AppData
 
 	/**
 	 * The list of databases for this application.
-	 * @var        array Database[]
+	 * @var        Database[]
 	 */
 	private $dbList = array();
 
@@ -44,6 +44,8 @@ class AppData
 	/**
 	 * Name of the database. Only one database definition
 	 * is allowed in one XML descriptor.
+	 *
+	 * @var        string|null
 	 */
 	private $name;
 
@@ -70,7 +72,7 @@ class AppData
 	 *
 	 * @param PropulsionPlatformInterface $defaultPlatform
 	 */
-	public function setPlatform(PropulsionPlatformInterface $defaultPlatform)
+	public function setPlatform(PropulsionPlatformInterface $defaultPlatform): void
 	{
 		$this->platform = $defaultPlatform;
 	}
@@ -90,7 +92,7 @@ class AppData
 	 *
 	 * @param GeneratorConfig $generatorConfig
 	 */
-	public function setGeneratorConfig(GeneratorConfig $generatorConfig)
+	public function setGeneratorConfig(GeneratorConfig $generatorConfig): void
 	{
 		$this->generatorConfig = $generatorConfig;
 	}
@@ -110,7 +112,7 @@ class AppData
 	 *
 	 * @param      string $name Name of the database.
 	 */
-	public function setName($name)
+	public function setName($name): void
 	{
 		$this->name = $name;
 	}
@@ -138,9 +140,9 @@ class AppData
 	/**
 	 * Return an array of all databases
 	 *
-	 * @return     Array of Database objects
+	 * @return     Database[]
 	 */
-	public function getDatabases($doFinalInit = true)
+	public function getDatabases(bool $doFinalInit = true)
 	{
 		// this is temporary until we'll have a clean solution
 		// for packaging datamodels/requiring schemas
@@ -166,7 +168,7 @@ class AppData
 	 * @param      string|null $name Database name
 	 * @return     Database|null A Database object.  If it does not exist it returns null
 	 */
-	public function getDatabase($name = null, $doFinalInit = true)
+	public function getDatabase($name = null, bool $doFinalInit = true)
 	{
 		// this is temporary until we'll have a clean solution
 		// for packaging datamodels/requiring schemas
@@ -207,9 +209,9 @@ class AppData
 	 * Add a database to the list and sets the AppData property to this
 	 * AppData
 	 *
-	 * @param      Database|array $db The database to add
+	 * @param      Database|array<string, mixed> $db The database to add
 	 */
-	public function addDatabase($db)
+	public function addDatabase($db): Database
 	{
 		if ($db instanceof Database) {
 			$db->setAppData($this);
@@ -233,7 +235,7 @@ class AppData
 
 	}
 
-	public function doFinalInitialization()
+	public function doFinalInitialization(): void
 	{
 		if (!$this->isInitialized) {
 			for ($i=0, $size=count($this->dbList); $i < $size; $i++) {
@@ -248,7 +250,7 @@ class AppData
 	 *
 	 * @param AppData[] $ads
 	 */
-	public function joinAppDatas($ads)
+	public function joinAppDatas($ads): void
 	{
 		foreach ($ads as $appData) {
 			foreach ($appData->getDatabases(false) as $addDb) {

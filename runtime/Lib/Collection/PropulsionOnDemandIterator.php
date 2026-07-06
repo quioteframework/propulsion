@@ -20,6 +20,8 @@ use PDO;
  * Class for iterating over a statement and returning one Propulsion object at a time
  *
  * @author     Francois Zaninotto
+ *
+ * @implements Iterator<int,BaseObject>
  */
 class PropulsionOnDemandIterator implements Iterator
 {
@@ -33,11 +35,12 @@ class PropulsionOnDemandIterator implements Iterator
 	 */
 	protected $stmt;
 
-	protected
-		$currentRow,
-		$currentKey = -1,
-		$isValid = null,
-		$enableInstancePoolingOnFinish = false;
+	/** @var mixed */
+	protected $currentRow;
+
+	protected int $currentKey = -1;
+	protected ?bool $isValid = null;
+	protected bool $enableInstancePoolingOnFinish = false;
 
 	/**
 	 * @param     PropulsionObjectFormatter  $formatter
@@ -50,7 +53,7 @@ class PropulsionOnDemandIterator implements Iterator
 		$this->enableInstancePoolingOnFinish = Propulsion::disableInstancePooling();
 	}
 
-	public function closeCursor()
+	public function closeCursor(): void
 	{
 		$this->stmt->closeCursor();
 	}
@@ -84,9 +87,9 @@ class PropulsionOnDemandIterator implements Iterator
 	/**
 	 * Gets the current key in the iterator
 	 *
-	 * @return    string
+	 * @return    int
 	 */
-	public function key(): mixed
+	public function key(): int
 	{
 		return $this->currentKey;
 	}

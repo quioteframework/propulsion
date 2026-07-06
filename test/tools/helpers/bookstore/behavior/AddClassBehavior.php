@@ -14,5 +14,5 @@ require_once __DIR__ . '/AddClassBehaviorBuilder.php';
 
 class AddClassBehavior extends Behavior
 {
-	protected $additionalBuilders = array('AddClassBehaviorBuilder');
+	protected array $additionalBuilders = array('AddClassBehaviorBuilder');
 }

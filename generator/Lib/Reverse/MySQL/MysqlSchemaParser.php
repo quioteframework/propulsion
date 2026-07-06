@@ -40,7 +40,7 @@ class MysqlSchemaParser extends BaseSchemaParser
 
 	/**
 	 * Map MySQL native types to Propulsion types.
-	 * @var        array
+	 * @var        array<string, string>
 	 */
 	private static $mysqlTypeMap = array(
 		'tinyint' => PropulsionTypes::TINYINT,
@@ -74,6 +74,7 @@ class MysqlSchemaParser extends BaseSchemaParser
 		'set' => PropulsionTypes::CHAR,
 	);
 
+	/** @var array<string, int> */
 	protected static $defaultTypeSizes = array(
 		'char'     => 1,
 		'tinyint'  => 4,
@@ -86,9 +87,9 @@ class MysqlSchemaParser extends BaseSchemaParser
 	/**
 	 * Gets a type mapping from native types to Propulsion types
 	 *
-	 * @return     array
+	 * @return     array<string, string>
 	 */
-	protected function getTypeMapping()
+	protected function getTypeMapping(): array
 	{
 		return self::$mysqlTypeMap;
 	}
@@ -163,7 +164,7 @@ class MysqlSchemaParser extends BaseSchemaParser
 	 *
 	 * @param      Table $table The Table model class to add columns to.
 	 */
-	protected function addColumns(Table $table)
+	protected function addColumns(Table $table): void
 	{
 		$stmt = $this->dbh->query("SHOW COLUMNS FROM `" . $table->getName() . "`");
 
@@ -178,11 +179,11 @@ class MysqlSchemaParser extends BaseSchemaParser
 	 * Factory method creating a Column object
 	 * based on a row from the 'show columns from ' MySQL query result.
 	 *
-	 * @param     array $row An associative array with the following keys:
+	 * @param     array<string, mixed> $row An associative array with the following keys:
 	 *                       Field, Type, Null, Key, Default, Extra.
 	 * @return    Column
 	 */
-	public function getColumnFromRow($row, Table $table)
+	public function getColumnFromRow(array $row, Table $table): Column
 	{
 		$name = $row['Field'];
 		$is_nullable = ($row['Null'] == 'YES');
@@ -278,7 +279,7 @@ class MysqlSchemaParser extends BaseSchemaParser
 	/**
 	 * Load foreign keys for this table.
 	 */
-	protected function addForeignKeys(Table $table)
+	protected function addForeignKeys(Table $table): void
 	{
 		$database = $table->getDatabase();
 
@@ -367,7 +368,7 @@ class MysqlSchemaParser extends BaseSchemaParser
 	/**
 	 * Load indexes for this table
 	 */
-	protected function addIndexes(Table $table)
+	protected function addIndexes(Table $table): void
 	{
 		$stmt = $this->dbh->query("SHOW INDEX FROM `" . $table->getName() . "`");
 
@@ -404,7 +405,7 @@ class MysqlSchemaParser extends BaseSchemaParser
 	/**
 	 * Loads the primary key for this table.
 	 */
-	protected function addPrimaryKey(Table $table)
+	protected function addPrimaryKey(Table $table): void
 	{
 		$stmt = $this->dbh->query("SHOW KEYS FROM `" . $table->getName() . "`");
 
@@ -425,7 +426,7 @@ class MysqlSchemaParser extends BaseSchemaParser
 	 *
 	 * @param      Table $table
 	 */
-	protected function addTableVendorInfo(Table $table)
+	protected function addTableVendorInfo(Table $table): void
 	{
 		$stmt = $this->dbh->query("SHOW TABLE STATUS LIKE '" . $table->getName() . "'");
 		$row = $stmt->fetch(PDO::FETCH_ASSOC);

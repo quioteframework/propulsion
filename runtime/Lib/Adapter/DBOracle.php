@@ -39,9 +39,9 @@ class DBOracle extends DBAdapter
 	 * @see       parent::initConnection()
 	 *
 	 * @param     PDO    $con
-	 * @param     array  $settings  A $PDO PDO connection instance
+	 * @param     array<string,mixed>  $settings  A $PDO PDO connection instance
 	 */
-	public function initConnection(PDO $con, array $settings)
+	public function initConnection(PDO $con, array $settings): void
 	{
 		$con->exec("ALTER SESSION SET NLS_DATE_FORMAT='YYYY-MM-DD'");
 		$con->exec("ALTER SESSION SET NLS_TIMESTAMP_FORMAT='YYYY-MM-DD HH24:MI:SS'");
@@ -122,7 +122,7 @@ class DBOracle extends DBAdapter
 	 * @param     integer  $limit
 	 * @param     null|Criteria  $criteria
 	 */
-	public function applyLimit(&$sql, $offset, $limit, $criteria = null)
+	public function applyLimit(&$sql, $offset, $limit, $criteria = null): void
 	{
 		if (BasePeer::needsSelectAliases($criteria)) {
 			$crit = clone $criteria;
@@ -174,7 +174,7 @@ class DBOracle extends DBAdapter
 	 * @param     string  $seed
 	 * @return    string
 	 */
-	public function random($seed=NULL)
+	public function random($seed=NULL): string
 	{
 		return 'dbms_random.value';
 	}

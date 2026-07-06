@@ -30,7 +30,7 @@ class DBMSSQL extends DBAdapter
 	 * @param     PDO     $con
 	 * @param     string  $charset
 	 */
-	public function setCharset(PDO $con, $charset)
+	public function setCharset(PDO $con, $charset): void
 	{
 	}
 
@@ -123,7 +123,7 @@ class DBMSSQL extends DBAdapter
 	 * @param     string  $seed
 	 * @return    string
 	 */
-	public function random($seed = null)
+	public function random($seed = null): string
 	{
 		return 'RAND(' . ((int)$seed) . ')';
 	}
@@ -145,7 +145,7 @@ class DBMSSQL extends DBAdapter
 	 *
 	 * @return    void
 	 */
-	public function applyLimit(&$sql, $offset, $limit, $criteria = null)
+	public function applyLimit(&$sql, $offset, $limit, $criteria = null): void
 	{
 		// make sure offset and limit are numeric (defends against non-numeric values being
 		// interpolated directly into the SQL string below)
@@ -268,11 +268,11 @@ class DBMSSQL extends DBAdapter
 	 * @see       parent::cleanupSQL()
 	 *
 	 * @param     string       $sql
-	 * @param     array        $params
+	 * @param     array<int,array<string,mixed>>        $params
 	 * @param     Criteria     $values
 	 * @param     DatabaseMap  $dbMap
 	 */
-	public function cleanupSQL(&$sql, array &$params, Criteria $values, DatabaseMap $dbMap)
+	public function cleanupSQL(&$sql, array &$params, Criteria $values, DatabaseMap $dbMap): void
 	{
 		$i = 1;
 		$paramCols = array();

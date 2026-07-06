@@ -52,23 +52,45 @@ class ModelCriteria extends Criteria
 	const FORMAT_OBJECT = 'Propulsion\\Formatter\\PropulsionObjectFormatter';
 	const FORMAT_ON_DEMAND = 'Propulsion\\Formatter\\PropulsionOnDemandFormatter';
 
+	/** @var string|null */
 	protected $modelName;
+	/** @var string|null */
 	protected $modelPeerName;
+	/** @var string|null */
 	protected $modelAlias;
-	protected $useAliasInSQL = false;
+	protected bool $useAliasInSQL = false;
+	/** @var TableMap|null */
 	protected $tableMap;
+	/** @var ModelCriteria|null */
 	protected $primaryCriteria;
+	/** @var PropulsionFormatter|null */
 	protected $formatter;
+	/** @var string */
 	protected $defaultFormatterClass = ModelCriteria::FORMAT_OBJECT;
+	/** @var array<string, ModelWith> */
 	protected $with = array();
-	protected $isWithOneToMany = false;
+	protected bool $isWithOneToMany = false;
+	/** @var ModelJoin|null */
 	protected $previousJoin = null; // this is introduced to prevent useQuery->join from going wrong
-	protected $isKeepQuery = true; // whether to clone the current object before termination methods
+	protected bool $isKeepQuery = true; // whether to clone the current object before termination methods
+	/** @var array<int, string>|string|null */
 	protected $select = null;  // this is for the select method
 
+	/** @var array<int, ColumnMap> */
 	protected $replacedColumns;
+	/** @var string|null */
 	protected $currentAlias;
+	/** @var bool|null */
 	protected $foundMatch;
+
+	/**
+	 * Overrides the inherited Criteria::$joins docblock: entries are usually ModelJoin
+	 * (added via join()/useQuery()), but can also be a plain Join when the inherited
+	 * Criteria::addJoin() is used directly on a ModelCriteria (a legitimate, tested
+	 * column-based join -- see ModelCriteriaTest::testAddJoin()).
+	 * @var array<int|string, Join>
+	 */
+	protected $joins = array();
 	
 
 	/**
@@ -255,7 +277,7 @@ class ModelCriteria extends Criteria
 	 *
 	 * @see        filterBy()
 	 *
-	 * @param      array $conditions An array of conditions, using column phpNames as key
+	 * @param      array<string, mixed> $conditions An array of conditions, using column phpNames as key
 	 *
 	 * @return     static The current object, for fluid interface
 	 */
@@ -282,7 +304,7 @@ class ModelCriteria extends Criteria
 	 *
 	 * @see Criteria::add()
 	 *
-	 * @param      string|array $clause A string representing the pseudo SQL clause, e.g. 'Book.AuthorId = ?'
+	 * @param      string|array<int, string> $clause A string representing the pseudo SQL clause, e.g. 'Book.AuthorId = ?'
 	 *                           Or an array of condition names
 	 * @param      mixed  $value A value for the condition
 	 *
@@ -317,7 +339,7 @@ class ModelCriteria extends Criteria
 	 * @see Criteria::addOr()
 	 * @deprecated Use _or()->where() instead
 	 *
-	 * @param      string $clause The pseudo SQL clause, e.g. 'AuthorId = ?'
+	 * @param      string|array<int, string> $clause The pseudo SQL clause, e.g. 'AuthorId = ?'
 	 * @param      mixed  $value A value for the condition
 	 *
 	 * @return     static The current object, for fluid interface
@@ -343,7 +365,7 @@ class ModelCriteria extends Criteria
 	 *
 	 * @see Criteria::addHaving()
 	 *
-	 * @param      string|array $clause A string representing the pseudo SQL clause, e.g. 'Book.AuthorId = ?'
+	 * @param      string|array<int, string> $clause A string representing the pseudo SQL clause, e.g. 'Book.AuthorId = ?'
 	 *                           Or an array of condition names
 	 * @param      mixed  $value A value for the condition
 	 *
@@ -436,7 +458,7 @@ class ModelCriteria extends Criteria
 			$tableMap = $this->getTableMap();
 		} elseif (isset($this->joins[$class])) {
 			// column of a relations's model
-			$tableMap = $this->joins[$class]->getTableMap();
+			$tableMap = $this->getNamedModelJoin($class)->getTableMap();
 		} else {
 			throw new PropulsionException('Unknown model or alias ' . $class);
 		}
@@ -512,7 +534,7 @@ class ModelCriteria extends Criteria
 	 *   ArticleQuery::create()->select(array('Id', 'Name'))->findOne();
 	 *   => array('Id' => 1, 'Name' => 'Foo')
 	 *
-	 * @param     array|string $columnArray A list of column names (e.g. array('Title', 'Category.Name', 'c.Content')) or a single column name (e.g. 'Name')
+	 * @param     array<int, string>|string $columnArray A list of column names (e.g. array('Title', 'Category.Name', 'c.Content')) or a single column name (e.g. 'Name')
 	 *
 	 * @return    static The current object, for fluid interface
 	 */
@@ -538,14 +560,14 @@ class ModelCriteria extends Criteria
 	 * Retrieves the columns defined by a previous call to select().
 	 * @see       select()
 	 *
-	 * @return    array|string A list of column names (e.g. array('Title', 'Category.Name', 'c.Content')) or a single column name (e.g. 'Name')
+	 * @return    array<int, string>|string|null A list of column names (e.g. array('Title', 'Category.Name', 'c.Content')) or a single column name (e.g. 'Name')
 	 */
 	public function getSelect() : array|string|null
 	{
 		return $this->select;
 	}
 
-	protected function configureSelectColumns()
+	protected function configureSelectColumns(): void
 	{
 		if (is_null($this->select)) {
 			// leave early
@@ -581,9 +603,9 @@ class ModelCriteria extends Criteria
 	 * This method returns the previousJoin for this ModelCriteria,
 	 * by default this is null, but after useQuery this is set the to the join of that use
 	 *
-	 * @return Join|null the previousJoin for this ModelCriteria
+	 * @return ModelJoin|null the previousJoin for this ModelCriteria
 	 */
-	public function getPreviousJoin() : ?Join
+	public function getPreviousJoin() : ?ModelJoin
 	{
 		return $this->previousJoin;
 	}
@@ -592,11 +614,31 @@ class ModelCriteria extends Criteria
 	 * This method sets the previousJoin for this ModelCriteria,
 	 * by default this is null, but after useQuery this is set the to the join of that use
 	 *
-	 * @param Join $previousJoin The previousJoin for this ModelCriteria
+	 * @param ModelJoin $previousJoin The previousJoin for this ModelCriteria
 	 */
-	public function setPreviousJoin(Join $previousJoin) : void
+	public function setPreviousJoin(ModelJoin $previousJoin) : void
 	{
 		$this->previousJoin = $previousJoin;
+	}
+
+	/**
+	 * Looks up a named entry in $this->joins and narrows it to ModelJoin: named join
+	 * entries are always added by join()/useQuery() (which only ever create ModelJoin),
+	 * unlike the numerically-indexed entries addJoinObject() also accepts from the
+	 * inherited Criteria::addJoin() (which can be a plain Join).
+	 *
+	 * @throws PropulsionException if $name isn't a known join, or (defensively) isn't a ModelJoin.
+	 */
+	private function getNamedModelJoin(string $name): ModelJoin
+	{
+		if (!isset($this->joins[$name])) {
+			throw new PropulsionException('Unknown relation name or alias ' . $name);
+		}
+		$join = $this->joins[$name];
+		if (!$join instanceof ModelJoin) {
+			throw new PropulsionException('Join ' . $name . ' is not a relation-based join (ModelJoin).');
+		}
+		return $join;
 	}
 
 	/**
@@ -649,7 +691,7 @@ class ModelCriteria extends Criteria
 				$previousJoin = $this->getPreviousJoin();
 				$tableMap = $this->getTableMap();
 			} elseif (isset($this->joins[$leftName])) {
-				$previousJoin = $this->joins[$leftName];
+				$previousJoin = $this->getNamedModelJoin($leftName);
 				$tableMap = $previousJoin->getTableMap();
 			} else {
 				throw new PropulsionException('Unknown table or alias ' . $leftName);
@@ -753,6 +795,11 @@ class ModelCriteria extends Criteria
 	 */
 	public function addJoinObject(Join $join, ?string $name = null) : static
 	{
+		// $this->joins can genuinely hold a mix of ModelJoin (from join()/useQuery(), which
+		// carry relation metadata) and plain Join (from the inherited Criteria::addJoin(),
+		// a legitimate column-based join on a ModelCriteria -- see ModelCriteriaTest::testAddJoin()).
+		// Code paths that rely on ModelJoin-only methods (getTableMap(), getRelationMap(), ...)
+		// only ever read entries they themselves populated via join()/useQuery(), so they're safe.
 		if (!in_array($join, $this->joins)) { // compare equality, NOT identity
 			if (null === $name) {
 				$this->joins[] = $join;
@@ -808,10 +855,7 @@ class ModelCriteria extends Criteria
 	 */
 	public function with(string $relation) : static
 	{
-		if (!isset($this->joins[$relation])) {
-			throw new PropulsionException('Unknown relation name or alias ' . $relation);
-		}
-		$join = $this->joins[$relation];
+		$join = $this->getNamedModelJoin($relation);
 		if ($join->getRelationMap()->getType() == RelationMap::MANY_TO_MANY) {
 			throw new PropulsionException('with() does not allow hydration for many-to-many relationships');
 		} elseif ($join->getRelationMap()->getType() == RelationMap::ONE_TO_MANY) {
@@ -837,7 +881,7 @@ class ModelCriteria extends Criteria
 	 * together with the main object.
 	 *
 	 * @see       with()
-	 * @return    array
+	 * @return    array<string, ModelWith>
 	 */
 	public function getWith() : array
 	{
@@ -848,7 +892,7 @@ class ModelCriteria extends Criteria
 	 * Sets the array of ModelWith specifying which objects must be hydrated
 	 * together with the main object.
 	 *
-	 * @param    array $with
+	 * @param    array<string, ModelWith> $with
 	 *
 	 * @return     static The current object, for fluid interface
 	 */
@@ -907,16 +951,17 @@ class ModelCriteria extends Criteria
 		if (!isset($this->joins[$relationName])) {
 			throw new PropulsionException('Unknown class or alias ' . $relationName);
 		}
-		$className = $this->joins[$relationName]->getTableMap()->getPhpName();
+		$namedJoin = $this->getNamedModelJoin($relationName);
+		$className = $namedJoin->getTableMap()->getPhpName();
 		if (null === $secondaryCriteriaClass) {
 			$secondaryCriteria = PropulsionQuery::from($className);
 		} else {
 			$secondaryCriteria = new $secondaryCriteriaClass();
 		}
 		if ($className != $relationName) {
-			$secondaryCriteria->setModelAlias($relationName, $relationName == $this->joins[$relationName]->getRelationMap()->getName() ? false : true);
+			$secondaryCriteria->setModelAlias($relationName, $relationName == $namedJoin->getRelationMap()->getName() ? false : true);
 		}
-		$secondaryCriteria->setPrimaryCriteria($this, $this->joins[$relationName]);
+		$secondaryCriteria->setPrimaryCriteria($this, $namedJoin);
 
 		return $secondaryCriteria;
 	}
@@ -982,9 +1027,9 @@ class ModelCriteria extends Criteria
 	 * Sets the primary Criteria for this secondary Criteria
 	 *
 	 * @param     ModelCriteria $criteria The primary criteria
-	 * @param Join $previousJoin The previousJoin for this ModelCriteria
+	 * @param ModelJoin $previousJoin The previousJoin for this ModelCriteria
 	 */
-	public function setPrimaryCriteria(ModelCriteria $criteria, Join $previousJoin) : void
+	public function setPrimaryCriteria(ModelCriteria $criteria, ModelJoin $previousJoin) : void
 	{
 		$this->primaryCriteria = $criteria;
 		$this->setPreviousJoin($previousJoin);
@@ -993,7 +1038,7 @@ class ModelCriteria extends Criteria
 	/**
 	 * Gets the primary criteria for this secondary Criteria
 	 *
-	 * @return     static|null The primary criteria
+	 * @return     ModelCriteria|null The primary criteria
 	 */
 	public function getPrimaryCriteria() : ModelCriteria|null
 	{
@@ -1051,7 +1096,7 @@ class ModelCriteria extends Criteria
 	 */
 	public function addRelationSelectColumns(string $relation) : static
 	{
-		$join = $this->joins[$relation];
+		$join = $this->getNamedModelJoin($relation);
 		call_user_func(array($join->getTableMap()->getPeerClassname(), 'addSelectColumns'), $this, $join->getRelationAlias());
 
 		return $this;
@@ -1064,7 +1109,7 @@ class ModelCriteria extends Criteria
 	 *
 	 * @param      string $class The classname to explode
 	 *
-	 * @return     array  list($className, $aliasName)
+	 * @return     array{0: string, 1: string|null}  list($className, $aliasName)
 	 */
 	public static function getClassAndAlias(string $class) : array
 	{
@@ -1130,12 +1175,12 @@ class ModelCriteria extends Criteria
 	 *
 	 * @param     PropulsionPDO $con The connection object used by the query
 	 */
-	protected function basePreSelect(PropulsionPDO $con)
+	protected function basePreSelect(PropulsionPDO $con): mixed
 	{
 		return $this->preSelect($con);
 	}
 
-	protected function preSelect(PropulsionPDO $con)
+	protected function preSelect(PropulsionPDO $con): mixed
 	{
 		return null;
 	}
@@ -1248,7 +1293,7 @@ class ModelCriteria extends Criteria
 	 * // composite primary key
 	 * $bookOpinion = $c->findPks(array(array(34, 634), array(45, 518), array(34, 765)), $con);
 	 * </code>
-	 * @param     array $keys Primary keys to use for the query
+	 * @param     array<int, mixed> $keys Primary keys to use for the query
 	 * @param     PropulsionPDO $con an optional connection object
 	 *
 	* @return    PropulsionCollection the list of results (default formatter returns PropulsionObjectCollection or PropulsionArrayCollection, never null)
@@ -1428,6 +1473,9 @@ class ModelCriteria extends Criteria
 		return $count;
 	}
 
+	/**
+	 * @return \PDOStatement
+	 */
 	protected function getCountStatement(?PropulsionPDO $con = null)
 	{
 		$dbMap = Propulsion::getDatabaseMap($this->getDbName());
@@ -1510,12 +1558,16 @@ class ModelCriteria extends Criteria
 	 * Code to execute before every DELETE statement
 	 *
 	 * @param     PropulsionPDO $con The connection object used by the query
+	 * @return    mixed
 	 */
 	protected function basePreDelete(PropulsionPDO $con)
 	{
 		return $this->preDelete($con);
 	}
 
+	/**
+	 * @return mixed
+	 */
 	protected function preDelete(PropulsionPDO $con)
 	{
 	}
@@ -1525,13 +1577,17 @@ class ModelCriteria extends Criteria
 	 *
 	 * @param     int $affectedRows the number of deleted rows
 	 * @param     PropulsionPDO $con The connection object used by the query
+	 * @return    mixed
 	 */
-	protected function basePostDelete($affectedRows, PropulsionPDO $con)
+	protected function basePostDelete(int $affectedRows, PropulsionPDO $con)
 	{
 		return $this->postDelete($affectedRows, $con);
 	}
 
-	protected function postDelete($affectedRows, PropulsionPDO $con)
+	/**
+	 * @return mixed
+	 */
+	protected function postDelete(int $affectedRows, PropulsionPDO $con)
 	{
 	}
 
@@ -1648,16 +1704,21 @@ class ModelCriteria extends Criteria
 	/**
 	 * Code to execute before every UPDATE statement
 	 *
-	 * @param     array $values The associatiove array of columns and values for the update
+	 * @param     array<string, mixed> $values The associatiove array of columns and values for the update
 	 * @param     PropulsionPDO $con The connection object used by the query
 	 * @param      boolean $forceIndividualSaves If false (default), the resulting call is a BasePeer::doUpdate(), ortherwise it is a series of save() calls on all the found objects
+	 * @return    mixed
 	 */
-	protected function basePreUpdate(array &$values, PropulsionPDO $con, $forceIndividualSaves = false)
+	protected function basePreUpdate(array &$values, PropulsionPDO $con, bool $forceIndividualSaves = false)
 	{
 		return $this->preUpdate($values, $con, $forceIndividualSaves);
 	}
 
-	protected function preUpdate(array &$values, PropulsionPDO $con, $forceIndividualSaves = false)
+	/**
+	 * @param     array<string, mixed> $values
+	 * @return    mixed
+	 */
+	protected function preUpdate(array &$values, PropulsionPDO $con, bool $forceIndividualSaves = false)
 	{
 	}
 
@@ -1666,12 +1727,16 @@ class ModelCriteria extends Criteria
 	 *
 	 * @param     int $affectedRows the number of updated rows
 	 * @param     PropulsionPDO $con The connection object used by the query
+	 * @return    mixed
 	 */
 	protected function basePostUpdate(int $affectedRows, PropulsionPDO $con)
 	{
 		return $this->postUpdate($affectedRows, $con);
 	}
 
+	/**
+	 * @return mixed
+	 */
 	protected function postUpdate(int $affectedRows, PropulsionPDO $con)
 	{
 	}
@@ -1682,7 +1747,7 @@ class ModelCriteria extends Criteria
 	* Beware that behaviors based on hooks in the object's save() method
 	* will only be triggered if you force individual saves, i.e. if you pass true as second argument.
 	*
-	* @param      array $values Associative array of keys and values to replace
+	* @param      array<string, mixed> $values Associative array of keys and values to replace
 	* @param      PropulsionPDO $con an optional connection object
 	* @param      boolean $forceIndividualSaves If false (default), the resulting call is a BasePeer::doUpdate(), ortherwise it is a series of save() calls on all the found objects
 	*
@@ -1725,7 +1790,7 @@ class ModelCriteria extends Criteria
 	* Issue an UPDATE query based the current ModelCriteria and a list of changes.
 	* This method is called by ModelCriteria::update() inside a transaction.
 	*
-	* @param      array $values Associative array of keys and values to replace
+	* @param      array<string, mixed> $values Associative array of keys and values to replace
 	* @param      PropulsionPDO $con a connection object
 	* @param      boolean $forceIndividualSaves If false (default), the resulting call is a BasePeer::doUpdate(), ortherwise it is a series of save() calls on all the found objects
 	*
@@ -1771,6 +1836,9 @@ class ModelCriteria extends Criteria
 	 * @param      string  $operator An operator, Criteria::LOGICAL_AND (default) or Criteria::LOGICAL_OR
 	 *
 	 * @return     Criterion a Criterion or ModelCriterion object
+	 */
+	/**
+	 * @param array<int, string> $conditions
 	 */
 	protected function getCriterionForConditions(array $conditions, ?string $operator = null) : Criterion
 	{
@@ -1956,7 +2024,7 @@ class ModelCriteria extends Criteria
 	 * e.g.  'Book.Title IN ?'
 	 *    => 'book.TITLE IN ?'
 	 *
-	 * @param array $matches Matches found by preg_replace_callback
+	 * @param array<int, string> $matches Matches found by preg_replace_callback
 	 *
 	 * @return string the column name replacement
 	 */
@@ -1987,7 +2055,7 @@ class ModelCriteria extends Criteria
 	 *
 	 * @param      string $phpName String representing the column name in a pseudo SQL clause, e.g. 'Book.Title'
 	 *
-	 * @return     array List($columnMap, $realColumnName)
+	 * @return     array{0: ?ColumnMap, 1: ?string} List($columnMap, $realColumnName)
 	 */
 	protected function getColumnFromName(string $phpName, bool $failSilently = true) : array
 	{
@@ -2005,7 +2073,7 @@ class ModelCriteria extends Criteria
 			$tableMap = $this->getTableMap();
 		} elseif (isset($this->joins[$class])) {
 			// column of a relations's model
-			$tableMap = $this->joins[$class]->getTableMap();
+			$tableMap = $this->getNamedModelJoin($class)->getTableMap();
 		} elseif ($this->hasSelectQuery($class)) {
 			return $this->getColumnFromSubQuery($class, $phpName, $failSilently);
 		} elseif ($failSilently) {
@@ -2038,7 +2106,7 @@ class ModelCriteria extends Criteria
 	 *
 	 * @return     array{0: ?ColumnMap, 1: ?string} List($columnMap, $realColumnName)
 	 */
-	protected function getColumnFromSubQuery(string $class, string $phpName, $failSilently = true) : array
+	protected function getColumnFromSubQuery(string $class, string $phpName, bool $failSilently = true) : array
 	{
 		$subQueryCriteria = $this->getSelectQuery($class);
 		$tableMap = $this->getTableMap();
@@ -2117,7 +2185,7 @@ class ModelCriteria extends Criteria
 	 * Get all the parameters to bind to this criteria
 	 * Does part of the job of BasePeer::createSelectSql() for the cache
 	 *
-	 * @return    array list of parameters, each parameter being an array like
+	 * @return    array<int, array{table: string|null, column: string|null, value: mixed}> list of parameters, each parameter being an array like
 	 *                  array('table' => $realtable, 'column' => $column, 'value' => $value)
 	 */
 	public function getParams() : array
@@ -2160,8 +2228,12 @@ class ModelCriteria extends Criteria
 	 * Supports findByXXX(), findOneByXXX(), filterByXXX(), orderByXXX(), and groupByXXX() methods,
 	 * where XXX is a column phpName.
 	 * Supports XXXJoin(), where XXX is a join direction (in 'left', 'right', 'inner')
+	 *
+	 * @param     string $name
+	 * @param     array<int, mixed> $arguments
+	 * @return    mixed
 	 */
-	public function __call($name, $arguments)
+	public function __call(string $name, array $arguments)
 	{
 		// Maybe it's a magic call to one of the methods supporting it, e.g. 'findByTitle'
 		static $methods = array('findBy', 'findOneBy', 'filterBy', 'orderBy', 'groupBy');

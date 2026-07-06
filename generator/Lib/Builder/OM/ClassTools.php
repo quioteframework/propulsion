@@ -121,9 +121,9 @@ class ClassTools
 	/**
 	 * Gets a list of PHP reserved words.
 	 *
-	 * @return     array string[]
+	 * @return     list<string>
 	 */
-	public static function getPhpReservedWords()
+	public static function getPhpReservedWords(): array
 	{
 		return array(
 			'and', 'or', 'xor', 'exception', '__FILE__', '__LINE__',

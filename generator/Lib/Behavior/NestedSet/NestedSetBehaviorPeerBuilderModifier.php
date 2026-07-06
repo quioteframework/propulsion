@@ -9,6 +9,10 @@
  */
 namespace Propulsion\Generator\Behavior\NestedSet;
 
+use Propulsion\Generator\Builder\OM\PeerBuilder;
+use Propulsion\Generator\Model\Column;
+use Propulsion\Generator\Model\Table;
+
 /**
  * Behavior to adds nested set tree structure columns and abilities
  *
@@ -17,49 +21,53 @@ namespace Propulsion\Generator\Behavior\NestedSet;
  */
 class NestedSetBehaviorPeerBuilderModifier
 {
-	protected $behavior, $table, $builder, $objectClassname, $peerClassname;
+	protected NestedSetBehavior $behavior;
+	protected Table $table;
+	protected ?PeerBuilder $builder = null;
+	protected ?string $objectClassname = null;
+	protected ?string $peerClassname = null;
 
-	public function __construct($behavior)
+	public function __construct(NestedSetBehavior $behavior)
 	{
 		$this->behavior = $behavior;
 		$this->table = $behavior->getTable();
 	}
 
-	protected function getParameter($key)
+	protected function getParameter(string $key): string
 	{
 		return $this->behavior->getParameter($key);
 	}
 
-	protected function getColumn($name)
+	protected function getColumn(string $name): Column
 	{
 		return $this->behavior->getColumnForParameter($name);
 	}
 
-	protected function getColumnAttribute($name)
+	protected function getColumnAttribute(string $name): string
 	{
 		// See NestedSetBehaviorObjectBuilderModifier::getColumnAttribute()
 		// for why this must be the PhpName, not the lowercased column name.
 		return $this->getColumn($name)->getPhpName();
 	}
 
-	protected function getColumnConstant($name)
+	protected function getColumnConstant(string $name): string
 	{
 		return strtoupper($this->getColumn($name)->getName());
 	}
 
-	protected function getColumnPhpName($name)
+	protected function getColumnPhpName(string $name): string
 	{
 		return $this->getColumn($name)->getPhpName();
 	}
 
-	protected function setBuilder($builder)
+	protected function setBuilder(PeerBuilder $builder): void
 	{
 		$this->builder = $builder;
 		$this->objectClassname = $builder->getStubObjectBuilder()->getClassname();
 		$this->peerClassname = $builder->getStubPeerBuilder()->getClassname();
 	}
 
-	public function staticAttributes($builder)
+	public function staticAttributes(PeerBuilder $builder): string
 	{
 		$tableName = $this->table->getName();
 
@@ -92,7 +100,7 @@ const SCOPE_COL = '" . $tableName . '.' . $this->getColumnConstant('scope_column
 		return $script;
 	}
 
-	public function staticMethods($builder)
+	public function staticMethods(PeerBuilder $builder): string
 	{
 		$this->setBuilder($builder);
 		$script = '';
@@ -114,7 +122,7 @@ const SCOPE_COL = '" . $tableName . '.' . $this->getColumnConstant('scope_column
 		return $script;
 	}
 
-	protected function addRetrieveRoots(&$script)
+	protected function addRetrieveRoots(string &$script): void
 	{
 		$peerClassname = $this->peerClassname;
 		$script .= "
@@ -136,7 +144,7 @@ public static function retrieveRoots(?Criteria \$criteria = null, ?PropulsionPDO
 ";
 	}
 
-	protected function addRetrieveRoot(&$script)
+	protected function addRetrieveRoot(string &$script): void
 	{
 		$peerClassname = $this->peerClassname;
 		$useScope = $this->behavior->useScope();
@@ -167,7 +175,7 @@ public static function retrieveRoot(" . ($useScope ? "\$scope = null, " : "") . 
 ";
 	}
 
-	protected function addRetrieveTree(&$script)
+	protected function addRetrieveTree(string &$script): void
 	{
 		$peerClassname = $this->peerClassname;
 		$useScope = $this->behavior->useScope();
@@ -201,7 +209,7 @@ public static function retrieveTree(" . ($useScope ? "\$scope = null, " : "") . 
 ";
 	}
 
-	protected function addIsValid(&$script)
+	protected function addIsValid(string &$script): void
 	{
 		$objectClassname = $this->objectClassname;
 		$script .= "
@@ -222,7 +230,7 @@ public static function isValid(?$objectClassname \$node = null)
 ";
 	}
 
-	protected function addDeleteTree(&$script)
+	protected function addDeleteTree(string &$script): void
 	{
 		$peerClassname = $this->peerClassname;
 		$useScope = $this->behavior->useScope();
@@ -255,7 +263,7 @@ public static function deleteTree(" . ($useScope ? "\$scope = null, " : "") . "?
 ";
 	}
 
-	protected function addShiftRLValues(&$script)
+	protected function addShiftRLValues(string &$script): void
 	{
 		$peerClassname = $this->peerClassname;
 		$useScope = $this->behavior->useScope();
@@ -319,7 +327,7 @@ public static function shiftRLValues(\$delta, \$first, \$last = null" . ($useSco
 ";
 	}
 
-	protected function addShiftLevel(&$script)
+	protected function addShiftLevel(string &$script): void
 	{
 		$peerClassname = $this->peerClassname;
 		$useScope = $this->behavior->useScope();
@@ -361,7 +369,7 @@ public static function shiftLevel(\$delta, \$first, \$last" . ($useScope ? ", \$
 ";
 	}
 
-	protected function addUpdateLoadedNodes(&$script)
+	protected function addUpdateLoadedNodes(string &$script): void
 	{
 		$peerClassname = $this->peerClassname;
 		$objectClassname = $this->objectClassname;
@@ -449,7 +457,7 @@ public static function updateLoadedNodes(\$prune = null, ?PropulsionPDO \$con = 
 ";
 	}
 
-	protected function addMakeRoomForLeaf(&$script)
+	protected function addMakeRoomForLeaf(string &$script): void
 	{
 		$peerClassname = $this->peerClassname;
 		$useScope = $this->behavior->useScope();
@@ -477,7 +485,7 @@ public static function makeRoomForLeaf(\$left" . ($useScope ? ", \$scope" : "").
 ";
 	}
 
-	protected function addFixLevels(&$script)
+	protected function addFixLevels(string &$script): void
 	{
 		$peerClassname = $this->peerClassname;
 		$useScope = $this->behavior->useScope();

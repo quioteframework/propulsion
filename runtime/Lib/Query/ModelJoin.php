@@ -20,11 +20,17 @@ namespace Propulsion\Query;
 
 class ModelJoin extends Join
 {
+	/** @var RelationMap|null */
 	protected $relationMap;
+	/** @var TableMap|null */
 	protected $tableMap;
+	/** @var ModelJoin|null */
 	protected $previousJoin;
 
-	public function setRelationMap(RelationMap $relationMap, $leftTableAlias = null, $relationAlias = null)
+	/**
+	 * @return static
+	 */
+	public function setRelationMap(RelationMap $relationMap, ?string $leftTableAlias = null, ?string $relationAlias = null)
 	{
 		$leftCols = $relationMap->getLeftColumns();
 		$rightCols = $relationMap->getRightColumns();
@@ -40,7 +46,7 @@ class ModelJoin extends Join
 		return $this;
 	}
 
-	public function getRelationMap()
+	public function getRelationMap(): ?RelationMap
 	{
 		return $this->relationMap;
 	}
@@ -73,6 +79,9 @@ class ModelJoin extends Join
 		return $this->tableMap;
 	}
 
+	/**
+	 * @return static
+	 */
 	public function setPreviousJoin(ModelJoin $join)
 	{
 		$this->previousJoin = $join;
@@ -80,27 +89,30 @@ class ModelJoin extends Join
 		return $this;
 	}
 
-	public function getPreviousJoin()
+	public function getPreviousJoin(): ?ModelJoin
 	{
 		return $this->previousJoin;
 	}
 
-	public function isPrimary()
+	public function isPrimary(): bool
 	{
 		return null === $this->previousJoin;
 	}
 
-	public function setRelationAlias($relationAlias)
+	/**
+	 * @return static
+	 */
+	public function setRelationAlias(?string $relationAlias)
 	{
 		return $this->setRightTableAlias($relationAlias);
 	}
 
-	public function getRelationAlias()
+	public function getRelationAlias(): ?string
 	{
 		return $this->getRightTableAlias();
 	}
 
-	public function hasRelationAlias()
+	public function hasRelationAlias(): bool
 	{
 		return $this->hasRightTableAlias();
 	}
@@ -127,6 +139,10 @@ class ModelJoin extends Join
 		}
 	}
 
+	/**
+	 * @param ModelJoin $join
+	 * @return bool
+	 */
 	public function equals($join)
 	{
 		return parent::equals($join)

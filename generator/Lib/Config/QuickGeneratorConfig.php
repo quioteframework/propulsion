@@ -39,6 +39,7 @@ class QuickGeneratorConfig implements GeneratorConfigInterface
 	// has its own separate builder registry). Since the PHP5 builders were removed
 	// entirely (see archaeology/php5-builders/, KNOWN_ISSUES.md), these now point at the
 	// same promoted builders default.php uses.
+	/** @var array<string,class-string> */
 	protected $builders = array(
 		'peer'					=> PeerBuilder::class,
 		'object'				=> ObjectBuilder::class,
@@ -59,6 +60,7 @@ class QuickGeneratorConfig implements GeneratorConfigInterface
 		'nestedsetpeer' => NestedSetPeerBuilder::class,
 	);
 
+	/** @var array<string,mixed> */
 	protected $buildProperties = array();
 
 	public function __construct()
@@ -99,7 +101,7 @@ class QuickGeneratorConfig implements GeneratorConfigInterface
 	 *
 	 * @param			 mixed $props Array or Iterator
 	 */
-	public function setBuildProperties($props)
+	public function setBuildProperties($props): void
 	{
 		$this->buildProperties = array();
 
@@ -134,7 +136,7 @@ class QuickGeneratorConfig implements GeneratorConfigInterface
 	 * @param      string $name
 	 * @param      mixed $value
 	 */
-	public function setBuildProperty($name, $value)
+	public function setBuildProperty($name, $value): void
 	{
 		if ($value === 'true') {
 			$value = true;

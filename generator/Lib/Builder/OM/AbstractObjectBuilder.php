@@ -41,7 +41,7 @@ abstract class AbstractObjectBuilder extends OMBuilder
 	 *
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	abstract protected function addClassBody(&$script);
+	abstract protected function addClassBody(&$script): void;
 
 	/**
 	 * Gets the baseClass classname if specified for table/db.
@@ -76,7 +76,7 @@ abstract class AbstractObjectBuilder extends OMBuilder
 	 * This is based on the build property propulsion.addGenericMutators, and also whether the
 	 * table is read-only or an alias.
 	 */
-	protected function isAddGenericMutators()
+	protected function isAddGenericMutators(): bool
 	{
 		$table = $this->getTable();
 		return (!$table->isAlias() && $this->getBuildProperty('addGenericMutators') && !$table->isReadOnly());
@@ -87,7 +87,7 @@ abstract class AbstractObjectBuilder extends OMBuilder
 	 * This is based on the build property propulsion.addGenericAccessors, and also whether the
 	 * table is an alias.
 	 */
-	protected function isAddGenericAccessors()
+	protected function isAddGenericAccessors(): bool
 	{
 		$table = $this->getTable();
 		return (!$table->isAlias() && $this->getBuildProperty('addGenericAccessors'));
@@ -97,12 +97,12 @@ abstract class AbstractObjectBuilder extends OMBuilder
 	 * Whether to add the validate() method.
 	 * This is based on the build property propulsion.addValidateMethod
 	 */
-	protected function isAddValidateMethod()
+	protected function isAddValidateMethod(): bool
 	{
-		return $this->getBuildProperty('addValidateMethod');
+		return (bool) $this->getBuildProperty('addValidateMethod');
 	}
 
-	protected function hasDefaultValues()
+	protected function hasDefaultValues(): bool
 	{
 		foreach ($this->getTable()->getColumns() as $col) {
 			if($col->getDefaultValue() !== null) return true;
@@ -125,16 +125,16 @@ abstract class AbstractObjectBuilder extends OMBuilder
 	 * @param string $hookName The name of the hook as called from one of this class methods, e.g. "preSave"
 	 * @param string &$script The script will be modified in this method.
 	 */
-	public function applyBehaviorModifier($hookName, &$script, $tab = "		")
+	public function applyBehaviorModifier($hookName, &$script, string $tab = "		"): void
 	{
-		return $this->applyBehaviorModifierBase($hookName, 'ObjectBuilderModifier', $script, $tab);
+		$this->applyBehaviorModifierBase($hookName, 'ObjectBuilderModifier', $script, $tab);
 	}
 
 	/**
 	 * Checks whether any registered behavior content creator on that table exists a contentName
 	 * @param string $contentName The name of the content as called from one of this class methods, e.g. "parentClassname"
 	 */
-	public function getBehaviorContent($contentName)
+	public function getBehaviorContent($contentName): mixed
 	{
 		return $this->getBehaviorContentBase($contentName, 'ObjectBuilderModifier');
 	}

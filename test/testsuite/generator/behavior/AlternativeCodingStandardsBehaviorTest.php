@@ -54,8 +54,8 @@ else
 }
 
 class TestableAlternativeCodingStandardsBehavior extends AlternativeCodingStandardsBehavior {
-	public function filter(&$script)
+	public function filter(string &$script): void
 	{
-		return parent::filter($script);
+		parent::filter($script);
 	}
 }

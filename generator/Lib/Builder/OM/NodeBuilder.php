@@ -59,7 +59,7 @@ class NodeBuilder extends AbstractObjectBuilder
 	 * Adds the include() statements for files that this class depends on or utilizes.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addIncludes(&$script = null)
+	protected function addIncludes(&$script = null): void
 	{
 		// PHP 8.4 uses namespaces and autoloading, so includes are minimal
 	}
@@ -287,22 +287,22 @@ abstract class ".$this->getClassname()." implements \\IteratorAggregate
 
 	// Placeholder methods - in a complete implementation, these would contain
 	// the full modernized logic from the PHP5 version
-	protected function addIsEqualTo(&$script): void { /* Implementation */ }
-	protected function addHasParent(&$script): void { /* Implementation */ }
-	protected function addHasChildren(&$script): void { /* Implementation */ }
-	protected function addHasPrevSibling(&$script): void { /* Implementation */ }
-	protected function addHasNextSibling(&$script): void { /* Implementation */ }
-	protected function addRetrieveParent(&$script): void { /* Implementation */ }
-	protected function addRetrieveFirstChild(&$script): void { /* Implementation */ }
-	protected function addRetrieveLastChild(&$script): void { /* Implementation */ }
-	protected function addRetrievePrevSibling(&$script): void { /* Implementation */ }
-	protected function addRetrieveNextSibling(&$script): void { /* Implementation */ }
-	protected function addGetChildren(&$script): void { /* Implementation */ }
-	protected function addGetDescendants(&$script): void { /* Implementation */ }
-	protected function addCountChildren(&$script): void { /* Implementation */ }
-	protected function addCountDescendants(&$script): void { /* Implementation */ }
-	protected function addGetPath(&$script): void { /* Implementation */ }
-	protected function addSetParentNode(&$script): void { /* Implementation */ }
-	protected function addSetPrevSibling(&$script): void { /* Implementation */ }
-	protected function addSetNextSibling(&$script): void { /* Implementation */ }
+	protected function addIsEqualTo(string &$script): void { /* Implementation */ }
+	protected function addHasParent(string &$script): void { /* Implementation */ }
+	protected function addHasChildren(string &$script): void { /* Implementation */ }
+	protected function addHasPrevSibling(string &$script): void { /* Implementation */ }
+	protected function addHasNextSibling(string &$script): void { /* Implementation */ }
+	protected function addRetrieveParent(string &$script): void { /* Implementation */ }
+	protected function addRetrieveFirstChild(string &$script): void { /* Implementation */ }
+	protected function addRetrieveLastChild(string &$script): void { /* Implementation */ }
+	protected function addRetrievePrevSibling(string &$script): void { /* Implementation */ }
+	protected function addRetrieveNextSibling(string &$script): void { /* Implementation */ }
+	protected function addGetChildren(string &$script): void { /* Implementation */ }
+	protected function addGetDescendants(string &$script): void { /* Implementation */ }
+	protected function addCountChildren(string &$script): void { /* Implementation */ }
+	protected function addCountDescendants(string &$script): void { /* Implementation */ }
+	protected function addGetPath(string &$script): void { /* Implementation */ }
+	protected function addSetParentNode(string &$script): void { /* Implementation */ }
+	protected function addSetPrevSibling(string &$script): void { /* Implementation */ }
+	protected function addSetNextSibling(string &$script): void { /* Implementation */ }
 }

@@ -9,6 +9,10 @@
  */
 namespace Propulsion\Generator\Behavior\NestedSet;
 
+use Propulsion\Generator\Builder\OM\QueryBuilder;
+use Propulsion\Generator\Model\Column;
+use Propulsion\Generator\Model\Table;
+
 /**
  * Behavior to adds nested set tree structure columns and abilities
  *
@@ -16,25 +20,30 @@ namespace Propulsion\Generator\Behavior\NestedSet;
  */
 class NestedSetBehaviorQueryBuilderModifier
 {
-	protected $behavior, $table, $builder, $objectClassname, $peerClassname, $queryClassname;
+	protected NestedSetBehavior $behavior;
+	protected Table $table;
+	protected ?QueryBuilder $builder = null;
+	protected ?string $objectClassname = null;
+	protected ?string $peerClassname = null;
+	protected ?string $queryClassname = null;
 
-	public function __construct($behavior)
+	public function __construct(NestedSetBehavior $behavior)
 	{
 		$this->behavior = $behavior;
 		$this->table = $behavior->getTable();
 	}
 
-	protected function getParameter($key)
+	protected function getParameter(string $key): string
 	{
 		return $this->behavior->getParameter($key);
 	}
 
-	protected function getColumn($name)
+	protected function getColumn(string $name): Column
 	{
 		return $this->behavior->getColumnForParameter($name);
 	}
 
-	protected function setBuilder($builder)
+	protected function setBuilder(QueryBuilder $builder): void
 	{
 		$this->builder = $builder;
 		$this->objectClassname = $builder->getStubObjectBuilder()->getClassname();
@@ -42,7 +51,7 @@ class NestedSetBehaviorQueryBuilderModifier
 		$this->peerClassname = $builder->getStubPeerBuilder()->getClassname();
 	}
 
-	public function queryMethods($builder)
+	public function queryMethods(QueryBuilder $builder): string
 	{
 		$this->setBuilder($builder);
 		$script = '';
@@ -71,7 +80,7 @@ class NestedSetBehaviorQueryBuilderModifier
 		return $script;
 	}
 
-	protected function addTreeRoots(&$script)
+	protected function addTreeRoots(string &$script): void
 	{
 		$useScope = $this->behavior->useScope();
 		$script .= "
@@ -99,7 +108,7 @@ public function treeRoots()
 ";
 	}
 
-	protected function addInTree(&$script)
+	protected function addInTree(string &$script): void
 	{
 		$script .= "
 /**
@@ -116,7 +125,7 @@ public function inTree(\$scope = null)
 ";
 	}
 
-	protected function addDescendantsOf(&$script)
+	protected function addDescendantsOf(string &$script): void
 	{
 		$objectName = '$' . $this->table->getStudlyPhpName();
 		$script .= "
@@ -141,7 +150,7 @@ public function descendantsOf($objectName)
 ";
 	}
 
-	protected function addBranchOf(&$script)
+	protected function addBranchOf(string &$script): void
 	{
 		$objectName = '$' . $this->table->getStudlyPhpName();
 		$script .= "
@@ -167,7 +176,7 @@ public function branchOf($objectName)
 ";
 	}
 
-	protected function addChildrenOf(&$script)
+	protected function addChildrenOf(string &$script): void
 	{
 		$objectName = '$' . $this->table->getStudlyPhpName();
 		$script .= "
@@ -187,7 +196,7 @@ public function childrenOf($objectName)
 ";
 	}
 
-	protected function addSiblingsOf(&$script)
+	protected function addSiblingsOf(string &$script): void
 	{
 		$objectName = '$' . $this->table->getStudlyPhpName();
 		$script .= "
@@ -214,7 +223,7 @@ public function siblingsOf($objectName, ?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addAncestorsOf(&$script)
+	protected function addAncestorsOf(string &$script): void
 	{
 		$objectName = '$' . $this->table->getStudlyPhpName();
 		$script .= "
@@ -239,7 +248,7 @@ public function ancestorsOf($objectName)
 ";
 	}
 
-	protected function addRootsOf(&$script)
+	protected function addRootsOf(string &$script): void
 	{
 		$objectName = '$' . $this->table->getStudlyPhpName();
 		$script .= "
@@ -265,7 +274,7 @@ public function rootsOf($objectName)
 ";
 	}
 
-	protected function addOrderByBranch(&$script)
+	protected function addOrderByBranch(string &$script): void
 	{
 		$script .= "
 /**
@@ -288,7 +297,7 @@ public function orderByBranch(\$reverse = false)
 ";
 	}
 
-	protected function addOrderByLevel(&$script)
+	protected function addOrderByLevel(string &$script): void
 	{
 		$script .= "
 /**
@@ -318,7 +327,7 @@ public function orderByLevel(\$reverse = false)
 ";
 	}
 
-	protected function addFindRoot(&$script)
+	protected function addFindRoot(string &$script): void
 	{
 		$useScope = $this->behavior->useScope();
 		$script .= "
@@ -348,7 +357,7 @@ public function findRoot(" . ($useScope ? "\$scope = null, " : "") . "\$con = nu
 ";
 	}
 
-	protected function addFindRoots(&$script)
+	protected function addFindRoots(string &$script): void
 	{
 		$script .= "
 /**
@@ -367,7 +376,7 @@ public function findRoots(\$con = null)
 ";
 	}
 
-	protected function addFindTree(&$script)
+	protected function addFindTree(string &$script): void
 	{
 		$useScope = $this->behavior->useScope();
 		$script .= "

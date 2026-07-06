@@ -22,7 +22,7 @@ if (class_exists(Author::class)) {
 			return true;
 		}
 
-		public function postInsert(?PropulsionPDO $con = null)
+		public function postInsert(?PropulsionPDO $con = null): void
 		{
 			parent::postInsert($con);
 			$this->setLastName('PostInsertedLastName');
@@ -35,7 +35,7 @@ if (class_exists(Author::class)) {
 			return true;
 		}
 
-		public function postUpdate(?PropulsionPDO $con = null)
+		public function postUpdate(?PropulsionPDO $con = null): void
 		{
 			parent::postUpdate($con);
 			$this->setLastName('PostUpdatedLastName');
@@ -48,7 +48,7 @@ if (class_exists(Author::class)) {
 			return true;
 		}
 
-		public function postSave(?PropulsionPDO $con = null)
+		public function postSave(?PropulsionPDO $con = null): void
 		{
 			parent::postSave($con);
 			$this->setAge(115);
@@ -61,7 +61,7 @@ if (class_exists(Author::class)) {
 			return true;
 		}
 
-		public function postDelete(?PropulsionPDO $con = null)
+		public function postDelete(?PropulsionPDO $con = null): void
 		{
 			parent::postDelete($con);
 			$this->setLastName("Post-Deleted");

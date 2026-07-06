@@ -36,7 +36,7 @@ class ExtensionObjectBuilder extends AbstractObjectBuilder
      * Inlined from the (now-archived) PHP5ExtensionObjectBuilder base.
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addClassClose(&$script)
+    protected function addClassClose(&$script): void
     {
         $script .= "
 } // " . $this->getClassname() . "
@@ -44,7 +44,7 @@ class ExtensionObjectBuilder extends AbstractObjectBuilder
         $this->applyBehaviorModifier('extensionObjectFilter', $script, "");
     }
 
-    protected function addIncludes(&$script = null)
+    protected function addIncludes(?string &$script = null): void
     {
         // PHP 8.4 uses namespaces and autoloading, so includes are minimal
         // No need to include parent class files as they are autoloaded

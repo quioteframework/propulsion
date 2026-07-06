@@ -19,17 +19,22 @@ namespace Propulsion\Generator\Behavior\I18n;
 
  use Propulsion\Generator\Model\Column;
  use Propulsion\Generator\Model\PropulsionTypes;
+ use Propulsion\Generator\Model\Table;
+ use Propulsion\Generator\Builder\OM\ObjectBuilder;
+ use Propulsion\Generator\Exception\EngineException;
 class I18nBehaviorObjectBuilderModifier
 {
-	protected $behavior, $table, $builder;
+	protected I18nBehavior $behavior;
+	protected Table $table;
+	protected ObjectBuilder $builder;
 
-	public function __construct($behavior)
+	public function __construct(I18nBehavior $behavior)
 	{
 		$this->behavior = $behavior;
 		$this->table = $behavior->getTable();
 	}
 
-	public function postDelete($builder)
+	public function postDelete(ObjectBuilder $builder): ?string
 	{
 		$this->builder = $builder;
 		if (!$builder->getPlatform()->supportsNativeDeleteTrigger() && !$builder->getBuildProperty('emulateForeignKeyConstraints')) {
@@ -39,9 +44,10 @@ class I18nBehaviorObjectBuilderModifier
 				'objectClassname' => $builder->getNewStubObjectBuilder($this->behavior->getTable())->getClassname(),
 			));
 		}
+		return null;
 	}
 
-	public function objectAttributes($builder)
+	public function objectAttributes(ObjectBuilder $builder): string
 	{
 		return $this->behavior->renderTemplate('objectAttributes', array(
 			'defaultLocale'   => $this->behavior->getDefaultLocale(),
@@ -49,14 +55,14 @@ class I18nBehaviorObjectBuilderModifier
 		));
 	}
 
-	public function objectClearReferences($builder)
+	public function objectClearReferences(ObjectBuilder $builder): string
 	{
 		return $this->behavior->renderTemplate('objectClearReferences', array(
 			'defaultLocale'   => $this->behavior->getDefaultLocale(),
 		));
 	}
 
-	public function objectMethods($builder)
+	public function objectMethods(ObjectBuilder $builder): string
 	{
 		$this->builder = $builder;
 		$script = '';
@@ -77,36 +83,36 @@ class I18nBehaviorObjectBuilderModifier
 		return $script;
 	}
 
-	protected function addSetLocale()
+	protected function addSetLocale(): string
 	{
 		return $this->behavior->renderTemplate('objectSetLocale', array(
-			'objectClassname' => $this->builder->getStubObjectBuilder($this->table)->getClassname(),
+			'objectClassname' => $this->builder->getStubObjectBuilder()->getClassname(),
 			'defaultLocale'    => $this->behavior->getDefaultLocale(),
 		));
 	}
 
-	protected function addGetLocale()
+	protected function addGetLocale(): string
 	{
 		return $this->behavior->renderTemplate('objectGetLocale');
 	}
 
-	protected function addSetLocaleAlias($alias)
+	protected function addSetLocaleAlias(string $alias): string
 	{
 		return $this->behavior->renderTemplate('objectSetLocaleAlias', array(
-			'objectClassname' => $this->builder->getStubObjectBuilder($this->table)->getClassname(),
+			'objectClassname' => $this->builder->getStubObjectBuilder()->getClassname(),
 			'defaultLocale'    => $this->behavior->getDefaultLocale(),
 			'alias'            => ucfirst($alias),
 		));
 	}
 
-	protected function addGetLocaleAlias($alias)
+	protected function addGetLocaleAlias(string $alias): string
 	{
 		return $this->behavior->renderTemplate('objectGetLocaleAlias', array(
 			'alias' => ucfirst($alias),
 		));
 	}
 
-	protected function addGetTranslation()
+	protected function addGetTranslation(): string
 	{
 		$i18nTable = $this->behavior->getI18nTable();
 		$fk = $this->behavior->getI18nForeignKey();
@@ -120,12 +126,12 @@ class I18nBehaviorObjectBuilderModifier
 		));
 	}
 
-	protected function addRemoveTranslation()
+	protected function addRemoveTranslation(): string
 	{
 		$i18nTable = $this->behavior->getI18nTable();
 		$fk = $this->behavior->getI18nForeignKey();
 		return $this->behavior->renderTemplate('objectRemoveTranslation', array(
-			'objectClassname' => $this->builder->getStubObjectBuilder($this->table)->getClassname(),
+			'objectClassname' => $this->builder->getStubObjectBuilder()->getClassname(),
 			'defaultLocale'    => $this->behavior->getDefaultLocale(),
 			'i18nQueryName'    => $this->builder->getNewStubQueryBuilder($i18nTable)->getClassname(),
 			'i18nCollection'   => $this->builder->getRefFKCollVarName($fk),
@@ -133,7 +139,7 @@ class I18nBehaviorObjectBuilderModifier
 		));
 	}
 
-	protected function addGetCurrentTranslation()
+	protected function addGetCurrentTranslation(): string
 	{
 		return $this->behavior->renderTemplate('objectGetCurrentTranslation', array(
 			'i18nTablePhpName' => $this->builder->getNewStubObjectBuilder($this->behavior->getI18nTable())->getClassname(),
@@ -142,9 +148,12 @@ class I18nBehaviorObjectBuilderModifier
 
 	// FIXME: the connection used by getCurrentTranslation in the generated code
 	// cannot be specified by the user
-	protected function addTranslatedColumnGetter(Column $column)
+	protected function addTranslatedColumnGetter(Column $column): string
 	{
 		$objectBuilder = $this->builder->getNewObjectBuilder($this->behavior->getI18nTable());
+		if (!$objectBuilder instanceof ObjectBuilder) {
+			throw new EngineException('The i18n behavior requires the i18n table to use the standard ObjectBuilder (a custom propulsion.builder.object.class is not supported).');
+		}
 		$comment = '';
 		$functionStatement = '';
 		if ($column->getType() === PropulsionTypes::DATE || $column->getType() === PropulsionTypes::TIME || $column->getType() === PropulsionTypes::TIMESTAMP) {
@@ -167,11 +176,14 @@ class I18nBehaviorObjectBuilderModifier
 
 	// FIXME: the connection used by getCurrentTranslation in the generated code
 	// cannot be specified by the user
-	protected function addTranslatedColumnSetter(Column $column)
+	protected function addTranslatedColumnSetter(Column $column): string
 	{
 		$i18nTablePhpName = $this->builder->getNewStubObjectBuilder($this->behavior->getI18nTable())->getClassname();
 		$tablePhpName = $this->builder->getStubObjectBuilder()->getClassname();
 		$objectBuilder = $this->builder->getNewObjectBuilder($this->behavior->getI18nTable());
+		if (!$objectBuilder instanceof ObjectBuilder) {
+			throw new EngineException('The i18n behavior requires the i18n table to use the standard ObjectBuilder (a custom propulsion.builder.object.class is not supported).');
+		}
 		$comment = '';
 		$functionStatement = '';
 		if ($column->getType() === PropulsionTypes::DATE || $column->getType() === PropulsionTypes::TIME || $column->getType() === PropulsionTypes::TIMESTAMP) {
@@ -207,7 +219,7 @@ class I18nBehaviorObjectBuilderModifier
 		));
 	}
 
-	public function objectFilter(&$script, $builder)
+	public function objectFilter(string &$script, ObjectBuilder $builder): void
 	{
 		$i18nTable = $this->behavior->getI18nTable();
 		$i18nTablePhpName = $this->builder->getNewStubObjectBuilder($i18nTable)->getClassname();
@@ -219,7 +231,7 @@ class I18nBehaviorObjectBuilderModifier
 			\$this->currentTranslations[\$locale] = \$l;
 		}";
 		$replacement = "\$0$addition";
-		$script = preg_replace($pattern, $replacement, $script);
+		$script = preg_replace($pattern, $replacement, $script) ?? $script;
 	}
 
 }

@@ -33,14 +33,14 @@ class ExtensionQueryBuilder extends OMBuilder
 	 * Adds the include() statements for files that this class depends on or utilizes.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addIncludes(&$script = null)
+	protected function addIncludes(&$script = null): void
 	{
 		/*
 		$requiredClassFilePath = $this->getQueryBuilder()->getClassFilePath();
 
 		$script .="
 require '".$requiredClassFilePath."';
-";		
+";
 */
 	} // addIncludes()
 
@@ -48,7 +48,7 @@ require '".$requiredClassFilePath."';
 	 * Adds class phpdoc comment and openning of class.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addClassOpen(&$script)
+	protected function addClassOpen(&$script): void
 	{
 		$table = $this->getTable();
 		$this->declareClassFromBuilder($this->getQueryBuilder());
@@ -97,7 +97,7 @@ class ".$this->getClassname()." extends $baseClassname {
 	 * @see        QueryBuilder::addClassBody()
 	 */
 
-	protected function addClassBody(&$script)
+	protected function addClassBody(string &$script): void
 	{
 	}
 
@@ -105,7 +105,7 @@ class ".$this->getClassname()." extends $baseClassname {
 	 * Closes class.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addClassClose(&$script)
+	protected function addClassClose(&$script): void
 	{
 		$script .= "
 } // " . $this->getClassname() . "
@@ -128,16 +128,17 @@ class ".$this->getClassname()." extends $baseClassname {
 	 * @param string $hookName The name of the hook as called from one of this class methods, e.g. "preSave"
 	 * @param string &$script The script will be modified in this method.
 	 */
-	public function applyBehaviorModifier($hookName, &$script, $tab = "		")
+	public function applyBehaviorModifier(string $hookName, string &$script, string $tab = "		"): void
 	{
-		return $this->applyBehaviorModifierBase($hookName, 'QueryBuilderModifier', $script, $tab);
+		$this->applyBehaviorModifierBase($hookName, 'QueryBuilderModifier', $script, $tab);
 	}
 
 	/**
 	 * Checks whether any registered behavior content creator on that table exists a contentName
 	 * @param string $contentName The name of the content as called from one of this class methods, e.g. "parentClassname"
+	 * @return mixed
 	 */
-	public function getBehaviorContent($contentName)
+	public function getBehaviorContent($contentName): mixed
 	{
 		return $this->getBehaviorContentBase($contentName, 'QueryBuilderModifier');
 	}

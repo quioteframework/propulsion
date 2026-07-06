@@ -40,7 +40,7 @@ class PropulsionDateTime extends DateTime
 	 */
 	private $tzString;
 
-	protected static function isTimestamp($value)
+	protected static function isTimestamp(int|string $value): bool
 	{
 		if (!is_numeric($value)) {
 			return false;

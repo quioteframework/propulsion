@@ -28,7 +28,10 @@ class Criterion
 	const UND = " AND ";
 	const ODER = " OR ";
 
-	/** Value of the CO. */
+	/**
+	 * Value of the CO.
+	 * @var mixed
+	 */
 	protected $value;
 
 	/** Comparison value.
@@ -36,31 +39,49 @@ class Criterion
 	 */
 	protected $comparison;
 
-	/** Table name. */
+	/**
+	 * Table name.
+	 * @var string|null
+	 */
 	protected $table;
 
-	/** Real table name */
+	/**
+	 * Real table name
+	 * @var string|null
+	 */
 	protected $realtable;
 
-	/** Column name. */
+	/**
+	 * Column name.
+	 * @var string|null
+	 */
 	protected $column;
 
 	/** flag to ignore case in comparison */
-	protected $ignoreStringCase = false;
+	protected bool $ignoreStringCase = false;
 
 	/**
 	 * The DBAdaptor which might be used to get db specific
 	 * variations of sql.
+	 * @var DBAdapter|null
 	 */
 	protected $db;
 
 	/**
 	 * other connected criteria and their conjunctions.
+	 * @var array<int, Criterion>
 	 */
 	protected $clauses = array();
+
+	/**
+	 * @var array<int, string>
+	 */
 	protected $conjunctions = array();
 
-	/** "Parent" Criteria class */
+	/**
+	 * "Parent" Criteria class
+	 * @var mixed
+	 */
 	protected $parent;
 
 	/**
@@ -91,7 +112,7 @@ class Criterion
 	* Init some properties with the help of outer class
 	* @param      Criteria $criteria The outer class
 	*/
-	public function init(Criteria $criteria)
+	public function init(Criteria $criteria): void
 	{
 		// init $this->db
 		try {
@@ -209,7 +230,7 @@ class Criterion
 
 	/**
 	 * Get the list of clauses in this Criterion.
-	 * @return     array
+	 * @return     array<int, Criterion>
 	 */
 	public function getClauses(): array
 	{
@@ -218,7 +239,7 @@ class Criterion
 
 	/**
 	 * Get the list of conjunctions in this Criterion
-	 * @return     array
+	 * @return     array<int, string>
 	 */
 	public function getConjunctions()
 	{
@@ -227,6 +248,7 @@ class Criterion
 
 	/**
 	 * Append an AND Criterion onto this Criterion's list.
+	 * @return static
 	 */
 	public function addAnd(Criterion $criterion)
 	{
@@ -251,12 +273,12 @@ class Criterion
 	 * onto the buffer.
 	 *
 	 * @param      string &$sb The string that will receive the Prepared Statement
-	 * @param      array $params A list to which Prepared Statement parameters will be appended
+	 * @param      array<int, array{table: string|null, column: string|null, value: mixed}> $params A list to which Prepared Statement parameters will be appended
 	 * @return     void
 	 * @throws     PropulsionException - if the expression builder cannot figure out how to turn a specified
 	 *                           expression into proper SQL.
 	 */
-	public function appendPsTo(&$sb, array &$params)
+	public function appendPsTo(&$sb, array &$params): void
 	{
 		$sb .= str_repeat ( '(', count($this->clauses) );
 
@@ -275,9 +297,10 @@ class Criterion
 	 * and call it to append the prepared statement and the parameters of the current clause
 	 *
 	 * @param      string &$sb The string that will receive the Prepared Statement
-	 * @param      array $params A list to which Prepared Statement parameters will be appended
+	 * @param      array<int, array{table: string|null, column: string|null, value: mixed}> $params A list to which Prepared Statement parameters will be appended
+	 * @return     void
 	 */
-	protected function dispatchPsHandling(&$sb, array &$params)
+	protected function dispatchPsHandling(&$sb, array &$params): void
 	{
 		switch ($this->comparison) {
 			case Criteria::CUSTOM:
@@ -307,9 +330,10 @@ class Criterion
 	 * For custom expressions with no binding, e.g. 'NOW() = 1'
 	 *
 	 * @param      string &$sb The string that will receive the Prepared Statement
-	 * @param      array $params A list to which Prepared Statement parameters will be appended
+	 * @param      array<int, array{table: string|null, column: string|null, value: mixed}> $params A list to which Prepared Statement parameters will be appended
+	 * @return     void
 	 */
-	protected function appendCustomToPs(&$sb, array &$params)
+	protected function appendCustomToPs(&$sb, array &$params): void
 	{
 		if ($this->value !== "") {
 			$sb .= (string) $this->value;
@@ -321,9 +345,10 @@ class Criterion
 	 * For IN expressions, e.g. table.column IN (?, ?) or table.column NOT IN (?, ?)
 	 *
 	 * @param      string &$sb The string that will receive the Prepared Statement
-	 * @param      array $params A list to which Prepared Statement parameters will be appended
+	 * @param      array<int, array{table: string|null, column: string|null, value: mixed}> $params A list to which Prepared Statement parameters will be appended
+	 * @return     void
 	 */
-	protected function appendInToPs(&$sb, array &$params)
+	protected function appendInToPs(&$sb, array &$params): void
 	{
 		if ($this->value !== "") {
 			$bindParams = array();
@@ -347,9 +372,10 @@ class Criterion
 	 * For LIKE expressions, e.g. table.column LIKE ? or table.column NOT LIKE ?  (or ILIKE for Postgres)
 	 *
 	 * @param      string &$sb The string that will receive the Prepared Statement
-	 * @param      array $params A list to which Prepared Statement parameters will be appended
+	 * @param      array<int, array{table: string|null, column: string|null, value: mixed}> $params A list to which Prepared Statement parameters will be appended
+	 * @return     void
 	 */
-	protected function appendLikeToPs(&$sb, array &$params)
+	protected function appendLikeToPs(&$sb, array &$params): void
 	{
 		$field = ($this->table === null) ? $this->column : $this->table . '.' . $this->column;
 		$db = $this->getDb();
@@ -385,9 +411,10 @@ class Criterion
 	 * For traditional expressions, e.g. table.column = ? or table.column >= ? etc.
 	 *
 	 * @param      string &$sb The string that will receive the Prepared Statement
-	 * @param      array $params A list to which Prepared Statement parameters will be appended
+	 * @param      array<int, array{table: string|null, column: string|null, value: mixed}> $params A list to which Prepared Statement parameters will be appended
+	 * @return     void
 	 */
-	protected function appendBasicToPs(&$sb, array &$params)
+	protected function appendBasicToPs(&$sb, array &$params): void
 	{
 		$field = ($this->table === null) ? $this->column : $this->table . '.' . $this->column;
 		// NULL VALUES need special treatment because the SQL syntax is different
@@ -429,6 +456,7 @@ class Criterion
 	/**
 	 * This method checks another Criteria to see if they contain
 	 * the same attributes and hashtable entries.
+	 * @param      mixed $obj
 	 * @return     boolean
 	 */
 	public function equals($obj)
@@ -470,6 +498,7 @@ class Criterion
 
 	/**
 	 * Returns a hash code value for the object.
+	 * @return int
 	 */
 	public function hashCode()
 	{
@@ -500,7 +529,7 @@ class Criterion
 
 	/**
 	 * Get all tables from nested criterion objects
-	 * @return     array
+	 * @return     array<int, string|null>
 	 */
 	public function getAllTables()
 	{
@@ -512,9 +541,10 @@ class Criterion
 	/**
 	 * method supporting recursion through all criterions to give
 	 * us a string array of tables from each criterion
+	 * @param      array<int, string|null> &$s
 	 * @return     void
 	 */
-	private function addCriterionTable(Criterion $c, array &$s)
+	private function addCriterionTable(Criterion $c, array &$s): void
 	{
 		$s[] = $c->getTable();
 		foreach ( $c->getClauses() as $clause ) {
@@ -525,7 +555,7 @@ class Criterion
 	/**
 	 * get an array of all criterion attached to this
 	 * recursing through all sub criterion
-	 * @return     array Criterion[]
+	 * @return     array<int, Criterion>
 	 */
 	public function getAttachedCriterion()
 	{

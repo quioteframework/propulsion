@@ -20,7 +20,7 @@ class PropulsionJSONParser extends PropulsionParser
 	/**
 	 * Converts data from an associative array to JSON.
 	 *
-	 * @param  array $array Source data to convert
+	 * @param  array<mixed> $array Source data to convert
 	 * @return string Converted data, as a JSON string
 	 */
 	public function fromArray($array)
@@ -31,7 +31,7 @@ class PropulsionJSONParser extends PropulsionParser
 	/**
 	 * Alias for PropulsionJSONParser::fromArray()
 	 *
-	 * @param  array $array Source data to convert
+	 * @param  array<mixed> $array Source data to convert
 	 * @return string Converted data, as a JSON string
 	 */
 	public function toJSON($array)
@@ -43,7 +43,7 @@ class PropulsionJSONParser extends PropulsionParser
 	 * Converts data from JSON to an associative array.
 	 *
 	 * @param  string $data Source data to convert, as a JSON string
-	 * @return array Converted data
+	 * @return array<mixed> Converted data
 	 */
 	public function toArray($data)
 	{
@@ -54,7 +54,7 @@ class PropulsionJSONParser extends PropulsionParser
 	 * Alias for PropulsionJSONParser::toArray()
 	 *
 	 * @param  string $data Source data to convert, as a JSON string
-	 * @return array Converted data
+	 * @return array<mixed> Converted data
 	 */
 	public function fromJSON($data)
 	{

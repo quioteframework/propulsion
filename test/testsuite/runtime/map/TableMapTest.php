@@ -300,7 +300,7 @@ class TestableTableMap extends TableMap
 class FooTableMap extends TableMap
 {
   public $rmap;
-  public function buildRelations()
+  public function buildRelations(): void
   {
     $this->rmap = $this->addRelation('Bar', 'Bar', RelationMap::MANY_TO_ONE);
   }
@@ -308,7 +308,7 @@ class FooTableMap extends TableMap
 
 class BarTableMap extends TableMap
 {
-  public function initialize()
+  public function initialize(): void
   {
     $this->setName('bar');
     $this->setClassName('Bar');

@@ -9,6 +9,9 @@
  */
 namespace Propulsion\Generator\Behavior\I18n;
 
+use Propulsion\Generator\Model\Table;
+use Propulsion\Generator\Builder\OM\QueryBuilder;
+
 /**
  * Allows translation of text columns through transparent one-to-many relationship.
  * Modifier for the query builder.
@@ -18,15 +21,17 @@ namespace Propulsion\Generator\Behavior\I18n;
  */
 class I18nBehaviorQueryBuilderModifier
 {
-	protected $behavior, $table, $builder;
+	protected I18nBehavior $behavior;
+	protected Table $table;
+	protected QueryBuilder $builder;
 
-	public function __construct($behavior)
+	public function __construct(I18nBehavior $behavior)
 	{
 		$this->behavior = $behavior;
 		$this->table = $behavior->getTable();
 	}
 
-	public function queryMethods($builder)
+	public function queryMethods(QueryBuilder $builder): string
 	{
 		$this->builder = $builder;
 		$script = '';
@@ -37,7 +42,7 @@ class I18nBehaviorQueryBuilderModifier
 		return $script;
 	}
 
-	protected function addJoinI18n()
+	protected function addJoinI18n(): string
 	{
 		$fk = $this->behavior->getI18nForeignKey();
 		return $this->behavior->renderTemplate('queryJoinI18n', array(
@@ -48,7 +53,7 @@ class I18nBehaviorQueryBuilderModifier
 		));
 	}
 
-	protected function addJoinWithI18n()
+	protected function addJoinWithI18n(): string
 	{
 		$fk = $this->behavior->getI18nForeignKey();
 		return $this->behavior->renderTemplate('queryJoinWithI18n', array(
@@ -58,7 +63,7 @@ class I18nBehaviorQueryBuilderModifier
 		));
 	}
 
-	protected function addUseI18nQuery()
+	protected function addUseI18nQuery(): string
 	{
 		$i18nTable = $this->behavior->getI18nTable();
 		$fk = $this->behavior->getI18nForeignKey();

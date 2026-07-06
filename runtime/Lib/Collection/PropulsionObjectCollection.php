@@ -31,7 +31,7 @@ class PropulsionObjectCollection extends PropulsionCollection
 	 *
 	 * @param     PropulsionPDO  $con
 	 */
-	public function save($con = null)
+	public function save($con = null): void
 	{
 		if (!method_exists($this->getModel(), 'save')) {
 			throw new PropulsionException('Cannot save objects on a read-only model');
@@ -60,7 +60,7 @@ class PropulsionObjectCollection extends PropulsionCollection
 	 *
 	 * @param     PropulsionPDO  $con
 	 */
-	public function delete($con = null)
+	public function delete($con = null): void
 	{
 		if (!method_exists($this->getModel(), 'delete')) {
 			throw new PropulsionException('Cannot delete objects on a read-only model');
@@ -88,9 +88,9 @@ class PropulsionObjectCollection extends PropulsionCollection
 	 * Get an array of the primary keys of all the objects in the collection
 	 *
 	 * @param     boolean  $usePrefix
-	 * @return    array  The list of the primary keys of the collection
+	 * @return    array<array-key,mixed>  The list of the primary keys of the collection
 	 */
-	public function getPrimaryKeys($usePrefix = true)
+	public function getPrimaryKeys($usePrefix = true): array
 	{
 		$ret = array();
 
@@ -108,7 +108,7 @@ class PropulsionObjectCollection extends PropulsionCollection
 	 * Each object is populated from an array and the result is stored
 	 * Does not empty the collection before adding the data from the array
 	 *
-	 * @param    array  $arr
+	 * @param    array<int,array<array-key,mixed>>  $arr
 	 */
 	public function fromArray($arr): void
 	{
@@ -133,7 +133,7 @@ class PropulsionObjectCollection extends PropulsionCollection
 	 *                               BasePeer::TYPE_STUDLYPHPNAME, BasePeer::TYPE_COLNAME, BasePeer::TYPE_FIELDNAME,
 	 *                               BasePeer::TYPE_NUM. Defaults to BasePeer::TYPE_PHPNAME.
 	 * @param     boolean|null $includeLazyLoadColumns (optional) Whether to include lazy loaded columns. Defaults to TRUE.
-	 * @param     array   $alreadyDumpedObjects List of objects to skip to avoid recursion
+	 * @param     array<array-key,mixed>   $alreadyDumpedObjects List of objects to skip to avoid recursion
 	 * @param     boolean $includeForeignObjects (optional) Whether to include hydrated related objects. Defaults to FALSE.
 	 *
 	 * <code>
@@ -154,9 +154,9 @@ class PropulsionObjectCollection extends PropulsionCollection
 	 * )
 	 * </code>
 	 *
-	 * @return    array
+	 * @return    array<array-key,mixed>
 	 */
-	public function toArray($keyColumn = null, $usePrefix = false, $keyType = BasePeer::TYPE_PHPNAME, $includeLazyLoadColumns = true, $alreadyDumpedObjects = array(), $includeForeignObjects = false)
+	public function toArray($keyColumn = null, $usePrefix = false, $keyType = BasePeer::TYPE_PHPNAME, $includeLazyLoadColumns = true, $alreadyDumpedObjects = array(), $includeForeignObjects = false): array
 	{
 		$ret = array();
 		$keyGetterMethod = 'get' . $keyColumn;
@@ -197,7 +197,7 @@ class PropulsionObjectCollection extends PropulsionCollection
 	 *   )
 	 * </code>
 	 *
-	 * @return    array
+	 * @return    array<array-key,mixed>
 	 */
 	public function getArrayCopy($keyColumn = null, $usePrefix = false): array
 	{
@@ -227,9 +227,9 @@ class PropulsionObjectCollection extends PropulsionCollection
 	 * @param     string  $keyColumn
 	 * @param     string  $valueColumn
 	 *
-	 * @return    array
+	 * @return    array<array-key,mixed>
 	 */
-	public function toKeyValue($keyColumn = 'PrimaryKey', $valueColumn = null)
+	public function toKeyValue($keyColumn = 'PrimaryKey', $valueColumn = null): array
 	{
 		$ret = array();
 		$keyGetterMethod = 'get' . $keyColumn;

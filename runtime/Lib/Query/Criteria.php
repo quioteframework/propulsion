@@ -30,6 +30,9 @@ namespace Propulsion\Query;
  use Propulsion\Util\BasePeer;
  use Propulsion\Util\PropulsionConditionalProxy;
  use \Exception;
+/**
+ * @implements \IteratorAggregate<string, Criterion>
+ */
 class Criteria implements \IteratorAggregate
 {
 
@@ -138,42 +141,42 @@ class Criteria implements \IteratorAggregate
 	/** logical AND operator */
 	const LOGICAL_AND = "AND";
 
-	protected $ignoreCase = false;
-	protected $singleRecord = false;
+	protected bool $ignoreCase = false;
+	protected bool $singleRecord = false;
 
 	/**
 	 * Storage of select data. Collection of column names.
-	 * @var        array
+	 * @var        array<int, string>
 	 */
 	protected $selectColumns = array();
 
 	/**
 	 * Storage of aliased select data. Collection of column names.
-	 * @var        array
+	 * @var        array<string, string>
 	 */
 	protected $asColumns = array();
 
 	/**
 	 * Storage of select modifiers data. Collection of modifier names.
-	 * @var        array
+	 * @var        array<int, string>
 	 */
 	protected $selectModifiers = array();
 
 	/**
 	 * Storage of conditions data. Collection of Criterion objects.
-	 * @var        array
+	 * @var        array<string, Criterion>
 	 */
 	protected $map = array();
 
 	/**
 	 * Storage of ordering data. Collection of column names.
-	 * @var        array
+	 * @var        array<int, string>
 	 */
 	protected $orderByColumns = array();
 
 	/**
 	 * Storage of grouping data. Collection of column names.
-	 * @var        array
+	 * @var        array<int, string>
 	 */
 	protected $groupByColumns = array();
 
@@ -185,9 +188,13 @@ class Criteria implements \IteratorAggregate
 
 	/**
 	 * Storage of join data. colleciton of Join objects.
-	 * @var        array
+	 * @var        array<int|string, Join>
 	 */
 	protected $joins = array();
+
+	/**
+	 * @var        array<string, Criteria>
+	 */
 	protected $selectQueries = array();
 
 	/**
@@ -204,17 +211,20 @@ class Criteria implements \IteratorAggregate
 	 */
 	protected $primaryTableName;
 
-	/** The name of the database as given in the contructor. */
+	/**
+	 * The name of the database as given in the contructor.
+	 * @var        string|null
+	 */
 	protected $originalDbName;
 
 	/**
 	 * To limit the number of rows to return.  <code>0</code> means return all
 	 * rows.
 	 */
-	protected $limit = 0;
+	protected int $limit = 0;
 
 	/** To start the results at a row other than the first one. */
-	protected $offset = 0;
+	protected int $offset = 0;
 
 	/**
 	 * Comment to add to the SQL query
@@ -223,15 +233,18 @@ class Criteria implements \IteratorAggregate
 	protected $queryComment;
 
 	// flag to note that the criteria involves a blob.
-	protected $blobFlag = null;
+	protected mixed $blobFlag = null;
 
+	/**
+	 * @var        array<string, string|null>
+	 */
 	protected $aliases = array();
 
-	protected $useTransaction = false;
+	protected bool $useTransaction = false;
 
 	/**
 	 * Storage for Criterions expected to be combined
-	 * @var        array
+	 * @var        array<string, Criterion>
 	 */
 	protected $namedCriterions = array();
 
@@ -243,8 +256,8 @@ class Criteria implements \IteratorAggregate
 	protected $defaultCombineOperator = Criteria::LOGICAL_AND;
 
 	// flags for boolean functions
-	protected $isInIf = false;
-	protected $wasTrue = false;
+	protected bool $isInIf = false;
+	protected bool $wasTrue = false;
 
 	/**
 	 * Creates a new instance with the default capacity which corresponds to
@@ -269,7 +282,7 @@ class Criteria implements \IteratorAggregate
 
 	/**
 	 * Get the criteria map, i.e. the array of Criterions
-	 * @return     array
+	 * @return     array<string, Criterion>
 	 */
 	public function getMap()
 	{
@@ -330,7 +343,7 @@ class Criteria implements \IteratorAggregate
 	/**
 	 * Get the column aliases.
 	 *
-	 * @return     array An assoc array which map the column alias names
+	 * @return     array<string, string> An assoc array which map the column alias names
 	 * to the alias clauses.
 	 */
 	public function getAsColumns()
@@ -387,7 +400,7 @@ class Criteria implements \IteratorAggregate
 	/**
 	 * Returns the aliases for this Criteria
 	 *
-	 * @return     array
+	 * @return     array<string, string|null>
 	 */
 	public function getAliases()
 	{
@@ -432,7 +445,7 @@ class Criteria implements \IteratorAggregate
 	 *  => array('book.price', 'book.title', 'author.first_name')
 	 * </code>
 	 *
-	 * @return     array
+	 * @return     array<int, string>
 	 */
 	public function keys()
 	{
@@ -485,9 +498,9 @@ class Criteria implements \IteratorAggregate
 	 * to use a transaction.
 	 * @return     void
 	 */
-	public function setUseTransaction($v)
+	public function setUseTransaction(bool $v): void
 	{
-		$this->useTransaction = (bool) $v;
+		$this->useTransaction = $v;
 	}
 
 	/**
@@ -568,7 +581,7 @@ class Criteria implements \IteratorAggregate
 	 *     )
 	 * </code>
 	 *
-	 * @return     array array(table => array(table.column1, table.column2))
+	 * @return     array<string, array<int, string>> array(table => array(table.column1, table.column2))
 	 */
 	public function getTablesColumns()
 	{
@@ -639,7 +652,7 @@ class Criteria implements \IteratorAggregate
 	 *
 	 * @param      string $tableName
 	 */
-	public function setPrimaryTableName($tableName)
+	public function setPrimaryTableName(string $tableName): void
 	{
 		$this->primaryTableName = $tableName;
 	}
@@ -712,7 +725,7 @@ class Criteria implements \IteratorAggregate
 	 *
 	 * @param      mixed $t Mappings to be stored in this map.
 	 */
-	public function putAll($t)
+	public function putAll($t): void
 	{
 		if (is_array($t)) {
 			foreach ($t as $key=>$value) {
@@ -796,9 +809,10 @@ class Criteria implements \IteratorAggregate
 	/**
 	 * Combine several named criterions with a logical operator
 	 *
-	 * @param      array $criterions array of the name of the criterions to combine
+	 * @param      array<int, string> $criterions array of the name of the criterions to combine
 	 * @param      string $operator logical operator, either Criteria::LOGICAL_AND, or Criteria::LOGICAL_OR
 	 * @param      string $name optional name to combine the criterion later
+	 * @return     static
 	 */
 	public function combine($criterions = array(), $operator = self::LOGICAL_AND, $name = null)
 	{
@@ -889,7 +903,7 @@ class Criteria implements \IteratorAggregate
  	 * );
 	 *
 	 * @see        addJoin()
-	 * @param      array $conditions An array of conditions, each condition being an array (left, right, operator)
+	 * @param      array<int, array<int, mixed>> $conditions An array of conditions, each condition being an array (left, right, operator)
 	 * @param      string $joinType  A String with the join operator. Defaults to an implicit join.
 	 *
 	 * @return     Criteria A modified Criteria object.
@@ -961,7 +975,7 @@ class Criteria implements \IteratorAggregate
 
 	/**
 	 * Get the array of Joins.
-	 * @return     array Join[]
+	 * @return     array<int|string, Join>
 	 */
 	public function getJoins()
 	{
@@ -999,7 +1013,7 @@ class Criteria implements \IteratorAggregate
 	/**
 	 * Get the associative array of Criteria for the subQueries per alias.
 	 *
-	 * @return     array Criteria[]
+	 * @return     array<string, Criteria>
 	 */
 	public function getSelectQueries()
 	{
@@ -1028,7 +1042,7 @@ class Criteria implements \IteratorAggregate
 		return isset($this->selectQueries[$alias]);
 	}
 
-	public function forgeSelectQueryAlias()
+	public function forgeSelectQueryAlias(): int
 	{
 		$aliasNumber = 0;
 		foreach ($this->getSelectQueries() as $c1) {
@@ -1254,7 +1268,7 @@ class Criteria implements \IteratorAggregate
 	/**
 	 * Get select columns.
 	 *
-	 * @return     array An array with the name of the select columns.
+	 * @return     array<int, string> An array with the name of the select columns.
 	 */
 	public function getSelectColumns()
 	{
@@ -1275,7 +1289,7 @@ class Criteria implements \IteratorAggregate
 	/**
 	 * Get select modifiers.
 	 *
-	 * @return array An array with the select modifiers.
+	 * @return array<int, string> An array with the select modifiers.
 	 */
 	public function getSelectModifiers()
 	{
@@ -1321,7 +1335,7 @@ class Criteria implements \IteratorAggregate
 	/**
 	 * Get order by columns.
 	 *
-	 * @return     array An array with the name of the order columns.
+	 * @return     array<int, string> An array with the name of the order columns.
 	 */
 	public function getOrderByColumns()
 	{
@@ -1353,7 +1367,7 @@ class Criteria implements \IteratorAggregate
 	/**
 	 * Get group by columns.
 	 *
-	 * @return     array
+	 * @return     array<int, string>
 	 */
 	public function getGroupByColumns()
 	{
@@ -1381,10 +1395,7 @@ class Criteria implements \IteratorAggregate
 		if ( isset ( $this->map[$key] ) ) {
 			$removed = $this->map[$key];
 			unset ( $this->map[$key] );
-			if ( $removed instanceof Criterion ) {
-				return $removed->getValue();
-			}
-			return $removed;
+			return $removed->getValue();
 		}
 	}
 
@@ -1429,6 +1440,7 @@ class Criteria implements \IteratorAggregate
 	/**
 	 * This method checks another Criteria to see if they contain
 	 * the same attributes and hashtable entries.
+	 * @param      mixed $crit
 	 * @return     boolean
 	 */
 	public function equals($crit)
@@ -1606,9 +1618,12 @@ class Criteria implements \IteratorAggregate
 	 *  - addAnd(column, value)
 	 *  - addAnd(Criterion)
 	 *
+	 * @param      string|Criterion|null $p1
+	 * @param      mixed $p2
+	 * @param      string|null $p3
 	 * @return     static A modified Criteria object.
 	 */
-	public function addAnd($p1, $p2 = null, $p3 = null, $preferColumnCondition = true)
+	public function addAnd($p1, $p2 = null, $p3 = null, bool $preferColumnCondition = true)
 	{
 		$criterion = ($p1 instanceof Criterion) ? $p1 : new Criterion($this, $p1, $p2, $p3);
 
@@ -1637,9 +1652,12 @@ class Criteria implements \IteratorAggregate
 	 *  - addOr(column, value)
 	 *  - addOr(Criterion)
 	 *
+	 * @param      string|Criterion|null $p1
+	 * @param      mixed $p2
+	 * @param      string|null $p3
 	 * @return     static A modified Criteria object.
 	 */
-	public function addOr($p1, $p2 = null, $p3 = null, $preferColumnCondition = true)
+	public function addOr($p1, $p2 = null, $p3 = null, bool $preferColumnCondition = true)
 	{
 		$rightCriterion = ($p1 instanceof Criterion) ? $p1 : new Criterion($this, $p1, $p2, $p3);
 
@@ -1689,6 +1707,9 @@ class Criteria implements \IteratorAggregate
 
 	// Fluid operators
 
+	/**
+	 * @return static
+	 */
 	public function _or()
 	{
 		$this->defaultCombineOperator = Criteria::LOGICAL_OR;
@@ -1696,6 +1717,9 @@ class Criteria implements \IteratorAggregate
 		return $this;
 	}
 
+	/**
+	 * @return static
+	 */
 	public function _and()
 	{
 		$this->defaultCombineOperator = Criteria::LOGICAL_AND;

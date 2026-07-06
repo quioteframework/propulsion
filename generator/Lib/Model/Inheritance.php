@@ -19,17 +19,17 @@
 class Inheritance extends XMLElement
 {
 
-	private $key;
-	private $className;
-	private $pkg;
-	private $ancestor;
-	private $parent;
+	private ?string $key = null;
+	private ?string $className = null;
+	private ?string $pkg = null;
+	private ?string $ancestor = null;
+	private ?Column $parent = null;
 
 	/**
 	 * Sets up the Inheritance object based on the attributes that were passed to loadFromXML().
 	 * @see        parent::loadFromXML()
 	 */
-	protected function setupObject()
+	protected function setupObject(): void
 	{
 		$this->key = $this->getAttribute("key");
 		$this->className = $this->getAttribute("class");
@@ -39,7 +39,7 @@ class Inheritance extends XMLElement
 
 	/**
 	 * Get the value of key.
-	 * @return   string  value of key.
+	 * @return   string|null  value of key.
 	 */
 	public function getKey()
 	{
@@ -50,7 +50,7 @@ class Inheritance extends XMLElement
 	 * Set the value of key.
 	 * @param      string $v Value to assign to key.
 	 */
-	public function setKey($v)
+	public function setKey($v): void
 	{
 		$this->key = $v;
 	}
@@ -68,7 +68,7 @@ class Inheritance extends XMLElement
 	 * Set the value of parent.
 	 * @param      Column $v Value to assign to parent.
 	 */
-	public function setColumn(Column  $v)
+	public function setColumn(Column  $v): void
 	{
 		$this->parent = $v;
 	}
@@ -86,7 +86,7 @@ class Inheritance extends XMLElement
 	 * Set the value of className.
 	 * @param      string $v Value to assign to className.
 	 */
-	public function setClassName($v)
+	public function setClassName($v): void
 	{
 		$this->className = $v;
 	}
@@ -104,7 +104,7 @@ class Inheritance extends XMLElement
 	 * Set the value of package.
 	 * @param      string $v Value to assign to package.
 	 */
-	public function setPackage($v)
+	public function setPackage($v): void
 	{
 		$this->pkg = $v;
 	}
@@ -122,7 +122,7 @@ class Inheritance extends XMLElement
 	 * Set the value of ancestor.
 	 * @param      string $v Value to assign to ancestor.
 	 */
-	public function setAncestor($v)
+	public function setAncestor($v): void
 	{
 		$this->ancestor = $v;
 	}
@@ -130,7 +130,7 @@ class Inheritance extends XMLElement
 	/**
 	 * @see        XMLElement::appendXml(\DOMNode)
 	 */
-	public function appendXml(\DOMNode $node)
+	public function appendXml(\DOMNode $node): void
 	{
 		$doc = ($node instanceof \DOMDocument) ? $node : $node->ownerDocument;
 

@@ -16,15 +16,16 @@ namespace Propulsion\Generator\Behavior\Versionable;
  */
 class VersionableBehaviorPeerBuilderModifier
 {
-  protected $behavior, $table;
+  protected VersionableBehavior $behavior;
+  protected \Propulsion\Generator\Model\Table $table;
 
-  public function __construct($behavior)
+  public function __construct(VersionableBehavior $behavior)
   {
     $this->behavior = $behavior;
     $this->table = $behavior->getTable();
   }
 
-  public function staticAttributes()
+  public function staticAttributes(): string
   {
     return "
 /**
@@ -34,7 +35,7 @@ static \$isVersioningEnabled = true;
 ";
   }
 
-  public function staticMethods()
+  public function staticMethods(): string
   {
     $script = "";
     $this->addIsVersioningEnabled($script);
@@ -44,7 +45,7 @@ static \$isVersioningEnabled = true;
     return $script;
   }
 
-  public function addIsVersioningEnabled(&$script)
+  public function addIsVersioningEnabled(string &$script): void
   {
     $script .= "
 /**
@@ -59,7 +60,7 @@ public static function isVersioningEnabled()
 ";
   }
 
-  public function addEnableVersioning(&$script)
+  public function addEnableVersioning(string &$script): void
   {
     $script .= "
 /**
@@ -72,7 +73,7 @@ public static function enableVersioning()
 ";
   }
 
-  public function addDisableVersioning(&$script)
+  public function addDisableVersioning(string &$script): void
   {
     $script .= "
 /**

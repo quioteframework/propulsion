@@ -95,7 +95,7 @@ class DBMySQL extends DBAdapter
 	 *
 	 * @throws    PDOException  No Statement could be created or executed.
 	 */
-	public function lockTable(PDO $con, $table)
+	public function lockTable(PDO $con, $table): void
 	{
 		$con->exec("LOCK TABLE " . $table . " WRITE");
 	}
@@ -108,7 +108,7 @@ class DBMySQL extends DBAdapter
 	 *
 	 * @throws    PDOException  No Statement could be created or executed.
 	 */
-	public function unlockTable(PDO $con, $table)
+	public function unlockTable(PDO $con, $table): void
 	{
 		$statement = $con->exec("UNLOCK TABLES");
 	}
@@ -154,7 +154,7 @@ class DBMySQL extends DBAdapter
 	 * @param     integer  $limit
 	 * @param     Criteria $criteria  Unused by this adapter.
 	 */
-	public function applyLimit(&$sql, $offset, $limit, $criteria = null)
+	public function applyLimit(&$sql, $offset, $limit, $criteria = null): void
 	{
 		if ( $limit > 0 ) {
 			$sql .= " LIMIT " . ($offset > 0 ? $offset . ", " : "") . $limit;
@@ -169,7 +169,7 @@ class DBMySQL extends DBAdapter
 	 * @param     string  $seed
 	 * @return    string
 	 */
-	public function random($seed = null)
+	public function random($seed = null): string
 	{
 		return 'rand('.((int) $seed).')';
 	}
@@ -209,8 +209,8 @@ class DBMySQL extends DBAdapter
 	 * Prepare connection parameters.
 	 * See: http://www.propelorm.org/ticket/1360
 	 *
-	 * @param array	$params
-	 * @return array
+	 * @param array<string,mixed> $params
+	 * @return array<string,mixed>
 	 */
 	public function prepareParams($params)
 	{

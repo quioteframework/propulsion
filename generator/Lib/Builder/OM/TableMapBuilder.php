@@ -69,7 +69,7 @@ class TableMapBuilder extends OMBuilder
      * one but the default (OMBuilder::getUseStatements()) doesn't map legacy bare declares
      * to their real FQCN.
      */
-    public function getUseStatements($ignoredNamespace = null)
+    public function getUseStatements(?string $ignoredNamespace = null): string
     {
         $script = '';
         $declaredClasses = $this->declaredClasses;
@@ -124,7 +124,7 @@ class TableMapBuilder extends OMBuilder
      * Inlined from the legacy PHP5TableMapBuilder base.
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addIncludes(&$script = null)
+    protected function addIncludes(&$script = null): void
     {
     } // addIncludes()
 
@@ -133,7 +133,7 @@ class TableMapBuilder extends OMBuilder
      * Inlined from the legacy PHP5TableMapBuilder base.
      * @param      string &$script The script will be modified in this method.
      */
-    protected function addClassClose(&$script)
+    protected function addClassClose(&$script): void
     {
         $script .= "
 } // " . $this->getClassname() . "
@@ -158,9 +158,9 @@ class TableMapBuilder extends OMBuilder
      * @param string $hookName The name of the hook as called from one of this class methods, e.g. "preSave"
      * @param string &$script The script will be modified in this method.
      */
-    public function applyBehaviorModifier($hookName, &$script, $tab = "\t\t")
+    public function applyBehaviorModifier(string $hookName, string &$script, string $tab = "\t\t"): void
     {
-        return $this->applyBehaviorModifierBase($hookName, 'TableMapBuilderModifier', $script, $tab);
+        $this->applyBehaviorModifierBase($hookName, 'TableMapBuilderModifier', $script, $tab);
     }
 
     /**
@@ -459,10 +459,10 @@ class ".$this->getClassname()." extends \Propulsion\Map\TableMap
             foreach ($val->getRules() as $rule) {
                 if ($val->getTranslate() !== Validator::TRANSLATE_NONE) {
                     $script .= "
-        \$this->addValidator('$cup', '".$rule->getName()."', '".$rule->getClass()."', '".str_replace("'", "\'", $rule->getValue() ?? '')."', ".$val->getTranslate()."('".str_replace("'", "\'", $rule->getMessage() ?? '')."'));";
+        \$this->addValidator('$cup', '".$rule->getName()."', '".$rule->getClass()."', '".str_replace("'", "\'", $rule->getValue() ?? '')."', ".$val->getTranslate()."('".str_replace("'", "\'", $rule->getMessage())."'));";
                 } else {
                     $script .= "
-        \$this->addValidator('$cup', '".$rule->getName()."', '".$rule->getClass()."', '".str_replace("'", "\'", $rule->getValue() ?? '')."', '".str_replace("'", "\'", $rule->getMessage() ?? '')."');";
+        \$this->addValidator('$cup', '".$rule->getName()."', '".$rule->getClass()."', '".str_replace("'", "\'", $rule->getValue() ?? '')."', '".str_replace("'", "\'", $rule->getMessage())."');";
                 }
             }
         }
@@ -585,9 +585,9 @@ class ".$this->getClassname()." extends \Propulsion\Map\TableMap
     
     /**
      * Helper method to get lazy load columns
-     * @return array
+     * @return list<\Propulsion\Generator\Model\Column>
      */
-    protected function getLazyLoadColumns()
+    protected function getLazyLoadColumns(): array
     {
         $lazyColumns = [];
         foreach ($this->getTable()->getColumns() as $col) {

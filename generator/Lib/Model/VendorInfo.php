@@ -21,9 +21,9 @@ class VendorInfo extends XMLElement
 	/**
 	 * Vendor parameters.
 	 *
-	 * @var        array
+	 * @var        array<string, mixed>
 	 */
-	private $parameters = array();
+	private array $parameters = array();
 
 	/**
 	 * Creates a new VendorInfo instance.
@@ -39,7 +39,7 @@ class VendorInfo extends XMLElement
 	 * Sets up this object based on the attributes that were passed to loadFromXML().
 	 * @see        parent::loadFromXML()
 	 */
-	protected function setupObject()
+	protected function setupObject(): void
 	{
 		$this->type = $this->getAttribute("type");
 	}
@@ -49,7 +49,7 @@ class VendorInfo extends XMLElement
 	 *
 	 * @param      string $v
 	 */
-	public function setType($v)
+	public function setType($v): void
 	{
 		$this->type = $v;
 	}
@@ -66,9 +66,9 @@ class VendorInfo extends XMLElement
 
 	/**
 	 * Adds a new vendor parameter to this object.
-	 * @param      array $attrib Attributes from XML.
+	 * @param      array<string, mixed> $attrib Attributes from XML.
 	 */
-	public function addParameter($attrib)
+	public function addParameter($attrib): void
 	{
 		$name = $attrib["name"];
 		$this->parameters[$name] = $attrib["value"];
@@ -80,7 +80,7 @@ class VendorInfo extends XMLElement
 	 * @param      string $name
 	 * @param      mixed $value The value for the parameter.
 	 */
-	public function setParameter($name, $value)
+	public function setParameter($name, $value): void
 	{
 		$this->parameters[$name] = $value;
 	}
@@ -104,7 +104,7 @@ class VendorInfo extends XMLElement
 	 *
 	 * @param      string $name
 	 */
-	public function hasParameter($name)
+	public function hasParameter($name): bool
 	{
 		return isset($this->parameters[$name]);
 	}
@@ -112,9 +112,9 @@ class VendorInfo extends XMLElement
 	/**
 	 * Sets assoc array of parameters for venfor specific info.
 	 *
-	 * @param      array $params Paramter data.
+	 * @param      array<string, mixed> $params Paramter data.
 	 */
-	public function setParameters(array $params = array())
+	public function setParameters(array $params = array()): void
 	{
 		$this->parameters = $params;
 	}
@@ -122,7 +122,7 @@ class VendorInfo extends XMLElement
 	/**
 	 * Gets assoc array of parameters for venfor specific info.
 	 *
-	 * @return     array
+	 * @return     array<string, mixed>
 	 */
 	public function getParameters()
 	{
@@ -155,7 +155,7 @@ class VendorInfo extends XMLElement
 	/**
 	 * @see        XMLElement::appendXml(\DOMNode)
 	 */
-	public function appendXml(\DOMNode $node)
+	public function appendXml(\DOMNode $node): void
 	{
 		$doc = ($node instanceof \DOMDocument) ? $node : $node->ownerDocument;
 

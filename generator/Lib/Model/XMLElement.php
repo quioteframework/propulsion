@@ -24,26 +24,30 @@ abstract class XMLElement
 	/**
 	 * The name => value attributes from XML.
 	 *
-	 * @var        array
+	 * @var        array<string, mixed>
 	 */
-	protected $attributes = array();
+	protected array $attributes = array();
 
 	/**
 	 * Any associated vendor-specific information objects.
 	 *
-	 * @var        array VendorInfo[]
+	 * @var        VendorInfo[]
 	 */
-	protected $vendorInfos = array();
+	protected array $vendorInfos = array();
 
 	/**
 	 * Replaces the old loadFromXML() so that we can use loadFromXML() to load the attribs into the class.
+	 *
+	 * @return void
 	 */
 	abstract protected function setupObject();
 
 	/**
 	 * This is the entry point method for loading data from XML.
 	 * It calls a setupObject() method that must be implemented by the child class.
-	 * @param      array $attributes The attributes for the XML tag.
+	 * @param      array<string, mixed> $attributes The attributes for the XML tag.
+	 *
+	 * @return void
 	 */
 	public function loadFromXML($attributes)
 	{
@@ -54,7 +58,7 @@ abstract class XMLElement
 	/**
 	 * Returns the assoc array of attributes.
 	 * All attribute names (keys) are lowercase.
-	 * @return     array
+	 * @return     array<string, mixed>
 	 */
 	public function getAttributes()
 	{
@@ -98,6 +102,7 @@ abstract class XMLElement
 	/**
 	 * Appends DOM elements to represent this object in XML.
 	 * @param      \DOMNode $node
+	 * @return void
 	 */
 	abstract public function appendXml(\DOMNode $node);
 
@@ -124,7 +129,7 @@ abstract class XMLElement
 	 * Gets the any associated VendorInfo object.
 	 * @return     VendorInfo
 	 */
-	public function getVendorInfoForType($type)
+	public function getVendorInfoForType(string $type)
 	{
 		if (isset($this->vendorInfos[$type])) {
 			return $this->vendorInfos[$type];
@@ -178,7 +183,7 @@ abstract class XMLElement
 	 *
 	 * @see        appendXml()
 	 */
-	public function toString()
+	public function toString(): string
 	{
 		$doc = new \DOMDocument('1.0');
 		$doc->formatOutput = true;

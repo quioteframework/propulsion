@@ -27,6 +27,7 @@ abstract class ScopedElement extends XMLElement
 	/**
 	 * Whether the package was automatically overridden.
 	 * If propulsion.schema.autoPackage or propulsion.namespace.AutoPackage is true.
+	 * @var       bool
 	 */
 	protected $pkgOverridden = false;
 
@@ -48,6 +49,7 @@ abstract class ScopedElement extends XMLElement
 	 * retrieves a build property.
 	 *
 	 * @param string $name
+	 * @return mixed
 	 */
 	abstract protected function getBuildProperty($name);
 
@@ -75,7 +77,7 @@ abstract class ScopedElement extends XMLElement
 	 * Set the value of the namespace.
 	 * @param      string|null $v Value to assign to namespace.
 	 */
-	public function setNamespace($v)
+	public function setNamespace($v): void
 	{
 		if ($v == $this->namespace) {
 			return;
@@ -100,7 +102,7 @@ abstract class ScopedElement extends XMLElement
 	 * Set the value of package.
 	 * @param      string|null $v Value to assign to package.
 	 */
-	public function setPackage($v)
+	public function setPackage($v): void
 	{
 		if ($v == $this->pkg) {
 			return;
@@ -122,7 +124,7 @@ abstract class ScopedElement extends XMLElement
 	 * Set the value of schema.
 	 * @param      string|null $v Value to assign to schema.
 	 */
-	public function setSchema($v)
+	public function setSchema($v): void
 	{
 		if ($v == $this->schema) {
 			return;

@@ -31,36 +31,50 @@ namespace Propulsion\Util;
  * @author     Francois Zaninotto
  * @version    $Revision$
  */
+use Propulsion\Query\Criteria;
+
 class PropulsionConditionalProxy
 {
-	protected $mainObject;
+	protected Criteria $mainObject;
 
-	public function __construct($mainObject)
+	public function __construct(Criteria $mainObject)
 	{
 		$this->mainObject = $mainObject;
 	}
 
-	public function _if($cond)
+	/**
+	 * @return PropulsionConditionalProxy|Criteria
+	 */
+	public function _if(bool $cond)
 	{
 		return $this->mainObject->_if($cond);
 	}
 
-	public function _elseif($cond)
+	/**
+	 * @return PropulsionConditionalProxy|Criteria
+	 */
+	public function _elseif(bool $cond)
 	{
 		return $this->mainObject->_elseif($cond);
 	}
 
+	/**
+	 * @return PropulsionConditionalProxy|Criteria
+	 */
 	public function _else()
 	{
 		return $this->mainObject->_else();
 	}
 
-	public function _endif()
+	public function _endif(): Criteria
 	{
 		return $this->mainObject->_endif();
 	}
 
-	public function __call($name, $arguments)
+	/**
+	 * @param array<mixed> $arguments
+	 */
+	public function __call(string $name, array $arguments): static
 	{
 		return $this;
 	}

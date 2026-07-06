@@ -18,16 +18,16 @@ namespace Propulsion\Generator\Model\Diff;
 use Propulsion\Generator\Model\Database;
 class PropulsionDatabaseComparator
 {
-	protected $databaseDiff;
-	protected $fromDatabase;
-	protected $toDatabase;
+	protected PropulsionDatabaseDiff $databaseDiff;
+	protected ?Database $fromDatabase = null;
+	protected ?Database $toDatabase = null;
 
-	public function __construct($databaseDiff = null)
+	public function __construct(?PropulsionDatabaseDiff $databaseDiff = null)
 	{
 		$this->databaseDiff = (null === $databaseDiff) ? new PropulsionDatabaseDiff() : $databaseDiff;
 	}
 
-	public function getDatabaseDiff()
+	public function getDatabaseDiff(): PropulsionDatabaseDiff
 	{
 		return $this->databaseDiff;
 	}
@@ -37,7 +37,7 @@ class PropulsionDatabaseComparator
 	 *
 	 * @param Database $fromDatabase
 	 */
-	public function setFromDatabase(Database $fromDatabase)
+	public function setFromDatabase(Database $fromDatabase): void
 	{
 		$this->fromDatabase = $fromDatabase;
 	}
@@ -45,7 +45,7 @@ class PropulsionDatabaseComparator
 	/**
 	 * Getter for the fromDatabase property
 	 *
-	 * @return Database
+	 * @return Database|null
 	 */
 	public function getFromDatabase()
 	{
@@ -57,7 +57,7 @@ class PropulsionDatabaseComparator
 	 *
 	 * @param Database $toDatabase
 	 */
-	public function setToDatabase(Database $toDatabase)
+	public function setToDatabase(Database $toDatabase): void
 	{
 		$this->toDatabase = $toDatabase;
 	}
@@ -65,7 +65,7 @@ class PropulsionDatabaseComparator
 	/**
 	 * Getter for the toDatabase property
 	 *
-	 * @return Database
+	 * @return Database|null
 	 */
 	public function getToDatabase()
 	{

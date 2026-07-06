@@ -92,21 +92,24 @@ namespace Propulsion\Util;
  */
 use Propulsion\Query\Criteria;
 
+/**
+ * @implements \Iterator<int, mixed>
+ */
 class PropulsionPager implements \Countable, \Iterator
 {
 
-	private $recordCount;
-	private $pages;
-	private $peerClass;
-	private $peerSelectMethod;
-	private $peerCountMethod;
-	private $criteria;
-	private $countCriteria;
-	private $page;
-	private $rs = null;
+	private int $recordCount = 0;
+	private int|float $pages;
+	private string $peerClass;
+	private string $peerSelectMethod;
+	private string $peerCountMethod;
+	private Criteria $criteria;
+	private ?Criteria $countCriteria = null;
+	private int $page;
+	private mixed $rs = null;
 
 	//Iterator vars
-	private $currentKey = 0;
+	private int $currentKey = 0;
 
 	/** @var        int Start row (offset) */
 	protected $start = 0;
@@ -225,7 +228,7 @@ class PropulsionPager implements \Countable, \Iterator
 	 * count method will be doCountJoin*().
 	 * @param      string $method The name of the static method to call on the Peer class.
 	 */
-	public function setPeerCountMethod($method)
+	public function setPeerCountMethod(string $method): void
 	{
 		$this->peerCountMethod = $method;
 	}
@@ -233,7 +236,7 @@ class PropulsionPager implements \Countable, \Iterator
 	/**
 	 * Return the Peer count method.
 	 */
-	public function getPeerCountMethod()
+	public function getPeerCountMethod(): string
 	{
 		return $this->peerCountMethod;
 	}
@@ -241,7 +244,7 @@ class PropulsionPager implements \Countable, \Iterator
 	/**
 	 * Guesses the Peer count method based on the select method.
 	 */
-	private function guessPeerCountMethod()
+	private function guessPeerCountMethod(): void
 	{
 		$selectMethod = $this->getPeerSelectMethod();
 		if ($selectMethod == 'doSelect') {
@@ -278,7 +281,7 @@ class PropulsionPager implements \Countable, \Iterator
 	 * and the requested peer select method.
 	 *
 	 */
-	private function doRs()
+	private function doRs(): void
 	{
 		$this->criteria->setOffset($this->start);
 		$this->criteria->setLimit($this->max);
@@ -354,7 +357,7 @@ class PropulsionPager implements \Countable, \Iterator
 	 * get an array of previous id's
 	 *
 	 * @param      int $range
-	 * @return     array $links
+	 * @return     array<int, int> $links
 	 */
 	public function getPrevLinks($range = 5)
 	{
@@ -377,7 +380,7 @@ class PropulsionPager implements \Countable, \Iterator
 	 * get an array of next id's
 	 *
 	 * @param      int $range
-	 * @return     array $links
+	 * @return     array<int, int> $links
 	 */
 	public function getNextLinks($range = 5)
 	{
@@ -459,7 +462,7 @@ class PropulsionPager implements \Countable, \Iterator
 	 * Set the number of rows per page.
 	 * @param      int $r
 	 */
-	public function setRowsPerPage($r)
+	public function setRowsPerPage(int $r): void
 	{
 		$this->max = $r;
 		// (re-)calculate start rec
@@ -521,7 +524,7 @@ class PropulsionPager implements \Countable, \Iterator
 	 * Sets the start row or offset.
 	 * @param      int $v
 	 */
-	public function setStart($v)
+	public function setStart(int $v): void
 	{
 		$this->start = $v;
 	}

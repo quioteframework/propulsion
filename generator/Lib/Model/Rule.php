@@ -19,17 +19,18 @@
 class Rule extends XMLElement
 {
 
-	private $name;
+	private ?string $name = null;
+	/** @var mixed */
 	private $value;
-	private $message;
-	private $validator;
-	private $classname;
+	private ?string $message = null;
+	private ?Validator $validator = null;
+	private ?string $classname = null;
 
 	/**
 	 * Sets up the Rule object based on the attributes that were passed to loadFromXML().
 	 * @see        parent::loadFromXML()
 	 */
-	protected function setupObject()
+	protected function setupObject(): void
 	{
 		$this->name = $this->getAttribute("name");
 		$this->value = $this->getAttribute("value");
@@ -62,7 +63,7 @@ class Rule extends XMLElement
 	 * @param      Validator $validator
 	 * @see        Validator::addRule()
 	 */
-	public function setValidator(Validator $validator)
+	public function setValidator(Validator $validator): void
 	{
 		$this->validator = $validator;
 	}
@@ -82,7 +83,7 @@ class Rule extends XMLElement
 	 * be built based on the 'name' attrib.
 	 * @param      string $classname dot-path classname (e.g. myapp.propel.MyValidator)
 	 */
-	public function setClass($classname)
+	public function setClass($classname): void
 	{
 		$this->classname = $classname;
 	}
@@ -107,7 +108,7 @@ class Rule extends XMLElement
 	 * @param      string $name Validator name for this rule (e.g. "maxLength", "required").
 	 * @see        getClass()
 	 */
-	public function setName($name)
+	public function setName($name): void
 	{
 		$this->name = $name;
 	}
@@ -127,7 +128,7 @@ class Rule extends XMLElement
 	 * does not).
 	 * @param      string $value
 	 */
-	public function setValue($value)
+	public function setValue($value): void
 	{
 		$this->value = $value;
 	}
@@ -149,7 +150,7 @@ class Rule extends XMLElement
 	 * @param      string $message
 	 * @see        setTranslation()
 	 */
-	public function setMessage($message)
+	public function setMessage($message): void
 	{
 		$this->message = $message;
 	}
@@ -171,7 +172,7 @@ class Rule extends XMLElement
 	/**
 	 * @see        XMLElement::appendXml(\DOMNode)
 	 */
-	public function appendXml(\DOMNode $node)
+	public function appendXml(\DOMNode $node): void
 	{
 		$doc = ($node instanceof \DOMDocument) ? $node : $node->ownerDocument;
 

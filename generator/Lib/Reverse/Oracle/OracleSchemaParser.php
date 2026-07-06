@@ -49,7 +49,7 @@ class OracleSchemaParser extends BaseSchemaParser
 	 *   DECIMAL (NUMBER with scale),
 	 *   DOUBLE (FLOAT with precision = 126)
 	 *
-	 * @var        array
+	 * @var        array<string, string>
 	 */
 	private static $oracleTypeMap = array(
 		'BLOB'		=> PropulsionTypes::BLOB,
@@ -72,9 +72,9 @@ class OracleSchemaParser extends BaseSchemaParser
 	/**
 	 * Gets a type mapping from native types to Propulsion types
 	 *
-	 * @return     array
+	 * @return     array<string, string>
 	 */
-	protected function getTypeMapping()
+	protected function getTypeMapping(): array
 	{
 		return self::$oracleTypeMap;
 	}
@@ -145,7 +145,7 @@ class OracleSchemaParser extends BaseSchemaParser
 	 *
 	 * @param      Table $table The Table model class to add columns to.
 	 */
-	protected function addColumns(Table $table)
+	protected function addColumns(Table $table): void
 	{
 		$stmt = $this->dbh->query("SELECT COLUMN_NAME, DATA_TYPE, NULLABLE, DATA_LENGTH, DATA_PRECISION, DATA_SCALE, DATA_DEFAULT FROM USER_TAB_COLS WHERE TABLE_NAME = '" . $table->getName() . "'");
 		/* @var stmt PDOStatement */
@@ -207,7 +207,7 @@ class OracleSchemaParser extends BaseSchemaParser
 	 *
 	 * @param      Table $table The Table model class to add columns to.
 	 */
-	protected function addIndexes(Table $table)
+	protected function addIndexes(Table $table): void
 	{
 		$stmt = $this->dbh->query("SELECT COLUMN_NAME, INDEX_NAME FROM USER_IND_COLUMNS WHERE TABLE_NAME = '" . $table->getName() . "' ORDER BY COLUMN_NAME");
 		$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -238,7 +238,7 @@ class OracleSchemaParser extends BaseSchemaParser
 	 *
 	 * @param      Table $table The Table model class to add FKs to
 	 */
-	protected function addForeignKeys(Table $table)
+	protected function addForeignKeys(Table $table): void
 	{
 		// local store to avoid duplicates
 		$foreignKeys = array();
@@ -273,7 +273,7 @@ class OracleSchemaParser extends BaseSchemaParser
 	 *
 	 * @param      Table $table The Table model class to add PK to.
 	 */
-	protected function addPrimaryKey(Table $table)
+	protected function addPrimaryKey(Table $table): void
 	{
 		$stmt = $this->dbh->query("SELECT COLS.COLUMN_NAME FROM USER_CONSTRAINTS CONS, USER_CONS_COLUMNS COLS WHERE CONS.CONSTRAINT_NAME = COLS.CONSTRAINT_NAME AND CONS.TABLE_NAME = '".$table->getName()."' AND CONS.CONSTRAINT_TYPE = 'P'");
 		/* @var stmt PDOStatement */

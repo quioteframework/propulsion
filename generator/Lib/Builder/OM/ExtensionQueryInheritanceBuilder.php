@@ -27,7 +27,7 @@ class ExtensionQueryInheritanceBuilder extends OMBuilder
 	/**
 	 * The current child "object" we are operating on.
 	 */
-	protected $child;
+	protected ?Inheritance $child = null;
 
 	/**
 	 * Returns the name of the current class being built.
@@ -51,7 +51,7 @@ class ExtensionQueryInheritanceBuilder extends OMBuilder
 	 * Set the child object that we're operating on currrently.
 	 * @param      $child Inheritance
 	 */
-	public function setChild(Inheritance $child)
+	public function setChild(Inheritance $child): void
 	{
 		$this->child = $child;
 	}
@@ -73,7 +73,7 @@ class ExtensionQueryInheritanceBuilder extends OMBuilder
 	 * Adds the include() statements for files that this class depends on or utilizes.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addIncludes(&$script = null)
+	protected function addIncludes(&$script = null): void
 	{
 		/*
 		$requiredClassFilePath = $this->getStubQueryBuilder()->getClassFilePath();
@@ -87,7 +87,7 @@ require '".$requiredClassFilePath."';
 	 * Adds class phpdoc comment and openning of class.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addClassOpen(&$script)
+	protected function addClassOpen(&$script): void
 	{
 		$table = $this->getTable();
 		$tableName = $table->getName();
@@ -137,7 +137,7 @@ class "  .$this->getClassname() . " extends " . $baseClassname . " {
 	 *
 	 * @see        AbstractObjectBuilder::addClassBody()
 	 */
-	protected function addClassBody(&$script)
+	protected function addClassBody(string &$script): void
 	{
 	}
 
@@ -145,7 +145,7 @@ class "  .$this->getClassname() . " extends " . $baseClassname . " {
 	 * Closes class.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addClassClose(&$script)
+	protected function addClassClose(&$script): void
 	{
 		$script .= "
 } // " . $this->getClassname() . "

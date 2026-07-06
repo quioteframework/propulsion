@@ -71,7 +71,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 	 * and will throw exceptions for errors that will definitely cause
 	 * problems.
 	 */
-	protected function validateModel()
+	protected function validateModel(): void
 	{
 		$table = $this->getTable();
 
@@ -318,7 +318,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 	 * Adds the include() statements for files that this class depends on or utilizes.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addIncludes(&$script = null)
+	protected function addIncludes(&$script = null): void
 	{
 		// PHP 8.4 uses namespaces and autoloading, so includes are minimal
 	}
@@ -327,7 +327,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 	 * Adds use statements for commonly used Propulsion classes
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addUseStatements(&$script)
+	protected function addUseStatements(&$script): void
 	{
 		$script .= "
 ";
@@ -345,7 +345,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 	 * would need one but the default (OMBuilder::getUseStatements()) doesn't map legacy
 	 * bare declares to their real FQCN.
 	 */
-	public function getUseStatements($ignoredNamespace = null)
+	public function getUseStatements(?string $ignoredNamespace = null): string
 	{
 		$script = '';
 		$declaredClasses = $this->declaredClasses;
@@ -401,7 +401,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 	 * Adds class phpdoc comment and opening of class.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addClassOpen(&$script)
+	protected function addClassOpen(&$script): void
 	{
 		$table = $this->getTable();
 		$tableName = $table->getName();
@@ -456,7 +456,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * This can be overridden by subclasses that wish to add more methods.
 	 * @see        AbstractObjectBuilder::addClassBody()
 	 */
-	protected function addClassBody(&$script)
+	protected function addClassBody(&$script): void
 	{
 		// Declare essential classes for Base object classes
 		$this->declareClass('Propulsion\\OM\\BaseObject');
@@ -544,7 +544,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds typed properties to the class
 	 */
-	protected function addProperties(&$script)
+	protected function addProperties(string &$script): void
 	{
 		$table = $this->getTable();
 
@@ -702,7 +702,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds the constructor with PHP 8.4 constructor property promotion where appropriate
 	 */
-	protected function addConstructor(&$script)
+	protected function addConstructor(string &$script): void
 	{
 		$table = $this->getTable();
 		$applyDefaultsCall = $this->hasDefaultValues() ? "
@@ -725,7 +725,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * Expression-based defaults (like NOW()) should be handled by the database at insert time,
 	 * not during object instantiation.
 	 */
-	protected function hasDefaultValues()
+	protected function hasDefaultValues(): bool
 	{
 		foreach ($this->getTable()->getColumns() as $col) {
 			$def = $col->getDefaultValue();
@@ -740,7 +740,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * Adds the applyDefaultValues() method, which is called from the constructor.
 	 * For PHP 8.4, this ensures all typed properties are properly initialized.
 	 */
-	protected function addApplyDefaultValues(&$script)
+	protected function addApplyDefaultValues(string &$script): void
 	{
 		$table = $this->getTable();
 
@@ -796,7 +796,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds getter methods with proper PHP 8.4 return types
 	 */
-	protected function addColumnAccessorMethods(&$script)
+	protected function addColumnAccessorMethods(string &$script): void
 	{
 		$table = $this->getTable();
 
@@ -823,7 +823,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds a has<Singular>() tester method for a plural-named array column.
 	 */
-	protected function addHasArrayElement(&$script, Column $col)
+	protected function addHasArrayElement(string &$script, Column $col): void
 	{
 		$cfc = $col->getPhpName();
 		$singularPhpName = rtrim($cfc, 's');
@@ -843,7 +843,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds an add<Singular>() method for a plural-named array column.
 	 */
-	protected function addAddArrayElement(&$script, Column $col)
+	protected function addAddArrayElement(string &$script, Column $col): void
 	{
 		$cfc = $col->getPhpName();
 		$singularPhpName = rtrim($cfc, 's');
@@ -868,7 +868,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds a remove<Singular>() method for a plural-named array column.
 	 */
-	protected function addRemoveArrayElement(&$script, Column $col)
+	protected function addRemoveArrayElement(string &$script, Column $col): void
 	{
 		$cfc = $col->getPhpName();
 		$singularPhpName = rtrim($cfc, 's');
@@ -912,7 +912,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 *
 	 * @see addColumnAccessor()
 	 */
-	public function addTemporalAccessorComment(&$script, Column $col)
+	public function addTemporalAccessorComment(string &$script, Column $col): void
 	{
 		$colname = $col->getName();
 		$description = $col->getDescription() ? $col->getDescription() : "Get the value of [$colname] column.";
@@ -932,7 +932,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * column's accessor. See addTemporalAccessorComment() for why this is
 	 * split out and public.
 	 */
-	public function addTemporalAccessorOpen(&$script, Column $col)
+	public function addTemporalAccessorOpen(string &$script, Column $col): void
 	{
 		$phpname = $col->getPhpName();
 		$script .= "
@@ -944,7 +944,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * Adds the doc comment for a non-temporal, non-enum column's accessor.
 	 * See addTemporalAccessorComment() for why this is split out and public.
 	 */
-	public function addDefaultAccessorComment(&$script, Column $col)
+	public function addDefaultAccessorComment(string &$script, Column $col): void
 	{
 		$colname = $col->getName();
 		$description = $col->getDescription() ? $col->getDescription() : "Get the value of [$colname] column.";
@@ -963,7 +963,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * non-temporal, non-enum column's accessor. See addTemporalAccessorComment()
 	 * for why this is split out and public.
 	 */
-	public function addDefaultAccessorOpen(&$script, Column $col)
+	public function addDefaultAccessorOpen(string &$script, Column $col): void
 	{
 		$phpname = $col->getPhpName();
 		$returnType = $this->getPhp84TypeHint($col);
@@ -975,7 +975,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds a getter method for a column with PHP 8.4 type hints
 	 */
-	protected function addColumnAccessor(&$script, Column $col)
+	protected function addColumnAccessor(string &$script, Column $col): void
 	{
 		$colname = $col->getName();
 		$phpname = $col->getPhpName();
@@ -1033,7 +1033,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * branches for CLOB streaming and PDO::PARAM_LOB column binding aren't ported since
 	 * nothing in this codebase's supported platforms needs them.
 	 */
-	protected function addLazyLoader(&$script, Column $col)
+	protected function addLazyLoader(string &$script, Column $col): void
 	{
 		$this->declareClass('Propulsion\Connection\PropulsionPDO');
 		$this->declareClass('Propulsion\Exception\PropulsionException');
@@ -1104,7 +1104,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds setter methods with proper PHP 8.4 parameter types
 	 */
-	protected function addColumnMutatorMethods(&$script)
+	protected function addColumnMutatorMethods(string &$script): void
 	{
 		$table = $this->getTable();
 
@@ -1133,7 +1133,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 *
 	 * @see addColumnMutator()
 	 */
-	public function addTemporalMutatorComment(&$script, Column $col)
+	public function addTemporalMutatorComment(string &$script, Column $col): void
 	{
 		$colname = $col->getName();
 		$returnType = $this->getClassname();
@@ -1154,7 +1154,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * (setter). See addTemporalMutatorComment() for why this is split out and
 	 * public.
 	 */
-	public function addMutatorComment(&$script, Column $col)
+	public function addMutatorComment(string &$script, Column $col): void
 	{
 		$colname = $col->getName();
 		$paramType = $this->getPhp84TypeHint($col);
@@ -1179,7 +1179,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * since it's shared between the temporal and default mutator composition
 	 * paths in I18nBehaviorObjectBuilderModifier::addTranslatedColumnSetter().
 	 */
-	public function addMutatorOpenOpen(&$script, Column $col)
+	public function addMutatorOpenOpen(string &$script, Column $col): void
 	{
 		$phpname = $col->getPhpName();
 		$returnType = $this->getClassname();
@@ -1198,7 +1198,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds a setter method for a column with PHP 8.4 type hints
 	 */
-	protected function addColumnMutator(&$script, Column $col)
+	protected function addColumnMutator(string &$script, Column $col): void
 	{
 		$colname = $col->getName();
 		$phpname = $col->getPhpName();
@@ -1405,7 +1405,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds an enum accessor method (getter that returns the enum label, not the key)
 	 */
-	protected function addEnumAccessor(&$script, Column $col)
+	protected function addEnumAccessor(string &$script, Column $col): void
 	{
 		$colname = $col->getName();
 		$phpname = $col->getPhpName();
@@ -1437,7 +1437,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds an enum mutator method (setter that accepts the enum label and stores the key)
 	 */
-	protected function addEnumMutator(&$script, Column $col)
+	protected function addEnumMutator(string &$script, Column $col): void
 	{
 		$colname = $col->getName();
 		$phpname = $col->getPhpName();
@@ -1475,7 +1475,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds the rest of the class body with modern PHP 8.4 patterns
 	 */
-	protected function addHasOnlyDefaultValues(&$script)
+	protected function addHasOnlyDefaultValues(string &$script): void
 	{
 		$table = $this->getTable();
 		$colsWithDefaults = array();
@@ -1548,7 +1548,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds foreign key accessor methods with proper PHP 8.4 syntax
 	 */
-	protected function addFKMethods(&$script)
+	protected function addFKMethods(string &$script): void
 	{
 		foreach ($this->getTable()->getForeignKeys() as $fk) {
 			$this->declareClassFromBuilder($this->getNewStubObjectBuilder($fk->getForeignTable()));
@@ -1561,7 +1561,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds a foreign key accessor method with PHP 8.4 type hints and proper property names
 	 */
-	protected function addFKAccessor(&$script, ForeignKey $fk)
+	protected function addFKAccessor(string &$script, ForeignKey $fk): void
 	{
 		$table = $this->getTable();
 		$varName = $this->getFKVarName($fk);
@@ -1641,7 +1641,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds a foreign key mutator method with PHP 8.4 type hints and proper property names
 	 */
-	protected function addFKMutator(&$script, ForeignKey $fk)
+	protected function addFKMutator(string &$script, ForeignKey $fk): void
 	{
 		$this->declareClassFromBuilder($this->getStubObjectBuilder());
 
@@ -1712,7 +1712,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds hydration method with typed parameters
 	 */
-	protected function addHydrate(&$script)
+	protected function addHydrate(string &$script): void
 	{
 		$script .= "
 
@@ -1776,7 +1776,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Closes class definition
 	 */
-	protected function addClassClose(&$script)
+	protected function addClassClose(string &$script): void
 	{
 		$script .= "
 }";
@@ -1821,7 +1821,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		return 'coll' . $this->getFKPhpNameAffix($crossFK, true);
 	}
 
-	protected function addConstants(&$script)
+	protected function addConstants(string &$script): void
 	{
 		// Add table constants for PHP 8.4
 		$script .= "
@@ -1842,7 +1842,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		return 'a' . $this->getFKPhpNameAffix($fk, $plural = false);
 	}
 
-	protected function addEnsureConsistency(&$script)
+	protected function addEnsureConsistency(string &$script): void
 	{
 		// Ported from PHP5ObjectBuilder::addEnsureConsistency(): checks each cached FK
 		// reference object against the current value of its local FK column(s), and
@@ -1888,7 +1888,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	}";
 	}
 
-	protected function addGetByName(&$script)
+	protected function addGetByName(string &$script): void
 	{
 		$script .= "
 
@@ -1913,7 +1913,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds manipulation methods (save, delete, reload) with PHP 8.4 types
 	 */
-	protected function addManipulationMethods(&$script)
+	protected function addManipulationMethods(string &$script): void
 	{
 		$this->addReload($script);
 		$this->addDelete($script);
@@ -1924,7 +1924,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds validation methods
 	 */
-	protected function addValidationMethods(&$script)
+	protected function addValidationMethods(string &$script): void
 	{
 		$this->addValidationFailuresAttribute($script);
 		$this->addGetValidationFailures($script);
@@ -1935,7 +1935,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds the delete method with PHP 8.4 type hints
 	 */
-	protected function addDelete(&$script)
+	protected function addDelete(string &$script): void
 	{
 		$this->declareClass('Propulsion\Connection\PropulsionPDO');
 		$this->declareClass('Propulsion\Exception\PropulsionException');
@@ -2006,7 +2006,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds the save method with PHP 8.4 type hints
 	 */
-	protected function addSave(&$script)
+	protected function addSave(string &$script): void
 	{
 		$this->declareClass('Propulsion\Connection\PropulsionPDO');
 		$this->declareClass('Propulsion\Exception\PropulsionException');
@@ -2111,7 +2111,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds the doSave method with PHP 8.4 type hints
 	 */
-	protected function addDoSave(&$script)
+	protected function addDoSave(string &$script): void
 	{
 		$this->declareClass('Propulsion\Connection\PropulsionPDO');
 		$this->declareClass('Propulsion\Exception\PropulsionException');
@@ -2320,7 +2320,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds the reload method with PHP 8.4 type hints
 	 */
-	protected function addReload(&$script)
+	protected function addReload(string &$script): void
 	{
 		$this->declareClass('Propulsion\Connection\PropulsionPDO');
 		$this->declareClass('Propulsion\Exception\PropulsionException');
@@ -2386,7 +2386,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	}
 
 	// Additional method implementations
-	protected function addGetByPosition(&$script) 
+	protected function addGetByPosition(string &$script): void
 	{
 		$table = $this->getTable();
 		$script .= "
@@ -2415,7 +2415,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 ";
 	}
 	
-	protected function addToArray(&$script) 
+	protected function addToArray(string &$script): void
 	{
 		$fks = $this->getTable()->getForeignKeys();
 		$referrers = $this->getTable()->getReferrers();
@@ -2502,7 +2502,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 ";
 	}
 	
-	protected function addSetByName(&$script) 
+	protected function addSetByName(string &$script): void
 	{
 		$table = $this->getTable();
 		$script .= "
@@ -2527,7 +2527,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 ";
 	}
 	
-	protected function addSetByPosition(&$script) 
+	protected function addSetByPosition(string &$script): void
 	{
 		$table = $this->getTable();
 		$script .= "
@@ -2557,7 +2557,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 ";
 	}
 	
-	protected function addFromArray(&$script) 
+	protected function addFromArray(string &$script): void
 	{
 		$table = $this->getTable();
 		$script .= "
@@ -2593,7 +2593,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 ";
 	}
 	
-	protected function addBuildCriteria(&$script): void
+	protected function addBuildCriteria(string &$script): void
 	{
 		$table = $this->getTable();
 		$script .= "
@@ -2628,7 +2628,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	}";
 	}
 	
-	protected function addBuildPkeyCriteria(&$script): void
+	protected function addBuildPkeyCriteria(string &$script): void
 	{
 		$table = $this->getTable();
 		$pks = $table->getPrimaryKey();
@@ -2665,7 +2665,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	}";
 	}
 	
-	protected function addGetPrimaryKey(&$script): void
+	protected function addGetPrimaryKey(string &$script): void
 	{
 		$table = $this->getTable();
 		$pks = $table->getPrimaryKey();
@@ -2705,7 +2705,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		}
 	}
 	
-	protected function addSetPrimaryKey(&$script): void
+	protected function addSetPrimaryKey(string &$script): void
 	{
 		$table = $this->getTable();
 		$pks = $table->getPrimaryKey();
@@ -2788,7 +2788,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		return "($varExpr === null ? null : ($castType) $varExpr)";
 	}
 
-	protected function addIsPrimaryKeyNull(&$script): void
+	protected function addIsPrimaryKeyNull(string &$script): void
 	{
 		$table = $this->getTable();
 		$pks = $table->getPrimaryKey();
@@ -2818,7 +2818,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	}";
 	}
 	
-	protected function addCopy(&$script): void
+	protected function addCopy(string &$script): void
 	{
 		$table = $this->getTable();
 		$className = '\\' . $this->getStubObjectBuilder()->getFullyQualifiedClassname();
@@ -2949,7 +2949,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	}";
 	}
 	
-	protected function addGetPeer(&$script): void
+	protected function addGetPeer(string &$script): void
 	{
 		$peerClassName = $this->getPeerClassname();
 		$script .= "
@@ -2965,7 +2965,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	}";
 	}
 	
-	protected function addRefFKMethods(&$script): void
+	protected function addRefFKMethods(string &$script): void
 	{
 		if (!$referrers = $this->getTable()->getReferrers()) {
 			return;
@@ -2990,8 +2990,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 
 	/**
 	 * Initializes a collection based on the name of a relation.
+	 * @param      ForeignKey[] $referrers
 	 */
-	protected function addInitRelations(&$script, $referrers): void
+	protected function addInitRelations(string &$script, array $referrers): void
 	{
 		$script .= "
 
@@ -3023,7 +3024,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds the method that clears the referrer fkey collection.
 	 */
-	protected function addRefFKClear(&$script, ForeignKey $refFK): void
+	protected function addRefFKClear(string &$script, ForeignKey $refFK): void
 	{
 		$relCol = $this->getRefFKPhpNameAffix($refFK, true);
 		$collName = $this->getRefFKCollVarName($refFK);
@@ -3047,7 +3048,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds the method that initializes the referrer fkey collection.
 	 */
-	protected function addRefFKInit(&$script, ForeignKey $refFK): void
+	protected function addRefFKInit(string &$script, ForeignKey $refFK): void
 	{
 		$relCol = $this->getRefFKPhpNameAffix($refFK, true);
 		$collName = $this->getRefFKCollVarName($refFK);
@@ -3080,7 +3081,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds the method that gets the referrer fkey collection.
 	 */
-	protected function addRefFKGet(&$script, ForeignKey $refFK): void
+	protected function addRefFKGet(string &$script, ForeignKey $refFK): void
 	{
 		$relatedObjectClassName = $this->getNewStubObjectBuilder($refFK->getTable())->getClassname();
 		$relCol = $this->getRefFKPhpNameAffix($refFK, true);
@@ -3128,7 +3129,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds the method that gets the count of referrer fkey collection.
 	 */
-	protected function addRefFKCount(&$script, ForeignKey $refFK): void
+	protected function addRefFKCount(string &$script, ForeignKey $refFK): void
 	{
 		$relatedObjectClassName = $this->getNewStubObjectBuilder($refFK->getTable())->getClassname();
 		$relCol = $this->getRefFKPhpNameAffix($refFK, true);
@@ -3175,7 +3176,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds the method that adds an object to the referrer fkey collection.
 	 */
-	protected function addRefFKAdd(&$script, ForeignKey $refFK): void
+	protected function addRefFKAdd(string &$script, ForeignKey $refFK): void
 	{
 		$this->declareClassFromBuilder($this->getStubObjectBuilder());
 
@@ -3217,7 +3218,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds getters for join methods
 	 */
-	protected function addRefFKGetJoinMethods(&$script, ForeignKey $refFK): void
+	protected function addRefFKGetJoinMethods(string &$script, ForeignKey $refFK): void
 	{
 		$table = $this->getTable();
 		$tblFK = $refFK->getTable();
@@ -3283,7 +3284,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds primary key referrer FK accessor
 	 */
-	protected function addPKRefFKGet(&$script, ForeignKey $refFK): void
+	protected function addPKRefFKGet(string &$script, ForeignKey $refFK): void
 	{
 		$relatedObjectClassName = $this->getNewStubObjectBuilder($refFK->getTable())->getClassname();
 		$varName = $this->getPKRefFKVarName($refFK);
@@ -3311,7 +3312,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds primary key referrer FK mutator
 	 */
-	protected function addPKRefFKSet(&$script, ForeignKey $refFK): void
+	protected function addPKRefFKSet(string &$script, ForeignKey $refFK): void
 	{
 		$this->declareClassFromBuilder($this->getStubObjectBuilder());
 
@@ -3346,7 +3347,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	}";
 	}
 	
-	protected function addCrossFKMethods(&$script): void
+	protected function addCrossFKMethods(string &$script): void
 	{
 		$table = $this->getTable();
 		foreach ($table->getCrossFks() as $crossFKs) {
@@ -3356,8 +3357,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 
 	/**
 	 * Adds cross foreign key accessors for many-to-many relationships
+	 * @param array<ForeignKey> $crossFKs
 	 */
-	protected function addCrossFKAccessors(&$script, array $crossFKs): void
+	protected function addCrossFKAccessors(string &$script, array $crossFKs): void
 	{
 		list($refFK, $crossFK) = $crossFKs;
 		
@@ -3374,7 +3376,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds the method that clears the cross-FK collection (PHP 8.4 version)
 	 */
-	protected function addCrossFKClear(&$script, ForeignKey $crossFK): void
+	protected function addCrossFKClear(string &$script, ForeignKey $crossFK): void
 	{
 		$relCol = $this->getFKPhpNameAffix($crossFK, true);
 		$collName = $this->getCrossFKVarName($crossFK);
@@ -3398,7 +3400,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds the method that initializes the cross-FK collection (PHP 8.4 version)
 	 */
-	protected function addCrossFKInit(&$script, ForeignKey $crossFK): void
+	protected function addCrossFKInit(string &$script, ForeignKey $crossFK): void
 	{
 		$relCol = $this->getFKPhpNameAffix($crossFK, true);
 		$collName = $this->getCrossFKVarName($crossFK);
@@ -3429,7 +3431,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds the getter method for cross-FK relationships (PHP 8.4 version)
 	 */
-	protected function addCrossFKGet(&$script, ForeignKey $refFK, ForeignKey $crossFK): void
+	protected function addCrossFKGet(string &$script, ForeignKey $refFK, ForeignKey $crossFK): void
 	{
 		$relatedName = $this->getFKPhpNameAffix($crossFK, true);
 		$relatedObjectClassName = $this->getNewStubObjectBuilder($crossFK->getForeignTable())->getClassname();
@@ -3476,7 +3478,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds the count method for cross-FK relationships (PHP 8.4 version)
 	 */
-	protected function addCrossFKCount(&$script, ForeignKey $refFK, ForeignKey $crossFK): void
+	protected function addCrossFKCount(string &$script, ForeignKey $refFK, ForeignKey $crossFK): void
 	{
 		$relatedName = $this->getFKPhpNameAffix($crossFK, true);
 		$relatedObjectClassName = $this->getNewStubObjectBuilder($crossFK->getForeignTable())->getClassname();
@@ -3525,7 +3527,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Adds the add method for cross-FK relationships (PHP 8.4 version)
 	 */
-	protected function addCrossFKAdd(&$script, ForeignKey $refFK, ForeignKey $crossFK): void
+	protected function addCrossFKAdd(string &$script, ForeignKey $refFK, ForeignKey $crossFK): void
 	{
 		$relCol = $this->getFKPhpNameAffix($crossFK, true);
 		$relColSingular = $this->getFKPhpNameAffix($crossFK, false);
@@ -3574,7 +3576,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 ";
 	}
 	
-	protected function addClear(&$script): void
+	protected function addClear(string &$script): void
 	{
 		$table = $this->getTable();
 		$script .= "
@@ -3612,7 +3614,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	}";
 	}
 	
-	protected function addClearAllReferences(&$script): void
+	protected function addClearAllReferences(string &$script): void
 	{
 		$table = $this->getTable();
 		$script .= "
@@ -3693,7 +3695,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	}";
 	}
 	
-	protected function addPrimaryString(&$script): void
+	protected function addPrimaryString(string &$script): void
 	{
 		// Ported from PHP5ObjectBuilder::addPrimaryString(): if a column is marked
 		// primaryString="true" in the schema, __toString() returns that column's value;
@@ -3733,7 +3735,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	}";
 	}
 	
-	protected function addMagicCall(&$script): void
+	protected function addMagicCall(string &$script): void
 	{
 		$script .= "
 
@@ -3757,7 +3759,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	}";
 	}
 	
-	protected function addValidationFailuresAttribute(&$script) 
+	protected function addValidationFailuresAttribute(string &$script): void
 	{
 		$script .= "
 
@@ -3768,7 +3770,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	protected array \$validationFailures = [];";
 	}
 	
-	protected function addGetValidationFailures(&$script) 
+	protected function addGetValidationFailures(string &$script): void
 	{
 		$script .= "
 
@@ -3783,7 +3785,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	}";
 	}
 	
-	protected function addValidate(&$script) 
+	protected function addValidate(string &$script): void
 	{
 		$script .= "
 
@@ -3807,7 +3809,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	}";
 	}
 	
-	protected function addDoValidate(&$script) 
+	protected function addDoValidate(string &$script): void
 	{
 		$script .= "
 

@@ -25,7 +25,7 @@ class SqlitePlatform extends DefaultPlatform
 	/**
 	 * Initializes db specific domain mapping.
 	 */
-	protected function initialize()
+	protected function initialize(): void
 	{
 		parent::initialize();
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::NUMERIC, "DECIMAL"));

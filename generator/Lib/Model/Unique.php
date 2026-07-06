@@ -29,7 +29,7 @@ class Unique extends Index
 	/**
 	 * Returns <code>true</code>.
 	 */
-	public function isUnique()
+	public function isUnique(): bool
 	{
 		return true;
 	}
@@ -37,7 +37,7 @@ class Unique extends Index
 	/**
 	 * @see        XMLElement::appendXml(\DOMNode)
 	 */
-	public function appendXml(\DOMNode $node)
+	public function appendXml(\DOMNode $node): void
 	{
 		$doc = ($node instanceof DOMDocument) ? $node : $node->ownerDocument;
 

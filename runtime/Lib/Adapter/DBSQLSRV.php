@@ -28,9 +28,9 @@ class DBSQLSRV extends DBMSSQL
 	 * @see       parent::initConnection()
 	 *
 	 * @param     \PDO    $con
-	 * @param     array  $settings
+	 * @param     array<string,mixed>  $settings
 	 */
-	public function initConnection(PDO $con, array $settings)
+	public function initConnection(PDO $con, array $settings): void
 	{
 		$con->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 		$con->setAttribute(PDO::ATTR_STRINGIFY_FETCHES, false);
@@ -46,7 +46,7 @@ class DBSQLSRV extends DBMSSQL
 	 *
 	 * @throws    PropulsionException
 	 */
-	public function setCharset(PDO $con, $charset)
+	public function setCharset(PDO $con, $charset): void
 	{
 		switch (strtolower($charset)) {
 		case 'utf-8':
@@ -64,11 +64,11 @@ class DBSQLSRV extends DBMSSQL
 	 * @see       parent::cleanupSQL()
 	 *
 	 * @param     string       $sql
-	 * @param     array        $params
+	 * @param     array<int,array<string,mixed>>        $params
 	 * @param     Criteria     $values
 	 * @param     DatabaseMap  $dbMap
 	 */
-	public function cleanupSQL(&$sql, array &$params, Criteria $values, DatabaseMap $dbMap)
+	public function cleanupSQL(&$sql, array &$params, Criteria $values, DatabaseMap $dbMap): void
 	{
 		$i = 1;
 		foreach ($params as $param) {

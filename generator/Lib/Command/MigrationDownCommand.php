@@ -96,6 +96,9 @@ EOT
         }
     }
 
+    /**
+     * @param array<int, array{sql: string, status: string, error?: string}> $statementLog
+     */
     private function renderStatementLog(SymfonyStyle $io, array $statementLog): void
     {
         if (!$statementLog) {

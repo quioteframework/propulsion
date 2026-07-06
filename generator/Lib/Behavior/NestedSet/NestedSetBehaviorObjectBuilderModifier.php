@@ -9,6 +9,9 @@
  */
 namespace Propulsion\Generator\Behavior\NestedSet;
 
+use Propulsion\Generator\Builder\OM\ObjectBuilder;
+use Propulsion\Generator\Model\Table;
+
 /**
  * Behavior to adds nested set tree structure columns and abilities
  *
@@ -17,20 +20,25 @@ namespace Propulsion\Generator\Behavior\NestedSet;
  */
 class NestedSetBehaviorObjectBuilderModifier
 {
-	protected $behavior, $table, $builder, $objectClassname, $peerClassname, $queryClassname;
+	protected NestedSetBehavior $behavior;
+	protected Table $table;
+	protected ?ObjectBuilder $builder = null;
+	protected ?string $objectClassname = null;
+	protected ?string $peerClassname = null;
+	protected ?string $queryClassname = null;
 
-	public function __construct($behavior)
+	public function __construct(NestedSetBehavior $behavior)
 	{
 		$this->behavior = $behavior;
 		$this->table = $behavior->getTable();
 	}
 
-	protected function getParameter($key)
+	protected function getParameter(string $key): string
 	{
 		return $this->behavior->getParameter($key);
 	}
 
-	protected function getColumnAttribute($name)
+	protected function getColumnAttribute(string $name): string
 	{
 		// The promoted ObjectBuilder declares object properties named after
 		// the column's PhpName (e.g. `TreeLeft`), not the lowercased SQL
@@ -41,12 +49,12 @@ class NestedSetBehaviorObjectBuilderModifier
 		return $this->behavior->getColumnForParameter($name)->getPhpName();
 	}
 
-	protected function getColumnPhpName($name)
+	protected function getColumnPhpName(string $name): string
 	{
 		return $this->behavior->getColumnForParameter($name)->getPhpName();
 	}
 
-	protected function setBuilder($builder)
+	protected function setBuilder(ObjectBuilder $builder): void
 	{
 		$this->builder = $builder;
 		$this->objectClassname = $builder->getStubObjectBuilder()->getClassname();
@@ -61,7 +69,7 @@ class NestedSetBehaviorObjectBuilderModifier
 	}
 	*/
 
-	public function objectAttributes($builder)
+	public function objectAttributes(ObjectBuilder $builder): string
 	{
 		$objectClassname = $builder->getStubObjectBuilder()->getClassname();
 		return "
@@ -86,7 +94,7 @@ protected \$aNestedSetParent = null;
 ";
 	}
 
-	public function preSave($builder)
+	public function preSave(ObjectBuilder $builder): string
 	{
 		$peerClassname = $builder->getStubPeerBuilder()->getClassname();
 		$queryClassname = $builder->getStubQueryBuilder()->getClassname();
@@ -120,7 +128,7 @@ protected \$aNestedSetParent = null;
 		return $script;
 	}
 
-	public function preDelete($builder)
+	public function preDelete(ObjectBuilder $builder): string
 	{
 		$peerClassname = $builder->getStubPeerBuilder()->getClassname();
 		return "if (\$this->isRoot()) {
@@ -133,7 +141,7 @@ if (\$this->isInTree()) {
 ";
 	}
 
-	public function postDelete($builder)
+	public function postDelete(ObjectBuilder $builder): string
 	{
 		$peerClassname = $builder->getStubPeerBuilder()->getClassname();
 		return "if (\$this->isInTree()) {
@@ -143,13 +151,13 @@ if (\$this->isInTree()) {
 ";
 	}
 
-	public function objectClearReferences($builder)
+	public function objectClearReferences(ObjectBuilder $builder): string
 	{
 		return "\$this->collNestedSetChildren = null;
 \$this->aNestedSetParent = null;";
 	}
 
-	public function objectMethods($builder)
+	public function objectMethods(ObjectBuilder $builder): string
 	{
 		$this->setBuilder($builder);
 		$script = '';
@@ -241,7 +249,7 @@ if (\$this->isInTree()) {
 		return $script;
 	}
 
-	protected function addProcessNestedSetQueries(&$script)
+	protected function addProcessNestedSetQueries(string &$script): void
 	{
 		$script .= "
 /**
@@ -257,7 +265,7 @@ protected function processNestedSetQueries(\$con)
 }
 ";
 	}
-	protected function addGetLeft(&$script)
+	protected function addGetLeft(string &$script): void
 	{
 		$script .= "
 /**
@@ -273,7 +281,7 @@ public function getLeftValue()
 ";
 	}
 
-	protected function addGetRight(&$script)
+	protected function addGetRight(string &$script): void
 	{
 		$script .= "
 /**
@@ -289,7 +297,7 @@ public function getRightValue()
 ";
 	}
 
-	protected function addGetLevel(&$script)
+	protected function addGetLevel(string &$script): void
 	{
 		$script .= "
 /**
@@ -305,7 +313,7 @@ public function getLevel()
 ";
 	}
 
-	protected function addGetScope(&$script)
+	protected function addGetScope(string &$script): void
 	{
 		$script .= "
 /**
@@ -321,7 +329,7 @@ public function getScopeValue()
 ";
 	}
 
-	protected function addSetLeft(&$script)
+	protected function addSetLeft(string &$script): void
 	{
 		$script .= "
 /**
@@ -338,7 +346,7 @@ public function setLeftValue(\$v)
 ";
 	}
 
-	protected function addSetRight(&$script)
+	protected function addSetRight(string &$script): void
 	{
 		$script .= "
 /**
@@ -355,7 +363,7 @@ public function setRightValue(\$v)
 ";
 	}
 
-	protected function addSetLevel(&$script)
+	protected function addSetLevel(string &$script): void
 	{
 		$script .= "
 /**
@@ -372,7 +380,7 @@ public function setLevel(\$v)
 ";
 	}
 
-	protected function addSetScope(&$script)
+	protected function addSetScope(string &$script): void
 	{
 		$script .= "
 /**
@@ -389,7 +397,7 @@ public function setScopeValue(\$v)
 ";
 	}
 
-	protected function addMakeRoot(&$script)
+	protected function addMakeRoot(string &$script): void
 	{
 		$script .= "
 /**
@@ -412,7 +420,7 @@ public function makeRoot()
 ";
 	}
 
-	protected function addIsInTree(&$script)
+	protected function addIsInTree(string &$script): void
 	{
 		$script .= "
 /**
@@ -427,7 +435,7 @@ public function isInTree()
 ";
 	}
 
-	protected function addIsRoot(&$script)
+	protected function addIsRoot(string &$script): void
 	{
 		$script .= "
 /**
@@ -442,7 +450,7 @@ public function isRoot()
 ";
 	}
 
-	protected function addIsLeaf(&$script)
+	protected function addIsLeaf(string &$script): void
 	{
 		$script .= "
 /**
@@ -457,7 +465,7 @@ public function isLeaf()
 ";
 	}
 
-	protected function addIsDescendantOf(&$script)
+	protected function addIsDescendantOf(string &$script): void
 	{
 		$objectClassname = $this->objectClassname;
 		$script .= "
@@ -481,7 +489,7 @@ public function isDescendantOf(\$parent)
 ";
 	}
 
-	protected function addIsAncestorOf(&$script)
+	protected function addIsAncestorOf(string &$script): void
 	{
 		$objectClassname = $this->objectClassname;
 		$script .= "
@@ -498,7 +506,7 @@ public function isAncestorOf(\$child)
 ";
 	}
 
-	protected function addHasParent(&$script)
+	protected function addHasParent(string &$script): void
 	{
 		$script .= "
 /**
@@ -514,7 +522,7 @@ public function hasParent(?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addSetParent(&$script)
+	protected function addSetParent(string &$script): void
 	{
 		$objectClassname = $this->objectClassname;
 		$script .= "
@@ -534,7 +542,7 @@ public function setParent(\$parent = null)
 ";
 	}
 
-	protected function addGetParent(&$script)
+	protected function addGetParent(string &$script): void
 	{
 		$script .= "
 /**
@@ -557,7 +565,7 @@ public function getParent(?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addHasPrevSibling(&$script)
+	protected function addHasPrevSibling(string &$script): void
 	{
 		$peerClassname = $this->peerClassname;
 		$queryClassname = $this->queryClassname;
@@ -585,7 +593,7 @@ public function hasPrevSibling(?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addGetPrevSibling(&$script)
+	protected function addGetPrevSibling(string &$script): void
 	{
 		$queryClassname = $this->queryClassname;
 		$script .= "
@@ -609,7 +617,7 @@ public function getPrevSibling(?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addHasNextSibling(&$script)
+	protected function addHasNextSibling(string &$script): void
 	{
 		$peerClassname = $this->peerClassname;
 		$queryClassname = $this->queryClassname;
@@ -637,7 +645,7 @@ public function hasNextSibling(?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addGetNextSibling(&$script)
+	protected function addGetNextSibling(string &$script): void
 	{
 		$queryClassname = $this->queryClassname;
 		$script .= "
@@ -661,7 +669,7 @@ public function getNextSibling(?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addNestedSetChildrenClear(&$script)
+	protected function addNestedSetChildrenClear(string &$script): void
 	{
 		$script .= "
 /**
@@ -679,7 +687,7 @@ public function clearNestedSetChildren()
 ";
 	}
 
-	protected function addNestedSetChildrenInit(&$script)
+	protected function addNestedSetChildrenInit(string &$script): void
 	{
 		$script .= "
 /**
@@ -695,7 +703,7 @@ public function initNestedSetChildren()
 ";
 	}
 
-	protected function addNestedSetChildAdd(&$script)
+	protected function addNestedSetChildAdd(string &$script): void
 	{
 		$objectClassname = $this->objectClassname;
 		$objectName = '$' . $this->table->getStudlyPhpName();
@@ -722,7 +730,7 @@ public function addNestedSetChild($objectName)
 ";
 	}
 
-	protected function addHasChildren(&$script)
+	protected function addHasChildren(string &$script): void
 	{
 		$script .= "
 /**
@@ -737,7 +745,7 @@ public function hasChildren()
 ";
 	}
 
-	protected function addGetChildren(&$script)
+	protected function addGetChildren(string &$script): void
 	{
 		$objectClassname = $this->objectClassname;
 		$queryClassname = $this->queryClassname;
@@ -771,7 +779,7 @@ public function getChildren(\$criteria = null, ?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addCountChildren(&$script)
+	protected function addCountChildren(string &$script): void
 	{
 		$objectClassname = $this->objectClassname;
 		$queryClassname = $this->queryClassname;
@@ -800,7 +808,7 @@ public function countChildren(\$criteria = null, ?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addGetFirstChild(&$script)
+	protected function addGetFirstChild(string &$script): void
 	{
 		$objectClassname = $this->objectClassname;
 		$queryClassname = $this->queryClassname;
@@ -826,7 +834,7 @@ public function getFirstChild(\$query = null, ?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addGetLastChild(&$script)
+	protected function addGetLastChild(string &$script): void
 	{
 		$objectClassname = $this->objectClassname;
 		$queryClassname = $this->queryClassname;
@@ -852,7 +860,7 @@ public function getLastChild(\$query = null, ?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addGetSiblings(&$script)
+	protected function addGetSiblings(string &$script): void
 	{
 		$objectClassname = $this->objectClassname;
 		$queryClassname = $this->queryClassname;
@@ -883,7 +891,7 @@ public function getSiblings(\$includeNode = false, \$query = null, ?PropulsionPD
 ";
 	}
 
-	protected function addGetDescendants(&$script)
+	protected function addGetDescendants(string &$script): void
 	{
 		$objectClassname = $this->objectClassname;
 		$queryClassname = $this->queryClassname;
@@ -909,7 +917,7 @@ public function getDescendants(\$query = null, ?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addCountDescendants(&$script)
+	protected function addCountDescendants(string &$script): void
 	{
 		$objectClassname = $this->objectClassname;
 		$queryClassname = $this->queryClassname;
@@ -935,7 +943,7 @@ public function countDescendants(\$query = null, ?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addGetBranch(&$script)
+	protected function addGetBranch(string &$script): void
 	{
 		$objectClassname = $this->objectClassname;
 		$queryClassname = $this->queryClassname;
@@ -957,7 +965,7 @@ public function getBranch(\$query = null, ?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addGetAncestors(&$script)
+	protected function addGetAncestors(string &$script): void
 	{
 		$objectClassname = $this->objectClassname;
 		$queryClassname = $this->queryClassname;
@@ -985,7 +993,7 @@ public function getAncestors(\$query = null, ?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addAddChild(&$script)
+	protected function addAddChild(string &$script): void
 	{
 		$objectClassname = $this->objectClassname;
 		$useScope = $this->behavior->useScope();
@@ -1010,7 +1018,7 @@ public function addChild($objectClassname \$child)
 ";
 	}
 
-	protected function getPeerClassNameWithNamespace()
+	protected function getPeerClassNameWithNamespace(): string
 	{
 		$peerClassname = $this->peerClassname;
 		if ($namespace = $this->builder->getStubPeerBuilder()->getNamespace()) {
@@ -1019,7 +1027,7 @@ public function addChild($objectClassname \$child)
 		return $peerClassname;
 	}
 
-	protected function addInsertAsFirstChildOf(&$script)
+	protected function addInsertAsFirstChildOf(string &$script): void
 	{
 		$objectClassname = $this->objectClassname;
 		$peerClassname = $this->getPeerClassNameWithNamespace();
@@ -1064,7 +1072,7 @@ public function insertAsFirstChildOf(\$parent)
 ";
 	}
 
-	protected function addInsertAsLastChildOf(&$script)
+	protected function addInsertAsLastChildOf(string &$script): void
 	{
 		$objectClassname = $this->objectClassname;
 		$peerClassname = $this->getPeerClassNameWithNamespace();
@@ -1109,7 +1117,7 @@ public function insertAsLastChildOf(\$parent)
 ";
 	}
 
-	protected function addInsertAsPrevSiblingOf(&$script)
+	protected function addInsertAsPrevSiblingOf(string &$script): void
 	{
 		$objectClassname = $this->objectClassname;
 		$peerClassname = $this->getPeerClassNameWithNamespace();
@@ -1151,7 +1159,7 @@ public function insertAsPrevSiblingOf(\$sibling)
 ";
 	}
 
-	protected function addInsertAsNextSiblingOf(&$script)
+	protected function addInsertAsNextSiblingOf(string &$script): void
 	{
 		$objectClassname = $this->objectClassname;
 		$peerClassname = $this->getPeerClassNameWithNamespace();
@@ -1193,7 +1201,7 @@ public function insertAsNextSiblingOf(\$sibling)
 ";
 	}
 
-	protected function addMoveToFirstChildOf(&$script)
+	protected function addMoveToFirstChildOf(string &$script): void
 	{
 		$objectClassname = $this->objectClassname;
 		$script .= "
@@ -1229,7 +1237,7 @@ public function moveToFirstChildOf(\$parent, ?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addMoveToLastChildOf(&$script)
+	protected function addMoveToLastChildOf(string &$script): void
 	{
 		$objectClassname = $this->objectClassname;
 		$script .= "
@@ -1265,7 +1273,7 @@ public function moveToLastChildOf(\$parent, ?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addMoveToPrevSiblingOf(&$script)
+	protected function addMoveToPrevSiblingOf(string &$script): void
 	{
 		$objectClassname = $this->objectClassname;
 		$script .= "
@@ -1304,7 +1312,7 @@ public function moveToPrevSiblingOf(\$sibling, ?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addMoveToNextSiblingOf(&$script)
+	protected function addMoveToNextSiblingOf(string &$script): void
 	{
 		$objectClassname = $this->objectClassname;
 		$script .= "
@@ -1343,7 +1351,7 @@ public function moveToNextSiblingOf(\$sibling, ?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addMoveSubtreeTo(&$script)
+	protected function addMoveSubtreeTo(string &$script): void
 	{
 		$objectClassname = $this->objectClassname;
 		$peerClassname = $this->peerClassname;
@@ -1405,7 +1413,7 @@ protected function moveSubtreeTo(\$destLeft, \$levelDelta, ?PropulsionPDO \$con 
 ";
 	}
 
-	protected function addDeleteDescendants(&$script)
+	protected function addDeleteDescendants(string &$script): void
 	{
 		$objectClassname = $this->objectClassname;
 		$peerClassname = $this->peerClassname;
@@ -1461,7 +1469,7 @@ public function deleteDescendants(?PropulsionPDO \$con = null)
 ";
 	}
 
-	protected function addGetIterator(&$script)
+	protected function addGetIterator(string &$script): void
 	{
 		$script .= "
 /**
@@ -1476,7 +1484,7 @@ public function getIterator()
 ";
 	}
 
-	protected function addCompatibilityProxies(&$script)
+	protected function addCompatibilityProxies(string &$script): void
 	{
 		$objectClassname = $this->objectClassname;
 		$script .= "

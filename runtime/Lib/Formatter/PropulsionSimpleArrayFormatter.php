@@ -21,9 +21,9 @@ use Propulsion\Exception\PropulsionException;
  * @version    $Revision$
  */
 class PropulsionSimpleArrayFormatter extends PropulsionFormatter {
-	protected $collectionName = 'Propulsion\\Collection\\PropulsionArrayCollection';
+	protected string $collectionName = 'Propulsion\\Collection\\PropulsionArrayCollection';
 
-	public function format(PDOStatement $stmt) {
+	public function format(PDOStatement $stmt): mixed {
 		$this->checkInit ();
 		if ($class = $this->collectionName) {
 			$collection = new $class();
@@ -44,7 +44,7 @@ class PropulsionSimpleArrayFormatter extends PropulsionFormatter {
 		return $collection;
 	}
 
-	public function formatOne(PDOStatement $stmt) {
+	public function formatOne(PDOStatement $stmt): mixed {
 		$this->checkInit ();
 		$result = null;
 		while ($row = $stmt->fetch (PDO::FETCH_NUM)) {
@@ -56,11 +56,15 @@ class PropulsionSimpleArrayFormatter extends PropulsionFormatter {
 		return $result;
 	}
 
-	public function isObjectFormatter() {
+	public function isObjectFormatter(): bool {
 		return false;
 	}
 
-	public function getStructuredArrayFromRow($row) {
+	/**
+	 * @param array<int, mixed> $row
+	 * @return mixed
+	 */
+	public function getStructuredArrayFromRow(array $row): mixed {
 		$columnNames = array_keys($this->getAsColumns ());
 		if (count($columnNames) > 1 && count($row) > 1) {
 			$finalRow = array();

@@ -13,25 +13,29 @@ namespace Propulsion\Generator\Behavior;
  *
  * @author     François Zaninotto
  */
+use Propulsion\Generator\Builder\OM\ObjectBuilder;
 use Propulsion\Generator\Model\Behavior;
 use Propulsion\Generator\Model\ForeignKey;
+use Propulsion\Generator\Model\Table;
 class DelegateBehavior extends Behavior
 {
 	const ONE_TO_ONE = 1;
 	const MANY_TO_ONE = 2;
 
 	// default parameters value
+	/** @var array<string,string> */
 	protected $parameters = array(
 		'to' => ''
 	);
-	
+
+	/** @var array<string,int> */
 	protected $delegates = array();
 
 	/**
 	 * Lists the delegates and checks that the behavior can use them,
 	 * And adds a fk from the delegate to the main table if not already set
 	 */
-	public function modifyTable()
+	public function modifyTable(): void
 	{
 		$table = $this->getTable();
 		$database = $table->getDatabase();
@@ -72,7 +76,7 @@ class DelegateBehavior extends Behavior
 		}
 	}
 
-	protected function relateDelegateToMainTable($delegateTable, $mainTable)
+	protected function relateDelegateToMainTable(Table $delegateTable, Table $mainTable): void
 	{
 		$pks = $mainTable->getPrimaryKey();
 		foreach ($pks as $column) {
@@ -96,12 +100,12 @@ class DelegateBehavior extends Behavior
 		$delegateTable->addForeignKey($fk);
 	}
 	
-	protected function getDelegateTable($delegateTableName)
+	protected function getDelegateTable(string $delegateTableName): ?Table
 	{
 		return $this->getTable()->getDatabase()->getTable($delegateTableName);
 	}
-	
-	public function objectCall($builder)
+
+	public function objectCall(ObjectBuilder $builder): string
 	{
 		$script = '';
 		foreach ($this->delegates as $delegate => $type) {

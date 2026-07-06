@@ -52,7 +52,7 @@ class PropulsionPDO extends \PDO
 	/**
 	 * Cache of prepared statements (PDOStatement) keyed by md5 of SQL.
 	 *
-	 * @var       array  [md5(sql) => PDOStatement]
+	 * @var       array<string, \PDOStatement|false>  [md5(sql) => PDOStatement]
 	 */
 	protected $preparedStatements = array();
 
@@ -66,6 +66,8 @@ class PropulsionPDO extends \PDO
 	/**
 	 * Whether the final commit is possible
 	 * Is false if a nested transaction is rolled back
+	 *
+	 * @var       bool
 	 */
 	protected $isUncommitable = false;
 
@@ -115,7 +117,7 @@ class PropulsionPDO extends \PDO
 	/**
 	 * The default value for runtime config item "debugpdo.logging.methods".
 	 *
-	 * @var       array
+	 * @var       array<int, string>
 	 */
 	protected static $defaultLogMethods = array(
 		'PropulsionPDO::exec',                     // legacy (pre-namespace) identifier
@@ -136,7 +138,7 @@ class PropulsionPDO extends \PDO
 	 * @param     string  $dsn  Connection DSN.
 	 * @param     string  $username  The user name for the DSN string.
 	 * @param     string  $password  The password for the DSN string.
-	 * @param     array   $driver_options  A key=>value array of driver-specific connection options.
+	 * @param     array<int, mixed>   $driver_options  A key=>value array of driver-specific connection options.
 	 *
 	 * @throws     \PDOException if there is an error during connection initialization.
 	 */
@@ -161,7 +163,7 @@ class PropulsionPDO extends \PDO
 	 *
 	 * @param   PropulsionConfiguration  $configuration
 	 */
-	public function setConfiguration($configuration)
+	public function setConfiguration($configuration): void
 	{
 		$this->configuration = $configuration;
 	}
@@ -193,7 +195,7 @@ class PropulsionPDO extends \PDO
 	 * Set the current transaction depth.
 	 * @param     int $v The new depth.
 	 */
-	protected function setNestedTransactionCount($v)
+	protected function setNestedTransactionCount($v): void
 	{
 		$this->nestedTransactionCount = $v;
 	}
@@ -368,7 +370,7 @@ class PropulsionPDO extends \PDO
 	 *  - Add query caching support if the PropulsionPDO::PROPEL_ATTR_CACHE_PREPARES was set to true.
 	 *
 	 * @param     string  $sql  This must be a valid SQL statement for the target database server.
-	 * @param     array   $driver_options  One $array or more key => value pairs to set attribute values
+	 * @param     array<int, mixed>   $driver_options  One $array or more key => value pairs to set attribute values
 	 *                                      for the PDOStatement object that this method returns.
 	 *
 	 * @return    \PDOStatement
@@ -448,7 +450,7 @@ class PropulsionPDO extends \PDO
 	 *
 	 * @return    \PDOStatement
 	 */
-	public function query($query, $fetchMode = null, ...$args): \PDOStatement|false
+	public function query($query, $fetchMode = null, mixed ...$args): \PDOStatement|false
 	{
 		if ($this->useDebug) {
 			$debug = $this->getDebugSnapshot();
@@ -481,7 +483,7 @@ class PropulsionPDO extends \PDO
 	/**
 	 * Clears any stored prepared statements for this connection.
 	 */
-	public function clearStatementCache()
+	public function clearStatementCache(): void
 	{
 		$this->preparedStatements = array();
 	}
@@ -494,7 +496,7 @@ class PropulsionPDO extends \PDO
 	 *
 	 * @throws    PropulsionException if the statement class cannot be set (and $suppressError is false).
 	 */
-	protected function configureStatementClass($class = 'PDOStatement', $suppressError = true)
+	protected function configureStatementClass($class = 'PDOStatement', $suppressError = true): void
 	{
 		// If a short (unqualified) class name was provided, attempt to resolve it within
 		// the current namespace (Propulsion\Connection) before handing it to PDO. This fixes
@@ -572,7 +574,7 @@ class PropulsionPDO extends \PDO
 	 *
 	 * @param     boolean  $value  True to enable debug (default), false to disable it
 	 */
-	public function useDebug($value = true)
+	public function useDebug($value = true): void
 	{
 		if ($value) {
 			// Use fully-qualified statement class to satisfy PDO strict validation
@@ -592,7 +594,7 @@ class PropulsionPDO extends \PDO
 	 *
 	 * @param     string  $level  One of the Propulsion::LOG_* / Psr\Log\LogLevel::* constants.
 	 */
-	public function setLogLevel($level)
+	public function setLogLevel($level): void
 	{
 		$this->logLevel = $level;
 	}
@@ -605,7 +607,7 @@ class PropulsionPDO extends \PDO
 	 *             state -- getLogger() already documents (and returns) ?LoggerInterface
 	 *             for exactly this reason.
 	 */
-	public function setLogger(?LoggerInterface $logger)
+	public function setLogger(?LoggerInterface $logger): void
 	{
 		$this->logger = $logger;
 	}
@@ -629,9 +631,9 @@ class PropulsionPDO extends \PDO
 	 * @param     string   $msg  Message to log.
 	 * @param     string   $level  Log level to use; will use self::setLogLevel() specified level by default.
 	 * @param     string   $methodName  Name of the method whose execution is being logged.
-	 * @param     array    $debugSnapshot  Previous return value from self::getDebugSnapshot().
+	 * @param     array<string, float|int>    $debugSnapshot  Previous return value from self::getDebugSnapshot().
 	 */
-	public function log($msg, $level = null, $methodName = null, ?array $debugSnapshot = null)
+	public function log($msg, $level = null, $methodName = null, ?array $debugSnapshot = null): void
 	{
 		// If logging has been specifically disabled, this method won't do anything
 		if (!$this->getLoggingConfig('enabled', true)) {
@@ -675,7 +677,7 @@ class PropulsionPDO extends \PDO
 	/**
 	 * Returns a snapshot of the current values of some functions useful in debugging.
 	 *
-	 * @return    array
+	 * @return    array<string, float|int>
 	 */
 	public function getDebugSnapshot()
 	{
@@ -715,7 +717,7 @@ class PropulsionPDO extends \PDO
 	 * @see       self::getDebugSnapshot()
 	 *
 	 * @param     string  $methodName  Name of the method whose execution is being logged.
-	 * @param     array   $debugSnapshot  A previous return value from self::getDebugSnapshot().
+	 * @param     array<string, float|int>   $debugSnapshot  A previous return value from self::getDebugSnapshot().
 	 *
 	 * @return    string
 	 */

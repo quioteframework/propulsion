@@ -23,7 +23,7 @@ abstract class PropulsionParser
 	 *
 	 * Override in the parser driver.
 	 *
-	 * @param  array $array Source data to convert
+	 * @param  array<mixed> $array Source data to convert
 	 * @return mixed Converted data, depending on the parser format
 	 */
 	abstract public function fromArray($array);
@@ -34,15 +34,23 @@ abstract class PropulsionParser
 	 * Override in the parser driver.
 	 *
 	 * @param  mixed $data Source data to convert, depending on the parser format
-	 * @return array Converted data
+	 * @return array<mixed> Converted data
 	 */
 	abstract public function toArray($data);
 
+	/**
+	 * @param  array<mixed> $data
+	 * @return mixed
+	 */
 	public function listFromArray($data)
 	{
 		return $this->fromArray($data);
 	}
 
+	/**
+	 * @param  mixed $data
+	 * @return array<mixed>
+	 */
 	public function listToArray($data)
 	{
 		return $this->toArray($data);
@@ -72,6 +80,7 @@ abstract class PropulsionParser
 	 *
 	 * @param string $data The file content
 	 * @param string $path Path of the file to create
+	 * @return int|false|null
 	 */
 	public function dump($data, $path = null)
 	{
@@ -79,6 +88,8 @@ abstract class PropulsionParser
 			return file_put_contents($path, $data);
 		} else {
 			echo $data;
+
+			return null;
 		}
 	}
 

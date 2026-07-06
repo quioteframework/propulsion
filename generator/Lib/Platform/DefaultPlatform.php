@@ -33,12 +33,12 @@ use \PDO;
 class DefaultPlatform implements PropulsionPlatformInterface
 {
 
-	protected $generatorConfig;
+	protected ?GeneratorConfig $generatorConfig = null;
 
 	/**
 	 * Mapping from Propulsion types to Domain objects.
 	 *
-	 * @var        array
+	 * @var        array<string, Domain>
 	 */
 	protected $schemaDomainMap;
 
@@ -66,7 +66,7 @@ class DefaultPlatform implements PropulsionPlatformInterface
 	 * Set the database connection to use for this Platform class.
 	 * @param      PDO $con Database connection to use in this platform.
 	 */
-	public function setConnection(?PDO $con = null)
+	public function setConnection(?PDO $con = null): void
 	{
 		$this->con = $con;
 	}
@@ -85,7 +85,7 @@ class DefaultPlatform implements PropulsionPlatformInterface
 	 *
 	 * @param      GeneratorConfig $config
 	 */
-	public function setGeneratorConfig(GeneratorConfig $config)
+	public function setGeneratorConfig(GeneratorConfig $config): void
 	{
 		// do nothing by default
 	}
@@ -107,7 +107,7 @@ class DefaultPlatform implements PropulsionPlatformInterface
 	/**
 	 * Initialize the type -> Domain mapping.
 	 */
-	protected function initialize()
+	protected function initialize(): void
 	{
 		$this->schemaDomainMap = array();
 		foreach (PropulsionTypes::getPropulsionTypes() as $type) {
@@ -125,7 +125,7 @@ class DefaultPlatform implements PropulsionPlatformInterface
 	 * Adds a mapping entry for specified Domain.
 	 * @param      Domain $domain
 	 */
-	protected function setSchemaDomainMapping(Domain $domain)
+	protected function setSchemaDomainMapping(Domain $domain): void
 	{
 		$this->schemaDomainMap[$domain->getType()] = $domain;
 	}
@@ -180,7 +180,7 @@ class DefaultPlatform implements PropulsionPlatformInterface
 	 * @return     string The RDBMS-specific SQL fragment for <code>NULL</code>
 	 * or <code>NOT NULL</code>.
 	 */
-	public function getNullString($notNull)
+	public function getNullString(bool $notNull)
 	{
 		return ($notNull ? "NOT NULL" : "");
 	}
@@ -203,7 +203,7 @@ class DefaultPlatform implements PropulsionPlatformInterface
 	 *
 	 * @return     string Sequence name for this table.
 	 */
-	public function getSequenceName(Table $table)
+	public function getSequenceName(Table $table): ?string
 	{
 		static $longNamesMap = array();
 		$result = null;
@@ -616,14 +616,14 @@ ALTER TABLE %s DROP CONSTRAINT %s;
 		return $script;
 	}
 
-	public function getCommentLineDDL($comment)
+	public function getCommentLineDDL(string $comment): string
 	{
 		$pattern = "-- %s
 ";
 		return sprintf($pattern, $comment);
 	}
 
-	public function getCommentBlockDDL($comment)
+	public function getCommentBlockDDL(string $comment): string
 	{
 		$pattern = "
 -----------------------------------------------------------------------
@@ -673,7 +673,7 @@ ALTER TABLE %s DROP CONSTRAINT %s;
 	 * Builds the DDL SQL to rename a table
 	 * @return     string
 	 */
-	public function getRenameTableDDL($fromTableName, $toTableName)
+	public function getRenameTableDDL(string $fromTableName, string $toTableName)
 	{
 		$pattern = "
 ALTER TABLE %s RENAME TO %s;
@@ -870,7 +870,7 @@ ALTER TABLE %s DROP COLUMN %s;
 	 * Builds the DDL SQL to rename a column
 	 * @return     string
 	 */
-	public function getRenameColumnDDL($fromColumn, $toColumn)
+	public function getRenameColumnDDL(Column $fromColumn, Column $toColumn)
 	{
 		$pattern = "
 ALTER TABLE %s RENAME COLUMN %s TO %s;
@@ -902,9 +902,10 @@ ALTER TABLE %s MODIFY %s;
 	/**
 	 * Builds the DDL SQL to modify a list of columns
 	 *
+	 * @param      array<string, PropulsionColumnDiff> $columnDiffs
 	 * @return     string
 	 */
-	public function getModifyColumnsDDL($columnDiffs)
+	public function getModifyColumnsDDL(array $columnDiffs)
 	{
 		$lines = array();
 		$tableName = null;
@@ -950,9 +951,10 @@ ALTER TABLE %s ADD %s;
 	/**
 	 * Builds the DDL SQL to remove a list of columns
 	 *
+	 * @param      array<string, Column> $columns
 	 * @return     string
 	 */
-	public function getAddColumnsDDL($columns)
+	public function getAddColumnsDDL(array $columns)
 	{
 		$lines = array();
 		$tableName = null;
@@ -1038,12 +1040,12 @@ ALTER TABLE %s ADD
 		return $this->isIdentifierQuotingEnabled ? '"' . strtr($text, array('.' => '"."')) . '"' : $text;
 	}
 
-	public function setIdentifierQuoting($enabled = true)
+	public function setIdentifierQuoting(bool $enabled = true): void
 	{
 		$this->isIdentifierQuotingEnabled = $enabled;
 	}
 
-	public function getIdentifierQuoting()
+	public function getIdentifierQuoting(): bool
 	{
 		return $this->isIdentifierQuotingEnabled;
 	}

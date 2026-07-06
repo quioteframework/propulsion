@@ -25,13 +25,13 @@ namespace Propulsion\Validator;
 class ValidationFailed {
 
 	/** Column name in tablename.COLUMN_NAME format */
-	private $colname;
+	private string $colname;
 
 	/** Message to display to user. */
-	private $message;
+	private string $message;
 
 	/** Validator object that caused this to fail. */
-	private $validator;
+	private ?object $validator;
 
 	/**
 	 * Construct a new ValidationFailed object.
@@ -52,7 +52,7 @@ class ValidationFailed {
 	 *
 	 * @param     string  $v
 	 */
-	public function setColumn($v)
+	public function setColumn(string $v): void
 	{
 		$this->colname = $v;
 	}
@@ -72,7 +72,7 @@ class ValidationFailed {
 	 *
 	 * @param     string  $v
 	 */
-	public function setMessage($v)
+	public function setMessage(string $v): void
 	{
 		$this->message = $v;
 	}
@@ -92,7 +92,7 @@ class ValidationFailed {
 	 *
 	 * @param     object  $v
 	 */
-	public function setValidator($v)
+	public function setValidator(?object $v): void
 	{
 		$this->validator = $v;
 	}

@@ -25,21 +25,25 @@ use Propulsion\Generator\Platform\PropulsionPlatformInterface;
 class Database extends ScopedElement
 {
 
-	private $platform;
+	private ?PropulsionPlatformInterface $platform = null;
+	/** @var Table[] */
 	private $tableList = array();
-	private $name;
+	private ?string $name;
 
-	private $baseClass;
-	private $basePeer;
-	private $defaultIdMethod;
-	private $defaultPhpNamingMethod;
-	private $defaultTranslateMethod;
-	private $dbParent;
+	private ?string $baseClass = null;
+	private ?string $basePeer = null;
+	private ?string $defaultIdMethod = null;
+	private ?string $defaultPhpNamingMethod = null;
+	private ?string $defaultTranslateMethod = null;
+	private ?AppData $dbParent = null;
+	/** @var array<string, Table> */
 	private $tablesByName = array();
+	/** @var array<string, Table> */
 	private $tablesByLowercaseName = array();
+	/** @var array<string, Table> */
 	private $tablesByPhpName = array();
-	private $heavyIndexing;
-	protected $tablePrefix = '';
+	private bool $heavyIndexing = false;
+	protected string $tablePrefix = '';
 
 	/**
 	 * The default string format for objects based on this database
@@ -49,12 +53,13 @@ class Database extends ScopedElement
 	 */
 	protected $defaultStringFormat;
 
+	/** @var array<string, Domain> */
 	private $domainMap = array();
 
 	/**
 	 * List of behaviors registered for this table
 	 *
-	 * @var array
+	 * @var array<string, Behavior>
 	 */
 	protected $behaviors = array();
 
@@ -72,7 +77,7 @@ class Database extends ScopedElement
 	 * Sets up the Database object based on the attributes that were passed to loadFromXML().
 	 * @see        parent::loadFromXML()
 	 */
-	protected function setupObject()
+	protected function setupObject(): void
 	{
 		parent::setupObject();
 		$this->name = $this->getAttribute("name");
@@ -82,7 +87,7 @@ class Database extends ScopedElement
 		$this->defaultPhpNamingMethod = $this->getAttribute("defaultPhpNamingMethod", NameGenerator::CONV_METHOD_UNDERSCORE);
 		$this->defaultTranslateMethod = $this->getAttribute("defaultTranslateMethod", Validator::TRANSLATE_NONE);
 		$this->heavyIndexing = $this->booleanValue($this->getAttribute("heavyIndexing"));
-		$this->tablePrefix = $this->getAttribute('tablePrefix', $this->getBuildProperty('tablePrefix'));
+		$this->tablePrefix = $this->getAttribute('tablePrefix', $this->getBuildProperty('tablePrefix')) ?? '';
 		$this->defaultStringFormat = $this->getAttribute('defaultStringFormat', 'YAML');
 	}
 
@@ -91,7 +96,7 @@ class Database extends ScopedElement
 	 *
 	 * @return     PropulsionPlatformInterface|null a Platform implementation, or null if not set
 	 */
-	public function getPlatform()
+	public function getPlatform(): ?PropulsionPlatformInterface
 	{
 		return $this->platform;
 	}
@@ -99,15 +104,17 @@ class Database extends ScopedElement
 	/**
 	 * Sets the PropulsionPlatformInterface implementation for this database.
 	 *
-	 * @param      PropulsionPlatformInterface $platform A Platform implementation
+	 * @param      PropulsionPlatformInterface|null $platform A Platform implementation
 	 */
-	public function setPlatform($platform)
+	public function setPlatform(?PropulsionPlatformInterface $platform): void
 	{
 		$this->platform = $platform;
 	}
 
 	/**
 	 * Get the name of the Database
+	 *
+	 * @return string|null
 	 */
 	public function getName()
 	{
@@ -117,7 +124,7 @@ class Database extends ScopedElement
 	/**
 	 * Set the name of the Database
 	 */
-	public function setName($name)
+	public function setName(?string $name): void
 	{
 		$this->name = $name;
 	}
@@ -135,7 +142,7 @@ class Database extends ScopedElement
 	 * Set the value of baseClass.
 	 * @param      string|null $v Value to assign to baseClass.
 	 */
-	public function setBaseClass($v)
+	public function setBaseClass($v): void
 	{
 		$this->baseClass = $v;
 	}
@@ -153,7 +160,7 @@ class Database extends ScopedElement
 	 * Set the value of basePeer.
 	 * @param      string|null $v Value to assign to basePeer.
 	 */
-	public function setBasePeer($v)
+	public function setBasePeer($v): void
 	{
 		$this->basePeer = $v;
 	}
@@ -171,7 +178,7 @@ class Database extends ScopedElement
 	 * Set the value of defaultIdMethod.
 	 * @param      string $v Value to assign to defaultIdMethod.
 	 */
-	public function setDefaultIdMethod($v)
+	public function setDefaultIdMethod($v): void
 	{
 		$this->defaultIdMethod = $v;
 	}
@@ -190,7 +197,7 @@ class Database extends ScopedElement
 	 * Set the value of defaultPHPNamingMethod.
 	 * @param      string $v The default naming conversion for this database to use.
 	 */
-	public function setDefaultPhpNamingMethod($v)
+	public function setDefaultPhpNamingMethod($v): void
 	{
 		$this->defaultPhpNamingMethod = $v;
 	}
@@ -210,7 +217,7 @@ class Database extends ScopedElement
 	 *
 	 * @param      string $defaultStringFormat Any of 'XML', 'YAML', 'JSON', or 'CSV'
 	 */
-	public function setDefaultStringFormat($defaultStringFormat)
+	public function setDefaultStringFormat($defaultStringFormat): void
 	{
 		$this->defaultStringFormat = $defaultStringFormat;
 	}
@@ -229,7 +236,7 @@ class Database extends ScopedElement
 	 * Set the value of defaultTranslateMethod.
 	 * @param      string $v The default translate method to use.
 	 */
-	public function setDefaultTranslateMethod($v)
+	public function setDefaultTranslateMethod($v): void
 	{
 		$this->defaultTranslateMethod = $v;
 	}
@@ -261,14 +268,14 @@ class Database extends ScopedElement
 	 * Set the value of heavyIndexing.
 	 * @param      boolean $v  Value to assign to heavyIndexing.
 	 */
-	public function setHeavyIndexing($v)
+	public function setHeavyIndexing($v): void
 	{
 		$this->heavyIndexing = (bool) $v;
 	}
 
 	/**
 	 * Return the list of all tables
-	 * @return array
+	 * @return Table[]
 	 */
 	public function getTables()
 	{
@@ -292,7 +299,7 @@ class Database extends ScopedElement
 
 	/**
 	 * Return the list of all tables that have a SQL representation
-	 * @return array
+	 * @return Table[]
 	 */
 	public function getTablesForSql()
 	{
@@ -365,8 +372,10 @@ class Database extends ScopedElement
 
 	/**
 	 * An utility method to add a new table from an xml attribute.
+	 *
+	 * @param Table|array<string, mixed> $data
 	 */
-	public function addTable($data)
+	public function addTable($data): Table
 	{
 		if ($data instanceof Table) {
 			$tbl = $data; // alias
@@ -405,13 +414,15 @@ class Database extends ScopedElement
 	/**
 	 * Set the parent of the database
 	 */
-	public function setAppData(AppData $parent)
+	public function setAppData(AppData $parent): void
 	{
 		$this->dbParent = $parent;
 	}
 
 	/**
 	 * Get the parent of the table
+	 *
+	 * @return AppData|null
 	 */
 	public function getAppData()
 	{
@@ -422,7 +433,7 @@ class Database extends ScopedElement
 	 * Adds Domain object from <domain> tag.
 	 * @param      mixed $data XML attributes (array) or Domain object.
 	 */
-	public function addDomain($data) {
+	public function addDomain($data): Domain {
 
 		if ($data instanceof Domain) {
 			$domain = $data; // alias
@@ -441,7 +452,7 @@ class Database extends ScopedElement
 	 * Get already configured Domain object by name.
 	 * @return     Domain|null
 	 */
-	public function getDomain($domainName)
+	public function getDomain(string $domainName)
 	{
 		if (isset($this->domainMap[$domainName])) {
 			return $this->domainMap[$domainName];
@@ -458,6 +469,9 @@ class Database extends ScopedElement
   	}
   }
 
+  /**
+   * @return mixed
+   */
   public function getBuildProperty($key)
   {
   	if($config = $this->getGeneratorConfig()) {
@@ -469,9 +483,10 @@ class Database extends ScopedElement
 
   /**
    * Adds a new Behavior to the database
+   * @param     Behavior|array<string, mixed> $bdata
    * @return Behavior A behavior instance
    */
-  public function addBehavior($bdata)
+  public function addBehavior($bdata): Behavior
   {
     if ($bdata instanceof Behavior) {
       $behavior = $bdata;
@@ -488,7 +503,7 @@ class Database extends ScopedElement
 
   /**
    * Get the database behaviors
-   * @return Array of Behavior objects
+   * @return array<string, Behavior>
    */
   public function getBehaviors()
   {
@@ -552,7 +567,7 @@ class Database extends ScopedElement
 		return null;
 	}
 
-	public function doFinalInitialization()
+	public function doFinalInitialization(): void
 	{
 		// add the referrers for the foreign keys
 		$this->setupTableReferrers();
@@ -588,7 +603,7 @@ class Database extends ScopedElement
 	/**
 	 * Can be called several times
 	 */
-	protected function setupTableReferrers()
+	protected function setupTableReferrers(): void
 	{
 		foreach ($this->getTables() as $table) {
 			$table->doNaming();
@@ -599,7 +614,7 @@ class Database extends ScopedElement
 	/**
 	 * @see        XMLElement::appendXml(\DOMNode)
 	 */
-	public function appendXml(\DOMNode $node)
+	public function appendXml(\DOMNode $node): void
 	{
 		$doc = ($node instanceof \DOMDocument) ? $node : $node->ownerDocument;
 

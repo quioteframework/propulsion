@@ -23,11 +23,14 @@ namespace Propulsion\Formatter;
  use Propulsion\OM\BaseObject;
 class PropulsionArrayFormatter extends PropulsionFormatter
 {
-	protected $collectionName = 'Propulsion\\Collection\\PropulsionArrayCollection';
-	protected $alreadyHydratedObjects = array();
-	protected $emptyVariable;
+	protected string $collectionName = 'Propulsion\\Collection\\PropulsionArrayCollection';
 
-	public function format(PDOStatement $stmt)
+	/** @var array<string, array<int|string, mixed>> */
+	protected $alreadyHydratedObjects = array();
+
+	protected mixed $emptyVariable = null;
+
+	public function format(PDOStatement $stmt): mixed
 	{
 		$this->checkInit();
 		if ($this->isWithOneToMany() && $this->hasLimit) {
@@ -67,7 +70,7 @@ class PropulsionArrayFormatter extends PropulsionFormatter
 		return $collection;
 	}
 
-	public function formatOne(PDOStatement $stmt)
+	public function formatOne(PDOStatement $stmt): mixed
 	{
 		$this->checkInit();
 		$result = null;
@@ -87,14 +90,14 @@ class PropulsionArrayFormatter extends PropulsionFormatter
 	 *
 	 * @param BaseObject $record the object to format
 	 *
-	 * @return array The original record turned into an array
+	 * @return array<int|string, mixed> The original record turned into an array
 	 */
-	public function formatRecord($record = null)
+	public function formatRecord(?BaseObject $record = null): mixed
 	{
 		return $record ? $record->toArray() : array();
 	}
 
-	public function isObjectFormatter()
+	public function isObjectFormatter(): bool
 	{
 		return false;
 	}
@@ -104,12 +107,12 @@ class PropulsionArrayFormatter extends PropulsionFormatter
 	 * The first object to hydrate is the model of the Criteria
 	 * The following objects (the ones added by way of ModelCriteria::with()) are linked to the first one
 	 *
-	 *  @param    array  $row associative array indexed by column number,
+	 *  @param    array<int, mixed>  $row associative array indexed by column number,
 	 *                   as returned by PDOStatement::fetch(PDO::FETCH_NUM)
 	 *
-	 * @return    array|null
+	 * @return    array<int|string, mixed>|null
 	 */
-	public function &getStructuredArrayFromRow($row)
+	public function &getStructuredArrayFromRow(array $row): ?array
 	{
 		$emptyVariable = null;
 		$col = 0;

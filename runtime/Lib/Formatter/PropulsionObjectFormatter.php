@@ -18,13 +18,14 @@ namespace Propulsion\Formatter;
  */
 
  use Propulsion\Exception\PropulsionException;
+ use Propulsion\OM\BaseObject;
  use PDOStatement;
  use PDO;
 class PropulsionObjectFormatter extends PropulsionFormatter
 {
-	protected $collectionName = 'Propulsion\\Collection\\PropulsionObjectCollection';
+	protected string $collectionName = 'Propulsion\\Collection\\PropulsionObjectCollection';
 
-	public function format(PDOStatement $stmt)
+	public function format(PDOStatement $stmt): mixed
 	{
 		$this->checkInit();
 		if($class = $this->collectionName) {
@@ -58,7 +59,7 @@ class PropulsionObjectFormatter extends PropulsionFormatter
 		return $collection;
 	}
 
-	public function formatOne(PDOStatement $stmt)
+	public function formatOne(PDOStatement $stmt): ?BaseObject
 	{
 		$this->checkInit();
 		$result = null;
@@ -70,7 +71,7 @@ class PropulsionObjectFormatter extends PropulsionFormatter
 		return $result;
 	}
 
-	public function isObjectFormatter()
+	public function isObjectFormatter(): bool
 	{
 		return true;
 	}
@@ -80,12 +81,12 @@ class PropulsionObjectFormatter extends PropulsionFormatter
 	 * The first object to hydrate is the model of the Criteria
 	 * The following objects (the ones added by way of ModelCriteria::with()) are linked to the first one
 	 *
-	 *  @param    array  $row associative array indexed by column number,
+	 *  @param    array<int, mixed>  $row associative array indexed by column number,
 	 *                   as returned by PDOStatement::fetch(PDO::FETCH_NUM)
 	 *
 	 * @return    \Propulsion\OM\BaseObject
 	 */
-	public function getAllObjectsFromRow($row)
+	public function getAllObjectsFromRow(array $row): BaseObject
 	{
 		// main object
 		list($obj, $col) = call_user_func(array($this->peer, 'populateObject'), $row);

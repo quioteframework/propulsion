@@ -37,6 +37,9 @@ namespace Propulsion\Collection;
  use Propulsion\Parser\PropulsionParser;
  use Propulsion\Util\BasePeer;
 
+/**
+ * @extends \ArrayObject<array-key,mixed>
+ */
 class PropulsionCollection extends \ArrayObject implements \Serializable
 {
 	/**
@@ -59,7 +62,7 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	/**
 	 * Get the data in the collection
 	 *
-	 * @return    array
+	 * @return    array<array-key,mixed>
 	 */
 	public function getData()
 	{
@@ -70,14 +73,14 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	 * Returns the collection as a plain array.
 	 * Subclasses override this to serialize ORM objects.
 	 *
-	 * @param     string|null $keyColumn
-	 * @param     bool        $usePrefix
-	 * @param     string      $keyType
-	 * @param     bool|null   $includeLazyLoadColumns
-	 * @param     array       $alreadyDumpedObjects
-	 * @return    array
+	 * @param     string|null           $keyColumn
+	 * @param     bool                  $usePrefix
+	 * @param     string                $keyType
+	 * @param     bool|null             $includeLazyLoadColumns
+	 * @param     array<array-key,mixed> $alreadyDumpedObjects
+	 * @return    array<array-key,mixed>
 	 */
-	public function toArray($keyColumn = null, $usePrefix = false, $keyType = BasePeer::TYPE_PHPNAME, $includeLazyLoadColumns = true, $alreadyDumpedObjects = array())
+	public function toArray($keyColumn = null, $usePrefix = false, $keyType = BasePeer::TYPE_PHPNAME, $includeLazyLoadColumns = true, $alreadyDumpedObjects = array()): array
 	{
 		return $this->getArrayCopy();
 	}
@@ -105,9 +108,9 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	/**
 	 * Set the data in the collection
 	 *
-	 * @param     array $data
+	 * @param     array<array-key,mixed> $data
 	 */
-	public function setData($data)
+	public function setData(array $data): void
 	{
 		$this->exchangeArray($data);
 	}
@@ -116,7 +119,7 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	 * Populates the collection from an array.
 	 * Subclasses override this to hydrate ORM objects.
 	 *
-	 * @param     array $arr
+	 * @param     array<array-key,mixed> $arr
 	 * @return    void
 	 */
 	public function fromArray($arr)
@@ -338,7 +341,7 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	 * @param     mixed  $key
 	 * @param     mixed  $value
 	 */
-	public function set($key, $value)
+	public function set($key, $value): void
 	{
 		$this->offsetSet($key, $value);
 	}
@@ -363,9 +366,9 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	/**
 	 * Clears the collection
 	 *
-	 * @return    array  The previous collection
+	 * @return    array<array-key,mixed>  The previous collection
 	 */
-	public function clear()
+	public function clear(): array
 	{
 		return $this->exchangeArray(array());
 	}
@@ -453,7 +456,7 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	 * Iterator, so this must be done manually to avoid memory leaks.
 	 * @see http://www.propelorm.org/ticket/1232
 	 */
-	public function clearIterator()
+	public function clearIterator(): void
 	{
 		$this->iterator = null;
 	}
@@ -465,7 +468,7 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	 *
 	 * @param     string  $model  Name of the Propulsion object classes stored in the collection
 	 */
-	public function setModel($model)
+	public function setModel($model): void
 	{
 		$this->model = $model;
 	}
@@ -496,7 +499,7 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	/**
 	 * @param     PropulsionFormatter  $formatter
 	 */
-	public function setFormatter(PropulsionFormatter $formatter)
+	public function setFormatter(PropulsionFormatter $formatter): void
 	{
 		$this->formatter = $formatter;
 	}
@@ -582,7 +585,7 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	 * @param     string  $name
 	 * @param     mixed   $params
 	 *
-	 * @return    $this|array|string
+	 * @return    $this|array<array-key,mixed>|string
 	 */
 	public function __call($name, $params)
 	{

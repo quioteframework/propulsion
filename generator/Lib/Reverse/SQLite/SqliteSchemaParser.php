@@ -32,7 +32,7 @@ class SqliteSchemaParser extends BaseSchemaParser
 	 * There really aren't any SQLite native types, so we're just
 	 * using the MySQL ones here.
 	 *
-	 * @var        array
+	 * @var        array<string, string>
 	 */
 	private static $sqliteTypeMap = array(
 		'tinyint' => PropulsionTypes::TINYINT,
@@ -69,9 +69,9 @@ class SqliteSchemaParser extends BaseSchemaParser
 	/**
 	 * Gets a type mapping from native types to Propulsion types
 	 *
-	 * @return     array
+	 * @return     array<string, string>
 	 */
-	protected function getTypeMapping()
+	protected function getTypeMapping(): array
 	{
 		return self::$sqliteTypeMap;
 	}
@@ -112,7 +112,7 @@ class SqliteSchemaParser extends BaseSchemaParser
 	 *
 	 * @param      Table $table The Table model class to add columns to.
 	 */
-	protected function addColumns(Table $table)
+	protected function addColumns(Table $table): void
 	{
 		$stmt = $this->dbh->query("PRAGMA table_info('" . $table->getName() . "')");
 
@@ -173,7 +173,7 @@ class SqliteSchemaParser extends BaseSchemaParser
 	/**
 	 * Load indexes for this table
 	 */
-	protected function addIndexes(Table $table)
+	protected function addIndexes(Table $table): void
 	{
 		$stmt = $this->dbh->query("PRAGMA index_list('" . $table->getName() . "')");
 

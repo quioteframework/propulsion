@@ -18,7 +18,10 @@ namespace Propulsion\Query;
 use Propulsion\Exception\PropulsionException;
 class PropulsionQuery
 {
-	public static function from($queryClassAndAlias)
+	/**
+	 * @return ModelCriteria
+	 */
+	public static function from(string $queryClassAndAlias): ModelCriteria
 	{
 		list($class, $alias) = ModelCriteria::getClassAndAlias($queryClassAndAlias);
 		$queryClass = $class . 'Query';

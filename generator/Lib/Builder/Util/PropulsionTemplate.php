@@ -17,7 +17,8 @@ namespace Propulsion\Generator\Builder\Util;
  */
 class PropulsionTemplate
 {
-	protected $template, $templateFile;
+	protected ?string $template = null;
+	protected ?string $templateFile = null;
 
 	/**
 	 * Set a string as a template.
@@ -29,7 +30,7 @@ class PropulsionTemplate
 	 *
 	 * @param string $template the template string
 	 */
-	public function setTemplate($template)
+	public function setTemplate($template): void
 	{
 		$this->template = $template;
 	}
@@ -43,7 +44,7 @@ class PropulsionTemplate
 	 *
 	 * @param string $filePath The (absolute or relative to the include path) file path
 	 */
-	public function setTemplateFile($filePath)
+	public function setTemplateFile($filePath): void
 	{
 		$this->templateFile = $filePath;
 	}
@@ -58,7 +59,7 @@ class PropulsionTemplate
 	 * // This is Mike
 	 * </code>
 	 *
-	 * @param array $vars An associative array of argumens to be rendered
+	 * @param array<string, mixed> $vars An associative array of argumens to be rendered
 	 *
 	 * @return string The rendered template
 	 */

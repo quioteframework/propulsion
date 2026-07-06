@@ -20,40 +20,44 @@ namespace Propulsion\Util;
 
  use Propulsion\Query\ModelCriteria;
  use Propulsion\Collection\PropulsionCollection;
+ use Propulsion\Connection\PropulsionPDO;
+/**
+ * @implements \IteratorAggregate<array-key, mixed>
+ */
 class PropulsionModelPager implements \IteratorAggregate, \Countable
 {
-	protected
-		$query = null,
-		$page = 1,
-		$maxPerPage = 10,
-		$lastPage = 1,
-		$nbResults = 0,
-		$objects = null,
-		$parameters = array(),
-		$currentMaxLink = 1,
-		$parameterHolder = null,
-		$maxRecordLimit = false,
-		$results = null,
-		$resultsCounter	= 0,
-		$con = null;
+	protected ?ModelCriteria $query = null;
+	protected int $page = 1;
+	protected int $maxPerPage = 10;
+	protected int $lastPage = 1;
+	protected int $nbResults = 0;
+	protected mixed $objects = null;
+	/** @var array<mixed> */
+	protected array $parameters = array();
+	protected int $currentMaxLink = 1;
+	protected mixed $parameterHolder = null;
+	protected bool|int $maxRecordLimit = false;
+	protected ?PropulsionCollection $results = null;
+	protected int $resultsCounter	= 0;
+	protected ?PropulsionPDO $con = null;
 
-	public function __construct(ModelCriteria $query, $maxPerPage = 10)
+	public function __construct(ModelCriteria $query, int $maxPerPage = 10)
 	{
 		$this->setQuery($query);
 		$this->setMaxPerPage($maxPerPage);
 	}
 
-	public function setQuery(ModelCriteria $query)
+	public function setQuery(ModelCriteria $query): void
 	{
 		$this->query = $query;
 	}
 
-	public function getQuery()
+	public function getQuery(): ?ModelCriteria
 	{
 		return $this->query;
 	}
 
-	public function init($con = null)
+	public function init(?PropulsionPDO $con = null): void
 	{
 		$this->con = $con;
 		$hasMaxRecordLimit = ($this->getMaxRecordLimit() !== false);
@@ -106,22 +110,25 @@ class PropulsionModelPager implements \IteratorAggregate, \Countable
 		return $this->results;
 	}
 
-	public function getCurrentMaxLink()
+	public function getCurrentMaxLink(): int
 	{
 		return $this->currentMaxLink;
 	}
 
-	public function getMaxRecordLimit()
+	public function getMaxRecordLimit(): bool|int
 	{
 		return $this->maxRecordLimit;
 	}
 
-	public function setMaxRecordLimit($limit)
+	public function setMaxRecordLimit(bool|int $limit): void
 	{
 		$this->maxRecordLimit = $limit;
 	}
 
-	public function getLinks($nb_links = 5)
+	/**
+	 * @return array<int, int>
+	 */
+	public function getLinks(int $nb_links = 5): array
 	{
 		$links = array();
 		$tmp	 = $this->page - floor($nb_links / 2);
@@ -199,7 +206,7 @@ class PropulsionModelPager implements \IteratorAggregate, \Countable
 	 *
 	 * @param     int $nb
 	 */
-	protected function setNbResults($nb)
+	protected function setNbResults(int $nb): void
 	{
 		$this->nbResults = $nb;
 	}
@@ -249,7 +256,7 @@ class PropulsionModelPager implements \IteratorAggregate, \Countable
 	 *
 	 * @param     int $page
 	 */
-	protected function setLastPage($page)
+	protected function setLastPage(int $page): void
 	{
 		$this->lastPage = $page;
 		if ($this->getPage() > $page) {
@@ -272,7 +279,7 @@ class PropulsionModelPager implements \IteratorAggregate, \Countable
 	 *
 	 * @param     int $page
 	 */
-	public function setPage($page)
+	public function setPage(int $page): void
 	{
 		$this->page = intval($page);
 		if ($this->page <= 0) {
@@ -316,7 +323,7 @@ class PropulsionModelPager implements \IteratorAggregate, \Countable
 	 *
 	 * @param     int $max
 	 */
-	public function setMaxPerPage($max)
+	public function setMaxPerPage(int $max): void
 	{
 		if ($max > 0) {
 			$this->maxPerPage = $max;

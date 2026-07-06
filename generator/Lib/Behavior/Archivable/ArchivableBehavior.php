@@ -16,6 +16,7 @@ namespace Propulsion\Generator\Behavior\Archivable;
  * @version		$Revision$
  */
 
+use Propulsion\Generator\Builder\DataModelBuilder;
 use Propulsion\Generator\Model\Behavior;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Model\Column;
@@ -23,7 +24,10 @@ use \InvalidArgumentException;
 
 class ArchivableBehavior extends Behavior
 {
-	// default parameters value
+	/**
+	 * default parameters value
+	 * @var array<string, mixed>
+	 */
 	protected $parameters = array(
 		'archive_table'       => '',
 		'archive_class'       => '',
@@ -34,11 +38,11 @@ class ArchivableBehavior extends Behavior
 		'archive_on_delete'   => 'true',
 	);
 
-	protected $archiveTable;
-	protected $objectBuilderModifier;
-	protected $queryBuilderModifier;
+	protected ?Table $archiveTable = null;
+	protected ?ArchivableBehaviorObjectBuilderModifier $objectBuilderModifier = null;
+	protected ?ArchivableBehaviorQueryBuilderModifier $queryBuilderModifier = null;
 
-	public function modifyTable()
+	public function modifyTable(): void
 	{
 		if ($this->getParameter('archive_class') && $this->getParameter('archive_table')) {
 			throw new InvalidArgumentException('Please set only one of the two parameters "archive_class" and "archive_table".');
@@ -48,7 +52,7 @@ class ArchivableBehavior extends Behavior
 		}
 	}
 
-	protected function addArchiveTable()
+	protected function addArchiveTable(): void
 	{
 		$table = $this->getTable();
 		$database = $table->getDatabase();
@@ -110,7 +114,7 @@ class ArchivableBehavior extends Behavior
 		return $this->archiveTable;
 	}
 
-	public function getArchiveTablePhpName($builder)
+	public function getArchiveTablePhpName(DataModelBuilder $builder): string
 	{
 		if ($this->getParameter('archive_class') == '') {
 			return $builder->getNewStubObjectBuilder($this->getArchiveTable())->getClassname();
@@ -119,7 +123,7 @@ class ArchivableBehavior extends Behavior
 		}
 	}
 
-	public function getArchiveTableQueryName($builder)
+	public function getArchiveTableQueryName(DataModelBuilder $builder): string
 	{
 		if ($this->getParameter('archive_class') == '') {
 			return $builder->getNewStubQueryBuilder($this->getArchiveTable())->getClassname();
@@ -140,22 +144,22 @@ class ArchivableBehavior extends Behavior
 		return null;
 	}
 
-	public function isArchiveOnInsert()
+	public function isArchiveOnInsert(): bool
 	{
 		return $this->getParameter('archive_on_insert') == 'true';
 	}
 
-	public function isArchiveOnUpdate()
+	public function isArchiveOnUpdate(): bool
 	{
 		return $this->getParameter('archive_on_update') == 'true';
 	}
 
-	public function isArchiveOnDelete()
+	public function isArchiveOnDelete(): bool
 	{
 		return $this->getParameter('archive_on_delete') == 'true';
 	}
 
-	public function getObjectBuilderModifier()
+	public function getObjectBuilderModifier(): ArchivableBehaviorObjectBuilderModifier
 	{
 		if (is_null($this->objectBuilderModifier)) {
 			$this->objectBuilderModifier = new ArchivableBehaviorObjectBuilderModifier($this);
@@ -163,7 +167,7 @@ class ArchivableBehavior extends Behavior
 		return $this->objectBuilderModifier;
 	}
 
-	public function getQueryBuilderModifier()
+	public function getQueryBuilderModifier(): ArchivableBehaviorQueryBuilderModifier
 	{
 		if (is_null($this->queryBuilderModifier)) {
 			$this->queryBuilderModifier = new ArchivableBehaviorQueryBuilderModifier($this);

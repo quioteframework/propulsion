@@ -26,7 +26,7 @@ class QueryInheritanceBuilder extends OMBuilder
 	/**
 	 * The current child "object" we are operating on.
 	 */
-	protected $child;
+	protected ?Inheritance $child = null;
 
 	/**
 	 * Returns the name of the current class being built.
@@ -62,7 +62,7 @@ class QueryInheritanceBuilder extends OMBuilder
 	 * Set the child object that we're operating on currrently.
 	 * @param      $child Inheritance
 	 */
-	public function setChild(Inheritance $child)
+	public function setChild(Inheritance $child): void
 	{
 		$this->child = $child;
 	}
@@ -104,7 +104,7 @@ class QueryInheritanceBuilder extends OMBuilder
 	 * Adds the include() statements for files that this class depends on or utilizes.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addIncludes(&$script = null)
+	protected function addIncludes(&$script = null): void
 	{
 		$requiredClassFilePath = $this->getStubQueryBuilder()->getClassFilePath();
 
@@ -117,7 +117,7 @@ require '".$requiredClassFilePath."';
 	 * Adds class phpdoc comment and openning of class.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addClassOpen(&$script)
+	protected function addClassOpen(&$script): void
 	{
 		$table = $this->getTable();
 		$tableName = $table->getName();
@@ -166,7 +166,7 @@ class "  .$this->getClassname() . " extends " . $baseClassname . " {
 	 *
 	 * @see        AbstractObjectBuilder::addClassBody()
 	 */
-	protected function addClassBody(&$script)
+	protected function addClassBody(string &$script): void
 	{
 		$this->declareClassFromBuilder($this->getStubPeerBuilder());
 		$this->declareClasses('PropulsionPDO', 'Criteria');
@@ -181,7 +181,7 @@ class "  .$this->getClassname() . " extends " . $baseClassname . " {
 	 * Adds the factory for this object.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addFactory(&$script)
+	protected function addFactory(&$script): void
 	{
 		$builder = $this->getNewStubQueryInheritanceBuilder($this->getChild());
 		$this->declareClassFromBuilder($builder);
@@ -223,7 +223,7 @@ class "  .$this->getClassname() . " extends " . $baseClassname . " {
 ";
 	}
 
-	protected function addPreSelect(&$script)
+	protected function addPreSelect(string &$script): void
 	{
 		$child = $this->getChild();
 		$col = $child->getColumn();
@@ -240,7 +240,7 @@ class "  .$this->getClassname() . " extends " . $baseClassname . " {
 ";
 	}
 
-	protected function addPreUpdate(&$script)
+	protected function addPreUpdate(string &$script): void
 	{
 		$child = $this->getChild();
 		$col = $child->getColumn();
@@ -259,7 +259,7 @@ class "  .$this->getClassname() . " extends " . $baseClassname . " {
 ";
 	}
 
-	protected function addPreDelete(&$script)
+	protected function addPreDelete(string &$script): void
 	{
 		$child = $this->getChild();
 		$col = $child->getColumn();
@@ -275,14 +275,14 @@ class "  .$this->getClassname() . " extends " . $baseClassname . " {
 ";
 	}
 
-	protected function getClassKeyCondition()
+	protected function getClassKeyCondition(): string
 	{
 		$child = $this->getChild();
 		$col = $child->getColumn();
 		return "\$this->addUsingAlias(" . $col->getConstantName() . ", " . $this->getPeerClassname()."::CLASSKEY_".strtoupper($child->getKey()).");";
 	}
 
-	protected function addDoDeleteAll(&$script)
+	protected function addDoDeleteAll(string &$script): void
 	{
 		$child = $this->getChild();
 
@@ -308,7 +308,7 @@ class "  .$this->getClassname() . " extends " . $baseClassname . " {
 	 * Closes class.
 	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addClassClose(&$script)
+	protected function addClassClose(&$script): void
 	{
 		$script .= "
 } // " . $this->getClassname() . "

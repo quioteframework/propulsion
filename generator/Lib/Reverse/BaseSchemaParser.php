@@ -20,6 +20,7 @@ use Propulsion\Generator\Config\GeneratorConfig;
 use Propulsion\Generator\Config\GeneratorConfigInterface;
 use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\VendorInfo;
+use Propulsion\Generator\Platform\PropulsionPlatformInterface;
 
 abstract class BaseSchemaParser implements SchemaParser
 {
@@ -33,7 +34,7 @@ abstract class BaseSchemaParser implements SchemaParser
 	/**
 	 * Stack of warnings.
 	 *
-	 * @var        array string[]
+	 * @var        array<int, string>
 	 */
 	protected $warnings = array();
 
@@ -47,14 +48,14 @@ abstract class BaseSchemaParser implements SchemaParser
 	/**
 	 * Map native DB types to Propulsion types.
 	 * (Override in subclasses.)
-	 * @var        array
+	 * @var        array<string, string>|null
 	 */
 	protected $nativeToPropulsionTypeMap;
 
 	/**
 	 * Map to hold reverse type mapping (initialized on-demand).
 	 *
-	 * @var        array
+	 * @var        array<string, string>|null
 	 */
 	protected $reverseTypeMap;
 
@@ -65,7 +66,7 @@ abstract class BaseSchemaParser implements SchemaParser
 	 */
 	protected $migrationTable = 'propulsion_migration';
 
-	protected $platform;
+	protected ?PropulsionPlatformInterface $platform = null;
 
 	/**
 	 * @param      \PDO $dbh Optional database connection
@@ -80,7 +81,7 @@ abstract class BaseSchemaParser implements SchemaParser
 	 *
 	 * @param      \PDO|null $dbh
 	 */
-	public function setConnection(?\PDO $dbh)
+	public function setConnection(?\PDO $dbh): void
 	{
 		$this->dbh = $dbh;
 	}
@@ -99,7 +100,7 @@ abstract class BaseSchemaParser implements SchemaParser
 	 *
 	 * @param string $migrationTable
 	 */
-	public function setMigrationTable($migrationTable)
+	public function setMigrationTable(string $migrationTable): void
 	{
 		$this->migrationTable = $migrationTable;
 	}
@@ -119,7 +120,7 @@ abstract class BaseSchemaParser implements SchemaParser
 	 *
 	 * @param      string $msg The warning message.
 	 */
-	protected function warn($msg)
+	protected function warn(string $msg): void
 	{
 		$this->warnings[] = $msg;
 	}
@@ -127,9 +128,9 @@ abstract class BaseSchemaParser implements SchemaParser
 	/**
 	 * Gets array of warning messages.
 	 *
-	 * @return     array string[]
+	 * @return     array<int, string>
 	 */
-	public function getWarnings()
+	public function getWarnings(): array
 	{
 		return $this->warnings;
 	}
@@ -139,7 +140,7 @@ abstract class BaseSchemaParser implements SchemaParser
 	 *
 	 * @param      GeneratorConfigInterface $config
 	 */
-	public function setGeneratorConfig(GeneratorConfigInterface $config)
+	public function setGeneratorConfig(GeneratorConfigInterface $config): void
 	{
 		$this->generatorConfig = $config;
 	}
@@ -171,9 +172,9 @@ abstract class BaseSchemaParser implements SchemaParser
 	/**
 	 * Gets a type mapping from native type to Propulsion type.
 	 *
-	 * @return     array The mapped Propulsion type.
+	 * @return     array<string, string> The mapped Propulsion type.
 	 */
-	abstract protected function getTypeMapping();
+	abstract protected function getTypeMapping(): array;
 
 	/**
 	 * Gets a mapped Propulsion type for specified native type.
@@ -209,9 +210,9 @@ abstract class BaseSchemaParser implements SchemaParser
 	/**
 	 * Gets a new VendorInfo object for this platform with specified params.
 	 *
-	 * @param      array $params
+	 * @param      array<string, mixed> $params
 	 */
-	protected function getNewVendorInfoObject(array $params)
+	protected function getNewVendorInfoObject(array $params): VendorInfo
 	{
 		$type = $this->getPlatform()->getDatabaseType();
 		$vi = new VendorInfo($type);
@@ -219,12 +220,12 @@ abstract class BaseSchemaParser implements SchemaParser
 		return $vi;
 	}
 
-	public function setPlatform($platform)
+	public function setPlatform(PropulsionPlatformInterface $platform): void
 	{
 	  $this->platform = $platform;
 	}
 
-	public function getPlatform()
+	public function getPlatform(): ?PropulsionPlatformInterface
 	{
 	  if (null === $this->platform)
 	  {

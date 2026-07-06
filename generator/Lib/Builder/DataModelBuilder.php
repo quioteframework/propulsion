@@ -36,6 +36,7 @@ use Propulsion\Generator\Builder\Util\Pluralizer;
 use Propulsion\Generator\Config\GeneratorConfig;
 use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\Database;
+use Propulsion\Generator\Model\Inheritance;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Config\GeneratorConfigInterface;
 use Propulsion\Generator\Platform\PropulsionPlatformInterface;
@@ -57,7 +58,7 @@ abstract class DataModelBuilder
 
 	/**
 	 * An array of warning messages that can be retrieved for display (e.g. as part of phing build process).
-	 * @var        array string[]
+	 * @var        string[]
 	 */
 	private $warnings = array();
 
@@ -512,7 +513,7 @@ abstract class DataModelBuilder
 	 * Returns new Query Inheritance builder class for this table.
 	 * @return     OMBuilder
 	 */
-	public function getNewQueryInheritanceBuilder($child)
+	public function getNewQueryInheritanceBuilder(Inheritance $child)
 	{
 		$queryInheritanceBuilder = $this->configureBuilder($this->getTable(), 'queryinheritance', OMBuilder::class);
 		if ($queryInheritanceBuilder instanceof QueryInheritanceBuilder) {
@@ -525,7 +526,7 @@ abstract class DataModelBuilder
 	 * Returns new stub Query Inheritance builder class for this table.
 	 * @return     OMBuilder
 	 */
-	public function getNewStubQueryInheritanceBuilder($child)
+	public function getNewStubQueryInheritanceBuilder(Inheritance $child)
 	{
 		$stubQueryInheritanceBuilder = $this->configureBuilder($this->getTable(), 'queryinheritancestub', OMBuilder::class);
 		if ($stubQueryInheritanceBuilder instanceof ExtensionQueryInheritanceBuilder) {
@@ -548,7 +549,7 @@ abstract class DataModelBuilder
 	 * Get a specific [name transformed] build property.
 	 *
 	 * @param      string $name
-	 * @return     string
+	 * @return     mixed
 	 */
 	public function getBuildProperty($name)
 	{
@@ -560,7 +561,7 @@ abstract class DataModelBuilder
 	 *
 	 * @param      GeneratorConfig $v
 	 */
-	public function setGeneratorConfig(GeneratorConfigInterface $v)
+	public function setGeneratorConfig(GeneratorConfigInterface $v): void
 	{
 		$this->generatorConfig = $v;
 	}
@@ -569,7 +570,7 @@ abstract class DataModelBuilder
 	 * Sets the table for this builder.
 	 * @param      Table $table
 	 */
-	public function setTable(Table $table)
+	public function setTable(Table $table): void
 	{
 		$this->table = $table;
 	}
@@ -601,7 +602,7 @@ abstract class DataModelBuilder
 	 *
 	 * @param PropulsionPlatformInterface $platform
 	 */
-	public function setPlatform(PropulsionPlatformInterface $platform)
+	public function setPlatform(PropulsionPlatformInterface $platform): void
 	{
 		$this->platform = $platform;
 	}
@@ -619,16 +620,16 @@ abstract class DataModelBuilder
 	 * Pushes a message onto the stack of warnings.
 	 * @param      string $msg The warning message.
 	 */
-	protected function warn($msg)
+	protected function warn(string $msg): void
 	{
 		$this->warnings[] = $msg;
 	}
 
 	/**
 	 * Gets array of warning messages.
-	 * @return     array string[]
+	 * @return     string[]
 	 */
-	public function getWarnings()
+	public function getWarnings(): array
 	{
 		return $this->warnings;
 	}
@@ -656,7 +657,7 @@ abstract class DataModelBuilder
 	 * @return     string
 	 * @see        OMBuilder#getClassname()
 	 */
-	public function prefixClassname($identifier)
+	public function prefixClassname(string $identifier): string
 	{
 		return $this->getBuildProperty('classPrefix') . $identifier;
 	}

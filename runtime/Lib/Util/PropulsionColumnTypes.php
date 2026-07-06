@@ -52,7 +52,8 @@ class PropulsionColumnTypes
 		PHP_ARRAY = "ARRAY",
 		ENUM = "ENUM";
 
-	private static $propelToPdoMap = array(
+	/** @var array<string, int> */
+	private static array $propelToPdoMap = array(
 		self::CHAR        => PDO::PARAM_STR,
 		self::VARCHAR     => PDO::PARAM_STR,
 		self::LONGVARCHAR => PDO::PARAM_STR,

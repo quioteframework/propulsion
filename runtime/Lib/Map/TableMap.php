@@ -31,60 +31,60 @@ class TableMap
 
   /**
    * Columns in the table
-   * @var array TableMap[]
+   * @var array<string, ColumnMap>
    */
   protected $columns = array();
 
   /**
    * Columns in the table, using table phpName as key
-   * @var array TableMap[]
+   * @var array<string, ColumnMap>
    */
   protected $columnsByPhpName = array();
 
   // The database this table belongs to
-  protected $dbMap;
+  protected ?DatabaseMap $dbMap = null;
 
   // The name of the table
-  protected $tableName;
+  protected ?string $tableName = null;
 
   // The PHP name of the table
-  protected $phpName;
+  protected ?string $phpName = null;
 
   // The Classname for this table
-  protected $classname;
+  protected ?string $classname = null;
 
   // The Package for this table
-  protected $package;
+  protected ?string $package = null;
 
   // Whether to use an id generator for pkey
-  protected $useIdGenerator;
+  protected ?bool $useIdGenerator = null;
 
   // Whether the table uses single table inheritance
-  protected $isSingleTableInheritance = false;
+  protected bool $isSingleTableInheritance = false;
 
   // Whether the table is a cross-reference table
-  protected $isCrossRef = false;
+  protected bool $isCrossRef = false;
 
-  // The primary key columns in the table
+  /** @var array<string, ColumnMap> The primary key columns in the table */
   protected $primaryKeys = array();
 
-  // The foreign key columns in the table
+  /** @var array<string, ColumnMap> The foreign key columns in the table */
   protected $foreignKeys = array();
 
-  // The relationships in the table
+  /** @var array<string, RelationMap> The relationships in the table */
   protected $relations = array();
 
   // Relations are lazy loaded. This property tells if the relations are loaded or not
-  protected $relationsBuilt = false;
+  protected bool $relationsBuilt = false;
 
   // Object to store information that is needed if the for generating primary keys
-  protected $pkInfo;
+  protected ?string $pkInfo = null;
 
   /**
    * Construct a new TableMap.
    *
    */
-  public function __construct($name = null, $dbMap = null)
+  public function __construct(?string $name = null, ?DatabaseMap $dbMap = null)
   {
     if (null !== $name) {
     	$this->setName($name);
@@ -99,7 +99,7 @@ class TableMap
    * Initialize the TableMap to build columns, relations, etc
    * This method should be overridden by descendents
    */
-  public function initialize()
+  public function initialize(): void
   {
   }
 
@@ -108,7 +108,7 @@ class TableMap
    *
    * @param     DatabaseMap $dbMap A DatabaseMap.
    */
-  public function setDatabaseMap(DatabaseMap $dbMap)
+  public function setDatabaseMap(DatabaseMap $dbMap): void
   {
     $this->dbMap = $dbMap;
   }
@@ -116,7 +116,7 @@ class TableMap
   /**
    * Get the DatabaseMap containing this TableMap.
    *
-   * @return     DatabaseMap A DatabaseMap.
+   * @return     DatabaseMap|null A DatabaseMap.
    */
   public function getDatabaseMap()
   {
@@ -128,7 +128,7 @@ class TableMap
    *
    * @param      string $name The name of the table.
    */
-  public function setName($name)
+  public function setName($name): void
   {
     $this->tableName = $name;
   }
@@ -148,7 +148,7 @@ class TableMap
    *
    * @param      string $phpName The PHP Name for this table
    */
-  public function setPhpName($phpName)
+  public function setPhpName($phpName): void
   {
     $this->phpName = $phpName;
   }
@@ -168,7 +168,7 @@ class TableMap
    * Peer and Object methods dynamically.
    * @param      string $classname The Classname
    */
-  public function setClassname($classname)
+  public function setClassname($classname): void
   {
     $this->classname = $classname;
   }
@@ -196,7 +196,7 @@ class TableMap
    *
    * @param      string $package The Package
    */
-  public function setPackage($package)
+  public function setPackage($package): void
   {
     $this->package = $package;
   }
@@ -214,7 +214,7 @@ class TableMap
    * Set whether or not to use Id generator for primary key.
    * @param      boolean $bit
    */
-  public function setUseIdGenerator($bit)
+  public function setUseIdGenerator($bit): void
   {
     $this->useIdGenerator = $bit;
   }
@@ -232,7 +232,7 @@ class TableMap
    * Set whether or not to this table uses single table inheritance
    * @param      boolean $bit
    */
-  public function setSingleTableInheritance($bit)
+  public function setSingleTableInheritance($bit): void
   {
     $this->isSingleTableInheritance = $bit;
   }
@@ -250,7 +250,7 @@ class TableMap
    * Set whether or not this table is a cross-reference table
    * @param      boolean $isCrossRef
    */
-  public function setIsCrossRef($isCrossRef)
+  public function setIsCrossRef($isCrossRef): void
   {
     $this->isCrossRef = $isCrossRef;
   }
@@ -269,7 +269,7 @@ class TableMap
    *
    * @param      string|null $pkInfo information needed to generate a key
    */
-  public function setPrimaryKeyMethodInfo($pkInfo)
+  public function setPrimaryKeyMethodInfo($pkInfo): void
   {
     $this->pkInfo = $pkInfo;
   }
@@ -293,12 +293,12 @@ class TableMap
    * @param      int $size An int specifying the size.
    * @param      boolean $pk True if column is a primary key.
    * @param      string $fkTable A String with the foreign key table name.
-   * @param      $fkColumn A String with the foreign key column name.
+   * @param      string|null $fkColumn A String with the foreign key column name.
    * @param      mixed $defaultValue The default value for this column (its PHP type mirrors the
    *                    column's Propulsion type, e.g. int for INTEGER columns, string for VARCHAR).
    * @return     ColumnMap The newly created column.
    */
-  public function addColumn($name, $phpName, $type, $isNotNull = false, $size = null, $defaultValue = null, $pk = false, $fkTable = null, $fkColumn = null)
+  public function addColumn($name, string $phpName, $type, $isNotNull = false, $size = null, $defaultValue = null, $pk = false, $fkTable = null, ?string $fkColumn = null)
   {
     $col = new ColumnMap($name, $this);
     $col->setType($type);
@@ -404,9 +404,9 @@ class TableMap
   /**
    * Get a ColumnMap[] of the columns in this table.
    *
-   * @return     array A ColumnMap[].
+   * @return     ColumnMap[] A ColumnMap[].
    */
-  public function getColumns()
+  public function getColumns(): array
   {
     return $this->columns;
   }
@@ -415,12 +415,14 @@ class TableMap
    * Add a primary key column to this Table.
    *
    * @param      string $columnName A String with the column name.
+   * @param      string $phpName A String with the PHP name.
    * @param      string $type A string specifying the Propulsion type.
    * @param      boolean $isNotNull Whether column does not allow NULL values.
-   * @param      $size An int specifying the size.
+   * @param      int|null $size An int specifying the size.
+   * @param      mixed $defaultValue The default value for this column.
    * @return     ColumnMap Newly added PrimaryKey column.
    */
-  public function addPrimaryKey($columnName, $phpName, $type, $isNotNull = false, $size = null, $defaultValue = null)
+  public function addPrimaryKey(string $columnName, string $phpName, $type, $isNotNull = false, ?int $size = null, mixed $defaultValue = null)
   {
     return $this->addColumn($columnName, $phpName, $type, $isNotNull, $size, $defaultValue, true, null, null);
   }
@@ -437,7 +439,7 @@ class TableMap
    * @param      string $defaultValue The default value for this column.
    * @return     ColumnMap Newly added ForeignKey column.
    */
-  public function addForeignKey($columnName, $phpName, $type, $fkTable, $fkColumn, $isNotNull = false, $size = 0, $defaultValue = null)
+  public function addForeignKey($columnName, string $phpName, $type, $fkTable, $fkColumn, $isNotNull = false, $size = 0, $defaultValue = null)
   {
     return $this->addColumn($columnName, $phpName, $type, $isNotNull, $size, $defaultValue, false, $fkTable, $fkColumn);
   }
@@ -454,7 +456,7 @@ class TableMap
    * @param      string $defaultValue The default value for this column.
    * @return     ColumnMap Newly created foreign pkey column.
    */
-  public function addForeignPrimaryKey($columnName, $phpName, $type, $fkTable, $fkColumn, $isNotNull = false, $size = 0, $defaultValue = null)
+  public function addForeignPrimaryKey($columnName, string $phpName, $type, $fkTable, $fkColumn, $isNotNull = false, $size = 0, $defaultValue = null)
   {
     return $this->addColumn($columnName, $phpName, $type, $isNotNull, $size, $defaultValue, true, $fkTable, $fkColumn);
   }
@@ -462,9 +464,9 @@ class TableMap
   /**
    * Returns array of ColumnMap objects that make up the primary key for this table
    *
-   * @return     array ColumnMap[]
+   * @return     ColumnMap[]
    */
-  public function getPrimaryKeys()
+  public function getPrimaryKeys(): array
   {
     return $this->primaryKeys;
   }
@@ -472,9 +474,9 @@ class TableMap
   /**
    * Returns array of ColumnMap objects that are foreign keys for this table
    *
-   * @return     array ColumnMap[]
+   * @return     ColumnMap[]
    */
-  public function getForeignKeys()
+  public function getForeignKeys(): array
   {
     return $this->foreignKeys;
   }
@@ -509,7 +511,7 @@ class TableMap
    * Relations are lazy loaded for performance reasons
    * This method should be overridden by descendents
    */
-  public function buildRelations()
+  public function buildRelations(): void
   {
   }
 
@@ -519,7 +521,7 @@ class TableMap
    * @param      string $name The relation name
    * @param      string $tablePhpName The related table name
    * @param      integer $type The relation type (either RelationMap::MANY_TO_ONE, RelationMap::ONE_TO_MANY, or RelationMAp::ONE_TO_ONE)
-   * @param      array $columnMapping An associative array mapping column names (local => foreign)
+   * @param      array<string, string> $columnMapping An associative array mapping column names (local => foreign)
    * @param      string $onDelete SQL behavior upon deletion ('SET NULL', 'CASCADE', ...)
    * @param      string $onUpdate SQL behavior upon update ('SET NULL', 'CASCADE', ...)
    * @param      string $pluralName Optional plural name for *_TO_MANY relationships
@@ -589,9 +591,9 @@ class TableMap
    * Gets the RelationMap objects of the table
    * This method will build the relations if they are not built yet
    *
-   * @return      array list of RelationMap objects
+   * @return      array<string, RelationMap> list of RelationMap objects
    */
-  public function getRelations()
+  public function getRelations(): array
   {
     if(!$this->relationsBuilt)
     {
@@ -605,9 +607,9 @@ class TableMap
    *
    * Gets the list of behaviors registered for this table
    *
-   * @return array
+   * @return array<string, array<string, string>>
    */
-  public function getBehaviors()
+  public function getBehaviors(): array
   {
     return array();
   }
@@ -669,9 +671,9 @@ class TableMap
    * Returns array of ColumnMap objects that make up the primary key for this table.
    *
    * @deprecated Use getPrimaryKeys instead
-   * @return     array ColumnMap[]
+   * @return     ColumnMap[]
    */
-  public function getPrimaryKeyColumns()
+  public function getPrimaryKeyColumns(): array
   {
     return array_values($this->primaryKeys);
   }
@@ -682,7 +684,7 @@ class TableMap
    * The prefix on the table name.
    * @deprecated Not used anywhere in Propulsion
    */
-  private $prefix;
+  private ?string $prefix = null;
 
   /**
    * Get table prefix name.

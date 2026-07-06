@@ -21,12 +21,13 @@ use \Exception;
 class PropulsionAutoloader
 {
 
-	static protected $instance = null;
+	static protected ?self $instance = null;
 
 	/** @var \Closure|null The callback registered with spl_autoload_register(). */
 	static protected $registeredCallback = null;
 
-	protected $classes = array();
+	/** @var array<string, string> */
+	protected array $classes = array();
 
 	/**
 	 * Retrieves the singleton instance of this class.
@@ -79,9 +80,9 @@ class PropulsionAutoloader
 	/**
 	 * Sets the path for a list of classes.
 	 *
-	 * @param array $classMap An associative array $className => $classPath
+	 * @param array<string, string> $classMap An associative array $className => $classPath
 	 */
-	public function addClassPaths($classMap)
+	public function addClassPaths(array $classMap): void
 	{
 		$this->classes = array_merge($this->classes, $classMap);
 	}
@@ -92,7 +93,7 @@ class PropulsionAutoloader
 	 * @param string $class A PHP class name
 	 * @param string $path  A path (absolute or relative to the include path)
 	 */
-	public function addClassPath($class, $path)
+	public function addClassPath(string $class, string $path): void
 	{
 		$this->classes[$class] = $path;
 	}

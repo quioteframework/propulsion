@@ -32,7 +32,7 @@ class OraclePlatform extends DefaultPlatform
 	/**
 	 * Initializes db specific domain mapping.
 	 */
-	protected function initialize()
+	protected function initialize(): void
 	{
 		parent::initialize();
 		$this->schemaDomainMap[PropulsionTypes::BOOLEAN] = new Domain(PropulsionTypes::BOOLEAN_EMU, "NUMBER", "1", "0");
@@ -153,7 +153,7 @@ ALTER SESSION SET NLS_TIMESTAMP_FORMAT='YYYY-MM-DD HH24:MI:SS';
 		return '';
 	}
 
-	public function getAddSequencesDDL(Table $table)
+	public function getAddSequencesDDL(Table $table): ?string
 	{
 		if ($table->getIdMethod() == "native") {
 			$pattern = "
@@ -164,6 +164,8 @@ CREATE SEQUENCE %s
 				$this->quoteIdentifier($this->getSequenceName($table))
 			);
 		}
+
+		return null;
 	}
 
 	public function getDropTableDDL(Table $table)

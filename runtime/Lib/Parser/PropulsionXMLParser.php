@@ -20,7 +20,7 @@ class PropulsionXMLParser extends PropulsionParser
 	/**
 	 * Converts data from an associative array to XML.
 	 *
-	 * @param  array   $array Source data to convert
+	 * @param  array<mixed>   $array Source data to convert
 	 * @param  string  $rootElementName Name of the root element of the XML document
 	 * @param  string  $charset Character set of the input data. Defaults to UTF-8.
 	 *
@@ -34,6 +34,13 @@ class PropulsionXMLParser extends PropulsionParser
 		return $rootNode->ownerDocument->saveXML();
 	}
 
+	/**
+	 * @param  array<mixed>  $array Source data to convert
+	 * @param  string  $rootElementName Name of the root element of the XML document
+	 * @param  string|null  $charset Character set of the input data. Defaults to UTF-8.
+	 *
+	 * @return string|false Converted data, as an XML string
+	 */
 	public function listFromArray($array, $rootElementName = 'data', $charset = null)
 	{
 		$rootNode = $this->getRootNode($rootElementName);
@@ -63,7 +70,7 @@ class PropulsionXMLParser extends PropulsionParser
 	/**
 	 * Alias for PropulsionXMLParser::fromArray()
 	 *
-	 * @param  array   $array Source data to convert
+	 * @param  array<mixed>   $array Source data to convert
 	 * @param  string  $rootElementName Name of the root element of the XML document
 	 * @param  string  $charset Character set of the input data. Defaults to UTF-8.
 	 *
@@ -77,11 +84,11 @@ class PropulsionXMLParser extends PropulsionParser
 	/**
 	 * Alias for PropulsionXMLParser::listFromArray()
 	 *
-	 * @param  array   $array Source data to convert
+	 * @param  array<mixed>   $array Source data to convert
 	 * @param  string  $rootElementName Name of the root element of the XML document
 	 * @param  string  $charset Character set of the input data. Defaults to UTF-8.
 	 *
-	 * @return string Converted data, as an XML string
+	 * @return string|false Converted data, as an XML string
 	 */
 	public function listToXML($array, $rootElementName = 'data', $charset = null)
 	{
@@ -89,9 +96,9 @@ class PropulsionXMLParser extends PropulsionParser
 	}
 
 	/**
- 	 * @param  array $array
+ 	 * @param  array<mixed> $array
 	 * @param  \DOMElement $rootElement
-	 * @param  string $charset
+	 * @param  string|null $charset
 	 * @param  boolean $removeNumbersFromKeys
 	 *
 	 * @return \DOMElement
@@ -129,7 +136,7 @@ class PropulsionXMLParser extends PropulsionParser
 	 * Converts data from XML to an associative array.
 	 *
 	 * @param  string $data Source data to convert, as an XML string
-	 * @return array Converted data
+	 * @return array<mixed> Converted data
 	 */
 	public function toArray($data)
 	{
@@ -143,7 +150,7 @@ class PropulsionXMLParser extends PropulsionParser
 	 * Alias for PropulsionXMLParser::toArray()
 	 *
 	 * @param  string $data Source data to convert, as an XML string
-	 * @return array Converted data
+	 * @return array<mixed> Converted data
 	 */
 	public function fromXML($data)
 	{
@@ -152,7 +159,7 @@ class PropulsionXMLParser extends PropulsionParser
 
 	/**
 	 * @param  \DOMElement $data
-	 * @return array
+	 * @return array<mixed>
 	 */
 	protected function convertDOMElementToArray(\DOMElement $data)
 	{

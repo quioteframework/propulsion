@@ -197,6 +197,7 @@ interface NodePeer
 	 *
 	 * @param      int $scopeId		Scope id to determine which scope tree to return
 	 * @param      PropulsionPDO $con	Connection to use.
+	 * @return     mixed		Propulsion object for root node if it exists else null
 	 */
 	public static function retrieveTree($scopeId = 1, ?PropulsionPDO $con = null);
 
@@ -204,6 +205,7 @@ interface NodePeer
 	 * Retrieves the entire tree from parent $node
 	 *
 	 * @param      PropulsionPDO $con	Connection to use.
+	 * @return     array<int, NodeObject>
 	 */
 	public static function retrieveBranch(NodeObject $node, ?PropulsionPDO $con = null);
 
@@ -212,6 +214,7 @@ interface NodePeer
 	 *
 	 * @param      NodeObject $node	Propulsion object for parent node
 	 * @param      PropulsionPDO $con	Connection to use.
+	 * @return     array<int, NodeObject>
 	 */
 	public static function retrieveChildren(NodeObject $node, ?PropulsionPDO $con = null);
 
@@ -220,6 +223,7 @@ interface NodePeer
 	 *
 	 * @param      NodeObject $node	Propulsion object for parent node
 	 * @param      PropulsionPDO $con	Connection to use.
+	 * @return     array<int, NodeObject>
 	 */
 	public static function retrieveDescendants(NodeObject $node, ?PropulsionPDO $con = null);
 
@@ -228,6 +232,7 @@ interface NodePeer
 	 *
 	 * @param      NodeObject $node	Propulsion object for src node
 	 * @param      PropulsionPDO $con	Connection to use.
+	 * @return     array<int, NodeObject>
 	 */
 	public static function retrieveSiblings(NodeObject $node, ?PropulsionPDO $con = null);
 
@@ -272,7 +277,7 @@ interface NodePeer
 	 *
 	 * @param      NodeObject $node	Propulsion object of node to create path to
 	 * @param      PropulsionPDO $con	Connection to use.
-	 * @return     array		Array in order of heirarchy
+	 * @return     array<int, NodeObject>		Array in order of heirarchy
 	 */
 	public static function getPath(NodeObject $node, ?PropulsionPDO $con = null);
 
@@ -358,6 +363,7 @@ interface NodePeer
 	 *
 	 * @param      NodeObject $node	Propulsion object for source node
 	 * @param      PropulsionPDO $con	Connection to use.
+	 * @return     int
 	 */
 	public static function deleteDescendants(NodeObject $node, ?PropulsionPDO $con = null);
 

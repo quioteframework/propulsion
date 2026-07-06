@@ -24,6 +24,15 @@ namespace Propulsion\Generator\Builder\Util;
 
  use Propulsion\Generator\Platform\PropulsionPlatformInterface;
  use Propulsion\Generator\Model\AppData;
+ use Propulsion\Generator\Model\Database;
+ use Propulsion\Generator\Model\Table;
+ use Propulsion\Generator\Model\Column;
+ use Propulsion\Generator\Model\ForeignKey;
+ use Propulsion\Generator\Model\Index;
+ use Propulsion\Generator\Model\Unique;
+ use Propulsion\Generator\Model\Validator;
+ use Propulsion\Generator\Model\Behavior;
+ use Propulsion\Generator\Model\VendorInfo;
  use Propulsion\Generator\Config\GeneratorConfig;
  use Propulsion\Generator\Exception\SchemaException;
 class XmlToAppData
@@ -32,28 +41,29 @@ class XmlToAppData
 	/** enables debug output */
 	const DEBUG = false;
 
-	private $app;
-	private $currDB;
-	private $currTable;
-	private $currColumn;
-	private $currFK;
-	private $currIndex;
-	private $currUnique;
-	private $currValidator;
-	private $currBehavior;
-	private $currVendorObject;
+	private AppData $app;
+	private ?Database $currDB = null;
+	private ?Table $currTable = null;
+	private ?Column $currColumn = null;
+	private ?ForeignKey $currFK = null;
+	private ?Index $currIndex = null;
+	private ?Unique $currUnique = null;
+	private ?Validator $currValidator = null;
+	private ?Behavior $currBehavior = null;
+	private ?VendorInfo $currVendorObject = null;
 
-	private $isForReferenceOnly;
-	private $currentPackage;
-	private $currentXmlFile;
-	private $defaultPackage;
+	private ?bool $isForReferenceOnly = null;
+	private ?string $currentPackage = null;
+	private ?string $currentXmlFile = null;
+	private ?string $defaultPackage;
 
-	private $encoding;
+	private string $encoding;
 
 	/* two-dimensional array,
 		first dimension is for schemas(key is the path to the schema file),
 		second is for tags within the schema */
-	private $schemasTagsStack = array();
+	/** @var array<string, list<string>> */
+	private array $schemasTagsStack = array();
 
 	/**
 	 * Creates a new instance for the specified database type.
@@ -74,7 +84,7 @@ class XmlToAppData
 	 *
 	 * @param GeneratorConfig $generatorConfig
 	 */
-	public function setGeneratorConfig(GeneratorConfig $generatorConfig)
+	public function setGeneratorConfig(GeneratorConfig $generatorConfig): void
 	{
 		$this->app->setGeneratorConfig($generatorConfig);
 	}
@@ -134,9 +144,9 @@ class XmlToAppData
 	 *
 	 * @param      resource|\XMLParser $parser The XML parser resource/instance.
 	 * @param      string $name The name of the element.
-	 * @param      array $attributes The specified or defaulted attributes.
+	 * @param      array<string, mixed> $attributes The specified or defaulted attributes.
 	 */
-	public function startElement($parser, $name, $attributes)
+	public function startElement($parser, $name, $attributes): void
 	{
 	  $parentTag = $this->peekCurrentSchemaTag();
 
@@ -340,7 +350,11 @@ class XmlToAppData
 		$this->pushCurrentSchemaTag($name);
 	}
 
-	function _throwInvalidTagException($parser, $tag_name)
+	/**
+	 * @param      resource|\XMLParser $parser The XML parser resource/instance.
+	 * @param      string $tag_name The name of the unexpected tag.
+	 */
+	function _throwInvalidTagException($parser, string $tag_name): never
 	{
 		$location = '';
 		if ($this->currentXmlFile !== null) {
@@ -359,35 +373,35 @@ class XmlToAppData
 	 * @param      resource|\XMLParser $parser The XML parser resource/instance.
 	 * @param      string $name The name of the element.
 	 */
-	public function endElement($parser, $name)
+	public function endElement($parser, $name): void
 	{
 		$this->popCurrentSchemaTag();
 	}
 
-	protected function peekCurrentSchemaTag()
+	protected function peekCurrentSchemaTag(): string|false
 	{
 		$keys = array_keys($this->schemasTagsStack);
 		return end($this->schemasTagsStack[end($keys)]);
 	}
 
-	protected function popCurrentSchemaTag()
+	protected function popCurrentSchemaTag(): void
 	{
 		$keys = array_keys($this->schemasTagsStack);
 		array_pop($this->schemasTagsStack[end($keys)]);
 	}
 
-	protected function pushCurrentSchemaTag($tag)
+	protected function pushCurrentSchemaTag(string $tag): void
 	{
 		$keys = array_keys($this->schemasTagsStack);
 		$this->schemasTagsStack[end($keys)][] = $tag;
 	}
 
-	protected function isExternalSchema()
+	protected function isExternalSchema(): bool
 	{
 		return count($this->schemasTagsStack) > 1;
 	}
 
-	protected function isAlreadyParsed($filePath)
+	protected function isAlreadyParsed(string $filePath): bool
 	{
 		return isset($this->schemasTagsStack[$filePath]);
 	}

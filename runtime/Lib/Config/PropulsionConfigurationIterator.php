@@ -15,6 +15,9 @@ namespace Propulsion\Config;
  * @author     Veikko M�kinen <veikko@veikko.fi>
  * @version    $Revision$
  */
+/**
+ * @extends \RecursiveIteratorIterator<\RecursiveIterator<mixed, mixed>>
+ */
 class PropulsionConfigurationIterator extends \RecursiveIteratorIterator
 {
 	/**
@@ -30,14 +33,14 @@ class PropulsionConfigurationIterator extends \RecursiveIteratorIterator
 	/**
 	 * Namespace stack when recursively iterating the configuration tree
 	 *
-	 * @var       array
+	 * @var       array<int, int|string>
 	 */
 	protected $namespaceStack = array();
 
 	/**
 	 * Current node type. Possible values: null (undefined), self::NODE_PARENT or self::NODE_ITEM
 	 *
-	 * @var       integer
+	 * @var       int|null
 	 */
 	protected $nodeType = null;
 

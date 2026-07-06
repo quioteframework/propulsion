@@ -26,9 +26,9 @@ class DBNone extends DBAdapter
 	 * @see        DBAdapter::initConnection()
 	 *
 	 * @param     PDO    $con
-	 * @param     array  $settings
+	 * @param     array<string,mixed>  $settings
 	 */
-	public function initConnection(PDO $con, array $settings)
+	public function initConnection(PDO $con, array $settings): void
 	{
 	}
 
@@ -99,7 +99,7 @@ class DBNone extends DBAdapter
 	 * @param     integer  $offset
 	 * @param     integer  $limit
 	 */
-	public function applyLimit(&$sql, $offset, $limit, $criteria = null)
+	public function applyLimit(&$sql, $offset, $limit, $criteria = null): void
 	{
 	}
 
@@ -108,7 +108,8 @@ class DBNone extends DBAdapter
 	 *
 	 * @param     string  $seed (optional) seed value for databases that support this
 	 */
-	public function random($seed = null)
+	public function random($seed = null): ?string
 	{
+		return null;
 	}
 }

@@ -37,8 +37,9 @@ class ExtensionNodePeerBuilder extends AbstractPeerBuilder
 	/**
 	 * Adds the include() statements for files that this class depends on or utilizes.
 	 * Uses modern autoloading instead of manual includes where possible.
+	 * @param      string &$script The script will be modified in this method.
 	 */
-	protected function addIncludes(&$script = null)
+	protected function addIncludes(&$script = null): void
 	{
 		// Modern PHP 8.4 prefers autoloading over manual includes
 		// Only include if autoloading is not available
@@ -52,6 +53,7 @@ if (!class_exists('{$this->getNodePeerBuilder()->getClassname()}')) {
 
 	/**
 	 * Adds class phpdoc comment and opening of class with modern PHP 8.4 syntax.
+	 * @param      string &$script The script will be modified in this method.
 	 */
 	protected function addClassOpen(&$script): void
 	{
@@ -134,6 +136,7 @@ class " . $this->getClassname() . " extends $baseClassname
 
 	/**
 	 * Closes class with modern PHP 8.4 syntax.
+	 * @param      string &$script The script will be modified in this method.
 	 */
 	protected function addClassClose(&$script): void
 	{
