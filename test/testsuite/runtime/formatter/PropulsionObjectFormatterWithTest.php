@@ -221,10 +221,8 @@ class PropulsionObjectFormatterWithTest extends BookstoreEmptyTestBase
 		AuthorPeer::clearInstancePool();
 		EssayPeer::clearInstancePool();
 
-		$query = AuthorQuery::create()
-			->useEssayRelatedByFirstAuthorQuery()
-			->orderByTitle()
-			->endUse()
+		$query = AuthorQuery::create()->withEssayRelatedByFirstAuthorQuery(fn($q) => $q
+			->orderByTitle())
 			->with('EssayRelatedByFirstAuthor');
 
 		$author = $query->findOne(); // should not throw a notice
@@ -421,11 +419,9 @@ class PropulsionObjectFormatterWithTest extends BookstoreEmptyTestBase
 		$authors = AuthorQuery::create()
 			->filterByLastName('Rowling')
 			->joinBook('book')
-			->with('book')
-			->useQuery('book')
+			->with('book')->withQuery('book', fn($q) => $q
 			->joinReview('review')
-			->with('review')
-			->endUse()
+			->with('review'))
 			->find($con);
 		$this->assertEquals(1, count($authors), 'with() does not duplicate the main object');
 		$rowling = $authors[0];
@@ -579,10 +575,8 @@ class PropulsionObjectFormatterWithTest extends BookstoreEmptyTestBase
 
 		$query = BookQuery::create()
 			->filterByTitle('Weirdness')
-			->innerJoinAuthor()
-			->useBookOpinionQuery(null, Criteria::LEFT_JOIN)
-			->leftJoinBookReader()
-			->endUse()
+			->innerJoinAuthor()->withBookOpinionQuery(fn($q) => $q
+			->leftJoinBookReader(), null, Criteria::LEFT_JOIN)
 			->with('Author')
 			->with('BookOpinion')
 			->with('BookReader');

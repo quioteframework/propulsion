@@ -60,3 +60,95 @@ globally-registered one for just that connection:
 ```php
 $con->setLogger($logger);
 ```
+
+## Migrating `useQuery()`/`endUse()` to `withQuery()` with Rector
+
+`useQuery()`/`endUse()` (and the generated `use<Relation>Query()` wrappers) are
+still fully supported, but are `@deprecated` in favor of a closure-scoped
+replacement: `withQuery()` on `ModelCriteria`, and a generated
+`with<Relation>Query()` sibling next to every `use<Relation>Query()`. The
+reason: `endUse()` can't statically know which concrete query class originally
+called `useQuery()` (that information is only tracked at runtime), so it's
+typed to return the generic `ModelCriteria` base class — which collapses the
+type of every chained call after it, breaking IDE autocomplete and PHPStan
+inference for the rest of the chain. The closure form doesn't have this
+problem: there's no `endUse()` to mistype, since "switching back" is just the
+callback returning.
+
+```php
+// before
+$books = BookQuery::create()
+    ->useAuthorQuery()
+        ->filterByFirstName('Jane')
+    ->endUse()
+    ->find();
+
+// after
+$books = BookQuery::create()
+    ->withAuthorQuery(fn ($q) => $q->filterByFirstName('Jane'))
+    ->find();
+```
+
+This also works for relations nested inside other relations, to any depth —
+including several sibling relations queried inside the same outer relation:
+
+```php
+$q->withAuthorQuery(fn ($author) => $author
+    ->withBookQuery(fn ($book) => $book->filterByTitle('War And Peace'))
+    ->withPublisherQuery(fn ($publisher) => $publisher->filterByName('Penguin')));
+```
+
+### Automated migration
+
+Propulsion ships a [Rector](https://github.com/rectorphp/rector) rule,
+`Propulsion\Generator\Rector\UseQueryToWithQueryRector`, that mechanically
+rewrites `useQuery()->...->endUse()` chains (including the generated
+`use<Relation>Query()` form, and nested/sibling chains at any depth) into the
+`withQuery()`/`with<Relation>Query()` form shown above. It ships as part of
+this package's own source, so it's available as soon as you
+`composer require quioteframework/propulsion` — you just need Rector itself
+installed to run it:
+
+```bash
+composer require --dev rector/rector
+```
+
+Then point your own `rector.php` at the rule:
+
+```php
+<?php
+// rector.php
+
+use Propulsion\Generator\Rector\UseQueryToWithQueryRector;
+use Rector\Config\RectorConfig;
+
+return RectorConfig::configure()
+    ->withPaths([
+        __DIR__ . '/src',
+        // ...any other directories containing your query-building code
+    ])
+    ->withRules([UseQueryToWithQueryRector::class]);
+```
+
+Regenerate your models first (`propulsion model:build` or your project's
+equivalent), so the `with<Relation>Query()` wrapper methods the rewritten code
+calls actually exist — the rule doesn't check this for you, it's a purely
+syntactic rewrite. Then, as with any Rector rule, review before applying:
+
+```bash
+vendor/bin/rector process --dry-run
+vendor/bin/rector process
+```
+
+**What it rewrites:** any fluent (single-expression) chain built directly off
+a `useQuery()`/`use<Relation>Query()` call and closed by a matching `endUse()`,
+including chains with other relations nested or sequenced inside them, and
+plain method calls (`where()`, `_or()`, `filterBy*()`, `add()`, ...) mixed in
+between — those pass through into the closure body untouched.
+
+**What it leaves alone, by design:** chains split across variables instead of
+one fluent expression (e.g. `$sub = $q->useQuery('x'); ...; $sub->endUse();`)
+— rewriting those safely would need flow analysis the rule doesn't attempt,
+so it's conservative and skips them rather than risk an incorrect rewrite.
+Anything left unconverted keeps working exactly as before, since
+`useQuery()`/`endUse()` are deprecated, not removed.

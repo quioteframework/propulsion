@@ -759,19 +759,15 @@ class QueryBuilderTest extends BookstoreTestBase
 
 	public function testUseFkQuerySimple()
 	{
-		$q = BookQuery::create()
-			->useAuthorQuery()
-				->filterByFirstName('Leo')
-			->endUse();
+		$q = BookQuery::create()->withAuthorQuery(fn($q) => $q
+				->filterByFirstName('Leo'));
 		$q1 = BookQuery::create()
 			->join('Book.Author', Criteria::LEFT_JOIN)
 			->add(AuthorPeer::FIRST_NAME, 'Leo', Criteria::EQUAL);
 		$this->assertTrue($q->equals($q1), 'useFkQuery() translates to a condition on a left join on non-required columns');
 
-		$q = BookSummaryQuery::create()
-			->useSummarizedBookQuery()
-				->filterByTitle('War And Peace')
-			->endUse();
+		$q = BookSummaryQuery::create()->withSummarizedBookQuery(fn($q) => $q
+				->filterByTitle('War And Peace'));
 		$q1 = BookSummaryQuery::create()
 			->join('BookSummary.SummarizedBook', Criteria::INNER_JOIN)
 			->add(BookPeer::TITLE, 'War And Peace', Criteria::EQUAL);
@@ -780,10 +776,8 @@ class QueryBuilderTest extends BookstoreTestBase
 
 	public function testUseFkQueryJoinType()
 	{
-		$q = BookQuery::create()
-			->useAuthorQuery(null, Criteria::LEFT_JOIN)
-				->filterByFirstName('Leo')
-			->endUse();
+		$q = BookQuery::create()->withAuthorQuery(fn($q) => $q
+				->filterByFirstName('Leo'), null, Criteria::LEFT_JOIN);
 		$q1 = BookQuery::create()
 			->join('Book.Author', Criteria::LEFT_JOIN)
 			->add(AuthorPeer::FIRST_NAME, 'Leo', Criteria::EQUAL);
@@ -792,10 +786,8 @@ class QueryBuilderTest extends BookstoreTestBase
 
 	public function testUseFkQueryAlias()
 	{
-		$q = BookQuery::create()
-			->useAuthorQuery('a')
-				->filterByFirstName('Leo')
-			->endUse();
+		$q = BookQuery::create()->withAuthorQuery(fn($q) => $q
+				->filterByFirstName('Leo'), 'a');
 		$join = new ModelJoin();
 		$join->setJoinType(Criteria::LEFT_JOIN);
 		$join->setTableMap(AuthorPeer::getTableMap());
@@ -810,10 +802,8 @@ class QueryBuilderTest extends BookstoreTestBase
 
 	public function testUseFkQueryMixed()
 	{
-		$q = BookQuery::create()
-			->useAuthorQuery()
-				->filterByFirstName('Leo')
-			->endUse()
+		$q = BookQuery::create()->withAuthorQuery(fn($q) => $q
+				->filterByFirstName('Leo'))
 			->filterByTitle('War And Peace');
 		$q1 = BookQuery::create()
 			->join('Book.Author', Criteria::LEFT_JOIN)
@@ -824,13 +814,9 @@ class QueryBuilderTest extends BookstoreTestBase
 
 	public function testUseFkQueryTwice()
 	{
-		$q = BookQuery::create()
-			->useAuthorQuery()
-				->filterByFirstName('Leo')
-			->endUse()
-			->useAuthorQuery()
-				->filterByLastName('Tolstoi')
-			->endUse();
+		$q = BookQuery::create()->withAuthorQuery(fn($q) => $q
+				->filterByFirstName('Leo'))->withAuthorQuery(fn($q) => $q
+				->filterByLastName('Tolstoi'));
 		$q1 = BookQuery::create()
 			->join('Book.Author', Criteria::LEFT_JOIN)
 			->add(AuthorPeer::FIRST_NAME, 'Leo', Criteria::EQUAL)
@@ -840,13 +826,9 @@ class QueryBuilderTest extends BookstoreTestBase
 
 	public function testUseFkQueryTwiceTwoAliases()
 	{
-		$q = BookQuery::create()
-			->useAuthorQuery('a')
-				->filterByFirstName('Leo')
-			->endUse()
-			->useAuthorQuery('b')
-				->filterByLastName('Tolstoi')
-			->endUse();
+		$q = BookQuery::create()->withAuthorQuery(fn($q) => $q
+				->filterByFirstName('Leo'), 'a')->withAuthorQuery(fn($q) => $q
+				->filterByLastName('Tolstoi'), 'b');
 		$join1 = new ModelJoin();
 		$join1->setJoinType(Criteria::LEFT_JOIN);
 		$join1->setTableMap(AuthorPeer::getTableMap());
@@ -869,12 +851,8 @@ class QueryBuilderTest extends BookstoreTestBase
 
 	public function testUseFkQueryNested()
 	{
-		$q = ReviewQuery::create()
-			->useBookQuery()
-				->useAuthorQuery()
-					->filterByFirstName('Leo')
-				->endUse()
-			->endUse();
+		$q = ReviewQuery::create()->withBookQuery(fn($q2) => $q2->withAuthorQuery(fn($q) => $q
+					->filterByFirstName('Leo')));
 		$q1 = ReviewQuery::create()
 			->join('Review.Book', Criteria::LEFT_JOIN)
 			->join('Book.Author', Criteria::LEFT_JOIN)
@@ -891,13 +869,9 @@ class QueryBuilderTest extends BookstoreTestBase
 
 	public function testUseFkQueryTwoRelations()
 	{
-		$q = BookQuery::create()
-			->useAuthorQuery()
-				->filterByFirstName('Leo')
-			->endUse()
-			->usePublisherQuery()
-				->filterByName('Penguin')
-			->endUse();
+		$q = BookQuery::create()->withAuthorQuery(fn($q) => $q
+				->filterByFirstName('Leo'))->withPublisherQuery(fn($q) => $q
+				->filterByName('Penguin'));
 		$q1 = BookQuery::create()
 			->join('Book.Author', Criteria::LEFT_JOIN)
 			->add(AuthorPeer::FIRST_NAME, 'Leo', Criteria::EQUAL)
@@ -909,10 +883,8 @@ class QueryBuilderTest extends BookstoreTestBase
 	public function testUseFkQueryNoAliasThenWith()
 	{
 		$con = Propulsion::getConnection();
-		$books = BookQuery::create()
-			->useAuthorQuery()
-				->filterByFirstName('Leo')
-			->endUse()
+		$books = BookQuery::create()->withAuthorQuery(fn($q) => $q
+				->filterByFirstName('Leo'))
 			->with('Author')
 			->find($con);
 		$q1 = $con->getLastExecutedQuery();

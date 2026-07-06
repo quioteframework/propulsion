@@ -109,10 +109,8 @@ EOF;
 
 	public function testUseI18nQueryAddsTheProperJoin()
 	{
-		$q = I18nBehaviorTest11Query::create()
-			->useI18nQuery('fr_FR')
-				->filterByBar('bar')
-			->endUse();
+		$q = I18nBehaviorTest11Query::create()->withI18nQuery(fn($q) => $q
+				->filterByBar('bar'), 'fr_FR');
 		$params = array();
 		$sql = BasePeer::createSelectSQL($q, $params);
 		$expectedSQL = 'SELECT  FROM i18n_behavior_test_11 LEFT JOIN i18n_behavior_test_11_i18n ON (i18n_behavior_test_11.ID=i18n_behavior_test_11_i18n.ID AND i18n_behavior_test_11_i18n.LOCALE = :p1) WHERE i18n_behavior_test_11_i18n.BAR=:p2';
@@ -123,10 +121,8 @@ EOF;
 
 	public function testUseI18nQueryAcceptsARelationAlias()
 	{
-		$q = I18nBehaviorTest11Query::create()
-			->useI18nQuery('fr_FR', 'I18n')
-				->filterByBar('bar')
-			->endUse();
+		$q = I18nBehaviorTest11Query::create()->withI18nQuery(fn($q) => $q
+				->filterByBar('bar'), 'fr_FR', 'I18n');
 		$params = array();
 		$sql = BasePeer::createSelectSQL($q, $params);
 		$expectedSQL = 'SELECT  FROM i18n_behavior_test_11 LEFT JOIN i18n_behavior_test_11_i18n I18n ON (i18n_behavior_test_11.ID=I18n.ID AND I18n.LOCALE = :p1) WHERE I18n.BAR=:p2';
@@ -139,10 +135,8 @@ EOF;
 	{
 		$con = Propulsion::getConnection(I18nBehaviorTest11Peer::DATABASE_NAME);
 		$con->useDebug(true);
-		I18nBehaviorTest11Query::create()
-			->useI18nQuery('fr_FR')
-				->filterByBar('bar')
-			->endUse()
+		I18nBehaviorTest11Query::create()->withI18nQuery(fn($q) => $q
+				->filterByBar('bar'), 'fr_FR')
 			->find($con);
 		$expected = "SELECT i18n_behavior_test_11.ID, i18n_behavior_test_11.FOO FROM i18n_behavior_test_11 LEFT JOIN i18n_behavior_test_11_i18n ON (i18n_behavior_test_11.ID=i18n_behavior_test_11_i18n.ID AND i18n_behavior_test_11_i18n.LOCALE = 'fr_FR') WHERE i18n_behavior_test_11_i18n.BAR='bar'";
 		$this->assertEquals($expected, $con->getLastExecutedQuery());

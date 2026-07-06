@@ -1278,10 +1278,9 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         if (!$fk->isComposite()) {
             $script .= "
         } elseif ($objectName instanceof PropulsionObjectCollection) {
-            return \$this
-                ->use{$relationName}Query()
-                ->filterByPrimaryKeys({$objectName}->getPrimaryKeys())
-                ->endUse();";
+            return \$this->with{$relationName}Query(function (\$q) use ($objectName) {
+                \$q->filterByPrimaryKeys({$objectName}->getPrimaryKeys());
+            });";
         }
         $script .= "
         } else {";
@@ -1442,6 +1441,28 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
             ->join" . $relationName . "(\$relationAlias, \$joinType)
             ->useQuery(\$relationAlias ? \$relationAlias : '$relationName', '$queryClass');
     }
+
+    /**
+     * Use the $relationName relation " . $fkTable->getPhpName() . " object as a closure-scoped sub-query.
+     * Unlike use" . $relationName . "Query(), which must be paired with a later endUse() call to
+     * return to this query (and loses this query's concrete type across that call), \$callback
+     * receives the secondary query directly and this method returns \$this, statically typed.
+     *
+     * @see       \\Propulsion\\Query\\ModelCriteria::withQuery()
+     *
+     * @param     callable($queryClass): void \$callback Receives the secondary query to add conditions to
+     * @param     string \$relationAlias optional alias for the relation,
+     *                                   to be used as main alias in the secondary query
+     * @param     string \$joinType Accepted values are null, 'left join', 'right join', 'inner join'
+     *
+     * @return    static
+     */
+    public function with" . $relationName . "Query(callable \$callback, \$relationAlias = null, \$joinType = " . $joinType . ")
+    {
+        return \$this
+            ->join" . $relationName . "(\$relationAlias, \$joinType)
+            ->withQuery(\$relationAlias ? \$relationAlias : '$relationName', \$callback, '$queryClass');
+    }
 ";
     }
 
@@ -1481,10 +1502,9 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      */
     public function filterBy{$directRelName}($objectName, \$comparison = Criteria::EQUAL): $queryClass
     {
-        return \$this
-            ->use{$relationName}Query()
-            ->filterBy{$directRelName}($objectName, \$comparison)
-            ->endUse();
+        return \$this->with{$relationName}Query(function (\$q) use ($objectName, \$comparison) {
+            \$q->filterBy{$directRelName}($objectName, \$comparison);
+        });
     }
 ";
 
@@ -1502,10 +1522,9 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      */
     public function filterBy{$relName}($objectName, \$comparison = Criteria::EQUAL): $queryClass
     {
-        return \$this
-            ->use{$relationName}Query()
-            ->filterBy{$directRelName}($objectName, \$comparison)
-            ->endUse();
+        return \$this->with{$relationName}Query(function (\$q) use ($objectName, \$comparison) {
+            \$q->filterBy{$directRelName}($objectName, \$comparison);
+        });
     }
 ";
     }

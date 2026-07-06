@@ -2227,6 +2227,95 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'useQuery() and endUse() allow to merge a secondary criteria');
 	}
 
+	public function testWithQuery()
+	{
+		$original = $c = new ModelCriteria('bookstore', 'Book', 'b');
+		$c->where('b.Title = ?', 'foo');
+		$c->setOffset(10);
+		$c->leftJoin('b.Author');
+
+		$c = $c->withQuery('Author', function ($c2) {
+			$this->assertTrue($c2 instanceof AuthorQuery, 'withQuery() calls back with a secondary Criteria');
+			$c2->where('Author.FirstName = ?', 'john');
+			$c2->limit(5);
+		});
+		$this->assertSame($original, $c, 'withQuery() returns the primary Criteria');
+		$this->assertEquals('Book', $c->getModelName(), 'withQuery() returns the primary Criteria');
+
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
+		$c->find($con);
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book LEFT JOIN author ON (book.AUTHOR_ID=author.ID) WHERE book.TITLE = 'foo' AND author.FIRST_NAME = 'john' LIMIT 5 OFFSET 10";
+		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'withQuery() merges the secondary criteria back, same as useQuery()/endUse()');
+	}
+
+	public function testWithQueryCustomClass()
+	{
+		$c = new ModelCriteria('bookstore', 'Book', 'b');
+		$c->where('b.Title = ?', 'foo');
+		$c->setLimit(10);
+		$c->leftJoin('b.Author a');
+
+		$c = $c->withQuery('a', function ($c2) {
+			$this->assertTrue($c2 instanceof ModelCriteriaForUseQuery, 'withQuery() calls back with a secondary Criteria of the custom class');
+			$c2->withNoName();
+		}, 'ModelCriteriaForUseQuery');
+
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
+		$c->find($con);
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book LEFT JOIN author a ON (book.AUTHOR_ID=a.ID) WHERE book.TITLE = 'foo' AND a.FIRST_NAME IS NOT NULL  AND a.LAST_NAME IS NOT NULL LIMIT 10";
+		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'withQuery() honors the custom secondary criteria class');
+	}
+
+	public function testWithQuerySequential()
+	{
+		// mirrors testUseFkQueryTwoRelations-style usage: two independent relations,
+		// chained -- proves withQuery() returns something still usable for a second call
+		$c = new ModelCriteria('bookstore', 'Book', 'b');
+		$c->leftJoin('b.Author');
+		$c->leftJoin('b.Publisher');
+
+		$c->withQuery('Author', function ($c2) {
+			$c2->where('Author.FirstName = ?', 'Leo');
+		})->withQuery('Publisher', function ($c2) {
+			$c2->where('Publisher.Name = ?', 'Penguin');
+		});
+
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
+		$c->find($con);
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book LEFT JOIN author ON (book.AUTHOR_ID=author.ID) LEFT JOIN publisher ON (book.PUBLISHER_ID=publisher.ID) WHERE author.FIRST_NAME = 'Leo' AND publisher.NAME = 'Penguin'";
+		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'withQuery() can be chained sequentially for independent relations');
+	}
+
+	public function testWithQueryNested()
+	{
+		// mirrors testUseFkQueryNested-style usage: withQuery() called from inside
+		// another withQuery() callback, on the secondary criteria it receives
+		$c = new ModelCriteria('bookstore', 'Review');
+		$c->leftJoin('Review.Book');
+
+		$c->withQuery('Book', function ($book) {
+			$this->assertTrue($book instanceof BookQuery, 'withQuery() calls back with a secondary Criteria');
+			$book->leftJoin('Book.Author');
+			$book->withQuery('Author', function ($author) {
+				$this->assertTrue($author instanceof AuthorQuery, 'nested withQuery() calls back with its own secondary Criteria');
+				$author->add(AuthorPeer::FIRST_NAME, 'Leo', Criteria::EQUAL);
+			});
+		});
+
+		$params = array();
+		$result = BasePeer::createSelectSql($c, $params);
+
+		$c1 = new ModelCriteria('bookstore', 'Review');
+		$c1->join('Review.Book', Criteria::LEFT_JOIN);
+		$c1->join('Book.Author', Criteria::LEFT_JOIN);
+		$c1->add(AuthorPeer::FIRST_NAME, 'Leo', Criteria::EQUAL);
+		$expectedParams = array();
+		$expectedResult = BasePeer::createSelectSql($c1, $expectedParams);
+
+		$this->assertEquals($expectedParams, $params, 'withQuery() called nested creates two joins');
+		$this->assertEquals($expectedResult, $result, 'withQuery() called nested creates two joins');
+	}
+
 	public function testMergeWithJoins()
 	{
 		$c1 = new ModelCriteria('bookstore', 'Book', 'b');

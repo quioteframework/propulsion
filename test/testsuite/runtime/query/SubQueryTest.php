@@ -133,10 +133,8 @@ class SubQueryTest extends BookstoreTestBase
 
 	public function testSubQueryWithJoin()
 	{
-		$c1 = BookQuery::create()
-			->useAuthorQuery()
-				->filterByLastName('Rowling')
-			->endUse();
+		$c1 = BookQuery::create()->withAuthorQuery(fn($q) => $q
+				->filterByLastName('Rowling'));
 
 		$c2 = new BookQuery();
 		$c2->addSelectQuery($c1, 'subQuery');

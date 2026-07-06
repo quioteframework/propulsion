@@ -939,8 +939,14 @@ class ModelCriteria extends Criteria
 	/**
 	 * Initializes a secondary ModelCriteria object, to be later merged with the current object
 	 *
+	 * @deprecated Use withQuery() (or the generated with<Relation>Query() wrapper) instead.
+	 *             endUse() cannot recover the concrete class of the object that called
+	 *             useQuery() -- it returns the untemplated ModelCriteria supertype, which
+	 *             collapses the type of every chained call after it. withQuery() closes
+	 *             over the same operation and returns @return static instead.
 	 * @template T of ModelCriteria
 	 * @see       ModelCriteria::endUse()
+	 * @see       ModelCriteria::withQuery()
 	 * @param     string $relationName Relation name or alias
 	 * @param     class-string<T>|null $secondaryCriteriaClass Classname for the ModelCriteria to be used
 	 *
@@ -969,7 +975,10 @@ class ModelCriteria extends Criteria
 	/**
 	 * Finalizes a secondary criteria and merges it with its primary Criteria
 	 *
+	 * @deprecated Use withQuery() (or the generated with<Relation>Query() wrapper) instead --
+	 *             see the @deprecated note on useQuery() for why.
 	 * @see       Criteria::mergeWith()
+	 * @see       ModelCriteria::withQuery()
 	 *
 	 * @return    ModelCriteria The primary criteria object
 	 */
@@ -982,6 +991,35 @@ class ModelCriteria extends Criteria
 		$primaryCriteria->mergeWith($this);
 
 		return $primaryCriteria;
+	}
+
+	/**
+	 * Closure-scoped equivalent of useQuery()/endUse(): builds the secondary criteria for
+	 * $relationName, hands it to $callback to add conditions, merges it back, and returns
+	 * $this -- all in one call. Unlike endUse(), which loses the caller's concrete type
+	 * (it returns the untemplated ModelCriteria supertype), this returns @return static,
+	 * so chained calls keep their type through any number of relations, nested to any depth.
+	 *
+	 * @template T of ModelCriteria
+	 * @param     string $relationName Relation name or alias
+	 * @param     ($secondaryCriteriaClass is null ? callable(static): void : callable(T): void) $callback
+	 *            Receives the secondary criteria to add conditions to
+	 * @param     class-string<T>|null $secondaryCriteriaClass Classname for the ModelCriteria to be used
+	 *
+	 * @return    static
+	 */
+	public function withQuery(string $relationName, callable $callback, ?string $secondaryCriteriaClass = null) : static
+	{
+		if ($secondaryCriteriaClass === null) {
+			$secondary = $this->useQuery($relationName);
+			$callback($secondary);
+		} else {
+			$secondary = $this->useQuery($relationName, $secondaryCriteriaClass);
+			$callback($secondary);
+		}
+		$secondary->endUse();
+
+		return $this;
 	}
 
 	/**

@@ -266,10 +266,8 @@ class NamespaceTest extends TestCase
 
 	public function testUseQuery()
 	{
-		$book = \Foo\Bar\NamespacedBookQuery::create()
-			->useNamespacedPublisherQuery()
-				->filterByName('foo')
-			->endUse()
+		$book = \Foo\Bar\NamespacedBookQuery::create()->withNamespacedPublisherQuery(fn($q) => $q
+				->filterByName('foo'))
 			->findOne();
 		$this->assertNull($book);
 	}

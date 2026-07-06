@@ -22,7 +22,8 @@
     "phpunit/phpunit": "^12.0",
     "testcontainers/testcontainers": "^1.0",
     "phpstan/phpstan": "^2.2",
-    "symfony/http-client": "^8.1"
+    "symfony/http-client": "^8.1",
+    "rector/rector": "^2.5"
   },
   "autoload": {
     "psr-4": {
