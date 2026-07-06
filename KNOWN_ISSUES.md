@@ -67,6 +67,34 @@ categories, not one:
 
 ## Open issues
 
+- **Single-table-inheritance discriminator resolution now uses real FQCNs
+  (fixed), but the `extends="..."` cross-namespace override is still
+  unaddressed.** `<inheritance>` elements' `CLASSNAME_*` peer constants used
+  to hold a legacy Propel dot-path (`Foo.Bar.SomeClass`, derived from the
+  `package` attribute, not the real PHP namespace); the discriminator
+  lookup (`getOMClass()`) stripped that down to a bare class name before
+  `new $cls()`. Since dynamic `new $variable()` in PHP is always resolved
+  from the *global* namespace regardless of the calling file's own
+  namespace (unlike a literal `new SomeClass()` or `class X extends Y`,
+  both of which go through normal `use`-import/current-namespace
+  resolution), this silently threw "Class not found" for any namespaced
+  schema with single-table inheritance — but only on a cold read (a fresh
+  process/request with an empty instance pool); a same-request
+  save-then-find round trip masked it by serving the just-created object
+  straight out of the pool instead of re-instantiating from the row. Fixed
+  by using the real fully-qualified class name for `CLASSNAME_*` instead of
+  the dot-path (`PeerBuilder::addInheritanceColumnConstants()`); added a
+  `clearInstancePool()` call to `NamespaceTest::testSingleTableInheritance()`
+  so this doesn't silently regress again. Still open: an `<inheritance>`
+  element's `extends="..."` attribute (naming an ancestor class outside the
+  normal single-table hierarchy) is a raw, user-typed string with no
+  namespace resolution at all (`MultiExtendObjectBuilder::getParentClasspath()`
+  falls back to it verbatim) — this works today only because every existing
+  schema's inheritance ancestor happens to share its child's namespace; an
+  ancestor in a genuinely different namespace would hit the same class of
+  bug in the generated `class X extends Y` declaration. No fixture exercises
+  this case.
+
 - **Testcontainer cleanup**: `IntegrationDatabase` stops its container via
   `register_shutdown_function()`, which doesn't run on `kill -9` or a
   `timeout`-killed process, so an interrupted run can leak a container.

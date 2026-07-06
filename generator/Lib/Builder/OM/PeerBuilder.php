@@ -717,7 +717,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 					$script .= "
 	/** A class that can be returned by this peer. */
-	const CLASSNAME_".strtoupper($child->getKey())." = '". $childBuilder->getClasspath() . "';
+	const CLASSNAME_".strtoupper($child->getKey())." = '". addslashes($childBuilder->getFullyQualifiedClassname()) . "';
 ";
 				}
 			}
@@ -2010,9 +2010,11 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 *
 	 * @param      array<int, mixed> \$row PropulsionPDO result row.
 	 * @param      int \$colnum Column to examine for OM class information (first is 0).
-	 * @param      boolean \$withPrefix Whether or not to return the path with the class name
-	 * @return     string path.to.ClassName (a dot-path, not necessarily a resolvable class-string;
-	 *                     callers that instantiate from it should verify the resulting object's type)
+	 * @param      boolean \$withPrefix Kept for backwards compatibility; no longer changes the
+	 *                     result (this used to toggle between a dot-path and a bare class name,
+	 *                     before this fork switched to real PHP namespaces for the class-selection
+	 *                     constants -- those are now always fully-qualified already).
+	 * @return     string The fully-qualified name of the resolved class.
 	 * @throws     PropulsionException Any exceptions caught during processing will be
 	 *		 rethrown wrapped into a PropulsionException.
 	 */

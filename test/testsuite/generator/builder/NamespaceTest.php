@@ -213,6 +213,11 @@ class NamespaceTest extends TestCase
 		$cas = new \Foo\Bar\NamespacedBookstoreCashier();
 		$cas->setName('William');
 		$cas->save();
+		// Force a cold-cache re-hydration from raw rows instead of the instance pool
+		// (which would still hold $emp/$man/$cas from the save() calls above, already
+		// of the right type, masking a bug in the single-table-inheritance discriminator
+		// lookup that only manifests when actually instantiating from a resultset row).
+		\Foo\Bar\NamespacedBookstoreEmployeePeer::clearInstancePool();
 		$emps = \Foo\Bar\NamespacedBookstoreEmployeeQuery::create()
 			->orderByName()
 			->find();
