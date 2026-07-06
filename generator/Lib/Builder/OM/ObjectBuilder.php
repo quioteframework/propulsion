@@ -618,10 +618,10 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			$varName = $this->getFKVarName($fk);
 			$foreignTable = $fk->getForeignTable();
 			$foreignClassName = $foreignTable->getPhpName();
-			
+
 			// Declare the foreign class for proper type hinting
 			$this->declareClassFromBuilder($this->getNewStubObjectBuilder($foreignTable));
-			
+
 			$script .= "
 
 	/**
@@ -634,7 +634,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		foreach ($table->getReferrers() as $refFK) {
 			$refTableName = $refFK->getTable()->getPhpName();
 			$this->declareClassFromBuilder($this->getNewStubObjectBuilder($refFK->getTable()));
-			
+
 			if ($refFK->isLocalPrimaryKey()) {
 				$varName = $this->getPKRefFKVarName($refFK);
 				$script .= "
@@ -1569,7 +1569,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$fkQueryBuilder = $this->getNewStubQueryBuilder($fk->getForeignTable());
 		$fkObjectBuilder = $this->getNewObjectBuilder($fk->getForeignTable())->getStubObjectBuilder();
 		$className = $fkObjectBuilder->getClassname();
-		
+
 		$and = "";
 		$conditional = "";
 		$localColumns = array();
@@ -1644,14 +1644,14 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	protected function addFKMutator(&$script, ForeignKey $fk)
 	{
 		$this->declareClassFromBuilder($this->getStubObjectBuilder());
-		
+
 		$table = $this->getTable();
 		$tblFK = $fk->getTable();
 		$joinedTableObjectBuilder = $this->getNewObjectBuilder($fk->getForeignTable());
 		$className = $joinedTableObjectBuilder->getObjectClassname();
-		
+
 		$varName = $this->getFKVarName($fk);
-		
+
 		$script .= "
 
 	/**
@@ -1958,6 +1958,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		if (\$con === null) {
 			\$con = Propulsion::getWriteConnection(" . $this->getPeerClassname() . "::DATABASE_NAME);
 		}
+		if (!\$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
+		}
 
 		\$con->beginTransaction();
 		try {
@@ -2039,6 +2042,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 
 		if (\$con === null) {
 			\$con = Propulsion::getWriteConnection(" . $this->getPeerClassname() . "::DATABASE_NAME);
+		}
+		if (!\$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
 		}
 
 		\$con->beginTransaction();
@@ -2345,6 +2351,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		if (\$con === null) {
 			\$con = Propulsion::getReadConnection(" . $this->getPeerClassname() . "::DATABASE_NAME);
 		}
+		if (!\$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
+		}
 
 		\$stmt = " . $this->getPeerClassname() . "::doSelectStmt(\$this->buildPkeyCriteria(), \$con);
 		\$row = \$stmt->fetch(PDO::FETCH_NUM);
@@ -2432,12 +2441,21 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		}
 		$script .= "
 	 *
-	 * @return array<string,mixed>|string an associative array containing the field names (as keys) and field values
+	 * @return array<int|string,mixed>|string an associative array containing the field names (as keys) and field values
+	 *                    (keys are ints when \$keyType is BasePeer::TYPE_NUM, strings otherwise)
 	 */
 	public function toArray(string \$keyType = BasePeer::TYPE_PHPNAME, ?bool \$includeLazyLoadColumns = true, array \$alreadyDumpedObjects = array()" . ($hasFks ? ", bool \$includeForeignObjects = false" : '') . "): array|string
 	{
 		if (isset(\$alreadyDumpedObjects['$objectClassName'][$pkGetter])) {
 			return '*RECURSION*';
+		}
+		if (!isset(\$alreadyDumpedObjects['$objectClassName'])) {
+			// Assigning the nested array in two steps (instead of the single-expression
+			// \$alreadyDumpedObjects['$objectClassName'][\$pk] = true) keeps the inner key's
+			// static type as string: a single dynamic-offset write into a not-yet-existing
+			// nested array makes PHPStan widen the new array's key type to int|string,
+			// regardless of $pkGetter's own (always-string) type.
+			\$alreadyDumpedObjects['$objectClassName'] = [];
 		}
 		\$alreadyDumpedObjects['$objectClassName'][$pkGetter] = true;
 		\$keys = ".$this->getPeerClassname()."::getFieldNames(\$keyType);
@@ -2713,7 +2731,8 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	/**
 	 * Set the composite primary key.
 	 *
-	 * @param array<int,mixed> \$keys The primary key columns as array.
+	 * @param mixed \$keys The primary key columns as an array<int,mixed>; silently a
+	 *                     no-op for any other (invalid) argument.
 	 * @return void
 	 */
 	public function setPrimaryKey(mixed \$keys): void
@@ -2866,11 +2885,24 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 					continue;
 				}
 				$refFKPhpNameAffix = $this->getRefFKPhpNameAffix($refFK, true);
+				// The "don't copy a reference to ourselves" guard is only meaningful (and only
+				// type-compatible with $this) when the referrer table is the same table as the
+				// current one, i.e. a self-referential FK (e.g. Employee -> Supervisor/Subordinates).
+				// For a referrer on a different table, $relObj can never be $this, so emitting
+				// the check there is dead code (and a type mismatch under static analysis).
+				$isSelfReferential = $refFK->getTable() === $table;
 				$script .= "
-			foreach (\$this->get$refFKPhpNameAffix() as \$relObj) {
+			foreach (\$this->get$refFKPhpNameAffix() as \$relObj) {";
+				if ($isSelfReferential) {
+					$script .= "
 				if (\$relObj !== \$this) {  // ensure that we don't try to copy a reference to ourselves
 					\$copyObj->add" . $this->getRefFKPhpNameAffix($refFK, false) . "(\$relObj->copy(\$deepCopy));
+				}";
+				} else {
+					$script .= "
+				\$copyObj->add" . $this->getRefFKPhpNameAffix($refFK, false) . "(\$relObj->copy(\$deepCopy));";
 				}
+				$script .= "
 			}
 ";
 			}
@@ -3146,7 +3178,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	protected function addRefFKAdd(&$script, ForeignKey $refFK): void
 	{
 		$this->declareClassFromBuilder($this->getStubObjectBuilder());
-		
+
 		$relatedObjectClassName = $this->getNewStubObjectBuilder($refFK->getTable())->getClassname();
 		// NOTE: Use fully-qualified class name here (instead of short class) so that
 		// PropulsionObjectCollection::save() method_exists(<model>, 'save') succeeds --
@@ -3235,9 +3267,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * @param ?Criteria \$criteria optional Criteria object to narrow the query
 	 * @param ?PropulsionPDO \$con optional connection object
 	 * @param string \$join_behavior optional join type to use (defaults to $join_behavior)
-	 * @return PropulsionCollection|array List of {$className} objects
+	 * @return PropulsionObjectCollection<$className> List of {$className} objects
 	 */
-	public function get".$relCol."Join".$relCol2."(?Criteria \$criteria = null, ?PropulsionPDO \$con = null, string \$join_behavior = $join_behavior): PropulsionCollection|array
+	public function get".$relCol."Join".$relCol2."(?Criteria \$criteria = null, ?PropulsionPDO \$con = null, string \$join_behavior = $join_behavior): PropulsionObjectCollection
 	{
 		\$query = $fkQueryClassname::create(null, \$criteria);
 		\$query->joinWith('" . $this->getFKPhpNameAffix($fk2, $plural=false) . "', \$join_behavior);
@@ -3282,7 +3314,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	protected function addPKRefFKSet(&$script, ForeignKey $refFK): void
 	{
 		$this->declareClassFromBuilder($this->getStubObjectBuilder());
-		
+
 		$relatedObjectClassName = $this->getNewStubObjectBuilder($refFK->getTable())->getClassname();
 		$varName = $this->getPKRefFKVarName($refFK);
 		$relatedByName = $this->getRefFKPhpNameAffix($refFK, false);
@@ -3507,6 +3539,10 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 
 		$crossObjectName = '$' . lcfirst($crossFK->getForeignTable()->getPhpName());
 		$refObjectName = '$' . lcfirst($tblFK->getPhpName());
+		// NOTE: Use fully-qualified class name here (instead of short class) so that
+		// PropulsionObjectCollection::save() method_exists(<model>, 'save') succeeds --
+		// see addCrossFKInit()/init$relCol(), which this must stay consistent with.
+		$crossObjectFQCN = $this->getNewStubObjectBuilder($crossFK->getForeignTable())->getFullyQualifiedClassname();
 
 		$script .= "
 	/**
@@ -3519,7 +3555,10 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	public function add$relColSingular($crossObjectClassName $crossObjectName): static
 	{
 		if (\$this->$collName === null) {
-			\$this->init$relCol();
+			// Inlined equivalent of init$relCol() so the non-null assignment is
+			// visible to static analysis within this method's scope.
+			\$this->$collName = new PropulsionObjectCollection();
+			\$this->{$collName}->setModel('$crossObjectFQCN');
 		}
 
 		if (!\$this->{$collName}->contains($crossObjectName)) { // only add it if the **same** object is not already associated
@@ -3605,7 +3644,11 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			// the old is_array() guard here was always false and this branch was
 			// consequently dead code.
 			foreach (\$this->{$varName} as \$o) {
-				if (method_exists(\$o, 'clearAllReferences')) {
+				// clearAllReferences() is an abstract method on BaseObject (every
+				// generated model object extends it), so this instanceof check --
+				// unlike the previous method_exists() one -- lets static analysis
+				// see that the call below is valid.
+				if (\$o instanceof BaseObject) {
 					\$o->clearAllReferences(\$deep);
 				}
 			}
@@ -3776,9 +3819,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * an aggreagated array of ValidationFailed objects will be returned.
 	 *
 	 * @param      array<int,string>|string|null \$columns Array of column names to validate.
-	 * @return     bool|array<string,string> <code>true</code> if all validations pass; array of <code>ValidationFailed</code> objets otherwise.
+	 * @return     true|array<string,string> <code>true</code> if all validations pass; array of <code>ValidationFailed</code> objets otherwise.
 	 */
-	protected function doValidate(array|string|null \$columns = null): bool|array
+	protected function doValidate(array|string|null \$columns = null): true|array
 	{
 		\$failureMap = array();
 		if (!\$this->alreadyInValidation) {

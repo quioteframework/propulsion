@@ -294,7 +294,8 @@ class TableMap
    * @param      boolean $pk True if column is a primary key.
    * @param      string $fkTable A String with the foreign key table name.
    * @param      $fkColumn A String with the foreign key column name.
-   * @param      string $defaultValue The default value for this column.
+   * @param      mixed $defaultValue The default value for this column (its PHP type mirrors the
+   *                    column's Propulsion type, e.g. int for INTEGER columns, string for VARCHAR).
    * @return     ColumnMap The newly created column.
    */
   public function addColumn($name, $phpName, $type, $isNotNull = false, $size = null, $defaultValue = null, $pk = false, $fkTable = null, $fkColumn = null)

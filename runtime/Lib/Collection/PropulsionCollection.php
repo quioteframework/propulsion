@@ -73,7 +73,7 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	 * @param     string|null $keyColumn
 	 * @param     bool        $usePrefix
 	 * @param     string      $keyType
-	 * @param     bool        $includeLazyLoadColumns
+	 * @param     bool|null   $includeLazyLoadColumns
 	 * @param     array       $alreadyDumpedObjects
 	 * @return    array
 	 */

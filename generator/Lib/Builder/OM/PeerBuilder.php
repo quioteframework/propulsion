@@ -745,6 +745,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(self::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
 		}
+		if (!\$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
+		}
 
 		if (\$values instanceof Criteria) {
 			\$criteria = clone \$values; // rename for clarity
@@ -808,7 +811,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
      * @param      string \$fromType One of the class type constants BasePeer::TYPE_PHPNAME, BasePeer::TYPE_STUDLYPHPNAME
      *                         BasePeer::TYPE_COLNAME, BasePeer::TYPE_FIELDNAME, BasePeer::TYPE_NUM
      * @param      string \$toType   One of the class type constants
-     * @return     string translated name of the field.
+     * @return     int|string translated name of the field (an int when \$toType is BasePeer::TYPE_NUM).
      * @throws     PropulsionException - if the specified name could not be found in the fieldname mappings.
      */
     static public function translateFieldName(string \$name, string \$fromType, string \$toType)
@@ -844,6 +847,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	{
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(self::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
+		}
+		if (!\$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
 		}
 
 		\$selectCriteria = new Criteria(self::DATABASE_NAME);
@@ -952,6 +958,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_READ);
 		}
+		if (!\$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
+		}
 
 		if (!\$criteria->hasSelectClause()) {
 			\$criteria = clone \$criteria;
@@ -1022,6 +1031,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_READ);
+		}
+		if (!\$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
 		}";
 
 		$this->applyBehaviorModifier('preSelect', $script);
@@ -1085,7 +1097,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 				// class must be set each time from the record row
 				\$cls = self::getOMClass(\$row, 0);
 				\$cls = substr('.'.\$cls, strrpos('.'.\$cls, '.') + 1);
-				" . $this->buildObjectInstanceCreationCode('$obj', '$cls') . "
+				" . $this->buildObjectInstanceCreationCode('$obj', '$cls', $this->getObjectClassname()) . "
 				\$obj->hydrate(\$row);
 				\$results[] = \$obj;
 				self::addInstanceToPool(\$obj, \$key);";
@@ -1292,11 +1304,12 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * @param ?string \$key The key for this instance (nullable when LEFT JOIN yields no match).
 	 * @return ?\\" . $objectClass . " Found object or null if 1) no instance exists for specified key or 2) instance pooling has been disabled.
 	 */
-	public static function getInstanceFromPool(?string \$key): ?object
+	public static function getInstanceFromPool(?string \$key): ?\\" . $objectClass . "
 	{
 		if (\$key === null) { return null; }
 		if (Propulsion::isInstancePoolingEnabled()) {
-			return Propulsion::getSession()->getPooledInstance(self::class, \$key);
+			\$obj = Propulsion::getSession()->getPooledInstance(self::class, \$key);
+			return \$obj instanceof \\" . $objectClass . " ? \$obj : null;
 		}
 		return null; // explicit
 	}";
@@ -1320,7 +1333,10 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 */
 	public static function getInstancePool(): array
 	{
-		return Propulsion::getSession()->getPool(self::class);
+		return array_filter(
+			Propulsion::getSession()->getPool(self::class),
+			fn (object \$obj): bool => \$obj instanceof \\" . $objectClass . "
+		);
 	}";
 	}
 
@@ -1397,10 +1413,26 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 	/**
 	 * Helper method to build object instance creation code
+	 *
+	 * @param      string $objName The (generated-code) variable name to assign to, e.g. '$obj'.
+	 * @param      string $clsName The (generated-code) expression/variable holding the classname, e.g. '$cls'.
+	 * @param      ?string $expectedClass If given, the (generated-code) base classname that $objName must be
+	 *                                    an instance of. Used for single-table-inheritance, where $clsName is
+	 *                                    computed dynamically from a database row and so cannot be proven by
+	 *                                    static analysis to always produce an instance of the expected class;
+	 *                                    this emits a runtime guard that both protects against misconfigured
+	 *                                    inheritance mappings and lets static analysis narrow the result type.
 	 */
-	public function buildObjectInstanceCreationCode($objName, $clsName): string
+	public function buildObjectInstanceCreationCode($objName, $clsName, $expectedClass = null): string
 	{
-		return "$objName = new $clsName();";
+		$code = "$objName = new $clsName();";
+		if ($expectedClass !== null) {
+			$code .= "
+			if (!$objName instanceof $expectedClass) {
+				throw new PropulsionException(\"Unable to instantiate '$clsName': expected an instance of $expectedClass\");
+			}";
+		}
+		return $code;
 	}
 
 	/**
@@ -1422,13 +1454,16 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 *
 	 * @param $pkType \$pk Primary key value
 	 * @param ?PropulsionPDO \$con Database connection
-	 * @return \\" . $objectClass . " The object or null if not found
+	 * @return \\" . $objectClass . "|null The object or null if not found
 	 * @throws PropulsionException
 	 */
 	public static function retrieveByPK($pkType \$pk, ?PropulsionPDO \$con = null): \\" . $objectClass . "|null
 	{
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(self::getDatabaseName(), Propulsion::CONNECTION_READ);
+		}
+		if (!\$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
 		}
 
 		\$criteria = new Criteria(self::getDatabaseName());
@@ -1497,6 +1532,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(self::getDatabaseName(), Propulsion::CONNECTION_READ);
+		}
+		if (!\$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
 		}
 
 		\$criteria = new Criteria(self::getDatabaseName());
@@ -1617,6 +1655,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 {
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
+		}
+		if (!\$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
 		}
 
 		if (\$values instanceof Criteria) {";
@@ -1970,7 +2011,8 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * @param      array<int, mixed> \$row PropulsionPDO result row.
 	 * @param      int \$colnum Column to examine for OM class information (first is 0).
 	 * @param      boolean \$withPrefix Whether or not to return the path with the class name
-	 * @return     class-string<".$this->getObjectClassname()."> path.to.ClassName
+	 * @return     string path.to.ClassName (a dot-path, not necessarily a resolvable class-string;
+	 *                     callers that instantiate from it should verify the resulting object's type)
 	 * @throws     PropulsionException Any exceptions caught during processing will be
 	 *		 rethrown wrapped into a PropulsionException.
 	 */
@@ -2078,6 +2120,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
 		}
+		if (!\$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
+		}
 		\$affectedRows = 0; // initialize var to track total num of affected rows
 		try {
 			// use transaction because \$criteria could contain info
@@ -2146,6 +2191,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_READ);
 		}
+		if (!\$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
+		}
 
 		\$criteria = new Criteria(".$this->getPeerClassname()."::DATABASE_NAME);
 		\$criteria->add(".$this->getColumnConstant($col, $this->getPeerClassname()).", \$pk);
@@ -2178,6 +2226,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	{
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_READ);
+		}
+		if (!\$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
 		}
 
 		\$objs = null;
@@ -2214,7 +2265,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		}
 		$script .= "
 	 * @param      PropulsionPDO \$con
-	 * @return     ".$this->getObjectClassname()."
+	 * @return     ".$this->getObjectClassname()."|null
 	 */
 	public static function ".$this->getRetrieveMethodName()."(";
 
@@ -2238,6 +2289,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_READ);
+		}
+		if (!\$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
 		}
 		\$criteria = new Criteria(".$this->getPeerClassname()."::DATABASE_NAME);";
 		foreach ($table->getPrimaryKey() as $col) {
@@ -2586,7 +2640,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 ";
 			}
 			$script .= "
-				" . $this->buildObjectInstanceCreationCode('$obj1', '$cls') . "
+				" . $this->buildObjectInstanceCreationCode('$obj1', '$cls', $table->getChildrenColumn() ? $this->getObjectClassname() : null) . "
 				\$obj1->hydrate(\$row);
 				" . $this->getPeerClassname() . "::addInstanceToPool(\$obj1, \$key1);
 			} // if \$obj1 already loaded
@@ -2607,7 +2661,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 ";
 			}
 			$script .= "
-					" . $this->buildObjectInstanceCreationCode('$obj2', '$cls') . "
+					" . $this->buildObjectInstanceCreationCode('$obj2', '$cls', $joinTable->getChildrenColumn() ? $joinedTablePeerBuilder->getObjectClassname() : null) . "
 					\$obj2->hydrate(\$row, \$startcol);
 					" . $joinedTablePeerBuilder->getPeerClassname() . "::addInstanceToPool(\$obj2, \$key2);
 				} // if obj2 already loaded
@@ -2689,6 +2743,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(" . $this->getPeerClassname() . "::DATABASE_NAME, Propulsion::CONNECTION_READ);
+		}
+		if (!\$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
 		}
 ";
 			$script .= $this->addCriteriaJoin($fk, $table, $joinTable, $joinedTablePeerBuilder);
@@ -2794,7 +2851,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		}
 
 		$script .= "
-				" . $this->buildObjectInstanceCreationCode('$obj1', '$cls') . "
+				" . $this->buildObjectInstanceCreationCode('$obj1', '$cls', $table->getChildrenColumn() ? $this->getObjectClassname() : null) . "
 				\$obj1->hydrate(\$row);
 				" . $this->getPeerClassname() . "::addInstanceToPool(\$obj1, \$key1);
 			} // if obj1 already loaded
@@ -2831,7 +2888,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 ";
 				}
 				$script .= "
-					" . $this->buildObjectInstanceCreationCode('$obj' . $index, '$cls') . "
+					" . $this->buildObjectInstanceCreationCode('$obj' . $index, '$cls', $joinTable->getChildrenColumn() ? $joinedTablePeerBuilder->getObjectClassname() : null) . "
 					\$obj" . $index . "->hydrate(\$row, \$startcol$index);
 					" . $joinedTablePeerBuilder->getPeerClassname() . "::addInstanceToPool(\$obj$index, \$key$index);
 				} // if obj$index loaded
@@ -2898,6 +2955,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(" . $this->getPeerClassname() . "::DATABASE_NAME, Propulsion::CONNECTION_READ);
+		}
+		if (!\$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
 		}
 ";
 
@@ -3021,7 +3081,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			}
 
 			$script .= "
-				" . $this->buildObjectInstanceCreationCode('$obj1', '$cls') . "
+				" . $this->buildObjectInstanceCreationCode('$obj1', '$cls', $table->getChildrenColumn() ? $this->getObjectClassname() : null) . "
 				\$obj1->hydrate(\$row);
 				" . $this->getPeerClassname() . "::addInstanceToPool(\$obj1, \$key1);
 			} // if obj1 already loaded
@@ -3059,7 +3119,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 ";
 						}
 						$script .= "
-					" . $this->buildObjectInstanceCreationCode('$obj' . $index, '$cls') . "
+					" . $this->buildObjectInstanceCreationCode('$obj' . $index, '$cls', $joinTable->getChildrenColumn() ? $joinedTablePeerBuilder->getObjectClassname() : null) . "
 					\$obj" . $index . "->hydrate(\$row, \$startcol$index);
 					" . $joinedTablePeerBuilder->getPeerClassname() . "::addInstanceToPool(\$obj$index, \$key$index);
 				} // if \$obj$index already loaded
@@ -3134,6 +3194,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(" . $this->getPeerClassname() . "::DATABASE_NAME, Propulsion::CONNECTION_READ);
+		}
+		if (!\$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
 		}
 ";
 			foreach ($table->getForeignKeys() as $subfk) {

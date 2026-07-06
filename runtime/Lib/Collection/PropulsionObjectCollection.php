@@ -132,7 +132,7 @@ class PropulsionObjectCollection extends PropulsionCollection
 	 * @param     string  $keyType   (optional) One of the class type constants BasePeer::TYPE_PHPNAME,
 	 *                               BasePeer::TYPE_STUDLYPHPNAME, BasePeer::TYPE_COLNAME, BasePeer::TYPE_FIELDNAME,
 	 *                               BasePeer::TYPE_NUM. Defaults to BasePeer::TYPE_PHPNAME.
-	 * @param     boolean $includeLazyLoadColumns (optional) Whether to include lazy loaded columns. Defaults to TRUE.
+	 * @param     boolean|null $includeLazyLoadColumns (optional) Whether to include lazy loaded columns. Defaults to TRUE.
 	 * @param     array   $alreadyDumpedObjects List of objects to skip to avoid recursion
 	 * @param     boolean $includeForeignObjects (optional) Whether to include hydrated related objects. Defaults to FALSE.
 	 *

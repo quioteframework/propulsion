@@ -618,7 +618,7 @@ class Propulsion
 	 * @param      string $name The datasource name that is used to look up the DSN
 	 *                          from the runtime configuation file. Empty name not allowed.
 	 *
-	 * @return     PDO A database connection
+	 * @return     PDO|PropulsionPDO A database connection
 	 *
 	 * @throws     PropulsionException - if connection cannot be configured or initialized.
 	 */

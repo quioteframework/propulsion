@@ -357,7 +357,9 @@ class Criteria implements \IteratorAggregate
 	 * be used in various parts of the SQL.
 	 *
 	 * @param      string $alias
-	 * @param      string $table
+	 * @param      string|null $table Table name; callers may pass a TableMap::getName() result,
+	 *              which is nullable in that class's own contract even though it is always set
+	 *              by the time a real, initialized TableMap is reachable through a join/relation.
 	 *
 	 * @return     Criteria A modified Criteria object.
 	 */

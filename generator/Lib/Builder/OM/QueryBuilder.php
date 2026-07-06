@@ -140,7 +140,6 @@ class QueryBuilder extends OMBuilder
  * @method     $queryClass innerJoin(string \$relation) Adds a INNER JOIN clause to the query
  * @method     static joinWith(string \$relation, ?string \$joinType = null) Adds a join with the columns of the related table
  * @method     static addJoinObject(\\Propulsion\\Query\\ModelJoin \$join, ?string \$name = null) Adds a join object to the query
- * @method     $queryClass useQuery(string \$relationName, ?string \$secondTableAlias = null) Use the relation as sub query
  * @method     static mergeWith(\\Propulsion\\Query\\Criteria \$criteria) Merge the conditions of another Criteria into this one
  * @method     static addUsingAlias(string \$column, mixed \$value, ?string \$comparison = null) Add a condition using a column alias
  *";

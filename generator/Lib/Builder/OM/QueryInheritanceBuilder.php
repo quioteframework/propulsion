@@ -248,8 +248,11 @@ class "  .$this->getClassname() . " extends " . $baseClassname . " {
 		$script .= "
 	/**
 	 * Filters the query to target only " . $child->getClassname() . " objects.
+	 *
+	 * @param     array<string, mixed> \$values
+	 * @param     bool \$forceIndividualSaves
 	 */
-	public function preUpdate(&\$values, PropulsionPDO \$con, \$forceIndividualSaves = false)
+	public function preUpdate(array &\$values, PropulsionPDO \$con, \$forceIndividualSaves = false): void
 	{
 		" . $this->getClassKeyCondition() . "
 	}
@@ -265,7 +268,7 @@ class "  .$this->getClassname() . " extends " . $baseClassname . " {
 	/**
 	 * Filters the query to target only " . $child->getClassname() . " objects.
 	 */
-	public function preDelete(PropulsionPDO \$con)
+	public function preDelete(PropulsionPDO \$con): void
 	{
 		" . $this->getClassKeyCondition() . "
 	}

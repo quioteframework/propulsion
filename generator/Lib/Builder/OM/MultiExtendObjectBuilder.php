@@ -168,6 +168,17 @@ class ".$this->getClassname()." extends ".$this->getParentClassname()."
 		$col = $child->getColumn();
 		$cfc = $col->getPhpName();
 		$const = "CLASSKEY_" . strtoupper($child->getKey());
+		$classKeyExpr = $this->getPeerClassname() . "::$const";
+		// The Peer's CLASSKEY_* constants are always declared as string literals
+		// (PeerBuilder::addInheritanceColumnConstants(), regardless of the discriminator
+		// column's actual type), but set<Column>()'s native parameter type matches the
+		// column's real type (e.g. int for an INTEGER column) -- cast here so the value
+		// handed to the setter actually matches what it declares.
+		if ($col->isNumericType()) {
+			$phpType = $col->getPhpType();
+			$castType = match ($phpType) { 'double' => 'float', 'integer' => 'int', default => $phpType };
+			$classKeyExpr = "($castType) $classKeyExpr";
+		}
 
 		$script .= "
 	/**
@@ -176,7 +187,7 @@ class ".$this->getClassname()." extends ".$this->getParentClassname()."
 	public function __construct()
 	{
 		parent::__construct();
-		\$this->set$cfc(" . $this->getPeerClassname() . "::CLASSKEY_" . strtoupper($child->getKey()) . ");
+		\$this->set$cfc($classKeyExpr);
 	}
 ";
 	}
