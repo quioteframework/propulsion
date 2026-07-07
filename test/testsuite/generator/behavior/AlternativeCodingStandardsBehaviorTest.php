@@ -51,6 +51,76 @@ else
 		$b->filter($input);
 		$this->assertEquals($output, $input);
 	}
+
+	public function testRemoveClosingComments()
+	{
+		$b = new TestableAlternativeCodingStandardsBehavior();
+		$script = "\tsave()\n\t{\n\t} // save()\n";
+		$b->filter($script);
+		$this->assertStringNotContainsString('// save()', $script);
+	}
+
+	public function testUseWhitespaceReplacesTabsWithConfiguredSize()
+	{
+		$b = new TestableAlternativeCodingStandardsBehavior();
+		$b->setParameters(array(
+			'tab_size' => 4,
+			'brackets_newline' => 'false',
+			'remove_closing_comments' => 'false',
+			'use_whitespace' => 'true',
+			'strip_comments' => 'false',
+		));
+		$script = "\tfoo();\n";
+		$b->filter($script);
+		$this->assertEquals("    foo();\n", $script);
+	}
+
+	public function testDisablingAllFiltersLeavesScriptUnchanged()
+	{
+		$b = new TestableAlternativeCodingStandardsBehavior();
+		$b->setParameters(array(
+			'brackets_newline' => 'false',
+			'remove_closing_comments' => 'false',
+			'use_whitespace' => 'false',
+			'strip_comments' => 'false',
+		));
+		$script = "if (true) {\n} // done\n";
+		$b->filter($script);
+		$this->assertEquals("if (true) {\n} // done\n", $script);
+	}
+
+	public function testStripCommentsRemovesInlineAndBlockComments()
+	{
+		$code = "<?php\n// a comment\n\$foo = 1; /* block */\n";
+		$result = AlternativeCodingStandardsBehavior::stripComments($code);
+		$this->assertStringNotContainsString('a comment', $result);
+		$this->assertStringNotContainsString('block', $result);
+		$this->assertStringContainsString('$foo = 1;', $result);
+	}
+
+	public function testFilterStripsCommentsWhenConfigured()
+	{
+		$b = new TestableAlternativeCodingStandardsBehavior();
+		$b->setParameters(array(
+			'brackets_newline' => 'false',
+			'remove_closing_comments' => 'false',
+			'use_whitespace' => 'false',
+			'strip_comments' => 'true',
+		));
+		$script = "<?php\n// a comment\n\$foo = 1;\n";
+		$b->filter($script);
+		$this->assertStringNotContainsString('a comment', $script);
+	}
+
+	public function testFilterWrapperMethodsAllDelegateToFilter()
+	{
+		$b = new AlternativeCodingStandardsBehavior();
+		foreach (array('objectFilter', 'extensionObjectFilter', 'queryFilter', 'extensionQueryFilter', 'peerFilter', 'extensionPeerFilter', 'tableMapFilter') as $method) {
+			$script = "if (true) {\n}";
+			$b->$method($script);
+			$this->assertStringContainsString("if (true)\n{\n}", $script, "$method() applies the same filtering as filter()");
+		}
+	}
 }
 
 class TestableAlternativeCodingStandardsBehavior extends AlternativeCodingStandardsBehavior {

@@ -43,6 +43,9 @@ class AggregateColumnBehavior extends Behavior
 		if (!$columnName = $this->getParameter('name')) {
 			throw new \InvalidArgumentException(sprintf('You must define a \'name\' parameter for the \'aggregate_column\' behavior in the \'%s\' table', $table->getName()));
 		}
+		if (!$this->getParameter('foreign_table')) {
+			throw new \InvalidArgumentException(sprintf('You must define a \'foreign_table\' parameter for the \'aggregate_column\' behavior in the \'%s\' table', $table->getName()));
+		}
 
 		// add the aggregate column if not present
 		if(!$this->getTable()->containsColumn($columnName)) {

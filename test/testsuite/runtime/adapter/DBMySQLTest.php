@@ -99,6 +99,97 @@ class DBMySQLTest extends BookstoreTestBase
 
 		return $con;
 	}
+
+	public function testToUpperCase()
+	{
+		$db = new DBMySQL();
+		$this->assertEquals('UPPER(foo)', $db->toUpperCase('foo'));
+	}
+
+	public function testIgnoreCase()
+	{
+		$db = new DBMySQL();
+		$this->assertEquals('UPPER(foo)', $db->ignoreCase('foo'));
+	}
+
+	public function testConcatString()
+	{
+		$db = new DBMySQL();
+		$this->assertEquals('CONCAT(foo, bar)', $db->concatString('foo', 'bar'));
+	}
+
+	public function testSubString()
+	{
+		$db = new DBMySQL();
+		$this->assertEquals('SUBSTRING(foo, 1, 3)', $db->subString('foo', 1, 3));
+	}
+
+	public function testStrLength()
+	{
+		$db = new DBMySQL();
+		$this->assertEquals('CHAR_LENGTH(foo)', $db->strLength('foo'));
+	}
+
+	public function testQuoteIdentifier()
+	{
+		$db = new DBMySQL();
+		$this->assertEquals('`foo`', $db->quoteIdentifier('foo'));
+	}
+
+	public function testQuoteIdentifierTable()
+	{
+		$db = new DBMySQL();
+		$this->assertEquals('`mydb`.`foo` `bar`', $db->quoteIdentifierTable('mydb.foo bar'));
+	}
+
+	public function testUseQuoteIdentifier()
+	{
+		$db = new DBMySQL();
+		$this->assertTrue($db->useQuoteIdentifier());
+	}
+
+	public function testRandom()
+	{
+		$db = new DBMySQL();
+		$this->assertEquals('rand(0)', $db->random());
+		$this->assertEquals('rand(42)', $db->random('42'));
+	}
+
+	public function testApplyLimitWithLimitOnly()
+	{
+		$db = new DBMySQL();
+		$sql = 'SELECT * FROM foo';
+		$db->applyLimit($sql, 0, 10);
+		$this->assertEquals('SELECT * FROM foo LIMIT 10', $sql);
+	}
+
+	public function testApplyLimitWithLimitAndOffset()
+	{
+		$db = new DBMySQL();
+		$sql = 'SELECT * FROM foo';
+		$db->applyLimit($sql, 5, 10);
+		$this->assertEquals('SELECT * FROM foo LIMIT 5, 10', $sql);
+	}
+
+	public function testApplyLimitWithOffsetOnly()
+	{
+		$db = new DBMySQL();
+		$sql = 'SELECT * FROM foo';
+		$db->applyLimit($sql, 5, 0);
+		$this->assertEquals('SELECT * FROM foo LIMIT 5, 18446744073709551615', $sql);
+	}
+
+	public function testLockAndUnlockTable()
+	{
+		$db = new DBMySQL();
+		$con = $this->getMockBuilder('mockPDO')->getMock();
+		$con->expects($this->once())->method('exec')->with('LOCK TABLE foo WRITE');
+		$db->lockTable($con, 'foo');
+
+		$con2 = $this->getMockBuilder('mockPDO')->getMock();
+		$con2->expects($this->once())->method('exec')->with('UNLOCK TABLES');
+		$db->unlockTable($con2, 'foo');
+	}
 }
 
 // See: http://stackoverflow.com/questions/3138946/mocking-the-pdo-object-using-phpunit

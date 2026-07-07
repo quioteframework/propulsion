@@ -70,4 +70,61 @@ class DBOracleTest extends BookstoreTestBase
 		$this->assertEquals(array('book'), $fromClause, 'createSelectSqlPart() adds the tables from the select columns to the from clause');
 	}
 
+	public function testToUpperCase()
+	{
+		$db = new DBOracle();
+		$this->assertEquals('UPPER(foo)', $db->toUpperCase('foo'));
+	}
+
+	public function testIgnoreCase()
+	{
+		$db = new DBOracle();
+		$this->assertEquals('UPPER(foo)', $db->ignoreCase('foo'));
+	}
+
+	public function testConcatString()
+	{
+		$db = new DBOracle();
+		$this->assertEquals('CONCAT(foo, bar)', $db->concatString('foo', 'bar'));
+	}
+
+	public function testSubString()
+	{
+		$db = new DBOracle();
+		$this->assertEquals('SUBSTR(foo, 1, 3)', $db->subString('foo', 1, 3));
+	}
+
+	public function testStrLength()
+	{
+		$db = new DBOracle();
+		$this->assertEquals('LENGTH(foo)', $db->strLength('foo'));
+	}
+
+	public function testRandom()
+	{
+		$db = new DBOracle();
+		$this->assertEquals('dbms_random.value', $db->random());
+	}
+
+	public function testGetIdThrowsWithoutSequenceName()
+	{
+		$db = new DBOracle();
+		$this->expectException(PropulsionException::class);
+		$db->getId($this->con);
+	}
+
+	public function testTurnSelectColumnsToAliases()
+	{
+		$db = new DBOracle();
+		$c = new Criteria();
+		BookPeer::addSelectColumns($c);
+		$db->turnSelectColumnsToAliases($c);
+		$asColumns = $c->getAsColumns();
+		$this->assertEmpty($c->getSelectColumns(), 'turnSelectColumnsToAliases() clears the original select columns');
+		$this->assertNotEmpty($asColumns, 'turnSelectColumnsToAliases() replaces them with aliased columns');
+		foreach (array_keys($asColumns) as $alias) {
+			$this->assertStringStartsWith('ORA_COL_ALIAS_', $alias);
+		}
+	}
+
 }

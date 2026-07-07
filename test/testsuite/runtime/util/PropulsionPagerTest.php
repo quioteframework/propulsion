@@ -164,4 +164,117 @@ class PropulsionPagerTest extends BookstoreEmptyTestBase
     }
     $this->assertEquals(14, $i);
   }
+
+  private function makePager($page, $rowsPerPage)
+  {
+    $cr = new Criteria();
+    $cr->add(BookPeer::AUTHOR_ID, $this->authorId);
+    $cr->addAscendingOrderByColumn(BookPeer::TITLE);
+    return new PropulsionPager($cr, "BookPeer", "doSelect", $page, $rowsPerPage);
+  }
+
+  public function testGettersAndSetters()
+  {
+    $pager = $this->makePager(1, 2);
+    $cr = new Criteria();
+    $pager->setCriteria($cr);
+    $this->assertSame($cr, $pager->getCriteria());
+
+    $pager->setPeerClass('AuthorPeer');
+    $this->assertEquals('AuthorPeer', $pager->getPeerClass());
+
+    $pager->setPeerSelectMethod('doSelectJoinFoo');
+    $this->assertEquals('doSelectJoinFoo', $pager->getPeerSelectMethod());
+    $this->assertEquals('doSelectJoinFoo', $pager->getPeerMethod());
+
+    $pager->setPeerMethod('doSelect');
+    $this->assertEquals('doSelect', $pager->getPeerSelectMethod());
+
+    $pager->setPeerCountMethod('doCountFoo');
+    $this->assertEquals('doCountFoo', $pager->getPeerCountMethod());
+
+    $pager->setRowsPerPage(3);
+    $this->assertEquals(3, $pager->getRowsPerPage());
+  }
+
+  public function testGuessesJoinCountMethodFromSelectMethod()
+  {
+    $cr = new Criteria();
+    $cr->add(BookPeer::AUTHOR_ID, $this->authorId);
+    $pager = new PropulsionPager($cr, "BookPeer", "doSelectJoinAuthor");
+    $this->assertEquals('doCountJoinAuthor', $pager->getPeerCountMethod());
+  }
+
+  public function testFirstPageIsAlwaysOne()
+  {
+    $pager = $this->makePager(2, 2);
+    $this->assertEquals(1, $pager->getFirstPage());
+  }
+
+  public function testAtFirstAndLastPage()
+  {
+    // 7 books (6 added here + 1 from BookstoreDataPopulator::populate()), 2 per page => 4 pages
+    $pager = $this->makePager(1, 2);
+    $this->assertTrue($pager->atFirstPage());
+    $this->assertFalse($pager->atLastPage());
+
+    $pager = $this->makePager(4, 2);
+    $this->assertFalse($pager->atFirstPage());
+    $this->assertTrue($pager->atLastPage());
+  }
+
+  public function testGetTotalPagesAndLastPage()
+  {
+    $pager = $this->makePager(1, 2);
+    $this->assertEquals(4, $pager->getTotalPages());
+    $this->assertEquals(4, $pager->getLastPage());
+  }
+
+  public function testGetLastPageIsOneWhenNoResults()
+  {
+    $cr = new Criteria();
+    $cr->add(BookPeer::AUTHOR_ID, -1);
+    $pager = new PropulsionPager($cr, "BookPeer", "doSelect", 1, 5);
+    $this->assertEquals(1, $pager->getLastPage());
+  }
+
+  public function testGetPrevAndNext()
+  {
+    $pager = $this->makePager(1, 2);
+    $this->assertFalse($pager->getPrev());
+    $this->assertEquals(2, $pager->getNext());
+
+    $pager = $this->makePager(2, 2);
+    $this->assertEquals(1, $pager->getPrev());
+    $this->assertEquals(3, $pager->getNext());
+
+    $pager = $this->makePager(4, 2);
+    $this->assertEquals(3, $pager->getPrev());
+    $this->assertFalse($pager->getNext());
+  }
+
+  public function testGetPrevAndNextLinks()
+  {
+    // 7 books, 1 per page => 7 pages
+    $pager = $this->makePager(3, 1);
+    $this->assertEquals(array(1, 2), $pager->getPrevLinks());
+    $this->assertEquals(array(4, 5, 6, 7), $pager->getNextLinks());
+  }
+
+  public function testGetPrevLinksRespectsRange()
+  {
+    $pager = $this->makePager(6, 1);
+    $this->assertEquals(array(4, 5), $pager->getPrevLinks(3));
+  }
+
+  public function testIsLastPageComplete()
+  {
+    // 7 books, 7 per page => last (and only) page has exactly 7, so it's complete
+    $pager = $this->makePager(1, 7);
+    $this->assertTrue($pager->isLastPageComplete());
+
+    // 7 books, 2 per page => last page has 1 of 2, so it's not complete
+    $pager = $this->makePager(4, 2);
+    $this->assertFalse($pager->isLastPageComplete());
+  }
 }

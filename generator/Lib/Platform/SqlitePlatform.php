@@ -42,11 +42,17 @@ class SqlitePlatform extends DefaultPlatform
 	}
 
 	/**
+	 * Without the AUTOINCREMENT keyword, SQLite reuses the rowid of the most
+	 * recently deleted row for the next insert (see the linked doc), which
+	 * silently resurrects stale data for any code path relying on primary keys
+	 * being unique for the lifetime of the database, not just among currently-
+	 * existing rows.
+	 *
 	 * @link       http://www.sqlite.org/autoinc.html
 	 */
 	public function getAutoIncrement()
 	{
-		return "PRIMARY KEY";
+		return "PRIMARY KEY AUTOINCREMENT";
 	}
 
 	public function getMaxColumnNameLength()

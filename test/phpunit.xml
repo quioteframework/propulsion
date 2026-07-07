@@ -26,6 +26,14 @@
             <directory>../generator/Lib</directory>
             <directory>../runtime/Lib</directory>
         </include>
+        <exclude>
+            <!-- Class-less file: a single `return [100-entry array];` statement.
+                 pcov (correctly) tracks this as one executable line, which is hit
+                 on every run, but PHPUnit's static "coverable lines" analysis
+                 counts each array entry as its own line, making ~102 fully-exercised
+                 lines look uncovered. Excluded to avoid deflating the real number. -->
+            <file>../runtime/Lib/legacy-class-map.php</file>
+        </exclude>
     </source>
 
     <php>

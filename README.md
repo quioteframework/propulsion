@@ -1,5 +1,11 @@
 # Propulsion
 
+[![Tests](https://github.com/quioteframework/propulsion/actions/workflows/tests.yml/badge.svg)](https://github.com/quioteframework/propulsion/actions/workflows/tests.yml)
+[![codecov](https://codecov.io/gh/quioteframework/propulsion/graph/badge.svg)](https://codecov.io/gh/quioteframework/propulsion)
+[![Latest release](https://img.shields.io/github/v/release/quioteframework/propulsion)](https://github.com/quioteframework/propulsion/releases)
+[![PHP](https://img.shields.io/badge/php-%3E%3D8.5-777bb4)](composer.json)
+[![License: MIT](https://img.shields.io/github/license/quioteframework/propulsion)](LICENSE)
+
 Propulsion is an object-relational mapper (ORM) for PHP, forked from
 [Propel 1](https://github.com/propelorm/Propel1) and modernized to target
 PHP 8.5+.

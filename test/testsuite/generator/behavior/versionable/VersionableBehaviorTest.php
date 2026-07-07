@@ -49,7 +49,7 @@ DROP TABLE [versionable_behavior_test_0];
 
 CREATE TABLE [versionable_behavior_test_0]
 (
-	[id] INTEGER NOT NULL PRIMARY KEY,
+	[id] INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 	[bar] INTEGER,
 	[version] INTEGER DEFAULT 0
 );
@@ -81,7 +81,7 @@ DROP TABLE [versionable_behavior_test_0];
 
 CREATE TABLE [versionable_behavior_test_0]
 (
-	[id] INTEGER NOT NULL PRIMARY KEY,
+	[id] INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 	[bar] INTEGER,
 	[foo_ver] INTEGER DEFAULT 0
 );
@@ -111,7 +111,7 @@ DROP TABLE [versionable_behavior_test_0];
 
 CREATE TABLE [versionable_behavior_test_0]
 (
-	[id] INTEGER NOT NULL PRIMARY KEY,
+	[id] INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 	[bar] INTEGER,
 	[version] BIGINT
 );
@@ -159,7 +159,7 @@ DROP TABLE [versionable_behavior_test_0];
 
 CREATE TABLE [versionable_behavior_test_0]
 (
-	[id] INTEGER NOT NULL PRIMARY KEY,
+	[id] INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 	[bar] INTEGER,
 	[foreign_id] INTEGER,
 	[version] INTEGER DEFAULT 0
@@ -207,7 +207,7 @@ DROP TABLE [versionable_behavior_test_1];
 
 CREATE TABLE [versionable_behavior_test_1]
 (
-	[id] INTEGER NOT NULL PRIMARY KEY,
+	[id] INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 	[bar] INTEGER,
 	[version] INTEGER DEFAULT 0
 );
@@ -329,7 +329,7 @@ DROP TABLE [versionable_behavior_test_0];
 
 CREATE TABLE [versionable_behavior_test_0]
 (
-	[id] INTEGER NOT NULL PRIMARY KEY,
+	[id] INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 	[bar] INTEGER,
 	[version] INTEGER DEFAULT 0
 );
@@ -342,7 +342,7 @@ DROP TABLE [versionable_behavior_test_0_version];
 
 CREATE TABLE [versionable_behavior_test_0_version]
 (
-	[id] INTEGER NOT NULL PRIMARY KEY,
+	[id] INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 	[baz] INTEGER
 );
 
@@ -385,7 +385,7 @@ DROP TABLE [versionable_behavior_test_0];
 
 CREATE TABLE [versionable_behavior_test_0]
 (
-	[id] INTEGER NOT NULL PRIMARY KEY,
+	[id] INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 	[bar] INTEGER,
 	[version] INTEGER DEFAULT 0,
 	[version_created_at] TIMESTAMP,

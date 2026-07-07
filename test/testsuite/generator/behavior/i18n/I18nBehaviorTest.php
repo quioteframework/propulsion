@@ -200,7 +200,7 @@ EOF;
 		$expected = <<<EOF
 CREATE TABLE [i18n_behavior_test_0]
 (
-	[id] INTEGER NOT NULL PRIMARY KEY,
+	[id] INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 	[foo] INTEGER
 );
 EOF;

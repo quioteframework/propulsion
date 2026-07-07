@@ -209,18 +209,22 @@ class PropulsionQuickBuilder
 		if ($col = $table->getChildrenColumn()) {
 			if ($col->isEnumeratedClasses()) {
 				foreach ($col->getChildren() as $child) {
+					// The root inheritance entry (no "extends") describes the table's own
+					// base class, which the ordinary object/query/*stub targets above
+					// already build -- generating objectmultiextend/queryinheritancestub
+					// for it too would redeclare that same class a second time.
 					if ($child->getAncestor()) {
-						$script .= $this->buildScriptForChild('queryinheritance', $target, $child);
-					}
-					foreach (array('objectmultiextend', 'queryinheritancestub') as $target) {
-						$script .= $this->buildScriptForChild($table, $target, $child);
+						$script .= $this->buildScriptForChild($table, 'queryinheritance', $child);
+						foreach (array('objectmultiextend', 'queryinheritancestub') as $target) {
+							$script .= $this->buildScriptForChild($table, $target, $child);
+						}
 					}
 				}
 			}
 		}
 
 		if ($table->getInterface()) {
-			$script .= $this->buildScriptFor('interface', $target);
+			$script .= $this->buildScriptFor($table, 'interface');
 		}
 
 		if ($table->treeMode()) {

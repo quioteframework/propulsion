@@ -234,6 +234,317 @@ class MigrationCommandsTest extends TestCase
         $this->assertFalse($this->isTruthy($ledger[1]['success']));
     }
 
+    public function testDownCommandReportsNoMigrationEverExecuted(): void
+    {
+        // Migration file exists but was never applied -- migration:down has
+        // nothing to reverse.
+        $this->writeMigrationFile(1750000400, [
+            self::DATASOURCE => 'ALTER TABLE mig_cmd_book ADD COLUMN subtitle VARCHAR(120);',
+        ], [
+            self::DATASOURCE => 'ALTER TABLE mig_cmd_book DROP COLUMN subtitle;',
+        ]);
+
+        $downTester = $this->tester(new MigrationDownCommand(), 'migration:down');
+        $exitCode = $downTester->execute($this->commandArgs());
+
+        $this->assertSame(0, $exitCode, $downTester->getDisplay());
+        $this->assertStringContainsString('nothing to reverse', $downTester->getDisplay());
+    }
+
+    public function testUpCommandReportsRemainingMigrationsAfterApplyingOne(): void
+    {
+        $this->writeMigrationFile(1750000500, [
+            self::DATASOURCE => 'ALTER TABLE mig_cmd_book ADD COLUMN col_a VARCHAR(10);',
+        ], [
+            self::DATASOURCE => 'ALTER TABLE mig_cmd_book DROP COLUMN col_a;',
+        ]);
+        $this->writeMigrationFile(1750000501, [
+            self::DATASOURCE => 'ALTER TABLE mig_cmd_book ADD COLUMN col_b VARCHAR(10);',
+        ], [
+            self::DATASOURCE => 'ALTER TABLE mig_cmd_book DROP COLUMN col_b;',
+        ]);
+
+        $upTester = $this->tester(new MigrationUpCommand(), 'migration:up');
+        $exitCode = $upTester->execute($this->commandArgs());
+
+        $this->assertSame(0, $exitCode, $upTester->getDisplay());
+        $this->assertStringContainsString('1 migration(s) left to execute', $upTester->getDisplay());
+    }
+
+    public function testDownCommandReportsRemainingMigrationsAfterRevertingOne(): void
+    {
+        $this->writeMigrationFile(1750000600, [
+            self::DATASOURCE => 'ALTER TABLE mig_cmd_book ADD COLUMN col_c VARCHAR(10);',
+        ], [
+            self::DATASOURCE => 'ALTER TABLE mig_cmd_book DROP COLUMN col_c;',
+        ]);
+        $this->writeMigrationFile(1750000601, [
+            self::DATASOURCE => 'ALTER TABLE mig_cmd_book ADD COLUMN col_d VARCHAR(10);',
+        ], [
+            self::DATASOURCE => 'ALTER TABLE mig_cmd_book DROP COLUMN col_d;',
+        ]);
+
+        // Apply both, one at a time (each migration:up call only applies the
+        // next pending one).
+        $this->tester(new MigrationUpCommand(), 'migration:up')->execute($this->commandArgs());
+        $this->tester(new MigrationUpCommand(), 'migration:up')->execute($this->commandArgs());
+
+        // Revert just the most recent one.
+        $downTester = $this->tester(new MigrationDownCommand(), 'migration:down');
+        $exitCode = $downTester->execute($this->commandArgs());
+
+        $this->assertSame(0, $exitCode, $downTester->getDisplay());
+        $this->assertStringContainsString('1 more migration(s) available for reverse', $downTester->getDisplay());
+    }
+
+    public function testUpCommandAbortsWhenPreUpReturnsFalse(): void
+    {
+        $this->writeCustomMigrationFile(1750000700, <<<'EOT'
+public function preUp($manager)
+{
+    return false;
+}
+
+public function postUp($manager) {}
+public function preDown($manager) {}
+public function postDown($manager) {}
+
+public function getUpSQL()
+{
+    return ['migration_command_parity' => 'ALTER TABLE mig_cmd_book ADD COLUMN col_e VARCHAR(10);'];
+}
+
+public function getDownSQL()
+{
+    return ['migration_command_parity' => 'ALTER TABLE mig_cmd_book DROP COLUMN col_e;'];
+}
+EOT
+        );
+
+        $upTester = $this->tester(new MigrationUpCommand(), 'migration:up');
+        $exitCode = $upTester->execute($this->commandArgs());
+
+        $this->assertNotSame(0, $exitCode);
+        $this->assertStringContainsString('preUp() returned false', $upTester->getDisplay());
+        $this->assertFalse($this->columnExists('col_e'), 'the SQL must never run when preUp() vetoes the migration');
+    }
+
+    public function testDownCommandAbortsWhenPreDownReturnsFalse(): void
+    {
+        $this->writeCustomMigrationFile(1750000800, <<<'EOT'
+public function preUp($manager) {}
+public function postUp($manager) {}
+
+public function preDown($manager)
+{
+    return false;
+}
+
+public function postDown($manager) {}
+
+public function getUpSQL()
+{
+    return ['migration_command_parity' => 'ALTER TABLE mig_cmd_book ADD COLUMN col_f VARCHAR(10);'];
+}
+
+public function getDownSQL()
+{
+    return ['migration_command_parity' => 'ALTER TABLE mig_cmd_book DROP COLUMN col_f;'];
+}
+EOT
+        );
+
+        $upTester = $this->tester(new MigrationUpCommand(), 'migration:up');
+        $this->assertSame(0, $upTester->execute($this->commandArgs()), $upTester->getDisplay());
+        $this->assertTrue($this->columnExists('col_f'));
+
+        $downTester = $this->tester(new MigrationDownCommand(), 'migration:down');
+        $exitCode = $downTester->execute($this->commandArgs());
+
+        $this->assertNotSame(0, $exitCode);
+        $this->assertStringContainsString('preDown() returned false', $downTester->getDisplay());
+        $this->assertTrue($this->columnExists('col_f'), 'the column must still be there when preDown() vetoes the revert');
+    }
+
+    public function testUpAndDownCommandsReportGenericFailureForNonStatementErrors(): void
+    {
+        // A buildtime-conf that fails to parse (rather than a live-database
+        // statement failure) must hit the *generic* \Throwable catch, not the
+        // MigrationExecutionException branch -- and still exit non-zero.
+        $brokenConfFile = $this->migrationDir . '/broken-buildtime-conf.php';
+        file_put_contents($brokenConfFile, '<?php this is not valid php');
+
+        $args = [
+            '--migration-dir' => $this->migrationDir,
+            '--migration-table' => self::MIGRATION_TABLE,
+            '--buildtime-conf' => $brokenConfFile,
+            '--database' => $this->platform,
+        ];
+
+        $upTester = $this->tester(new MigrationUpCommand(), 'migration:up');
+        $exitCode = $upTester->execute($args);
+        $this->assertNotSame(0, $exitCode);
+        $this->assertStringContainsString('Migration failed', $upTester->getDisplay());
+
+        $downTester = $this->tester(new MigrationDownCommand(), 'migration:down');
+        $exitCode = $downTester->execute($args);
+        $this->assertNotSame(0, $exitCode);
+        $this->assertStringContainsString('Migration failed', $downTester->getDisplay());
+    }
+
+    public function testUpCommandWithNoStatementsRendersEmptyStatementLogSilently(): void
+    {
+        // A migration whose Up SQL is only a comment parses to zero
+        // statements: runMigrationDirection() throws a MigrationExecutionException
+        // with an *empty* statement log, exercising renderStatementLog()'s
+        // early-return-on-empty-log branch (as opposed to the populated-log
+        // branch exercised by the statement-failure tests above).
+        $this->writeMigrationFile(1750001100, [
+            self::DATASOURCE => '-- nothing to do here',
+        ], [
+            self::DATASOURCE => '-- nothing to do here either',
+        ]);
+
+        $upTester = $this->tester(new MigrationUpCommand(), 'migration:up');
+        $exitCode = $upTester->execute($this->commandArgs());
+
+        $this->assertNotSame(0, $exitCode);
+        $this->assertStringContainsString('aborted: no SQL statements', $upTester->getDisplay());
+        $this->assertStringNotContainsString('Statement log', $upTester->getDisplay());
+    }
+
+    public function testDownCommandWithNoStatementsRendersEmptyStatementLogSilently(): void
+    {
+        // Same as the Up-side test above, but for migration:down's own copy of
+        // renderStatementLog(): a migration whose Down SQL is only a comment.
+        $this->writeMigrationFile(1750001200, [
+            self::DATASOURCE => 'ALTER TABLE mig_cmd_book ADD COLUMN col_i VARCHAR(10);',
+        ], [
+            self::DATASOURCE => '-- nothing to do here',
+        ]);
+
+        $upTester = $this->tester(new MigrationUpCommand(), 'migration:up');
+        $this->assertSame(0, $upTester->execute($this->commandArgs()), $upTester->getDisplay());
+
+        $downTester = $this->tester(new MigrationDownCommand(), 'migration:down');
+        $exitCode = $downTester->execute($this->commandArgs());
+
+        $this->assertNotSame(0, $exitCode);
+        $this->assertStringContainsString('aborted: no SQL statements', $downTester->getDisplay());
+        $this->assertStringNotContainsString('Statement log', $downTester->getDisplay());
+    }
+
+    public function testUpAndDownCommandsPrintStackTraceInVeryVerboseMode(): void
+    {
+        $brokenConfFile = $this->migrationDir . '/broken-buildtime-conf-2.php';
+        file_put_contents($brokenConfFile, '<?php this is not valid php');
+
+        $args = [
+            '--migration-dir' => $this->migrationDir,
+            '--migration-table' => self::MIGRATION_TABLE,
+            '--buildtime-conf' => $brokenConfFile,
+            '--database' => $this->platform,
+        ];
+        $verbosity = ['verbosity' => \Symfony\Component\Console\Output\OutputInterface::VERBOSITY_VERY_VERBOSE];
+
+        $upTester = $this->tester(new MigrationUpCommand(), 'migration:up');
+        $upTester->execute($args, $verbosity);
+        $this->assertStringContainsString('.php', $upTester->getDisplay(), 'a stack trace (with file paths) should be printed in -vv mode');
+
+        $downTester = $this->tester(new MigrationDownCommand(), 'migration:down');
+        $downTester->execute($args, $verbosity);
+        $this->assertStringContainsString('.php', $downTester->getDisplay(), 'a stack trace (with file paths) should be printed in -vv mode');
+    }
+
+    /**
+     * Unlike testStatusCommandFailsCleanlyWhenBuildtimeConfIsUnparsable() (a
+     * config-parsing failure caught by the *first* try block, around
+     * buildManager()), this needs a failure inside the *second* try block --
+     * config parses fine, but the live DB interaction itself fails -- to
+     * exercise that block's own verbose-trace branch. An invalid migration
+     * table name (containing characters no SQL identifier allows) fails
+     * migrationTableExists()'s query without failing config loading.
+     */
+    public function testStatusCommandPrintsStackTraceInVeryVerboseModeOnDatabaseError(): void
+    {
+        $statusTester = $this->tester(new MigrationStatusCommand(), 'migration:status');
+        $exitCode = $statusTester->execute([
+            '--migration-dir' => $this->migrationDir,
+            '--migration-table' => 'not a valid identifier; drop table foo',
+            '--buildtime-conf' => $this->buildtimeConfFile,
+            '--database' => $this->platform,
+        ], ['verbosity' => \Symfony\Component\Console\Output\OutputInterface::VERBOSITY_VERY_VERBOSE]);
+
+        $this->assertNotSame(0, $exitCode);
+        $this->assertStringContainsString('Failed to determine migration status', $statusTester->getDisplay());
+        $this->assertStringContainsString('.php', $statusTester->getDisplay(), 'a stack trace (with file paths) should be printed in -vv mode');
+    }
+
+    public function testStatusCommandFailsCleanlyWhenBuildtimeConfIsUnparsable(): void
+    {
+        $brokenConfFile = $this->migrationDir . '/broken-buildtime-conf-3.php';
+        file_put_contents($brokenConfFile, '<?php this is not valid php');
+
+        $statusTester = $this->tester(new MigrationStatusCommand(), 'migration:status');
+        $exitCode = $statusTester->execute([
+            '--migration-dir' => $this->migrationDir,
+            '--migration-table' => self::MIGRATION_TABLE,
+            '--buildtime-conf' => $brokenConfFile,
+            '--database' => $this->platform,
+        ]);
+
+        $this->assertNotSame(0, $exitCode);
+        $this->assertStringContainsString('Failed to determine datasource connections', $statusTester->getDisplay());
+    }
+
+    public function testStatusCommandReportsNoMigrationFilesInEmptyDirectory(): void
+    {
+        $statusTester = $this->tester(new MigrationStatusCommand(), 'migration:status');
+        $exitCode = $statusTester->execute($this->commandArgs());
+
+        $this->assertSame(0, $exitCode, $statusTester->getDisplay());
+        $this->assertStringContainsString('No migration file found', $statusTester->getDisplay());
+    }
+
+    public function testStatusCommandReportsAllMigrationsAlreadyExecuted(): void
+    {
+        $timestamp = 1750000900;
+        $this->writeMigrationFile($timestamp, [
+            self::DATASOURCE => 'ALTER TABLE mig_cmd_book ADD COLUMN col_g VARCHAR(10);',
+        ], [
+            self::DATASOURCE => 'ALTER TABLE mig_cmd_book DROP COLUMN col_g;',
+        ]);
+
+        $upTester = $this->tester(new MigrationUpCommand(), 'migration:up');
+        $this->assertSame(0, $upTester->execute($this->commandArgs()), $upTester->getDisplay());
+
+        $statusTester = $this->tester(new MigrationStatusCommand(), 'migration:status');
+        $exitCode = $statusTester->execute($this->commandArgs());
+
+        $this->assertSame(0, $exitCode, $statusTester->getDisplay());
+        $this->assertStringContainsString('already executed - nothing to migrate', $statusTester->getDisplay());
+    }
+
+    public function testStatusCommandVerboseOutputShowsOldestMigrationTimestamp(): void
+    {
+        $timestamp = 1750001000;
+        $this->writeMigrationFile($timestamp, [
+            self::DATASOURCE => 'ALTER TABLE mig_cmd_book ADD COLUMN col_h VARCHAR(10);',
+        ], [
+            self::DATASOURCE => 'ALTER TABLE mig_cmd_book DROP COLUMN col_h;',
+        ]);
+
+        $upTester = $this->tester(new MigrationUpCommand(), 'migration:up');
+        $this->assertSame(0, $upTester->execute($this->commandArgs()), $upTester->getDisplay());
+
+        $statusTester = $this->tester(new MigrationStatusCommand(), 'migration:status');
+        $exitCode = $statusTester->execute($this->commandArgs(), ['verbosity' => \Symfony\Component\Console\Output\OutputInterface::VERBOSITY_VERBOSE]);
+
+        $this->assertSame(0, $exitCode, $statusTester->getDisplay());
+        $this->assertStringContainsString('Latest migration was executed on', $statusTester->getDisplay());
+        $this->assertStringContainsString((string) $timestamp, $statusTester->getDisplay());
+    }
+
     /**
      * Same status -> up -> down cycle as
      * testStatusUpDownCycleAgainstRealDatabase(), but via the recommended
@@ -339,6 +650,21 @@ class MigrationCommandsTest extends TestCase
         $manager = new PropulsionMigrationManager();
         $fileName = PropulsionMigrationManager::getMigrationFileName($timestamp);
         $body = $manager->getMigrationClassBody($upSql, $downSql, $timestamp);
+        file_put_contents($this->migrationDir . '/' . $fileName, $body);
+        $this->assertFileExists($this->migrationDir . '/' . $fileName);
+    }
+
+    /**
+     * Same as writeMigrationFile(), but with a hand-written class body instead
+     * of the standard generated one -- used to exercise hooks
+     * (preUp()/preDown() returning false) that getMigrationClassBody()'s
+     * fixed template can't produce.
+     */
+    private function writeCustomMigrationFile(int $timestamp, string $classBody): void
+    {
+        $fileName = PropulsionMigrationManager::getMigrationFileName($timestamp);
+        $className = PropulsionMigrationManager::getMigrationClassName($timestamp);
+        $body = "<?php\n\nclass $className\n{\n$classBody\n}\n";
         file_put_contents($this->migrationDir . '/' . $fileName, $body);
         $this->assertFileExists($this->migrationDir . '/' . $fileName);
     }

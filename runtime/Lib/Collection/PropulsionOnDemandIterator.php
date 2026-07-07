@@ -105,10 +105,28 @@ class PropulsionOnDemandIterator implements Iterator
 		$this->isValid = (bool) $this->currentRow;
 		if (!$this->isValid) {
 			$this->closeCursor();
-			if ($this->enableInstancePoolingOnFinish) {
-				Propulsion::enableInstancePooling();
-			}
+			$this->restoreInstancePooling();
 		}
+	}
+
+	/**
+	 * Re-enables instance pooling if this iterator was the one that disabled it
+	 * and it hasn't already been restored. Guarded by resetting the flag, so it's
+	 * safe to call from both next() (on normal end-of-stream) and __destruct()
+	 * (for callers like ModelCriteria::findOne() that only ever read one row and
+	 * never exhaust the statement) without double-toggling the shared flag.
+	 */
+	private function restoreInstancePooling(): void
+	{
+		if ($this->enableInstancePoolingOnFinish) {
+			Propulsion::enableInstancePooling();
+			$this->enableInstancePoolingOnFinish = false;
+		}
+	}
+
+	public function __destruct()
+	{
+		$this->restoreInstancePooling();
 	}
 
 	/**
