@@ -64,6 +64,11 @@ class MssqlPlatform extends DefaultPlatform
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::OBJECT, "VARCHAR(MAX)"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::PHP_ARRAY, "VARCHAR(MAX)"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::ENUM, "TINYINT"));
+		// SQL Server has no native JSON column type (JSON is validated/queried via
+		// functions over ordinary NVARCHAR columns) -- VARCHAR(MAX) mirrors the
+		// LONGVARCHAR/OBJECT/PHP_ARRAY fallback above.
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::JSON, "VARCHAR(MAX)"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::JSONB, "VARCHAR(MAX)"));
 	}
 
 	public function getMaxColumnNameLength()

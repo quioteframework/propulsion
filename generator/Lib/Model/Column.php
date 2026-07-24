@@ -921,6 +921,16 @@ class Column extends XMLElement
 	}
 
 	/**
+	 * Utility method to know whether column is a JSON/JSONB column (stored as
+	 * real JSON text, decoded/encoded via json_decode()/json_encode()).
+	 * @return		 boolean
+	 */
+	public function isJsonType(): bool
+	{
+		return PropulsionTypes::isJsonType($this->getType());
+	}
+
+	/**
 	 * Sets the list of possible values for an ENUM column
 	 * @param string[] $valueSet
 	 */

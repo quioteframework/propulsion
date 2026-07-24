@@ -52,6 +52,10 @@ class MysqlPlatform extends DefaultPlatform
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::OBJECT, "TEXT"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::PHP_ARRAY, "TEXT"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::ENUM, "TINYINT"));
+		// MySQL (5.7.8+) has a native JSON column type, but no separate binary/JSONB
+		// variant like PostgreSQL -- map both Propulsion types onto it.
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::JSON, "JSON"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::JSONB, "JSON"));
 	}
 
 	public function setGeneratorConfig(GeneratorConfig $generatorConfig): void

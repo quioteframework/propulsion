@@ -223,6 +223,14 @@ class ObjectBuilder extends AbstractObjectBuilder
 			return 'mixed';
 		}
 
+		// JSON/JSONB columns decode (via json_decode()) to whatever shape the stored
+		// document actually has -- an array, a scalar, or null -- so, like OBJECT
+		// above, no single PHP type fits every possible value. `mixed` is used for
+		// the same reason.
+		if ($col->isJsonType()) {
+			return 'mixed';
+		}
+
 		// Check the actual Propulsion type for better type hints
 		$propelType = $col->getType();
 
@@ -279,6 +287,11 @@ class ObjectBuilder extends AbstractObjectBuilder
 
 		// See getPhp84TypeHint() -- OBJECT columns store an arbitrary caller-supplied object.
 		if ($col->getType() === PropulsionTypes::OBJECT) {
+			return 'mixed';
+		}
+
+		// See getPhp84TypeHint() -- JSON/JSONB columns can decode to any JSON shape.
+		if ($col->isJsonType()) {
 			return 'mixed';
 		}
 
@@ -1736,9 +1749,10 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 				continue;
 			}
 			$phpname = $col->getPhpName();
+			$colname = $col->getName();
 			$script .= "
 		\$this->$phpname = (\$row[\$startcol + " . $n . "] !== null) ? ";
-			
+
 			if ($col->isTemporalType()) {
 				$script .= "new DateTime(\$row[\$startcol + " . $n . "])";
 			} elseif ($col->getType() === PropulsionTypes::BOOLEAN) {
@@ -1747,6 +1761,12 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 				$script .= "(\$row[\$startcol + " . $n . "] === '' ? array() : (preg_match('/^ \\| (.*) \\| $/s', \$row[\$startcol + " . $n . "], \$matches) ? explode(' | ', \$matches[1]) : explode(' | ', \$row[\$startcol + " . $n . "])))";
 			} elseif ($col->getType() === PropulsionTypes::OBJECT) {
 				$script .= "unserialize(\$row[\$startcol + " . $n . "])";
+			} elseif ($col->isJsonType()) {
+				// See BaseObject::decodeJsonColumn() -- throws a PropulsionException
+				// (rather than silently returning null, as a bare json_decode() call
+				// would on malformed input) so bad data in the database surfaces as a
+				// loud failure at hydration time instead of a confusing null downstream.
+				$script .= "self::decodeJsonColumn(\$row[\$startcol + " . $n . "], '$colname')";
 			} elseif ($col->isNumericType()) {
 				$phpType = $col->getPhpType();
 				// Use canonical cast names (PHP 8.5 deprecates non-canonical forms)
@@ -2617,6 +2637,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			} elseif ($col->getType() === PropulsionTypes::OBJECT) {
 				$script .= "
 		if (\$this->isColumnModified($const)) \$criteria->add($const, \$this->$phpname === null ? null : serialize(\$this->$phpname));";
+			} elseif ($col->isJsonType()) {
+				$script .= "
+		if (\$this->isColumnModified($const)) \$criteria->add($const, \$this->$phpname === null ? null : self::encodeJsonColumn(\$this->$phpname, '" . $col->getName() . "'));";
 			} else {
 				$script .= "
 		if (\$this->isColumnModified($const)) \$criteria->add($const, \$this->$phpname);";
@@ -2627,7 +2650,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		return \$criteria;
 	}";
 	}
-	
+
 	protected function addBuildPkeyCriteria(string &$script): void
 	{
 		$table = $this->getTable();
@@ -2654,6 +2677,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			} elseif ($pk->getType() === PropulsionTypes::OBJECT) {
 				$script .= "
 		\$criteria->add($const, \$this->$phpname === null ? null : serialize(\$this->$phpname));";
+			} elseif ($pk->isJsonType()) {
+				$script .= "
+		\$criteria->add($const, \$this->$phpname === null ? null : self::encodeJsonColumn(\$this->$phpname, '" . $pk->getName() . "'));";
 			} else {
 				$script .= "
 		\$criteria->add($const, \$this->$phpname);";
@@ -2776,6 +2802,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		} elseif (
 			$col->getType() === PropulsionTypes::PHP_ARRAY
 			|| $col->getType() === PropulsionTypes::OBJECT
+			|| $col->isJsonType()
 			|| $col->isLobType()
 		) {
 			// These setters already accept a broader union (mixed, a resource, etc.) or need

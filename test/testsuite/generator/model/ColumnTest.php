@@ -195,4 +195,19 @@ EOF;
 		$this->assertTrue($column->hasPlatform());
 	}
 
+	public function testIsJsonType()
+	{
+		$column = new Column('foo');
+		$column->setType(PropulsionTypes::JSON);
+		$this->assertTrue($column->isJsonType());
+
+		$column2 = new Column('bar');
+		$column2->setType(PropulsionTypes::JSONB);
+		$this->assertTrue($column2->isJsonType());
+
+		$column3 = new Column('baz');
+		$column3->setType(PropulsionTypes::VARCHAR);
+		$this->assertFalse($column3->isJsonType());
+	}
+
 }
