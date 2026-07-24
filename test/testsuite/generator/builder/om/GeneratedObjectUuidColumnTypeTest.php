@@ -17,10 +17,10 @@ class GeneratedObjectUuidColumnTypeTest extends TestCase
 {
 	public function setUp(): void
 	{
-		if (!class_exists('ComplexColumnTypeEntity20')) {
+		if (!class_exists('ComplexColumnTypeEntity22')) {
 			$schema = <<<EOF
-<database name="generated_object_complex_type_test_20">
-	<table name="complex_column_type_entity_20">
+<database name="generated_object_complex_type_test_22">
+	<table name="complex_column_type_entity_22">
 		<column name="id" primaryKey="true" type="INTEGER" autoIncrement="true" />
 		<column name="uuid" type="UUID" />
 		<column name="uuid_required" type="UUID" required="true" />
@@ -34,33 +34,33 @@ EOF;
 
 	public function testGetterAndSetterExist()
 	{
-		$this->assertTrue(method_exists('ComplexColumnTypeEntity20', 'getUuid'));
-		$this->assertTrue(method_exists('ComplexColumnTypeEntity20', 'setUuid'));
+		$this->assertTrue(method_exists('ComplexColumnTypeEntity22', 'getUuid'));
+		$this->assertTrue(method_exists('ComplexColumnTypeEntity22', 'setUuid'));
 	}
 
 	public function testDefaultValueIsNull()
 	{
-		$e = new ComplexColumnTypeEntity20();
+		$e = new ComplexColumnTypeEntity22();
 		$this->assertNull($e->getUuid());
 	}
 
 	public function testSetterAcceptsWellFormedUuid()
 	{
-		$e = new ComplexColumnTypeEntity20();
+		$e = new ComplexColumnTypeEntity22();
 		$e->setUuid('550e8400-e29b-41d4-a716-446655440000');
 		$this->assertEquals('550e8400-e29b-41d4-a716-446655440000', $e->getUuid());
 	}
 
 	public function testSetterNormalizesCaseToLowercase()
 	{
-		$e = new ComplexColumnTypeEntity20();
+		$e = new ComplexColumnTypeEntity22();
 		$e->setUuid('550E8400-E29B-41D4-A716-446655440000');
 		$this->assertEquals('550e8400-e29b-41d4-a716-446655440000', $e->getUuid());
 	}
 
 	public function testSetterAcceptsNull()
 	{
-		$e = new ComplexColumnTypeEntity20();
+		$e = new ComplexColumnTypeEntity22();
 		$e->setUuid('550e8400-e29b-41d4-a716-446655440000');
 		$e->setUuid(null);
 		$this->assertNull($e->getUuid());
@@ -68,13 +68,13 @@ EOF;
 
 	public function testSetterFluentInterface()
 	{
-		$e = new ComplexColumnTypeEntity20();
+		$e = new ComplexColumnTypeEntity22();
 		$this->assertSame($e, $e->setUuid('550e8400-e29b-41d4-a716-446655440000'));
 	}
 
 	public function testDefaultValueIsAppliedAndValid()
 	{
-		$e = new ComplexColumnTypeEntity20();
+		$e = new ComplexColumnTypeEntity22();
 		$this->assertEquals('550e8400-e29b-41d4-a716-446655440000', $e->getUuidDefault());
 	}
 
@@ -85,7 +85,7 @@ EOF;
 	public function testSetterRejectsMalformedUuid(string $malformed)
 	{
 		$this->expectException(PropulsionException::class);
-		$e = new ComplexColumnTypeEntity20();
+		$e = new ComplexColumnTypeEntity22();
 		$e->setUuid($malformed);
 	}
 
@@ -104,31 +104,33 @@ EOF;
 
 	public function testValueIsPersisted()
 	{
-		$e = new ComplexColumnTypeEntity20();
+		ComplexColumnTypeEntity22Query::create()->deleteAll();
+		$e = new ComplexColumnTypeEntity22();
 		$e->setUuid('550e8400-e29b-41d4-a716-446655440000');
 		$e->setUuidRequired('123e4567-e89b-12d3-a456-426614174000');
 		$e->save();
-		ComplexColumnTypeEntity20Peer::clearInstancePool();
-		$found = ComplexColumnTypeEntity20Query::create()->findOne();
+		ComplexColumnTypeEntity22Peer::clearInstancePool();
+		$found = ComplexColumnTypeEntity22Query::create()->orderById(Criteria::DESC)->findOne();
 		$this->assertEquals('550e8400-e29b-41d4-a716-446655440000', $found->getUuid());
 		$this->assertEquals('123e4567-e89b-12d3-a456-426614174000', $found->getUuidRequired());
 	}
 
 	public function testNullValueIsPersisted()
 	{
-		$e = new ComplexColumnTypeEntity20();
+		ComplexColumnTypeEntity22Query::create()->deleteAll();
+		$e = new ComplexColumnTypeEntity22();
 		$e->setUuidRequired('123e4567-e89b-12d3-a456-426614174000');
 		$e->save();
-		ComplexColumnTypeEntity20Peer::clearInstancePool();
-		$found = ComplexColumnTypeEntity20Query::create()->orderById(Criteria::DESC)->findOne();
+		ComplexColumnTypeEntity22Peer::clearInstancePool();
+		$found = ComplexColumnTypeEntity22Query::create()->orderById(Criteria::DESC)->findOne();
 		$this->assertNull($found->getUuid());
 	}
 
 	public function testValueIsCopied()
 	{
-		$e1 = new ComplexColumnTypeEntity20();
+		$e1 = new ComplexColumnTypeEntity22();
 		$e1->setUuid('550e8400-e29b-41d4-a716-446655440000');
-		$e2 = new ComplexColumnTypeEntity20();
+		$e2 = new ComplexColumnTypeEntity22();
 		$e1->copyInto($e2);
 		$this->assertEquals('550e8400-e29b-41d4-a716-446655440000', $e2->getUuid());
 	}
