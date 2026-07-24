@@ -67,6 +67,22 @@ categories, not one:
 
 ## Open issues
 
+- **Coverage reporting was silently broken (fixed): `pcov` (1.0.12) doesn't
+  instrument anything on PHP 8.5** -- no error, no warning, just a `0.00%`
+  report regardless of what actually ran, because `php-code-coverage`
+  prefers pcov over Xdebug whenever both are present and pcov claims to be
+  available. `.github/workflows/tests.yml`'s `integration` job (the source
+  of the Codecov number) requested `coverage: pcov`, so the uploaded
+  coverage was never real. Switched that job to `coverage: xdebug` (with
+  `XDEBUG_MODE: coverage` on the PHPUnit step) -- confirmed working
+  end-to-end locally: a trivial script under `pcov\start()`/`pcov\collect()`
+  reports zero covered lines even for code that just ran, while the
+  identical scenario under Xdebug's `xdebug_get_code_coverage()` reports
+  correctly. If pcov gets fixed upstream for PHP 8.5 and its speed advantage
+  is wanted back, verify with the same kind of standalone script before
+  switching back -- a silent 0% is easy to miss in a coverage report that
+  otherwise looks plausible.
+
 - **Single-table-inheritance discriminator resolution now uses real FQCNs
   (fixed), but the `extends="..."` cross-namespace override is still
   unaddressed.** `<inheritance>` elements' `CLASSNAME_*` peer constants used

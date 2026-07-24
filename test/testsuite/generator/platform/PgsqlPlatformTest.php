@@ -593,6 +593,15 @@ DROP SEQUENCE IF EXISTS \"foo_sequence\";
 		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($column));
 	}
 
+	public function testGetColumnDDLUuid()
+	{
+		$c = new Column('foo');
+		$c->getDomain()->copy($this->getPlatform()->getDomainForType(PropulsionTypes::UUID));
+		$c->setNotNull(true);
+		$expected = '"foo" UUID NOT NULL';
+		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($c));
+	}
+
 	public function testGetPrimaryKeyDDLSimpleKey()
 	{
 		$table = new Table('foo');

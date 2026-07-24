@@ -53,6 +53,14 @@ class PgsqlPlatform extends DefaultPlatform
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::OBJECT, "TEXT"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::PHP_ARRAY, "TEXT"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::ENUM, "INT2"));
+		// PostgreSQL has real native JSON and JSONB column types -- JSONB stores a
+		// decomposed binary representation (faster to query/index, slightly slower to
+		// write) while JSON stores the exact input text verbatim; let schema authors pick
+		// either. Both are still bound as plain strings (see PropulsionTypes::getPDOType()),
+		// since PDO's pgsql driver has no dedicated JSON parameter type.
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::JSON, "JSON"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::JSONB, "JSONB"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::UUID, "UUID"));
 	}
 
 	public function getNativeIdMethod()

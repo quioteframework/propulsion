@@ -416,6 +416,51 @@ abstract class BaseObject
 	}
 
 	/**
+	 * Decode a JSON/JSONB column's raw (non-null) database value into its PHP
+	 * representation, for use by a generated class's hydrate() method.
+	 *
+	 * Shared here (rather than duplicated inline in every generated hydrate()
+	 * method, the way OBJECT's unserialize()/PHP_ARRAY's custom delimited format
+	 * are) so malformed JSON is reported consistently across every JSON/JSONB
+	 * column in the schema, with the offending column name in the message.
+	 *
+	 * @param      string|int|float|bool $value The raw (non-null, scalar) database
+	 *             value -- a JSON string, as returned by every PDO driver for a
+	 *             JSON/JSONB/TEXT column.
+	 * @param      string $columnName The column name, used only for the exception message.
+	 * @return     mixed The decoded value: an array for a JSON object/array, or the
+	 *             corresponding scalar/null for a JSON scalar/null literal.
+	 * @throws     PropulsionException If $value is not well-formed JSON.
+	 */
+	protected static function decodeJsonColumn(string|int|float|bool $value, string $columnName): mixed
+	{
+		try {
+			return json_decode((string) $value, true, 512, JSON_THROW_ON_ERROR);
+		} catch (\JsonException $e) {
+			throw new PropulsionException("Malformed JSON in column [$columnName]", $e);
+		}
+	}
+
+	/**
+	 * Encode a PHP value for storage in a JSON/JSONB column, for use by a
+	 * generated class's buildCriteria()/buildPkeyCriteria() methods.
+	 *
+	 * @param      mixed  $value The value to encode (as previously set via the column's mutator).
+	 * @param      string $columnName The column name, used only for the exception message.
+	 * @return     string The JSON-encoded value.
+	 * @throws     PropulsionException If $value cannot be represented as JSON (e.g. it
+	 *             contains a resource, or malformed UTF-8).
+	 */
+	protected static function encodeJsonColumn(mixed $value, string $columnName): string
+	{
+		try {
+			return json_encode($value, JSON_THROW_ON_ERROR);
+		} catch (\JsonException $e) {
+			throw new PropulsionException("Unable to encode value for JSON column [$columnName]", $e);
+		}
+	}
+
+	/**
 	 * Logs a message using Propulsion::log().
 	 *
 	 * @param      string $msg

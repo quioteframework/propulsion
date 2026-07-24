@@ -50,7 +50,10 @@ class PropulsionColumnTypes
 		BOOLEAN_EMU = "BOOLEAN_EMU",
 		OBJECT = "OBJECT",
 		PHP_ARRAY = "ARRAY",
-		ENUM = "ENUM";
+		ENUM = "ENUM",
+		JSON = "JSON",
+		JSONB = "JSONB",
+		UUID = "UUID";
 
 	/** @var array<string, int> */
 	private static array $propelToPdoMap = array(
@@ -82,6 +85,9 @@ class PropulsionColumnTypes
 		self::OBJECT      => PDO::PARAM_STR,
 		self::PHP_ARRAY   => PDO::PARAM_STR,
 		self::ENUM   => PDO::PARAM_INT,
+		self::JSON        => PDO::PARAM_STR,
+		self::JSONB       => PDO::PARAM_STR,
+		self::UUID   => PDO::PARAM_STR,
 	);
 
 	/**

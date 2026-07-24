@@ -48,13 +48,27 @@ class PropulsionTypes
 	const OBJECT = "OBJECT";
 	const PHP_ARRAY = "ARRAY";
 	const ENUM = "ENUM";
+	const JSON = "JSON";
+	const JSONB = "JSONB";
+	const UUID = "UUID";
 
 	/** @var array<int|string, string> */
 	protected static array $creoleToPropulsionTypeMap = [];
 
+	/**
+	 * JSON columns are stored as real JSON text (via json_encode()/json_decode()),
+	 * not PHP serialize() like OBJECT/PHP_ARRAY -- see ObjectBuilder::addHydrate()/
+	 * addBuildCriteria() and BaseObject::decodeJsonColumn()/encodeJsonColumn().
+	 *
+	 * @var string[]
+	 */
+	private static array $JSON_TYPES = array(
+		self::JSON, self::JSONB
+	);
+
 	/** @var string[] */
 	private static array $TEXT_TYPES = array(
-		self::CHAR, self::VARCHAR, self::LONGVARCHAR, self::CLOB, self::DATE, self::TIME, self::TIMESTAMP, self::BU_DATE, self::BU_TIMESTAMP
+		self::CHAR, self::VARCHAR, self::LONGVARCHAR, self::CLOB, self::DATE, self::TIME, self::TIMESTAMP, self::BU_DATE, self::BU_TIMESTAMP, self::UUID
 	);
 
 	/** @var string[] */
@@ -105,6 +119,13 @@ class PropulsionTypes
 	const OBJECT_NATIVE_TYPE = "";
 	const PHP_ARRAY_NATIVE_TYPE = "array";
 	const ENUM_NATIVE_TYPE = "string";
+	// Like OBJECT, a JSON document's decoded PHP shape isn't a single native type
+	// (json_decode() can yield an array, a scalar, or null) -- see ObjectBuilder's
+	// getPhp84TypeHint()/getPhp84PropertyType(), which special-case JSON/JSONB the
+	// same way they already special-case OBJECT, to a `mixed` PHP type.
+	const JSON_NATIVE_TYPE = "";
+	const JSONB_NATIVE_TYPE = "";
+	const UUID_NATIVE_TYPE = "string";
 
 	/**
 	 * Mapping between Propulsion types and PHP native types.
@@ -140,6 +161,9 @@ class PropulsionTypes
 			self::OBJECT => self::OBJECT_NATIVE_TYPE,
 			self::PHP_ARRAY => self::PHP_ARRAY_NATIVE_TYPE,
 			self::ENUM => self::ENUM_NATIVE_TYPE,
+			self::JSON => self::JSON_NATIVE_TYPE,
+			self::JSONB => self::JSONB_NATIVE_TYPE,
+			self::UUID => self::UUID_NATIVE_TYPE,
 	);
 
 	/**
@@ -174,6 +198,9 @@ class PropulsionTypes
 			self::OBJECT => self::OBJECT,
 			self::PHP_ARRAY => self::PHP_ARRAY,
 			self::ENUM => self::ENUM,
+			self::JSON => self::JSON,
+			self::JSONB => self::JSONB,
+			self::UUID => self::UUID,
 			// These are pre-epoch dates, which we need to map to String type
 			// since they cannot be properly handled using strtotime() -- or even numeric
 			// timestamps on Windows.
@@ -214,6 +241,9 @@ class PropulsionTypes
 			self::OBJECT => PDO::PARAM_STR,
 			self::PHP_ARRAY => PDO::PARAM_STR,
 			self::ENUM => PDO::PARAM_INT,
+			self::JSON => PDO::PARAM_STR,
+			self::JSONB => PDO::PARAM_STR,
+			self::UUID => PDO::PARAM_STR,
 
 			// These are pre-epoch dates, which we need to map to String type
 			// since they cannot be properly handled using strtotime() -- or even numeric
@@ -331,6 +361,19 @@ class PropulsionTypes
 	public static function isLobType($type)
 	{
 		return in_array($type, self::$LOB_TYPES);
+	}
+
+	/**
+	 * Returns true if type is a JSON/JSONB type (stored as real JSON text via
+	 * json_encode()/json_decode(), unlike OBJECT/PHP_ARRAY which use serialize()
+	 * or a custom delimited format).
+	 *
+	 * @param      string $type The Propulsion type to check.
+	 * @return     boolean
+	 */
+	public static function isJsonType($type)
+	{
+		return in_array($type, self::$JSON_TYPES);
 	}
 
 	/**
