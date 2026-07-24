@@ -1,0 +1,19 @@
+<database name="bench">
+  <table name="bench_book">
+    <column name="id" primaryKey="true" type="INTEGER" autoIncrement="true"/>
+    <column name="title" type="VARCHAR" size="255"/>
+    <column name="isbn" type="VARCHAR" size="24"/>
+    <column name="price" type="FLOAT"/>
+    <column name="stock" type="INTEGER"/>
+    <column name="published" type="BOOLEAN"/>
+    <column name="created_at" type="TIMESTAMP"/>
+    <column name="author_id" type="INTEGER"/>
+    <foreign-key foreignTable="bench_author">
+      <reference local="author_id" foreign="id"/>
+    </foreign-key>
+  </table>
+  <table name="bench_author">
+    <column name="id" primaryKey="true" type="INTEGER" autoIncrement="true"/>
+    <column name="name" type="VARCHAR" size="128"/>
+  </table>
+</database>

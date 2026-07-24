@@ -103,7 +103,7 @@ if (!\$this->isColumnModified(" . $this->getColumnConstant('update_column', $bui
  */
 public function keepUpdateDateUnchanged()
 {
-	\$this->modifiedColumns[] = " . $this->getColumnConstant('update_column', $builder) . ";
+	\$this->modifiedColumns[" . $this->getColumnConstant('update_column', $builder) . "] = true;
 	return \$this;
 }
 ";
