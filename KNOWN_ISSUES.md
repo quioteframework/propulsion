@@ -83,12 +83,12 @@ categories, not one:
   switching back -- a silent 0% is easy to miss in a coverage report that
   otherwise looks plausible.
 
-- **Single-table-inheritance discriminator resolution now uses real FQCNs
-  (fixed), but the `extends="..."` cross-namespace override is still
-  unaddressed.** `<inheritance>` elements' `CLASSNAME_*` peer constants used
-  to hold a legacy Propel dot-path (`Foo.Bar.SomeClass`, derived from the
-  `package` attribute, not the real PHP namespace); the discriminator
-  lookup (`getOMClass()`) stripped that down to a bare class name before
+- **Single-table-inheritance discriminator resolution now uses real FQCNs,
+  and the `extends="..."` cross-namespace override is fixed too.**
+  `<inheritance>` elements' `CLASSNAME_*` peer constants used to hold a
+  legacy Propel dot-path (`Foo.Bar.SomeClass`, derived from the `package`
+  attribute, not the real PHP namespace); the discriminator lookup
+  (`getOMClass()`) stripped that down to a bare class name before
   `new $cls()`. Since dynamic `new $variable()` in PHP is always resolved
   from the *global* namespace regardless of the calling file's own
   namespace (unlike a literal `new SomeClass()` or `class X extends Y`,
@@ -101,15 +101,26 @@ categories, not one:
   by using the real fully-qualified class name for `CLASSNAME_*` instead of
   the dot-path (`PeerBuilder::addInheritanceColumnConstants()`); added a
   `clearInstancePool()` call to `NamespaceTest::testSingleTableInheritance()`
-  so this doesn't silently regress again. Still open: an `<inheritance>`
-  element's `extends="..."` attribute (naming an ancestor class outside the
-  normal single-table hierarchy) is a raw, user-typed string with no
-  namespace resolution at all (`MultiExtendObjectBuilder::getParentClasspath()`
-  falls back to it verbatim) — this works today only because every existing
-  schema's inheritance ancestor happens to share its child's namespace; an
-  ancestor in a genuinely different namespace would hit the same class of
-  bug in the generated `class X extends Y` declaration. No fixture exercises
-  this case.
+  so this doesn't silently regress again.
+
+  A related gap in the same area: an `<inheritance>` element's
+  `extends="..."` attribute (naming an ancestor class outside the normal
+  single-table hierarchy) was a raw, user-typed string with no namespace
+  resolution at all (`MultiExtendObjectBuilder::getParentClasspath()` fell
+  back to it verbatim) — this worked only because every existing schema's
+  inheritance ancestor happened to share its child's namespace; a
+  genuinely cross-namespace ancestor written as `extends="Foo\Bar\Baz"`
+  (without a leading `\`) would hit a subtly different flavor of the same
+  bug: PHP treats a *relative*-qualified name (one containing `\` but not
+  starting with it) as rooted at the *generated file's own* namespace, not
+  the global namespace, so it would silently resolve to the wrong class (or
+  "class not found") instead of the one the schema author wrote. Fixed by
+  normalizing any `extends` value containing `\` to an absolute reference
+  (leading `\`) in `getParentClasspath()`; a bare, no-namespace `extends`
+  value is left untouched, since that case already relies on (and
+  correctly gets) PHP's normal unqualified-name-resolves-to-current-
+  namespace behavior. Regression coverage:
+  `InheritanceBuilderTest::testMultiExtendObjectBuilderResolvesCrossNamespaceExtendsToAbsoluteFqcn()`.
 
 - **Testcontainer cleanup**: `IntegrationDatabase` stops its container via
   `register_shutdown_function()`, which doesn't run on `kill -9` or a
@@ -314,11 +325,13 @@ categories, not one:
   - **SchemaReverse** (`PropulsionSchemaReverseTask`): confirmed working
     end-to-end — `PropulsionSchemaReverseTaskTest` reverse-engineers a real
     two-table, one-FK Postgres schema (via the shared testcontainer) and
-    checks the resulting schema.xml's tables/columns/types/FK. Caveat: the
-    reversed `NUMERIC(p,s)` column's `size` attribute doesn't decode
-    Postgres's packed typmod correctly (comes out as a raw encoded integer,
-    e.g. `655362` instead of `10`); pre-existing in `PgsqlSchemaParserV12Plus`
-    and out of scope for this pass (structure/FK/most types are all correct).
+    checks the resulting schema.xml's tables/columns/types/FK. At the time
+    this parity pass was done, reversed `NUMERIC(p,s)` columns' `size`
+    attribute didn't decode Postgres's packed typmod correctly; this was
+    later found to be a real, separate bug and fixed — see the "Fixed:
+    `PgsqlSchemaParser` decoded `NUMERIC(p,s)` columns'..." entry further
+    down in this file (the class involved was also renamed from
+    `PgsqlSchemaParserV12Plus` to `PgsqlSchemaParser` as part of that fix).
   - **Diff** (`PropulsionSQLDiffTask`): confirmed correct —
     `PropulsionSQLDiffTaskTest` covers both the shared diff engine
     (`PropulsionDatabaseComparator` + `Platform::getModifyDatabaseDDL()`) on

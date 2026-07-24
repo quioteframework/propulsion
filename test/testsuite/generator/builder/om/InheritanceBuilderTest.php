@@ -104,6 +104,44 @@ EOF;
         $this->assertStringContainsString('(int) InhEmployeePeer::CLASSKEY_1', $script);
     }
 
+    public function testMultiExtendObjectBuilderResolvesCrossNamespaceExtendsToAbsoluteFqcn()
+    {
+        // A bare `extends="InhEmployee"` (the common case, covered above) relies
+        // on ancestor and child sharing a namespace -- PHP resolves an
+        // unqualified name in `class X extends Y` against the *generated
+        // file's own* namespace. When the schema author names an ancestor in
+        // a genuinely different namespace, that only works if the value is
+        // treated as an absolute FQCN (leading `\`); otherwise PHP would
+        // silently root it under the child's own namespace instead of the
+        // one actually written in the schema.
+        $schema = <<<EOF
+<database name="inheritance_builder_cross_namespace_test_model">
+    <table name="inh_manager" phpName="InhManager" namespace="Foo\Bar">
+        <column name="id" type="INTEGER" primaryKey="true" autoIncrement="true" />
+        <column name="class_key" type="INTEGER" required="true" default="0" inheritance="single">
+            <inheritance key="0" class="InhManager" extends="Baz\InhEmployee" />
+        </column>
+    </table>
+</database>
+EOF;
+        $quickBuilder = new PropulsionQuickBuilder();
+        $quickBuilder->setSchema($schema);
+        $table = $quickBuilder->getDatabase()->getTable('inh_manager');
+        $child = null;
+        foreach ($table->getChildrenColumn()->getChildren() as $candidate) {
+            if ($candidate->getAncestor()) {
+                $child = $candidate;
+            }
+        }
+
+        $builder = $quickBuilder->getConfig()->getConfiguredBuilder($table, 'objectmultiextend');
+        $builder->setChild($child);
+
+        $script = $builder->build();
+
+        $this->assertStringContainsString('class InhManager extends \Baz\InhEmployee', $script);
+    }
+
     public function testMultiExtendObjectBuilderGetUnprefixedClassnameUsesChildClassname()
     {
         list($quickBuilder, $table, $child) = $this->buildInheritanceModel();
