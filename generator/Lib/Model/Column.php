@@ -931,6 +931,15 @@ class Column extends XMLElement
 	}
 
 	/**
+	 * Utility method to know whether column is a UUID column.
+	 * @return		 boolean
+	 */
+	public function isUuidType()
+	{
+		return $this->getType() == PropulsionTypes::UUID;
+	}
+
+	/**
 	 * Sets the list of possible values for an ENUM column
 	 * @param string[] $valueSet
 	 */

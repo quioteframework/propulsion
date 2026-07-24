@@ -161,6 +161,12 @@ class ObjectBuilder extends AbstractObjectBuilder
 			}
 			// Return the enumerated index as a PHP literal
 			$defaultValue = var_export(array_search($val, $valueSet), true);
+		} elseif ($col->isUuidType()) {
+			$uuidValue = is_scalar($val) ? (string) $val : '';
+			if (!preg_match('/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/', $uuidValue)) {
+				throw new EngineException(sprintf('Default Value "%s" is not a well-formed UUID for column "%s"', $uuidValue, $col->getFullyQualifiedName()));
+			}
+			$defaultValue = var_export(strtolower($uuidValue), true);
 		} else if ($col->isPhpPrimitiveType()) {
 			// Prefer using the underlying Propulsion type for reliable casting
 			$propelType = $col->getType();
@@ -1218,7 +1224,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$paramType = $this->getPhp84TypeHint($col);
 		$returnType = $this->getClassname();
 
-		if ($col->isTemporalType() || $col->isLobType()) {
+		if ($col->isTemporalType() || $col->isLobType() || $col->isUuidType()) {
 			$this->declareClass('Propulsion\\Exception\\PropulsionException');
 		}
 
@@ -1255,6 +1261,44 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		}
 		\$this->$phpname = \$value;
 		\$this->modifiedColumns[] = " . $this->getColumnConstant($col) . ";
+
+		return \$this;
+	}";
+			return;
+		}
+
+		if ($col->isUuidType()) {
+			// UUID columns are stored as their canonical RFC 4122 textual form
+			// (8-4-4-4-12 hex digits, e.g. "550e8400-e29b-41d4-a716-446655440000")
+			// on every platform (native `uuid` on PostgreSQL, CHAR(36) elsewhere --
+			// see PgsqlPlatform/MysqlPlatform/SqlitePlatform/OraclePlatform/
+			// MssqlPlatform::initialize()), so malformed input is rejected here
+			// rather than being allowed to reach the database and fail (or worse,
+			// silently truncate/misbehave) at insert/update time. The hex digits
+			// are lower-cased for consistent storage/comparison, matching what
+			// PostgreSQL's native `uuid` type does on input.
+			$script .= "
+
+	/**
+	 * $description
+	 *
+	 * @param $paramType \$value New value: a UUID string in canonical
+	 *              8-4-4-4-12 hyphenated hexadecimal form.
+	 * @return $returnType The current object (for fluent API support)
+	 * @throws PropulsionException if \$value is not null and not a well-formed UUID string
+	 */
+	public function set$phpname($paramType \$value$defaultValue): $returnType
+	{
+		if (\$value !== null) {
+			if (!preg_match('/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\$/', \$value)) {
+				throw new PropulsionException(sprintf('\"%s\" is not a well-formed UUID for the [$colname] column', \$value));
+			}
+			\$value = strtolower(\$value);
+		}
+		if (\$this->$phpname !== \$value) {
+			\$this->$phpname = \$value;
+			\$this->modifiedColumns[] = " . $this->getColumnConstant($col) . ";
+		}
 
 		return \$this;
 	}";

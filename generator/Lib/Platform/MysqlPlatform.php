@@ -56,6 +56,10 @@ class MysqlPlatform extends DefaultPlatform
 		// variant like PostgreSQL -- map both Propulsion types onto it.
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::JSON, "JSON"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::JSONB, "JSON"));
+		// MySQL has no native UUID column type; fall back to the canonical
+		// 36-character hyphenated textual representation (see
+		// PropulsionTypes::UUID / Column::isUuidType()).
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::UUID, "CHAR", 36));
 	}
 
 	public function setGeneratorConfig(GeneratorConfig $generatorConfig): void

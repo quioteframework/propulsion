@@ -60,6 +60,7 @@ class PgsqlPlatform extends DefaultPlatform
 		// since PDO's pgsql driver has no dedicated JSON parameter type.
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::JSON, "JSON"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::JSONB, "JSONB"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::UUID, "UUID"));
 	}
 
 	public function getNativeIdMethod()

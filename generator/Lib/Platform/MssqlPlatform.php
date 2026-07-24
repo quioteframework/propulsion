@@ -69,6 +69,13 @@ class MssqlPlatform extends DefaultPlatform
 		// LONGVARCHAR/OBJECT/PHP_ARRAY fallback above.
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::JSON, "VARCHAR(MAX)"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::JSONB, "VARCHAR(MAX)"));
+		// SQL Server has a native UNIQUEIDENTIFIER type, but it stores/returns
+		// GUIDs in a different byte order (and default string casing) than the
+		// canonical RFC 4122 textual form used everywhere else in this codebase.
+		// Falling back to CHAR(36) keeps the on-the-wire representation
+		// (and comparisons/round-tripping through PDO) identical across every
+		// platform (see PropulsionTypes::UUID / Column::isUuidType()).
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::UUID, "CHAR", 36));
 	}
 
 	public function getMaxColumnNameLength()

@@ -50,6 +50,7 @@ class PropulsionTypes
 	const ENUM = "ENUM";
 	const JSON = "JSON";
 	const JSONB = "JSONB";
+	const UUID = "UUID";
 
 	/** @var array<int|string, string> */
 	protected static array $creoleToPropulsionTypeMap = [];
@@ -67,7 +68,7 @@ class PropulsionTypes
 
 	/** @var string[] */
 	private static array $TEXT_TYPES = array(
-		self::CHAR, self::VARCHAR, self::LONGVARCHAR, self::CLOB, self::DATE, self::TIME, self::TIMESTAMP, self::BU_DATE, self::BU_TIMESTAMP
+		self::CHAR, self::VARCHAR, self::LONGVARCHAR, self::CLOB, self::DATE, self::TIME, self::TIMESTAMP, self::BU_DATE, self::BU_TIMESTAMP, self::UUID
 	);
 
 	/** @var string[] */
@@ -124,6 +125,7 @@ class PropulsionTypes
 	// same way they already special-case OBJECT, to a `mixed` PHP type.
 	const JSON_NATIVE_TYPE = "";
 	const JSONB_NATIVE_TYPE = "";
+	const UUID_NATIVE_TYPE = "string";
 
 	/**
 	 * Mapping between Propulsion types and PHP native types.
@@ -161,6 +163,7 @@ class PropulsionTypes
 			self::ENUM => self::ENUM_NATIVE_TYPE,
 			self::JSON => self::JSON_NATIVE_TYPE,
 			self::JSONB => self::JSONB_NATIVE_TYPE,
+			self::UUID => self::UUID_NATIVE_TYPE,
 	);
 
 	/**
@@ -197,6 +200,7 @@ class PropulsionTypes
 			self::ENUM => self::ENUM,
 			self::JSON => self::JSON,
 			self::JSONB => self::JSONB,
+			self::UUID => self::UUID,
 			// These are pre-epoch dates, which we need to map to String type
 			// since they cannot be properly handled using strtotime() -- or even numeric
 			// timestamps on Windows.
@@ -239,6 +243,7 @@ class PropulsionTypes
 			self::ENUM => PDO::PARAM_INT,
 			self::JSON => PDO::PARAM_STR,
 			self::JSONB => PDO::PARAM_STR,
+			self::UUID => PDO::PARAM_STR,
 
 			// These are pre-epoch dates, which we need to map to String type
 			// since they cannot be properly handled using strtotime() -- or even numeric

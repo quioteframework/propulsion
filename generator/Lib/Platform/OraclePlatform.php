@@ -63,6 +63,10 @@ class OraclePlatform extends DefaultPlatform
 		// 2000-char limit (unlike OBJECT/PHP_ARRAY above, which historically fit).
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::JSON, "CLOB"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::JSONB, "CLOB"));
+		// Oracle has no native UUID column type; fall back to the canonical
+		// 36-character hyphenated textual representation (see
+		// PropulsionTypes::UUID / Column::isUuidType()).
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::UUID, "CHAR", "36"));
 
 	}
 
