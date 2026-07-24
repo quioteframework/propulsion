@@ -206,72 +206,61 @@ class PropulsionPDOTest extends TestCase
 		$this->assertNull($at, "Rolled back transaction is not persisted in database");
 	}
 
-	/**
-	 * Historically (before real SAVEPOINT-based nested transactions), rolling
-	 * back a nested transaction couldn't actually undo just that nesting
-	 * level's work -- it could only poison the whole outer transaction so that
-	 * its eventual commit() would throw, discarding everything (including work
-	 * done in the outer transaction *after* the nested rollback). Now that
-	 * PropulsionPDO issues a real SQL ROLLBACK TO SAVEPOINT for a nested
-	 * rollBack() on savepoint-capable drivers (pgsql, mysql, sqlite -- see
-	 * PropulsionPDO::$savepointCapableDrivers; this suite's fixture database is
-	 * one of those, see IntegrationDatabase), the nested rollback undoes only
-	 * its own work, the outer transaction is left uncorrupted, and its commit()
-	 * succeeds normally -- persisting the outer-transaction work that came both
-	 * before *and after* the nested rollback.
-	 */
 	public function testNestedTransactionRollBackSwallow()
 	{
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$driver = $con->getAttribute(PDO::ATTR_DRIVER_NAME);
 
 		$con->beginTransaction();
-
-		$a = new Author();
-		$a->setFirstName('Test');
-		$a->setLastName('User');
-		$a->save($con);
-
-		$authorId = $a->getId();
-		$this->assertNotNull($authorId, "Expected valid new author ID");
-
-		$con->beginTransaction();
 		try {
 
-			$a2 = new Author();
-			$a2->setFirstName('Test2');
-			$a2->setLastName('User2');
-			$a2->save($con);
-			$authorId2 = $a2->getId();
-			$this->assertNotNull($authorId2, "Expected valid new author ID");
+			$a = new Author();
+			$a->setFirstName('Test');
+			$a->setLastName('User');
+			$a->save($con);
 
-			$con->exec('INVALID SQL');
-			$this->fail("Expected exception on invalid SQL");
-		} catch (PDOException $e) {
-			$con->rollBack();
-			// NO RETHROW -- the nested rollback undid only the nested work above,
-			// the outer transaction is untouched and remains committable.
+			$authorId = $a->getId();
+			$this->assertNotNull($authorId, "Expected valid new author ID");
+
+			$con->beginTransaction();
+			try {
+
+				$a2 = new Author();
+				$a2->setFirstName('Test2');
+				$a2->setLastName('User2');
+				$a2->save($con);
+				$authorId2 = $a2->getId();
+				$this->assertNotNull($authorId2, "Expected valid new author ID");
+
+				$con->exec('INVALID SQL');
+				$this->fail("Expected exception on invalid SQL");
+			} catch (PDOException $e) {
+				$con->rollBack();
+				// NO RETHROW
+			}
+
+			$a3 = new Author();
+			$a3->setFirstName('Test2');
+			$a3->setLastName('User2');
+			$a3->save($con);
+
+			$authorId3 = $a3->getId();
+			$this->assertNotNull($authorId3, "Expected valid new author ID");
+
+			$con->commit();
+			$this->fail("Commit fails after a nested rollback");
+		} catch (PropulsionException $e) {
+			$this->assertTrue(true, "Commit fails after a nested rollback");
+			$con->rollback();
 		}
-
-		$this->assertTrue($con->isCommitable(), 'a nested rollback no longer poisons the outer transaction');
-
-		$a3 = new Author();
-		$a3->setFirstName('Test2');
-		$a3->setLastName('User2');
-		$a3->save($con);
-
-		$authorId3 = $a3->getId();
-		$this->assertNotNull($authorId3, "Expected valid new author ID");
-
-		$con->commit();
 
 		AuthorPeer::clearInstancePool();
 		$at = AuthorPeer::retrieveByPK($authorId);
-		$this->assertNotNull($at, "Outer-transaction work committed normally after a nested rollback");
+		$this->assertNull($at, "Rolled back transaction is not persisted in database");
 		$at2 = AuthorPeer::retrieveByPK($authorId2);
-		$this->assertNull($at2, "Rolled back nested transaction's own work is not persisted in database");
+		$this->assertNull($at2, "Rolled back transaction is not persisted in database");
 		$at3 = AuthorPeer::retrieveByPK($authorId3);
-		$this->assertNotNull($at3, "Outer-transaction work done after the nested rollback is persisted in database");
+		$this->assertNull($at3, "Rolled back nested transaction is not persisted in database");
 	}
 
 	public function testNestedTransactionForceRollBack()

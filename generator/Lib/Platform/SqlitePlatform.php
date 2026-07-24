@@ -39,14 +39,6 @@ class SqlitePlatform extends DefaultPlatform
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::OBJECT, "MEDIUMTEXT"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::PHP_ARRAY, "MEDIUMTEXT"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::ENUM, "TINYINT"));
-		// SQLite has no native JSON column type (its JSON1 extension operates on
-		// ordinary TEXT columns via SQL functions) -- store the encoded JSON as TEXT.
-		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::JSON, "TEXT"));
-		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::JSONB, "TEXT"));
-		// SQLite has no native UUID column type; fall back to the canonical
-		// 36-character hyphenated textual representation (see
-		// PropulsionTypes::UUID / Column::isUuidType()).
-		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::UUID, "CHAR", 36));
 	}
 
 	/**

@@ -183,15 +183,6 @@ DROP TABLE [foo];
 		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($c));
 	}
 
-	public function testGetColumnDDLUuid()
-	{
-		$c = new Column('foo');
-		$c->getDomain()->copy($this->getPlatform()->getDomainForType(PropulsionTypes::UUID));
-		$c->setNotNull(true);
-		$expected = '[foo] CHAR(36) NOT NULL';
-		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($c));
-	}
-
 	public function testGetColumnDDLCustomSqlType()
 	{
 		$column = new Column('foo');

@@ -51,7 +51,6 @@
 			<xs:enumeration value="OBJECT"/>
 			<xs:enumeration value="ARRAY"/>
 			<xs:enumeration value="ENUM"/>
-			<xs:enumeration value="UUID"/>
 		</xs:restriction>
 	</xs:simpleType>
 

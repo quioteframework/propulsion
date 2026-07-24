@@ -113,27 +113,4 @@ class PropulsionTypesTest extends TestCase
         $this->assertFalse(PropulsionTypes::isPhpObjectType('array'));
         $this->assertFalse(PropulsionTypes::isPhpObjectType('resource'));
     }
-
-    public function testIsJsonType()
-    {
-        $this->assertTrue(PropulsionTypes::isJsonType(PropulsionTypes::JSON));
-        $this->assertTrue(PropulsionTypes::isJsonType(PropulsionTypes::JSONB));
-        $this->assertFalse(PropulsionTypes::isJsonType(PropulsionTypes::VARCHAR));
-        $this->assertFalse(PropulsionTypes::isJsonType(PropulsionTypes::PHP_ARRAY));
-        $this->assertFalse(PropulsionTypes::isJsonType(PropulsionTypes::OBJECT));
-    }
-
-    public function testJsonTypesGetPdoTypeString()
-    {
-        $this->assertSame(PDO::PARAM_STR, PropulsionTypes::getPDOType(PropulsionTypes::JSON));
-        $this->assertSame(PDO::PARAM_STR, PropulsionTypes::getPDOType(PropulsionTypes::JSONB));
-    }
-
-    public function testJsonTypesGetPhpNative()
-    {
-        // Like OBJECT, JSON/JSONB decode to any shape (array, scalar, or null),
-        // so there is no single native PHP type -- see PropulsionTypes::JSON_NATIVE_TYPE.
-        $this->assertSame('', PropulsionTypes::getPhpNative(PropulsionTypes::JSON));
-        $this->assertSame('', PropulsionTypes::getPhpNative(PropulsionTypes::JSONB));
-    }
 }

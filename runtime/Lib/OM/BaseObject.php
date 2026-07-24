@@ -10,6 +10,14 @@
 namespace Propulsion\OM;
 
 use Propulsion\Connection\PropulsionPDO;
+use Propulsion\Event\PostDeleteEvent;
+use Propulsion\Event\PostInsertEvent;
+use Propulsion\Event\PostSaveEvent;
+use Propulsion\Event\PostUpdateEvent;
+use Propulsion\Event\PreDeleteEvent;
+use Propulsion\Event\PreInsertEvent;
+use Propulsion\Event\PreSaveEvent;
+use Propulsion\Event\PreUpdateEvent;
 use Propulsion\Exception\PropulsionException;
 use Propulsion\Propulsion;
 use Propulsion\Parser\PropulsionParser;
@@ -182,68 +190,128 @@ abstract class BaseObject
 	}
 
 	/**
-	 * Code to be run before persisting the object
+	 * Code to be run before persisting the object.
+	 *
+	 * Dispatches a {@see PreSaveEvent} via Propulsion::dispatch() (a no-op if
+	 * no PSR-14 event dispatcher is registered -- see Propulsion::setEventDispatcher()).
+	 * A listener that calls $event->stopPropagation() vetoes the save, the
+	 * same way an overridden preSave() returning false always has.
+	 *
 	 * @param PropulsionPDO $con
 	 * @return boolean
 	 */
 	public function preSave(?PropulsionPDO $con = null)
 	{
-		return true;
+		$event = new PreSaveEvent($this, $con);
+		Propulsion::dispatch($event);
+		return !$event->isPropagationStopped();
 	}
 
 	/**
-	 * Code to be run after persisting the object
+	 * Code to be run after persisting the object.
+	 *
+	 * Dispatches a {@see PostSaveEvent} via Propulsion::dispatch() (a no-op
+	 * if no PSR-14 event dispatcher is registered).
+	 *
 	 * @param PropulsionPDO $con
 	 */
-	public function postSave(?PropulsionPDO $con = null): void { }
+	public function postSave(?PropulsionPDO $con = null): void
+	{
+		Propulsion::dispatch(new PostSaveEvent($this, $con));
+	}
 
 		/**
-		 * Code to be run before inserting to database
+		 * Code to be run before inserting to database.
+		 *
+		 * Dispatches a {@see PreInsertEvent} via Propulsion::dispatch() (a
+		 * no-op if no PSR-14 event dispatcher is registered). A listener
+		 * that calls $event->stopPropagation() vetoes the insert, the same
+		 * way an overridden preInsert() returning false always has.
+		 *
 		 * @param PropulsionPDO $con
 		 * @return boolean
 		 */
 		public function preInsert(?PropulsionPDO $con = null)
 		{
-			return true;
+			$event = new PreInsertEvent($this, $con);
+			Propulsion::dispatch($event);
+			return !$event->isPropagationStopped();
 		}
 
 	/**
-	 * Code to be run after inserting to database
+	 * Code to be run after inserting to database.
+	 *
+	 * Dispatches a {@see PostInsertEvent} via Propulsion::dispatch() (a
+	 * no-op if no PSR-14 event dispatcher is registered).
+	 *
 	 * @param PropulsionPDO $con
 	 */
-	public function postInsert(?PropulsionPDO $con = null): void { }
+	public function postInsert(?PropulsionPDO $con = null): void
+	{
+		Propulsion::dispatch(new PostInsertEvent($this, $con));
+	}
 
 		/**
-		 * Code to be run before updating the object in database
+		 * Code to be run before updating the object in database.
+		 *
+		 * Dispatches a {@see PreUpdateEvent} via Propulsion::dispatch() (a
+		 * no-op if no PSR-14 event dispatcher is registered). A listener
+		 * that calls $event->stopPropagation() vetoes the update, the same
+		 * way an overridden preUpdate() returning false always has.
+		 *
 		 * @param PropulsionPDO $con
 		 * @return boolean
 		 */
 		public function preUpdate(?PropulsionPDO $con = null)
 		{
-			return true;
+			$event = new PreUpdateEvent($this, $con);
+			Propulsion::dispatch($event);
+			return !$event->isPropagationStopped();
 		}
 
 	/**
-	 * Code to be run after updating the object in database
+	 * Code to be run after updating the object in database.
+	 *
+	 * Dispatches a {@see PostUpdateEvent} via Propulsion::dispatch() (a
+	 * no-op if no PSR-14 event dispatcher is registered).
+	 *
 	 * @param PropulsionPDO $con
 	 */
-	public function postUpdate(?PropulsionPDO $con = null): void { }
+	public function postUpdate(?PropulsionPDO $con = null): void
+	{
+		Propulsion::dispatch(new PostUpdateEvent($this, $con));
+	}
 
 		/**
-		 * Code to be run before deleting the object in database
+		 * Code to be run before deleting the object in database.
+		 *
+		 * Dispatches a {@see PreDeleteEvent} via Propulsion::dispatch() (a
+		 * no-op if no PSR-14 event dispatcher is registered). A listener
+		 * that calls $event->stopPropagation() vetoes the delete, the same
+		 * way an overridden preDelete() returning false always has.
+		 *
 		 * @param PropulsionPDO $con
 		 * @return boolean
 		 */
 		public function preDelete(?PropulsionPDO $con = null)
 		{
-			return true;
+			$event = new PreDeleteEvent($this, $con);
+			Propulsion::dispatch($event);
+			return !$event->isPropagationStopped();
 		}
 
 	/**
-	 * Code to be run after deleting the object in database
+	 * Code to be run after deleting the object in database.
+	 *
+	 * Dispatches a {@see PostDeleteEvent} via Propulsion::dispatch() (a
+	 * no-op if no PSR-14 event dispatcher is registered).
+	 *
 	 * @param PropulsionPDO $con
 	 */
-	public function postDelete(?PropulsionPDO $con = null): void { }
+	public function postDelete(?PropulsionPDO $con = null): void
+	{
+		Propulsion::dispatch(new PostDeleteEvent($this, $con));
+	}
 
 		/**
 		 * Sets the modified state for the object to be false.
@@ -345,51 +413,6 @@ abstract class BaseObject
 	{
 		$this->virtualColumns[$name] = $value;
 		return $this;
-	}
-
-	/**
-	 * Decode a JSON/JSONB column's raw (non-null) database value into its PHP
-	 * representation, for use by a generated class's hydrate() method.
-	 *
-	 * Shared here (rather than duplicated inline in every generated hydrate()
-	 * method, the way OBJECT's unserialize()/PHP_ARRAY's custom delimited format
-	 * are) so malformed JSON is reported consistently across every JSON/JSONB
-	 * column in the schema, with the offending column name in the message.
-	 *
-	 * @param      string|int|float|bool $value The raw (non-null, scalar) database
-	 *             value -- a JSON string, as returned by every PDO driver for a
-	 *             JSON/JSONB/TEXT column.
-	 * @param      string $columnName The column name, used only for the exception message.
-	 * @return     mixed The decoded value: an array for a JSON object/array, or the
-	 *             corresponding scalar/null for a JSON scalar/null literal.
-	 * @throws     PropulsionException If $value is not well-formed JSON.
-	 */
-	protected static function decodeJsonColumn(string|int|float|bool $value, string $columnName): mixed
-	{
-		try {
-			return json_decode((string) $value, true, 512, JSON_THROW_ON_ERROR);
-		} catch (\JsonException $e) {
-			throw new PropulsionException("Malformed JSON in column [$columnName]", $e);
-		}
-	}
-
-	/**
-	 * Encode a PHP value for storage in a JSON/JSONB column, for use by a
-	 * generated class's buildCriteria()/buildPkeyCriteria() methods.
-	 *
-	 * @param      mixed  $value The value to encode (as previously set via the column's mutator).
-	 * @param      string $columnName The column name, used only for the exception message.
-	 * @return     string The JSON-encoded value.
-	 * @throws     PropulsionException If $value cannot be represented as JSON (e.g. it
-	 *             contains a resource, or malformed UTF-8).
-	 */
-	protected static function encodeJsonColumn(mixed $value, string $columnName): string
-	{
-		try {
-			return json_encode($value, JSON_THROW_ON_ERROR);
-		} catch (\JsonException $e) {
-			throw new PropulsionException("Unable to encode value for JSON column [$columnName]", $e);
-		}
 	}
 
 	/**

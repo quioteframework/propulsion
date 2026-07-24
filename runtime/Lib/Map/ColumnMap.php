@@ -221,7 +221,7 @@ class ColumnMap
    */
   public function isText()
   {
-    return ($this->type == PropulsionColumnTypes::VARCHAR || $this->type == PropulsionColumnTypes::LONGVARCHAR || $this->type == PropulsionColumnTypes::CHAR || $this->type == PropulsionColumnTypes::UUID);
+    return ($this->type == PropulsionColumnTypes::VARCHAR || $this->type == PropulsionColumnTypes::LONGVARCHAR || $this->type == PropulsionColumnTypes::CHAR);
   }
 
   /**

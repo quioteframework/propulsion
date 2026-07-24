@@ -57,16 +57,6 @@ class OraclePlatform extends DefaultPlatform
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::OBJECT, "NVARCHAR2", "2000"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::PHP_ARRAY, "NVARCHAR2", "2000"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::ENUM, "NUMBER", "3", "0"));
-		// No dedicated JSON domain mapping here: Oracle has no native JSON column type
-		// on the versions this codebase targets, so fall through to CLOB via the
-		// CLOB_EMU aliasing set up above -- a JSON document can far exceed NVARCHAR2's
-		// 2000-char limit (unlike OBJECT/PHP_ARRAY above, which historically fit).
-		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::JSON, "CLOB"));
-		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::JSONB, "CLOB"));
-		// Oracle has no native UUID column type; fall back to the canonical
-		// 36-character hyphenated textual representation (see
-		// PropulsionTypes::UUID / Column::isUuidType()).
-		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::UUID, "CHAR", "36"));
 
 	}
 

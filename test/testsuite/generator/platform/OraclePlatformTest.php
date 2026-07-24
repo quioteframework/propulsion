@@ -209,15 +209,6 @@ DROP SEQUENCE foo_sequence;
 		$this->assertEquals($expected, $this->getPlatform()->getDropTableDDL($table));
 	}
 
-	public function testGetColumnDDLUuid()
-	{
-		$column = new Column('foo');
-		$column->getDomain()->copy($this->getPlatform()->getDomainForType(PropulsionTypes::UUID));
-		$column->setNotNull(true);
-		$expected = 'foo CHAR(36) NOT NULL';
-		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($column));
-	}
-
 	public function testGetColumnDDLCustomSqlType()
 	{
 		$column = new Column('foo');

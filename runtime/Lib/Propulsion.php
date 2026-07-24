@@ -33,6 +33,7 @@ use Propulsion\Connection\PropulsionPDO;
 use PDO;
 use PDOException;
 use Propulsion\Adapter\DBAdapter;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 
@@ -152,6 +153,14 @@ class Propulsion
 	 *             Propulsion::setLogger().
 	 */
 	private static ?LoggerInterface $logger = null;
+
+	/**
+	 * @var        EventDispatcherInterface|null optional PSR-14 event dispatcher.
+	 *             Propulsion ships no concrete implementation -- bring your own
+	 *             (Symfony EventDispatcher, League\Event, etc.) via
+	 *             Propulsion::setEventDispatcher().
+	 */
+	private static ?EventDispatcherInterface $eventDispatcher = null;
 
 	/**
 	 * @var        string The name of the database mapper class
@@ -327,6 +336,70 @@ class Propulsion
 	{
 		self::$logger?->log($level, $message, $context);
 		return true;
+	}
+
+	/**
+	 * Sets the PSR-14 event dispatcher to use for model lifecycle events
+	 * (PreSaveEvent, PostSaveEvent, PreInsertEvent, PostInsertEvent,
+	 * PreUpdateEvent, PostUpdateEvent, PreDeleteEvent, PostDeleteEvent -- see
+	 * the Propulsion\Event namespace), dispatched from
+	 * {@see \Propulsion\OM\BaseObject}'s preSave()/postSave()/etc. hook
+	 * methods.
+	 *
+	 * Propulsion ships no concrete dispatcher implementation -- bring your
+	 * own (Symfony's EventDispatcher, League\Event, or anything else
+	 * implementing Psr\EventDispatcher\EventDispatcherInterface).
+	 *
+	 * @param      EventDispatcherInterface $eventDispatcher The new event dispatcher to use.
+	 */
+	public static function setEventDispatcher(EventDispatcherInterface $eventDispatcher): void
+	{
+		self::$eventDispatcher = $eventDispatcher;
+	}
+
+	/**
+	 * Returns true if a PSR-14 event dispatcher has been configured, otherwise false.
+	 *
+	 * @return     bool True if Propulsion dispatches model lifecycle events
+	 */
+	public static function hasEventDispatcher()
+	{
+		return (self::$eventDispatcher !== null);
+	}
+
+	/**
+	 * Get the configured event dispatcher.
+	 *
+	 * @return     EventDispatcherInterface|null Configured PSR-14 event dispatcher, or null if none was set.
+	 */
+	public static function eventDispatcher()
+	{
+		return self::$eventDispatcher;
+	}
+
+	/**
+	 * Dispatches a model lifecycle event.
+	 * If an event dispatcher has been configured, the event is handed to it,
+	 * otherwise this is a no-op: the event is returned unchanged and nothing
+	 * is notified anywhere. Mirrors {@see log()}'s "no logger registered ->
+	 * nothing happens" convention.
+	 *
+	 * Exceptions thrown by a listener are not caught here -- they propagate
+	 * out of dispatch() (and therefore out of whichever preSave()/postSave()/
+	 * etc. hook triggered the dispatch, and the save()/delete() call that
+	 * invoked the hook). Note that generated save()/delete() code only
+	 * catches PropulsionException around the hook calls, so a listener
+	 * throwing anything else will skip the transaction rollback there; keep
+	 * listeners exception-safe (or throw PropulsionException) if that
+	 * matters for your use case.
+	 *
+	 * @param      object $event
+	 * @return     object The event, potentially mutated by listeners (same
+	 *             object instance that was passed in).
+	 */
+	public static function dispatch(object $event): object
+	{
+		return self::$eventDispatcher?->dispatch($event) ?? $event;
 	}
 
 	/**

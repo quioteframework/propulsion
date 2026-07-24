@@ -897,10 +897,6 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         } elseif ($col->getType() == PropulsionTypes::PHP_ARRAY) {
             $script .= "
      * @param     array \$$variableName The values to use as filter.";
-        } elseif ($col->isJsonType()) {
-            $script .= "
-     * @param     mixed \$$variableName The value to use as filter. An array or object
-     *              is JSON-encoded before comparison against the stored JSON text.";
         } elseif ($col->isTextType()) {
             $script .= "
      * Example usage:
@@ -965,14 +961,6 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
             $script .= "
         if (is_object(\$$variableName)) {
             \$$variableName = serialize(\$$variableName);
-        }";
-        } elseif ($col->isJsonType()) {
-            // JSON/JSONB columns are stored as encoded JSON text (see ObjectBuilder's
-            // addBuildCriteria()); an array/object filter value has to be encoded the
-            // same way here for an equality comparison against the column to match.
-            $script .= "
-        if (is_array(\$$variableName) || is_object(\$$variableName)) {
-            \$$variableName = json_encode(\$$variableName);
         }";
         } elseif ($col->getType() == PropulsionTypes::PHP_ARRAY) {
             $script .= "

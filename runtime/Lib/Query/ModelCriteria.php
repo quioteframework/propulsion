@@ -27,6 +27,10 @@ namespace Propulsion\Query;
  */
 
  use Propulsion\Propulsion;
+ use Propulsion\Event\PostBulkDeleteEvent;
+ use Propulsion\Event\PostBulkUpdateEvent;
+ use Propulsion\Event\PreBulkDeleteEvent;
+ use Propulsion\Event\PreBulkUpdateEvent;
  use Propulsion\Map\TableMap;
  use Propulsion\Formatter\PropulsionFormatter;
  use Propulsion\Exception\PropulsionException;
@@ -1653,12 +1657,20 @@ class ModelCriteria extends Criteria
 		$criteria = $this->isKeepQuery() ? clone $this : $this;
 		$criteria->setDbName($this->getDbName());
 
+		$preEvent = new PreBulkDeleteEvent($criteria, $con);
+		Propulsion::dispatch($preEvent);
+		if ($preEvent->isPropagationStopped()) {
+			return 0;
+		}
+
 		$con->beginTransaction();
 		try {
 			if(!$affectedRows = $criteria->basePreDelete($con)) {
 				$affectedRows = $criteria->doDelete($con);
 			}
+			$affectedRows = is_int($affectedRows) ? $affectedRows : 0;
 			$criteria->basePostDelete($affectedRows, $con);
+			Propulsion::dispatch(new PostBulkDeleteEvent($criteria, $con, $affectedRows));
 			$con->commit();
 		} catch (PropulsionException $e) {
 			$con->rollback();
@@ -1699,12 +1711,21 @@ class ModelCriteria extends Criteria
 		if (!$con instanceof PropulsionPDO) {
 			throw new PropulsionException('Expected a PropulsionPDO connection');
 		}
+
+		$preEvent = new PreBulkDeleteEvent($this, $con);
+		Propulsion::dispatch($preEvent);
+		if ($preEvent->isPropagationStopped()) {
+			return 0;
+		}
+
 		$con->beginTransaction();
 		try {
 			if(!$affectedRows = $this->basePreDelete($con)) {
 				$affectedRows = $this->doDeleteAll($con);
 			}
+			$affectedRows = is_int($affectedRows) ? $affectedRows : 0;
 			$this->basePostDelete($affectedRows, $con);
+			Propulsion::dispatch(new PostBulkDeleteEvent($this, $con, $affectedRows));
 			$con->commit();
 			return $affectedRows;
 		} catch (PropulsionException $e) {
@@ -1804,6 +1825,13 @@ class ModelCriteria extends Criteria
 			throw new PropulsionException('Expected a PropulsionPDO connection');
 		}
 
+		$preEvent = new PreBulkUpdateEvent($this, $values, $con, $forceIndividualSaves);
+		Propulsion::dispatch($preEvent);
+		$values = $preEvent->getValues();
+		if ($preEvent->isPropagationStopped()) {
+			return 0;
+		}
+
 		$criteria = $this->isKeepQuery() ? clone $this : $this;
 		$criteria->setPrimaryTableName(constant($this->modelPeerName.'::TABLE_NAME'));
 
@@ -1813,7 +1841,9 @@ class ModelCriteria extends Criteria
 			if(!$affectedRows = $criteria->basePreUpdate($values, $con, $forceIndividualSaves)) {
 				$affectedRows = $criteria->doUpdate($values, $con, $forceIndividualSaves);
 			}
+			$affectedRows = is_int($affectedRows) ? $affectedRows : 0;
 			$criteria->basePostUpdate($affectedRows, $con);
+			Propulsion::dispatch(new PostBulkUpdateEvent($criteria, $con, $affectedRows, $values));
 
 			$con->commit();
 		} catch (PropulsionException $e) {

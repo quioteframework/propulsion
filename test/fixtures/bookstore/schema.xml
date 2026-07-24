@@ -342,8 +342,6 @@
         <column name="title" type="VARCHAR" />
         <column name="style" type="ENUM" valueSet="novel, essay, poetry" />
         <column name="tags" type="ARRAY" />
-        <column name="metadata" type="JSON" required="false" />
-        <column name="metadata_binary" type="JSONB" required="false" />
     </table>
 
 </database>

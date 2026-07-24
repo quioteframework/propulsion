@@ -427,15 +427,6 @@ DROP TABLE IF EXISTS `Woopah`.`foo`;
 		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($column));
 	}
 
-	public function testGetColumnDDLUuid()
-	{
-		$column = new Column('foo');
-		$column->getDomain()->copy($this->getPlatform()->getDomainForType(PropulsionTypes::UUID));
-		$column->setNotNull(true);
-		$expected = '`foo` CHAR(36) NOT NULL';
-		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($column));
-	}
-
 	public function testGetColumnDDLCharsetVendor()
 	{
 		$column = new Column('foo');
