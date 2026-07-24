@@ -1229,6 +1229,24 @@ class Criteria implements \IteratorAggregate
 	}
 
 	/**
+	 * Add several select columns at once.
+	 *
+	 * Generated Peer::addSelectColumns() emits a single call to this with the
+	 * table's full (static, known-at-generation-time) column list instead of
+	 * one addSelectColumn() method call per column on every query.
+	 *
+	 * @param      array<int,string> $names Names of the select columns.
+	 * @return     Criteria Modified Criteria object (for fluent API)
+	 */
+	public function addSelectColumns(array $names)
+	{
+		if ($names) {
+			array_push($this->selectColumns, ...$names);
+		}
+		return $this;
+	}
+
+	/**
 	 * Set the query comment, that appears after the first verb in the SQL query
 	 *
 	 * @param      string $comment The comment to add to the query, without comment sign

@@ -66,7 +66,13 @@ abstract class BaseObject
 	/**
 	 * The columns that have been modified in current object.
 	 * Tracking modified columns allows us to only update modified columns.
-	 * @var        array<int,string>
+	 *
+	 * Stored as a set (column name => true) rather than a plain list so that
+	 * membership tests (isColumnModified()) are O(1) instead of a linear
+	 * in_array(), and repeated setter calls can't accumulate duplicate entries.
+	 * The public API (getModifiedColumns()) still returns a plain list of names.
+	 *
+	 * @var        array<string,true>
 	 */
 	protected array $modifiedColumns = array();
 
@@ -135,7 +141,7 @@ abstract class BaseObject
 	 */
 	public function isColumnModified($col)
 	{
-		return in_array($col, $this->modifiedColumns);
+		return isset($this->modifiedColumns[$col]);
 	}
 
 	/**
@@ -144,7 +150,7 @@ abstract class BaseObject
 	 */
 	public function getModifiedColumns()
 	{
-		return array_unique($this->modifiedColumns);
+		return array_keys($this->modifiedColumns);
 	}
 
 	/**
@@ -321,9 +327,7 @@ abstract class BaseObject
 		public function resetModified($col = null)
 		{
 			if ($col !== null) {
-				while (($offset = array_search($col, $this->modifiedColumns)) !== false) {
-					array_splice($this->modifiedColumns, $offset, 1);
-				}
+				unset($this->modifiedColumns[$col]);
 			} else {
 				$this->modifiedColumns = array();
 			}

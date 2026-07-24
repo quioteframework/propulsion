@@ -707,7 +707,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	protected bool \$deleted = false;
 
 	/**
-	 * @var array<int,string>
+	 * Modified columns, stored as a set (column name => true) for O(1)
+	 * membership tests and automatic de-duplication. See BaseObject.
+	 * @var array<string,true>
 	 */
 	protected array \$modifiedColumns = [];";
 
@@ -1260,7 +1262,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			\$value = \$fp;
 		}
 		\$this->$phpname = \$value;
-		\$this->modifiedColumns[] = " . $this->getColumnConstant($col) . ";
+		\$this->modifiedColumns[" . $this->getColumnConstant($col) . "] = true;
 
 		return \$this;
 	}";
@@ -1297,7 +1299,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		}
 		if (\$this->$phpname !== \$value) {
 			\$this->$phpname = \$value;
-			\$this->modifiedColumns[] = " . $this->getColumnConstant($col) . ";
+			\$this->modifiedColumns[" . $this->getColumnConstant($col) . "] = true;
 		}
 
 		return \$this;
@@ -1335,7 +1337,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		}
 		if (\$this->$phpname !== \$value) {
 			\$this->$phpname = \$value;
-			\$this->modifiedColumns[] = " . $this->getColumnConstant($col) . ";
+			\$this->modifiedColumns[" . $this->getColumnConstant($col) . "] = true;
 		}
 
 		return \$this;
@@ -1395,7 +1397,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 				}
 				$script .= "
 			\$this->$phpname = \$value;
-			\$this->modifiedColumns[] = " . $this->getColumnConstant($col) . ";
+			\$this->modifiedColumns[" . $this->getColumnConstant($col) . "] = true;
 		}
 
 		return \$this;
@@ -1413,7 +1415,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	{
 		if (\$this->$phpname !== \$value) {
 			\$this->$phpname = \$value;
-			\$this->modifiedColumns[] = " . $this->getColumnConstant($col) . ";
+			\$this->modifiedColumns[" . $this->getColumnConstant($col) . "] = true;
 		}
 ";
 			// A column can be the local side of more than one foreign key (this is what
@@ -1522,7 +1524,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 
 		if (\$this->$phpname !== \$v) {
 			\$this->$phpname = \$v;
-			\$this->modifiedColumns[] = $columnConstant;
+			\$this->modifiedColumns[$columnConstant] = true;
 		}
 
 		return \$this;
@@ -1794,30 +1796,35 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			}
 			$phpname = $col->getPhpName();
 			$colname = $col->getName();
+			// Read each result cell exactly once into a local ($v) instead of
+			// indexing $row (with the $startcol + N offset arithmetic) two or
+			// three times per column. hydrate() runs once per result row, so
+			// halving the array accesses here is a direct win on every read.
 			$script .= "
-		\$this->$phpname = (\$row[\$startcol + " . $n . "] !== null) ? ";
+		\$v = \$row[\$startcol + " . $n . "];
+		\$this->$phpname = (\$v !== null) ? ";
 
 			if ($col->isTemporalType()) {
-				$script .= "new DateTime(\$row[\$startcol + " . $n . "])";
+				$script .= "new DateTime(\$v)";
 			} elseif ($col->getType() === PropulsionTypes::BOOLEAN) {
-				$script .= "(bool) \$row[\$startcol + " . $n . "]";
+				$script .= "(bool) \$v";
 			} elseif ($col->getType() === PropulsionTypes::PHP_ARRAY) {
-				$script .= "(\$row[\$startcol + " . $n . "] === '' ? array() : (preg_match('/^ \\| (.*) \\| $/s', \$row[\$startcol + " . $n . "], \$matches) ? explode(' | ', \$matches[1]) : explode(' | ', \$row[\$startcol + " . $n . "])))";
+				$script .= "(\$v === '' ? array() : (preg_match('/^ \\| (.*) \\| $/s', \$v, \$matches) ? explode(' | ', \$matches[1]) : explode(' | ', \$v)))";
 			} elseif ($col->getType() === PropulsionTypes::OBJECT) {
-				$script .= "unserialize(\$row[\$startcol + " . $n . "])";
+				$script .= "unserialize(\$v)";
 			} elseif ($col->isJsonType()) {
 				// See BaseObject::decodeJsonColumn() -- throws a PropulsionException
 				// (rather than silently returning null, as a bare json_decode() call
 				// would on malformed input) so bad data in the database surfaces as a
 				// loud failure at hydration time instead of a confusing null downstream.
-				$script .= "self::decodeJsonColumn(\$row[\$startcol + " . $n . "], '$colname')";
+				$script .= "self::decodeJsonColumn(\$v, '$colname')";
 			} elseif ($col->isNumericType()) {
 				$phpType = $col->getPhpType();
 				// Use canonical cast names (PHP 8.5 deprecates non-canonical forms)
 				$castType = match($phpType) { 'double' => 'float', 'integer' => 'int', default => $phpType };
-				$script .= "($castType) \$row[\$startcol + " . $n . "]";
+				$script .= "($castType) \$v";
 			} else {
-				$script .= "(string) \$row[\$startcol + " . $n . "]";
+				$script .= "(string) \$v";
 			}
 			$script .= " : null;";
 			$n++;
@@ -2234,7 +2241,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		if ($table->hasAutoIncrementPrimaryKey()) {
 			$script .= "
 			if (\$this->isNew()) {
-				\$this->modifiedColumns[] = " . $this->getColumnConstant($table->getAutoIncrementPrimaryKey()) . ";
+				\$this->modifiedColumns[" . $this->getColumnConstant($table->getAutoIncrementPrimaryKey()) . "] = true;
 			}";
 		}
 		
