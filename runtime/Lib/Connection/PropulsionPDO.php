@@ -50,6 +50,24 @@ class PropulsionPDO extends \PDO
 	protected $nestedTransactionCount = 0;
 
 	/**
+	 * PDO driver names (PDO::ATTR_DRIVER_NAME) for which real nested transactions
+	 * are implemented using SQL SAVEPOINT/RELEASE SAVEPOINT/ROLLBACK TO SAVEPOINT
+	 * (see beginTransaction()/commit()/rollBack()). These three are the drivers
+	 * this project's own test/deployment matrix targets (see IntegrationDatabase)
+	 * and whose SAVEPOINT support is both present and standard-syntax-compatible.
+	 *
+	 * Other drivers (e.g. Oracle -- which has no explicit RELEASE SAVEPOINT syntax
+	 * of its own -- or dblib/MSSQL, whose PropulsionPDO subclass doesn't use real
+	 * transactions at all) fall back to the pre-existing depth-counter/poison-flag
+	 * emulation, where a rollback of a nested transaction doesn't undo anything by
+	 * itself but instead poisons the outer transaction so that its eventual commit()
+	 * throws instead of silently discarding the rolled-back work.
+	 *
+	 * @var       array<int, string>
+	 */
+	protected static $savepointCapableDrivers = ['pgsql', 'mysql', 'sqlite'];
+
+	/**
 	 * Cache of prepared statements (PDOStatement) keyed by md5 of SQL.
 	 *
 	 * @var       array<string, \PDOStatement|false>  [md5(sql) => PDOStatement]
@@ -225,6 +243,11 @@ class PropulsionPDO extends \PDO
 	/**
 	 * Overrides PDO::beginTransaction() to prevent errors due to already-in-progress transaction.
 	 *
+	 * For nested calls (transaction depth going from N to N+1, N >= 1) on a platform that
+	 * supports it (see supportsSavepoints()), this issues a real SQL SAVEPOINT so that a
+	 * later rollBack() of just this nesting level can genuinely undo only the work done
+	 * since this call, rather than merely poisoning the whole outer transaction.
+	 *
 	 * @return    boolean
 	 */
 	public function beginTransaction(): bool
@@ -236,6 +259,8 @@ class PropulsionPDO extends \PDO
 				$this->log('Begin transaction', null, __METHOD__);
 			}
 			$this->isUncommitable = false;
+		} elseif ($this->supportsSavepoints()) {
+			$return = parent::exec('SAVEPOINT ' . $this->getSavepointName($this->nestedTransactionCount + 1)) !== false;
 		}
 		$this->nestedTransactionCount++;
 
@@ -245,6 +270,9 @@ class PropulsionPDO extends \PDO
 	/**
 	 * Overrides PDO::commit() to only commit the transaction if we are in the outermost
 	 * transaction nesting level.
+	 *
+	 * For nested calls on a savepoint-capable platform, this releases the SAVEPOINT that
+	 * was created by the matching beginTransaction() call instead.
 	 *
 	 * @return    boolean
 	 */
@@ -264,6 +292,8 @@ class PropulsionPDO extends \PDO
 						$this->log('Commit transaction', null, __METHOD__);
 					}
 				}
+			} elseif ($this->supportsSavepoints()) {
+				$return = parent::exec('RELEASE SAVEPOINT ' . $this->getSavepointName($opcount)) !== false;
 			}
 
 			$this->nestedTransactionCount--;
@@ -274,6 +304,16 @@ class PropulsionPDO extends \PDO
 	/**
 	 * Overrides PDO::rollBack() to only rollback the transaction if we are in the outermost
 	 * transaction nesting level
+	 *
+	 * On a savepoint-capable platform (see supportsSavepoints()), a rollback of a nested
+	 * transaction (depth > 1) issues a real SQL ROLLBACK TO SAVEPOINT, undoing only the
+	 * work done since the matching beginTransaction() call -- the outer transaction is left
+	 * open and can go on to commit() normally afterwards.
+	 *
+	 * On platforms without savepoint support, the pre-existing emulation is used instead:
+	 * nothing is actually undone here, but the whole (outer) transaction is marked
+	 * uncommitable, so that its eventual commit() throws instead of silently discarding the
+	 * rolled-back nested work.
 	 *
 	 * @return    boolean  Whether operation was successful.
 	 */
@@ -288,6 +328,8 @@ class PropulsionPDO extends \PDO
 				if ($this->useDebug) {
 					$this->log('Rollback transaction', null, __METHOD__);
 				}
+			} elseif ($this->supportsSavepoints()) {
+				$return = parent::exec('ROLLBACK TO SAVEPOINT ' . $this->getSavepointName($opcount)) !== false;
 			} else {
 				$this->isUncommitable = true;
 			}
@@ -296,6 +338,44 @@ class PropulsionPDO extends \PDO
 		}
 
 		return $return;
+	}
+
+	/**
+	 * Whether this connection's underlying PDO driver is one for which Propulsion
+	 * implements real nested transactions via SQL SAVEPOINT/RELEASE SAVEPOINT/
+	 * ROLLBACK TO SAVEPOINT (see self::$savepointCapableDrivers).
+	 *
+	 * Subclasses that connect via a driver with its own quirks (e.g.
+	 * MssqlPropulsionPDO, which overrides beginTransaction()/commit()/rollBack()
+	 * entirely because the underlying dblib driver doesn't support real
+	 * transactions at all) don't need to override this, since they never call it.
+	 *
+	 * @return    boolean
+	 */
+	protected function supportsSavepoints(): bool
+	{
+		$driver = $this->getAttribute(\PDO::ATTR_DRIVER_NAME);
+
+		return is_string($driver) && in_array($driver, self::$savepointCapableDrivers, true);
+	}
+
+	/**
+	 * Builds the SAVEPOINT identifier used for the given nesting depth (i.e. the
+	 * value of getNestedTransactionCount() while that depth's transaction is
+	 * open). Deliberately deterministic (rather than e.g. uniqid()-based): reusing
+	 * the same name for a given depth is safe, since SAVEPOINT with an
+	 * already-used name replaces the earlier savepoint on every supported driver
+	 * (PostgreSQL, MySQL, SQLite) -- and determinism is what makes rollBack() and
+	 * commit() able to independently recompute the same name a matching
+	 * beginTransaction() used, without having to keep a separate name stack.
+	 *
+	 * @param     int  $depth  Nesting depth (as returned by getNestedTransactionCount()).
+	 *
+	 * @return    string
+	 */
+	protected function getSavepointName(int $depth): string
+	{
+		return 'PROPULSION_SAVEPOINT_LEVEL' . $depth;
 	}
 
 	/**
