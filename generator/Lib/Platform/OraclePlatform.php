@@ -18,6 +18,7 @@ namespace Propulsion\Generator\Platform;
  * @version    $Revision$
  */
 
+ use Propulsion\Generator\Exception\EngineException;
  use Propulsion\Generator\Model\Domain;
  use Propulsion\Generator\Model\PropulsionTypes;
  use Propulsion\Generator\Model\Table;
@@ -28,6 +29,46 @@ namespace Propulsion\Generator\Platform;
  use Propulsion\Generator\Model\Index;
 class OraclePlatform extends DefaultPlatform
 {
+	/**
+	 * Table/Unique/Index/ForeignKey's own getName()/getTable()/etc. getters are
+	 * typed nullable throughout this codebase's model classes (schema-XML
+	 * parsing leaves them unset until later in the load process), but by the
+	 * time DDL generation actually runs on a real, fully-loaded schema they're
+	 * always populated -- these two guards turn that implicit assumption into
+	 * an explicit, real failure instead of silently widening this class's own
+	 * types to tolerate null everywhere DDL string-building actually requires
+	 * a real value.
+	 */
+	private function requireString(?string $value, string $description): string
+	{
+		if ($value === null) {
+			throw new EngineException("$description is required but was null.");
+		}
+		return $value;
+	}
+
+	private function requireTable(?Table $table): Table
+	{
+		if ($table === null) {
+			throw new EngineException('Expected a Table but got null.');
+		}
+		return $table;
+	}
+
+	/**
+	 * VendorInfo::getParameter() is untyped (a generic bag for arbitrary
+	 * `<vendor><parameter>` XML attributes), but every Oracle-specific
+	 * physical-storage parameter this class reads back out of it (PCTFree,
+	 * InitTrans, MinExtents, ...) is, by construction, a plain string XML
+	 * attribute value -- this makes that assumption an explicit, checked one.
+	 */
+	private function requireStringParam(mixed $value, string $description): string
+	{
+		if (!is_string($value)) {
+			throw new EngineException("$description is required but was not a string.");
+		}
+		return $value;
+	}
 
 	/**
 	 * Initializes db specific domain mapping.
@@ -102,7 +143,7 @@ ALTER SESSION SET NLS_TIMESTAMP_FORMAT='YYYY-MM-DD HH24:MI:SS';
 	{
 		$ret = $this->getBeginDDL();
 		foreach ($database->getTablesForSql() as $table) {
-			$ret .= $this->getCommentBlockDDL($table->getName());
+			$ret .= $this->getCommentBlockDDL($this->requireString($table->getName(), 'Table name'));
 			$ret .= $this->getDropTableDDL($table);
 			$ret .= $this->getAddTableDDL($table);
 			$ret .= $this->getAddIndicesDDL($table);
@@ -120,7 +161,7 @@ ALTER SESSION SET NLS_TIMESTAMP_FORMAT='YYYY-MM-DD HH24:MI:SS';
 
 	public function getAddTableDDL(Table $table)
 	{
-		$tableDescription = $table->hasDescription() ? $this->getCommentLineDDL($table->getDescription()) : '';
+		$tableDescription = $table->hasDescription() ? $this->getCommentLineDDL($this->requireString($table->getDescription(), 'Table description')) : '';
 
 		$lines = array();
 
@@ -143,7 +184,7 @@ ALTER SESSION SET NLS_TIMESTAMP_FORMAT='YYYY-MM-DD HH24:MI:SS';
 ";
 		$ret = sprintf($pattern,
 			$tableDescription,
-			$this->quoteIdentifier($table->getName()),
+			$this->quoteIdentifier($this->requireString($table->getName(), 'Table name')),
 			implode($sep, $lines),
 			$this->generateBlockStorage($table)
 		);
@@ -171,7 +212,7 @@ CREATE SEQUENCE %s
 	INCREMENT BY 1 START WITH 1 NOMAXVALUE NOCYCLE NOCACHE ORDER;
 ";
 			return sprintf($pattern,
-				$this->quoteIdentifier($this->getSequenceName($table))
+				$this->quoteIdentifier($this->requireString($this->getSequenceName($table), 'Sequence name'))
 			);
 		}
 
@@ -181,11 +222,11 @@ CREATE SEQUENCE %s
 	public function getDropTableDDL(Table $table)
 	{
 		$ret = "
-DROP TABLE " . $this->quoteIdentifier($table->getName()) . " CASCADE CONSTRAINTS;
+DROP TABLE " . $this->quoteIdentifier($this->requireString($table->getName(), 'Table name')) . " CASCADE CONSTRAINTS;
 ";
 		if ($table->getIdMethod() == IDMethod::NATIVE) {
 			$ret .= "
-DROP SEQUENCE " . $this->quoteIdentifier($this->getSequenceName($table)) . ";
+DROP SEQUENCE " . $this->quoteIdentifier($this->requireString($this->getSequenceName($table), 'Sequence name')) . ";
 ";
 		}
 		return $ret;
@@ -193,7 +234,7 @@ DROP SEQUENCE " . $this->quoteIdentifier($this->getSequenceName($table)) . ";
 
 	public function getPrimaryKeyName(Table $table)
 	{
-		$tableName = $table->getName();
+		$tableName = $this->requireString($table->getName(), 'Table name');
 		// pk constraint name must be 30 chars at most
 		$tableName = substr($tableName, 0, min(27, strlen($tableName)));
 		return $tableName . '_PK';
@@ -216,7 +257,7 @@ DROP SEQUENCE " . $this->quoteIdentifier($this->getSequenceName($table)) . ";
 	public function getUniqueDDL(Unique $unique)
 	{
 		return sprintf('CONSTRAINT %s UNIQUE (%s)',
-			$this->quoteIdentifier($unique->getName()),
+			$this->quoteIdentifier($this->requireString($unique->getName(), 'Unique constraint name')),
 			$this->getColumnListDDL($unique->getColumns())
 		);
 	}
@@ -229,9 +270,9 @@ DROP SEQUENCE " . $this->quoteIdentifier($this->getSequenceName($table)) . ";
 		$pattern = "CONSTRAINT %s
 	FOREIGN KEY (%s) REFERENCES %s (%s)";
 		$script = sprintf($pattern,
-			$this->quoteIdentifier($fk->getName()),
+			$this->quoteIdentifier($this->requireString($fk->getName(), 'Foreign key name')),
 			$this->getColumnListDDL($fk->getLocalColumns()),
-			$this->quoteIdentifier($fk->getForeignTableName()),
+			$this->quoteIdentifier($this->requireString($fk->getForeignTableName(), 'Foreign key target table name')),
 			$this->getColumnListDDL($fk->getForeignColumns())
 		);
 		if ($fk->hasOnDelete()) {
@@ -251,9 +292,57 @@ DROP SEQUENCE " . $this->quoteIdentifier($this->getSequenceName($table)) . ";
 		return true;
 	}
 
+	/**
+	 * Oracle SQL's reserved words (Oracle Database SQL Language Reference,
+	 * "Oracle SQL Reserved Words") -- an identifier matching one of these
+	 * (case-insensitively) can't be used unquoted. Confirmed the hard way:
+	 * this fork's own bookstore fixture has a column named `uid`
+	 * (`acct_audit_log.uid`), which collides with UID, Oracle's reserved
+	 * pseudo-column for the current session's numeric user ID -- generating
+	 * unquoted DDL for it fails outright ("ORA-03050: invalid identifier:
+	 * "UID" is a reserved word") against a real Oracle instance.
+	 */
+	private const RESERVED_WORDS = [
+		'ACCESS', 'ADD', 'ALL', 'ALTER', 'AND', 'ANY', 'AS', 'ASC', 'AUDIT',
+		'BETWEEN', 'BY', 'CHAR', 'CHECK', 'CLUSTER', 'COLUMN', 'COLUMN_VALUE',
+		'COMMENT', 'COMPRESS', 'CONNECT', 'CREATE', 'CURRENT', 'DATE', 'DECIMAL',
+		'DEFAULT', 'DELETE', 'DESC', 'DISTINCT', 'DROP', 'ELSE', 'EXCLUSIVE',
+		'EXISTS', 'FILE', 'FLOAT', 'FOR', 'FROM', 'GRANT', 'GROUP', 'HAVING',
+		'IDENTIFIED', 'IMMEDIATE', 'IN', 'INCREMENT', 'INDEX', 'INITIAL',
+		'INSERT', 'INTEGER', 'INTERSECT', 'INTO', 'IS', 'LEVEL', 'LIKE', 'LOCK',
+		'LONG', 'MAXEXTENTS', 'MINUS', 'MLSLABEL', 'MODE', 'MODIFY',
+		'NESTED_TABLE_ID', 'NOAUDIT', 'NOCOMPRESS', 'NOT', 'NOWAIT', 'NULL',
+		'NUMBER', 'OF', 'OFFLINE', 'ON', 'ONLINE', 'OPTION', 'OR', 'ORDER',
+		'PCTFREE', 'PRIOR', 'PUBLIC', 'RAW', 'RENAME', 'RESOURCE', 'REVOKE',
+		'ROW', 'ROWID', 'ROWNUM', 'ROWS', 'SELECT', 'SESSION', 'SET', 'SHARE',
+		'SIZE', 'SMALLINT', 'START', 'SUCCESSFUL', 'SYNONYM', 'SYSDATE',
+		'TABLE', 'THEN', 'TO', 'TRIGGER', 'UID', 'UNION', 'UNIQUE', 'UPDATE',
+		'USER', 'VALIDATE', 'VALUES', 'VARCHAR', 'VARCHAR2', 'VIEW',
+		'WHENEVER', 'WHERE', 'WITH',
+	];
+
+	/**
+	 * Deliberately does NOT unconditionally quote every identifier the way
+	 * Pgsql/MssqlPlatform's own quoteIdentifier() overrides do: a quoted
+	 * Oracle identifier is case-sensitive forever after, while an unquoted
+	 * one is folded to uppercase -- code elsewhere that reads these names
+	 * back via catalog views (e.g. OracleSchemaParser reverse-engineering)
+	 * consistently assumes the latter. Quoting *every* identifier would
+	 * require auditing and changing all of that too, for no benefit to the
+	 * overwhelming majority of schemas that never hit a reserved word in the
+	 * first place. Quoting (and uppercasing, matching the same folding
+	 * convention) only identifiers that are actual reserved words fixes the
+	 * real, confirmed failure with zero behavioral change for every other
+	 * identifier.
+	 */
 	public function quoteIdentifier($text)
 	{
-		return $text;
+		if (str_contains($text, '.')) {
+			return implode('.', array_map(fn (string $part): string => $this->quoteIdentifier($part), explode('.', $text)));
+		}
+		return in_array(strtoupper($text), self::RESERVED_WORDS, true)
+			? '"' . strtoupper($text) . '"'
+			: $text;
 	}
 
 	public function getTimestampFormatter()
@@ -298,11 +387,11 @@ USING INDEX
 		}
 
 		if ($vendorSpecific->hasParameter($prefix.'PCTFree')) {
-			$physicalParameters .= "PCTFREE " . $vendorSpecific->getParameter($prefix.'PCTFree') . "
+			$physicalParameters .= "PCTFREE " . $this->requireStringParam($vendorSpecific->getParameter($prefix.'PCTFree'), $prefix.'PCTFree') . "
 ";
 		}
 		if ($vendorSpecific->hasParameter($prefix.'InitTrans')) {
-			$physicalParameters .= "INITRANS " . $vendorSpecific->getParameter($prefix.'InitTrans') . "
+			$physicalParameters .= "INITRANS " . $this->requireStringParam($vendorSpecific->getParameter($prefix.'InitTrans'), $prefix.'InitTrans') . "
 ";
 		}
 		if ($vendorSpecific->hasParameter($prefix.'MinExtents') || $vendorSpecific->hasParameter($prefix.'MaxExtents') || $vendorSpecific->hasParameter($prefix.'PCTIncrease')) {
@@ -310,22 +399,22 @@ USING INDEX
 (
 ";
 			if ($vendorSpecific->hasParameter($prefix.'MinExtents')) {
-				$physicalParameters .= "	MINEXTENTS " . $vendorSpecific->getParameter($prefix.'MinExtents') . "
+				$physicalParameters .= "	MINEXTENTS " . $this->requireStringParam($vendorSpecific->getParameter($prefix.'MinExtents'), $prefix.'MinExtents') . "
 ";
 			}
 			if ($vendorSpecific->hasParameter($prefix.'MaxExtents')) {
-				$physicalParameters .= "	MAXEXTENTS " . $vendorSpecific->getParameter($prefix.'MaxExtents') . "
+				$physicalParameters .= "	MAXEXTENTS " . $this->requireStringParam($vendorSpecific->getParameter($prefix.'MaxExtents'), $prefix.'MaxExtents') . "
 ";
 			}
 			if ($vendorSpecific->hasParameter($prefix.'PCTIncrease')) {
-				$physicalParameters .= "	PCTINCREASE " . $vendorSpecific->getParameter($prefix.'PCTIncrease') . "
+				$physicalParameters .= "	PCTINCREASE " . $this->requireStringParam($vendorSpecific->getParameter($prefix.'PCTIncrease'), $prefix.'PCTIncrease') . "
 ";
 			}
 			$physicalParameters .= ")
 ";
 		}
 		if ($vendorSpecific->hasParameter($prefix.'Tablespace')) {
-			$physicalParameters .= "TABLESPACE " . $vendorSpecific->getParameter($prefix.'Tablespace');
+			$physicalParameters .= "TABLESPACE " . $this->requireStringParam($vendorSpecific->getParameter($prefix.'Tablespace'), $prefix.'Tablespace');
 		}
 		return $physicalParameters;
 	}
@@ -338,8 +427,11 @@ USING INDEX
 	 */
 	public function getAddIndexDDL(Index $index)
 	{
+		$table = $this->requireTable($index->getTable());
+		$indexName = $this->requireString($index->getName(), 'Index name');
+
 		// don't create index form primary key
-		if ($this->getPrimaryKeyName($index->getTable()) == $this->quoteIdentifier($index->getName())) {
+		if ($this->getPrimaryKeyName($table) == $this->quoteIdentifier($indexName)) {
 			return "";
 		}
 
@@ -348,8 +440,8 @@ CREATE %sINDEX %s ON %s (%s)%s;
 ";
 		return sprintf($pattern,
 			$index->isUnique() ? 'UNIQUE ' : '',
-			$this->quoteIdentifier($index->getName()),
-			$this->quoteIdentifier($index->getTable()->getName()),
+			$this->quoteIdentifier($indexName),
+			$this->quoteIdentifier($this->requireString($table->getName(), 'Table name')),
 			$this->getColumnListDDL($index->getColumns()),
 			$this->generateBlockStorage($index)
 		);

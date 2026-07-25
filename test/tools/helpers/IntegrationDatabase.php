@@ -10,10 +10,13 @@
 
 use Testcontainers\Modules\PostgresContainer;
 use Testcontainers\Modules\MySQLContainer;
+use Testcontainers\Container\GenericContainer;
 use Testcontainers\Container\StartedGenericContainer;
+use Testcontainers\Wait\WaitForLog;
 use Propulsion\Generator\Config\GeneratorConfig;
 use Propulsion\Generator\Manager\ModelManager;
 use Propulsion\Generator\Manager\SqlManager;
+use Propulsion\Generator\Util\PropulsionSQLParser;
 
 /**
  * Shared, process-wide Postgres testcontainer backing the "live" integration test
@@ -29,17 +32,34 @@ use Propulsion\Generator\Manager\SqlManager;
  * Set PROPULSION_SKIP_INTEGRATION=1 to skip all tests that depend on this (e.g. in
  * environments without Docker) rather than fail on a Docker error.
  *
- * Set PROPULSION_TEST_DB=mysql to run the *main bookstore fixture only* against a
- * MySQL testcontainer instead of the default Postgres one -- useful for confirming
- * whether a given test failure is a real library bug or one of this suite's several
- * already-documented MySQL-vs-Postgres platform-semantics differences (loose numeric
- * coercion in WHERE clauses, relaxed non-standard GROUP BY, identifier quoting
- * defaults, ...). The "schemas" and "namespaced" fixture projects are Postgres-
- * schema-feature-specific by design (see ensureSchemasReady()/
- * ensureNamespacedReady()) and are not retargeted -- their tests degrade to
- * markTestSkipped() automatically in this mode, since they try to open a `pgsql:`
- * DSN against what is now a MySQL container and fail the same way they would with
- * no Docker at all.
+ * Set PROPULSION_TEST_DB=mysql|mssql|oracle to run the *main bookstore fixture
+ * only* against a MySQL/MSSQL/Oracle testcontainer instead of the default Postgres
+ * one -- useful for confirming whether a given test failure is a real library bug
+ * or a platform-semantics difference (documented ones: MySQL's loose numeric
+ * coercion in WHERE clauses and relaxed non-standard GROUP BY; identifier quoting
+ * defaults differ per platform too). The "schemas" and "namespaced" fixture
+ * projects are Postgres-schema-feature-specific by design (see
+ * ensureSchemasReady()/ensureNamespacedReady()) and are not retargeted -- their
+ * tests degrade to markTestSkipped() automatically in every non-Postgres mode,
+ * since they try to open a `pgsql:` DSN against a differently-flavored container
+ * and fail the same way they would with no Docker at all.
+ *
+ * MSSQL and Oracle are not run in CI and have not had the same MySQL-vs-Postgres
+ * platform-parity scrutiny -- see KNOWN_ISSUES.md. Requirements to actually use
+ * them locally, since neither ships a PDO driver most PHP installs have by default:
+ *   - MSSQL: `pdo_dblib` (Debian/Ubuntu: the `php-sybase` package). No further
+ *     environment setup needed; DBMSSQL/MssqlPropulsionPDO already assume dblib.
+ *   - Oracle: `pdo_oci`, built from PECL against a real Oracle Instant Client
+ *     (Basic + SDK packages from https://www.oracle.com/database/technologies/instant-client/
+ *     -- pick the linux-arm64 or linux-x86-64 download page for your host arch).
+ *     `pdo_oci` isn't distributed as a prebuilt package for arbitrary PHP versions,
+ *     so this means: `pecl download pdo_oci`, `phpize`, then
+ *     `./configure --with-pdo-oci=instantclient,/path/to/instantclient,<version>`,
+ *     `make`. The built `modules/pdo_oci.so` can be loaded without installing it
+ *     system-wide via `php -d extension=/path/to/pdo_oci.so ...`, but the Instant
+ *     Client directory (plus, on Ubuntu 24.04+, a `libaio.so.1 -> libaio.so.1t64`
+ *     compat symlink for the `libaio1t64` "64-bit time_t" package rename) must be
+ *     on `LD_LIBRARY_PATH` at runtime.
  */
 class IntegrationDatabase
 {
@@ -59,6 +79,36 @@ class IntegrationDatabase
     private static ?string $skipReason = null;
 
     /**
+     * self::$container is only ever read after a caller has already gone through
+     * ensureContainerStarted() (which either populates it or throws) -- but that
+     * guarantee holds across two separate static-property accesses that PHPStan
+     * can't correlate, so every read site needs this instead of a bare
+     * self::$container->foo() null-unsafe call.
+     */
+    private static function requireContainer(): StartedGenericContainer
+    {
+        if (self::$container === null) {
+            throw new \RuntimeException('No testcontainer is running -- ensureContainerStarted() must run first.');
+        }
+        return self::$container;
+    }
+
+    /**
+     * PDO::query() is typed as returning PDOStatement|false, but every caller
+     * here already has PDO::ATTR_ERRMODE_EXCEPTION set, so a syntactically
+     * valid query never actually returns false in practice -- this just makes
+     * that real guarantee explicit instead of asserting it away.
+     */
+    private static function queryScalar(\PDO $pdo, string $sql): mixed
+    {
+        $stmt = $pdo->query($sql);
+        if ($stmt === false) {
+            throw new \RuntimeException("Query failed: $sql");
+        }
+        return $stmt->fetchColumn();
+    }
+
+    /**
      * Tracks the Docker-free half of ensureReady(): generating the Bookstore Object
      * Model classes + SQL via the real generator classes. This needs no database
      * connection at all (Postgres, MySQL, or otherwise) -- it's pure schema-XML-to-PHP
@@ -71,10 +121,30 @@ class IntegrationDatabase
     private static ?string $classesGenerationError = null;
     private static bool $classmapRegistered = false;
 
+    /**
+     * SA/SYSTEM password for the MSSQL/Oracle testcontainers. Container-local only
+     * (nothing outside this ephemeral container ever authenticates with it), same
+     * throwaway-credential convention as the 'propulsion'/'propulsion' user/password
+     * used for the Postgres/MySQL containers -- just non-trivial enough to satisfy
+     * both images' own minimum password-complexity requirements.
+     */
+    private const MSSQL_SA_PASSWORD = 'Pr0pulsion!Test';
+    private const ORACLE_SYSTEM_PASSWORD = 'Pr0pulsion!Test';
+
+    /** Dedicated non-privileged user created in the Oracle container post-start (see
+     * ensureContainerStarted()) -- mirrors the 'propulsion'/'propulsion' user the
+     * Postgres/MySQL containers are given directly via withPostgresUser()/
+     * withMySQLUser(); Oracle has no equivalent GenericContainer-level convenience,
+     * so this project creates it explicitly with the image's own createAppUser
+     * script instead.
+     */
+    private const ORACLE_APP_USER = 'propulsion';
+    private const ORACLE_APP_PASSWORD = 'propulsion';
+
     private static function platform(): string
     {
         $platform = getenv('PROPULSION_TEST_DB');
-        return $platform === 'mysql' ? 'mysql' : 'pgsql';
+        return in_array($platform, ['mysql', 'mssql', 'oracle'], true) ? $platform : 'pgsql';
     }
 
     /**
@@ -127,8 +197,8 @@ class IntegrationDatabase
         self::ensureContainerStarted();
 
         return [
-            'host' => self::$container->getHost(),
-            'port' => self::$container->getFirstMappedPort(),
+            'host' => self::requireContainer()->getHost(),
+            'port' => self::requireContainer()->getFirstMappedPort(),
         ];
     }
 
@@ -160,7 +230,7 @@ class IntegrationDatabase
         }
 
         try {
-            self::loadFixtureData(self::$container->getHost(), self::$container->getFirstMappedPort());
+            self::loadFixtureData(self::requireContainer()->getHost(), self::requireContainer()->getFirstMappedPort());
         } catch (\Throwable $e) {
             self::$skipReason = 'Could not build bookstore fixtures: ' . $e->getMessage();
             throw new \RuntimeException(self::$skipReason);
@@ -235,7 +305,7 @@ class IntegrationDatabase
             ['propulsion.database' => $platform]
         );
 
-        $schemas = glob($fixtureDir . '/*schema.xml');
+        $schemas = glob($fixtureDir . '/*schema.xml') ?: [];
         sort($schemas);
 
         $sqlDir = self::sqlDirFor($platform);
@@ -248,6 +318,9 @@ class IntegrationDatabase
         // relative to the working directory -- anchor it to the repo root
         // regardless of where the PHPUnit process itself was launched from.
         $previousCwd = getcwd();
+        if ($previousCwd === false) {
+            throw new \RuntimeException('Unable to determine the current working directory.');
+        }
         chdir($repoRoot);
         try {
             (new ModelManager($config, $classesDir))->generate($schemas);
@@ -299,7 +372,7 @@ class IntegrationDatabase
         }
 
         try {
-            self::buildNamespacedFixtures(self::$container->getHost(), self::$container->getFirstMappedPort());
+            self::buildNamespacedFixtures(self::requireContainer()->getHost(), self::requireContainer()->getFirstMappedPort());
         } catch (\Throwable $e) {
             self::$namespacedSkipReason = 'Could not build namespaced fixtures: ' . $e->getMessage();
             throw new \RuntimeException(self::$namespacedSkipReason);
@@ -350,7 +423,7 @@ class IntegrationDatabase
         }
 
         try {
-            self::buildSchemasFixtures(self::$container->getHost(), self::$container->getFirstMappedPort());
+            self::buildSchemasFixtures(self::requireContainer()->getHost(), self::requireContainer()->getFirstMappedPort());
         } catch (\Throwable $e) {
             self::$schemasSkipReason = 'Could not build schemas fixtures: ' . $e->getMessage();
             throw new \RuntimeException(self::$schemasSkipReason);
@@ -376,7 +449,7 @@ class IntegrationDatabase
             ['propulsion.database' => 'pgsql']
         );
 
-        $schemas = glob($fixtureDir . '/*schema.xml');
+        $schemas = glob($fixtureDir . '/*schema.xml') ?: [];
         sort($schemas);
 
         $sqlDir = sys_get_temp_dir() . '/propulsion-test-sql-schemas';
@@ -385,6 +458,9 @@ class IntegrationDatabase
         }
 
         $previousCwd = getcwd();
+        if ($previousCwd === false) {
+            throw new \RuntimeException('Unable to determine the current working directory.');
+        }
         chdir($repoRoot);
         try {
             (new ModelManager($config, $classesDir))->generate($schemas);
@@ -396,7 +472,7 @@ class IntegrationDatabase
         $adminDsn = "pgsql:host=$host;port=$port;dbname=propulsion_test";
         $admin = new \PDO($adminDsn, 'propulsion', 'propulsion');
         $admin->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
-        if (!$admin->query("SELECT 1 FROM pg_database WHERE datname = 'propulsion_test_schemas'")->fetchColumn()) {
+        if (!self::queryScalar($admin, "SELECT 1 FROM pg_database WHERE datname = 'propulsion_test_schemas'")) {
             $admin->exec('CREATE DATABASE propulsion_test_schemas');
         }
 
@@ -411,7 +487,7 @@ class IntegrationDatabase
         // legacy `<vendor type="pgsql">` schema convention, not this fixture's own
         // `schema="..."` attribute), so the generated SQL below creates the schemas
         // itself; no separate pre-creation step is needed here anymore.
-        foreach (glob($sqlDir . '/*.sql') as $sqlFile) {
+        foreach (glob($sqlDir . '/*.sql') ?: [] as $sqlFile) {
             $pdo->exec((string) file_get_contents($sqlFile));
         }
 
@@ -463,7 +539,9 @@ class IntegrationDatabase
 
         self::workaroundBrokenDockerCredentialHelper();
 
-        if (self::platform() === 'mysql') {
+        $platform = self::platform();
+
+        if ($platform === 'mysql') {
             try {
                 self::$container = (new MySQLContainer())
                     ->withMySQLUser('propulsion', 'propulsion')
@@ -472,6 +550,46 @@ class IntegrationDatabase
                     ->start();
             } catch (\Throwable $e) {
                 throw new \RuntimeException('Could not start the MySQL testcontainer (is Docker running?): ' . $e->getMessage());
+            }
+        } elseif ($platform === 'mssql') {
+            try {
+                self::$container = (new GenericContainer('mcr.microsoft.com/azure-sql-edge:latest'))
+                    ->withEnvironment([
+                        'ACCEPT_EULA' => '1',
+                        'MSSQL_SA_PASSWORD' => self::MSSQL_SA_PASSWORD,
+                    ])
+                    ->withExposedPorts(1433)
+                    ->withWait(new WaitForLog('SQL Server is now ready for client connections', timeout: 60000))
+                    ->withLabels(self::CONTAINER_LABELS)
+                    ->start();
+            } catch (\Throwable $e) {
+                throw new \RuntimeException('Could not start the MSSQL (azure-sql-edge) testcontainer (is Docker running?): ' . $e->getMessage());
+            }
+
+            try {
+                self::createMssqlDatabase(self::requireContainer()->getHost(), self::requireContainer()->getFirstMappedPort());
+            } catch (\Throwable $e) {
+                throw new \RuntimeException('Could not create the MSSQL testcontainer\'s propulsion_test database: ' . $e->getMessage());
+            }
+        } elseif ($platform === 'oracle') {
+            try {
+                self::$container = (new GenericContainer('gvenzl/oracle-free:23-slim'))
+                    ->withEnvironment(['ORACLE_PASSWORD' => self::ORACLE_SYSTEM_PASSWORD])
+                    ->withExposedPorts(1521)
+                    // Oracle Free's first-ever startup uncompresses seed datafiles before
+                    // it opens the listener -- much slower than Postgres/MySQL/MSSQL's
+                    // first start, easily 30s+ even on a fast host.
+                    ->withWait(new WaitForLog('DATABASE IS READY TO USE', timeout: 180000))
+                    ->withLabels(self::CONTAINER_LABELS)
+                    ->start();
+            } catch (\Throwable $e) {
+                throw new \RuntimeException('Could not start the Oracle (oracle-free) testcontainer (is Docker running?): ' . $e->getMessage());
+            }
+
+            try {
+                self::createOracleAppUser(self::requireContainer());
+            } catch (\Throwable $e) {
+                throw new \RuntimeException('Could not create the Oracle testcontainer\'s propulsion app user: ' . $e->getMessage());
             }
         } else {
             try {
@@ -491,6 +609,64 @@ class IntegrationDatabase
         });
     }
 
+    /**
+     * Azure SQL Edge only ships a `master` database out of the box -- unlike
+     * MySQLContainer::withMySQLDatabase()/PostgresContainer::withPostgresDatabase(),
+     * there's no GenericContainer-level convenience for this, so create it the same
+     * way a human would: connect as sa and run CREATE DATABASE.
+     */
+    private static function createMssqlDatabase(string $host, int $port): void
+    {
+        $pdo = self::connectMssqlWithRetry("dblib:host=$host:$port;charset=UTF8", 'sa', self::MSSQL_SA_PASSWORD);
+        $exists = self::queryScalar($pdo, "SELECT 1 FROM sys.databases WHERE name = 'propulsion_test'");
+        if (!$exists) {
+            $pdo->exec('CREATE DATABASE propulsion_test');
+        }
+    }
+
+    /**
+     * WaitForLog resolves the instant Azure SQL Edge's log emits "SQL Server is
+     * now ready for client connections" -- observed, in practice, to occasionally
+     * still be a few hundred ms ahead of the SA login actually being accepted
+     * (a real, reproducible race, not theoretical), so the very first connection
+     * attempt right after start() can fail with "Adaptive Server connection
+     * failed". A handful of short retries absorbs that gap without needing a
+     * more elaborate readiness probe.
+     */
+    private static function connectMssqlWithRetry(string $dsn, string $user, string $password): \PDO
+    {
+        $lastError = null;
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            try {
+                $pdo = new \PDO($dsn, $user, $password);
+                $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+                return $pdo;
+            } catch (\PDOException $e) {
+                $lastError = $e;
+                usleep(500_000);
+            }
+        }
+        throw $lastError;
+    }
+
+    /**
+     * gvenzl/oracle-free only exposes sys/system (via ORACLE_PASSWORD); the image's
+     * own createAppUser script is the documented way to provision an additional,
+     * non-privileged user in the default FREEPDB1 pluggable database -- mirroring
+     * the dedicated 'propulsion'/'propulsion' user the Postgres/MySQL containers get
+     * directly through their own withPostgresUser()/withMySQLUser() calls. Runs via
+     * the Docker exec API (StartedGenericContainer::exec()), not a shelled-out
+     * `docker exec`, consistent with this class only ever driving containers through
+     * testcontainers-php.
+     */
+    private static function createOracleAppUser(StartedGenericContainer $container): void
+    {
+        $output = $container->exec(['/opt/oracle/createAppUser', self::ORACLE_APP_USER, self::ORACLE_APP_PASSWORD]);
+        if (stripos($output, 'ORA-') !== false) {
+            throw new \RuntimeException("createAppUser failed: $output");
+        }
+    }
+
     private static function buildNamespacedFixtures(string $host, int $port): void
     {
         $fixtureDir = dirname(__DIR__, 2) . '/fixtures/namespaced';
@@ -507,7 +683,7 @@ class IntegrationDatabase
             ['propulsion.database' => 'pgsql', 'propulsion.targetPlatform' => 'php84']
         );
 
-        $schemas = glob($fixtureDir . '/*schema.xml');
+        $schemas = glob($fixtureDir . '/*schema.xml') ?: [];
         sort($schemas);
 
         $sqlDir = sys_get_temp_dir() . '/propulsion-test-sql-namespaced';
@@ -516,6 +692,9 @@ class IntegrationDatabase
         }
 
         $previousCwd = getcwd();
+        if ($previousCwd === false) {
+            throw new \RuntimeException('Unable to determine the current working directory.');
+        }
         chdir($repoRoot);
         try {
             (new ModelManager($config, $classesDir))->generate($schemas);
@@ -527,14 +706,14 @@ class IntegrationDatabase
         $adminDsn = "pgsql:host=$host;port=$port;dbname=propulsion_test";
         $admin = new \PDO($adminDsn, 'propulsion', 'propulsion');
         $admin->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
-        if (!$admin->query("SELECT 1 FROM pg_database WHERE datname = 'propulsion_test_namespaced'")->fetchColumn()) {
+        if (!self::queryScalar($admin, "SELECT 1 FROM pg_database WHERE datname = 'propulsion_test_namespaced'")) {
             $admin->exec('CREATE DATABASE propulsion_test_namespaced');
         }
 
         $dsn = "pgsql:host=$host;port=$port;dbname=propulsion_test_namespaced";
         $pdo = new \PDO($dsn, 'propulsion', 'propulsion');
         $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
-        foreach (glob($sqlDir . '/*.sql') as $sqlFile) {
+        foreach (glob($sqlDir . '/*.sql') ?: [] as $sqlFile) {
             $pdo->exec((string) file_get_contents($sqlFile));
         }
 
@@ -603,10 +782,13 @@ class IntegrationDatabase
             new \RecursiveDirectoryIterator($classesDir ?? self::classesDir(), \FilesystemIterator::SKIP_DOTS)
         );
         foreach ($iterator as $file) {
-            if ($file->getExtension() !== 'php') {
+            if (!$file instanceof \SplFileInfo || $file->getExtension() !== 'php') {
                 continue;
             }
             $source = file_get_contents($file->getPathname());
+            if ($source === false) {
+                continue;
+            }
             $namespace = '';
             if (preg_match('/^\s*namespace\s+([\w\\\\]+)\s*;/m', $source, $m)) {
                 $namespace = $m[1] . '\\';
@@ -672,43 +854,100 @@ class IntegrationDatabase
         $platform = self::platform();
         $sqlDir = self::sqlDirFor($platform);
 
-        $dsn = $platform === 'mysql'
-            ? "mysql:host=$host;port=$port;dbname=propulsion_test"
-            : "pgsql:host=$host;port=$port;dbname=propulsion_test";
-        $pdo = new \PDO($dsn, 'propulsion', 'propulsion');
+        [$dsn, $user, $password] = match ($platform) {
+            'mysql' => ["mysql:host=$host;port=$port;dbname=propulsion_test", 'propulsion', 'propulsion'],
+            'mssql' => ["dblib:host=$host:$port;dbname=propulsion_test;charset=UTF8", 'sa', self::MSSQL_SA_PASSWORD],
+            'oracle' => ["oci:dbname=//$host:$port/FREEPDB1;charset=UTF8", self::ORACLE_APP_USER, self::ORACLE_APP_PASSWORD],
+            default => ["pgsql:host=$host;port=$port;dbname=propulsion_test", 'propulsion', 'propulsion'],
+        };
+        $pdo = $platform === 'mssql'
+            ? self::connectMssqlWithRetry($dsn, $user, $password)
+            : new \PDO($dsn, $user, $password);
         $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
-        foreach (glob($sqlDir . '/*.sql') as $sqlFile) {
-            $pdo->exec((string) file_get_contents($sqlFile));
+        foreach (glob($sqlDir . '/*.sql') ?: [] as $sqlFile) {
+            self::execSqlFile($pdo, $sqlFile, $platform);
         }
 
-        self::writeRuntimeConf($dsn, $platform);
+        self::writeRuntimeConf($dsn, $platform, $user, $password);
     }
 
-    private static function writeRuntimeConf(string $dsn, string $platform = 'pgsql'): void
+    /**
+     * Pgsql/MySQL's PDO drivers tolerate a whole file of semicolon-separated DDL
+     * statements in a single exec() call, and Pgsql's own DROP TABLE DDL is
+     * self-guarded (IF EXISTS) so it's a no-op against an always-fresh
+     * testcontainer database -- which is why this could just be one
+     * `$pdo->exec(file_get_contents(...))` call before Oracle/MSSQL support
+     * existed.
+     *
+     * MSSQL and Oracle both need statement-by-statement execution, for two
+     * different reasons:
+     *   - Oracle: OCI executes exactly one statement per call (no multi-statement
+     *     batches at all), and OraclePlatform's DROP TABLE/DROP SEQUENCE DDL isn't
+     *     self-guarded, so it fails outright (ORA-00942/ORA-02289) against a
+     *     database that never had the table/sequence to begin with -- skip DROPs
+     *     entirely, there's nothing to drop on a fresh container.
+     *   - MSSQL: pdo_dblib (FreeTDS) *does* accept a whole multi-statement batch
+     *     in one exec() call, but reproducibly leaves the connection in a
+     *     "results pending" state afterward (SQLSTATE HY000/20019, "Attempt to
+     *     initiate a new Adaptive Server operation with results pending") once
+     *     that batch is large/varied enough -- confirmed by executing the real
+     *     multi-table bookstore fixture's generated SQL against a live
+     *     azure-sql-edge container: a single whole-file exec() of bookstore.sql
+     *     succeeds, but the *next* file's exec() on the same connection then
+     *     fails with exactly this error. Splitting into individual statements
+     *     avoids ever putting more than one command in flight on the connection.
+     *     MssqlPlatform's DROP TABLE DDL is self-guarded like Pgsql's, so DROPs
+     *     don't need skipping here.
+     *
+     * Both reuse the same PropulsionSQLParser::parseString() call
+     * PropulsionQuickBuilder::buildSQL() already uses for the identical reason.
+     */
+    private static function execSqlFile(\PDO $pdo, string $sqlFile, string $platform): void
+    {
+        $sql = (string) file_get_contents($sqlFile);
+        if ($platform !== 'oracle' && $platform !== 'mssql') {
+            $pdo->exec($sql);
+            return;
+        }
+
+        foreach (PropulsionSQLParser::parseString($sql) as $statement) {
+            $statement = trim($statement);
+            if ($statement === '') {
+                continue;
+            }
+            if ($platform === 'oracle' && stripos($statement, 'DROP') === 0) {
+                continue;
+            }
+            $pdo->exec($statement);
+        }
+    }
+
+    private static function writeRuntimeConf(string $dsn, string $platform = 'pgsql', string $user = 'propulsion', string $password = 'propulsion'): void
     {
         $datasource = [
             'adapter' => $platform,
             'connection' => [
                 'dsn' => $dsn,
-                'user' => 'propulsion',
-                'password' => 'propulsion',
-                'classname' => 'DebugPDO',
+                'user' => $user,
+                'password' => $password,
+                // dblib (FreeTDS) doesn't support native PDO transactions -- see
+                // MssqlPropulsionPDO's own docblock for the commit/rollback/
+                // lastInsertId workaround this specific subclass provides. Every
+                // other platform here is fine with the generic DebugPDO.
+                'classname' => $platform === 'mssql' ? 'MssqlDebugPDO' : 'DebugPDO',
                 // Fail fast instead of hanging the whole suite: a test that opens a
                 // second connection/transaction against a row the first one is still
                 // holding (uncommitted) should error out in a few seconds, not block
                 // forever. Surfaced by a real deadlock during AggregateColumnBehaviorTest.
                 // MySQL's equivalent is a session variable, not a SET-per-statement
                 // pragma, and its deadlock detector is on by default regardless.
-                'settings' => $platform === 'mysql' ? [
-                    'queries' => [
-                        'SET SESSION innodb_lock_wait_timeout = 5',
-                    ],
-                ] : [
-                    'queries' => [
-                        'SET lock_timeout = 5000',
-                        'SET statement_timeout = 15000',
-                    ],
-                ],
+                // No MSSQL/Oracle-specific timeout tuning yet -- both already have
+                // deadlock detection on by default; revisit if a test needs it.
+                'settings' => match ($platform) {
+                    'mysql' => ['queries' => ['SET SESSION innodb_lock_wait_timeout = 5']],
+                    'pgsql' => ['queries' => ['SET lock_timeout = 5000', 'SET statement_timeout = 15000']],
+                    default => ['queries' => []],
+                },
             ],
         ];
 

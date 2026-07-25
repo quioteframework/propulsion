@@ -58,8 +58,8 @@ IF EXISTS (SELECT 1 FROM sysobjects WHERE type ='RI' AND name='book_FK_1')
 
 IF EXISTS (SELECT 1 FROM sysobjects WHERE type = 'U' AND name = 'book')
 BEGIN
-	DECLARE @reftable_1 nvarchar(60), @constraintname_1 nvarchar(60)
-	DECLARE refcursor CURSOR FOR
+	DECLARE @reftable_book nvarchar(60), @constraintname_book nvarchar(60)
+	DECLARE refcursor_book CURSOR FOR
 	select reftables.name tablename, cons.name constraintname
 		from sysobjects tables,
 			sysobjects reftables,
@@ -69,15 +69,15 @@ BEGIN
 			and cons.id = ref.constid
 			and reftables.id = ref.fkeyid
 			and tables.name = 'book'
-	OPEN refcursor
-	FETCH NEXT from refcursor into @reftable_1, @constraintname_1
+	OPEN refcursor_book
+	FETCH NEXT from refcursor_book into @reftable_book, @constraintname_book
 	while @@FETCH_STATUS = 0
 	BEGIN
-		exec ('alter table '+@reftable_1+' drop constraint '+@constraintname_1)
-		FETCH NEXT from refcursor into @reftable_1, @constraintname_1
+		exec ('alter table '+@reftable_book+' drop constraint '+@constraintname_book)
+		FETCH NEXT from refcursor_book into @reftable_book, @constraintname_book
 	END
-	CLOSE refcursor
-	DEALLOCATE refcursor
+	CLOSE refcursor_book
+	DEALLOCATE refcursor_book
 	DROP TABLE [book]
 END
 
@@ -91,19 +91,14 @@ CREATE TABLE [book]
 
 CREATE INDEX [book_I_1] ON [book] ([title]);
 
-BEGIN
-ALTER TABLE [book] ADD CONSTRAINT [book_FK_1] FOREIGN KEY ([author_id]) REFERENCES [author] ([id])
-END
-;
-
 -----------------------------------------------------------------------
 -- author
 -----------------------------------------------------------------------
 
 IF EXISTS (SELECT 1 FROM sysobjects WHERE type = 'U' AND name = 'author')
 BEGIN
-	DECLARE @reftable_2 nvarchar(60), @constraintname_2 nvarchar(60)
-	DECLARE refcursor CURSOR FOR
+	DECLARE @reftable_author nvarchar(60), @constraintname_author nvarchar(60)
+	DECLARE refcursor_author CURSOR FOR
 	select reftables.name tablename, cons.name constraintname
 		from sysobjects tables,
 			sysobjects reftables,
@@ -113,15 +108,15 @@ BEGIN
 			and cons.id = ref.constid
 			and reftables.id = ref.fkeyid
 			and tables.name = 'author'
-	OPEN refcursor
-	FETCH NEXT from refcursor into @reftable_2, @constraintname_2
+	OPEN refcursor_author
+	FETCH NEXT from refcursor_author into @reftable_author, @constraintname_author
 	while @@FETCH_STATUS = 0
 	BEGIN
-		exec ('alter table '+@reftable_2+' drop constraint '+@constraintname_2)
-		FETCH NEXT from refcursor into @reftable_2, @constraintname_2
+		exec ('alter table '+@reftable_author+' drop constraint '+@constraintname_author)
+		FETCH NEXT from refcursor_author into @reftable_author, @constraintname_author
 	END
-	CLOSE refcursor
-	DEALLOCATE refcursor
+	CLOSE refcursor_author
+	DEALLOCATE refcursor_author
 	DROP TABLE [author]
 END
 
@@ -132,6 +127,11 @@ CREATE TABLE [author]
 	[last_name] VARCHAR(100) NULL,
 	CONSTRAINT [author_PK] PRIMARY KEY ([id])
 );
+
+BEGIN
+ALTER TABLE [book] ADD CONSTRAINT [book_FK_1] FOREIGN KEY ([author_id]) REFERENCES [author] ([id])
+END
+;
 
 EOF;
 		$this->assertEquals($expected, $this->getPlatform()->getAddTablesDDL($database));
@@ -155,8 +155,8 @@ IF EXISTS (SELECT 1 FROM sysobjects WHERE type ='RI' AND name='book_FK_1')
 
 IF EXISTS (SELECT 1 FROM sysobjects WHERE type = 'U' AND name = 'x.book')
 BEGIN
-	DECLARE @reftable_1 nvarchar(60), @constraintname_1 nvarchar(60)
-	DECLARE refcursor CURSOR FOR
+	DECLARE @reftable_x_book nvarchar(60), @constraintname_x_book nvarchar(60)
+	DECLARE refcursor_x_book CURSOR FOR
 	select reftables.name tablename, cons.name constraintname
 		from sysobjects tables,
 			sysobjects reftables,
@@ -166,15 +166,15 @@ BEGIN
 			and cons.id = ref.constid
 			and reftables.id = ref.fkeyid
 			and tables.name = 'x.book'
-	OPEN refcursor
-	FETCH NEXT from refcursor into @reftable_1, @constraintname_1
+	OPEN refcursor_x_book
+	FETCH NEXT from refcursor_x_book into @reftable_x_book, @constraintname_x_book
 	while @@FETCH_STATUS = 0
 	BEGIN
-		exec ('alter table '+@reftable_1+' drop constraint '+@constraintname_1)
-		FETCH NEXT from refcursor into @reftable_1, @constraintname_1
+		exec ('alter table '+@reftable_x_book+' drop constraint '+@constraintname_x_book)
+		FETCH NEXT from refcursor_x_book into @reftable_x_book, @constraintname_x_book
 	END
-	CLOSE refcursor
-	DEALLOCATE refcursor
+	CLOSE refcursor_x_book
+	DEALLOCATE refcursor_x_book
 	DROP TABLE [x].[book]
 END
 
@@ -188,19 +188,14 @@ CREATE TABLE [x].[book]
 
 CREATE INDEX [book_I_1] ON [x].[book] ([title]);
 
-BEGIN
-ALTER TABLE [x].[book] ADD CONSTRAINT [book_FK_1] FOREIGN KEY ([author_id]) REFERENCES [y].[author] ([id])
-END
-;
-
 -----------------------------------------------------------------------
 -- y.author
 -----------------------------------------------------------------------
 
 IF EXISTS (SELECT 1 FROM sysobjects WHERE type = 'U' AND name = 'y.author')
 BEGIN
-	DECLARE @reftable_2 nvarchar(60), @constraintname_2 nvarchar(60)
-	DECLARE refcursor CURSOR FOR
+	DECLARE @reftable_y_author nvarchar(60), @constraintname_y_author nvarchar(60)
+	DECLARE refcursor_y_author CURSOR FOR
 	select reftables.name tablename, cons.name constraintname
 		from sysobjects tables,
 			sysobjects reftables,
@@ -210,15 +205,15 @@ BEGIN
 			and cons.id = ref.constid
 			and reftables.id = ref.fkeyid
 			and tables.name = 'y.author'
-	OPEN refcursor
-	FETCH NEXT from refcursor into @reftable_2, @constraintname_2
+	OPEN refcursor_y_author
+	FETCH NEXT from refcursor_y_author into @reftable_y_author, @constraintname_y_author
 	while @@FETCH_STATUS = 0
 	BEGIN
-		exec ('alter table '+@reftable_2+' drop constraint '+@constraintname_2)
-		FETCH NEXT from refcursor into @reftable_2, @constraintname_2
+		exec ('alter table '+@reftable_y_author+' drop constraint '+@constraintname_y_author)
+		FETCH NEXT from refcursor_y_author into @reftable_y_author, @constraintname_y_author
 	END
-	CLOSE refcursor
-	DEALLOCATE refcursor
+	CLOSE refcursor_y_author
+	DEALLOCATE refcursor_y_author
 	DROP TABLE [y].[author]
 END
 
@@ -239,8 +234,8 @@ IF EXISTS (SELECT 1 FROM sysobjects WHERE type ='RI' AND name='book_summary_FK_1
 
 IF EXISTS (SELECT 1 FROM sysobjects WHERE type = 'U' AND name = 'x.book_summary')
 BEGIN
-	DECLARE @reftable_3 nvarchar(60), @constraintname_3 nvarchar(60)
-	DECLARE refcursor CURSOR FOR
+	DECLARE @reftable_x_book_summary nvarchar(60), @constraintname_x_book_summary nvarchar(60)
+	DECLARE refcursor_x_book_summary CURSOR FOR
 	select reftables.name tablename, cons.name constraintname
 		from sysobjects tables,
 			sysobjects reftables,
@@ -250,15 +245,15 @@ BEGIN
 			and cons.id = ref.constid
 			and reftables.id = ref.fkeyid
 			and tables.name = 'x.book_summary'
-	OPEN refcursor
-	FETCH NEXT from refcursor into @reftable_3, @constraintname_3
+	OPEN refcursor_x_book_summary
+	FETCH NEXT from refcursor_x_book_summary into @reftable_x_book_summary, @constraintname_x_book_summary
 	while @@FETCH_STATUS = 0
 	BEGIN
-		exec ('alter table '+@reftable_3+' drop constraint '+@constraintname_3)
-		FETCH NEXT from refcursor into @reftable_3, @constraintname_3
+		exec ('alter table '+@reftable_x_book_summary+' drop constraint '+@constraintname_x_book_summary)
+		FETCH NEXT from refcursor_x_book_summary into @reftable_x_book_summary, @constraintname_x_book_summary
 	END
-	CLOSE refcursor
-	DEALLOCATE refcursor
+	CLOSE refcursor_x_book_summary
+	DEALLOCATE refcursor_x_book_summary
 	DROP TABLE [x].[book_summary]
 END
 
@@ -269,6 +264,11 @@ CREATE TABLE [x].[book_summary]
 	[summary] VARCHAR(MAX) NOT NULL,
 	CONSTRAINT [book_summary_PK] PRIMARY KEY ([id])
 );
+
+BEGIN
+ALTER TABLE [x].[book] ADD CONSTRAINT [book_FK_1] FOREIGN KEY ([author_id]) REFERENCES [y].[author] ([id])
+END
+;
 
 BEGIN
 ALTER TABLE [x].[book_summary] ADD CONSTRAINT [book_summary_FK_1] FOREIGN KEY ([book_id]) REFERENCES [x].[book] ([id]) ON DELETE CASCADE
@@ -371,8 +371,8 @@ CREATE TABLE [Woopah].[foo]
 		$expected = "
 IF EXISTS (SELECT 1 FROM sysobjects WHERE type = 'U' AND name = 'foo')
 BEGIN
-	DECLARE @reftable_1 nvarchar(60), @constraintname_1 nvarchar(60)
-	DECLARE refcursor CURSOR FOR
+	DECLARE @reftable_foo nvarchar(60), @constraintname_foo nvarchar(60)
+	DECLARE refcursor_foo CURSOR FOR
 	select reftables.name tablename, cons.name constraintname
 		from sysobjects tables,
 			sysobjects reftables,
@@ -382,15 +382,15 @@ BEGIN
 			and cons.id = ref.constid
 			and reftables.id = ref.fkeyid
 			and tables.name = 'foo'
-	OPEN refcursor
-	FETCH NEXT from refcursor into @reftable_1, @constraintname_1
+	OPEN refcursor_foo
+	FETCH NEXT from refcursor_foo into @reftable_foo, @constraintname_foo
 	while @@FETCH_STATUS = 0
 	BEGIN
-		exec ('alter table '+@reftable_1+' drop constraint '+@constraintname_1)
-		FETCH NEXT from refcursor into @reftable_1, @constraintname_1
+		exec ('alter table '+@reftable_foo+' drop constraint '+@constraintname_foo)
+		FETCH NEXT from refcursor_foo into @reftable_foo, @constraintname_foo
 	END
-	CLOSE refcursor
-	DEALLOCATE refcursor
+	CLOSE refcursor_foo
+	DEALLOCATE refcursor_foo
 	DROP TABLE [foo]
 END
 ";
@@ -407,8 +407,8 @@ END
 		$expected = "
 IF EXISTS (SELECT 1 FROM sysobjects WHERE type = 'U' AND name = 'Woopah.foo')
 BEGIN
-	DECLARE @reftable_1 nvarchar(60), @constraintname_1 nvarchar(60)
-	DECLARE refcursor CURSOR FOR
+	DECLARE @reftable_Woopah_foo nvarchar(60), @constraintname_Woopah_foo nvarchar(60)
+	DECLARE refcursor_Woopah_foo CURSOR FOR
 	select reftables.name tablename, cons.name constraintname
 		from sysobjects tables,
 			sysobjects reftables,
@@ -418,15 +418,15 @@ BEGIN
 			and cons.id = ref.constid
 			and reftables.id = ref.fkeyid
 			and tables.name = 'Woopah.foo'
-	OPEN refcursor
-	FETCH NEXT from refcursor into @reftable_1, @constraintname_1
+	OPEN refcursor_Woopah_foo
+	FETCH NEXT from refcursor_Woopah_foo into @reftable_Woopah_foo, @constraintname_Woopah_foo
 	while @@FETCH_STATUS = 0
 	BEGIN
-		exec ('alter table '+@reftable_1+' drop constraint '+@constraintname_1)
-		FETCH NEXT from refcursor into @reftable_1, @constraintname_1
+		exec ('alter table '+@reftable_Woopah_foo+' drop constraint '+@constraintname_Woopah_foo)
+		FETCH NEXT from refcursor_Woopah_foo into @reftable_Woopah_foo, @constraintname_Woopah_foo
 	END
-	CLOSE refcursor
-	DEALLOCATE refcursor
+	CLOSE refcursor_Woopah_foo
+	DEALLOCATE refcursor_Woopah_foo
 	DROP TABLE [Woopah].[foo]
 END
 ";
