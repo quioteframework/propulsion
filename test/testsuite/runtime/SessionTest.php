@@ -202,4 +202,44 @@ class SessionTest extends TestCase
         $this->assertCount(1, $a->getPool('SomePeerClass'));
         $this->assertSame([], $b->getPool('SomePeerClass'));
     }
+
+    /**
+     * The query result cache ({@see \Propulsion\Cache\QueryResultCache}) lives
+     * on Session for the same reason instance pools do -- see
+     * QueryResultCacheTest for the end-to-end version exercised through a real
+     * ModelCriteria/DB, these are the DB-independent unit tests for the
+     * storage API and its Session::reset() wiring in isolation.
+     */
+    public function testQueryResultCacheStartsEmpty()
+    {
+        $session = new Session();
+        $this->assertSame(0, $session->getQueryResultCache()->count());
+    }
+
+    public function testGetQueryResultCacheReturnsSameInstanceAcrossCalls()
+    {
+        $session = new Session();
+        $this->assertSame($session->getQueryResultCache(), $session->getQueryResultCache());
+    }
+
+    public function testQueryResultCacheIsIsolatedPerSessionInstance()
+    {
+        $a = new Session();
+        $a->getQueryResultCache()->set('k', 'v', ['some_table']);
+
+        $b = new Session();
+
+        $this->assertSame(1, $a->getQueryResultCache()->count());
+        $this->assertSame(0, $b->getQueryResultCache()->count());
+    }
+
+    public function testResetClearsTheQueryResultCache()
+    {
+        $session = new Session();
+        $session->getQueryResultCache()->set('k', 'v', ['some_table']);
+
+        $session->reset();
+
+        $this->assertSame(0, $session->getQueryResultCache()->count());
+    }
 }

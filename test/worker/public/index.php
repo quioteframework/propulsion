@@ -92,6 +92,27 @@ $handleOneRequest = static function () use ($dbFile): array {
         case 'pool-size':
             return $common + ['pool_size' => count(Propulsion::getSession()->getPool('WorkerTestPeer'))];
 
+        case 'qcache-add':
+            // Simulates a query-cache-enabled ModelCriteria caching a
+            // formatted result -- exactly what ModelCriteria::find()/
+            // findOne()/count() and the generated Peer's doSelect()/
+            // doCountThis() do under the hood (see runtime/Lib/Query/
+            // ModelCriteria.php, generator/Lib/Builder/OM/PeerBuilder.php).
+            $key = $_GET['key'] ?? '1';
+            Propulsion::getSession()->getQueryResultCache()->set($key, ['cached' => 'result-for-' . $key], ['worker_rows']);
+            return $common + ['cached' => true, 'key' => $key];
+
+        case 'qcache-check':
+            // Simulates a later, unrelated request checking whether a query
+            // result cached by a *previous* request is still present. If
+            // Session::reset() ran at the boundary, this must come back
+            // false for every key request A used.
+            $key = $_GET['key'] ?? '1';
+            return $common + ['cached_entry_present' => Propulsion::getSession()->getQueryResultCache()->has($key)];
+
+        case 'qcache-size':
+            return $common + ['qcache_size' => Propulsion::getSession()->getQueryResultCache()->count()];
+
         case 'txn-open-dangling':
             // Simulates a bug/timeout in application code: opens a
             // transaction, writes a row, and returns *without* committing

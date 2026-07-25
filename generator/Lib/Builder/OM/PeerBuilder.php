@@ -904,7 +904,33 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 */
 	public static function doSelect(Criteria \$criteria, ?PropulsionPDO \$con = null)
 	{
-		return ".$this->getPeerClassname()."::populateObjects(".$this->getPeerClassname()."::doSelectStmt(\$criteria, \$con));
+		if (!\$criteria->isQueryCacheEnabled()) {
+			return ".$this->getPeerClassname()."::populateObjects(".$this->getPeerClassname()."::doSelectStmt(\$criteria, \$con));
+		}
+
+		if (\$con === null) {
+			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_READ);
+		}
+		if (!\$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
+		}
+
+		[\$sql, \$params, \$criteria] = ".$this->getPeerClassname()."::prepareSelectSql(\$criteria, \$con);
+		\$cache = Propulsion::getSession()->getQueryResultCache();
+		\$cacheKey = \$criteria->getQueryCacheKey(\$sql, \$params);
+		if (\$cache->has(\$cacheKey)) {
+			\$cached = \$cache->get(\$cacheKey);
+			if (!is_array(\$cached)) {
+				throw new PropulsionException('Query result cache entry for a doSelect() query was not an array');
+			}
+			return \$cached;
+		}
+
+		\$stmt = ".$this->basePeerClassname."::executeSelectSql(\$criteria, \$con, \$sql, \$params);
+		\$result = ".$this->getPeerClassname()."::populateObjects(\$stmt);
+		\$cache->set(\$cacheKey, \$result, \$criteria->getQueryCacheTouchedTables());
+
+		return \$result;
 	}";
 	}
 
@@ -942,6 +968,41 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	{
 		$script .= "
 	/**
+	 * Prepares the Criteria object (select columns, dbName, preSelect hook) and
+	 * builds the SELECT SQL + bound params, without touching the database.
+	 * Split out of doSelectStmt() so the query result cache (see
+	 * \\Propulsion\\Query\\Criteria::setQueryCache()) can compute a cache key
+	 * from the exact same SQL+params before deciding whether to actually
+	 * execute -- must be called only once per doSelect()/doSelectStmt()
+	 * invocation, since it may run a preSelect behavior hook with side effects.
+	 *
+	 * @param      Criteria \$criteria The Criteria object used to build the SELECT statement.
+	 * @param      PropulsionPDO \$con The connection to use
+	 * @return     array{0: string, 1: array<int, array{table: string|null, column: string|null, value: mixed}>, 2: Criteria}
+	 */
+	public static function prepareSelectSql(Criteria \$criteria, PropulsionPDO \$con): array
+	{
+		if (!\$criteria->hasSelectClause()) {
+			\$criteria = clone \$criteria;
+			".$this->getPeerClassname()."::addSelectColumns(\$criteria);
+		}
+
+		// Set the correct dbName
+		\$criteria->setDbName(self::DATABASE_NAME);";
+
+		if ($this->hasBehaviorModifier('preSelect')) {
+			$this->applyBehaviorModifier('preSelect', $script);
+		}
+
+		$script .= "
+
+		\$params = array();
+		\$sql = ".$this->basePeerClassname."::createSelectSql(\$criteria, \$params);
+
+		return [\$sql, \$params, \$criteria];
+	}
+
+	/**
 	 * Prepares the Criteria object and uses the parent doSelect() method to execute a PDOStatement.
 	 *
 	 * Use this method directly if you want to work with an executed statement durirectly (for example
@@ -963,22 +1024,10 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			throw new PropulsionException('Expected a PropulsionPDO connection');
 		}
 
-		if (!\$criteria->hasSelectClause()) {
-			\$criteria = clone \$criteria;
-			".$this->getPeerClassname()."::addSelectColumns(\$criteria);
-		}
-
-		// Set the correct dbName
-		\$criteria->setDbName(self::DATABASE_NAME);";
-
-		if ($this->hasBehaviorModifier('preSelect')) {
-			$this->applyBehaviorModifier('preSelect', $script);
-		}
-
-		$script .= "
+		[\$sql, \$params, \$criteria] = ".$this->getPeerClassname()."::prepareSelectSql(\$criteria, \$con);
 
 		// BasePeer returns a PDOStatement
-		return ".$this->basePeerClassname."::doSelect(\$criteria, \$con);
+		return ".$this->basePeerClassname."::executeSelectSql(\$criteria, \$con, \$sql, \$params);
 	}";
 	}
 
@@ -1040,15 +1089,41 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		$this->applyBehaviorModifier('preSelect', $script);
 
 		$script .= "
-		// BasePeer returns a PDOStatement
-		\$stmt = ".$this->basePeerClassname."::doCount(\$criteria, \$con);
 
+		if (!\$criteria->isQueryCacheEnabled()) {
+			\$stmt = ".$this->basePeerClassname."::doCount(\$criteria, \$con);
+
+			return ".$this->getPeerClassname()."::fetchCount(\$stmt);
+		}
+
+		\$params = array();
+		\$sql = ".$this->basePeerClassname."::createCountSql(\$criteria, \$params);
+		\$cache = Propulsion::getSession()->getQueryResultCache();
+		\$cacheKey = \$criteria->getQueryCacheKey(\$sql, \$params);
+		if (\$cache->has(\$cacheKey)) {
+			\$cached = \$cache->get(\$cacheKey);
+			if (!is_int(\$cached)) {
+				throw new PropulsionException('Query result cache entry for a doCount() query was not an int');
+			}
+			return \$cached;
+		}
+
+		\$stmt = ".$this->basePeerClassname."::executeSelectSql(\$criteria, \$con, \$sql, \$params);
+		\$count = ".$this->getPeerClassname()."::fetchCount(\$stmt);
+		\$cache->set(\$cacheKey, \$count, \$criteria->getQueryCacheTouchedTables());
+
+		return \$count;
+	}
+
+	private static function fetchCount(\\PDOStatement \$stmt): int
+	{
 		if (is_array(\$row = \$stmt->fetch(PDO::FETCH_NUM)) && is_numeric(\$row[0] ?? null)) {
 			\$count = (int) \$row[0];
 		} else {
 			\$count = 0; // no rows returned; we infer that means 0 matches.
 		}
 		\$stmt->closeCursor();
+
 		return \$count;
 	}";
 	}

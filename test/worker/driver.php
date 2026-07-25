@@ -222,6 +222,18 @@ check('no object bleed across requests (instance pool)', function () use ($baseU
     assertSame($a['pid'], $b['pid'], 'sanity check: both requests must have hit the same worker process');
 });
 
+// 1b. No query-cache bleed across requests: request A caches a query result
+//    under a key; request B (after the boundary reset) must not see it.
+check('no query result cache bleed across requests', function () use ($baseUrl) {
+    $a = httpGetJson("$baseUrl/?action=qcache-add&key=qcache-bleed-test");
+    assertTrue($a['cached'] === true, 'request A should have cached a query result');
+
+    $b = httpGetJson("$baseUrl/?action=qcache-check&key=qcache-bleed-test");
+    assertSame(false, $b['cached_entry_present'], 'request B must not see request A\'s cached query result after Session::reset()');
+
+    assertSame($a['pid'], $b['pid'], 'sanity check: both requests must have hit the same worker process');
+});
+
 // 2. Transaction cleanup: request A opens a transaction and never
 //    commits/rolls back; request B must not inherit a dangling open
 //    transaction, and the uncommitted insert must actually be gone.
@@ -285,6 +297,7 @@ check('memory does not grow unboundedly under sustained load', function () use (
         // (worst case for unbounded per-request allocation via the DB
         // layer/statement objects).
         httpGetJson("$baseUrl/?action=pool-add&key=load-$i");
+        httpGetJson("$baseUrl/?action=qcache-add&key=load-$i");
         $resp = httpGetJson("$baseUrl/?action=txn-commit-row");
 
         if ($i % $sampleEvery === 0) {
@@ -294,6 +307,9 @@ check('memory does not grow unboundedly under sustained load', function () use (
 
     $poolSize = httpGetJson("$baseUrl/?action=pool-size")['pool_size'];
     assertSame(0, $poolSize, "instance pool must be empty after $totalRequests requests each adding a uniquely-keyed instance -- a non-zero pool size here means Session::reset() is not clearing pools and they grow unboundedly");
+
+    $qcacheSize = httpGetJson("$baseUrl/?action=qcache-size")['qcache_size'];
+    assertSame(0, $qcacheSize, "query result cache must be empty after $totalRequests requests each adding a uniquely-keyed entry -- a non-zero size here means Session::reset() is not clearing the query cache and it grows unboundedly");
 
     // Compare the average of the first 20% of samples against the last 20%:
     // a real "instance pools never cleared" regression grows memory roughly

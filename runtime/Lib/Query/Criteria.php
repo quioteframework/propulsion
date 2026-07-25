@@ -145,6 +145,14 @@ class Criteria implements \IteratorAggregate
 	protected bool $singleRecord = false;
 
 	/**
+	 * Whether a result formatted for this query may be served from (and
+	 * stored into) the current request's {@see \Propulsion\Cache\QueryResultCache}.
+	 * Opt-in and false by default: an uncached read is always correct, so
+	 * only queries the caller knows are safe to cache should turn this on.
+	 */
+	protected bool $queryCacheEnabled = false;
+
+	/**
 	 * Storage of select data. Collection of column names.
 	 * @var        array<int, string>
 	 */
@@ -228,7 +236,7 @@ class Criteria implements \IteratorAggregate
 
 	/**
 	 * Comment to add to the SQL query
-	 * @var        string
+	 * @var        string|null
 	 */
 	protected $queryComment;
 
@@ -301,6 +309,7 @@ class Criteria implements \IteratorAggregate
 		$this->namedCriterions = array();
 		$this->ignoreCase = false;
 		$this->singleRecord = false;
+		$this->queryCacheEnabled = false;
 		$this->selectModifiers = array();
 		$this->selectColumns = array();
 		$this->orderByColumns = array();
@@ -309,7 +318,7 @@ class Criteria implements \IteratorAggregate
 		$this->asColumns = array();
 		$this->joins = array();
 		$this->selectQueries = array();
-		$this->dbName = $this->originalDbName;
+		$this->setDbName($this->originalDbName);
 		$this->offset = 0;
 		$this->limit = 0;
 		$this->blobFlag = null;
@@ -587,7 +596,8 @@ class Criteria implements \IteratorAggregate
 	{
 		$tables = array();
 		foreach ($this->keys() as $key) {
-			$tableName = substr($key, 0, strrpos($key, '.' ));
+			$dotPos = strrpos($key, '.');
+			$tableName = substr($key, 0, $dotPos === false ? 0 : $dotPos);
 			$tables[$tableName][] = $key;
 		}
 		return $tables;
@@ -827,6 +837,9 @@ class Criteria implements \IteratorAggregate
 			}
 		}
 		$firstCriterion = array_shift($namedCriterions);
+		if ($firstCriterion === null) {
+			throw new PropulsionException('combine() requires at least one criterion name');
+		}
 		foreach ($namedCriterions as $criterion) {
 			$firstCriterion->$operatorMethod($criterion);
 		}
@@ -847,17 +860,20 @@ class Criteria implements \IteratorAggregate
 	 * // LEFT JOIN FOO ON (PROJECT.ID = FOO.PROJECT_ID)
 	 * </code>
 	 *
-	 * @param      mixed $left  A String with the left side of the join.
-	 * @param      mixed $right A String with the right side of the join.
-	 * @param      mixed $joinType A String with the join operator
+	 * @param      string|array<int|string, string> $left  A String with the left side of the join, or an array of such strings for a multi-condition join.
+	 * @param      string|array<int|string, string> $right A String with the right side of the join, or an array of such strings for a multi-condition join.
+	 * @param      ?string $joinType A String with the join operator
 	 *                             among Criteria::INNER_JOIN, Criteria::LEFT_JOIN,
 	 *                             and Criteria::RIGHT_JOIN
    *
 	 * @return     Criteria A modified Criteria object.
 	 */
-	public function addJoin($left, $right, $joinType = null)
+	public function addJoin(string|array $left, string|array $right, ?string $joinType = null)
 	{
 		if (is_array($left)) {
+			if (!is_array($right)) {
+				throw new PropulsionException('addJoin(): $right must be an array when $left is an array');
+			}
 			$conditions = array();
 			foreach ($left as $key => $value) {
 				$condition = array($value, $right[$key]);
@@ -866,18 +882,22 @@ class Criteria implements \IteratorAggregate
 			return $this->addMultipleJoin($conditions, $joinType);
 		}
 
+		if (is_array($right)) {
+			throw new PropulsionException('addJoin(): $right must not be an array when $left is not an array');
+		}
+
 		$join = new Join();
 
 		// is the left table an alias ?
 		$dotpos = strrpos($left, '.');
-		$leftTableAlias = substr($left, 0, $dotpos);
-		$leftColumnName = substr($left, $dotpos + 1);
+		$leftTableAlias = substr($left, 0, $dotpos === false ? 0 : $dotpos);
+		$leftColumnName = substr($left, $dotpos === false ? 0 : $dotpos + 1);
 		list($leftTableName, $leftTableAlias) = $this->getTableNameAndAlias($leftTableAlias);
 
 		// is the right table an alias ?
 		$dotpos = strrpos($right, '.');
-		$rightTableAlias = substr($right, 0, $dotpos);
-		$rightColumnName = substr($right, $dotpos + 1);
+		$rightTableAlias = substr($right, 0, $dotpos === false ? 0 : $dotpos);
+		$rightColumnName = substr($right, $dotpos === false ? 0 : $dotpos + 1);
 		list($rightTableName, $rightTableAlias) = $this->getTableNameAndAlias($rightTableAlias);
 
 		$join->addExplicitCondition(
@@ -903,12 +923,12 @@ class Criteria implements \IteratorAggregate
  	 * );
 	 *
 	 * @see        addJoin()
-	 * @param      array<int, array<int, mixed>> $conditions An array of conditions, each condition being an array (left, right, operator)
-	 * @param      string $joinType  A String with the join operator. Defaults to an implicit join.
+	 * @param      array<int, array{0: string, 1: string, 2?: string}> $conditions An array of conditions, each condition being an array (left, right, operator)
+	 * @param      ?string $joinType  A String with the join operator. Defaults to an implicit join.
 	 *
 	 * @return     Criteria A modified Criteria object.
 	 */
-	public function addMultipleJoin($conditions, $joinType = null)
+	public function addMultipleJoin(array $conditions, ?string $joinType = null)
 	{
 		$join = new Join();
 		$joinCondition = null;
@@ -949,6 +969,9 @@ class Criteria implements \IteratorAggregate
 				$joinCondition = $joinCondition->addAnd($criterion);
 			}
 		}
+		if ($joinCondition === null) {
+			throw new PropulsionException('addMultipleJoin() requires at least one condition');
+		}
 		$join->setJoinType($joinType);
 		$join->setJoinCondition($joinCondition);
 		return $this->addJoinObject($join);
@@ -980,6 +1003,41 @@ class Criteria implements \IteratorAggregate
 	public function getJoins()
 	{
 		return $this->joins;
+	}
+
+	/**
+	 * Build the query result cache key for a given SQL+params pair (see
+	 * {@see \Propulsion\Cache\QueryResultCache}). Identical SQL, params, and
+	 * database name guarantee identical rows for a given DB state, so the key
+	 * is built from those rather than from Criteria-object structure.
+	 *
+	 * @param array<int, array{table: string|null, column: string|null, value: mixed}> $params
+	 */
+	public function getQueryCacheKey(string $sql, array $params): string
+	{
+		return $sql . '|' . serialize($params) . '|' . $this->getDbName();
+	}
+
+	/**
+	 * Every table name this query reads from -- used to index a cached result
+	 * so a write to any of these tables (see `BasePeer::doInsert()`/doUpdate()/
+	 * doDelete()/doDeleteAll()) can evict it.
+	 *
+	 * @return list<string>
+	 */
+	public function getQueryCacheTouchedTables(): array
+	{
+		$tables = array_keys($this->getTablesColumns());
+		if ($primaryTable = $this->getPrimaryTableName()) {
+			$tables[] = $primaryTable;
+		}
+		foreach ($this->getJoins() as $join) {
+			if ($joinTableName = $join->getRightTableName()) {
+				$tables[] = $joinTableName;
+			}
+		}
+
+		return array_values(array_unique($tables));
 	}
 
 	/**
@@ -1171,6 +1229,35 @@ class Criteria implements \IteratorAggregate
 	}
 
 	/**
+	 * Opt this query into the current request's query result cache (see
+	 * {@see \Propulsion\Cache\QueryResultCache}). Off by default: turn it on
+	 * only for queries you know are safe to serve a request-old result for --
+	 * a cached result is only ever evicted by a write (insert/update/delete)
+	 * to one of the query's tables going through this same process, so a
+	 * write via a different connection/process (or a non-deterministic
+	 * expression like NOW() baked into the query) will not be reflected in a
+	 * cache hit.
+	 *
+	 * @param      boolean $b Set to TRUE to allow this query to be served from/stored into the query result cache.
+	 * @return     Criteria Modified Criteria object (for fluent API)
+	 */
+	public function setQueryCache(bool $b = true)
+	{
+		$this->queryCacheEnabled = $b;
+		return $this;
+	}
+
+	/**
+	 * Is this query allowed to be served from/stored into the query result cache?
+	 *
+	 * @return     boolean
+	 */
+	public function isQueryCacheEnabled(): bool
+	{
+		return $this->queryCacheEnabled;
+	}
+
+	/**
 	 * Set limit.
 	 *
 	 * @param      int $limit An int with the value for limit.
@@ -1249,10 +1336,10 @@ class Criteria implements \IteratorAggregate
 	/**
 	 * Set the query comment, that appears after the first verb in the SQL query
 	 *
-	 * @param      string $comment The comment to add to the query, without comment sign
+	 * @param      ?string $comment The comment to add to the query, without comment sign
 	 * @return     Criteria Modified Criteria object (for fluent API)
 	 */
-	public function setComment($comment = null)
+	public function setComment(?string $comment = null)
 	{
 		$this->queryComment = $comment;
 
@@ -1262,9 +1349,9 @@ class Criteria implements \IteratorAggregate
 	/**
 	 * Get the query comment, that appears after the first verb in the SQL query
 	 *
-	 * @return      string The comment to add to the query, without comment sign
+	 * @return      ?string The comment to add to the query, without comment sign
 	 */
-	public function getComment()
+	public function getComment(): ?string
 	{
 		return $this->queryComment;
 	}

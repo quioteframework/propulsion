@@ -91,14 +91,20 @@ class Join
 	 * @param string $joinType    The type of the join. Valid join types are null (implicit join),
 	 *                            Criteria::LEFT_JOIN, Criteria::RIGHT_JOIN, and Criteria::INNER_JOIN
 	 */
-	public function __construct($leftColumn = null, $rightColumn = null, $joinType = null)
+	public function __construct(string|array|null $leftColumn = null, string|array|null $rightColumn = null, ?string $joinType = null)
 	{
 		if (null !== $leftColumn) {
 			if (is_array($leftColumn)) {
 				// join with multiple conditions
+				if (!is_array($rightColumn)) {
+					throw new PropulsionException('Join(): $rightColumn must be an array when $leftColumn is an array');
+				}
 				$this->addConditions($leftColumn, $rightColumn);
 			} else {
 				// simple join
+				if (!is_string($rightColumn)) {
+					throw new PropulsionException('Join(): $rightColumn must be a string when $leftColumn is a string');
+				}
 				$this->addCondition($leftColumn, $rightColumn);
 			}
 		}
@@ -118,7 +124,7 @@ class Join
 	 * @param string $operator The comparison operator of the join condition, default Join::EQUAL
 	 * @return void
 	 */
-	public function addCondition($left, $right, $operator = self::EQUAL)
+	public function addCondition(string $left, string $right, string $operator = self::EQUAL)
 	{
 		if ($pos = strrpos($left, '.')) {
 			list($this->leftTableName,  $this->left[]) = explode('.', $left);
@@ -142,7 +148,7 @@ class Join
 	 * @param array<int|string, string> $operators The comparison operators of the join condition, default Join::EQUAL
 	 * @return void
 	 */
-	public function addConditions($lefts, $rights, $operators = array())
+	public function addConditions(array $lefts, array $rights, array $operators = array())
 	{
 		if (count($lefts) != count($rights) ) {
 			throw new PropulsionException("Unable to create join because the left column count isn't equal to the right column count");
@@ -163,16 +169,16 @@ class Join
 	 * // LEFT JOIN author a ON (book.AUTHOR_ID=a.ID)
 	 * </code>
 	 *
-	 * @param string $leftTableName
+	 * @param ?string $leftTableName
 	 * @param string $leftColumnName
-	 * @param string $leftTableAlias
-	 * @param string $rightTableName
+	 * @param ?string $leftTableAlias
+	 * @param ?string $rightTableName
 	 * @param string $rightColumnName
-	 * @param string $rightTableAlias
+	 * @param ?string $rightTableAlias
 	 * @param string $operator The comparison operator of the join condition, default Join::EQUAL
 	 * @return void
 	 */
-	public function addExplicitCondition($leftTableName, $leftColumnName, $leftTableAlias, $rightTableName, $rightColumnName, $rightTableAlias, $operator = self::EQUAL)
+	public function addExplicitCondition(?string $leftTableName, string $leftColumnName, ?string $leftTableAlias, ?string $rightTableName, string $rightColumnName, ?string $rightTableAlias, string $operator = self::EQUAL)
 	{
 		$this->leftTableName   = $leftTableName;
 		$this->leftTableAlias  = $leftTableAlias;
@@ -480,10 +486,10 @@ class Join
 	/**
 	 * Get the value of db.
 	 * The DBAdapter which might be used to get db specific
-	 * variations of sql.
-	 * @return     DBAdapter value of db.
+	 * variations of sql. Null until {@see setDB()} has been called.
+	 * @return     ?DBAdapter value of db.
 	 */
-	public function getDB()
+	public function getDB(): ?DBAdapter
 	{
 		return $this->db;
 	}
@@ -571,7 +577,7 @@ class Join
 
 		$rightTableName = $this->getRightTableWithAlias();
 
-		if (null !== $this->db && $this->db->useQuoteIdentifier()) {
+		if (null !== $this->db && null !== $rightTableName && $this->db->useQuoteIdentifier()) {
 			$rightTableName = $this->db->quoteIdentifierTable($rightTableName);
 		}
 

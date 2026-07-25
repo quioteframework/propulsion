@@ -27,6 +27,7 @@ namespace Propulsion\Query;
  */
 
  use Propulsion\Propulsion;
+ use Propulsion\Cache\QueryResultCache;
  use Propulsion\Event\PostBulkDeleteEvent;
  use Propulsion\Event\PostBulkUpdateEvent;
  use Propulsion\Event\PreBulkDeleteEvent;
@@ -1240,9 +1241,33 @@ class ModelCriteria extends Criteria
     public function find(?PropulsionPDO $con = null) : PropulsionCollection
 	{
 		$criteria = $this->isKeepQuery() ? clone $this : $this;
-		$stmt = $criteria->getSelectStatement($con);
 
-		return $criteria->getFormatter()->init($criteria)->format($stmt);
+		if (!$criteria->isQueryCacheEnabled()) {
+			$stmt = $criteria->getSelectStatement($con);
+
+			return $criteria->getFormatter()->init($criteria)->format($stmt);
+		}
+
+		$con = $criteria->resolveConnection($con);
+		[$sql, $params] = $criteria->prepareSelectSql($con);
+		$cache = Propulsion::getSession()->getQueryResultCache();
+		$cacheKey = $criteria->getQueryCacheKey($sql, $params);
+		if ($cache->has($cacheKey)) {
+			$cached = $cache->get($cacheKey);
+			if (!$cached instanceof PropulsionCollection) {
+				throw new PropulsionException('Query result cache entry for a find() query was not a PropulsionCollection');
+			}
+			return $cached;
+		}
+
+		$stmt = $criteria->executeSelectSql($con, $sql, $params);
+		$result = $criteria->getFormatter()->init($criteria)->format($stmt);
+		if (!$result instanceof PropulsionCollection) {
+			throw new PropulsionException('find() formatter did not return a PropulsionCollection');
+		}
+		$cache->set($cacheKey, $result, $criteria->getQueryCacheTouchedTables());
+
+		return $result;
 	}
 
 	/**
@@ -1259,9 +1284,26 @@ class ModelCriteria extends Criteria
 	{
 		$criteria = $this->isKeepQuery() ? clone $this : $this;
 		$criteria->limit(1);
-		$stmt = $criteria->getSelectStatement($con);
 
-		return $criteria->getFormatter()->init($criteria)->formatOne($stmt);
+		if (!$criteria->isQueryCacheEnabled()) {
+			$stmt = $criteria->getSelectStatement($con);
+
+			return $criteria->getFormatter()->init($criteria)->formatOne($stmt);
+		}
+
+		$con = $criteria->resolveConnection($con);
+		[$sql, $params] = $criteria->prepareSelectSql($con);
+		$cache = Propulsion::getSession()->getQueryResultCache();
+		$cacheKey = $criteria->getQueryCacheKey($sql, $params);
+		if ($cache->has($cacheKey)) {
+			return $cache->get($cacheKey);
+		}
+
+		$stmt = $criteria->executeSelectSql($con, $sql, $params);
+		$result = $criteria->getFormatter()->init($criteria)->formatOne($stmt);
+		$cache->set($cacheKey, $result, $criteria->getQueryCacheTouchedTables());
+
+		return $result;
 	}
 
 	/**
@@ -1354,10 +1396,12 @@ class ModelCriteria extends Criteria
 		return $this->find($con);
 	}
 
-	protected function getSelectStatement(?PropulsionPDO $con = null) : \PDOStatement
+	/**
+	 * Resolve the connection to use for a read, falling back to the default
+	 * read connection for this query's database when none is given.
+	 */
+	protected function resolveConnection(?PropulsionPDO $con = null): PropulsionPDO
 	{
-		$dbMap = Propulsion::getDatabaseMap($this->getDbName());
-		$db = Propulsion::getDB($this->getDbName());
 		if ($con === null) {
 			$con = Propulsion::getConnection($this->getDbName(), Propulsion::CONNECTION_READ);
 		}
@@ -1365,6 +1409,22 @@ class ModelCriteria extends Criteria
 			throw new PropulsionException('Expected a PropulsionPDO connection');
 		}
 
+		return $con;
+	}
+
+	/**
+	 * Build the SELECT SQL and bound params for this query, without touching
+	 * the database. Split out of {@see getSelectStatement()} so the query
+	 * result cache (see {@see \Propulsion\Query\Criteria::setQueryCache()})
+	 * can compute a cache key from the exact same SQL+params before deciding
+	 * whether to actually execute -- this must be called only once per
+	 * find()/findOne() invocation, since it runs `basePreSelect()`, which may
+	 * have side effects.
+	 *
+	 * @return array{0: string, 1: array<int, array{table: string|null, column: string|null, value: mixed}>}
+	 */
+	protected function prepareSelectSql(PropulsionPDO $con): array
+	{
 		// check that the columns of the main class are already added (if this is the primary ModelCriteria)
 		if (!$this->hasSelectClause() && !$this->getPrimaryCriteria()) {
 			$this->addSelfSelectColumns();
@@ -1372,23 +1432,44 @@ class ModelCriteria extends Criteria
 
 		$this->configureSelectColumns();
 
-		$sql = null;
+		$this->basePreSelect($con);
+		$params = array();
+		$sql = BasePeer::createSelectSql($this, $params);
+
+		return [$sql, $params];
+	}
+
+	/**
+	 * Execute an already-built SELECT SQL/params pair (see {@see prepareSelectSql()}).
+	 *
+	 * @param array<int, array{table: string|null, column: string|null, value: mixed}> $params
+	 */
+	protected function executeSelectSql(PropulsionPDO $con, string $sql, array $params, string $statementLabel = 'SELECT'): \PDOStatement
+	{
+		$dbMap = Propulsion::getDatabaseMap($this->getDbName());
+		$db = Propulsion::getDB($this->getDbName());
+
 		try {
-			$this->basePreSelect($con);
-			$params = array();
-			$sql = BasePeer::createSelectSql($this, $params);
 			$stmt = $con->prepare($sql);
+			if ($stmt === false) {
+				throw new PropulsionException('PropulsionPDO::prepare() returned false');
+			}
 			$db->bindValues($stmt, $params, $dbMap);
 			$stmt->execute();
 		} catch (Exception $e) {
-			if (isset($stmt)) {
-				$stmt = null; // close
-			}
 			Propulsion::log($e->getMessage(), Propulsion::LOG_ERR);
-			throw new PropulsionException(sprintf('Unable to execute SELECT statement [%s]', $sql), $e);
+			throw new PropulsionException(sprintf('Unable to execute %s statement [%s]', $statementLabel, $sql), $e);
 		}
 
 		return $stmt;
+	}
+
+	protected function getSelectStatement(?PropulsionPDO $con = null) : \PDOStatement
+	{
+		$con = $this->resolveConnection($con);
+		[$sql, $params] = $this->prepareSelectSql($con);
+
+		return $this->executeSelectSql($con, $sql, $params);
 	}
 
 	/**
@@ -1488,12 +1569,7 @@ class ModelCriteria extends Criteria
 	 */
 	public function count(?PropulsionPDO $con = null)
 	{
-		if ($con === null) {
-			$con = Propulsion::getConnection($this->getDbName(), Propulsion::CONNECTION_READ);
-		}
-		if (!$con instanceof PropulsionPDO) {
-			throw new PropulsionException('Expected a PropulsionPDO connection');
-		}
+		$con = $this->resolveConnection($con);
 
 		$criteria = $this->isKeepQuery() ? clone $this : $this;
 		$criteria->setDbName($this->getDbName()); // Set the correct dbName
@@ -1504,7 +1580,32 @@ class ModelCriteria extends Criteria
 		// tables go into the FROM clause.
 		$criteria->setPrimaryTableName(constant($this->modelPeerName.'::TABLE_NAME'));
 
-		$stmt = $criteria->getCountStatement($con);
+		if (!$criteria->isQueryCacheEnabled()) {
+			$stmt = $criteria->getCountStatement($con);
+
+			return $criteria->fetchCount($stmt);
+		}
+
+		[$sql, $params] = $criteria->prepareCountSql($con);
+		$cache = Propulsion::getSession()->getQueryResultCache();
+		$cacheKey = $criteria->getQueryCacheKey($sql, $params);
+		if ($cache->has($cacheKey)) {
+			$cached = $cache->get($cacheKey);
+			if (!is_int($cached)) {
+				throw new PropulsionException('Query result cache entry for a count() query was not an int');
+			}
+			return $cached;
+		}
+
+		$stmt = $criteria->executeSelectSql($con, $sql, $params);
+		$count = $criteria->fetchCount($stmt);
+		$cache->set($cacheKey, $count, $criteria->getQueryCacheTouchedTables());
+
+		return $count;
+	}
+
+	private function fetchCount(\PDOStatement $stmt): int
+	{
 		if ($row = $stmt->fetch(PDO::FETCH_NUM)) {
 			$count = (int) $row[0];
 		} else {
@@ -1516,18 +1617,16 @@ class ModelCriteria extends Criteria
 	}
 
 	/**
-	 * @return \PDOStatement
+	 * Build the COUNT SQL and bound params for this query, without touching
+	 * the database. Split out of {@see getCountStatement()} for the same
+	 * reason as {@see prepareSelectSql()} -- must be called only once per
+	 * count() invocation, since it runs `basePreSelect()`.
+	 *
+	 * @return array{0: string, 1: array<int, array{table: string|null, column: string|null, value: mixed}>}
 	 */
-	protected function getCountStatement(?PropulsionPDO $con = null)
+	protected function prepareCountSql(PropulsionPDO $con): array
 	{
-		$dbMap = Propulsion::getDatabaseMap($this->getDbName());
 		$db = Propulsion::getDB($this->getDbName());
-		if ($con === null) {
-			$con = Propulsion::getConnection($this->getDbName(), Propulsion::CONNECTION_READ);
-		}
-		if (!$con instanceof PropulsionPDO) {
-			throw new PropulsionException('Expected a PropulsionPDO connection');
-		}
 
 		// check that the columns of the main class are already added (if this is the primary ModelCriteria)
 		if (!$this->hasSelectClause() && !$this->getPrimaryCriteria()) {
@@ -1542,37 +1641,35 @@ class ModelCriteria extends Criteria
 			|| $this->getHaving()
 			|| in_array(Criteria::DISTINCT, $this->getSelectModifiers());
 
-		$sql = null;
-		$stmt = null;
-		try {
-			$this->basePreSelect($con);
-			$params = array();
-			if ($needsComplexCount) {
-				if (BasePeer::needsSelectAliases($this)) {
-					if ($this->getHaving()) {
-						throw new PropulsionException('Propulsion cannot create a COUNT query when using HAVING and  duplicate column names in the SELECT part');
-					}
-					$db->turnSelectColumnsToAliases($this);
+		$this->basePreSelect($con);
+		$params = array();
+		if ($needsComplexCount) {
+			if (BasePeer::needsSelectAliases($this)) {
+				if ($this->getHaving()) {
+					throw new PropulsionException('Propulsion cannot create a COUNT query when using HAVING and  duplicate column names in the SELECT part');
 				}
-				$selectSql = BasePeer::createSelectSql($this, $params);
-				$sql = 'SELECT COUNT(*) FROM (' . $selectSql . ') propelmatch4cnt';
-			} else {
-				// Replace SELECT columns with COUNT(*)
-				$this->clearSelectColumns()->addSelectColumn('COUNT(*)');
-				$sql = BasePeer::createSelectSql($this, $params);
+				$db->turnSelectColumnsToAliases($this);
 			}
-			$stmt = $con->prepare($sql);
-			$db->bindValues($stmt, $params, $dbMap);
-			$stmt->execute();
-		} catch (Exception $e) {
-			if ($stmt) {
-				$stmt = null; // close
-			}
-			Propulsion::log($e->getMessage(), Propulsion::LOG_ERR);
-			throw new PropulsionException(sprintf('Unable to execute COUNT statement [%s]', $sql), $e);
+			$selectSql = BasePeer::createSelectSql($this, $params);
+			$sql = 'SELECT COUNT(*) FROM (' . $selectSql . ') propelmatch4cnt';
+		} else {
+			// Replace SELECT columns with COUNT(*)
+			$this->clearSelectColumns()->addSelectColumn('COUNT(*)');
+			$sql = BasePeer::createSelectSql($this, $params);
 		}
 
-		return $stmt;
+		return [$sql, $params];
+	}
+
+	/**
+	 * @return \PDOStatement
+	 */
+	protected function getCountStatement(?PropulsionPDO $con = null)
+	{
+		$con = $this->resolveConnection($con);
+		[$sql, $params] = $this->prepareCountSql($con);
+
+		return $this->executeSelectSql($con, $sql, $params, 'COUNT');
 	}
 
 	/**

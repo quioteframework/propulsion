@@ -32,6 +32,17 @@ rm -rf fixtures/bookstore/build fixtures/schemas/build fixtures/namespaced/build
   consumer still relies on it. Drop at a major-version boundary.
 - **Worker-safety harness (`test/worker/`)** only covers SQLite on a single
   FrankenPHP worker thread, not Postgres or cross-thread behavior.
+- **Query result cache (`Criteria::setQueryCache()`) is request-scoped only.**
+  Opt-in per query, backed by `Session::getQueryResultCache()` and cleared at
+  every worker request boundary (`Session::reset()`, exercised by
+  `composer test:worker`'s `qcache-*` checks), with invalidation on writes to
+  a cached query's tables hooked directly into `BasePeer::doInsert()`/
+  `doUpdate()`/`doDelete()`/`doDeleteAll()`. There is no process-scoped
+  (cross-request) tier yet, so it only helps with repeated identical queries
+  within a single request/script run, not across requests in the same worker.
+  A cache hit is also invisible to writes that bypass the ORM (raw SQL on the
+  same connection, a different process/connection) -- same caveat as any
+  result cache.
 
 ## Missing modernization work
 

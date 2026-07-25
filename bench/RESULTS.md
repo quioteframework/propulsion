@@ -62,3 +62,34 @@ correctness_check.php passes identically before and after.
 
 4. **`addSelectColumns()` emits one bulk `Criteria::addSelectColumns([...])` call**
    instead of one `addSelectColumn()` method call per column, per query.
+
+## Query result cache (`query_cache_bench.php`)
+
+Measures `Criteria::setQueryCache()` (`runtime/Lib/Cache/QueryResultCache.php`):
+re-issuing the *same* query repeatedly (a loop, or several call sites in one
+request) with the cache off vs on, through both call styles it supports
+(`ModelCriteria::find()`/`count()`, and the generated Peer's `doSelect()`).
+Reproduce:
+
+```
+php -dpcov.enabled=0 -dopcache.enable_cli=1 -dopcache.jit=tracing -dopcache.jit_buffer_size=64M bench/query_cache_bench.php 3000 200
+```
+
+Results (rows=3000, 200 repeats of the identical query per scenario, PHP 8.5.8, JIT on):
+
+| Scenario | Cache off | Cache on | Speedup |
+|----------|----------:|---------:|--------:|
+| `ModelCriteria::find()` | 618 ops/s | 86,027 ops/s | **≈139×** |
+| `ModelCriteria::count()` | 9,961 ops/s | 306,686 ops/s | **≈31×** |
+| `FooPeer::doSelect()` | 277 ops/s | 50,057 ops/s | **≈181×** |
+
+Expected shape: every scenario's "cache off" cost is dominated by the real SQLite
+round trip (prepare/bind/execute/fetch), paid on *every* call; "cache on" pays
+that cost exactly once (the warmup call the `bench()` helper already does before
+timing) and then serves every subsequent call from an in-memory array keyed by
+SQL+params -- see `Criteria::getQueryCacheKey()`. The win scales with how much
+work the real query does (`count()`'s single-row fetch benefits far less than
+`find()`'s N-row hydration or raw `doSelect()`'s full object population), and
+disappears entirely for a workload that never repeats a query -- this cache
+does not help a request that issues N distinct queries once each, only
+in-request or in-process repetition of the same one.

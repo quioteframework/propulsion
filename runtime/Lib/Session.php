@@ -9,6 +9,7 @@
  */
 namespace Propulsion;
 
+use Propulsion\Cache\QueryResultCache;
 use Propulsion\Connection\PropulsionPDO;
 
 /**
@@ -45,6 +46,10 @@ use Propulsion\Connection\PropulsionPDO;
  * tuple -- see `PeerBuilder::getInstancePoolKeySnippet()`). This mirrors the
  * old per-class `static $instances` array exactly, just namespaced by class
  * and relocated onto `Session`.
+ *
+ * A later addition, the query result cache ({@see QueryResultCache}, `$queryCache`),
+ * follows the same rule: it's request-scoped for the same reason `$instancePools`
+ * is, and {@see reset()} clears it the same way.
  */
 class Session
 {
@@ -67,8 +72,32 @@ class Session
     private array $instancePools = [];
 
     /**
+     * Request-scoped cache of formatted query results (see
+     * {@see QueryResultCache}). Same axis as `$instancePools`: cleared at
+     * every request boundary by {@see reset()} so a cached row from one
+     * worker request never leaks into the next.
+     */
+    private QueryResultCache $queryCache;
+
+    public function __construct()
+    {
+        $this->queryCache = new QueryResultCache();
+    }
+
+    /**
+     * The current request's query result cache. Opted into per query via
+     * {@see \Propulsion\Query\Criteria::setQueryCache()}.
+     */
+    public function getQueryResultCache(): QueryResultCache
+    {
+        return $this->queryCache;
+    }
+
+    /**
      * Store an object in the named Peer class's instance pool under $key.
      * Called from generated `FooPeer::addInstanceToPool()`.
+     *
+     * @param class-string $peerClass
      */
     public function addPooledInstance(string $peerClass, string $key, object $instance): void
     {
@@ -173,12 +202,16 @@ class Session
      *  3. Reset `forceMasterConnection` back to its default (false), so a
      *     request that opted into forcing master reads doesn't leak that choice
      *     onto the next request sharing this worker.
+     *  4. Clear the query result cache ({@see QueryResultCache}) -- same
+     *     reasoning as step 2: a result cached while serving one request must
+     *     not be handed out to a later, unrelated request.
      */
     public function reset(): void
     {
         $this->rollBackDanglingTransactions();
         $this->clearAllPools();
         $this->forceMasterConnection = false;
+        $this->queryCache->clear();
     }
 
     /**

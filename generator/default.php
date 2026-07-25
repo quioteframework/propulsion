@@ -371,7 +371,6 @@ return [
     'propulsion.behavior.sortable.class' => 'Propulsion\Generator\Behavior\Sortable\SortableBehavior',
     'propulsion.behavior.sluggable.class' => 'Propulsion\Generator\Behavior\Sluggable\SluggableBehavior',
     'propulsion.behavior.concrete_inheritance.class' => 'Propulsion\Generator\Behavior\ConcreteInheritance\ConcreteInheritanceBehavior',
-    'propulsion.behavior.query_cache.class' => 'Propulsion\Generator\Behavior\QueryCache\QueryCacheBehavior',
     'propulsion.behavior.aggregate_column.class' => 'Propulsion\Generator\Behavior\AggregateColumn\AggregateColumnBehavior',
     'propulsion.behavior.versionable.class' => 'Propulsion\Generator\Behavior\Versionable\VersionableBehavior',
     'propulsion.behavior.i18n.class' => 'Propulsion\Generator\Behavior\I18n\I18nBehavior',

@@ -171,6 +171,8 @@ class BasePeer
 				throw new PropulsionException(sprintf('Unable to execute DELETE statement [%s]', $sql), $e);
 			}
 
+			Propulsion::getSession()->getQueryResultCache()->invalidateTable($tableName);
+
 		} // for each table
 
 		return $affectedRows;
@@ -198,6 +200,7 @@ class BasePeer
 	 */
 	public static function doDeleteAll(?string $tableName = null, ?PropulsionPDO $con = null, ?string $databaseName = null)
 	{
+		$originalTableName = $tableName;
 		$sql = null;
 		try {
 			$db = Propulsion::getDB($databaseName);
@@ -207,11 +210,17 @@ class BasePeer
 			$sql = "DELETE FROM " . $tableName;
 			$stmt = $con->prepare($sql);
 			$stmt->execute();
-			return $stmt->rowCount();
+			$affectedRows = $stmt->rowCount();
 		} catch (Exception $e) {
 			Propulsion::log($e->getMessage(), Propulsion::LOG_ERR);
 			throw new PropulsionException(sprintf('Unable to execute DELETE ALL statement [%s]', $sql), $e);
 		}
+
+		if ($originalTableName !== null) {
+			Propulsion::getSession()->getQueryResultCache()->invalidateTable($originalTableName);
+		}
+
+		return $affectedRows;
 	}
 
 	/**
@@ -252,6 +261,8 @@ class BasePeer
 		} else {
 			throw new PropulsionException("Database insert attempted without anything specified to insert");
 		}
+
+		$originalTableName = $tableName;
 
 		$dbMap = Propulsion::getDatabaseMap($criteria->getDbName());
 		$tableMap = $dbMap->getTable($tableName);
@@ -315,6 +326,10 @@ class BasePeer
 		} catch (Exception $e) {
 			Propulsion::log($e->getMessage(), Propulsion::LOG_ERR);
 			throw new PropulsionException(sprintf('Unable to execute INSERT statement [%s]', $sql), $e);
+		}
+
+		if ($originalTableName !== null) {
+			Propulsion::getSession()->getQueryResultCache()->invalidateTable($originalTableName);
 		}
 
 		// If the primary key column is auto-incremented, get the id now.
@@ -447,6 +462,9 @@ class BasePeer
 				$db->cleanupSQL($sql, $params, $updateValues, $dbMap);
 
 				$stmt = $con->prepare($sql);
+				if ($stmt === false) {
+					throw new PropulsionException('PropulsionPDO::prepare() returned false');
+				}
 
 				// Replace ':p?' with the actual values
 				$db->bindValues($stmt, $params, $dbMap);
@@ -462,6 +480,8 @@ class BasePeer
 				Propulsion::log($e->getMessage(), Propulsion::LOG_ERR);
 				throw new PropulsionException(sprintf('Unable to execute UPDATE statement [%s]', $sql), $e);
 			}
+
+			Propulsion::getSession()->getQueryResultCache()->invalidateTable((string) $tableName);
 
 		} // foreach table in the criteria
 
@@ -479,30 +499,45 @@ class BasePeer
 	 */
 	public static function doSelect(Criteria $criteria, ?PropulsionPDO $con = null)
 	{
-		$dbMap = Propulsion::getDatabaseMap($criteria->getDbName());
-		$db = Propulsion::getDB($criteria->getDbName());
-		$stmt = null;
-		$sql = null;
-
 		if ($con === null) {
 			$con = Propulsion::getConnection($criteria->getDbName(), Propulsion::CONNECTION_READ);
 		}
+		if (!$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
+		}
+
+		$params = array();
+		$sql = self::createSelectSql($criteria, $params);
+
+		return self::executeSelectSql($criteria, $con, $sql, $params);
+	}
+
+	/**
+	 * Executes an already-built SELECT/COUNT SQL + params pair (see
+	 * {@see createSelectSql()}) and returns the resultset statement. Split
+	 * out of {@see doSelect()} so a caller that needs the generated SQL
+	 * *before* deciding whether to actually hit the database (e.g. the query
+	 * result cache, see {@see Criteria::setQueryCache()}) can build it once
+	 * and reuse it here on a cache miss, instead of generating it twice.
+	 *
+	 * @param      array<int, array{table: string|null, column: string|null, value: mixed}> $params
+	 * @throws     PropulsionException
+	 */
+	public static function executeSelectSql(Criteria $criteria, PropulsionPDO $con, string $sql, array $params): \PDOStatement
+	{
+		$dbMap = Propulsion::getDatabaseMap($criteria->getDbName());
+		$db = Propulsion::getDB($criteria->getDbName());
 
 		try {
-
-			$params = array();
-			$sql = self::createSelectSql($criteria, $params);
-
 			$stmt = $con->prepare($sql);
+			if ($stmt === false) {
+				throw new PropulsionException('PropulsionPDO::prepare() returned false');
+			}
 
 			$db->bindValues($stmt, $params, $dbMap);
 
 			$stmt->execute();
-
 		} catch (Exception $e) {
-			if ($stmt) {
-				$stmt = null; // close
-			}
 			Propulsion::log($e->getMessage(), Propulsion::LOG_ERR);
 			throw new PropulsionException(sprintf('Unable to execute SELECT statement [%s]', $sql), $e);
 		}
@@ -522,15 +557,37 @@ class BasePeer
 	 */
 	public static function doCount(Criteria $criteria, ?PropulsionPDO $con = null)
 	{
-		$dbMap = Propulsion::getDatabaseMap($criteria->getDbName());
-		$db = Propulsion::getDB($criteria->getDbName());
-
 		if ($con === null) {
 			$con = Propulsion::getConnection($criteria->getDbName(), Propulsion::CONNECTION_READ);
 		}
+		if (!$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
+		}
 
-		$stmt = null;
-		$sql = null;
+		$params = array();
+		$sql = self::createCountSql($criteria, $params);
+
+		return self::executeSelectSql($criteria, $con, $sql, $params);
+	}
+
+	/**
+	 * Builds the SQL (and bound params) for a COUNT query, using either a
+	 * simple SQL rewrite or, for more complex queries, a sub-select of the SQL
+	 * created by {@see createSelectSql()}. Split out of {@see doCount()} for
+	 * the same reason {@see createSelectSql()} is split from {@see doSelect()}
+	 * -- so a caller can compute the SQL for a cache-key check before
+	 * deciding whether to execute (see {@see Criteria::setQueryCache()}).
+	 *
+	 * Note this mutates $criteria (aliasing/replacing select columns), same
+	 * as the code it was extracted from -- callers that need the original
+	 * columns afterwards must pass a clone.
+	 *
+	 * @param      array<int, array{table: string|null, column: string|null, value: mixed}> &$params
+	 * @throws     PropulsionException
+	 */
+	public static function createCountSql(Criteria $criteria, array &$params): string
+	{
+		$db = Propulsion::getDB($criteria->getDbName());
 
 		$needsComplexCount = $criteria->getGroupByColumns()
 			|| $criteria->getOffset()
@@ -538,38 +595,20 @@ class BasePeer
 			|| $criteria->getHaving()
 			|| in_array(Criteria::DISTINCT, $criteria->getSelectModifiers());
 
-		try {
-
-			$params = array();
-
-			if ($needsComplexCount) {
-				if (self::needsSelectAliases($criteria)) {
-					if ($criteria->getHaving()) {
-						throw new PropulsionException('Propulsion cannot create a COUNT query when using HAVING and  duplicate column names in the SELECT part');
-					}
-					$db->turnSelectColumnsToAliases($criteria);
+		if ($needsComplexCount) {
+			if (self::needsSelectAliases($criteria)) {
+				if ($criteria->getHaving()) {
+					throw new PropulsionException('Propulsion cannot create a COUNT query when using HAVING and  duplicate column names in the SELECT part');
 				}
-				$selectSql = self::createSelectSql($criteria, $params);
-				$sql = 'SELECT COUNT(*) FROM (' . $selectSql . ') propelmatch4cnt';
-			} else {
-				// Replace SELECT columns with COUNT(*)
-				$criteria->clearSelectColumns()->addSelectColumn('COUNT(*)');
-				$sql = self::createSelectSql($criteria, $params);
+				$db->turnSelectColumnsToAliases($criteria);
 			}
-
-			$stmt = $con->prepare($sql);
-			$db->bindValues($stmt, $params, $dbMap);
-			$stmt->execute();
-
-		} catch (Exception $e) {
-			if ($stmt !== null) {
-				$stmt = null;
-			}
-			Propulsion::log($e->getMessage(), Propulsion::LOG_ERR);
-			throw new PropulsionException(sprintf('Unable to execute COUNT statement [%s]', $sql), $e);
+			$selectSql = self::createSelectSql($criteria, $params);
+			return 'SELECT COUNT(*) FROM (' . $selectSql . ') propelmatch4cnt';
 		}
 
-		return $stmt;
+		// Replace SELECT columns with COUNT(*)
+		$criteria->clearSelectColumns()->addSelectColumn('COUNT(*)');
+		return self::createSelectSql($criteria, $params);
 	}
 
 	/**
@@ -661,7 +700,7 @@ class BasePeer
 	 * is to let the PDO layer handle all escaping & value formatting.
 	 *
 	 * @param      Criteria $criteria Criteria for the SELECT query.
-	 * @param      array<mixed> &$params Parameters that are to be replaced in prepared statement.
+	 * @param      array<int, array{table: string|null, column: string|null, value: mixed}> &$params Parameters that are to be replaced in prepared statement.
 	 * @return     string
 	 * @throws     PropulsionException Trouble creating the query string.
 	 */
@@ -880,7 +919,11 @@ class BasePeer
 	 * @param      Criteria $values
 	 * @return     array<int, array<string, mixed>> params array('column' => ..., 'table' => ..., 'value' => ...)
 	 */
-	private static function buildParams($columns, Criteria $values)
+	/**
+	 * @param array<int, string> $columns
+	 * @return array<int, array{table: string|null, column: string|null, value: mixed}>
+	 */
+	private static function buildParams(array $columns, Criteria $values): array
 	{
 		$params = array();
 		foreach ($columns as $key) {

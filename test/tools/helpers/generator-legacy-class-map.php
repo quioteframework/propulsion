@@ -132,7 +132,6 @@ return [
     'PropulsionTemplate' => 'Propulsion\\Generator\\Builder\\Util\\PropulsionTemplate',
     'PropulsionTypes' => 'Propulsion\\Generator\\Model\\PropulsionTypes',
     'QueryBuilder' => 'Propulsion\\Generator\\Builder\\OM\\QueryBuilder',
-    'QueryCacheBehavior' => 'Propulsion\\Generator\\Behavior\\QueryCache\\QueryCacheBehavior',
     'QueryInheritanceBuilder' => 'Propulsion\\Generator\\Builder\\OM\\QueryInheritanceBuilder',
     'QuickGeneratorConfig' => 'Propulsion\\Generator\\Config\\QuickGeneratorConfig',
     'Rule' => 'Propulsion\\Generator\\Model\\Rule',
