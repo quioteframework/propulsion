@@ -472,10 +472,10 @@ class BasePeerTest extends BookstoreTestBase
 		$c1 = new Criteria();
 		$c1->setPrimaryTableName(BookPeer::TABLE_NAME);
 		$c2 = new Criteria();
-		$c2->add(BookPeer::TITLE, array('raw' => BookPeer::TITLE . ' + ?', 'value' => 1), Criteria::CUSTOM_EQUAL);
+		$c2->add(BookPeer::PRICE, array('raw' => BookPeer::PRICE . ' + ?', 'value' => 1), Criteria::CUSTOM_EQUAL);
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		BasePeer::doUpdate($c1, $c2, $con);
-		$expected = 'UPDATE book SET TITLE = book.TITLE + 1';
+		$expected = 'UPDATE book SET PRICE = book.PRICE + 1';
 		$this->assertEquals($expected, $con->getLastExecutedQuery(), 'a raw update expression with a "?" placeholder binds its value');
 	}
 

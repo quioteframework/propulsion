@@ -102,6 +102,29 @@ try {
         . "Individual Bookstore/Cms/Namespace/Schemas tests will markTestSkipped() themselves.\n\n");
 }
 
+// Load the runtime configuration (registering the "default"/"bookstore" datasource
+// adapter) here, unconditionally and up front, rather than leaving it to happen as
+// a side effect of running the whole suite together. Previously this only ever
+// happened one of two ways: lazily, the first time a BookstoreTestBase::setUp()
+// call reached Propulsion::init() *after* a successful ensureReady() (never
+// reached at all in a Docker-less run, since markTestSkipped() aborts setUp()
+// before that line) -- or as an unconditional file-scope side effect that a couple
+// of test files (CriteriaCombineTest.php, JoinTest.php) happened to already do on
+// their own. Either way, a test file that itself needs no live DB (e.g.
+// CriteriaTest, which only swaps in a throwaway DBSQLite()/DBMySQL() adapter to
+// select dialect quoting) could only resolve Propulsion::getDB(null) when PHPUnit
+// happened to also load one of those particular files first -- i.e. only when run
+// as part of the full suite, never standalone. ensureClassesGenerated() (run
+// inside ensureReady() above) writes this conf file via pure codegen, so it exists
+// -- and is safe to load here -- regardless of Docker/Postgres availability;
+// Propulsion::init() itself only loads config arrays into static state, it does
+// not eagerly open any connection.
+$bootstrapConfFile = IntegrationDatabase::confFile();
+if (!Propulsion::isInit() && file_exists($bootstrapConfFile)) {
+    set_include_path(get_include_path() . PATH_SEPARATOR . realpath(IntegrationDatabase::classesDir()));
+    Propulsion::init($bootstrapConfFile);
+}
+
 // Same file-scope-declaration constraint as above, for test helpers (not test
 // classes themselves) that declare classes extending generated fixture classes.
 // Each of these files guards its own fixture-dependent class declarations with
