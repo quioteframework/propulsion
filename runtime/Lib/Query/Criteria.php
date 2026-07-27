@@ -99,6 +99,18 @@ class Criteria implements \IteratorAggregate
 	/** Comparison type for a correlated-subquery filter -- see addExistsQuery(). */
 	const NOT_EXISTS = "NOT EXISTS ";
 
+	/** Set-operation type -- see union(). */
+	const UNION = "UNION";
+
+	/** Set-operation type -- see unionAll(). */
+	const UNION_ALL = "UNION ALL";
+
+	/** Set-operation type -- see intersect(). */
+	const INTERSECT = "INTERSECT";
+
+	/** Set-operation type -- see except(). */
+	const EXCEPT = "EXCEPT";
+
 	/** Comparison type. */
 	const ALL = "ALL";
 
@@ -205,6 +217,13 @@ class Criteria implements \IteratorAggregate
 	 * @var        Criterion|null
 	 */
 	protected $having = null;
+
+	/**
+	 * Storage of set operations (UNION/UNION ALL/INTERSECT/EXCEPT) combined with this
+	 * Criteria's own query. See union().
+	 * @var        array<int, array{0: string, 1: Criteria}>
+	 */
+	protected $setOperations = array();
 
 	/**
 	 * Storage of join data. colleciton of Join objects.
@@ -342,6 +361,7 @@ class Criteria implements \IteratorAggregate
 		$this->asColumns = array();
 		$this->joins = array();
 		$this->selectQueries = array();
+		$this->setOperations = array();
 		$this->setDbName($this->originalDbName);
 		$this->offset = 0;
 		$this->limit = 0;
@@ -623,6 +643,80 @@ class Criteria implements \IteratorAggregate
 	{
 		$criterion = new Criterion($this, $column, $subQuery, $negate ? Criteria::NOT_IN : Criteria::IN);
 		return $this->addUsingOperator($criterion);
+	}
+
+	/**
+	 * Combines this query's result set with $other's via SQL UNION (deduplicating rows) --
+	 * "(<this query>) UNION (<$other's query>)". Chainable: subsequent orderBy()/limit()
+	 * calls apply to the *combined* result set, not to either branch individually -- see
+	 * BasePeer::createSelectSql()'s handling of getSetOperations() for details. Composable:
+	 * $other may itself already have set operations of its own (chained unions).
+	 *
+	 * @param      Criteria $other
+	 * @return     static A modified Criteria object (for fluent API).
+	 */
+	public function union(Criteria $other)
+	{
+		$this->setOperations[] = array(Criteria::UNION, $other);
+		return $this;
+	}
+
+	/**
+	 * Like union(), but via SQL UNION ALL (keeps duplicate rows, and is cheaper -- no
+	 * dedup pass required).
+	 *
+	 * @param      Criteria $other
+	 * @return     static A modified Criteria object (for fluent API).
+	 */
+	public function unionAll(Criteria $other)
+	{
+		$this->setOperations[] = array(Criteria::UNION_ALL, $other);
+		return $this;
+	}
+
+	/**
+	 * Like union(), but via SQL INTERSECT (only rows present in both result sets).
+	 *
+	 * @param      Criteria $other
+	 * @return     static A modified Criteria object (for fluent API).
+	 */
+	public function intersect(Criteria $other)
+	{
+		$this->setOperations[] = array(Criteria::INTERSECT, $other);
+		return $this;
+	}
+
+	/**
+	 * Like union(), but via SQL EXCEPT (rows in this query's result set that are not
+	 * also in $other's).
+	 *
+	 * @param      Criteria $other
+	 * @return     static A modified Criteria object (for fluent API).
+	 */
+	public function except(Criteria $other)
+	{
+		$this->setOperations[] = array(Criteria::EXCEPT, $other);
+		return $this;
+	}
+
+	/**
+	 * @return     array<int, array{0: string, 1: Criteria}> Set operations combined with
+	 *             this query, in the order they were added.
+	 */
+	public function getSetOperations(): array
+	{
+		return $this->setOperations;
+	}
+
+	/**
+	 * Removes any set operations previously added via union()/unionAll()/intersect()/except().
+	 *
+	 * @return     static A modified Criteria object (for fluent API).
+	 */
+	public function clearSetOperations()
+	{
+		$this->setOperations = array();
+		return $this;
 	}
 
 	/**

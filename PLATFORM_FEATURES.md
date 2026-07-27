@@ -130,7 +130,25 @@ These are gaps in the shared query builder — confirmed absent by grep across
   `withColumn()` can only smuggle one in as a raw string. Worth noting:
   `ROW_NUMBER() OVER (...)` is exactly what would let both legacy
   `applyLimit()` rewriters (MSSQL, Oracle — see below) be deleted.
-- [ ] **Set operations** — no `UNION` / `UNION ALL` / `INTERSECT` / `EXCEPT`.
+- [x] **Set operations** — no `UNION` / `UNION ALL` / `INTERSECT` / `EXCEPT`.
+  `Criteria::union()`/`unionAll()`/`intersect()`/`except()` combine two full
+  `Criteria` queries into `(<query>) <OP> (<other's query>)`, chainable and
+  composable (`$other` may itself already carry set operations). A query's
+  own `orderBy()`/`limit()`/`offset()` apply to the *combined* result, not
+  to its own branch alone -- its own branch is built from an internal clone
+  with those cleared first, then re-applied after every branch via
+  `BasePeer::createSetOperationSql()`. Each `$other` branch keeps whatever
+  `ORDER BY`/`LIMIT`/lock it has as part of its own parenthesized branch,
+  which most platforms accept but isn't exhaustively verified beyond
+  Postgres (the default test fixture) -- in particular, Oracle's
+  `applyLimit()` rewrites `$sql` by locating the string `"FROM"` when
+  `BasePeer::needsSelectAliases()` is true, which would misfire against a
+  multi-branch combined string; this only matters if `LIMIT` and set
+  operations are combined on Oracle specifically. `GROUP BY`/`HAVING`
+  belong to a single branch (SQL doesn't allow them on a raw `UNION`
+  result), so no special handling needed there -- they stay in the outer
+  query's own body along with everything else that isn't `ORDER BY`/
+  `LIMIT`/`OFFSET`/lock.
 - [x] **`EXISTS` / `IN` subquery filters** — `addSelectQuery()` covers
   `FROM`-clause subqueries only; there's no correlated-subquery filter.
   Propel 2's `useExistsQuery()` / `useNotExistsQuery()` / `useInQuery()` is

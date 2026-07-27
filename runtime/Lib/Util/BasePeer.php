@@ -808,6 +808,10 @@ class BasePeer
 	 */
 	public static function createSelectSql(Criteria $criteria, &$params)
 	{
+		if ($criteria->getSetOperations()) {
+			return self::createSetOperationSql($criteria, $params);
+		}
+
 		$db = Propulsion::getDB($criteria->getDbName());
 		$dbMap = Propulsion::getDatabaseMap($criteria->getDbName());
 
@@ -1018,6 +1022,52 @@ class BasePeer
 		}
 
 		// APPLY pessimistic lock clause (e.g. "FOR UPDATE"), if requested.
+		if ($criteria->getLockMode() !== null) {
+			$db->applyLock($sql, $criteria);
+		}
+
+		return $sql;
+	}
+
+	/**
+	 * Builds "(<criteria's own query>) UNION (<other's query>) ..." (or UNION ALL/
+	 * INTERSECT/EXCEPT) for a Criteria with getSetOperations() set -- see
+	 * Criteria::union(). $criteria's own ORDER BY/LIMIT/OFFSET/lock apply to the
+	 * *combined* result (appended after every branch), not to its own branch alone --
+	 * its own branch is built from a clone with those cleared. Each $other query keeps
+	 * whatever ORDER BY/LIMIT/lock it has as part of its own (parenthesized) branch.
+	 *
+	 * @param      Criteria $criteria
+	 * @param      array<int, array{table: string|null, column: string|null, value: mixed}> $params
+	 * @return     string
+	 */
+	private static function createSetOperationSql(Criteria $criteria, &$params): string
+	{
+		$db = Propulsion::getDB($criteria->getDbName());
+
+		$bodyCriteria = clone $criteria;
+		$bodyCriteria->clearSetOperations();
+		$bodyCriteria->clearOrderByColumns();
+		$bodyCriteria->setLimit(0);
+		$bodyCriteria->setOffset(0);
+		$bodyCriteria->clearLock();
+
+		$sql = '(' . self::createSelectSql($bodyCriteria, $params) . ')';
+
+		foreach ($criteria->getSetOperations() as $setOperation) {
+			list($operator, $otherCriteria) = $setOperation;
+			$sql .= ' ' . $operator . ' (' . self::createSelectSql($otherCriteria, $params) . ')';
+		}
+
+		$orderByColumns = $criteria->getOrderByColumns();
+		if ($orderByColumns) {
+			$sql .= ' ORDER BY ' . implode(',', $orderByColumns);
+		}
+
+		if ($criteria->getLimit() || $criteria->getOffset()) {
+			$db->applyLimit($sql, $criteria->getOffset(), $criteria->getLimit(), $criteria);
+		}
+
 		if ($criteria->getLockMode() !== null) {
 			$db->applyLock($sql, $criteria);
 		}
