@@ -467,6 +467,56 @@ class BasePeerTest extends BookstoreTestBase
 		$this->assertEquals($expected, $con->getLastExecutedQuery(), 'Criteria::setComment() adds a comment to update queries');
 	}
 
+	public function testRawExpressionDoUpdate()
+	{
+		$c1 = new Criteria();
+		$c1->setPrimaryTableName(BookPeer::TABLE_NAME);
+		$c2 = new Criteria();
+		$c2->add(BookPeer::TITLE, array('raw' => BookPeer::TITLE . ' + ?', 'value' => 1), Criteria::CUSTOM_EQUAL);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
+		BasePeer::doUpdate($c1, $c2, $con);
+		$expected = 'UPDATE book SET TITLE = book.TITLE + 1';
+		$this->assertEquals($expected, $con->getLastExecutedQuery(), 'a raw update expression with a "?" placeholder binds its value');
+	}
+
+	public function testRawExpressionDoUpdateWithoutValue()
+	{
+		$c1 = new Criteria();
+		$c1->setPrimaryTableName(BookPeer::TABLE_NAME);
+		$c2 = new Criteria();
+		$c2->add(BookPeer::TITLE, array('raw' => "'literal'"), Criteria::CUSTOM_EQUAL);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
+		BasePeer::doUpdate($c1, $c2, $con);
+		$expected = "UPDATE book SET TITLE = 'literal'";
+		$this->assertEquals($expected, $con->getLastExecutedQuery(), 'a raw update expression without a "?" placeholder needs no bound value');
+	}
+
+	public function testRawExpressionDoUpdateWithoutValueDoesNotMisalignFollowingParams()
+	{
+		// A no-placeholder raw expression on one column must not shift the bound
+		// parameter position for a normal column updated in the same statement.
+		$c1 = new Criteria();
+		$c1->setPrimaryTableName(BookPeer::TABLE_NAME);
+		$c2 = new Criteria();
+		$c2->add(BookPeer::TITLE, array('raw' => "'literal'"), Criteria::CUSTOM_EQUAL);
+		$c2->add(BookPeer::ISBN, '1234567890');
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
+		BasePeer::doUpdate($c1, $c2, $con);
+		$expected = "UPDATE book SET TITLE = 'literal', ISBN='1234567890'";
+		$this->assertEquals($expected, $con->getLastExecutedQuery());
+	}
+
+	public function testRawExpressionDoUpdateMissingValueThrows()
+	{
+		$c1 = new Criteria();
+		$c1->setPrimaryTableName(BookPeer::TABLE_NAME);
+		$c2 = new Criteria();
+		$c2->add(BookPeer::TITLE, array('raw' => BookPeer::TITLE . ' + ?'), Criteria::CUSTOM_EQUAL);
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
+		$this->expectException(PropulsionException::class);
+		BasePeer::doUpdate($c1, $c2, $con);
+	}
+
 	public function testCommentDoDelete()
 	{
 		$c = new Criteria();

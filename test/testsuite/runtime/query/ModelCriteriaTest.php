@@ -1875,6 +1875,28 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'update() also works on tables with true table alias');
 	}
 
+	public function testUpdateWithColumnExpression()
+	{
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
+		BookstoreDataPopulator::depopulate($con);
+		BookstoreDataPopulator::populate($con);
+
+		$c = new ModelCriteria('bookstore', 'Book');
+		$c->setModelAlias('b', false);
+		$c->where('b.Title = ?', 'Don Juan');
+		$c->update(array('Price' => \Propulsion\Query\ColumnExpression::raw(BookPeer::PRICE . ' + ?', 1)), $con);
+		$expectedSQL = "UPDATE book SET PRICE = book.PRICE + 1 WHERE book.TITLE = 'Don Juan'";
+		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'a ColumnExpression update value is spliced in as a raw SQL expression, not a bound literal');
+	}
+
+	public function testUpdateWithColumnExpressionRejectsForceIndividualSaves()
+	{
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
+		$c = new ModelCriteria('bookstore', 'Book');
+		$this->expectException(PropulsionException::class);
+		$c->update(array('Price' => \Propulsion\Query\ColumnExpression::raw(BookPeer::PRICE . ' + ?', 1)), $con, true);
+	}
+
 	public function testUpdateOneByOne()
 	{
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);

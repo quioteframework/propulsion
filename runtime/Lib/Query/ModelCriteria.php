@@ -1997,6 +1997,12 @@ class ModelCriteria extends Criteria
 	{
 		if($forceIndividualSaves) {
 
+			foreach ($values as $value) {
+				if ($value instanceof ColumnExpression) {
+					throw new PropulsionException('doUpdate() cannot use a ColumnExpression value together with $forceIndividualSaves: individual saves hydrate rows into PHP objects, so there is no SQL statement for the raw expression to be spliced into.');
+				}
+			}
+
 			// Update rows one by one
 			$objects = $this->setFormatter(ModelCriteria::FORMAT_OBJECT)->find($con);
 			foreach ($objects as $object) {
@@ -2016,7 +2022,11 @@ class ModelCriteria extends Criteria
 			$set = new Criteria($this->getDbName());
 			foreach ($values as $columnName => $value) {
 				$realColumnName = $this->getTableMap()->getColumnByPhpName($columnName)->getFullyQualifiedName();
-				$set->add($realColumnName, $value);
+				if ($value instanceof ColumnExpression) {
+					$set->add($realColumnName, $value->toRawValueArray(), Criteria::CUSTOM_EQUAL);
+				} else {
+					$set->add($realColumnName, $value);
+				}
 			}
 			$affectedRows = BasePeer::doUpdate($this, $set, $con);
 			call_user_func(array($this->modelPeerName, 'clearInstancePool'));

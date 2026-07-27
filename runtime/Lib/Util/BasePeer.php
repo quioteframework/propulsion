@@ -422,6 +422,7 @@ class BasePeer
 						$param = $updateValues->get($col);
 						$sql .= $updateColumnName . ' = ';
 						if (is_array($param)) {
+							$hasPlaceholder = false;
 							if (isset($param['raw'])) {
 								$raw = $param['raw'];
 								$rawcvt = '';
@@ -429,6 +430,7 @@ class BasePeer
 								for($r=0,$len=strlen($raw); $r < $len; $r++) {
 									if ($raw[$r] == '?') {
 										$rawcvt .= ':p'.$p++;
+										$hasPlaceholder = true;
 									} else {
 										$rawcvt .= $raw[$r];
 									}
@@ -436,9 +438,20 @@ class BasePeer
 								$sql .= $rawcvt . ', ';
 							} else {
 								$sql .= ':p'.$p++.', ';
+								$hasPlaceholder = true;
 							}
-							if (isset($param['value'])) {
+							if ($hasPlaceholder) {
+								if (!isset($param['value'])) {
+									throw new PropulsionException("Raw update expression for column '$col' has a \"?\" placeholder but no 'value' to bind to it.");
+								}
 								$updateValues->put($col, $param['value']);
+							} else {
+								// No "?" placeholder in the raw expression means there is no
+								// bound parameter for this column at all: remove it so
+								// buildParams() below doesn't emit a param with nothing in the
+								// SQL for it to bind to, which would misalign every :pN placeholder
+								// that follows.
+								$updateValues->remove($col);
 							}
 						} else {
 							$updateValues->remove($col);

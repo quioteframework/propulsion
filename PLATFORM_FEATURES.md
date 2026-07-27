@@ -62,7 +62,7 @@ These are gaps in the shared query builder — confirmed absent by grep across
   `Criteria`/`BasePeer`. Needs a query-builder API plus per-platform SQL
   generation. Django's `update_or_create`/`bulk_create(update_conflicts=)` is
   a good API reference.
-- [ ] **Column-expression updates (Django's `F()`)** —
+- [x] **Column-expression updates (Django's `F()`)** —
   `ModelCriteria::update()` accepts literal values only, so there is no way
   to emit `SET counter = counter + 1`. Today every increment is a
   read-modify-write round trip, i.e. a lost-update race under concurrency.
