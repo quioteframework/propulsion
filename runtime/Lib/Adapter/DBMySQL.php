@@ -26,6 +26,7 @@ use Propulsion\Map\ColumnMap;
 use Propulsion\Map\DatabaseMap;
 use Propulsion\Query\Criteria;
 use Propulsion\Exception\PropulsionException;
+use Propulsion\Connection\PropulsionPDO;
 class DBMySQL extends DBAdapter
 {
 	/**
@@ -186,6 +187,101 @@ class DBMySQL extends DBAdapter
 			throw new PropulsionException("DBMySQL::getUpsertSql() needs at least one column to update: MySQL's ON DUPLICATE KEY UPDATE has no \"do nothing\" form");
 		}
 		return $sql . ' ON DUPLICATE KEY UPDATE ' . $setClause;
+	}
+
+	/**
+	 * @see       DBAdapter::supportsBulkLoad()
+	 */
+	public function supportsBulkLoad(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * Bulk-loads $rows via LOAD DATA LOCAL INFILE, writing them to a temporary file first
+	 * (unlike Postgres's pgsqlCopyFromArray(), there is no rows-array variant for MySQL --
+	 * LOAD DATA always reads from a file). Requires the connection to have been created
+	 * with PDO::MYSQL_ATTR_LOCAL_INFILE enabled (pass it in the datasource's PDO connection
+	 * options -- it cannot be toggled on an already-open connection) *and* the server's
+	 * `local_infile` global variable set to 1 (defaults to 0/OFF on stock MySQL 8+). Throws
+	 * a clear, actionable error up front if the connection-side half of that isn't set,
+	 * rather than letting it fail with MySQL's own less obvious error message.
+	 *
+	 * @see       DBAdapter::bulkLoad()
+	 */
+	public function bulkLoad(PropulsionPDO $con, string $tableName, array $columns, iterable $rows): int
+	{
+		if (!$con->getAttribute(PDO::MYSQL_ATTR_LOCAL_INFILE)) {
+			throw new PropulsionException(
+				'DBMySQL::bulkLoad() requires the connection to be created with PDO::MYSQL_ATTR_LOCAL_INFILE '
+				. "enabled (pass it in the datasource's PDO connection options) and the server's local_infile "
+				. 'global variable set to 1 -- both are required, and neither can be toggled on an already-open connection.'
+			);
+		}
+
+		$tmpFile = tempnam(sys_get_temp_dir(), 'propulsion_bulk_');
+		if ($tmpFile === false) {
+			throw new PropulsionException('DBMySQL::bulkLoad() could not create a temporary file');
+		}
+
+		$count = 0;
+		try {
+			$handle = fopen($tmpFile, 'wb');
+			if ($handle === false) {
+				throw new PropulsionException('DBMySQL::bulkLoad() could not open its temporary file for writing');
+			}
+			foreach ($rows as $row) {
+				$fields = array();
+				foreach ($row as $value) {
+					$fields[] = $this->escapeLoadDataValue($value);
+				}
+				fwrite($handle, implode("\t", $fields) . "\n");
+				$count++;
+			}
+			fclose($handle);
+
+			if ($count > 0) {
+				$quotedColumns = implode(',', array_map(array($this, 'quoteIdentifier'), $columns));
+				$quotedTable = $this->useQuoteIdentifier() ? $this->quoteIdentifierTable($tableName) : $tableName;
+				$sql = 'LOAD DATA LOCAL INFILE ' . $con->quote($tmpFile)
+					. ' INTO TABLE ' . $quotedTable
+					. " FIELDS TERMINATED BY '\\t'"
+					. ' (' . $quotedColumns . ')';
+				$con->exec($sql);
+			}
+		} finally {
+			unlink($tmpFile);
+		}
+
+		return $count;
+	}
+
+	/**
+	 * Escapes a single value for LOAD DATA's default FIELDS ESCAPED BY '\\' format:
+	 * backslash, tab, newline, and carriage return all need backslash-escaping; null
+	 * becomes the literal 2-character "\N" sequence, MySQL's own NULL sentinel for
+	 * LOAD DATA (matching the default ESCAPED BY behavior -- no FIELDS ESCAPED BY clause
+	 * is passed above, so this relies on MySQL's own default of '\\').
+	 *
+	 * @param     mixed $value
+	 * @return    string
+	 */
+	private function escapeLoadDataValue($value): string
+	{
+		if ($value === null) {
+			return '\\N';
+		}
+		if (is_bool($value)) {
+			$value = $value ? '1' : '0';
+		} elseif (!is_scalar($value)) {
+			throw new PropulsionException('DBMySQL::bulkLoad() cannot serialize a non-scalar value');
+		}
+		return strtr((string) $value, array(
+			'\\' => '\\\\',
+			"\t" => '\\t',
+			"\n" => '\\n',
+			"\r" => '\\r',
+		));
 	}
 
 	/**

@@ -170,10 +170,33 @@ These are gaps in the shared query builder — confirmed absent by grep across
 - [ ] **Named / advisory locks** — Pg `pg_advisory_lock`, MySQL `GET_LOCK`,
   MSSQL `sp_getapplock`, Oracle `DBMS_LOCK`. A uniform cross-platform
   app-level mutex; nothing in the tree references any of them.
-- [ ] **Bulk load path** — Pg `COPY FROM STDIN`, MySQL `LOAD DATA`, MSSQL
+- [x] **Bulk load path** — Pg `COPY FROM STDIN`, MySQL `LOAD DATA`, MSSQL
   `BULK INSERT`. An order of magnitude faster than multi-row `INSERT` for
   seeding and imports. Complements (does not duplicate) the "Statement
   batching" item in `UNIT_OF_WORK.md`, which is about the flush path.
+  - [x] Postgres and MySQL/MariaDB via `DBAdapter::supportsBulkLoad()`/
+    `bulkLoad()` and `BasePeer::doBulkInsert()`. Postgres uses PDO's
+    `pgsqlCopyFromArray()` (real `COPY FROM STDIN`, no temp file needed) --
+    deprecated as of PHP 8.5 in favor of `Pdo\Pgsql::copyFromArray()`, but
+    that only exists on an actual `Pdo\Pgsql` instance (the driver-specific
+    subclass plain `new PDO('pgsql:...')` auto-selects), and `PropulsionPDO`
+    extends `\PDO` directly for every driver rather than being
+    auto-selected per-driver -- switching would mean restructuring that
+    whole class hierarchy, well beyond this feature's scope, so the
+    resulting deprecation notice is expected/unavoidable for now. MySQL
+    uses `LOAD DATA LOCAL INFILE` against a temp file (no rows-array
+    variant exists for MySQL the way Postgres has one); this needs the
+    connection created with `PDO::MYSQL_ATTR_LOCAL_INFILE` enabled (can't
+    be toggled after connecting) *and* the server's `local_infile` global
+    variable set to 1 (defaults OFF on stock MySQL 8+) -- `bulkLoad()`
+    throws a clear, actionable error up front if the connection-side half
+    isn't set, rather than surfacing MySQL's own less obvious error.
+  - [ ] MSSQL `BULK INSERT`/`OPENROWSET(BULK ...)` needs the file to be
+    readable by the SQL Server *process itself*, not the PHP client -- a
+    generic client library can't assume a shared filesystem with the
+    database server, so this isn't implemented. Revisit if a
+    table-valued-parameter-based approach (pdo_sqlsrv-specific, not
+    available via pdo_dblib) turns out to be practical.
 - [ ] JSON-path query helpers at the `Criteria` layer — JSON columns exist at
   the DDL level (Pg/MySQL/Oracle/SQLite) but there is no query-side support
   for `->>`/`JSON_EXTRACT`/`JSON_VALUE`.

@@ -21,6 +21,7 @@ namespace Propulsion\Adapter;
 use PDO;
 use Propulsion\Query\Criteria;
 use Propulsion\Exception\PropulsionException;
+use Propulsion\Connection\PropulsionPDO;
 class DBPostgres extends DBAdapter
 {
 
@@ -175,6 +176,90 @@ class DBPostgres extends DBAdapter
 		$sql .= ' ON CONFLICT (' . implode(', ', $conflictColumnNames) . ')';
 		$sql .= $setClause === '' ? ' DO NOTHING' : ' DO UPDATE SET ' . $setClause;
 		return $sql;
+	}
+
+	/**
+	 * @see       DBAdapter::supportsBulkLoad()
+	 */
+	public function supportsBulkLoad(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * Bulk-loads $rows via PDO's pgsqlCopyFromArray() (COPY FROM STDIN under the hood) --
+	 * a PDO_PGSQL-specific method, not part of the base \PDO class, only present on an
+	 * actual pgsql-driver connection.
+	 *
+	 * As of PHP 8.5, this method is deprecated in favor of Pdo\Pgsql::copyFromArray() --
+	 * but that only exists on an actual Pdo\Pgsql instance, the driver-specific subclass
+	 * PHP's own `new PDO('pgsql:...')` auto-selects. PropulsionPDO extends \PDO directly
+	 * (its own class, used for every driver, not auto-selected per-driver), so it's never
+	 * an instance of Pdo\Pgsql and the new method isn't reachable without restructuring
+	 * that whole class hierarchy -- a much larger, unrelated change. pgsqlCopyFromArray()
+	 * still works and is the only option compatible with the current architecture; the
+	 * resulting deprecation notice is expected and, for now, unavoidable.
+	 *
+	 * @see       DBAdapter::bulkLoad()
+	 */
+	public function bulkLoad(PropulsionPDO $con, string $tableName, array $columns, iterable $rows): int
+	{
+		$lines = array();
+		foreach ($rows as $row) {
+			$fields = array();
+			foreach ($row as $value) {
+				$fields[] = $this->escapeCopyValue($value);
+			}
+			$lines[] = implode("\t", $fields);
+		}
+
+		$count = count($lines);
+		if ($count === 0) {
+			return 0;
+		}
+
+		// Empirically verified quirk (not documented in the PHP manual): pgsqlCopyFromArray()'s
+		// $null_as parameter must be passed in its own doubly-escaped form -- to recognize the
+		// literal 2-character "\N" sequence escapeCopyValue() writes into the row data below as
+		// the null marker, $null_as itself must be the 3-character string "\\N" (backslash,
+		// backslash, N), not the 2-character "\N" one might expect from the row data alone.
+		// Passing the "obvious" 2-character value here throws
+		// "invalid input syntax for type integer" on the first NULL in a non-text column.
+		$result = $con->pgsqlCopyFromArray($tableName, $lines, "\t", '\\\\N', implode(',', $columns));
+		if ($result === false) {
+			throw new PropulsionException('DBPostgres::bulkLoad() failed: ' . implode('; ', $con->errorInfo()));
+		}
+
+		return $count;
+	}
+
+	/**
+	 * Escapes a single value for COPY's TEXT format: backslash, tab, newline, and
+	 * carriage return all need backslash-escaping; null becomes the literal 2-character
+	 * "\N" sentinel (see the $null_as note on pgsqlCopyFromArray() above for why that
+	 * parameter itself needs a *3*-character value to match this one).
+	 *
+	 * @param     mixed $value
+	 * @return    string
+	 */
+	private function escapeCopyValue($value): string
+	{
+		if ($value === null) {
+			return '\\N';
+		}
+		if (is_bool($value)) {
+			// (string) false is "" (not "0"), which COPY would reject as an invalid
+			// boolean literal -- use Postgres's own canonical short forms instead.
+			$value = $value ? 't' : 'f';
+		} elseif (!is_scalar($value)) {
+			throw new PropulsionException('DBPostgres::bulkLoad() cannot serialize a non-scalar value');
+		}
+		return strtr((string) $value, array(
+			'\\' => '\\\\',
+			"\t" => '\\t',
+			"\n" => '\\n',
+			"\r" => '\\r',
+		));
 	}
 
 	/**

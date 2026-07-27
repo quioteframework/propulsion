@@ -225,6 +225,36 @@ class BasePeer
 	}
 
 	/**
+	 * Bulk-loads $rows into $tableName via the platform's fast bulk-insert mechanism
+	 * (Postgres COPY, MySQL/MariaDB LOAD DATA), bypassing doInsert()'s per-row path
+	 * entirely -- an order of magnitude faster for seeding/imports. See
+	 * DBAdapter::bulkLoad() for the per-platform mechanism and value-encoding details,
+	 * and PLATFORM_FEATURES.md for why MSSQL/Oracle aren't supported here.
+	 *
+	 * @param      string $tableName Real (unquoted) table name.
+	 * @param      array<int,string> $columns Unqualified column names, in the same order as each row's values.
+	 * @param      iterable<int,array<int,mixed>> $rows Each row is a plain, ordinally-indexed array of values matching $columns.
+	 * @param      PropulsionPDO $con A PropulsionPDO connection.
+	 * @param      string|null $dbName Datasource name; defaults to the configured default datasource.
+	 *
+	 * @return     int Number of rows loaded.
+	 * @throws     PropulsionException If the platform doesn't support bulk loading.
+	 */
+	public static function doBulkInsert(string $tableName, array $columns, iterable $rows, PropulsionPDO $con, ?string $dbName = null): int
+	{
+		$db = Propulsion::getDB($dbName);
+		if (!$db->supportsBulkLoad()) {
+			throw new PropulsionException(get_class($db) . ' does not support bulk loading');
+		}
+
+		$count = $db->bulkLoad($con, $tableName, $columns, $rows);
+
+		Propulsion::getSession()->getQueryResultCache()->invalidateTable($tableName);
+
+		return $count;
+	}
+
+	/**
 	 * Method to perform inserts based on values and keys in a
 	 * Criteria.
 	 * <p>

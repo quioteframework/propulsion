@@ -36,6 +36,7 @@ use Propulsion\Util\PropulsionDateTime;
 use Propulsion\Util\PropulsionColumnTypes;
 use Propulsion\Query\Criteria;
 use Propulsion\Map\DatabaseMap;
+use Propulsion\Connection\PropulsionPDO;
 
 abstract class DBAdapter
 {
@@ -352,6 +353,37 @@ abstract class DBAdapter
 	public function getUpsertSql(string $sql, array $conflictColumnNames, string $setClause): string
 	{
 		throw new PropulsionException(static::class . ' does not support upserts');
+	}
+
+	/**
+	 * Whether this platform can bulk-load rows via a dedicated fast path (Postgres
+	 * COPY, MySQL/MariaDB LOAD DATA), an order of magnitude faster than multi-row
+	 * INSERT for seeding/imports. False by default; MSSQL's BULK INSERT/OPENROWSET
+	 * needs the file to be readable by the *server* process (not the PHP client),
+	 * which a generic client library can't assume, so it isn't implemented here.
+	 *
+	 * @return    boolean
+	 */
+	public function supportsBulkLoad(): bool
+	{
+		return false;
+	}
+
+	/**
+	 * Bulk-loads $rows into $tableName via this platform's fast bulk-insert mechanism,
+	 * bypassing the ORM's normal per-row INSERT path entirely. Only called when
+	 * supportsBulkLoad() is true.
+	 *
+	 * @param     PropulsionPDO             $con
+	 * @param     string                    $tableName Real (unquoted) table name.
+	 * @param     array<int,string>         $columns Unqualified column names, in the same order as each row's values.
+	 * @param     iterable<int,array<int,mixed>> $rows Each row is a plain, ordinally-indexed array of values matching $columns.
+	 *
+	 * @return    int Number of rows loaded.
+	 */
+	public function bulkLoad(PropulsionPDO $con, string $tableName, array $columns, iterable $rows): int
+	{
+		throw new PropulsionException(static::class . ' does not support bulk loading');
 	}
 
 	/**
