@@ -131,11 +131,24 @@ These are gaps in the shared query builder — confirmed absent by grep across
   `ROW_NUMBER() OVER (...)` is exactly what would let both legacy
   `applyLimit()` rewriters (MSSQL, Oracle — see below) be deleted.
 - [ ] **Set operations** — no `UNION` / `UNION ALL` / `INTERSECT` / `EXCEPT`.
-- [ ] **`EXISTS` / `IN` subquery filters** — `addSelectQuery()` covers
+- [x] **`EXISTS` / `IN` subquery filters** — `addSelectQuery()` covers
   `FROM`-clause subqueries only; there's no correlated-subquery filter.
   Propel 2's `useExistsQuery()` / `useNotExistsQuery()` / `useInQuery()` is
   the direct steal, and maps cleanly onto the closure-scoped `withQuery()`
   style this codebase has already moved to (see `README.md`).
+  Implemented at both layers: `Criteria::addExistsQuery()`/`addInQuery()`
+  (the low-level primitives — nest an arbitrary sub-`Criteria` into the
+  WHERE clause as `EXISTS (...)`/`IN (...)`, reusing the same
+  recursive-`BasePeer::createSelectSql()`-with-shared-`$params` mechanism
+  `addSelectQuery()`'s FROM-clause subqueries already use) and
+  `ModelCriteria::useExistsQuery()`/`useNotExistsQuery()`/`useInQuery()`
+  (closure-scoped, matching `withQuery()`'s style, building the subquery via
+  `PropulsionQuery::from($modelName)`). Correlating the subquery to the
+  parent is the caller's job (no relation lookup/auto-join the way
+  `useQuery()` has, since `join()`-eligible relations aren't required here);
+  a raw, unbound `where()` clause referencing the parent's table/alias
+  works for this, since `where()` falls through to a literal expression
+  when it finds no column to bind a value to.
 - [ ] **Named / advisory locks** — Pg `pg_advisory_lock`, MySQL `GET_LOCK`,
   MSSQL `sp_getapplock`, Oracle `DBMS_LOCK`. A uniform cross-platform
   app-level mutex; nothing in the tree references any of them.

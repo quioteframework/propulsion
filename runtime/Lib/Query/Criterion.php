@@ -133,7 +133,7 @@ class Criterion
 	/**
 	 * Get the column name.
 	 *
-	 * @return     string A String with the column name.
+	 * @return     string|null A String with the column name, or null for a custom expression with no column.
 	 */
 	public function getColumn()
 	{
@@ -185,7 +185,7 @@ class Criterion
 	 * Get the value of db.
 	 * The DBAdapter which might be used to get db specific
 	 * variations of sql.
-	 * @return     DBAdapter value of db.
+	 * @return     DBAdapter|null value of db, or null if init() couldn't resolve one (logged, not thrown, for easier debugging).
 	 */
 	public function getDB()
 	{
@@ -307,10 +307,21 @@ class Criterion
 				// custom expression with no parameter binding
 				$this->appendCustomToPs($sb, $params);
 				break;
+			case Criteria::EXISTS:
+			case Criteria::NOT_EXISTS:
+				// EXISTS (<subquery>) or NOT EXISTS (<subquery>) -- see Criteria::addExistsQuery()
+				$this->appendExistsToPs($sb, $params);
+				break;
 			case Criteria::IN:
 			case Criteria::NOT_IN:
-				// table.column IN (?, ?) or table.column NOT IN (?, ?)
-				$this->appendInToPs($sb, $params);
+				if ($this->value instanceof Criteria) {
+					// table.column IN (<subquery>) or table.column NOT IN (<subquery>) --
+					// see Criteria::addInQuery()
+					$this->appendInSubqueryToPs($sb, $params);
+				} else {
+					// table.column IN (?, ?) or table.column NOT IN (?, ?)
+					$this->appendInToPs($sb, $params);
+				}
 				break;
 			case Criteria::LIKE:
 			case Criteria::NOT_LIKE:
@@ -327,6 +338,45 @@ class Criterion
 
 	/**
 	 * Appends a Prepared Statement representation of the Criterion onto the buffer
+	 * For a correlated-subquery EXISTS/NOT EXISTS filter -- see Criteria::addExistsQuery().
+	 * The subquery's own SQL is generated (and its bound params appended to $params, in the
+	 * order its placeholders occur) via a recursive BasePeer::createSelectSql() call, the same
+	 * mechanism Criteria::addSelectQuery()'s FROM-clause subqueries already use.
+	 *
+	 * @param      string &$sb The string that will receive the Prepared Statement
+	 * @param      array<int, array{table: string|null, column: string|null, value: mixed}> $params A list to which Prepared Statement parameters will be appended
+	 * @return     void
+	 */
+	protected function appendExistsToPs(&$sb, array &$params): void
+	{
+		if (!($this->value instanceof Criteria)) {
+			throw new PropulsionException('EXISTS/NOT EXISTS criterion requires a Criteria value');
+		}
+		$subSql = \Propulsion\Util\BasePeer::createSelectSql($this->value, $params);
+		$sb .= $this->comparison . '(' . $subSql . ')';
+	}
+
+	/**
+	 * Appends a Prepared Statement representation of the Criterion onto the buffer
+	 * For a "table.column IN/NOT IN (<subquery>)" filter -- see Criteria::addInQuery().
+	 * Same subquery-generation mechanism as appendExistsToPs().
+	 *
+	 * @param      string &$sb The string that will receive the Prepared Statement
+	 * @param      array<int, array{table: string|null, column: string|null, value: mixed}> $params A list to which Prepared Statement parameters will be appended
+	 * @return     void
+	 */
+	protected function appendInSubqueryToPs(&$sb, array &$params): void
+	{
+		if (!($this->value instanceof Criteria)) {
+			throw new PropulsionException('IN/NOT IN subquery criterion requires a Criteria value');
+		}
+		$field = ($this->table === null) ? $this->column : $this->table . '.' . $this->column;
+		$subSql = \Propulsion\Util\BasePeer::createSelectSql($this->value, $params);
+		$sb .= $field . $this->comparison . '(' . $subSql . ')';
+	}
+
+	/**
+	 * Appends a Prepared Statement representation of the Criterion onto the buffer
 	 * For custom expressions with no binding, e.g. 'NOW() = 1'
 	 *
 	 * @param      string &$sb The string that will receive the Prepared Statement
@@ -336,7 +386,10 @@ class Criterion
 	protected function appendCustomToPs(&$sb, array &$params): void
 	{
 		if ($this->value !== "") {
-			$sb .= (string) $this->value;
+			if (!is_string($this->value)) {
+				throw new PropulsionException('A Criteria::CUSTOM criterion requires a string expression');
+			}
+			$sb .= $this->value;
 		}
 	}
 
@@ -378,7 +431,13 @@ class Criterion
 	protected function appendLikeToPs(&$sb, array &$params): void
 	{
 		$field = ($this->table === null) ? $this->column : $this->table . '.' . $this->column;
+		if ($field === null) {
+			throw new PropulsionException('Could not build SQL for a LIKE/NOT LIKE expression with no column');
+		}
 		$db = $this->getDb();
+		if ($db === null) {
+			throw new PropulsionException('Criterion::appendLikeToPs() has no DBAdapter to build SQL with');
+		}
 		// If selection is case insensitive use ILIKE for PostgreSQL or SQL
 		// UPPER() function on column name for other databases.
 		if ($this->ignoreStringCase) {
@@ -417,6 +476,9 @@ class Criterion
 	protected function appendBasicToPs(&$sb, array &$params): void
 	{
 		$field = ($this->table === null) ? $this->column : $this->table . '.' . $this->column;
+		if ($field === null) {
+			throw new PropulsionException('Could not build SQL for an expression with no column');
+		}
 		// NULL VALUES need special treatment because the SQL syntax is different
 		// i.e. table.column IS NULL rather than table.column = null
 		if ($this->value !== null) {
@@ -431,7 +493,11 @@ class Criterion
 				// default case, it is a normal col = value expression; value
 				// will be replaced w/ '?' and will be inserted later using PDO bindValue()
 				if ($this->ignoreStringCase) {
-					$sb .= $this->getDb()->ignoreCase($field) . $this->comparison . $this->getDb()->ignoreCase(':p'.count($params));
+					$db = $this->getDb();
+					if ($db === null) {
+						throw new PropulsionException('Criterion::appendBasicToPs() has no DBAdapter to build SQL with');
+					}
+					$sb .= $db->ignoreCase($field) . $this->comparison . $db->ignoreCase(':p'.count($params));
 				} else {
 					$sb .= $field . $this->comparison . ':p'.count($params);
 				}

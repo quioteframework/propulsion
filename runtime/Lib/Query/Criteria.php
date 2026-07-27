@@ -93,6 +93,12 @@ class Criteria implements \IteratorAggregate
 	/** Comparison type. */
 	const NOT_IN = " NOT IN ";
 
+	/** Comparison type for a correlated-subquery filter -- see addExistsQuery(). */
+	const EXISTS = "EXISTS ";
+
+	/** Comparison type for a correlated-subquery filter -- see addExistsQuery(). */
+	const NOT_EXISTS = "NOT EXISTS ";
+
 	/** Comparison type. */
 	const ALL = "ALL";
 
@@ -585,6 +591,38 @@ class Criteria implements \IteratorAggregate
 	public function getNewCriterion($column, $value = null, $comparison = self::EQUAL)
 	{
 		return new Criterion($this, $column, $value, $comparison);
+	}
+
+	/**
+	 * Adds a "WHERE EXISTS (<subquery>)" (or "WHERE NOT EXISTS (...)") correlated-subquery
+	 * condition. Unlike addSelectQuery(), which nests a Criteria in the FROM clause, this
+	 * nests it in the WHERE clause -- $subQuery is expected to correlate itself to this
+	 * Criteria's own tables (e.g. via a raw condition added to $subQuery referencing this
+	 * Criteria's table/alias by name).
+	 *
+	 * @param      Criteria $subQuery
+	 * @param      bool $negate Use NOT EXISTS instead of EXISTS.
+	 * @return     static A modified Criteria object (for fluent API).
+	 */
+	public function addExistsQuery(Criteria $subQuery, bool $negate = false)
+	{
+		$criterion = new Criterion($this, null, $subQuery, $negate ? Criteria::NOT_EXISTS : Criteria::EXISTS);
+		return $this->addUsingOperator($criterion);
+	}
+
+	/**
+	 * Adds a "WHERE column IN (<subquery>)" (or "WHERE column NOT IN (...)") correlated- or
+	 * uncorrelated-subquery condition.
+	 *
+	 * @param      string $column Fully-qualified column name (e.g. "book.PUBLISHER_ID").
+	 * @param      Criteria $subQuery Expected to select exactly one column.
+	 * @param      bool $negate Use NOT IN instead of IN.
+	 * @return     static A modified Criteria object (for fluent API).
+	 */
+	public function addInQuery($column, Criteria $subQuery, bool $negate = false)
+	{
+		$criterion = new Criterion($this, $column, $subQuery, $negate ? Criteria::NOT_IN : Criteria::IN);
+		return $this->addUsingOperator($criterion);
 	}
 
 	/**

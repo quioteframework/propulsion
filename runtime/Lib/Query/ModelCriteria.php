@@ -1060,6 +1060,109 @@ class ModelCriteria extends Criteria
 	}
 
 	/**
+	 * Adds a "WHERE EXISTS (<subquery>)" (or "WHERE NOT EXISTS (...)") correlated-subquery
+	 * filter. Unlike useQuery()/withQuery(), which merge a secondary query's JOIN and WHERE
+	 * conditions into this same query, this nests $callback's query as an independent
+	 * sub-SELECT -- $modelName does not need an existing join() relation to this query.
+	 *
+	 * $callback is responsible for correlating the subquery to this one, e.g.:
+	 * <code>
+	 * $c = BookQuery::create()->useExistsQuery('Review', function ($sub) {
+	 *     $sub->where('review.BOOK_ID = book.ID');
+	 * });
+	 * // SELECT ... FROM book WHERE EXISTS (SELECT 1 FROM review WHERE review.BOOK_ID = book.ID)
+	 * </code>
+	 * If $callback adds no select column, the subquery defaults to "SELECT 1" -- EXISTS
+	 * never cares what a subquery selects, only whether it returns any rows.
+	 *
+	 * @param      string $modelName The phpName of the related model to query, e.g. 'Review'.
+	 * @param      callable(ModelCriteria): void $callback Receives the subquery to add conditions to.
+	 * @param      bool $negate Use NOT EXISTS instead of EXISTS.
+	 * @param      string|null $modelAlias Optional alias for the subquery's own table.
+	 *
+	 * @return     static
+	 */
+	public function useExistsQuery(string $modelName, callable $callback, bool $negate = false, ?string $modelAlias = null) : static
+	{
+		$subQuery = PropulsionQuery::from($modelName);
+		$subQueryTableName = $subQuery->getTableMap()->getName();
+		if ($subQueryTableName === null) {
+			throw new PropulsionException("Could not resolve the table name for model '$modelName'");
+		}
+		$subQuery->setPrimaryTableName($subQueryTableName);
+		if ($modelAlias !== null) {
+			$subQuery->setModelAlias($modelAlias, true);
+		}
+		$callback($subQuery);
+		if (!$subQuery->getSelectColumns() && !$subQuery->getAsColumns()) {
+			$subQuery->addSelectColumn('1');
+		}
+		$this->addExistsQuery($subQuery, $negate);
+
+		return $this;
+	}
+
+	/**
+	 * Alias for useExistsQuery($modelName, $callback, true, $modelAlias). See useExistsQuery().
+	 *
+	 * @param      string $modelName
+	 * @param      callable(ModelCriteria): void $callback
+	 * @param      string|null $modelAlias
+	 *
+	 * @return     static
+	 */
+	public function useNotExistsQuery(string $modelName, callable $callback, ?string $modelAlias = null) : static
+	{
+		return $this->useExistsQuery($modelName, $callback, true, $modelAlias);
+	}
+
+	/**
+	 * Adds a "WHERE column IN (<subquery>)" (or "WHERE column NOT IN (...)") filter, where the
+	 * subquery is built by $callback. Unlike useExistsQuery(), $callback's subquery does not
+	 * need to correlate itself to this query -- it just needs to select the one column being
+	 * matched against (via addSelectColumn(), setting it explicitly rather than relying on a
+	 * default the way useExistsQuery() does, since IN needs a real value to compare, not just
+	 * row existence).
+	 *
+	 * <code>
+	 * $c = BookQuery::create()->useInQuery('Id', 'Review', function ($sub) {
+	 *     $sub->addSelectColumn(ReviewPeer::BOOK_ID);
+	 *     $sub->add(ReviewPeer::RECOMMENDED, true);
+	 * });
+	 * // SELECT ... FROM book WHERE book.ID IN (SELECT review.BOOK_ID FROM review WHERE review.RECOMMENDED = ?)
+	 * </code>
+	 *
+	 * Note: where()'s pseudo-SQL clause syntax resolves column phpNames against the
+	 * *subquery's own* model, so a value-bound condition on the subquery's model is
+	 * usually clearer written via add()/addAnd() with the column's Peer constant (as
+	 * above) than via where(). A raw correlation condition with no bound value (e.g.
+	 * referencing this query's own table/alias) can still go through where(), since
+	 * with no column match and no "?" placeholder it falls through to a literal
+	 * expression -- see useExistsQuery()'s example.
+	 *
+	 * @param      string $columnName The phpName of the column on this query's model to filter.
+	 * @param      string $modelName The phpName of the related model to query.
+	 * @param      callable(ModelCriteria): void $callback Receives the subquery to add conditions to.
+	 * @param      bool $negate Use NOT IN instead of IN.
+	 *
+	 * @return     static
+	 */
+	public function useInQuery(string $columnName, string $modelName, callable $callback, bool $negate = false) : static
+	{
+		$subQuery = PropulsionQuery::from($modelName);
+		$subQueryTableName = $subQuery->getTableMap()->getName();
+		if ($subQueryTableName === null) {
+			throw new PropulsionException("Could not resolve the table name for model '$modelName'");
+		}
+		$subQuery->setPrimaryTableName($subQueryTableName);
+		$callback($subQuery);
+		$realColumnName = $this->getTableMap()->getColumnByPhpName($columnName)->getFullyQualifiedName();
+		$this->addInQuery($realColumnName, $subQuery, $negate);
+
+		return $this;
+	}
+
+	/**
 	 * Add the content of a Criteria to the current Criteria
 	 * In case of conflict, the current Criteria keeps its properties
 	 * @see Criteria::mergeWith()
