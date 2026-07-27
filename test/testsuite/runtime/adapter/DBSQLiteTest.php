@@ -94,4 +94,52 @@ class DBSQLiteTest extends TestCase
         $this->db->applyLimit($sql, 0, 0);
         $this->assertSame('SELECT * FROM foo', $sql);
     }
+
+    public function testSupportsInsertReturning()
+    {
+        $this->assertTrue($this->db->supportsInsertReturning());
+    }
+
+    public function testGetInsertReturningSql()
+    {
+        $sql = $this->db->getInsertReturningSql('INSERT INTO foo (bar) VALUES (:p1)', 'id');
+        $this->assertSame('INSERT INTO foo (bar) VALUES (:p1) RETURNING id', $sql);
+    }
+
+    public function testExtractInsertedId()
+    {
+        // Real end-to-end check (not just a SQL-string assertion): SQLite actually
+        // supports RETURNING and hands back the generated rowid this way.
+        $pdo = new PDO('sqlite::memory:');
+        $pdo->exec('CREATE TABLE foo (id INTEGER PRIMARY KEY, bar TEXT)');
+
+        $sql = $this->db->getInsertReturningSql("INSERT INTO foo (bar) VALUES ('hello')", 'id');
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute();
+
+        $this->assertEquals(1, $this->db->extractInsertedId($stmt));
+    }
+
+    public function testSupportsUpsert()
+    {
+        $this->assertTrue($this->db->supportsUpsert());
+    }
+
+    public function testGetUpsertSqlDoUpdate()
+    {
+        $sql = $this->db->getUpsertSql('INSERT INTO foo (id,bar) VALUES (:p1,:p2)', array('id'), 'bar=:p3');
+        $this->assertSame('INSERT INTO foo (id,bar) VALUES (:p1,:p2) ON CONFLICT (id) DO UPDATE SET bar=:p3', $sql);
+    }
+
+    public function testGetUpsertSqlDoNothing()
+    {
+        $sql = $this->db->getUpsertSql('INSERT INTO foo (id,bar) VALUES (:p1,:p2)', array('id'), '');
+        $this->assertSame('INSERT INTO foo (id,bar) VALUES (:p1,:p2) ON CONFLICT (id) DO NOTHING', $sql);
+    }
+
+    public function testGetUpsertSqlThrowsWithoutConflictColumns()
+    {
+        $this->expectException(PropulsionException::class);
+        $this->db->getUpsertSql('INSERT INTO foo (id) VALUES (:p1)', array(), 'id=:p2');
+    }
 }

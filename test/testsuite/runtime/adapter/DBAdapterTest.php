@@ -110,7 +110,9 @@ class DBAdapterTest extends BookstoreTestBase
 
 	public function testDefaultAdapterDoesNotSupportInsertReturning()
 	{
-		$db = new DBSQLite();
+		// DBSQLite overrides this to true (SQLite 3.35+ supports RETURNING); use an
+		// adapter that still relies on the DBAdapter default of false.
+		$db = new DBMySQL();
 		$this->assertFalse($db->supportsInsertReturning(), 'the default DBAdapter::supportsInsertReturning() is false');
 	}
 

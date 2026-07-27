@@ -121,6 +121,37 @@ class DBSQLite extends DBAdapter
 	}
 
 	/**
+	 * SQLite (3.35+, released 2021) supports RETURNING, folding id retrieval into the
+	 * INSERT statement itself instead of a separate lastInsertId() round trip. Assumed
+	 * available unconditionally: every PHP version still receiving security support
+	 * bundles a far newer SQLite than 3.35 (no runtime version probe exists anywhere in
+	 * this codebase today -- see PLATFORM_FEATURES.md if that assumption ever needs
+	 * revisiting for an unusually old libsqlite3).
+	 *
+	 * @see       DBAdapter::supportsInsertReturning()
+	 */
+	public function supportsInsertReturning(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * @see       DBAdapter::getInsertReturningSql()
+	 */
+	public function getInsertReturningSql(string $sql, string $idColumnName): string
+	{
+		return $sql . ' RETURNING ' . $idColumnName;
+	}
+
+	/**
+	 * @see       DBAdapter::extractInsertedId()
+	 */
+	public function extractInsertedId(\PDOStatement $stmt): mixed
+	{
+		return $stmt->fetchColumn();
+	}
+
+	/**
 	 * SQLite (3.24+) supports the same "INSERT ... ON CONFLICT (...) DO UPDATE SET ..."
 	 * syntax as Postgres.
 	 *
