@@ -320,6 +320,42 @@ class DBMSSQL extends DBAdapter
 	}
 
 	/**
+	 * MSSQL can return the generated IDENTITY value directly from the INSERT statement
+	 * via an OUTPUT clause. This is also more reliable than lastInsertId(), whose
+	 * behavior varies across the PDO drivers used to talk to SQL Server (pdo_sqlsrv vs
+	 * pdo_dblib).
+	 *
+	 * @see       DBAdapter::supportsInsertReturning()
+	 */
+	public function supportsInsertReturning(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * @see       DBAdapter::getInsertReturningSql()
+	 */
+	public function getInsertReturningSql(string $sql, string $idColumnName): string
+	{
+		if (!preg_match('/\)\s*VALUES\s*\(/i', $sql)) {
+			throw new PropulsionException('DBMSSQL::getInsertReturningSql() could not locate the VALUES clause in: ' . $sql);
+		}
+		$withOutput = preg_replace('/\)\s*VALUES\s*\(/i', ') OUTPUT INSERTED.' . $idColumnName . ' VALUES (', $sql, 1);
+		if ($withOutput === null) {
+			throw new PropulsionException('DBMSSQL::getInsertReturningSql() failed to splice the OUTPUT clause into: ' . $sql);
+		}
+		return $withOutput;
+	}
+
+	/**
+	 * @see       DBAdapter::extractInsertedId()
+	 */
+	public function extractInsertedId(\PDOStatement $stmt): mixed
+	{
+		return $stmt->fetchColumn();
+	}
+
+	/**
 	 * @see       parent::cleanupSQL()
 	 *
 	 * @param     string       $sql

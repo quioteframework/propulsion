@@ -517,6 +517,23 @@ class BasePeerTest extends BookstoreTestBase
 		BasePeer::doUpdate($c1, $c2, $con);
 	}
 
+	public function testMssqlDoInsertUsesOutputClause()
+	{
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
+		if (!($db instanceof DBMSSQL)) {
+			$this->markTestSkipped();
+		}
+
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
+		$c = new Criteria();
+		$c->add(BookPeer::TITLE, 'A Brief History of MSSQL');
+		$c->add(BookPeer::ISBN, '9999999999');
+		$id = BasePeer::doInsert($c, $con);
+
+		$this->assertNotNull($id, 'doInsert() returns the OUTPUT-generated id, without a separate lastInsertId() round trip');
+		$this->assertStringContainsString('OUTPUT INSERTED.ID', $con->getLastExecutedQuery(), 'the INSERT statement folds id retrieval in via an OUTPUT clause');
+	}
+
 	public function testCommentDoDelete()
 	{
 		$c = new Criteria();

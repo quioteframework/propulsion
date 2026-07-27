@@ -280,7 +280,15 @@ class BasePeer
 
 		// pk will be null if there is no primary key defined for the table
 		// we're inserting into.
-		if ($pk !== null && $useIdGen && !$criteria->keyContainsValue($pk->getFullyQualifiedName()) && $db->isGetIdBeforeInsert()) {
+		$needsGeneratedId = $pk !== null && $useIdGen && !$criteria->keyContainsValue($pk->getFullyQualifiedName());
+
+		// When the adapter can hand back the generated id from the INSERT statement
+		// itself (e.g. MSSQL's OUTPUT clause), skip the separate before/after getId()
+		// round trip entirely -- one of the two branches below would otherwise run an
+		// extra query for exactly the value the INSERT is about to return anyway.
+		$useInsertReturning = $needsGeneratedId && $db->supportsInsertReturning();
+
+		if ($needsGeneratedId && $db->isGetIdBeforeInsert() && !$useInsertReturning) {
 			try {
 				$id = $db->getId($con, $keyInfo);
 			} catch (Exception $e) {
@@ -315,13 +323,28 @@ class BasePeer
 			}
 			$sql .= ')';
 
+			if ($useInsertReturning) {
+				$idColumnName = substr($pk->getFullyQualifiedName(), strrpos($pk->getFullyQualifiedName(), '.') + 1);
+				if ($adapter->useQuoteIdentifier()) {
+					$idColumnName = $adapter->quoteIdentifier($idColumnName);
+				}
+				$sql = $adapter->getInsertReturningSql($sql, $idColumnName);
+			}
+
 			$params = self::buildParams($qualifiedCols, $criteria);
 
 			$db->cleanupSQL($sql, $params, $criteria, $dbMap);
 
 			$stmt = $con->prepare($sql);
+			if ($stmt === false) {
+				throw new PropulsionException('PropulsionPDO::prepare() returned false');
+			}
 			$db->bindValues($stmt, $params, $dbMap);
 			$stmt->execute();
+
+			if ($useInsertReturning) {
+				$id = $db->extractInsertedId($stmt);
+			}
 
 		} catch (Exception $e) {
 			Propulsion::log($e->getMessage(), Propulsion::LOG_ERR);
@@ -333,7 +356,7 @@ class BasePeer
 		}
 
 		// If the primary key column is auto-incremented, get the id now.
-		if ($pk !== null && $useIdGen && $db->isGetIdAfterInsert()) {
+		if ($needsGeneratedId && $db->isGetIdAfterInsert() && !$useInsertReturning) {
 			try {
 				$id = $db->getId($con, $keyInfo);
 			} catch (Exception $e) {

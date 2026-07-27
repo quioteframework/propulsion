@@ -279,6 +279,48 @@ abstract class DBAdapter
 	}
 
 	/**
+	 * Whether this platform can return the generated primary key value directly from
+	 * the INSERT statement itself (e.g. MSSQL's OUTPUT clause), instead of getId()'s
+	 * separate before/after round trip (a sequence query before INSERT, or
+	 * lastInsertId() after it). False by default.
+	 *
+	 * @return    boolean
+	 */
+	public function supportsInsertReturning(): bool
+	{
+		return false;
+	}
+
+	/**
+	 * Rewrites a plain "INSERT INTO table (cols) VALUES (...)" statement so it also
+	 * returns the generated value of $idColumnName. Only called when
+	 * supportsInsertReturning() is true.
+	 *
+	 * @param     string $sql
+	 * @param     string $idColumnName The unqualified (and already-quoted-if-necessary) id column name.
+	 *
+	 * @return    string
+	 */
+	public function getInsertReturningSql(string $sql, string $idColumnName): string
+	{
+		throw new PropulsionException(static::class . ' does not support folding id retrieval into INSERT');
+	}
+
+	/**
+	 * Extracts the generated primary key value from a statement built via
+	 * getInsertReturningSql(), immediately after it has been executed. Only called
+	 * when supportsInsertReturning() is true.
+	 *
+	 * @param     \PDOStatement $stmt
+	 *
+	 * @return    mixed
+	 */
+	public function extractInsertedId(\PDOStatement $stmt): mixed
+	{
+		throw new PropulsionException(static::class . ' does not support folding id retrieval into INSERT');
+	}
+
+	/**
 	 * Formats a temporal value brefore binding, given a ColumnMap object
 	 *
 	 * @param     mixed      $value  The temporal value

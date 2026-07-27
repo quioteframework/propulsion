@@ -72,6 +72,24 @@ These are gaps in the shared query builder — confirmed absent by grep across
   instead of using `RETURNING` (Pg, SQLite 3.35+, MariaDB), `OUTPUT` (MSSQL),
   or `RETURNING ... INTO` (Oracle). Also unlocks `UPDATE/DELETE ... RETURNING`
   for affected-row hydration.
+  - [x] MSSQL: `BasePeer::doInsert()` now asks the adapter
+    (`DBAdapter::supportsInsertReturning()`) whether it can fold id retrieval
+    into the INSERT itself; `DBMSSQL` implements it via an `OUTPUT
+    INSERTED.<col>` clause, replacing its `lastInsertId()` round trip (whose
+    behavior varies across the pdo_sqlsrv/pdo_dblib drivers).
+  - [ ] Postgres/MariaDB `RETURNING`, SQLite 3.35+ `RETURNING` (needs a
+    version probe first — no such probe exists anywhere in the codebase
+    yet), Oracle `RETURNING ... INTO` (needs an OUT-bound parameter via
+    PDO_OCI, a different call shape than "append SQL, fetch a row" and
+    materially riskier to get right without a live Oracle instance to
+    verify against) are still open. Postgres in particular still does an
+    explicit pre-INSERT `nextval()` query today (`DBPostgres::getId()`),
+    which is a deliberate, already-working design (the sequence value is
+    known before the row is built) rather than the same "extra round trip
+    after INSERT" problem MSSQL's `lastInsertId()` had — lower priority
+    than the MSSQL fix was.
+  - [ ] `UPDATE/DELETE ... RETURNING` for affected-row hydration — not
+    started.
 - [ ] **Common table expressions** — no `WITH` / `WITH RECURSIVE` support.
   Supported by all five platforms. Recursive CTEs would additionally give
   native adjacency-list tree queries, an alternative to

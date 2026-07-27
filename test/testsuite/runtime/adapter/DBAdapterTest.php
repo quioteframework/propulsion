@@ -108,4 +108,31 @@ class DBAdapterTest extends BookstoreTestBase
 		$this->assertEquals(array(), $fromClause, 'createSelectSqlPart() does not add the tables from an all-aliased list of select columns');
 	}
 
+	public function testDefaultAdapterDoesNotSupportInsertReturning()
+	{
+		$db = new DBSQLite();
+		$this->assertFalse($db->supportsInsertReturning(), 'the default DBAdapter::supportsInsertReturning() is false');
+	}
+
+	public function testMssqlSupportsInsertReturning()
+	{
+		$db = new DBMSSQL();
+		$this->assertTrue($db->supportsInsertReturning());
+	}
+
+	public function testMssqlGetInsertReturningSql()
+	{
+		$db = new DBMSSQL();
+		$sql = 'INSERT INTO book (TITLE,ISBN) VALUES (:p1,:p2)';
+		$expected = 'INSERT INTO book (TITLE,ISBN) OUTPUT INSERTED.ID VALUES (:p1,:p2)';
+		$this->assertEquals($expected, $db->getInsertReturningSql($sql, 'ID'));
+	}
+
+	public function testMssqlGetInsertReturningSqlThrowsWithoutValuesClause()
+	{
+		$db = new DBMSSQL();
+		$this->expectException(PropulsionException::class);
+		$db->getInsertReturningSql('not an insert statement', 'ID');
+	}
+
 }
