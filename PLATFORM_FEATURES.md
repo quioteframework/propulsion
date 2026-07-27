@@ -62,6 +62,29 @@ These are gaps in the shared query builder — confirmed absent by grep across
   `Criteria`/`BasePeer`. Needs a query-builder API plus per-platform SQL
   generation. Django's `update_or_create`/`bulk_create(update_conflicts=)` is
   a good API reference.
+  - [x] Postgres/SQLite (`ON CONFLICT (...) DO UPDATE SET ...`/`DO NOTHING`)
+    and MySQL/MariaDB (`ON DUPLICATE KEY UPDATE ...`) via `BasePeer::doUpsert()`
+    and `DBAdapter::supportsUpsert()`/`getUpsertSql()`, plus a
+    `ModelCriteria::doUpsert()` convenience wrapper. Conflict target defaults
+    to the table's primary key (no unique-index metadata exists at runtime
+    beyond the PK — see below); update values reuse the existing
+    `ColumnExpression`/`Criteria::CUSTOM_EQUAL` raw-expression convention, so
+    e.g. `view_count = view_count + 1` works on conflict too.
+  - [ ] MSSQL/Oracle `MERGE` — deferred. `MERGE` is a structurally different
+    statement (`MERGE INTO target USING (...) AS source ON (...) WHEN
+    MATCHED THEN UPDATE ... WHEN NOT MATCHED THEN INSERT ...`), not a clause
+    appended to `INSERT`, so it doesn't fit the `getUpsertSql(string $sql,
+    ...)` hook shape used for the other three platforms — it needs its own
+    design, and is riskier to get right without a live instance to verify
+    against (same reasoning as deferring Oracle's `RETURNING ... INTO`
+    above).
+  - [ ] Conflict target beyond the primary key (a named unique constraint)
+    needs unique-index metadata to exist in the generated runtime
+    `TableMap`/`ColumnMap` at all — today that only lives in the build-time
+    `generator/Lib/Model/Table.php`/`Unique.php` model, never emitted into
+    the generated runtime map classes. `BasePeer::doUpsert()`'s
+    `$conflictColumns` parameter lets a caller name the columns explicitly as
+    a workaround in the meantime.
 - [x] **Column-expression updates (Django's `F()`)** —
   `ModelCriteria::update()` accepts literal values only, so there is no way
   to emit `SET counter = counter + 1`. Today every increment is a

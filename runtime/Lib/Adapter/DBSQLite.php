@@ -121,6 +121,30 @@ class DBSQLite extends DBAdapter
 	}
 
 	/**
+	 * SQLite (3.24+) supports the same "INSERT ... ON CONFLICT (...) DO UPDATE SET ..."
+	 * syntax as Postgres.
+	 *
+	 * @see       DBAdapter::supportsUpsert()
+	 */
+	public function supportsUpsert(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * @see       DBAdapter::getUpsertSql()
+	 */
+	public function getUpsertSql(string $sql, array $conflictColumnNames, string $setClause): string
+	{
+		if (empty($conflictColumnNames)) {
+			throw new PropulsionException('DBSQLite::getUpsertSql() needs at least one conflict-target column');
+		}
+		$sql .= ' ON CONFLICT (' . implode(', ', $conflictColumnNames) . ')';
+		$sql .= $setClause === '' ? ' DO NOTHING' : ' DO UPDATE SET ' . $setClause;
+		return $sql;
+	}
+
+	/**
 	 * SQLite has no row-level locking (the whole database file is locked at the
 	 * connection/transaction level), so SELECT ... FOR UPDATE has no equivalent here.
 	 *

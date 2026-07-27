@@ -321,6 +321,40 @@ abstract class DBAdapter
 	}
 
 	/**
+	 * Whether this platform can express "insert this row, or update it instead if a
+	 * conflicting row already exists" as a single INSERT statement (Postgres/SQLite's
+	 * `ON CONFLICT`, MySQL/MariaDB's `ON DUPLICATE KEY UPDATE`). False by default;
+	 * MSSQL/Oracle need `MERGE`, a structurally different statement (not just a
+	 * clause appended to INSERT), and are not implemented via this hook.
+	 *
+	 * @return    boolean
+	 */
+	public function supportsUpsert(): bool
+	{
+		return false;
+	}
+
+	/**
+	 * Rewrites a plain "INSERT INTO table (cols) VALUES (...)" statement into an
+	 * upsert. Only called when supportsUpsert() is true.
+	 *
+	 * @param     string             $sql
+	 * @param     array<int,string>  $conflictColumnNames Unqualified, already-quoted-if-necessary
+	 *                                column names identifying the conflict target
+	 *                                (ignored by platforms, like MySQL, that infer it).
+	 * @param     string             $setClause Already-built "col1 = :p2, col2 = :p3" SET-clause
+	 *                                fragment (no leading "SET " and no trailing comma). Empty
+	 *                                string means "no columns to update on conflict" -- platforms
+	 *                                that have no such form (MySQL) should throw.
+	 *
+	 * @return    string
+	 */
+	public function getUpsertSql(string $sql, array $conflictColumnNames, string $setClause): string
+	{
+		throw new PropulsionException(static::class . ' does not support upserts');
+	}
+
+	/**
 	 * Formats a temporal value brefore binding, given a ColumnMap object
 	 *
 	 * @param     mixed      $value  The temporal value

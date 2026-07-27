@@ -25,6 +25,7 @@ use Exception;
 use Propulsion\Map\ColumnMap;
 use Propulsion\Map\DatabaseMap;
 use Propulsion\Query\Criteria;
+use Propulsion\Exception\PropulsionException;
 class DBMySQL extends DBAdapter
 {
 	/**
@@ -164,6 +165,30 @@ class DBMySQL extends DBAdapter
 	}
 
 	/**
+	 * @see       DBAdapter::supportsUpsert()
+	 */
+	public function supportsUpsert(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * MySQL/MariaDB infer the conflict target from any unique/primary key violation,
+	 * so (unlike Postgres/SQLite) $conflictColumnNames is ignored here. There is also
+	 * no "do nothing on conflict" form of ON DUPLICATE KEY UPDATE, so an empty
+	 * $setClause throws rather than silently producing invalid SQL.
+	 *
+	 * @see       DBAdapter::getUpsertSql()
+	 */
+	public function getUpsertSql(string $sql, array $conflictColumnNames, string $setClause): string
+	{
+		if ($setClause === '') {
+			throw new PropulsionException("DBMySQL::getUpsertSql() needs at least one column to update: MySQL's ON DUPLICATE KEY UPDATE has no \"do nothing\" form");
+		}
+		return $sql . ' ON DUPLICATE KEY UPDATE ' . $setClause;
+	}
+
+	/**
 	 * @see       DBAdapter::random()
 	 *
 	 * @param     string  $seed
@@ -191,6 +216,9 @@ class DBMySQL extends DBAdapter
 		// FIXME - This is a temporary hack to get around apparent bugs w/ PDO+MYSQL
 		// See http://pecl.php.net/bugs/bug.php?id=9919
 		if ($pdoType == PDO::PARAM_BOOL) {
+			if (!is_scalar($value) && $value !== null) {
+				throw new PropulsionException('DBMySQL::bindValue() cannot cast a non-scalar value to int for a boolean column');
+			}
 			$value = (int) $value;
 			$pdoType = PDO::PARAM_INT;
 			return $stmt->bindValue($parameter, $value, $pdoType);
@@ -216,8 +244,12 @@ class DBMySQL extends DBAdapter
 	{
 		$params = parent::prepareParams($params);
 
-		if(isset($params['settings']['charset']['value'])) {
-			if(strpos($params['dsn'], ';charset=') === false) {
+		if (isset($params['settings']) && is_array($params['settings'])
+			&& isset($params['settings']['charset']) && is_array($params['settings']['charset'])
+			&& isset($params['settings']['charset']['value']) && is_string($params['settings']['charset']['value'])
+			&& isset($params['dsn']) && is_string($params['dsn'])
+		) {
+			if (strpos($params['dsn'], ';charset=') === false) {
 				$params['dsn'] .= ';charset=' . $params['settings']['charset']['value'];
 				unset($params['settings']['charset']);
 			}

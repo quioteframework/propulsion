@@ -2037,6 +2037,62 @@ class ModelCriteria extends Criteria
 	}
 
 	/**
+	 * Inserts a row, or updates it instead if it conflicts with an existing row --
+	 * "upsert", a single round trip instead of a separate existence check plus
+	 * insert-or-update. See BasePeer::doUpsert() for full platform support notes
+	 * (Postgres/SQLite/MySQL/MariaDB; MSSQL/Oracle need MERGE and are not
+	 * supported here).
+	 *
+	 * @param      array<string, mixed> $insertValues Column phpName => value to insert.
+	 * @param      array<string, mixed> $updateValues Column phpName => value (or a
+	 *             ColumnExpression) to set on conflict. Empty means "do nothing on
+	 *             conflict" (unsupported on MySQL/MariaDB -- see BasePeer::doUpsert()).
+	 * @param      array<int, string> $conflictColumns Column phpNames identifying the
+	 *             conflict target (Postgres/SQLite only; MySQL infers this). Defaults
+	 *             to the primary key.
+	 * @param      PropulsionPDO|null $con
+	 *
+	 * @return     int Number of affected rows.
+	 */
+	public function doUpsert(array $insertValues, array $updateValues = array(), array $conflictColumns = array(), ?PropulsionPDO $con = null) : int
+	{
+		if ($con === null) {
+			$con = Propulsion::getConnection($this->getDbName(), Propulsion::CONNECTION_WRITE);
+		}
+		if (!$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
+		}
+
+		$insertCriteria = new Criteria($this->getDbName());
+		foreach ($insertValues as $columnName => $value) {
+			$realColumnName = $this->getTableMap()->getColumnByPhpName($columnName)->getFullyQualifiedName();
+			$insertCriteria->add($realColumnName, $value);
+		}
+		$insertCriteria->setPrimaryTableName(constant($this->modelPeerName.'::TABLE_NAME'));
+
+		$updateCriteria = new Criteria($this->getDbName());
+		foreach ($updateValues as $columnName => $value) {
+			$realColumnName = $this->getTableMap()->getColumnByPhpName($columnName)->getFullyQualifiedName();
+			if ($value instanceof ColumnExpression) {
+				$updateCriteria->add($realColumnName, $value->toRawValueArray(), Criteria::CUSTOM_EQUAL);
+			} else {
+				$updateCriteria->add($realColumnName, $value);
+			}
+		}
+
+		$realConflictColumns = array();
+		foreach ($conflictColumns as $columnName) {
+			$realConflictColumns[] = $this->getTableMap()->getColumnByPhpName($columnName)->getFullyQualifiedName();
+		}
+
+		$affectedRows = BasePeer::doUpsert($insertCriteria, $updateCriteria, $con, $realConflictColumns);
+		call_user_func(array($this->modelPeerName, 'clearInstancePool'));
+		call_user_func(array($this->modelPeerName, 'clearRelatedInstancePool'));
+
+		return $affectedRows;
+	}
+
+	/**
 	 * Creates a Criterion object based on a list of existing condition names and a comparator
 	 *
 	 * @param      array $conditions The list of condition names, e.g. array('cond1', 'cond2')

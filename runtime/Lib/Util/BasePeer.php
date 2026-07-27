@@ -36,6 +36,7 @@ namespace Propulsion\Util;
  use Propulsion\Map\ColumnMap;
  use Propulsion\Validator\ValidationFailed;
  use Propulsion\Validator\BasicValidator;
+ use Propulsion\Adapter\DBAdapter;
 class BasePeer
 {
 
@@ -432,60 +433,10 @@ class BasePeer
 				}
 				
 				$sql .= " SET ";
-				$p = 1;
-				foreach ($updateTablesColumns[$tableName] as $col) {
-					$updateColumnName = substr($col, strrpos($col, '.') + 1);
-					// add identifiers for the actual database?
-					if ($db->useQuoteIdentifier()) {
-						$updateColumnName = $db->quoteIdentifier($updateColumnName);
-					}
-					if ($updateValues->getComparison($col) != Criteria::CUSTOM_EQUAL) {
-						$sql .= $updateColumnName . '=:p'.$p++.', ';
-					} else {
-						$param = $updateValues->get($col);
-						$sql .= $updateColumnName . ' = ';
-						if (is_array($param)) {
-							$hasPlaceholder = false;
-							if (isset($param['raw'])) {
-								$raw = $param['raw'];
-								$rawcvt = '';
-								// parse the $params['raw'] for ? chars
-								for($r=0,$len=strlen($raw); $r < $len; $r++) {
-									if ($raw[$r] == '?') {
-										$rawcvt .= ':p'.$p++;
-										$hasPlaceholder = true;
-									} else {
-										$rawcvt .= $raw[$r];
-									}
-								}
-								$sql .= $rawcvt . ', ';
-							} else {
-								$sql .= ':p'.$p++.', ';
-								$hasPlaceholder = true;
-							}
-							if ($hasPlaceholder) {
-								if (!isset($param['value'])) {
-									throw new PropulsionException("Raw update expression for column '$col' has a \"?\" placeholder but no 'value' to bind to it.");
-								}
-								$updateValues->put($col, $param['value']);
-							} else {
-								// No "?" placeholder in the raw expression means there is no
-								// bound parameter for this column at all: remove it so
-								// buildParams() below doesn't emit a param with nothing in the
-								// SQL for it to bind to, which would misalign every :pN placeholder
-								// that follows.
-								$updateValues->remove($col);
-							}
-						} else {
-							$updateValues->remove($col);
-							$sql .= $param . ', ';
-						}
-					}
-				}
+				$sql .= self::buildSetClause($updateTablesColumns[$tableName], $updateValues, $db, 1)[0];
 
 				$params = self::buildParams($updateTablesColumns[$tableName], $updateValues);
 
-				$sql = substr($sql, 0, -2);
 				if (!empty($columns)) {
 					foreach ($columns as $colName) {
 						$sb = "";
@@ -520,6 +471,121 @@ class BasePeer
 			Propulsion::getSession()->getQueryResultCache()->invalidateTable((string) $tableName);
 
 		} // foreach table in the criteria
+
+		return $affectedRows;
+	}
+
+	/**
+	 * Inserts a row, or updates it instead if it conflicts with an existing row (on
+	 * $conflictColumns, or the table's primary key if $conflictColumns is empty) --
+	 * "upsert", a single round trip instead of a separate existence check plus
+	 * insert-or-update.
+	 *
+	 * Supported on Postgres, SQLite (`ON CONFLICT ... DO UPDATE`/`DO NOTHING`) and
+	 * MySQL/MariaDB (`ON DUPLICATE KEY UPDATE`, which ignores $conflictColumns --
+	 * MySQL infers the conflict target from any unique/primary key violation, and has
+	 * no "do nothing" form, so an empty $updateValues throws there). MSSQL/Oracle need
+	 * `MERGE`, a structurally different statement, and are not supported by this
+	 * method -- see DBAdapter::supportsUpsert().
+	 *
+	 * @param      Criteria $criteria The values to insert.
+	 * @param      Criteria $updateValues The columns (and values, or a
+	 *             Criteria::CUSTOM_EQUAL raw expression -- see ColumnExpression) to
+	 *             set on conflict. Empty means "do nothing on conflict".
+	 * @param      PropulsionPDO $con A PropulsionPDO connection object.
+	 * @param      array<int,string> $conflictColumns Fully-qualified column names identifying
+	 *             the conflict target. Defaults to the table's primary key columns.
+	 *
+	 * @return     int Number of affected rows.
+	 * @throws     PropulsionException
+	 */
+	public static function doUpsert(Criteria $criteria, Criteria $updateValues, PropulsionPDO $con, array $conflictColumns = array()): int
+	{
+		$db = Propulsion::getDB($criteria->getDbName());
+		if (!$db->supportsUpsert()) {
+			throw new PropulsionException(get_class($db) . ' does not support upserts');
+		}
+
+		$keys = $criteria->keys();
+		if (empty($keys)) {
+			throw new PropulsionException("Database upsert attempted without anything specified to insert");
+		}
+		$tableName = $criteria->getTableName($keys[0]);
+		if ($tableName === null) {
+			throw new PropulsionException("Database upsert attempted without a resolvable table name");
+		}
+		$originalTableName = $tableName;
+
+		$dbMap = Propulsion::getDatabaseMap($criteria->getDbName());
+		$tableMap = $dbMap->getTable($tableName);
+
+		if (empty($conflictColumns)) {
+			foreach ($tableMap->getPrimaryKeys() as $pkColumn) {
+				$conflictColumns[] = $pkColumn->getFullyQualifiedName();
+			}
+			if (empty($conflictColumns)) {
+				throw new PropulsionException("doUpsert() needs either an explicit \$conflictColumns list or a table with a primary key");
+			}
+		}
+
+		$sql = null;
+		try {
+			$qualifiedCols = $criteria->keys();
+			$columns = array();
+			foreach ($qualifiedCols as $qualifiedCol) {
+				$columns[] = substr($qualifiedCol, strrpos($qualifiedCol, '.') + 1);
+			}
+
+			$insertTableName = $tableName;
+			if ($db->useQuoteIdentifier()) {
+				$columns = array_map(array($db, 'quoteIdentifier'), $columns);
+				$insertTableName = $db->quoteIdentifierTable($insertTableName);
+			}
+
+			$sql = 'INSERT INTO ' . $insertTableName
+			. ' (' . implode(',', $columns) . ')'
+			. ' VALUES (';
+			for($p=1, $cnt=count($columns); $p <= $cnt; $p++) {
+				$sql .= ':p'.$p;
+				if ($p !== $cnt) $sql .= ',';
+			}
+			$sql .= ')';
+
+			$params = self::buildParams($qualifiedCols, $criteria);
+
+			$conflictColumnNames = array();
+			foreach ($conflictColumns as $conflictCol) {
+				$name = substr($conflictCol, strrpos($conflictCol, '.') + 1);
+				if ($db->useQuoteIdentifier()) {
+					$name = $db->quoteIdentifier($name);
+				}
+				$conflictColumnNames[] = $name;
+			}
+
+			$updateColumnKeys = $updateValues->keys();
+			$setClause = self::buildSetClause($updateColumnKeys, $updateValues, $db, count($columns) + 1)[0];
+
+			$sql = $db->getUpsertSql($sql, $conflictColumnNames, $setClause);
+
+			$params = array_merge($params, self::buildParams($updateColumnKeys, $updateValues));
+
+			$db->cleanupSQL($sql, $params, $criteria, $dbMap);
+
+			$stmt = $con->prepare($sql);
+			if ($stmt === false) {
+				throw new PropulsionException('PropulsionPDO::prepare() returned false');
+			}
+			$db->bindValues($stmt, $params, $dbMap);
+			$stmt->execute();
+
+			$affectedRows = $stmt->rowCount();
+
+		} catch (Exception $e) {
+			Propulsion::log($e->getMessage(), Propulsion::LOG_ERR);
+			throw new PropulsionException(sprintf('Unable to execute UPSERT statement [%s]', $sql), $e);
+		}
+
+		Propulsion::getSession()->getQueryResultCache()->invalidateTable($originalTableName);
 
 		return $affectedRows;
 	}
@@ -957,6 +1023,81 @@ class BasePeer
 		}
 
 		return $sql;
+	}
+
+	/**
+	 * Builds a "col1=:p1, col2 = <raw expr>, ..." SET-clause fragment (no leading
+	 * "SET " and no trailing comma) for $columns from $values, starting bound-parameter
+	 * numbering at $startParamIndex. A column whose comparison is Criteria::CUSTOM_EQUAL
+	 * carries a raw SQL expression instead of a literal value -- see ColumnExpression --
+	 * as either a plain string (interpolated as-is, no bound parameter at all) or an
+	 * array('raw' => '...possibly containing a single "?"...', 'value' => $boundValue).
+	 *
+	 * Mutates $values in place (put()/remove()) the same way callers have always
+	 * needed to, so a subsequent buildParams() call against the same $columns/$values
+	 * picks up exactly the bound values this fragment's placeholders reference --
+	 * no more, no less. Shared between doUpdate() and doUpsert().
+	 *
+	 * @param      array<int, string> $columns Fully-qualified column names.
+	 * @param      Criteria $values
+	 * @param      DBAdapter $db
+	 * @param      int $startParamIndex
+	 * @return     array{0: string, 1: int} [SET-clause fragment, next unused param index]
+	 */
+	private static function buildSetClause(array $columns, Criteria $values, DBAdapter $db, int $startParamIndex): array
+	{
+		$sql = '';
+		$p = $startParamIndex;
+		foreach ($columns as $col) {
+			$updateColumnName = substr($col, strrpos($col, '.') + 1);
+			// add identifiers for the actual database?
+			if ($db->useQuoteIdentifier()) {
+				$updateColumnName = $db->quoteIdentifier($updateColumnName);
+			}
+			if ($values->getComparison($col) != Criteria::CUSTOM_EQUAL) {
+				$sql .= $updateColumnName . '=:p'.$p++.', ';
+			} else {
+				$param = $values->get($col);
+				$sql .= $updateColumnName . ' = ';
+				if (is_array($param)) {
+					$hasPlaceholder = false;
+					if (isset($param['raw'])) {
+						$raw = $param['raw'];
+						$rawcvt = '';
+						// parse the $params['raw'] for ? chars
+						for($r=0,$len=strlen($raw); $r < $len; $r++) {
+							if ($raw[$r] == '?') {
+								$rawcvt .= ':p'.$p++;
+								$hasPlaceholder = true;
+							} else {
+								$rawcvt .= $raw[$r];
+							}
+						}
+						$sql .= $rawcvt . ', ';
+					} else {
+						$sql .= ':p'.$p++.', ';
+						$hasPlaceholder = true;
+					}
+					if ($hasPlaceholder) {
+						if (!isset($param['value'])) {
+							throw new PropulsionException("Raw update expression for column '$col' has a \"?\" placeholder but no 'value' to bind to it.");
+						}
+						$values->put($col, $param['value']);
+					} else {
+						// No "?" placeholder in the raw expression means there is no
+						// bound parameter for this column at all: remove it so
+						// buildParams() below doesn't emit a param with nothing in the
+						// SQL for it to bind to, which would misalign every :pN placeholder
+						// that follows.
+						$values->remove($col);
+					}
+				} else {
+					$values->remove($col);
+					$sql .= $param . ', ';
+				}
+			}
+		}
+		return array(substr($sql, 0, -2), $p);
 	}
 
 	/**

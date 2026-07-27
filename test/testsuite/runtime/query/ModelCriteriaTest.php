@@ -1897,6 +1897,33 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->update(array('Price' => \Propulsion\Query\ColumnExpression::raw(BookPeer::PRICE . ' + ?', 1)), $con, true);
 	}
 
+	public function testDoUpsert()
+	{
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
+		if ($db instanceof DBMSSQL || $db instanceof DBOracle) {
+			$this->markTestSkipped();
+		}
+
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
+
+		$c = new ModelCriteria('bookstore', 'Book');
+		$c->doUpsert(array('Id' => 999910, 'Title' => 'First Insert', 'ISBN' => '0000000010'), array(), array(), $con);
+
+		$book = (new ModelCriteria('bookstore', 'Book'))->findPk(999910, $con);
+		$this->assertEquals('First Insert', $book->getTitle());
+
+		$c2 = new ModelCriteria('bookstore', 'Book');
+		$c2->doUpsert(
+			array('Id' => 999910, 'Title' => 'Ignored Insert Value', 'ISBN' => '0000000010'),
+			array('Title' => 'Updated On Conflict'),
+			array(),
+			$con
+		);
+
+		$book = (new ModelCriteria('bookstore', 'Book'))->findPk(999910, $con);
+		$this->assertEquals('Updated On Conflict', $book->getTitle(), 'doUpsert() updates the conflicting row instead of inserting a second one');
+	}
+
 	public function testUpdateOneByOne()
 	{
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);

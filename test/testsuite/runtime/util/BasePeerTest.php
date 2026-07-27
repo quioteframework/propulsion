@@ -534,6 +534,148 @@ class BasePeerTest extends BookstoreTestBase
 		$this->assertStringContainsString('OUTPUT INSERTED.ID', $con->getLastExecutedQuery(), 'the INSERT statement folds id retrieval in via an OUTPUT clause');
 	}
 
+	public function testUpsertInsertsWhenNoConflict()
+	{
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
+		if ($db instanceof DBMSSQL || $db instanceof DBOracle) {
+			$this->markTestSkipped();
+		}
+
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
+		$countBefore = BookQuery::create()->count();
+
+		$c = new Criteria();
+		$c->add(BookPeer::ID, 999901);
+		$c->add(BookPeer::TITLE, 'Upserted Book');
+		$c->add(BookPeer::ISBN, '0000000001');
+		$updateValues = new Criteria();
+		$updateValues->add(BookPeer::TITLE, 'Should not be used');
+
+		$affected = BasePeer::doUpsert($c, $updateValues, $con);
+
+		$this->assertEquals(1, $affected);
+		$this->assertEquals($countBefore + 1, BookQuery::create()->count(), 'a non-conflicting upsert inserts a new row');
+		$book = BookQuery::create()->findPk(999901);
+		$this->assertEquals('Upserted Book', $book->getTitle());
+	}
+
+	public function testUpsertUpdatesOnConflict()
+	{
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
+		if ($db instanceof DBMSSQL || $db instanceof DBOracle) {
+			$this->markTestSkipped();
+		}
+
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
+
+		$c = new Criteria();
+		$c->add(BookPeer::ID, 999902);
+		$c->add(BookPeer::TITLE, 'Original Title');
+		$c->add(BookPeer::ISBN, '0000000002');
+		BasePeer::doUpsert($c, new Criteria(), $con);
+
+		$countBefore = BookQuery::create()->count();
+
+		$c2 = new Criteria();
+		$c2->add(BookPeer::ID, 999902);
+		$c2->add(BookPeer::TITLE, 'Should not be used as the insert value');
+		$c2->add(BookPeer::ISBN, '0000000002');
+		$updateValues = new Criteria();
+		$updateValues->add(BookPeer::TITLE, 'Updated Title');
+
+		$affected = BasePeer::doUpsert($c2, $updateValues, $con);
+
+		$this->assertEquals(1, $affected);
+		$this->assertEquals($countBefore, BookQuery::create()->count(), 'a conflicting upsert does not insert a new row');
+		$book = BookQuery::create()->findPk(999902);
+		$this->assertEquals('Updated Title', $book->getTitle());
+	}
+
+	public function testUpsertColumnExpressionOnConflict()
+	{
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
+		if ($db instanceof DBMSSQL || $db instanceof DBOracle) {
+			$this->markTestSkipped();
+		}
+
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
+
+		$c = new Criteria();
+		$c->add(BookPeer::ID, 999903);
+		$c->add(BookPeer::TITLE, 'Book');
+		$c->add(BookPeer::ISBN, '0000000003');
+		$c->add(BookPeer::PRICE, 10);
+		BasePeer::doUpsert($c, new Criteria(), $con);
+
+		$c2 = new Criteria();
+		$c2->add(BookPeer::ID, 999903);
+		$c2->add(BookPeer::TITLE, 'Book');
+		$c2->add(BookPeer::ISBN, '0000000003');
+		$c2->add(BookPeer::PRICE, 10);
+		$updateValues = new Criteria();
+		$updateValues->add(BookPeer::PRICE, array('raw' => BookPeer::PRICE . ' + ?', 'value' => 5), Criteria::CUSTOM_EQUAL);
+
+		BasePeer::doUpsert($c2, $updateValues, $con);
+
+		$book = BookQuery::create()->findPk(999903);
+		$this->assertEquals(15, $book->getPrice(), 'a ColumnExpression update value on conflict is spliced in as a raw SQL expression');
+	}
+
+	public function testUpsertDoesNothingWhenUpdateValuesEmpty()
+	{
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
+		if ($db instanceof DBMySQL || $db instanceof DBMSSQL || $db instanceof DBOracle) {
+			$this->markTestSkipped();
+		}
+
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
+
+		$c = new Criteria();
+		$c->add(BookPeer::ID, 999904);
+		$c->add(BookPeer::TITLE, 'Original Title');
+		$c->add(BookPeer::ISBN, '0000000004');
+		BasePeer::doUpsert($c, new Criteria(), $con);
+
+		$c2 = new Criteria();
+		$c2->add(BookPeer::ID, 999904);
+		$c2->add(BookPeer::TITLE, 'Should be ignored');
+		$c2->add(BookPeer::ISBN, '0000000004');
+		BasePeer::doUpsert($c2, new Criteria(), $con);
+
+		$book = BookQuery::create()->findPk(999904);
+		$this->assertEquals('Original Title', $book->getTitle(), 'an empty update-values Criteria means DO NOTHING on conflict');
+	}
+
+	public function testUpsertMysqlThrowsWhenUpdateValuesEmpty()
+	{
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
+		if (!($db instanceof DBMySQL)) {
+			$this->markTestSkipped();
+		}
+
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
+		$c = new Criteria();
+		$c->add(BookPeer::ID, 999905);
+		$c->add(BookPeer::TITLE, 'Book');
+		$this->expectException(PropulsionException::class);
+		BasePeer::doUpsert($c, new Criteria(), $con);
+	}
+
+	public function testUpsertUnsupportedOnMssql()
+	{
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
+		if (!($db instanceof DBMSSQL)) {
+			$this->markTestSkipped();
+		}
+
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
+		$c = new Criteria();
+		$c->add(BookPeer::ID, 999906);
+		$c->add(BookPeer::TITLE, 'Book');
+		$this->expectException(PropulsionException::class);
+		BasePeer::doUpsert($c, new Criteria(), $con);
+	}
+
 	public function testCommentDoDelete()
 	{
 		$c = new Criteria();

@@ -3,12 +3,20 @@
 Larger, systemic PHPStan level-9 findings that don't fit the "fix while you
 touch the file" rule in `CLAUDE.md` — each of these is a standalone rewrite,
 not a local fix. Discovered while landing the `PLATFORM_FEATURES.md` batches
-(pessimistic locking, `ColumnExpression`, MSSQL `OUTPUT`); see that history
-for what *was* fixed inline in the same files.
+(pessimistic locking, `ColumnExpression`, MSSQL `OUTPUT`, the upsert
+abstraction); see that history for what *was* fixed inline in the same files
+(e.g. `DBPostgres`/`DBMySQL`/`DBOracle`/`DBMSSQL`/`DBAdapter` were all brought
+to a clean `--level 9` as part of these batches; `DBSQLite`/`Criteria`/
+`ColumnExpression` started and stayed clean).
 
-Baseline at time of writing: `runtime/Lib/Query/ModelCriteria.php` has 66
-level-9 findings, `runtime/Lib/Util/BasePeer.php` has 28. Both are otherwise
-untouched by the batches above — verify current counts with:
+Baseline at time of writing: `runtime/Lib/Query/ModelCriteria.php` has 69
+level-9 findings (was 66 before the upsert batch added 3 more instances of
+the exact same §1/§2 pattern below -- dynamic `call_user_func` dispatch to
+`$this->modelPeerName` and a `constant($this->modelPeerName.'::TABLE_NAME')`
+call in the new `doUpsert()` method, mirroring the pre-existing `doUpdate()`
+code it was modeled on). `runtime/Lib/Util/BasePeer.php` has 28 (unchanged --
+`doUpsert()` and the `buildSetClause()` helper extracted from `doUpdate()`
+came in clean). Verify current counts with:
 
 ```
 vendor/bin/phpstan analyse runtime/Lib/Query/ModelCriteria.php --level 9

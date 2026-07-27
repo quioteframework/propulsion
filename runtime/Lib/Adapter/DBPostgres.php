@@ -108,9 +108,16 @@ class DBPostgres extends DBAdapter
 			throw new PropulsionException("Unable to fetch next sequence ID without sequence name.");
 		}
 		$stmt = $con->query("SELECT nextval(".$con->quote($name).")");
-		$row = $stmt->fetch(PDO::FETCH_NUM);
+		if ($stmt === false) {
+			throw new PropulsionException("Unable to fetch next sequence ID: query failed for sequence \"$name\".");
+		}
 
-		return $row[0];
+		$row = $stmt->fetch(PDO::FETCH_NUM);
+		if (!is_array($row) || !isset($row[0]) || !is_numeric($row[0])) {
+			throw new PropulsionException("Unable to fetch next sequence ID for sequence \"$name\".");
+		}
+
+		return (int) $row[0];
 	}
 
 	/**
@@ -147,6 +154,27 @@ class DBPostgres extends DBAdapter
 		if ( $offset > 0 ) {
 			$sql .= " OFFSET ".$offset;
 		}
+	}
+
+	/**
+	 * @see       DBAdapter::supportsUpsert()
+	 */
+	public function supportsUpsert(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * @see       DBAdapter::getUpsertSql()
+	 */
+	public function getUpsertSql(string $sql, array $conflictColumnNames, string $setClause): string
+	{
+		if (empty($conflictColumnNames)) {
+			throw new PropulsionException('DBPostgres::getUpsertSql() needs at least one conflict-target column');
+		}
+		$sql .= ' ON CONFLICT (' . implode(', ', $conflictColumnNames) . ')';
+		$sql .= $setClause === '' ? ' DO NOTHING' : ' DO UPDATE SET ' . $setClause;
+		return $sql;
 	}
 
 	/**
