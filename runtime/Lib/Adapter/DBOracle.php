@@ -48,6 +48,9 @@ class DBOracle extends DBAdapter
 		if (isset($settings['queries']) && is_array($settings['queries'])) {
 			foreach ($settings['queries'] as $queries) {
 				foreach ((array)$queries as $query) {
+					if (!is_string($query)) {
+						continue;
+					}
 					$con->exec($query);
 				}
 			}
@@ -124,7 +127,7 @@ class DBOracle extends DBAdapter
 	 */
 	public function applyLimit(&$sql, $offset, $limit, $criteria = null): void
 	{
-		if (BasePeer::needsSelectAliases($criteria)) {
+		if ($criteria !== null && BasePeer::needsSelectAliases($criteria)) {
 			$crit = clone $criteria;
 			$selectSql = $this->createSelectSqlPart($crit, $params, true);
 			$sql = $selectSql . substr($sql, strpos($sql, 'FROM') - 1);
@@ -141,6 +144,16 @@ class DBOracle extends DBAdapter
 		} else {
 			$sql .= ' B.PROPEL_ROWNUM <= ' . $limit;
 		}
+	}
+
+	/**
+	 * Oracle has no "SELECT ... FOR SHARE" equivalent; only FOR UPDATE row locking.
+	 *
+	 * @see       DBAdapter::supportsForShare()
+	 */
+	public function supportsForShare(): bool
+	{
+		return false;
 	}
 
 	/**
@@ -165,9 +178,16 @@ class DBOracle extends DBAdapter
 		}
 
 		$stmt = $con->query("SELECT " . $name . ".nextval FROM dual");
-		$row = $stmt->fetch(PDO::FETCH_NUM);
+		if ($stmt === false) {
+			throw new PropulsionException("Unable to fetch next sequence ID: query failed for sequence \"$name\".");
+		}
 
-		return $row[0];
+		$row = $stmt->fetch(PDO::FETCH_NUM);
+		if (!is_array($row) || !isset($row[0]) || !is_numeric($row[0])) {
+			throw new PropulsionException("Unable to fetch next sequence ID for sequence \"$name\".");
+		}
+
+		return (int) $row[0];
 	}
 
 	/**
@@ -233,6 +253,9 @@ class DBOracle extends DBAdapter
 		if ($cMap->isTemporal()) {
 			$value = $this->formatTemporalValue($value, $cMap);
 		} elseif ($cMap->getType() == PropulsionColumnTypes::CLOB_EMU) {
+			if (!is_string($value)) {
+				throw new PropulsionException('DBOracle::bindValue() expected a string value for a CLOB_EMU column');
+			}
 			return $stmt->bindParam(':p'.$position, $value, $cMap->getPdoType(), strlen($value));
 		} elseif (is_resource($value) && $cMap->isLob()) {
 			// we always need to make sure that the stream is rewound, otherwise nothing will

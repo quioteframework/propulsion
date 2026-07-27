@@ -522,6 +522,38 @@ class ModelCriteria extends Criteria
 	}
 
 	/**
+	 * Locks the rows matched by this query with a pessimistic write lock (SELECT ... FOR UPDATE).
+	 * Alias for Criteria::setLockForUpdate()
+	 *
+	 * @param      bool $skipLocked Skip rows already locked by another transaction (SKIP LOCKED) instead of waiting.
+	 * @param      bool $noWait Fail immediately instead of waiting if a row is already locked (NOWAIT).
+	 *
+	 * @return     static The current object, for fluid interface
+	 */
+	public function forUpdate(bool $skipLocked = false, bool $noWait = false) : static
+	{
+		$this->setLockForUpdate($skipLocked, $noWait);
+
+		return $this;
+	}
+
+	/**
+	 * Locks the rows matched by this query with a pessimistic read lock (SELECT ... FOR SHARE).
+	 * Alias for Criteria::setLockForShare()
+	 *
+	 * @param      bool $skipLocked Skip rows already locked by another transaction (SKIP LOCKED) instead of waiting.
+	 * @param      bool $noWait Fail immediately instead of waiting if a row is already locked (NOWAIT).
+	 *
+	 * @return     static The current object, for fluid interface
+	 */
+	public function forShare(bool $skipLocked = false, bool $noWait = false) : static
+	{
+		$this->setLockForShare($skipLocked, $noWait);
+
+		return $this;
+	}
+
+	/**
 	 * Makes the ModelCriteria return a string, array, or PropulsionArrayCollection
 	 * Examples:
 	 *   ArticleQuery::create()->select('Name')->find();

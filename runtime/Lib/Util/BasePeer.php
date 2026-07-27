@@ -880,6 +880,12 @@ class BasePeer
 			$joinClause = $joinClause ? $joinClause : array_map(array($db, 'quoteIdentifierTable'), $joinClause);
 		}
 
+		// let the adapter splice in any per-table locking hints (e.g. MSSQL's
+		// "WITH (UPDLOCK, ROWLOCK)") before the FROM/JOIN clauses are assembled
+		if ($criteria->getLockMode() !== null) {
+			$db->applyLockHints($fromClause, $joinClause, $criteria);
+		}
+
 		// add subQuery to From after adding quotes
 		foreach ($criteria->getSelectQueries() as $subQueryAlias => $subQueryCriteria) {
 			$fromClause[] = '(' . BasePeer::createSelectSql($subQueryCriteria, $params) . ') AS ' . $subQueryAlias;
@@ -907,6 +913,11 @@ class BasePeer
 		// APPLY OFFSET & LIMIT to the query.
 		if ($criteria->getLimit() || $criteria->getOffset()) {
 			$db->applyLimit($sql, $criteria->getOffset(), $criteria->getLimit(), $criteria);
+		}
+
+		// APPLY pessimistic lock clause (e.g. "FOR UPDATE"), if requested.
+		if ($criteria->getLockMode() !== null) {
+			$db->applyLock($sql, $criteria);
 		}
 
 		return $sql;

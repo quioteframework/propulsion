@@ -141,6 +141,12 @@ class Criteria implements \IteratorAggregate
 	/** logical AND operator */
 	const LOGICAL_AND = "AND";
 
+	/** "SELECT ... FOR UPDATE" pessimistic write lock */
+	const LOCK_FOR_UPDATE = "FOR UPDATE";
+
+	/** "SELECT ... FOR SHARE" pessimistic read lock */
+	const LOCK_FOR_SHARE = "FOR SHARE";
+
 	protected bool $ignoreCase = false;
 	protected bool $singleRecord = false;
 
@@ -235,6 +241,18 @@ class Criteria implements \IteratorAggregate
 	protected int $offset = 0;
 
 	/**
+	 * Pessimistic lock mode for this query: null (no lock), Criteria::LOCK_FOR_UPDATE
+	 * or Criteria::LOCK_FOR_SHARE.
+	 */
+	protected ?string $lockMode = null;
+
+	/** Whether the lock should fail immediately instead of blocking (NOWAIT). */
+	protected bool $lockNoWait = false;
+
+	/** Whether locked-but-busy rows should be silently skipped (SKIP LOCKED). */
+	protected bool $lockSkipLocked = false;
+
+	/**
 	 * Comment to add to the SQL query
 	 * @var        string|null
 	 */
@@ -321,6 +339,9 @@ class Criteria implements \IteratorAggregate
 		$this->setDbName($this->originalDbName);
 		$this->offset = 0;
 		$this->limit = 0;
+		$this->lockMode = null;
+		$this->lockNoWait = false;
+		$this->lockSkipLocked = false;
 		$this->blobFlag = null;
 		$this->aliases = array();
 		$this->useTransaction = false;
@@ -1304,6 +1325,85 @@ class Criteria implements \IteratorAggregate
 	}
 
 	/**
+	 * Locks the rows matched by this query with a pessimistic write lock
+	 * (SELECT ... FOR UPDATE), blocking (or skipping/failing, per the flags)
+	 * concurrent writers until the current transaction ends.
+	 *
+	 * @param      bool $skipLocked Skip rows already locked by another transaction (SKIP LOCKED) instead of waiting.
+	 * @param      bool $noWait Fail immediately instead of waiting if a row is already locked (NOWAIT).
+	 * @return     Criteria Modified Criteria object (for fluent API)
+	 */
+	public function setLockForUpdate(bool $skipLocked = false, bool $noWait = false)
+	{
+		if ($skipLocked && $noWait) {
+			throw new PropulsionException('Criteria::setLockForUpdate() cannot combine $skipLocked and $noWait');
+		}
+		$this->lockMode = Criteria::LOCK_FOR_UPDATE;
+		$this->lockSkipLocked = $skipLocked;
+		$this->lockNoWait = $noWait;
+		return $this;
+	}
+
+	/**
+	 * Locks the rows matched by this query with a pessimistic read lock
+	 * (SELECT ... FOR SHARE), blocking (or skipping/failing, per the flags)
+	 * concurrent writers until the current transaction ends.
+	 *
+	 * @param      bool $skipLocked Skip rows already locked by another transaction (SKIP LOCKED) instead of waiting.
+	 * @param      bool $noWait Fail immediately instead of waiting if a row is already locked (NOWAIT).
+	 * @return     Criteria Modified Criteria object (for fluent API)
+	 */
+	public function setLockForShare(bool $skipLocked = false, bool $noWait = false)
+	{
+		if ($skipLocked && $noWait) {
+			throw new PropulsionException('Criteria::setLockForShare() cannot combine $skipLocked and $noWait');
+		}
+		$this->lockMode = Criteria::LOCK_FOR_SHARE;
+		$this->lockSkipLocked = $skipLocked;
+		$this->lockNoWait = $noWait;
+		return $this;
+	}
+
+	/**
+	 * Removes any pessimistic lock previously set via setLockForUpdate()/setLockForShare().
+	 *
+	 * @return     Criteria Modified Criteria object (for fluent API)
+	 */
+	public function clearLock()
+	{
+		$this->lockMode = null;
+		$this->lockSkipLocked = false;
+		$this->lockNoWait = false;
+		return $this;
+	}
+
+	/**
+	 * Get the pessimistic lock mode for this query.
+	 *
+	 * @return     string|null Criteria::LOCK_FOR_UPDATE, Criteria::LOCK_FOR_SHARE, or null if unlocked.
+	 */
+	public function getLockMode(): ?string
+	{
+		return $this->lockMode;
+	}
+
+	/**
+	 * @return     bool Whether the lock (if any) should fail immediately instead of waiting (NOWAIT).
+	 */
+	public function isLockNoWait(): bool
+	{
+		return $this->lockNoWait;
+	}
+
+	/**
+	 * @return     bool Whether the lock (if any) should skip already-locked rows instead of waiting (SKIP LOCKED).
+	 */
+	public function isLockSkipLocked(): bool
+	{
+		return $this->lockSkipLocked;
+	}
+
+	/**
 	 * Add select column.
 	 *
 	 * @param      string $name Name of the select column.
@@ -1570,6 +1670,9 @@ class Criteria implements \IteratorAggregate
 				&& $this->orderByColumns  === $criteria->getOrderByColumns()
 				&& $this->groupByColumns  === $criteria->getGroupByColumns()
 				&& $this->aliases         === $criteria->getAliases()
+				&& $this->lockMode        === $criteria->getLockMode()
+				&& $this->lockNoWait      === $criteria->isLockNoWait()
+				&& $this->lockSkipLocked  === $criteria->isLockSkipLocked()
 			   ) // what about having ??
 			{
 				foreach ($criteria->keys() as $key) {
@@ -1630,6 +1733,13 @@ class Criteria implements \IteratorAggregate
 		$selectModifiers = $criteria->getSelectModifiers();
 		if ($selectModifiers && ! $this->selectModifiers){
 			$this->selectModifiers = $selectModifiers;
+		}
+
+		// merge lock mode
+		if ($criteria->getLockMode() !== null && $this->lockMode === null) {
+			$this->lockMode = $criteria->getLockMode();
+			$this->lockNoWait = $criteria->isLockNoWait();
+			$this->lockSkipLocked = $criteria->isLockSkipLocked();
 		}
 
 		// merge select columns

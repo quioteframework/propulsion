@@ -623,6 +623,33 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$this->assertCriteriaTranslation($c, $sql, $params, 'offset() adds an OFFSET clause');
 	}
 
+	public function testForUpdate()
+	{
+		$c = new ModelCriteria('bookstore', 'Book');
+		$c->forUpdate();
+		$sql = 'SELECT  FROM  FOR UPDATE';
+		$params = array();
+		$this->assertCriteriaTranslation($c, $sql, $params, 'forUpdate() adds a FOR UPDATE clause');
+	}
+
+	public function testForShare()
+	{
+		$c = new ModelCriteria('bookstore', 'Book');
+		$c->forShare();
+		$sql = 'SELECT  FROM  FOR SHARE';
+		$params = array();
+		$this->assertCriteriaTranslation($c, $sql, $params, 'forShare() adds a FOR SHARE clause');
+	}
+
+	public function testForUpdateSkipLocked()
+	{
+		$c = new ModelCriteria('bookstore', 'Book');
+		$c->forUpdate(true);
+		$sql = 'SELECT  FROM  FOR UPDATE SKIP LOCKED';
+		$params = array();
+		$this->assertCriteriaTranslation($c, $sql, $params, 'forUpdate(true) appends SKIP LOCKED');
+	}
+
 	public function testAddJoin()
 	{
 		$c = new ModelCriteria('bookstore', 'Book');

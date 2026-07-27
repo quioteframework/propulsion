@@ -73,6 +73,9 @@ abstract class DBAdapter
 		$adapterClass = isset(self::$adapters[$driver]) ? self::$adapters[$driver] : null;
 		if ($adapterClass !== null) {
 			$a = new $adapterClass();
+			if (!$a instanceof DBAdapter) {
+				throw new PropulsionException("Configured adapter class \"$adapterClass\" is not a " . DBAdapter::class);
+			}
 			return $a;
 		} else {
 			throw new PropulsionException("Unsupported Propulsion driver: " . $driver . ": Check your configuration file");
@@ -106,12 +109,17 @@ abstract class DBAdapter
 	 */
 	public function initConnection(PDO $con, array $settings): void
 	{
-		if (isset($settings['charset']['value'])) {
+		if (isset($settings['charset']) && is_array($settings['charset'])
+			&& isset($settings['charset']['value']) && is_string($settings['charset']['value'])
+		) {
 			$this->setCharset($con, $settings['charset']['value']);
 		}
 		if (isset($settings['queries']) && is_array($settings['queries'])) {
 			foreach ($settings['queries'] as $queries) {
 				foreach ((array)$queries as $query) {
+					if (!is_string($query)) {
+						continue;
+					}
 					$con->exec($query);
 				}
 			}
@@ -276,11 +284,13 @@ abstract class DBAdapter
 	 * @param     mixed      $value  The temporal value
 	 * @param     ColumnMap  $cMap
 	 *
-	 * @return    string  The formatted temporal value
+	 * @return    mixed  The formatted (string) temporal value, or the original value unchanged
+	 *                   if it could not be parsed as a temporal value.
 	 */
 	protected function formatTemporalValue($value, ColumnMap $cMap)
 	{
-		if ($dt = PropulsionDateTime::newInstance($value)) {
+		$dt = PropulsionDateTime::newInstance($value);
+		if ($dt instanceof \DateTimeInterface) {
 			switch($cMap->getType()) {
 			case PropulsionColumnTypes::TIMESTAMP:
 			case PropulsionColumnTypes::BU_TIMESTAMP:
@@ -365,6 +375,105 @@ abstract class DBAdapter
 	 * @param     Criteria $criteria  Optional Criteria object, used by some adapters (e.g. DBOracle) to build the LIMIT clause.
 	 */
 	public abstract function applyLimit(&$sql, $offset, $limit, $criteria = null): void;
+
+	/**
+	 * Whether this platform supports SELECT ... FOR UPDATE.
+	 *
+	 * @return    boolean
+	 */
+	public function supportsForUpdate(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * Whether this platform supports SELECT ... FOR SHARE (a pessimistic read lock,
+	 * as opposed to FOR UPDATE's write lock).
+	 *
+	 * @return    boolean
+	 */
+	public function supportsForShare(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * Whether this platform can fail immediately, instead of blocking, when a row
+	 * matched by a locking SELECT is already locked (NOWAIT).
+	 *
+	 * @return    boolean
+	 */
+	public function supportsNoWait(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * Whether this platform can silently skip rows already locked by another
+	 * transaction, instead of blocking, in a locking SELECT (SKIP LOCKED).
+	 *
+	 * @return    boolean
+	 */
+	public function supportsSkipLocked(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * Appends the pessimistic-locking clause (if any) requested on $criteria to $sql.
+	 * Called by BasePeer::createSelectSql() after LIMIT/OFFSET have already been applied.
+	 *
+	 * The default implementation appends a trailing "FOR UPDATE"/"FOR SHARE" clause,
+	 * which is correct for Postgres, MySQL/MariaDB, and Oracle. Platforms that express
+	 * row locking differently (e.g. MSSQL's table hints) must override this method.
+	 *
+	 * @param     string   $sql
+	 * @param     Criteria $criteria
+	 *
+	 * @throws    PropulsionException If the requested lock mode, or NOWAIT/SKIP LOCKED, is unsupported.
+	 */
+	public function applyLock(string &$sql, Criteria $criteria): void
+	{
+		$lockMode = $criteria->getLockMode();
+		if ($lockMode === null) {
+			return;
+		}
+
+		if ($lockMode === Criteria::LOCK_FOR_UPDATE && !$this->supportsForUpdate()) {
+			throw new PropulsionException(static::class . ' does not support SELECT ... FOR UPDATE');
+		}
+		if ($lockMode === Criteria::LOCK_FOR_SHARE && !$this->supportsForShare()) {
+			throw new PropulsionException(static::class . ' does not support SELECT ... FOR SHARE');
+		}
+		if ($criteria->isLockNoWait() && !$this->supportsNoWait()) {
+			throw new PropulsionException(static::class . ' does not support NOWAIT locking');
+		}
+		if ($criteria->isLockSkipLocked() && !$this->supportsSkipLocked()) {
+			throw new PropulsionException(static::class . ' does not support SKIP LOCKED');
+		}
+
+		$sql .= ' ' . $lockMode;
+		if ($criteria->isLockNoWait()) {
+			$sql .= ' NOWAIT';
+		} elseif ($criteria->isLockSkipLocked()) {
+			$sql .= ' SKIP LOCKED';
+		}
+	}
+
+	/**
+	 * Applies any per-table locking hints (as opposed to a trailing lock clause) to the
+	 * FROM/JOIN clause fragments built by BasePeer::createSelectSql(), before they are
+	 * assembled into the final SQL string. The default implementation is a no-op, since
+	 * most platforms use a trailing clause (see applyLock()); MSSQL overrides this to
+	 * splice in "WITH (UPDLOCK, ROWLOCK)"-style table hints instead.
+	 *
+	 * @param     array<int,string|null> $fromClause
+	 * @param     array<int,string|null> $joinClause
+	 * @param     Criteria               $criteria
+	 */
+	public function applyLockHints(array &$fromClause, array &$joinClause, Criteria $criteria): void
+	{
+	}
 
 	/**
 	 * Gets the SQL string that this adapter uses for getting a random number.
@@ -501,7 +610,7 @@ abstract class DBAdapter
 		// add the select columns back
 		foreach ($selectColumns as $clause) {
 			// Generate a unique alias
-			$baseAlias = preg_replace('/\W/', '_', $clause);
+			$baseAlias = preg_replace('/\W/', '_', $clause) ?? $clause;
 			$alias = $baseAlias;
 			// If it already exists, add a unique suffix
 			$i = 0;
@@ -556,6 +665,9 @@ abstract class DBAdapter
 			if (null === $tableName) {
 				$stmt->bindValue($parameter, $value);
 				continue;
+			}
+			if (!is_string($tableName) || !is_string($param['column'])) {
+				throw new PropulsionException('DBAdapter::bindValues() expected param table/column names to be strings');
 			}
 			$cMap = $dbMap->getTable($tableName)->getColumn($param['column']);
 			$this->bindValue($stmt, $parameter, $value, $cMap, $position);

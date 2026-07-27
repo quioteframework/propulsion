@@ -191,7 +191,8 @@ class DBMSSQL extends DBAdapter
 			$orders = explode(',', $order);
 
 			for($i = 0; $i < count($orders); $i ++) {
-				$orderArr[trim(preg_replace('/\s+(ASC|DESC)$/i', '', $orders[$i]))] = array(
+				$normalizedOrder = preg_replace('/\s+(ASC|DESC)$/i', '', $orders[$i]) ?? $orders[$i];
+				$orderArr[trim($normalizedOrder)] = array(
 					'sort' => (stripos($orders[$i], ' DESC') !== false) ? 'DESC' : 'ASC',
 					'key' => $i
 				);
@@ -265,6 +266,60 @@ class DBMSSQL extends DBAdapter
 	}
 
 	/**
+	 * MSSQL has no NOWAIT table hint (the closest equivalent, SET LOCK_TIMEOUT, is
+	 * session-level rather than per-query), so it isn't supported here.
+	 *
+	 * @see       DBAdapter::supportsNoWait()
+	 */
+	public function supportsNoWait(): bool
+	{
+		return false;
+	}
+
+	/**
+	 * MSSQL expresses locking via table hints (see applyLockHints()), not a trailing
+	 * clause, so the base implementation must not append one here. NOWAIT is validated
+	 * against here since it has no table-hint equivalent.
+	 *
+	 * @see       DBAdapter::applyLock()
+	 */
+	public function applyLock(string &$sql, Criteria $criteria): void
+	{
+		if ($criteria->isLockNoWait()) {
+			throw new PropulsionException('DBMSSQL does not support NOWAIT locking');
+		}
+		// Locking is expressed via table hints, spliced in by applyLockHints(); nothing to append here.
+	}
+
+	/**
+	 * Splices SQL Server locking table hints ("WITH (UPDLOCK, ROWLOCK)" for FOR UPDATE,
+	 * "WITH (HOLDLOCK, ROWLOCK)" for FOR SHARE, plus READPAST for SKIP LOCKED) onto every
+	 * table referenced in the FROM/JOIN clauses.
+	 *
+	 * @see       DBAdapter::applyLockHints()
+	 *
+	 * @param     array<int,string|null> $fromClause
+	 * @param     array<int,string|null> $joinClause
+	 * @param     Criteria               $criteria
+	 */
+	public function applyLockHints(array &$fromClause, array &$joinClause, Criteria $criteria): void
+	{
+		$hints = array($criteria->getLockMode() === Criteria::LOCK_FOR_SHARE ? 'HOLDLOCK' : 'UPDLOCK', 'ROWLOCK');
+		if ($criteria->isLockSkipLocked()) {
+			$hints[] = 'READPAST';
+		}
+		$hintSql = ' WITH (' . implode(', ', $hints) . ')';
+
+		$fromClause = array_map(function (?string $table) use ($hintSql): ?string {
+			return $table === null ? $table : $table . $hintSql;
+		}, $fromClause);
+
+		$joinClause = array_map(function (?string $join) use ($hintSql): ?string {
+			return $join === null ? $join : preg_replace('/\sON\s/i', $hintSql . ' ON ', $join, 1);
+		}, $joinClause);
+	}
+
+	/**
 	 * @see       parent::cleanupSQL()
 	 *
 	 * @param     string       $sql
@@ -277,8 +332,12 @@ class DBMSSQL extends DBAdapter
 		$i = 1;
 		$paramCols = array();
 		foreach ($params as $param) {
-			if (null !== $param['table']) {
-				$column = $dbMap->getTable($param['table'])->getColumn($param['column']);
+			$table = $param['table'];
+			if (null !== $table) {
+				if (!is_string($table) || !is_string($param['column'])) {
+					throw new PropulsionException('DBMSSQL::cleanupSQL() expected param table/column names to be strings');
+				}
+				$column = $dbMap->getTable($table)->getColumn($param['column']);
 				/* MSSQL pdo_dblib and pdo_mssql blob values must be converted to hex and then the hex added
 				 * to the query string directly.  If it goes through PDOStatement::bindValue quotes will cause
 				 * an error with the insert or update.
@@ -288,6 +347,9 @@ class DBMSSQL extends DBAdapter
 					// get written to database.
 					rewind($param['value']);
 					$hexArr = unpack('H*hex', stream_get_contents($param['value']));
+					if ($hexArr === false) {
+						throw new PropulsionException('DBMSSQL::cleanupSQL() failed to hex-encode a blob value');
+					}
 					$sql = str_replace(":p$i", '0x' . $hexArr['hex'], $sql);
 					unset($hexArr);
 					fclose($param['value']);

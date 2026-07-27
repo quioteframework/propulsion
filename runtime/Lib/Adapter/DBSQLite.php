@@ -121,6 +121,25 @@ class DBSQLite extends DBAdapter
 	}
 
 	/**
+	 * SQLite has no row-level locking (the whole database file is locked at the
+	 * connection/transaction level), so SELECT ... FOR UPDATE has no equivalent here.
+	 *
+	 * @see       DBAdapter::supportsForUpdate()
+	 */
+	public function supportsForUpdate(): bool
+	{
+		return false;
+	}
+
+	/**
+	 * @see       DBAdapter::supportsForShare()
+	 */
+	public function supportsForShare(): bool
+	{
+		return false;
+	}
+
+	/**
 	 * @param     string  $seed
 	 * @return    string
 	 */

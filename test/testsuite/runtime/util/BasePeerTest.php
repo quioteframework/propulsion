@@ -309,6 +309,151 @@ class BasePeerTest extends BookstoreTestBase
 		$this->assertEquals($expected, BasePeer::createSelectSQL($c, $params), 'Criteria::setComment() adds a comment to select queries');
 	}
 
+	public function testForUpdateDoSelect()
+	{
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
+		if ($db instanceof DBMSSQL || $db instanceof DBSQLite) {
+			$this->markTestSkipped();
+		}
+
+		$c = new Criteria();
+		$c->addSelectColumn(BookPeer::ID);
+		$c->setLockForUpdate();
+		$expected = 'SELECT book.ID FROM book FOR UPDATE';
+		$params = array();
+		$this->assertEquals($expected, BasePeer::createSelectSQL($c, $params), 'Criteria::setLockForUpdate() adds a trailing FOR UPDATE clause');
+	}
+
+	public function testForUpdateSkipLockedDoSelect()
+	{
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
+		if ($db instanceof DBMSSQL || $db instanceof DBSQLite) {
+			$this->markTestSkipped();
+		}
+
+		$c = new Criteria();
+		$c->addSelectColumn(BookPeer::ID);
+		$c->setLockForUpdate(true);
+		$expected = 'SELECT book.ID FROM book FOR UPDATE SKIP LOCKED';
+		$params = array();
+		$this->assertEquals($expected, BasePeer::createSelectSQL($c, $params), 'Criteria::setLockForUpdate(true) appends SKIP LOCKED');
+	}
+
+	public function testForShareDoSelect()
+	{
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
+		if ($db instanceof DBMSSQL || $db instanceof DBSQLite || $db instanceof DBOracle) {
+			$this->markTestSkipped();
+		}
+
+		$c = new Criteria();
+		$c->addSelectColumn(BookPeer::ID);
+		$c->setLockForShare();
+		$expected = 'SELECT book.ID FROM book FOR SHARE';
+		$params = array();
+		$this->assertEquals($expected, BasePeer::createSelectSQL($c, $params), 'Criteria::setLockForShare() adds a trailing FOR SHARE clause');
+	}
+
+	public function testForUpdateWithLimitDoSelect()
+	{
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
+		if ($db instanceof DBMSSQL || $db instanceof DBSQLite) {
+			$this->markTestSkipped();
+		}
+
+		$c = new Criteria();
+		$c->addSelectColumn(BookPeer::ID);
+		$c->setLimit(10);
+		$c->setLockForUpdate();
+		$params = array();
+		$sql = BasePeer::createSelectSQL($c, $params);
+		$this->assertStringEndsWith('FOR UPDATE', $sql, 'the lock clause trails LIMIT/OFFSET');
+	}
+
+	public function testForUpdateUnsupportedOnSqlite()
+	{
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
+		if (!($db instanceof DBSQLite)) {
+			$this->markTestSkipped();
+		}
+
+		$c = new Criteria();
+		$c->addSelectColumn(BookPeer::ID);
+		$c->setLockForUpdate();
+		$params = array();
+		$this->expectException(PropulsionException::class);
+		BasePeer::createSelectSQL($c, $params);
+	}
+
+	public function testForShareUnsupportedOnOracle()
+	{
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
+		if (!($db instanceof DBOracle)) {
+			$this->markTestSkipped();
+		}
+
+		$c = new Criteria();
+		$c->addSelectColumn(BookPeer::ID);
+		$c->setLockForShare();
+		$params = array();
+		$this->expectException(PropulsionException::class);
+		BasePeer::createSelectSQL($c, $params);
+	}
+
+	public function testMssqlForUpdateAddsTableHints()
+	{
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
+		if (!($db instanceof DBMSSQL)) {
+			$this->markTestSkipped();
+		}
+
+		$c = new Criteria(BookPeer::DATABASE_NAME);
+		$c->addSelectColumn(BookPeer::ID);
+		$c->addSelectColumn(PublisherPeer::NAME);
+		$c->addJoin(BookPeer::PUBLISHER_ID, PublisherPeer::ID, Criteria::LEFT_JOIN);
+		$c->setLockForUpdate();
+
+		$params = array();
+		$sql = BasePeer::createSelectSql($c, $params);
+
+		$expectedSql = "SELECT book.ID, publisher.NAME FROM book WITH (UPDLOCK, ROWLOCK) LEFT JOIN publisher WITH (UPDLOCK, ROWLOCK) ON (book.PUBLISHER_ID=publisher.ID)";
+		$this->assertEquals($expectedSql, $sql);
+	}
+
+	public function testMssqlForShareAddsHoldlockHint()
+	{
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
+		if (!($db instanceof DBMSSQL)) {
+			$this->markTestSkipped();
+		}
+
+		$c = new Criteria(BookPeer::DATABASE_NAME);
+		$c->addSelectColumn(BookPeer::ID);
+		$c->setLockForShare();
+
+		$params = array();
+		$sql = BasePeer::createSelectSql($c, $params);
+
+		$expectedSql = "SELECT book.ID FROM book WITH (HOLDLOCK, ROWLOCK)";
+		$this->assertEquals($expectedSql, $sql);
+	}
+
+	public function testMssqlNoWaitUnsupported()
+	{
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
+		if (!($db instanceof DBMSSQL)) {
+			$this->markTestSkipped();
+		}
+
+		$c = new Criteria(BookPeer::DATABASE_NAME);
+		$c->addSelectColumn(BookPeer::ID);
+		$c->setLockForUpdate(false, true);
+
+		$params = array();
+		$this->expectException(PropulsionException::class);
+		BasePeer::createSelectSql($c, $params);
+	}
+
 	public function testCommentDoUpdate()
 	{
 		$c1 = new Criteria();

@@ -1043,6 +1043,73 @@ class CriteriaTest extends \PHPUnit\Framework\TestCase
 		$this->assertEquals(1, $c->getLimit(), 'Limit is set by setLimit');
 		$this->assertSame($c, $c2, 'setLimit() returns the current Criteria');
 	}
+
+	public function testLockDefaults()
+	{
+		$c = new Criteria();
+		$this->assertNull($c->getLockMode(), 'lockMode is null by default');
+		$this->assertFalse($c->isLockNoWait(), 'lockNoWait is false by default');
+		$this->assertFalse($c->isLockSkipLocked(), 'lockSkipLocked is false by default');
+	}
+
+	public function testSetLockForUpdate()
+	{
+		$c = new Criteria();
+		$c2 = $c->setLockForUpdate();
+		$this->assertEquals(Criteria::LOCK_FOR_UPDATE, $c->getLockMode(), 'setLockForUpdate() sets the lock mode');
+		$this->assertFalse($c->isLockNoWait());
+		$this->assertFalse($c->isLockSkipLocked());
+		$this->assertSame($c, $c2, 'setLockForUpdate() returns the current Criteria');
+	}
+
+	public function testSetLockForShare()
+	{
+		$c = new Criteria();
+		$c->setLockForShare();
+		$this->assertEquals(Criteria::LOCK_FOR_SHARE, $c->getLockMode(), 'setLockForShare() sets the lock mode');
+	}
+
+	public function testSetLockForUpdateSkipLocked()
+	{
+		$c = new Criteria();
+		$c->setLockForUpdate(true);
+		$this->assertTrue($c->isLockSkipLocked());
+		$this->assertFalse($c->isLockNoWait());
+	}
+
+	public function testSetLockForUpdateNoWait()
+	{
+		$c = new Criteria();
+		$c->setLockForUpdate(false, true);
+		$this->assertFalse($c->isLockSkipLocked());
+		$this->assertTrue($c->isLockNoWait());
+	}
+
+	public function testSetLockForUpdateRejectsSkipLockedAndNoWaitTogether()
+	{
+		$c = new Criteria();
+		$this->expectException(PropulsionException::class);
+		$c->setLockForUpdate(true, true);
+	}
+
+	public function testClearLock()
+	{
+		$c = new Criteria();
+		$c->setLockForUpdate(true);
+		$c2 = $c->clearLock();
+		$this->assertNull($c->getLockMode());
+		$this->assertFalse($c->isLockSkipLocked());
+		$this->assertSame($c, $c2, 'clearLock() returns the current Criteria');
+	}
+
+	public function testCriteriaClearResetsLock()
+	{
+		$c = new Criteria();
+		$c->setLockForUpdate(true);
+		$c->clear();
+		$this->assertNull($c->getLockMode(), 'clear() resets the lock mode');
+		$this->assertFalse($c->isLockSkipLocked(), 'clear() resets lockSkipLocked');
+	}
 }
 
 class CriteriaForClearTest extends Criteria
