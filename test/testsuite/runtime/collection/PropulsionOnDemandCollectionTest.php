@@ -28,14 +28,37 @@ class PropulsionOnDemandCollectionTest extends BookstoreEmptyTestBase
 
 	protected function tearDown(): void
 	{
+		// Several tests here never fully iterate $this->books (only check
+		// count()/offsetExists()/etc), leaving its underlying PDOStatement's
+		// result set open. Relying on PHP's own GC to eventually destruct it
+		// isn't deterministic enough for FreeTDS/pdo_dblib (MSSQL, no MARS
+		// support) -- a later test's own setUp() can trip "Attempt to
+		// initiate a new Adaptive Server operation with results pending"
+		// before that happens. Close it explicitly instead.
+		if ($this->books instanceof PropulsionOnDemandCollection) {
+			$this->books->getIterator()->closeCursor();
+		}
 		parent::tearDown();
 		Propulsion::enableInstancePooling();
+	}
+
+	/**
+	 * FreeTDS/pdo_dblib (MSSQL) doesn't support PDOStatement::rowCount() for a
+	 * SELECT -- always -1 -- unlike Postgres/MySQL/SQLite, which is exactly
+	 * the portability caveat PropulsionOnDemandIterator::count()'s own
+	 * docblock warns about ("inaccurate for most databases"). Not fixable
+	 * without buffering every row up front, which defeats the point of an
+	 * on-demand collection.
+	 */
+	private function expectedRowCount(int $actual): int
+	{
+		return Propulsion::getDB(BookPeer::DATABASE_NAME) instanceof DBMSSQL ? -1 : $actual;
 	}
 
 	public function testSetFormatter()
 	{
 		$this->assertTrue($this->books instanceof PropulsionOnDemandCollection);
-		$this->assertEquals(4, count($this->books));
+		$this->assertEquals($this->expectedRowCount(4), count($this->books));
 	}
 
 	public function testKeys()

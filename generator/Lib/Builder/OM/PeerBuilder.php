@@ -875,6 +875,24 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		} elseif (\$values instanceof ".$this->getObjectClassname().") { // \$values is ".$this->getObjectClassname()." object
 			\$criteria = \$values->buildCriteria(); // gets full criteria
 			\$selectCriteria = \$values->buildPkeyCriteria(); // gets criteria w/ primary key(s)
+			// An auto-increment primary key column identifies *which* row this
+			// is (already in \$selectCriteria's WHERE), not a value actually
+			// being changed -- buildCriteria() includes it anyway whenever the
+			// object was hydrated via a fresh setId()-style call (e.g.
+			// fromArray()) rather than loaded from the database, even though
+			// the value doesn't really differ. Postgres/MySQL/SQLite tolerate a
+			// redundant \"SET id = id\"; MSSQL's IDENTITY columns reject it
+			// outright (\"Cannot update identity column\"). A non-auto-increment
+			// primary key (e.g. a concrete-table-inheritance child sharing its
+			// parent's id) is left alone -- there it can be the only genuinely
+			// changed value.";
+			foreach ($table->getPrimaryKey() as $col) {
+				if ($col->isAutoIncrement()) {
+					$script .= "
+			\$criteria->remove(".$this->getColumnConstant($col).");";
+				}
+			}
+			$script .= "
 		} else {
 			throw new PropulsionException('".$this->getPeerClassname()."::doUpdateThis() expects a Criteria or ".$this->getObjectClassname()." instance, got ' . (is_object(\$values) ? get_class(\$values) : gettype(\$values)));
 		}

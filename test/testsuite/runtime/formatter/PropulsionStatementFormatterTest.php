@@ -16,6 +16,15 @@
  */
 class PropulsionStatementFormatterTest extends BookstoreEmptyTestBase
 {
+	/**
+	 * FreeTDS/pdo_dblib (MSSQL) doesn't support PDOStatement::rowCount() for a
+	 * SELECT -- always -1 -- unlike Postgres/MySQL/SQLite.
+	 */
+	private function expectedRowCount(int $actual): int
+	{
+		return Propulsion::getDB(BookPeer::DATABASE_NAME) instanceof DBMSSQL ? -1 : $actual;
+	}
+
 	protected function setUp(): void
 	{
 		parent::setUp();
@@ -46,7 +55,7 @@ class PropulsionStatementFormatterTest extends BookstoreEmptyTestBase
 		$books = $formatter->format($stmt);
 
 		$this->assertTrue($books instanceof PDOStatement, 'PropulsionStatementFormatter::format() returns a PDOStatement');
-		$this->assertEquals(4, $books->rowCount(), 'PropulsionStatementFormatter::format() returns as many rows as the results in the query');
+		$this->assertEquals($this->expectedRowCount(4), $books->rowCount(), 'PropulsionStatementFormatter::format() returns as many rows as the results in the query');
 		while ($book = $books->fetch()) {
 			$this->assertTrue(is_array($book), 'PropulsionStatementFormatter::format() returns a statement that can be fetched');
 		}
@@ -62,7 +71,7 @@ class PropulsionStatementFormatterTest extends BookstoreEmptyTestBase
 		$books = $formatter->format($stmt);
 
 		$this->assertTrue($books instanceof PDOStatement, 'PropulsionStatementFormatter::format() returns a PDOStatement');
-		$this->assertEquals(1, $books->rowCount(), 'PropulsionStatementFormatter::format() returns as many rows as the results in the query');
+		$this->assertEquals($this->expectedRowCount(1), $books->rowCount(), 'PropulsionStatementFormatter::format() returns as many rows as the results in the query');
 		$book = $books->fetch(PDO::FETCH_ASSOC);
 		$this->assertEquals('Quicksilver', $book['title'], 'PropulsionStatementFormatter::format() returns the rows matching the query');
 	}

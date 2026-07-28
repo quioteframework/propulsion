@@ -41,6 +41,15 @@ class PropulsionOnDemandFormatter extends PropulsionObjectFormatter
 	{
 		$this->checkInit();
 		if ($this->isWithOneToMany()) {
+			// $stmt was already executed by the caller before format() ever runs
+			// -- since it's never getting wrapped in a PropulsionOnDemandIterator
+			// (the only thing that would otherwise closeCursor() it), it must be
+			// closed explicitly here. Left open, FreeTDS/pdo_dblib (MSSQL, no
+			// MARS support) can fail a later, unrelated statement on the same
+			// connection with "Attempt to initiate a new Adaptive Server
+			// operation with results pending" before PHP's GC gets around to
+			// destructing it.
+			$stmt->closeCursor();
 			throw new PropulsionException('PropulsionOnDemandFormatter cannot hydrate related objects using a one-to-many relationship. Try removing with() from your query.');
 		}
 		$class = $this->collectionName;

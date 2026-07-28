@@ -124,8 +124,20 @@ class PropulsionOnDemandIterator implements Iterator
 		}
 	}
 
+	/**
+	 * A caller that never fully iterates this (e.g. only checks count()/
+	 * offsetExists(), or reads a handful of rows and stops) leaves $stmt's
+	 * result set open otherwise -- next() only closes it on natural end-of-
+	 * stream. FreeTDS/pdo_dblib (MSSQL) has no MARS support, so relying on the
+	 * statement's own destructor to release it eventually isn't good enough:
+	 * the next statement on this connection can fail with "Attempt to
+	 * initiate a new Adaptive Server operation with results pending" before
+	 * PHP gets around to it. closeCursor() is a safe no-op if next() already
+	 * closed it.
+	 */
 	public function __destruct()
 	{
+		$this->closeCursor();
 		$this->restoreInstancePooling();
 	}
 
