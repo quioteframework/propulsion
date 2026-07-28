@@ -746,6 +746,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 			\$stmt->closeCursor();
 			return \$root;
 		}
+		\$stmt->closeCursor();
 		return null;
 	}
 ";
@@ -889,6 +890,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 		}
 		\$stmt->execute();
 		\$row = \$stmt->fetch();
+		\$stmt->closeCursor();
 		return (int) \$row['lvl'];
 	}
 ";

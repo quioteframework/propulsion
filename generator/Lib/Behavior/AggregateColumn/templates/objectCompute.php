@@ -13,5 +13,10 @@ public function compute<?php echo $column->getPhpName() ?>(PropulsionPDO $con)
   $stmt->bindValue(':p<?php echo $key ?>', $this->get<?php echo $binding ?>());
 <?php endforeach; ?>
 	$stmt->execute();
-	return $stmt->fetchColumn();
+	$result = $stmt->fetchColumn();
+	// FreeTDS/pdo_dblib (MSSQL) requires the cursor closed after a single
+	// scalar fetch, or the next statement on this connection fails with
+	// "results pending" -- harmless no-op on every other platform.
+	$stmt->closeCursor();
+	return $result;
 }

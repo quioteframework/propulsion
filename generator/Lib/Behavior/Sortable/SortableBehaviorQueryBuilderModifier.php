@@ -240,8 +240,12 @@ public function getMaxRank(" . ($useScope ? "\$scope = null, " : "") . "?Propuls
 		}
 		$script .= "
 	\$stmt = \$this->getSelectStatement(\$con);
+	\$rank = \$stmt->fetchColumn();
+	// See SortableBehaviorPeerBuilderModifier::addGetMaxRank(): FreeTDS/pdo_dblib
+	// (MSSQL) requires the cursor closed after a single scalar fetch.
+	\$stmt->closeCursor();
 
-	return \$stmt->fetchColumn();
+	return \$rank;
 }
 ";
 	}

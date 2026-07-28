@@ -518,9 +518,16 @@ public static function fixLevels(" . ($useScope ? "\$scope, " : ""). "?Propulsio
 		}
 
 		$script .= "
+	// Buffer every row (and close the cursor) before the loop below, rather
+	// than iterating \$stmt lazily -- the loop body calls \$obj->save(\$con) on
+	// the very same connection, which FreeTDS/pdo_dblib (MSSQL) can't do while
+	// a SELECT's result set is still open (no MARS support): \"Attempt to
+	// initiate a new Adaptive Server operation with results pending\".
+	\$rows = \$stmt->fetchAll(PDO::FETCH_NUM);
+	\$stmt->closeCursor();
+
 	\$level = null;
-	// iterate over the statement
-	while (\$row = \$stmt->fetch(PDO::FETCH_NUM)) {
+	foreach (\$rows as \$row) {
 
 		// hydrate object
 		\$key = $peerClassname::getPrimaryKeyHashFromRow(\$row, 0);
@@ -563,7 +570,6 @@ public static function fixLevels(" . ($useScope ? "\$scope, " : ""). "?Propulsio
 			\$obj->save(\$con);
 		}
 	}
-	\$stmt->closeCursor();
 }
 ";
 	}

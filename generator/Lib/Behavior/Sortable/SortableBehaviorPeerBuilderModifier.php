@@ -135,8 +135,16 @@ public static function getMaxRank(" . ($useScope ? "\$scope = null, " : "") . "?
 		}
 		$script .= "
 	\$stmt = {$this->peerClassname}::doSelectStmt(\$c, \$con);
+	\$rank = \$stmt->fetchColumn();
+	// FreeTDS/pdo_dblib (MSSQL) has no MARS support: a statement whose result
+	// set isn't explicitly closed blocks any further statement on the same
+	// connection with \"Attempt to initiate a new Adaptive Server operation
+	// with results pending\" -- harmless no-op on every other platform, but
+	// required here since this is a single scalar fetch with nothing left to
+	// read.
+	\$stmt->closeCursor();
 
-	return \$stmt->fetchColumn();
+	return \$rank;
 }
 ";
 	}
