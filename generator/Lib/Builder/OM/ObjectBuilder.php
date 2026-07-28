@@ -2677,6 +2677,11 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	public function buildCriteria(): Criteria
 	{
 		\$criteria = new Criteria(" . $this->getPeerClassname() . "::DATABASE_NAME);
+		// So BasePeer::doInsert() can still identify the table even if every
+		// column below turns out to be unmodified (e.g. a new object whose
+		// values all equal their own column defaults) and the Criteria ends up
+		// with zero columns at all.
+		\$criteria->setPrimaryTableName(" . $this->getPeerClassname() . "::TABLE_NAME);
 ";
 		foreach ($table->getColumns() as $col) {
 			$cptype = $col->getPhpType();

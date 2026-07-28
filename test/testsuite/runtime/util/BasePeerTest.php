@@ -219,6 +219,30 @@ class BasePeerTest extends BookstoreTestBase
 	}
 
 	/**
+	 * A new object whose every column already equals its own schema default
+	 * (e.g. Publisher's `name` column defaults to 'Penguin', and setName('Penguin')
+	 * is therefore a no-op against the constructor's own default value) can end up
+	 * with a Criteria containing zero modified columns at all -- on a platform
+	 * where DBAdapter::supportsInsertNullPk() is false (currently just MSSQL), the
+	 * generated code also strips the auto-increment PK's own (null) entry out of
+	 * that already-empty Criteria, since passing an explicit NULL for an IDENTITY
+	 * column isn't valid there. BasePeer::doInsert() must still be able to insert
+	 * the row (relying entirely on server-side column defaults) rather than throw
+	 * "nothing specified to insert" for lack of any column to determine the table
+	 * name from -- see Criteria::setPrimaryTableName()/getPrimaryTableName() and
+	 * DBAdapter::getEmptyInsertSql().
+	 */
+	public function testDoInsertWithAllDefaultValues()
+	{
+		$publisher = new Publisher();
+		$publisher->setName('Penguin');
+		$this->assertSame('Penguin', $publisher->getName());
+		$publisher->save();
+		$this->assertNotNull($publisher->getId());
+		$this->assertSame('Penguin', PublisherPeer::retrieveByPK($publisher->getId())->getName());
+	}
+
+	/**
 	 * @expectedException PropulsionException
 	 */
 	public function testDoDeleteNoCondition()

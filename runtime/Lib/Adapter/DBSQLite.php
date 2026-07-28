@@ -144,6 +144,15 @@ class DBSQLite extends DBAdapter
 	}
 
 	/**
+	 * @see       DBAdapter::getEmptyInsertSql()
+	 */
+	public function getEmptyInsertSql(string $tableName, ?string $idColumnName): string
+	{
+		$sql = 'INSERT INTO ' . $tableName . ' DEFAULT VALUES';
+		return $idColumnName === null ? $sql : $sql . ' RETURNING ' . $idColumnName;
+	}
+
+	/**
 	 * @see       DBAdapter::extractInsertedId()
 	 */
 	public function extractInsertedId(\PDOStatement $stmt): mixed

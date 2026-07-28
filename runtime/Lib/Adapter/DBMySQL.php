@@ -149,6 +149,20 @@ class DBMySQL extends DBAdapter
 	}
 
 	/**
+	 * MySQL has no "DEFAULT VALUES" syntax; the equivalent is an explicit empty
+	 * column/value list.
+	 *
+	 * @see       DBAdapter::getEmptyInsertSql()
+	 */
+	public function getEmptyInsertSql(string $tableName, ?string $idColumnName): string
+	{
+		if ($idColumnName !== null) {
+			throw new PropulsionException(static::class . ' does not support folding id retrieval into an empty INSERT');
+		}
+		return 'INSERT INTO ' . $tableName . ' () VALUES ()';
+	}
+
+	/**
 	 * @see       DBAdapter::applyLimit()
 	 *
 	 * @param     string   $sql

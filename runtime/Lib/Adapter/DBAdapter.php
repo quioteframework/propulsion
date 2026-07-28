@@ -308,6 +308,29 @@ abstract class DBAdapter
 	}
 
 	/**
+	 * Builds a complete INSERT statement for a row with no columns to set at all
+	 * (every column either has no value or -- for an auto-increment primary key on
+	 * a platform where supportsInsertNullPk() is false -- was stripped out of the
+	 * Criteria specifically because an explicit NULL isn't valid there). This is
+	 * standard SQL's "INSERT INTO table DEFAULT VALUES" -- overridden only by
+	 * MySQL, which doesn't support that syntax.
+	 *
+	 * @param     string $tableName Already-quoted-if-necessary table name.
+	 * @param     ?string $idColumnName Already-quoted-if-necessary id column name to
+	 *            fold into the statement via getInsertReturningSql()-equivalent
+	 *            syntax, or null if the caller isn't using insert-returning here.
+	 *
+	 * @return    string
+	 */
+	public function getEmptyInsertSql(string $tableName, ?string $idColumnName): string
+	{
+		if ($idColumnName !== null) {
+			throw new PropulsionException(static::class . ' does not support folding id retrieval into an empty INSERT');
+		}
+		return 'INSERT INTO ' . $tableName . ' DEFAULT VALUES';
+	}
+
+	/**
 	 * Extracts the generated primary key value from a statement built via
 	 * getInsertReturningSql(), immediately after it has been executed. Only called
 	 * when supportsInsertReturning() is true.

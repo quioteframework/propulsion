@@ -215,7 +215,7 @@ class DBMSSQL extends DBAdapter
 				//use the alias if one was present otherwise use the column name
 				$alias = (! stristr($selCol, ' AS ')) ? $selColArr[0] : $selColArr[$selColCount];
 				//don't quote the identifier if it is already quoted
-				if($alias[0] != '[') $alias = $this->quoteIdentifier($alias);
+				if($alias !== '' && $alias[0] != '[') $alias = $this->quoteIdentifier($alias);
 
 				//save the first non-aggregate column for use in ROW_NUMBER() if required
 				if(! isset($firstColumnOrderStatement)) {
@@ -239,7 +239,7 @@ class DBMSSQL extends DBAdapter
 				//quote the alias
 				$alias = $selColArr[$selColCount];
 				//don't quote the identifier if it is already quoted
-				if($alias[0] != '[') $alias = $this->quoteIdentifier($alias);
+				if($alias !== '' && $alias[0] != '[') $alias = $this->quoteIdentifier($alias);
 				$innerSelect .= str_replace($selColArr[$selColCount], $alias, $selCol) . ', ';
 				$outerSelect .= $alias . ', ';
 			}
@@ -345,6 +345,18 @@ class DBMSSQL extends DBAdapter
 			throw new PropulsionException('DBMSSQL::getInsertReturningSql() failed to splice the OUTPUT clause into: ' . $sql);
 		}
 		return $withOutput;
+	}
+
+	/**
+	 * @see       DBAdapter::getEmptyInsertSql()
+	 */
+	public function getEmptyInsertSql(string $tableName, ?string $idColumnName): string
+	{
+		$sql = 'INSERT INTO ' . $tableName;
+		if ($idColumnName !== null) {
+			$sql .= ' OUTPUT INSERTED.' . $idColumnName;
+		}
+		return $sql . ' DEFAULT VALUES';
 	}
 
 	/**

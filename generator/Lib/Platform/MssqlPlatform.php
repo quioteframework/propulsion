@@ -156,11 +156,19 @@ class MssqlPlatform extends DefaultPlatform
 	}
 
 	/**
-	 * SQL Server refuses to create a foreign key with a cascading ON DELETE or ON
-	 * UPDATE action ("$actionGetter") if doing so would let the same row be
-	 * touched by more than one cascade path -- error 1785. Two distinct shapes of
+	 * SQL Server refuses to create a foreign key with a *modifying* ON DELETE or
+	 * ON UPDATE action ("$actionGetter") -- CASCADE or SET NULL, anything other
+	 * than NO ACTION -- if doing so would let the same row be touched by more
+	 * than one such path -- error 1785/20018. This restriction applies equally
+	 * to CASCADE and SET NULL (empirically confirmed against a live SQL Server:
+	 * mixing them, or using SET NULL on both sides of a conflicting pair, fails
+	 * exactly the same way CASCADE-on-both-sides does). Three distinct shapes of
 	 * this fork's own bookstore fixture hit it deliberately:
 	 *
+	 * 0. **Self-reference**: `essay.next_essay_id -> essay.id` (ON UPDATE
+	 *    CASCADE) and `bookstore_employee.supervisor_id -> bookstore_employee.id`
+	 *    (ON DELETE SET NULL) -- a table can never have a modifying action on a
+	 *    FK that targets itself.
 	 * 1. **Diamond via an intermediate table** ("Test multiple foreign keys for a
 	 *    single column"): `reader_favorite` cascade-deletes from both `book` and
 	 *    `book_reader` directly, *and* from both of those again indirectly via
@@ -168,17 +176,18 @@ class MssqlPlatform extends DefaultPlatform
 	 *    `book_reader`) -- deleting a `book` row would need to cascade into
 	 *    `reader_favorite` by two different routes.
 	 * 2. **Two FKs from the same table straight to the same target**: `essay` has
-	 *    two separate `ON UPDATE CASCADE` FKs to `author` (`first_author` and
-	 *    `second_author`) -- updating an `author.id` could need to cascade into
-	 *    the *same* `essay` row twice, once per column.
+	 *    two separate FKs to `author` (`first_author` and `second_author`), both
+	 *    with a modifying ON DELETE/ON UPDATE action -- updating or deleting an
+	 *    `author` row could need to touch the *same* `essay` row twice, once per
+	 *    column.
 	 *
-	 * Detects both schema-wide and returns the set of FKs to downgrade to NO
+	 * Detects all three schema-wide and returns the set of FKs to downgrade to NO
 	 * ACTION instead. For (1), the *direct* edge from the ancestor is redundant --
 	 * deleting/updating it already cascades transitively through the other
 	 * parent, so dropping the direct edge loses no actual cleanup behavior, it
 	 * just removes the extra path SQL Server won't allow. For (2), only the first
-	 * (by declaration order) FK to a given repeated target is kept as cascading;
-	 * the rest are downgraded.
+	 * (by declaration order) FK to a given repeated target keeps its modifying
+	 * action; the rest are downgraded.
 	 *
 	 * @param      Database $database
 	 * @param      callable(ForeignKey): ?string $actionGetter ForeignKey::getOnDelete() or getOnUpdate().
@@ -187,9 +196,10 @@ class MssqlPlatform extends DefaultPlatform
 	private function computeCascadeDowngrades(Database $database, callable $actionGetter): array
 	{
 		$downgrades = array();
+		$isModifying = fn (?string $action): bool => $action !== null && $action !== ForeignKey::NOACTION;
 
 		// Case 0: a self-referencing FK (local and foreign table are the same,
-		// e.g. essay.next_essay_id -> essay.id) with a cascading action -- SQL
+		// e.g. essay.next_essay_id -> essay.id) with a modifying action -- SQL
 		// Server rejects this outright, the same error 1785 family, regardless of
 		// any other table's FKs. Always downgrade.
 		foreach ($database->getTables() as $table) {
@@ -198,7 +208,7 @@ class MssqlPlatform extends DefaultPlatform
 				continue;
 			}
 			foreach ($table->getForeignKeys() as $fk) {
-				if ($actionGetter($fk) === ForeignKey::CASCADE && $fk->getForeignTableName() === $tableName) {
+				if ($isModifying($actionGetter($fk)) && $fk->getForeignTableName() === $tableName) {
 					$fkName = $fk->getName();
 					if ($fkName !== null) {
 						$downgrades[$fkName] = true;
@@ -207,7 +217,7 @@ class MssqlPlatform extends DefaultPlatform
 			}
 		}
 
-		// Case 2: same table, 2+ direct CASCADE FKs to the same target --
+		// Case 2: same table, 2+ direct modifying-action FKs to the same target --
 		// keep only the first, downgrade the rest. Done before building the graph
 		// below so case 1's diamond detection sees the graph *after* these
 		// redundant edges are already removed.
@@ -216,7 +226,7 @@ class MssqlPlatform extends DefaultPlatform
 			foreach ($table->getForeignKeys() as $fk) {
 				$parentName = $fk->getForeignTableName();
 				$fkName = $fk->getName();
-				if ($actionGetter($fk) !== ForeignKey::CASCADE || $parentName === null
+				if (!$isModifying($actionGetter($fk)) || $parentName === null
 					|| ($fkName !== null && isset($downgrades[$fkName]))
 				) {
 					continue;
@@ -232,9 +242,9 @@ class MssqlPlatform extends DefaultPlatform
 		}
 
 		// Whole-schema cascade graph (post-case-2): edge parentTable -> childTable
-		// for every surviving CASCADE FK (child.col REFERENCES parentTable.col
-		// [ON DELETE|ON UPDATE] CASCADE means a change to a parent row cascades to
-		// the child row).
+		// for every surviving modifying-action FK (child.col REFERENCES
+		// parentTable.col [ON DELETE|ON UPDATE] CASCADE/SET NULL means a change to
+		// a parent row touches the child row).
 		$cascadeChildren = array();
 		foreach ($database->getTables() as $table) {
 			$childName = $table->getName();
@@ -244,7 +254,7 @@ class MssqlPlatform extends DefaultPlatform
 			foreach ($table->getForeignKeys() as $fk) {
 				$parentName = $fk->getForeignTableName();
 				$fkName = $fk->getName();
-				if ($actionGetter($fk) === ForeignKey::CASCADE && $parentName !== null
+				if ($isModifying($actionGetter($fk)) && $parentName !== null
 					&& ($fkName === null || !isset($downgrades[$fkName]))
 				) {
 					$cascadeChildren[$parentName][$childName] = true;
@@ -262,7 +272,7 @@ class MssqlPlatform extends DefaultPlatform
 			$directParentFks = array();
 			foreach ($table->getForeignKeys() as $fk) {
 				$fkName = $fk->getName();
-				if ($actionGetter($fk) === ForeignKey::CASCADE && $fk->getForeignTableName() !== null
+				if ($isModifying($actionGetter($fk)) && $fk->getForeignTableName() !== null
 					&& ($fkName === null || !isset($downgrades[$fkName]))
 				) {
 					$directParentFks[] = $fk;
@@ -435,23 +445,17 @@ END
 			$this->quoteIdentifier($this->requireString($fk->getForeignTableName(), 'Foreign key target table name')),
 			$this->getColumnListDDL($fk->getForeignColumns())
 		);
-		// See computeCascadeDowngrades(): a CASCADE that would create a second
-		// cascade path SQL Server won't allow (error 1785) is emitted as NO ACTION
-		// instead -- the update/delete still reaches this table transitively
-		// through whichever other parent's path (or first-declared same-target
-		// FK) was kept.
-		if ($fk->hasOnUpdate() && $fk->getOnUpdate() != ForeignKey::SETNULL) {
-			$onUpdate = $fk->getOnUpdate();
-			if ($onUpdate === ForeignKey::CASCADE && isset($this->cascadeUpdateDowngrades[$fkName])) {
-				$onUpdate = ForeignKey::NOACTION;
-			}
+		// See computeCascadeDowngrades(): a modifying action (CASCADE or SET NULL)
+		// that would create a second such path SQL Server won't allow (error 1785)
+		// is emitted as NO ACTION instead -- the update/delete still reaches this
+		// table transitively through whichever other parent's path (or
+		// first-declared same-target FK) was kept.
+		if ($fk->hasOnUpdate()) {
+			$onUpdate = isset($this->cascadeUpdateDowngrades[$fkName]) ? ForeignKey::NOACTION : $fk->getOnUpdate();
 			$script .= ' ON UPDATE ' . $onUpdate;
 		}
-		if ($fk->hasOnDelete() && $fk->getOnDelete() != ForeignKey::SETNULL) {
-			$onDelete = $fk->getOnDelete();
-			if ($onDelete === ForeignKey::CASCADE && isset($this->cascadeDeleteDowngrades[$fkName])) {
-				$onDelete = ForeignKey::NOACTION;
-			}
+		if ($fk->hasOnDelete()) {
+			$onDelete = isset($this->cascadeDeleteDowngrades[$fkName]) ? ForeignKey::NOACTION : $fk->getOnDelete();
 			$script .= ' ON DELETE '.  $onDelete;
 		}
 

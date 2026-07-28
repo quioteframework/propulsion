@@ -225,6 +225,17 @@ class BookstoreDataPopulator
 	public static function depopulate($con = null)
 	{
 		$peerClasses = array(
+			// Deleted before AuthorPeer: essay.first_author/second_author and
+			// composite_essay's self-referencing FKs are ON DELETE SET NULL on
+			// most platforms, but SQL Server only allows one of the two direct
+			// essay->author paths (first_author's) to carry a modifying action --
+			// the other (second_author) is forced to NO ACTION (see
+			// MssqlPlatform::computeCascadeDowngrades()), so a stray essay row
+			// left over from another test would otherwise block `DELETE FROM
+			// author` on MSSQL specifically (Postgres/MySQL never surface this,
+			// since both their FKs stay SET NULL).
+			'EssayPeer',
+			'CompositeEssayPeer',
 			'AuthorPeer',
 			'BookstorePeer',
 			'BookstoreContestPeer',

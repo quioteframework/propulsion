@@ -573,7 +573,7 @@ END
 ;
 
 BEGIN
-ALTER TABLE [foo] ADD CONSTRAINT [foo_baz_FK] FOREIGN KEY ([baz_id]) REFERENCES [baz] ([id])
+ALTER TABLE [foo] ADD CONSTRAINT [foo_baz_FK] FOREIGN KEY ([baz_id]) REFERENCES [baz] ([id]) ON DELETE SET NULL
 END
 ;
 ";
@@ -699,6 +699,50 @@ EOF;
 		$ddl = $this->getPlatform()->getAddTablesDDL($database);
 		$this->assertStringContainsString('FOREIGN KEY ([first_author_id]) REFERENCES [author] ([id]) ON UPDATE CASCADE', $ddl);
 		$this->assertStringContainsString('FOREIGN KEY ([second_author_id]) REFERENCES [author] ([id]) ON UPDATE NO ACTION', $ddl);
+	}
+
+	/**
+	 * SQL Server's "multiple cascade paths" restriction (error 1785) applies to
+	 * ON DELETE/ON UPDATE SET NULL exactly the same as it does to CASCADE, not
+	 * just to literal CASCADE actions -- empirically confirmed against a live
+	 * SQL Server instance (this fork's own `essay`/`bookstore_employee` fixture
+	 * tables hit it: `essay` has two ON DELETE SET NULL FKs to `author`, and
+	 * `bookstore_employee.supervisor_id` self-references with ON DELETE SET NULL).
+	 * This covers case 0 (self-reference) and case 2 (repeated target) with
+	 * SET NULL instead of CASCADE.
+	 */
+	public function testGetAddTablesDDLDowngradesSetNullActionsLikeCascade()
+	{
+		$schema = <<<EOF
+<database name="test">
+	<table name="employee">
+		<column name="id" primaryKey="true" type="INTEGER" autoIncrement="true" />
+		<column name="supervisor_id" type="INTEGER" />
+		<foreign-key foreignTable="employee" onDelete="setnull">
+			<reference local="supervisor_id" foreign="id" />
+		</foreign-key>
+	</table>
+	<table name="author">
+		<column name="id" primaryKey="true" type="INTEGER" autoIncrement="true" />
+	</table>
+	<table name="essay">
+		<column name="id" primaryKey="true" type="INTEGER" autoIncrement="true" />
+		<column name="first_author_id" type="INTEGER" />
+		<column name="second_author_id" type="INTEGER" />
+		<foreign-key foreignTable="author" onDelete="setnull">
+			<reference local="first_author_id" foreign="id" />
+		</foreign-key>
+		<foreign-key foreignTable="author" onDelete="setnull">
+			<reference local="second_author_id" foreign="id" />
+		</foreign-key>
+	</table>
+</database>
+EOF;
+		$database = $this->getDatabaseFromSchema($schema);
+		$ddl = $this->getPlatform()->getAddTablesDDL($database);
+		$this->assertStringContainsString('FOREIGN KEY ([supervisor_id]) REFERENCES [employee] ([id]) ON DELETE NO ACTION', $ddl);
+		$this->assertStringContainsString('FOREIGN KEY ([first_author_id]) REFERENCES [author] ([id]) ON DELETE SET NULL', $ddl);
+		$this->assertStringContainsString('FOREIGN KEY ([second_author_id]) REFERENCES [author] ([id]) ON DELETE NO ACTION', $ddl);
 	}
 
 	/**

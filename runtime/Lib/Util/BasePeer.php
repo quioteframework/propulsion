@@ -285,11 +285,20 @@ class BasePeer
 		$db = Propulsion::getDB($criteria->getDbName());
 
 		// Get the table name and method for determining the primary
-		// key value.
+		// key value. Ordinarily derived from the first column key, but a Criteria
+		// can legitimately have zero columns at all -- e.g. inserting a row whose
+		// every column already equals its own default, on a platform where
+		// supportsInsertNullPk() is false, so the auto-increment PK's (null) entry
+		// was stripped out entirely rather than left in with an explicit NULL --
+		// in which case the generated object model calls setPrimaryTableName()
+		// itself so the table can still be identified.
 		$keys = $criteria->keys();
 		if (!empty($keys)) {
 			$tableName = $criteria->getTableName( $keys[0] );
 		} else {
+			$tableName = $criteria->getPrimaryTableName();
+		}
+		if (empty($tableName)) {
 			throw new PropulsionException("Database insert attempted without anything specified to insert");
 		}
 
@@ -301,7 +310,7 @@ class BasePeer
 		$useIdGen = $tableMap->isUseIdGenerator();
 		//$keyGen = $con->getIdGenerator();
 
-		$pk = self::getPrimaryKey($criteria);
+		$pk = self::getPrimaryKey($criteria, $tableName);
 
 		// only get a new key value if you need to
 		// the reason is that a primary key might be defined
@@ -344,22 +353,34 @@ class BasePeer
 				$tableName = $adapter->quoteIdentifierTable($tableName);
 			}
 
-			$sql = 'INSERT INTO ' . $tableName
-			. ' (' . implode(',', $columns) . ')'
-			. ' VALUES (';
-			// . substr(str_repeat("?,", count($columns)), 0, -1) .
-			for($p=1, $cnt=count($columns); $p <= $cnt; $p++) {
-				$sql .= ':p'.$p;
-				if ($p !== $cnt) $sql .= ',';
-			}
-			$sql .= ')';
-
+			$idColumnName = null;
 			if ($useInsertReturning) {
 				$idColumnName = substr($pk->getFullyQualifiedName(), strrpos($pk->getFullyQualifiedName(), '.') + 1);
 				if ($adapter->useQuoteIdentifier()) {
 					$idColumnName = $adapter->quoteIdentifier($idColumnName);
 				}
-				$sql = $adapter->getInsertReturningSql($sql, $idColumnName);
+			}
+
+			if (empty($columns)) {
+				// Every column either has no value to set, or (for an
+				// auto-increment PK on a supportsInsertNullPk()===false platform)
+				// was stripped out above rather than left in with an explicit
+				// NULL -- there's nothing left to build a normal column list from.
+				$sql = $adapter->getEmptyInsertSql($tableName, $idColumnName);
+			} else {
+				$sql = 'INSERT INTO ' . $tableName
+				. ' (' . implode(',', $columns) . ')'
+				. ' VALUES (';
+				// . substr(str_repeat("?,", count($columns)), 0, -1) .
+				for($p=1, $cnt=count($columns); $p <= $cnt; $p++) {
+					$sql .= ':p'.$p;
+					if ($p !== $cnt) $sql .= ',';
+				}
+				$sql .= ')';
+
+				if ($useInsertReturning) {
+					$sql = $adapter->getInsertReturningSql($sql, $idColumnName);
+				}
 			}
 
 			$params = self::buildParams($qualifiedCols, $criteria);
@@ -786,12 +807,17 @@ class BasePeer
 	 *		  key, or null if it doesn't.
 	 * @throws     PropulsionException
 	 */
-	private static function getPrimaryKey(Criteria $criteria)
+	private static function getPrimaryKey(Criteria $criteria, ?string $tableName = null)
 	{
-		// Assume all the keys are for the same table.
-		$keys = $criteria->keys();
-		$key = $keys[0];
-		$table = $criteria->getTableName($key);
+		if ($tableName === null) {
+			// Assume all the keys are for the same table.
+			$keys = $criteria->keys();
+			if (empty($keys)) {
+				return null;
+			}
+			$tableName = $criteria->getTableName($keys[0]);
+		}
+		$table = $tableName;
 
 		$pk = null;
 
