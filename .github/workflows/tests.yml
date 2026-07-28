@@ -135,3 +135,40 @@ jobs:
         env:
           PROPULSION_TEST_DB: mysql
         run: ../vendor/bin/phpunit -c phpunit.xml
+
+  integration-mssql:
+    name: Full suite (with Docker/MSSQL)
+    runs-on: ubuntu-latest
+    # Blocking: brought to 0 errors/0 failures during the 2026-07-28 MSSQL parity
+    # audit (see KNOWN_ISSUES.md) -- verified reproducible across three consecutive
+    # full runs. If this job goes red, treat it as a real regression, not a known
+    # flake (unlike integration-mysql's Postgres-only-suite caveat above).
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: pdo, pdo_sqlite, pdo_pgsql, pdo_mysql, pdo_dblib, mbstring, xml, simplexml
+          coverage: none
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Run full PHPUnit suite (starts its own MSSQL testcontainer)
+        working-directory: test
+        env:
+          PROPULSION_TEST_DB: mssql
+        run: ../vendor/bin/phpunit -c phpunit.xml
