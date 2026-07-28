@@ -44,6 +44,10 @@ class DataDumpAndSqlManagerTest extends TestCase
     {
         parent::setUp();
 
+        if (IntegrationDatabase::currentPlatform() !== 'pgsql') {
+            $this->markTestSkipped('Exercises Postgres-specific data-dump/SQL-exec tooling (pg_database catalog, CREATE DATABASE) regardless of PROPULSION_TEST_DB.');
+        }
+
         try {
             $conn = IntegrationDatabase::containerConnection();
         } catch (\RuntimeException $e) {

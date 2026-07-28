@@ -157,6 +157,20 @@ class IntegrationDatabase
         return self::platform();
     }
 
+    /**
+     * The PDO driver prefix for currentPlatform() -- identical to the platform
+     * name for every platform except MSSQL, whose PDO driver is "dblib"
+     * (FreeTDS), not a literal "mssql" driver (which doesn't exist). Several
+     * generator command/manager integration tests build their own raw PDO DSN
+     * from currentPlatform() directly against the shared testcontainer; they
+     * need this instead so "new PDO(...)" doesn't fail with "could not find
+     * driver" under PROPULSION_TEST_DB=mssql.
+     */
+    public static function pdoDriverPrefix(): string
+    {
+        return self::platform() === 'mssql' ? 'dblib' : self::platform();
+    }
+
     private static bool $namespacedAttempted = false;
     private static ?string $namespacedSkipReason = null;
 

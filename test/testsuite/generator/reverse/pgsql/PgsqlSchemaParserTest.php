@@ -42,6 +42,10 @@ class PgsqlSchemaParserTest extends TestCase
     {
         parent::setUp();
 
+        if (IntegrationDatabase::currentPlatform() !== 'pgsql') {
+            $this->markTestSkipped('Exercises PgsqlSchemaParser against a live Postgres server specifically, regardless of PROPULSION_TEST_DB.');
+        }
+
         try {
             $conn = IntegrationDatabase::containerConnection();
         } catch (\RuntimeException $e) {

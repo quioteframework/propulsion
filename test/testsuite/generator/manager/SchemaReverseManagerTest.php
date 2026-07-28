@@ -31,6 +31,10 @@ class SchemaReverseManagerTest extends TestCase
     {
         parent::setUp();
 
+        if (IntegrationDatabase::currentPlatform() !== 'pgsql') {
+            $this->markTestSkipped('Exercises Postgres-specific reverse-engineering (pg_database catalog, CREATE DATABASE) regardless of PROPULSION_TEST_DB.');
+        }
+
         try {
             $conn = IntegrationDatabase::containerConnection();
         } catch (\RuntimeException $e) {

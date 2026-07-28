@@ -23,15 +23,13 @@ rm -rf fixtures/bookstore/build fixtures/schemas/build fixtures/namespaced/build
 
 - **Testcontainer leak on `kill -9`** (theoretical, mitigated by
   `composer test:cleanup-containers`, not seen in practice).
-- **MSSQL: full-suite parity audit not started.** The shared bookstore
-  fixture now *builds* cleanly against SQL Server (see below), but the first
-  full-suite run against a live MSSQL testcontainer
-  (`PROPULSION_TEST_DB=mssql`) reveals 747 errors + 4 failures + 1 risky
-  test out of 2818 -- MSSQL has never previously been exercised against
-  live fixture data at all (unlike MySQL, which started from a working
-  fixture and only needed test-assertion fixes). Needs the same kind of
-  audit as the 2026-07-27 MySQL parity pass, but starting from a much
-  larger, essentially untriaged error set.
+- **MSSQL: full-suite parity audit in progress.** Down to 73 errors + 33
+  failures out of 2823 (from 720 initially, after the fixture-build fix) --
+  see "MSSQL full-suite parity audit" below for what's fixed and what's left
+  (mainly `MigrationCommandsTest`/`PropulsionMigrationManagerTest`'s MSSQL DSN
+  and `ADD COLUMN` syntax, plus `ModelCriteriaTest`'s SQL-shape assertions).
+  No `integration-mssql` CI job yet -- add one once this reaches 0/0 the way
+  `integration-mysql` did.
 - **`buildtime-conf.xml`** (legacy XML build-time config) is still accepted
   alongside the plain-PHP format — no way to confirm from this repo that no
   consumer still relies on it. Drop at a major-version boundary.
@@ -139,15 +137,73 @@ difference `normalizeGeneratedSql()` could paper over:
 **Result**: 0 failures against MySQL, confirmed with 0 regressions against
 Postgres (both full 2818-test runs).
 
-**Separate, pre-existing, NOT part of MySQL parity**: running the suite with
-`PROPULSION_TEST_DB=mysql` still shows ~32 errors, all from
-`PgsqlSchemaParserTest`/`SchemaReverseManagerTest`/`SqlExecManagerTest`/
-`SqlDiffCommandTest`/`DataDumpCommandTest`/`SqlExecCommandTest`/
-`SchemaReverseCommandTest`/`DataDumpAndSqlManagerTest`. These hardcode their
-own `pgsql:` DSN regardless of `PROPULSION_TEST_DB` (by design -- they test
-Postgres-specific reverse-engineering/schema-diff tooling) and open a second,
-independent Postgres testcontainer alongside whatever `PROPULSION_TEST_DB`
-started. Consistently hit transient SSL-negotiation errors from that second
-container under container-resource contention (running two testcontainers at
-once) across every audit run in this session -- worth investigating
-separately if it persists in CI, but unrelated to MySQL parity itself.
+**Update (2026-07-28)**: the 8 tests above (`PgsqlSchemaParserTest`,
+`SchemaReverseManagerTest`, `SqlExecManagerTest`, `SqlDiffCommandTest`,
+`DataDumpCommandTest`, `SqlExecCommandTest`, `SchemaReverseCommandTest`,
+`DataDumpAndSqlManagerTest`) now `markTestSkipped()` cleanly under any
+`PROPULSION_TEST_DB` other than the default (Postgres), via a
+`IntegrationDatabase::currentPlatform() !== 'pgsql'` guard added to each --
+they were always Postgres-only by design (hardcoded `pgsql:` DSN, Postgres
+catalog queries), but previously that only showed up as a confusing
+transient-looking connection error rather than an honest skip.
+
+## MSSQL full-suite parity audit (2026-07-28)
+
+Ran the full suite against a live MSSQL testcontainer (`PROPULSION_TEST_DB=mssql`)
+for the first time ever -- the fixture had never even *built* successfully before
+(see the cascade-FK fix above). Found and fixed four real, platform-specific bugs,
+taking the suite from "doesn't build at all" through 720 -> 226 -> 73 errors (and
+33 failures, not yet addressed -- see below) on a 2823-test run:
+
+1. `MssqlPlatform::getForeignKeyDDL()` silently omitted `ON DELETE`/`ON UPDATE
+   SET NULL` entirely (every other platform emits it) -- SQL Server defaulted
+   those FKs to `NO ACTION`, so deletes/updates that should have nulled out a
+   child column instead failed outright.
+2. SQL Server's "multiple cascade paths" restriction (error 1785) applies to
+   `SET NULL` exactly like `CASCADE`, not just literal `CASCADE` --
+   `MssqlPlatform::computeCascadeDowngrades()` only recognized `CASCADE` as
+   conflicting; generalized to any modifying action. `BookstoreDataPopulator`'s
+   cleanup order also needed adjusting (delete `essay` before `author`) for the
+   one case where a downgrade changes runtime, not just DDL, semantics.
+3. Inserting a new row whose every column already equals its own schema
+   default has nothing in `modifiedColumns`; combined with
+   `supportsInsertNullPk() === false` (MSSQL only), the auto-increment PK's own
+   entry is stripped too, leaving `BasePeer::doInsert()` with nothing to
+   identify the table from at all. Fixed via `Criteria::setPrimaryTableName()`
+   (now set in every generated `buildCriteria()`) and a new
+   `DBAdapter::getEmptyInsertSql()` capability.
+4. FreeTDS/pdo_dblib (MSSQL) has no MARS support: a statement whose result set
+   isn't drained and closed blocks any further statement on the same
+   connection ("Attempt to initiate a new Adaptive Server operation with
+   results pending"), and once tripped, leaves the connection broken for the
+   rest of the process. Several single-scalar fetches (`getMaxRank()` x2,
+   `AggregateColumn`'s `compute<X>()`, two `NestedSetPeerBuilder` methods)
+   were missing `closeCursor()`; `NestedSetBehaviorPeerBuilderModifier`'s
+   generated `fixLevels()` went further and called `$obj->save($con)` *while*
+   iterating the SELECT that produced the rows -- fixed by buffering via
+   `fetchAll()` before the save loop, since MSSQL can't interleave read/write
+   on one connection at all, missing `closeCursor()` or not.
+
+All four are real bugs (or missing capability), not test-assertion shape
+issues -- fixed in `runtime/`/`generator/`, not by relaxing test expectations,
+and verified with 0 regressions on Postgres/MySQL/SQLite.
+
+**Remaining, not yet fixed** (73 errors + 33 failures out of 2823 tests):
+- ~45 errors were the 8 tests documented above as "Postgres-specific by
+  design" -- now resolved via the skip guards, not a parity gap.
+- `MigrationCommandsTest` (19 errors) / `PropulsionMigrationManagerTest` (7
+  errors): both intend real cross-platform coverage (already branch on
+  `mysql` for `AUTO_INCREMENT` vs `SERIAL`) but (a) build their raw PDO DSN
+  from `IntegrationDatabase::currentPlatform()` directly, which is wrong for
+  MSSQL (`"mssql:..."` isn't a PDO driver -- needs `"dblib:..."`, now
+  available as `IntegrationDatabase::pdoDriverPrefix()`, not yet wired into
+  these two files), and (b) use `ALTER TABLE t ADD COLUMN col type` in every
+  migration-file fixture, which is invalid T-SQL (MSSQL needs `ADD` without
+  `COLUMN`; `DROP COLUMN` is fine as-is). ~42 call sites across both files
+  need the same mechanical `ADD COLUMN` -> `ADD` substitution for MSSQL.
+- The remaining ~33 failures are `ModelCriteriaTest`/`ModelCriteriaSelectTest`
+  SQL-shape assertion mismatches, the same *kind* of issue normalized away for
+  MySQL above (`TOP n` instead of `LIMIT n`, `ROW_NUMBER()`-based derived-table
+  rewriting instead of `OFFSET`/`FETCH`, no `FOR UPDATE`/`FOR SHARE` support) --
+  needs an MSSQL-aware extension to `normalizeGeneratedSql()` or
+  platform-conditional expected strings, not yet done.

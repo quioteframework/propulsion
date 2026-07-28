@@ -53,6 +53,10 @@ class SqlDiffCommandTest extends TestCase
 
     public function testCommandGeneratesMigrationClassForLiveDatabaseDrift(): void
     {
+        if (IntegrationDatabase::currentPlatform() !== 'pgsql') {
+            $this->markTestSkipped('Exercises Postgres-specific SQL-diff tooling (pg_database catalog, CREATE DATABASE) regardless of PROPULSION_TEST_DB.');
+        }
+
         try {
             $conn = IntegrationDatabase::containerConnection();
         } catch (\RuntimeException $e) {
@@ -125,6 +129,10 @@ class SqlDiffCommandTest extends TestCase
      */
     public function testCommandGeneratesMigrationClassForLiveDatabaseDriftUsingPhpConfigFile(): void
     {
+        if (IntegrationDatabase::currentPlatform() !== 'pgsql') {
+            $this->markTestSkipped('Exercises Postgres-specific SQL-diff tooling (pg_database catalog, CREATE DATABASE) regardless of PROPULSION_TEST_DB.');
+        }
+
         try {
             $conn = IntegrationDatabase::containerConnection();
         } catch (\RuntimeException $e) {
@@ -197,6 +205,10 @@ class SqlDiffCommandTest extends TestCase
      */
     public function testCommandReportsNoDiffWhenSchemaAlreadyMatches(): void
     {
+        if (IntegrationDatabase::currentPlatform() !== 'pgsql') {
+            $this->markTestSkipped('Exercises Postgres-specific SQL-diff tooling (pg_database catalog, CREATE DATABASE) regardless of PROPULSION_TEST_DB.');
+        }
+
         try {
             $conn = IntegrationDatabase::containerConnection();
         } catch (\RuntimeException $e) {
