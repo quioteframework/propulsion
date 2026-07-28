@@ -69,6 +69,7 @@ class BasePeerTest extends BookstoreTestBase
 			$this->fail('doCount() cannot deal with a criteria selecting duplicate column names ');
 		}
 		$this->assertInstanceOf('PDOStatement', $count, 'doCount() should return a statement even when the criteria selects duplicate column names');
+		$count->closeCursor();
 	}
 
 	public function testBigIntIgnoreCaseOrderBy()

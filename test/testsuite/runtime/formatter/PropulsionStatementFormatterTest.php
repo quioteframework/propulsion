@@ -43,6 +43,7 @@ class PropulsionStatementFormatterTest extends BookstoreEmptyTestBase
 		} catch (PropulsionException $e) {
 			$this->fail('PropulsionStatementFormatter::format() does not trow an exception when called with no valid criteria');
 		}
+		$stmt->closeCursor();
 	}
 
 	public function testFormatManyResults()
@@ -59,6 +60,7 @@ class PropulsionStatementFormatterTest extends BookstoreEmptyTestBase
 		while ($book = $books->fetch()) {
 			$this->assertTrue(is_array($book), 'PropulsionStatementFormatter::format() returns a statement that can be fetched');
 		}
+		$books->closeCursor();
 	}
 
 	public function testFormatOneResult()
@@ -74,6 +76,7 @@ class PropulsionStatementFormatterTest extends BookstoreEmptyTestBase
 		$this->assertEquals($this->expectedRowCount(1), $books->rowCount(), 'PropulsionStatementFormatter::format() returns as many rows as the results in the query');
 		$book = $books->fetch(PDO::FETCH_ASSOC);
 		$this->assertEquals('Quicksilver', $book['title'], 'PropulsionStatementFormatter::format() returns the rows matching the query');
+		$books->closeCursor();
 	}
 
 	public function testFormatNoResult()
@@ -87,6 +90,7 @@ class PropulsionStatementFormatterTest extends BookstoreEmptyTestBase
 
 		$this->assertTrue($books instanceof PDOStatement, 'PropulsionStatementFormatter::format() returns a PDOStatement');
 		$this->assertEquals(0, $books->rowCount(), 'PropulsionStatementFormatter::format() returns as many rows as the results in the query');
+		$books->closeCursor();
 	}
 
 	public function testFormatoneNoCriteria()
@@ -101,6 +105,7 @@ class PropulsionStatementFormatterTest extends BookstoreEmptyTestBase
 		} catch (PropulsionException $e) {
 			$this->fail('PropulsionStatementFormatter::formatOne() does not trow an exception when called with no valid criteria');
 		}
+		$stmt->closeCursor();
 	}
 
 	public function testFormatOneManyResults()
@@ -113,6 +118,7 @@ class PropulsionStatementFormatterTest extends BookstoreEmptyTestBase
 		$book = $formatter->formatOne($stmt);
 
 		$this->assertTrue($book instanceof PDOStatement, 'PropulsionStatementFormatter::formatOne() returns a PDO Statement');
+		$stmt->closeCursor();
 	}
 
 	public function testFormatOneNoResult()
