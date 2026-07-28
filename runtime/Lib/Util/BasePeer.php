@@ -467,8 +467,10 @@ class BasePeer
 					$sql .= '/* ' . $queryComment . ' */ ';
 				}
 				// is it a table alias?
+				$aliasName = null;
 				if ($tableName2 = $selectCriteria->getTableForAlias($tableName)) {
-					$udpateTable = $tableName2 . ' ' . $tableName;
+					$aliasName = $tableName;
+					$udpateTable = $db->getUpdateTargetSql($tableName2, $aliasName);
 					$tableName = $tableName2;
 				} else {
 					$udpateTable = $tableName;
@@ -482,9 +484,13 @@ class BasePeer
 				if (!isset($updateTablesColumns[$tableName]) || empty($updateTablesColumns[$tableName])) {
 					throw new PropulsionException("No columns specified for update in table '$tableName'");
 				}
-				
+
 				$sql .= " SET ";
 				$sql .= self::buildSetClause($updateTablesColumns[$tableName], $updateValues, $db, 1)[0];
+
+				if ($aliasName !== null) {
+					$sql .= $db->getUpdateFromClauseSql($tableName, $aliasName);
+				}
 
 				$params = self::buildParams($updateTablesColumns[$tableName], $updateValues);
 

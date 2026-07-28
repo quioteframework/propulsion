@@ -623,8 +623,24 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$this->assertCriteriaTranslation($c, $sql, $params, 'offset() adds an OFFSET clause');
 	}
 
+	/**
+	 * MSSQL expresses locking via table hints spliced onto FROM/JOIN clauses
+	 * (see DBMSSQL::applyLockHints(), and BasePeerTest's dedicated
+	 * testMssqlForUpdateAddsTableHints()/testMssqlForShareAddsHoldlockHint()),
+	 * never a trailing "FOR UPDATE"/"FOR SHARE" clause -- this Criteria has no
+	 * FROM table at all to hint, so on MSSQL specifically there is genuinely
+	 * nothing for forUpdate()/forShare() to change here.
+	 */
+	private function skipOnMssqlNoTrailingLockClause(): void
+	{
+		if (Propulsion::getDB(BookPeer::DATABASE_NAME) instanceof DBMSSQL) {
+			$this->markTestSkipped('MSSQL has no trailing FOR UPDATE/FOR SHARE clause; see BasePeerTest for its table-hint coverage.');
+		}
+	}
+
 	public function testForUpdate()
 	{
+		$this->skipOnMssqlNoTrailingLockClause();
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->forUpdate();
 		$sql = 'SELECT  FROM  FOR UPDATE';
@@ -634,6 +650,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testForShare()
 	{
+		$this->skipOnMssqlNoTrailingLockClause();
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->forShare();
 		$sql = 'SELECT  FROM  FOR SHARE';
@@ -643,6 +660,7 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testForUpdateSkipLocked()
 	{
+		$this->skipOnMssqlNoTrailingLockClause();
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->forUpdate(true);
 		$sql = 'SELECT  FROM  FOR UPDATE SKIP LOCKED';

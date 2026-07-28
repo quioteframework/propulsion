@@ -308,6 +308,40 @@ abstract class DBAdapter
 	}
 
 	/**
+	 * Builds the "UPDATE ..." clause's target-table portion when the query uses a
+	 * table alias -- "table alias" (e.g. "book b") for every platform except MSSQL,
+	 * whose UPDATE statement can only name the alias itself here (the real table
+	 * name is introduced separately via getUpdateFromClauseSql()'s FROM clause).
+	 *
+	 * @param     string $tableName Already-quoted-if-necessary table name.
+	 * @param     string $alias
+	 *
+	 * @return    string
+	 */
+	public function getUpdateTargetSql(string $tableName, string $alias): string
+	{
+		return "$tableName $alias";
+	}
+
+	/**
+	 * A clause to splice in right after an aliased UPDATE's SET clause (and before
+	 * its WHERE clause). Empty for every platform except MSSQL, whose UPDATE
+	 * statement needs an explicit "FROM table AS alias" to declare the alias
+	 * getUpdateTargetSql() only named -- "UPDATE alias SET ... FROM table AS alias
+	 * WHERE ...", since plain "UPDATE table alias SET ..." (fine everywhere else)
+	 * is a syntax error in T-SQL.
+	 *
+	 * @param     string $tableName Already-quoted-if-necessary table name.
+	 * @param     string $alias
+	 *
+	 * @return    string
+	 */
+	public function getUpdateFromClauseSql(string $tableName, string $alias): string
+	{
+		return '';
+	}
+
+	/**
 	 * Builds a complete INSERT statement for a row with no columns to set at all
 	 * (every column either has no value or -- for an auto-increment primary key on
 	 * a platform where supportsInsertNullPk() is false -- was stripped out of the

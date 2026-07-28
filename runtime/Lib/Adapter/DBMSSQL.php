@@ -360,6 +360,22 @@ class DBMSSQL extends DBAdapter
 	}
 
 	/**
+	 * @see       DBAdapter::getUpdateTargetSql()
+	 */
+	public function getUpdateTargetSql(string $tableName, string $alias): string
+	{
+		return $alias;
+	}
+
+	/**
+	 * @see       DBAdapter::getUpdateFromClauseSql()
+	 */
+	public function getUpdateFromClauseSql(string $tableName, string $alias): string
+	{
+		return ' FROM ' . $tableName . ' AS ' . $alias;
+	}
+
+	/**
 	 * @see       DBAdapter::extractInsertedId()
 	 */
 	public function extractInsertedId(\PDOStatement $stmt): mixed
