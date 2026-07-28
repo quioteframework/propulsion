@@ -2336,8 +2336,26 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			if ($col->isLobType()) {
 				$phpname = $col->getPhpName();
 				$script .= "
-			if (\$this->$phpname !== null && is_resource(\$this->$phpname)) {
-				rewind(\$this->$phpname);
+			if (\$this->$phpname !== null) {
+				if (is_resource(\$this->$phpname)) {
+					rewind(\$this->$phpname);";
+				if ($col->isLazyLoad()) {
+					$clo = strtolower($col->getName());
+					$script .= "
+				} else {
+					// Some drivers (MSSQL/dblib) fully close a LOB stream
+					// resource after using it to bind an insert/update
+					// parameter, rather than just leaving it positioned at EOF
+					// the way Postgres/MySQL do -- rewind() above only handles
+					// the latter (is_resource() is false for an already-closed
+					// one). The in-memory copy can no longer be trusted at
+					// all; force a fresh reload from the database next time
+					// it's read instead of handing back a closed resource.
+					\$this->{$clo}_isLoaded = false;
+					\$this->$phpname = null;";
+				}
+				$script .= "
+				}
 			}
 ";
 			}

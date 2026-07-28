@@ -268,7 +268,13 @@ class GeneratedObjectLobTest extends BookstoreEmptyTestBase
 		fwrite($stream, file_get_contents($blob2_path));
 		$m2->setCoverImage($stream);
 		$m2->save();
-		fclose($stream);
+		// Some drivers (MSSQL/dblib) fully close a LOB stream resource as a
+		// side effect of binding it for the UPDATE -- this is the caller's own
+		// handle, being cleaned up defensively, not an ORM-internal one, but
+		// it's already closed there too by this point on that platform.
+		if (is_resource($stream)) {
+			fclose($stream);
+		}
 
 		$m2->reload();
 		$this->assertEquals(md5(file_get_contents($blob2_path)), md5(stream_get_contents($m2->getCoverImage())), "Expected contents to match when setting stream w/ 'w' mode");
