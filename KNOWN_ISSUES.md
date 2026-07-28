@@ -23,11 +23,12 @@ rm -rf fixtures/bookstore/build fixtures/schemas/build fixtures/namespaced/build
 
 - **Testcontainer leak on `kill -9`** (theoretical, mitigated by
   `composer test:cleanup-containers`, not seen in practice).
-- **MSSQL: full-suite parity audit in progress.** Down to 73 errors + 33
-  failures out of 2823 (from 720 initially, after the fixture-build fix) --
-  see "MSSQL full-suite parity audit" below for what's fixed and what's left
-  (mainly `MigrationCommandsTest`/`PropulsionMigrationManagerTest`'s MSSQL DSN
-  and `ADD COLUMN` syntax, plus `ModelCriteriaTest`'s SQL-shape assertions).
+- **MSSQL: full-suite parity audit in progress.** Down to 14 errors + 14
+  failures out of 2823 (from 747 initially, after the fixture-build fix) --
+  see "MSSQL full-suite parity audit" below for what's fixed (a lot) and what's
+  left (a distinct "second wave": `allowPkInsert`/`IDENTITY_INSERT`, more MARS
+  cursor leaks, `DBMSSQL::applyLimit()` vs. `UNION`, BLOB hydration, nested-
+  transaction emulation bugs -- none of it started yet).
   No `integration-mssql` CI job yet -- add one once this reaches 0/0 the way
   `integration-mysql` did.
 - **`buildtime-conf.xml`** (legacy XML build-time config) is still accepted
@@ -200,11 +201,58 @@ an `addColumnSql()` test helper in both files that emits `ADD` instead of
 change) and a `CREATE TABLE ... IDENTITY(1,1)` branch alongside the existing
 Postgres/MySQL ones.
 
-**Remaining, not yet fixed** (down to ~33 failures out of 2823 tests, all in
-one place):
-- `ModelCriteriaTest`/`ModelCriteriaSelectTest` SQL-shape assertion
-  mismatches, the same *kind* of issue normalized away for MySQL above
-  (`TOP n` instead of `LIMIT n`, `ROW_NUMBER()`-based derived-table rewriting
-  instead of `OFFSET`/`FETCH`, no `FOR UPDATE`/`FOR SHARE` support) -- needs
-  an MSSQL-aware extension to `normalizeGeneratedSql()` or
-  platform-conditional expected strings, not yet done.
+**Update (2026-07-28, continued)**: `ModelCriteriaTest`/`ModelCriteriaSelectTest`
+are now also fully green on MSSQL. Fixed a real bug -- `BasePeer::doUpdate()`'s
+aliased-UPDATE path built "UPDATE table alias SET ..." unconditionally, which is
+a T-SQL syntax error (MSSQL needs the alias introduced via a FROM clause: "UPDATE
+alias SET ... FROM table AS alias ...") -- via new
+`DBAdapter::getUpdateTargetSql()`/`getUpdateFromClauseSql()` capabilities. The
+rest were the same *kind* of SQL-shape issue normalized away for MySQL above
+(`TOP n` instead of a trailing `LIMIT n`, the `ROW_NUMBER()`-based derived-table
+rewrite `DBMSSQL::applyLimit()` uses instead of `OFFSET`/`FETCH`, the
+aliased-UPDATE shape itself) -- extended `normalizeGeneratedSql()` to cover all
+three. Three tests asserting a trailing `FOR UPDATE`/`FOR SHARE` clause against
+a criteria with no FROM table at all now skip cleanly on MSSQL, which expresses
+locking via table hints instead (already covered by `BasePeerTest`'s dedicated
+MSSQL tests) -- there's genuinely nothing for a bare `FOR UPDATE` to change here.
+
+**Second wave found (2026-07-28): the full suite is NOT yet 0/0.** With the
+above fixed, a full run surfaces 14 further errors + 14 failures previously
+unreached (masked by everything failing earlier) -- a distinct, not-yet-started
+batch of real MSSQL gaps:
+
+- **`allowPkInsert` tables + IDENTITY columns** (`customer`, `book` in
+  `testDoDeleteCompositePK`): inserting/updating an explicit PK value against
+  an `IDENTITY` column needs `SET IDENTITY_INSERT tbl ON`/`OFF` bracketing
+  MSSQL doesn't have a `supportsInsertNullPk()`-style escape hatch for this --
+  `GeneratedObjectTest`, `GeneratedPeerDoDeleteTest`, `GeneratedPeerDoSelectTest`
+  all hit this via the shared `customer` fixture table.
+- **More "results pending" (MARS) cursor leaks**, in code paths distinct from
+  the ones already fixed above -- `PropulsionOnDemandCollectionTest`,
+  `PropulsionArrayFormatterTest`, `BasePeerTest::testDoCountDuplicateColumnName`
+  all fail in `BookstoreTestBase::setUp()`'s own `beginTransaction()`, meaning
+  a *prior* test in the same run left a statement open; needs the same kind of
+  per-callsite `closeCursor()` audit as the first wave, but for whichever
+  method(s) actually leak here (not yet identified).
+- **`DBMSSQL::applyLimit()` can't parse a `UNION`-combined query**
+  (`SetOperationTest::testUnionWithOrderByAndLimitAppliesToCombinedResult`) --
+  the existing regex-based rewriter (already flagged for modernization in
+  `PLATFORM_FEATURES.md`) throws "could not locate the select statement"
+  rather than handling it.
+- **BLOB/LOB hydration**: `BookstoreTest::testScenario`/`testScenarioUsingQuery`
+  fail with `stream_get_contents(): Argument #1 ($stream) must be an open
+  stream resource` -- MSSQL's lazy-loaded BLOB column apparently isn't coming
+  back from PDO as a stream resource the way Postgres's does; the generated
+  hydration code's existing stream-vs-string branch (see `ObjectBuilder.php`'s
+  `load$phpname()` comment) doesn't account for whatever MSSQL/dblib actually
+  returns.
+- **Nested-transaction emulation bugs** in `MssqlPropulsionPDO` (dblib has no
+  native nested transactions, so it emulates via a counter) --
+  `PropulsionPDOTest::testDebugLog`/`testNestedTransactionRollBackRethrow`/
+  `testNestedTransactionCommit`/`testNestedTransactionRollBackSwallow` all fail;
+  root cause not yet investigated.
+
+None of this is started yet -- whoever picks it up next should re-run
+`PROPULSION_TEST_DB=mssql ../vendor/bin/phpunit -c phpunit.xml` from a clean
+`rm -rf fixtures/bookstore/build ...` to get a fresh, current failure list
+before starting (this one may already be stale by the time it's read).
