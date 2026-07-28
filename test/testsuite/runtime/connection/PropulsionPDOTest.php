@@ -55,6 +55,17 @@ class PropulsionPDOTest extends TestCase
 
 	public function testCommitBeforeFetch()
 	{
+		if (Propulsion::getDB(BookPeer::DATABASE_NAME) instanceof DBMSSQL) {
+			// FreeTDS/pdo_dblib has no MARS support: committing a transaction
+			// is itself a statement ("COMMIT TRANSACTION") on the same
+			// connection, which fails outright while $stmt's result set is
+			// still open and unfetched -- exactly what this test does on
+			// purpose. Not a fixable bug; MSSQL genuinely cannot do what this
+			// test checks (fetch a statement's results after the surrounding
+			// transaction has already been committed).
+			$this->markTestSkipped('MSSQL cannot commit a transaction while a statement on the same connection still has unfetched results pending (no MARS support).');
+		}
+
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		AuthorPeer::doDeleteAll($con);
 		$a = new Author();
@@ -365,7 +376,17 @@ class PropulsionPDOTest extends TestCase
 		$this->assertEquals($latestExecutedQuery, $con->getLastExecutedQuery(), 'PropulsionPDO updates the last executed query when useLogging is true');
 
 		BookPeer::doDeleteAll($con);
-		$latestExecutedQuery = "DELETE FROM book";
+		// On every other platform, beginTransaction()/commit() call the real
+		// PDO methods directly, bypassing PropulsionPDO::exec() (and its
+		// query-count/last-query tracking) entirely -- only the DELETE itself
+		// is a tracked query. MSSQL has no native nested-transaction support
+		// at all, so its beginTransaction()/commit() emulate one via literal
+		// "BEGIN TRANSACTION"/"COMMIT TRANSACTION" SQL sent through exec(),
+		// which *does* get tracked -- the last one executed here is the
+		// COMMIT, not the DELETE.
+		$latestExecutedQuery = Propulsion::getDB(BookPeer::DATABASE_NAME) instanceof DBMSSQL
+			? 'COMMIT TRANSACTION'
+			: 'DELETE FROM book';
 		$this->assertEquals($latestExecutedQuery, normalizeGeneratedSql($con->getLastExecutedQuery()), 'PropulsionPDO updates the last executed query on delete operations');
 
 		$sql = 'DELETE FROM book WHERE 1=1';
@@ -404,20 +425,28 @@ class PropulsionPDOTest extends TestCase
 		$this->assertEquals(1, $con->getQueryCount(), 'PropulsionPDO updates the query count when useLogging is true');
 
 		BookPeer::doDeleteAll($con);
-		$this->assertEquals(2, $con->getQueryCount(), 'PropulsionPDO updates the query count on delete operations');
+		// See testDebugLatestQuery()'s own comment: MSSQL's beginTransaction()/
+		// commit() emulate a transaction via real "BEGIN TRANSACTION"/"COMMIT
+		// TRANSACTION" statements sent through exec() (which *is* tracked),
+		// unlike every other platform's direct (untracked) native PDO calls --
+		// doDeleteAll() here counts as 3 tracked queries (BEGIN, DELETE, COMMIT)
+		// on MSSQL, not just 1 (the DELETE alone).
+		$isMssql = Propulsion::getDB(BookPeer::DATABASE_NAME) instanceof DBMSSQL;
+		$countAfterDeleteAll = $isMssql ? 4 : 2;
+		$this->assertEquals($countAfterDeleteAll, $con->getQueryCount(), 'PropulsionPDO updates the query count on delete operations');
 
 		$sql = 'DELETE FROM book WHERE 1=1';
 		$con->exec($sql);
-		$this->assertEquals(3, $con->getQueryCount(), 'PropulsionPDO updates the query count on exec operations');
+		$this->assertEquals($countAfterDeleteAll + 1, $con->getQueryCount(), 'PropulsionPDO updates the query count on exec operations');
 
 		$sql = 'DELETE FROM book WHERE 2=2';
 		$con->query($sql);
-		$this->assertEquals(4, $con->getQueryCount(), 'PropulsionPDO updates the query count on query operations');
+		$this->assertEquals($countAfterDeleteAll + 2, $con->getQueryCount(), 'PropulsionPDO updates the query count on query operations');
 
 		$stmt = $con->prepare('DELETE FROM book WHERE 1=:p1');
 		$stmt->bindValue(':p1', '2');
 		$stmt->execute();
-		$this->assertEquals(5, $con->getQueryCount(), 'PropulsionPDO updates the query count on prapared statements');
+		$this->assertEquals($countAfterDeleteAll + 3, $con->getQueryCount(), 'PropulsionPDO updates the query count on prapared statements');
 
 		$con->useDebug(false);
 		$this->assertEquals(0, $con->getQueryCount(), 'PropulsionPDO reinitializes the query count when debug is set to false');

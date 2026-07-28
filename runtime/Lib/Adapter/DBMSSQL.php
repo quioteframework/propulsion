@@ -426,7 +426,17 @@ class DBMSSQL extends DBAdapter
 	 */
 	public function extractInsertedId(\PDOStatement $stmt): mixed
 	{
-		return $stmt->fetchColumn();
+		$id = $stmt->fetchColumn();
+		// FreeTDS/pdo_dblib has no MARS support: every INSERT here goes
+		// through the OUTPUT INSERTED.<col> clause (see getInsertReturningSql()),
+		// and this single-value fetch otherwise leaves its result set open --
+		// the next statement on the same connection (including something as
+		// simple as a later ROLLBACK/COMMIT TRANSACTION) can fail with
+		// "Attempt to initiate a new Adaptive Server operation with results
+		// pending" before PHP's GC gets around to closing it.
+		$stmt->closeCursor();
+
+		return $id;
 	}
 
 	/**
