@@ -60,16 +60,18 @@ class PropulsionMigrationManagerTest extends TestCase
 
         $this->platform = IntegrationDatabase::currentPlatform();
 
-        $this->dsn = "{$this->platform}:host={$conn['host']};port={$conn['port']};dbname=propulsion_test";
-        $this->pdo = new PDO($this->dsn, 'propulsion', 'propulsion');
+        $this->dsn = IntegrationDatabase::pdoDsn($conn['host'], $conn['port'], 'propulsion_test');
+        [$dbUser, $dbPassword] = IntegrationDatabase::pdoCredentials();
+        $this->pdo = new PDO($this->dsn, $dbUser, $dbPassword);
         $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
         $this->pdo->exec('DROP TABLE IF EXISTS ' . self::MIGRATION_TABLE);
         $this->pdo->exec('DROP TABLE IF EXISTS mig_mgr_book');
-        $this->pdo->exec($this->platform === 'mysql'
-            ? 'CREATE TABLE mig_mgr_book (id INT AUTO_INCREMENT PRIMARY KEY, title VARCHAR(100) NOT NULL)'
-            : 'CREATE TABLE mig_mgr_book (id SERIAL PRIMARY KEY, title VARCHAR(100) NOT NULL)'
-        );
+        $this->pdo->exec(match ($this->platform) {
+            'mysql' => 'CREATE TABLE mig_mgr_book (id INT AUTO_INCREMENT PRIMARY KEY, title VARCHAR(100) NOT NULL)',
+            'mssql' => 'CREATE TABLE mig_mgr_book (id INT IDENTITY(1,1) PRIMARY KEY, title VARCHAR(100) NOT NULL)',
+            default => 'CREATE TABLE mig_mgr_book (id SERIAL PRIMARY KEY, title VARCHAR(100) NOT NULL)',
+        });
 
         $this->migrationDir = sys_get_temp_dir() . '/propulsion-migration-manager-test-' . uniqid();
         mkdir($this->migrationDir, 0777, true);
@@ -92,7 +94,7 @@ class PropulsionMigrationManagerTest extends TestCase
         $timestamp = 1720000000;
         $manager = $this->buildManager();
 
-        $upSql = ['ALTER TABLE mig_mgr_book ADD COLUMN subtitle VARCHAR(120);'];
+        $upSql = [$this->addColumnSql('subtitle VARCHAR(120)')];
         $downSql = ['ALTER TABLE mig_mgr_book DROP COLUMN subtitle;'];
 
         $runUp = fn () => $manager->runMigrationDirection($timestamp, 'up', [self::DATASOURCE => $upSql[0]]);
@@ -129,8 +131,7 @@ class PropulsionMigrationManagerTest extends TestCase
 
         // The second statement deterministically fails on every platform: you
         // cannot add the same column twice.
-        $sql = "ALTER TABLE mig_mgr_book ADD COLUMN subtitle VARCHAR(120);\n"
-            . 'ALTER TABLE mig_mgr_book ADD COLUMN subtitle VARCHAR(120);';
+        $sql = $this->addColumnSql('subtitle VARCHAR(120)') . "\n" . $this->addColumnSql('subtitle VARCHAR(120)');
 
         $threw = false;
         try {
@@ -172,7 +173,7 @@ class PropulsionMigrationManagerTest extends TestCase
         $manager = $this->buildManager();
 
         $manager->runMigrationDirection($timestamp, 'up', [
-            self::DATASOURCE => 'ALTER TABLE mig_mgr_book ADD COLUMN subtitle VARCHAR(120);',
+            self::DATASOURCE => $this->addColumnSql('subtitle VARCHAR(120)'),
         ]);
         $this->assertSame($timestamp, $manager->getCurrentVersion(self::DATASOURCE), 'sanity check: up should have applied cleanly');
 
@@ -220,8 +221,7 @@ class PropulsionMigrationManagerTest extends TestCase
         }
 
         $timestamp = 1720000300;
-        $sql = "ALTER TABLE mig_mgr_book ADD COLUMN subtitle VARCHAR(120);\n"
-            . 'ALTER TABLE mig_mgr_book ADD COLUMN subtitle VARCHAR(120);';
+        $sql = $this->addColumnSql('subtitle VARCHAR(120)') . "\n" . $this->addColumnSql('subtitle VARCHAR(120)');
 
         try {
             $manager->runMigrationDirection($timestamp, 'up', [self::DATASOURCE => $sql]);
@@ -248,8 +248,7 @@ class PropulsionMigrationManagerTest extends TestCase
         }
 
         $timestamp = 1720000400;
-        $sql = "ALTER TABLE mig_mgr_book ADD COLUMN subtitle VARCHAR(120);\n"
-            . 'ALTER TABLE mig_mgr_book ADD COLUMN subtitle VARCHAR(120);';
+        $sql = $this->addColumnSql('subtitle VARCHAR(120)') . "\n" . $this->addColumnSql('subtitle VARCHAR(120)');
 
         try {
             $manager->runMigrationDirection($timestamp, 'up', [self::DATASOURCE => $sql]);
@@ -272,7 +271,7 @@ class PropulsionMigrationManagerTest extends TestCase
         $manager = $this->buildManager();
 
         $timestampA = 1720000500;
-        $upSqlA = 'ALTER TABLE mig_mgr_book ADD COLUMN subtitle VARCHAR(120);';
+        $upSqlA = $this->addColumnSql('subtitle VARCHAR(120)');
         $manager->runMigrationDirection($timestampA, 'up', [self::DATASOURCE => $upSqlA]);
 
         $ledger = $manager->getMigrationLedger(self::DATASOURCE);
@@ -282,7 +281,7 @@ class PropulsionMigrationManagerTest extends TestCase
         $this->assertSame(64, strlen($checksumA));
 
         $timestampB = 1720000600;
-        $upSqlB = 'ALTER TABLE mig_mgr_book ADD COLUMN blurb VARCHAR(200);';
+        $upSqlB = $this->addColumnSql('blurb VARCHAR(200)');
         $manager->runMigrationDirection($timestampB, 'up', [self::DATASOURCE => $upSqlB]);
 
         $ledger = $manager->getMigrationLedger(self::DATASOURCE);
@@ -303,6 +302,18 @@ class PropulsionMigrationManagerTest extends TestCase
 
         $this->expectException(MigrationExecutionException::class);
         $manager->runMigrationDirection(1720000700, 'up', [self::DATASOURCE => '   ']);
+    }
+
+    /**
+     * "ALTER TABLE ... ADD COLUMN ..." is valid everywhere this test runs
+     * except MSSQL, where the ADD clause takes the column definition directly
+     * with no COLUMN keyword.
+     */
+    private function addColumnSql(string $columnDef, string $table = 'mig_mgr_book'): string
+    {
+        $verb = $this->platform === 'mssql' ? 'ADD' : 'ADD COLUMN';
+
+        return "ALTER TABLE $table $verb $columnDef;";
     }
 
     private function isTruthy($value): bool
@@ -330,13 +341,14 @@ class PropulsionMigrationManagerTest extends TestCase
 
     private function buildManager(): PropulsionMigrationManager
     {
+        [$dbUser, $dbPassword] = IntegrationDatabase::pdoCredentials();
         $manager = new PropulsionMigrationManager();
         $manager->setConnections([
             self::DATASOURCE => [
                 'adapter' => $this->platform,
                 'dsn' => $this->dsn,
-                'user' => 'propulsion',
-                'password' => 'propulsion',
+                'user' => $dbUser,
+                'password' => $dbPassword,
             ],
         ]);
         $manager->setMigrationTable(self::MIGRATION_TABLE);

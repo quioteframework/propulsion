@@ -171,6 +171,35 @@ class IntegrationDatabase
         return self::platform() === 'mssql' ? 'dblib' : self::platform();
     }
 
+    /**
+     * Builds a raw PDO DSN for the given host/port/database against
+     * currentPlatform(), for tests that construct their own PDO connection to
+     * the shared testcontainer instead of going through Propulsion's own
+     * connection management. dblib (MSSQL) is the one platform here that
+     * doesn't take host and port as separate DSN attributes -- it wants
+     * "host=host:port" combined, unlike pgsql/mysql's "host=host;port=port".
+     */
+    public static function pdoDsn(string $host, int $port, string $dbname): string
+    {
+        return self::platform() === 'mssql'
+            ? "dblib:host=$host:$port;dbname=$dbname;charset=UTF8"
+            : self::pdoDriverPrefix() . ":host=$host;port=$port;dbname=$dbname";
+    }
+
+    /**
+     * The user/password to connect to the shared testcontainer with, for
+     * tests that build their own raw PDO connection instead of going through
+     * Propulsion's connection management. Every platform except MSSQL gets a
+     * dedicated 'propulsion'/'propulsion' app user; MSSQL only ever gets the
+     * container's own 'sa' superuser (see loadFixtureData()).
+     *
+     * @return array{0: string, 1: string} [$user, $password]
+     */
+    public static function pdoCredentials(): array
+    {
+        return self::platform() === 'mssql' ? ['sa', self::MSSQL_SA_PASSWORD] : ['propulsion', 'propulsion'];
+    }
+
     private static bool $namespacedAttempted = false;
     private static ?string $namespacedSkipReason = null;
 

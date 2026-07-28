@@ -188,22 +188,23 @@ All four are real bugs (or missing capability), not test-assertion shape
 issues -- fixed in `runtime/`/`generator/`, not by relaxing test expectations,
 and verified with 0 regressions on Postgres/MySQL/SQLite.
 
-**Remaining, not yet fixed** (73 errors + 33 failures out of 2823 tests):
-- ~45 errors were the 8 tests documented above as "Postgres-specific by
-  design" -- now resolved via the skip guards, not a parity gap.
-- `MigrationCommandsTest` (19 errors) / `PropulsionMigrationManagerTest` (7
-  errors): both intend real cross-platform coverage (already branch on
-  `mysql` for `AUTO_INCREMENT` vs `SERIAL`) but (a) build their raw PDO DSN
-  from `IntegrationDatabase::currentPlatform()` directly, which is wrong for
-  MSSQL (`"mssql:..."` isn't a PDO driver -- needs `"dblib:..."`, now
-  available as `IntegrationDatabase::pdoDriverPrefix()`, not yet wired into
-  these two files), and (b) use `ALTER TABLE t ADD COLUMN col type` in every
-  migration-file fixture, which is invalid T-SQL (MSSQL needs `ADD` without
-  `COLUMN`; `DROP COLUMN` is fine as-is). ~42 call sites across both files
-  need the same mechanical `ADD COLUMN` -> `ADD` substitution for MSSQL.
-- The remaining ~33 failures are `ModelCriteriaTest`/`ModelCriteriaSelectTest`
-  SQL-shape assertion mismatches, the same *kind* of issue normalized away for
-  MySQL above (`TOP n` instead of `LIMIT n`, `ROW_NUMBER()`-based derived-table
-  rewriting instead of `OFFSET`/`FETCH`, no `FOR UPDATE`/`FOR SHARE` support) --
-  needs an MSSQL-aware extension to `normalizeGeneratedSql()` or
+**Update (2026-07-28)**: both `MigrationCommandsTest` and
+`PropulsionMigrationManagerTest` now pass on all three platforms. Fixed via
+two new `IntegrationDatabase` helpers -- `pdoDsn()` (dblib wants
+`host=host:port` combined, not separate `host=`/`port=` attributes; also
+covers `pdoDriverPrefix()`'s `"mssql"` -> `"dblib"` translation) and
+`pdoCredentials()` (MSSQL's testcontainer only ever gets the `sa` superuser,
+never the `propulsion`/`propulsion` app user the other platforms get) -- plus
+an `addColumnSql()` test helper in both files that emits `ADD` instead of
+`ADD COLUMN` for MSSQL (invalid T-SQL otherwise; `DROP COLUMN` needed no
+change) and a `CREATE TABLE ... IDENTITY(1,1)` branch alongside the existing
+Postgres/MySQL ones.
+
+**Remaining, not yet fixed** (down to ~33 failures out of 2823 tests, all in
+one place):
+- `ModelCriteriaTest`/`ModelCriteriaSelectTest` SQL-shape assertion
+  mismatches, the same *kind* of issue normalized away for MySQL above
+  (`TOP n` instead of `LIMIT n`, `ROW_NUMBER()`-based derived-table rewriting
+  instead of `OFFSET`/`FETCH`, no `FOR UPDATE`/`FOR SHARE` support) -- needs
+  an MSSQL-aware extension to `normalizeGeneratedSql()` or
   platform-conditional expected strings, not yet done.

@@ -60,16 +60,18 @@ class MigrationCommandsTest extends TestCase
 
         $this->platform = IntegrationDatabase::currentPlatform();
 
-        $this->dsn = "{$this->platform}:host={$conn['host']};port={$conn['port']};dbname=propulsion_test";
-        $this->pdo = new PDO($this->dsn, 'propulsion', 'propulsion');
+        $this->dsn = IntegrationDatabase::pdoDsn($conn['host'], $conn['port'], 'propulsion_test');
+        [$dbUser, $dbPassword] = IntegrationDatabase::pdoCredentials();
+        $this->pdo = new PDO($this->dsn, $dbUser, $dbPassword);
         $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
         $this->pdo->exec('DROP TABLE IF EXISTS ' . self::MIGRATION_TABLE);
         $this->pdo->exec('DROP TABLE IF EXISTS mig_cmd_book');
-        $this->pdo->exec($this->platform === 'mysql'
-            ? 'CREATE TABLE mig_cmd_book (id INT AUTO_INCREMENT PRIMARY KEY, title VARCHAR(100) NOT NULL)'
-            : 'CREATE TABLE mig_cmd_book (id SERIAL PRIMARY KEY, title VARCHAR(100) NOT NULL)'
-        );
+        $this->pdo->exec(match ($this->platform) {
+            'mysql' => 'CREATE TABLE mig_cmd_book (id INT AUTO_INCREMENT PRIMARY KEY, title VARCHAR(100) NOT NULL)',
+            'mssql' => 'CREATE TABLE mig_cmd_book (id INT IDENTITY(1,1) PRIMARY KEY, title VARCHAR(100) NOT NULL)',
+            default => 'CREATE TABLE mig_cmd_book (id SERIAL PRIMARY KEY, title VARCHAR(100) NOT NULL)',
+        });
 
         $this->migrationDir = sys_get_temp_dir() . '/propulsion-migration-command-test-' . uniqid();
         mkdir($this->migrationDir, 0777, true);
@@ -78,11 +80,13 @@ class MigrationCommandsTest extends TestCase
         file_put_contents($this->buildtimeConfFile, sprintf(
             '<config><propel><datasources default="%1$s">'
             . '<datasource id="%1$s"><adapter>%3$s</adapter>'
-            . '<connection><dsn>%2$s</dsn><user>propulsion</user><password>propulsion</password></connection>'
+            . '<connection><dsn>%2$s</dsn><user>%4$s</user><password>%5$s</password></connection>'
             . '</datasource></datasources></propel></config>',
             self::DATASOURCE,
             htmlspecialchars($this->dsn, ENT_XML1),
-            $this->platform
+            $this->platform,
+            htmlspecialchars($dbUser, ENT_XML1),
+            htmlspecialchars($dbPassword, ENT_XML1)
         ));
 
         $this->buildtimeConfigPhpFile = $this->migrationDir . '/buildtime-conf.php';
@@ -92,8 +96,8 @@ class MigrationCommandsTest extends TestCase
                 self::DATASOURCE => [
                     'adapter' => $this->platform,
                     'dsn' => $this->dsn,
-                    'user' => 'propulsion',
-                    'password' => 'propulsion',
+                    'user' => $dbUser,
+                    'password' => $dbPassword,
                 ],
             ],
         ], true) . ';');
@@ -115,7 +119,7 @@ class MigrationCommandsTest extends TestCase
     {
         $timestamp = 1750000000;
         $this->writeMigrationFile($timestamp, [
-            self::DATASOURCE => 'ALTER TABLE mig_cmd_book ADD COLUMN subtitle VARCHAR(120);',
+            self::DATASOURCE => $this->addColumnSql('subtitle VARCHAR(120)'),
         ], [
             self::DATASOURCE => 'ALTER TABLE mig_cmd_book DROP COLUMN subtitle;',
         ]);
@@ -174,8 +178,7 @@ class MigrationCommandsTest extends TestCase
         // The second statement deterministically fails on every platform: you
         // cannot add the same column twice.
         $this->writeMigrationFile($timestamp, [
-            self::DATASOURCE => "ALTER TABLE mig_cmd_book ADD COLUMN subtitle VARCHAR(120);\n"
-                . 'ALTER TABLE mig_cmd_book ADD COLUMN subtitle VARCHAR(120);',
+            self::DATASOURCE => $this->addColumnSql('subtitle VARCHAR(120)') . "\n" . $this->addColumnSql('subtitle VARCHAR(120)'),
         ], [
             self::DATASOURCE => 'ALTER TABLE mig_cmd_book DROP COLUMN subtitle;',
         ]);
@@ -205,7 +208,7 @@ class MigrationCommandsTest extends TestCase
     {
         $timestamp = 1750000200;
         $this->writeMigrationFile($timestamp, [
-            self::DATASOURCE => 'ALTER TABLE mig_cmd_book ADD COLUMN subtitle VARCHAR(120);',
+            self::DATASOURCE => $this->addColumnSql('subtitle VARCHAR(120)'),
         ], [
             // Second statement deterministically fails: the column no longer
             // exists once the first statement has dropped it.
@@ -239,7 +242,7 @@ class MigrationCommandsTest extends TestCase
         // Migration file exists but was never applied -- migration:down has
         // nothing to reverse.
         $this->writeMigrationFile(1750000400, [
-            self::DATASOURCE => 'ALTER TABLE mig_cmd_book ADD COLUMN subtitle VARCHAR(120);',
+            self::DATASOURCE => $this->addColumnSql('subtitle VARCHAR(120)'),
         ], [
             self::DATASOURCE => 'ALTER TABLE mig_cmd_book DROP COLUMN subtitle;',
         ]);
@@ -254,12 +257,12 @@ class MigrationCommandsTest extends TestCase
     public function testUpCommandReportsRemainingMigrationsAfterApplyingOne(): void
     {
         $this->writeMigrationFile(1750000500, [
-            self::DATASOURCE => 'ALTER TABLE mig_cmd_book ADD COLUMN col_a VARCHAR(10);',
+            self::DATASOURCE => $this->addColumnSql('col_a VARCHAR(10)'),
         ], [
             self::DATASOURCE => 'ALTER TABLE mig_cmd_book DROP COLUMN col_a;',
         ]);
         $this->writeMigrationFile(1750000501, [
-            self::DATASOURCE => 'ALTER TABLE mig_cmd_book ADD COLUMN col_b VARCHAR(10);',
+            self::DATASOURCE => $this->addColumnSql('col_b VARCHAR(10)'),
         ], [
             self::DATASOURCE => 'ALTER TABLE mig_cmd_book DROP COLUMN col_b;',
         ]);
@@ -274,12 +277,12 @@ class MigrationCommandsTest extends TestCase
     public function testDownCommandReportsRemainingMigrationsAfterRevertingOne(): void
     {
         $this->writeMigrationFile(1750000600, [
-            self::DATASOURCE => 'ALTER TABLE mig_cmd_book ADD COLUMN col_c VARCHAR(10);',
+            self::DATASOURCE => $this->addColumnSql('col_c VARCHAR(10)'),
         ], [
             self::DATASOURCE => 'ALTER TABLE mig_cmd_book DROP COLUMN col_c;',
         ]);
         $this->writeMigrationFile(1750000601, [
-            self::DATASOURCE => 'ALTER TABLE mig_cmd_book ADD COLUMN col_d VARCHAR(10);',
+            self::DATASOURCE => $this->addColumnSql('col_d VARCHAR(10)'),
         ], [
             self::DATASOURCE => 'ALTER TABLE mig_cmd_book DROP COLUMN col_d;',
         ]);
@@ -299,19 +302,20 @@ class MigrationCommandsTest extends TestCase
 
     public function testUpCommandAbortsWhenPreUpReturnsFalse(): void
     {
-        $this->writeCustomMigrationFile(1750000700, <<<'EOT'
-public function preUp($manager)
+        $addColE = $this->addColumnSql('col_e VARCHAR(10)');
+        $this->writeCustomMigrationFile(1750000700, <<<EOT
+public function preUp(\$manager)
 {
     return false;
 }
 
-public function postUp($manager) {}
-public function preDown($manager) {}
-public function postDown($manager) {}
+public function postUp(\$manager) {}
+public function preDown(\$manager) {}
+public function postDown(\$manager) {}
 
 public function getUpSQL()
 {
-    return ['migration_command_parity' => 'ALTER TABLE mig_cmd_book ADD COLUMN col_e VARCHAR(10);'];
+    return ['migration_command_parity' => '$addColE'];
 }
 
 public function getDownSQL()
@@ -331,20 +335,21 @@ EOT
 
     public function testDownCommandAbortsWhenPreDownReturnsFalse(): void
     {
-        $this->writeCustomMigrationFile(1750000800, <<<'EOT'
-public function preUp($manager) {}
-public function postUp($manager) {}
+        $addColF = $this->addColumnSql('col_f VARCHAR(10)');
+        $this->writeCustomMigrationFile(1750000800, <<<EOT
+public function preUp(\$manager) {}
+public function postUp(\$manager) {}
 
-public function preDown($manager)
+public function preDown(\$manager)
 {
     return false;
 }
 
-public function postDown($manager) {}
+public function postDown(\$manager) {}
 
 public function getUpSQL()
 {
-    return ['migration_command_parity' => 'ALTER TABLE mig_cmd_book ADD COLUMN col_f VARCHAR(10);'];
+    return ['migration_command_parity' => '$addColF'];
 }
 
 public function getDownSQL()
@@ -418,7 +423,7 @@ EOT
         // Same as the Up-side test above, but for migration:down's own copy of
         // renderStatementLog(): a migration whose Down SQL is only a comment.
         $this->writeMigrationFile(1750001200, [
-            self::DATASOURCE => 'ALTER TABLE mig_cmd_book ADD COLUMN col_i VARCHAR(10);',
+            self::DATASOURCE => $this->addColumnSql('col_i VARCHAR(10)'),
         ], [
             self::DATASOURCE => '-- nothing to do here',
         ]);
@@ -510,7 +515,7 @@ EOT
     {
         $timestamp = 1750000900;
         $this->writeMigrationFile($timestamp, [
-            self::DATASOURCE => 'ALTER TABLE mig_cmd_book ADD COLUMN col_g VARCHAR(10);',
+            self::DATASOURCE => $this->addColumnSql('col_g VARCHAR(10)'),
         ], [
             self::DATASOURCE => 'ALTER TABLE mig_cmd_book DROP COLUMN col_g;',
         ]);
@@ -529,7 +534,7 @@ EOT
     {
         $timestamp = 1750001000;
         $this->writeMigrationFile($timestamp, [
-            self::DATASOURCE => 'ALTER TABLE mig_cmd_book ADD COLUMN col_h VARCHAR(10);',
+            self::DATASOURCE => $this->addColumnSql('col_h VARCHAR(10)'),
         ], [
             self::DATASOURCE => 'ALTER TABLE mig_cmd_book DROP COLUMN col_h;',
         ]);
@@ -559,7 +564,7 @@ EOT
     {
         $timestamp = 1750000300;
         $this->writeMigrationFile($timestamp, [
-            self::DATASOURCE => 'ALTER TABLE mig_cmd_book ADD COLUMN subtitle VARCHAR(120);',
+            self::DATASOURCE => $this->addColumnSql('subtitle VARCHAR(120)'),
         ], [
             self::DATASOURCE => 'ALTER TABLE mig_cmd_book DROP COLUMN subtitle;',
         ]);
@@ -602,6 +607,18 @@ EOT
         } finally {
             rmdir($emptyDir);
         }
+    }
+
+    /**
+     * "ALTER TABLE ... ADD COLUMN ..." is valid everywhere this test runs
+     * except MSSQL, where the ADD clause takes the column definition directly
+     * with no COLUMN keyword.
+     */
+    private function addColumnSql(string $columnDef, string $table = 'mig_cmd_book'): string
+    {
+        $verb = $this->platform === 'mssql' ? 'ADD' : 'ADD COLUMN';
+
+        return "ALTER TABLE $table $verb $columnDef;";
     }
 
     private function commandArgs(): array
@@ -671,13 +688,14 @@ EOT
 
     private function buildRawManager(): PropulsionMigrationManager
     {
+        [$dbUser, $dbPassword] = IntegrationDatabase::pdoCredentials();
         $manager = new PropulsionMigrationManager();
         $manager->setConnections([
             self::DATASOURCE => [
                 'adapter' => $this->platform,
                 'dsn' => $this->dsn,
-                'user' => 'propulsion',
-                'password' => 'propulsion',
+                'user' => $dbUser,
+                'password' => $dbPassword,
             ],
         ]);
         $manager->setMigrationTable(self::MIGRATION_TABLE);
