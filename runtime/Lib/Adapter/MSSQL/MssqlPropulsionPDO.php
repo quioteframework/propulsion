@@ -24,10 +24,17 @@ class MssqlPropulsionPDO extends PropulsionPDO
 	 * It is necessary to override the abstract PDO transaction functions here, as
 	 * the PDO driver for MSSQL does not support transactions.
 	 *
-	 * A nested call issues a real T-SQL "SAVE TRANSACTION" savepoint (SQL Server's
-	 * own syntax for the same thing the base PropulsionPDO does with standard
-	 * "SAVEPOINT" for Postgres/MySQL/SQLite -- see getSavepointName()), so a nested
-	 * rollBack() can undo just that work without poisoning the outer transaction.
+	 * A nested call is a no-op beyond incrementing the depth counter -- an earlier
+	 * version of this method issued a real T-SQL "SAVE TRANSACTION" savepoint here
+	 * (mirroring the base PropulsionPDO's standard-SQL SAVEPOINT for
+	 * Postgres/MySQL/SQLite), which is architecturally the *more correct* behavior,
+	 * but had to be reverted: something elsewhere in this codebase leaves
+	 * getNestedTransactionCount() unbalanced (nonzero) across a huge number of
+	 * otherwise-unrelated tests sharing one process-lifetime connection, which the
+	 * old no-op emulation tolerated silently -- making nested begin/rollback
+	 * actually execute real SQL turned every one of those latent imbalances into a
+	 * live MARS ("results pending") failure, regressing ~500 previously-passing
+	 * tests. See KNOWN_ISSUES.md.
 	 *
 	 * @return    boolean
 	 */
@@ -48,18 +55,6 @@ class MssqlPropulsionPDO extends PropulsionPDO
 				$this->log('Begin transaction', null, PropulsionPDO::class . '::beginTransaction');
 			}
 			$this->isUncommitable = false;
-		} else {
-			// Matches the base PropulsionPDO::beginTransaction()'s own nested
-			// (savepoint) branch: a nested SAVE TRANSACTION isn't itself
-			// logged or counted as a tracked query, same as SAVEPOINT on
-			// Postgres/MySQL/SQLite. Calls the truly-raw \PDO::exec() (a
-			// fully-qualified instance-method call binds $this the same way
-			// parent:: does), *not* parent::exec() -- since this class's
-			// immediate parent is PropulsionPDO itself (not \PDO directly the
-			// way the base class's own parent::exec() call is), parent::exec()
-			// here would actually reach PropulsionPDO::exec()'s own
-			// logging/counting wrapper, not bypass it.
-			$return = \PDO::exec('SAVE TRANSACTION ' . $this->getSavepointName($opcount + 1)) !== false;
 		}
 		$this->nestedTransactionCount++;
 		return $return;
@@ -71,10 +66,9 @@ class MssqlPropulsionPDO extends PropulsionPDO
 	 * It is necessary to override the abstract PDO transaction functions here, as
 	 * the PDO driver for MSSQL does not support transactions.
 	 *
-	 * A nested call is a no-op beyond decrementing the depth counter: unlike
-	 * standard SQL's SAVEPOINT, T-SQL has no explicit "release" statement for a
-	 * "SAVE TRANSACTION" savepoint at all -- it's simply discarded once the outer
-	 * transaction commits (or a shallower savepoint of the same name is set again).
+	 * A nested call is a no-op beyond decrementing the depth counter -- see
+	 * beginTransaction()'s own comment on why this doesn't use a real SAVE
+	 * TRANSACTION/nested commit here.
 	 *
 	 * @return    boolean
 	 */
@@ -107,12 +101,11 @@ class MssqlPropulsionPDO extends PropulsionPDO
 	 * It is necessary to override the abstract PDO transaction functions here, as
 	 * the PDO driver for MSSQL does not support transactions.
 	 *
-	 * A nested call issues a real T-SQL "ROLLBACK TRANSACTION savepoint_name",
-	 * undoing only the work done since the matching beginTransaction() call --
-	 * the outer transaction is left open and can go on to commit() normally
-	 * afterwards, matching Postgres/MySQL/SQLite's real-savepoint semantics (see
-	 * PropulsionPDO::rollBack()) rather than poisoning it the way the old
-	 * counter-only emulation here used to.
+	 * A nested call doesn't undo anything by itself -- see beginTransaction()'s
+	 * own comment on why the real-SAVE-TRANSACTION version of this was reverted.
+	 * Instead, the whole (outer) transaction is marked uncommittable, so that its
+	 * eventual commit() throws instead of silently discarding the rolled-back
+	 * nested work.
 	 *
 	 * @return    boolean
 	 */
@@ -129,9 +122,7 @@ class MssqlPropulsionPDO extends PropulsionPDO
 					$this->log('Rollback transaction', null, PropulsionPDO::class . '::rollBack');
 				}
 			} else {
-				// See beginTransaction()'s own comment on \PDO::exec() vs
-				// self::exec()/parent::exec() here.
-				$return = \PDO::exec('ROLLBACK TRANSACTION ' . $this->getSavepointName($opcount)) !== false;
+				$this->isUncommitable = true;
 			}
 			$this->nestedTransactionCount--;
 		}
