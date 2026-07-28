@@ -49,9 +49,13 @@ class GeneratedPeerDoSelectTest extends BookstoreEmptyTestBase
 
 		$c = new Criteria();
 		$c->add(BookPeer::ID, 'foo');
-		if (IntegrationDatabase::currentPlatform() === 'mysql') {
+		if (in_array(IntegrationDatabase::currentPlatform(), ['mysql', 'mssql'], true)) {
 			// MySQL loosely coerces a non-numeric string to 0 in an integer
-			// comparison, matching no rows.
+			// comparison, matching no rows. MSSQL (via FreeTDS/pdo_dblib)
+			// behaves the same way for a *bound parameter* specifically
+			// (empirically verified against a live instance) -- unlike an
+			// inline literal, which SQL Server does reject with a conversion
+			// error.
 			$res = BookPeer::doSelect($c);
 			$this->assertEquals(array(), $res, 'doSelect() accepts an incorrect Criteria');
 		} else {
@@ -172,9 +176,10 @@ class GeneratedPeerDoSelectTest extends BookstoreEmptyTestBase
 
 		$c = new Criteria();
 		$c->add(BookPeer::ID, 'foo');
-		if (IntegrationDatabase::currentPlatform() === 'mysql') {
-			// MySQL loosely coerces a non-numeric string to 0 in an integer
-			// comparison, matching no rows.
+		if (in_array(IntegrationDatabase::currentPlatform(), ['mysql', 'mssql'], true)) {
+			// See testDoSelect() -- MySQL loosely coerces a non-numeric string
+			// to 0 in an integer comparison; MSSQL (via FreeTDS/pdo_dblib)
+			// behaves the same way for a bound parameter.
 			$res = BookPeer::doSelectOne($c);
 			$this->assertNull($res, 'doSelectOne() returns null if the Criteria matches no record');
 		} else {

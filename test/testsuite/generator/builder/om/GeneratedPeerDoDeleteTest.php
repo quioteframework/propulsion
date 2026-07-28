@@ -505,17 +505,32 @@ class GeneratedPeerDoDeleteTest extends BookstoreEmptyTestBase
 	private function createBookWithId(int $id)
 	{
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
-		$b = BookPeer::retrieveByPK($id);
-		if (!$b) {
-			$b = new Book();
-			$b->setTitle("Book$id")->setISBN("BookISBN$id")->save();
-			$b1Id = $b->getId();
-			$sql = "UPDATE " . BookPeer::TABLE_NAME . " SET id = ? WHERE id = ?";
-			$stmt = $con->prepare($sql);
-			$stmt->bindValue(1, $id);
-			$stmt->bindValue(2, $b1Id);
-			$stmt->execute();
+		if (BookPeer::retrieveByPK($id)) {
+			return;
 		}
+		if (Propulsion::getDB(BookPeer::DATABASE_NAME) instanceof DBMSSQL) {
+			// SQL Server can never UPDATE an IDENTITY column's value at all
+			// (unlike INSERT, which allows an explicit value via
+			// IDENTITY_INSERT) -- insert directly with the desired id instead
+			// of inserting a normal row and then moving it.
+			$con->exec('SET IDENTITY_INSERT ' . BookPeer::TABLE_NAME . ' ON');
+			try {
+				$stmt = $con->prepare('INSERT INTO ' . BookPeer::TABLE_NAME . ' (id, title, isbn) VALUES (?, ?, ?)');
+				$stmt->execute([$id, "Book$id", "BookISBN$id"]);
+			} finally {
+				$con->exec('SET IDENTITY_INSERT ' . BookPeer::TABLE_NAME . ' OFF');
+			}
+			BookPeer::clearInstancePool();
+			return;
+		}
+		$b = new Book();
+		$b->setTitle("Book$id")->setISBN("BookISBN$id")->save();
+		$b1Id = $b->getId();
+		$sql = "UPDATE " . BookPeer::TABLE_NAME . " SET id = ? WHERE id = ?";
+		$stmt = $con->prepare($sql);
+		$stmt->bindValue(1, $id);
+		$stmt->bindValue(2, $b1Id);
+		$stmt->execute();
 	}
 
 	/**
@@ -524,17 +539,30 @@ class GeneratedPeerDoDeleteTest extends BookstoreEmptyTestBase
 	private function createReaderWithId(int $id)
 	{
 		$con = Propulsion::getConnection(BookReaderPeer::DATABASE_NAME);
-		$r = BookReaderPeer::retrieveByPK($id);
-		if (!$r) {
-			$r = new BookReader();
-			$r->setName('Reader'.$id)->save();
-			$r1Id = $r->getId();
-			$sql = "UPDATE " . BookReaderPeer::TABLE_NAME . " SET id = ? WHERE id = ?";
-			$stmt = $con->prepare($sql);
-			$stmt->bindValue(1, $id);
-			$stmt->bindValue(2, $r1Id);
-			$stmt->execute();
+		if (BookReaderPeer::retrieveByPK($id)) {
+			return;
 		}
+		if (Propulsion::getDB(BookReaderPeer::DATABASE_NAME) instanceof DBMSSQL) {
+			// See createBookWithId() -- SQL Server can never UPDATE an
+			// IDENTITY column's value at all.
+			$con->exec('SET IDENTITY_INSERT ' . BookReaderPeer::TABLE_NAME . ' ON');
+			try {
+				$stmt = $con->prepare('INSERT INTO ' . BookReaderPeer::TABLE_NAME . ' (id, name) VALUES (?, ?)');
+				$stmt->execute([$id, 'Reader' . $id]);
+			} finally {
+				$con->exec('SET IDENTITY_INSERT ' . BookReaderPeer::TABLE_NAME . ' OFF');
+			}
+			BookReaderPeer::clearInstancePool();
+			return;
+		}
+		$r = new BookReader();
+		$r->setName('Reader'.$id)->save();
+		$r1Id = $r->getId();
+		$sql = "UPDATE " . BookReaderPeer::TABLE_NAME . " SET id = ? WHERE id = ?";
+		$stmt = $con->prepare($sql);
+		$stmt->bindValue(1, $id);
+		$stmt->bindValue(2, $r1Id);
+		$stmt->execute();
 	}
 
 }

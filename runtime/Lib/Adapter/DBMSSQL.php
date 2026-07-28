@@ -262,7 +262,15 @@ class DBMSSQL extends DBAdapter
 		$outerSelect = 'SELECT ' . substr($outerSelect, 0, - 2) . ' FROM';
 
 		//ROW_NUMBER() starts at 1 not 0
-		$sql = $outerSelect . ' (' . $innerSelect . ' ' . $fromStatement . ') AS derivedb WHERE RowNumber BETWEEN ' . ($offset + 1) . ' AND ' . ($limit + $offset);
+		$derivedTable = $outerSelect . ' (' . $innerSelect . ' ' . $fromStatement . ') AS derivedb WHERE RowNumber ';
+		// A limit <= 0 means "no limit" (Criteria::$limit's own default) -- with
+		// only an offset and no cap, there's no upper bound to add at all;
+		// "BETWEEN offset+1 AND limit+offset" would otherwise collapse into an
+		// inverted, always-empty range (e.g. offset 10, limit 0 -> BETWEEN 11
+		// AND 10).
+		$sql = $limit > 0
+			? $derivedTable . 'BETWEEN ' . ($offset + 1) . ' AND ' . ($limit + $offset)
+			: $derivedTable . '>= ' . ($offset + 1);
 	}
 
 	/**
@@ -333,6 +341,14 @@ class DBMSSQL extends DBAdapter
 	}
 
 	/**
+	 * @see       DBAdapter::supportsInsertNullPk()
+	 */
+	public function supportsInsertNullPk(): bool
+	{
+		return false;
+	}
+
+	/**
 	 * @see       DBAdapter::getInsertReturningSql()
 	 */
 	public function getInsertReturningSql(string $sql, string $idColumnName): string
@@ -357,6 +373,22 @@ class DBMSSQL extends DBAdapter
 			$sql .= ' OUTPUT INSERTED.' . $idColumnName;
 		}
 		return $sql . ' DEFAULT VALUES';
+	}
+
+	/**
+	 * @see       DBAdapter::getIdentityInsertOnSql()
+	 */
+	public function getIdentityInsertOnSql(string $tableName): ?string
+	{
+		return 'SET IDENTITY_INSERT ' . $tableName . ' ON';
+	}
+
+	/**
+	 * @see       DBAdapter::getIdentityInsertOffSql()
+	 */
+	public function getIdentityInsertOffSql(string $tableName): ?string
+	{
+		return 'SET IDENTITY_INSERT ' . $tableName . ' OFF';
 	}
 
 	/**

@@ -287,6 +287,28 @@ abstract class DBAdapter
 	 *
 	 * @return    boolean
 	 */
+	/**
+	 * Whether an INSERT can explicitly name an auto-increment primary key
+	 * column with a NULL value and have the id generator populate it anyway,
+	 * the way every platform here does except MSSQL: its IDENTITY columns
+	 * reject an explicit NULL outright, so the column must be omitted from
+	 * the statement entirely instead. True by default -- mirrors
+	 * PropulsionPlatformInterface::supportsInsertNullPk() on the generator
+	 * side (which decides whether the generated object model's own INSERT
+	 * path strips a null PK column at all), but as a *runtime* capability:
+	 * needed by BasePeer::doInsert() for allowPkInsert tables, whose
+	 * generated code deliberately never strips the PK column at
+	 * generation time (the whole point of allowPkInsert is letting a caller
+	 * supply an explicit value) and so must still be handled when the value
+	 * genuinely turns out to be null at runtime.
+	 *
+	 * @return    boolean
+	 */
+	public function supportsInsertNullPk(): bool
+	{
+		return true;
+	}
+
 	public function supportsInsertReturning(): bool
 	{
 		return false;
@@ -362,6 +384,37 @@ abstract class DBAdapter
 			throw new PropulsionException(static::class . ' does not support folding id retrieval into an empty INSERT');
 		}
 		return 'INSERT INTO ' . $tableName . ' DEFAULT VALUES';
+	}
+
+	/**
+	 * A statement to execute immediately before an INSERT that supplies an
+	 * explicit value for a column the id generator would normally populate
+	 * (e.g. an allowPkInsert table, or a Criteria-based doInsert() bypassing
+	 * the object model), or null if this platform needs no such preamble.
+	 * Only MSSQL does: its IDENTITY columns reject an explicit value outright
+	 * unless "SET IDENTITY_INSERT table ON" precedes the INSERT (and "...OFF"
+	 * follows it -- see getIdentityInsertOffSql()). Every other platform here
+	 * just accepts the explicit value as-is.
+	 *
+	 * @param     string $tableName Already-quoted-if-necessary table name.
+	 *
+	 * @return    ?string
+	 */
+	public function getIdentityInsertOnSql(string $tableName): ?string
+	{
+		return null;
+	}
+
+	/**
+	 * @see       getIdentityInsertOnSql()
+	 *
+	 * @param     string $tableName Already-quoted-if-necessary table name.
+	 *
+	 * @return    ?string
+	 */
+	public function getIdentityInsertOffSql(string $tableName): ?string
+	{
+		return null;
 	}
 
 	/**

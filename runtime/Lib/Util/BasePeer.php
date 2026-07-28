@@ -322,6 +322,28 @@ class BasePeer
 		// we're inserting into.
 		$needsGeneratedId = $pk !== null && $useIdGen && !$criteria->keyContainsValue($pk->getFullyQualifiedName());
 
+		// An allowPkInsert table's generated code never strips its PK column
+		// from the Criteria the way a plain auto-increment table's does (see
+		// ObjectBuilder.php's own comment on that), since the whole point of
+		// allowPkInsert is to let a caller supply an explicit value -- but
+		// when nobody actually does (still null here, e.g. relying on the id
+		// generator as usual), that leaves an explicit NULL entry for a
+		// platform where supportsInsertNullPk() is false (MSSQL) can't accept
+		// at all, not even implicitly.
+		if ($needsGeneratedId && !$db->supportsInsertNullPk() && $criteria->containsKey($pk->getFullyQualifiedName())) {
+			$criteria->remove($pk->getFullyQualifiedName());
+		}
+
+		// The opposite case: an explicit, non-null PK value was supplied for a
+		// column the id generator would otherwise have populated (allowPkInsert,
+		// or a Criteria-based doInsert() bypassing the object model entirely).
+		// SQL Server rejects this outright for an IDENTITY column unless
+		// IDENTITY_INSERT is toggled on for the statement -- every other
+		// platform here just accepts the explicit value as-is.
+		$explicitAutoIncrementValue = $pk !== null && $useIdGen && $criteria->keyContainsValue($pk->getFullyQualifiedName())
+			? $pk->getFullyQualifiedName()
+			: null;
+
 		// When the adapter can hand back the generated id from the INSERT statement
 		// itself (e.g. MSSQL's OUTPUT clause), skip the separate before/after getId()
 		// round trip entirely -- one of the two branches below would otherwise run an
@@ -392,7 +414,21 @@ class BasePeer
 				throw new PropulsionException('PropulsionPDO::prepare() returned false');
 			}
 			$db->bindValues($stmt, $params, $dbMap);
-			$stmt->execute();
+
+			$identityInsertOnSql = $explicitAutoIncrementValue !== null ? $adapter->getIdentityInsertOnSql($tableName) : null;
+			if ($identityInsertOnSql !== null) {
+				$con->exec($identityInsertOnSql);
+			}
+			try {
+				$stmt->execute();
+			} finally {
+				if ($identityInsertOnSql !== null) {
+					$identityInsertOffSql = $adapter->getIdentityInsertOffSql($tableName);
+					if ($identityInsertOffSql !== null) {
+						$con->exec($identityInsertOffSql);
+					}
+				}
+			}
 
 			if ($useInsertReturning) {
 				$id = $db->extractInsertedId($stmt);
