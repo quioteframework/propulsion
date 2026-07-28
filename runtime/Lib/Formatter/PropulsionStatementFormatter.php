@@ -26,13 +26,28 @@ class PropulsionStatementFormatter extends PropulsionFormatter
 		return $stmt;
 	}
 
+	/**
+	 * PDOStatement::rowCount() is, per its own PHP manual entry, "not
+	 * guaranteed... for SELECT statements" -- and in practice, checking it
+	 * against 0 to detect "no rows" is actively wrong on at least one driver
+	 * this project supports: pdo_oci (Oracle) always reports 0 for a SELECT
+	 * regardless of how many rows it actually returned (unlike e.g.
+	 * pdo_dblib/MSSQL, which at least reports an unambiguous -1 sentinel
+	 * instead of colliding with the real "empty" value). Peeking with an
+	 * actual fetch() is the only universally reliable way to tell -- and
+	 * since that consumes the first row, re-execute()ing the same statement
+	 * (a standard, portable way to restart any PDO statement's cursor from
+	 * scratch, prepared or query()'d) afterwards, rather than trying to
+	 * "push the row back", gives the caller every row from the beginning,
+	 * same as if this method had never touched the cursor at all.
+	 */
 	public function formatOne(PDOStatement $stmt): ?PDOStatement
 	{
-		if ($stmt->rowCount() == 0) {
+		if ($stmt->fetch() === false) {
 			return null;
-		} else {
-			return $stmt;
 		}
+		$stmt->execute();
+		return $stmt;
 	}
 
 	public function formatRecord(?BaseObject $record = null): mixed

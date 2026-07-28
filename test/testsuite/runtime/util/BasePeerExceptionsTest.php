@@ -58,7 +58,14 @@ class BasePeerExceptionsTest extends BookstoreTestBase
 		try {
 			BasePeer::doDeleteAll('BAD TABLE', Propulsion::getConnection());
 		} catch (PropulsionException $e) {
-			$this->assertStringContainsString('[DELETE FROM BAD TABLE]', normalizeGeneratedSql($e->getMessage()), 'SQL query is written in the exception message');
+			// "TABLE" (the second, alias-shaped word in this deliberately fake
+			// table name) is a genuine Oracle reserved word -- DBOracle quotes
+			// it (see quoteIdentifier()'s own doc comment), unlike every other
+			// platform here.
+			$expected = Propulsion::getDB() instanceof DBOracle
+				? '[DELETE FROM BAD "TABLE"]'
+				: '[DELETE FROM BAD TABLE]';
+			$this->assertStringContainsString($expected, normalizeGeneratedSql($e->getMessage()), 'SQL query is written in the exception message');
 		}
 	}
 

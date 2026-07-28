@@ -144,7 +144,13 @@ public static function getMaxRank(" . ($useScope ? "\$scope = null, " : "") . "?
 	// read.
 	\$stmt->closeCursor();
 
-	return \$rank;
+	// fetchColumn()'s raw return type isn't consistent across platforms for
+	// a numeric aggregate like MAX(...) -- e.g. pdo_oci (Oracle) returns a
+	// numeric string here, not an int, unlike Postgres/MySQL/SQLite/MSSQL --
+	// but null (an empty table's MAX() row) must stay null, not become (int)
+	// null's 0: callers (see e.g. SortableBehaviorRuntimeTest) rely on null
+	// specifically meaning \"no rows at all\".
+	return \$rank !== null ? (int) \$rank : null;
 }
 ";
 	}

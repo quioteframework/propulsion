@@ -106,6 +106,31 @@ class PropulsionMigrationManager
 		$pdo = new PDO($dsn, $username, $password);
 		$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
+		// This connection is plain PDO, not a Propulsion\Adapter\DBOracle
+		// instance -- none of DBOracle::initConnection()'s session setup runs
+		// here, unlike a runtime connection. recordMigrationRun()'s implicit
+		// string -> DATE/TIMESTAMP conversion for "applied_at" (bound as
+		// date('Y-m-d H:i:s'), a plain PARAM_STR) otherwise depends on
+		// whatever locale-specific NLS_DATE_FORMAT/NLS_TIMESTAMP_FORMAT the
+		// Oracle session defaults to (ORA-01843, "invalid month", against the
+		// out-of-the-box default) -- match DBOracle::initConnection()'s own
+		// explicit formats so this generator-side connection behaves the same
+		// way a runtime one would.
+		if (($buildConnection['adapter'] ?? null) === 'oracle') {
+			$pdo->exec("ALTER SESSION SET NLS_DATE_FORMAT='YYYY-MM-DD'");
+			$pdo->exec("ALTER SESSION SET NLS_TIMESTAMP_FORMAT='YYYY-MM-DD HH24:MI:SS'");
+			// getCurrentVersion()/getMigrationLedger() below both fetch with
+			// PDO::FETCH_ASSOC and read lowercase keys ('success',
+			// 'migration_timestamp', ...) -- Oracle folds every unquoted
+			// column name (as this table's own DDL uses, like every other
+			// platform here) to uppercase, and pdo_oci's FETCH_ASSOC returns
+			// column names exactly as Oracle reports them, unlike
+			// Postgres/MySQL (already lowercase) or MSSQL (preserves
+			// declared case). Force lowercase so this generator-side code
+			// doesn't need its own per-platform key casing.
+			$pdo->setAttribute(PDO::ATTR_CASE, PDO::CASE_LOWER);
+		}
+
 		return $pdo;
 	}
 

@@ -172,3 +172,82 @@ jobs:
         env:
           PROPULSION_TEST_DB: mssql
         run: ../vendor/bin/phpunit -c phpunit.xml
+
+  integration-oracle:
+    name: Full suite (with Docker/Oracle)
+    runs-on: ubuntu-latest
+    # Blocking: brought to 0 errors/0 failures during the 2026-07-28 Oracle parity
+    # audit (see KNOWN_ISSUES.md), including a genuine PHP-process segfault and
+    # several real runtime/generator bugs found and fixed along the way -- verified
+    # reproducible across a clean full run plus 0 regressions on Postgres/MySQL/
+    # MSSQL. If this job goes red, treat it as a real regression.
+    #
+    # pdo_oci isn't distributed as a prebuilt package for any current PHP version
+    # (unlike pdo_pgsql/pdo_mysql/pdo_dblib above) -- see IntegrationDatabase's own
+    # docblock -- so it's built here from PECL against a downloaded Instant Client,
+    # the same way local setup is documented there.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: pdo, pdo_sqlite, pdo_pgsql, pdo_mysql, mbstring, xml, simplexml
+          coverage: none
+
+      - name: Cache Oracle Instant Client download
+        id: instantclient-cache
+        uses: actions/cache@v4
+        with:
+          path: /opt/oracle/instantclient
+          key: instantclient-23.26-linux-x64
+
+      - name: Download Oracle Instant Client (Basic + SDK)
+        if: steps.instantclient-cache.outputs.cache-hit != 'true'
+        run: |
+          sudo mkdir -p /opt/oracle/instantclient
+          cd /opt/oracle/instantclient
+          curl -fsSL -o basic.zip https://download.oracle.com/otn_software/linux/instantclient/2326000/instantclient-basic-linux.x64-23.26.0.0.0dbru.zip
+          curl -fsSL -o sdk.zip https://download.oracle.com/otn_software/linux/instantclient/2326000/instantclient-sdk-linux.x64-23.26.0.0.0dbru.zip
+          sudo unzip -q basic.zip
+          sudo unzip -q sdk.zip
+          sudo mv instantclient_23_26/* .
+          sudo rmdir instantclient_23_26
+          sudo rm basic.zip sdk.zip
+
+      - name: Build and install pdo_oci
+        run: |
+          # Ubuntu 24.04's libaio1t64 package rename (64-bit time_t) means the
+          # Instant Client's own libaio.so.1 dependency needs this compat symlink.
+          sudo ln -sf /lib/x86_64-linux-gnu/libaio.so.1t64 /lib/x86_64-linux-gnu/libaio.so.1
+          pecl download pdo_oci
+          tar xzf pdo_oci-*.tgz
+          cd pdo_oci-*/
+          phpize
+          ./configure --with-pdo-oci=instantclient,/opt/oracle/instantclient,23.26
+          make -j"$(nproc)"
+          sudo cp modules/pdo_oci.so "$(php-config --extension-dir)/pdo_oci.so"
+          echo "extension=pdo_oci.so" | sudo tee "$(php --ini | grep 'Scan for additional' | sed 's/.*: //')/80-pdo_oci.ini"
+          php -m | grep -i pdo_oci
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Run full PHPUnit suite (starts its own Oracle testcontainer)
+        working-directory: test
+        env:
+          PROPULSION_TEST_DB: oracle
+          LD_LIBRARY_PATH: /opt/oracle/instantclient
+        run: ../vendor/bin/phpunit -c phpunit.xml

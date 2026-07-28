@@ -55,9 +55,6 @@ rm -rf fixtures/bookstore/build fixtures/schemas/build fixtures/namespaced/build
 ## Missing modernization work
 
 - **PSR-18**: not started, nothing to wire it into yet.
-- **Oracle platform parity**: unaudited against `DefaultPlatform` (only
-  Pgsql/MySQL/MSSQL have had that pass). Has a real `PROPULSION_TEST_DB`
-  testcontainer option but no CI coverage yet.
 - **Phase 4d (Quiote adapter integration)**: tracked in the Quiote-side repo,
   not here.
 
@@ -303,3 +300,238 @@ Verified with three consecutive full `PROPULSION_TEST_DB=mssql` runs, all
 0 errors/0 failures, plus a full regression run against both Postgres and
 MySQL (also 0 failures). `integration-mssql` CI job added alongside
 `integration-mysql`.
+
+## Oracle full-suite parity audit (2026-07-28)
+
+Ran the full suite against a live Oracle testcontainer (`PROPULSION_TEST_DB=oracle`,
+`gvenzl/oracle-free:23-slim`) for the first time ever. `pdo_oci` isn't
+distributed as a prebuilt package for any current PHP version -- built it from
+PECL against a local Instant Client per `IntegrationDatabase`'s own docblock
+(Basic + SDK packages, plus the Ubuntu 24.04+ `libaio.so.1 -> libaio.so.1t64`
+compat symlink).
+
+**The first full run segfaulted the PHP process** partway through (confirmed via
+`dmesg`, `WSL (... - CaptureCrash)`), not merely errored -- root-caused to a
+real, narrow test-isolation bug rather than an inherent `pdo_oci` instability:
+`PropulsionPDOTest::testSetAttribute()` flips the *shared, process-lifetime*
+connection's `PropulsionPDO::PROPEL_ATTR_CACHE_PREPARES` to `true` and never
+resets it, so every later test in the process silently starts caching prepared
+statements by SQL text -- including across separate `beginTransaction()`/
+`commit()` cycles. Postgres/MySQL/SQLite/MSSQL's drivers all tolerate
+re-executing a cached statement across a commit boundary just fine; `pdo_oci`
+does not (reproduced standalone: two sequential prepare→execute→commit→fetch
+cycles against the exact same SQL text, no Propulsion code involved, segfaults
+`pdo_oci` on the second cycle every time). Fixed by resetting both
+`PROPEL_ATTR_CACHE_PREPARES` and `PDO::ATTR_CASE` in a `finally` block at the
+end of `testSetAttribute()` -- a test-isolation fix, not a runtime one; nothing
+in `runtime/` sets this attribute on its own.
+
+With the crash gone, found and fixed five real platform-parity bugs, taking a
+2823-test run from crashing outright through 451 -> 60 -> 12 -> 9 errors (and
+55 failures, mostly hardcoded-SQL-string test assertions in the same shape as
+the MySQL/MSSQL audits above, not yet normalized -- see below):
+
+1. **`PropulsionTypes::CLOB_EMU_NATIVE_TYPE` was `"resource"`, should be
+   `"string"`.** `OraclePlatform` aliases every schema `CLOB` column's domain
+   to `CLOB_EMU` (so `DBOracle::bindValue()` can special-case its bind
+   parameter handling -- see that method's own `CLOB_EMU` branch, which
+   throws unless given a string), but `CLOB_EMU` was never added to
+   `PropulsionTypes::$LOB_TYPES` either. That combination made
+   `ObjectBuilder::addLazyLoader()`'s non-LOB branch emit a literal
+   `(resource) $row[0]` cast for any lazy-loaded CLOB column's getter --
+   not a real PHP cast at all, a hard syntax error in the generated
+   `Base*.php` for every table with a CLOB column (e.g. `Media`/`excerpt`),
+   only reachable under Oracle. Fixed the one constant instead of adding
+   CLOB to `$LOB_TYPES` (which would change Postgres/MySQL's already-correct
+   plain-string CLOB handling too).
+2. **`PropulsionPDO`'s real-savepoint nested transactions never included
+   Oracle.** `$savepointCapableDrivers` was `['pgsql', 'mysql', 'sqlite']` --
+   Oracle fell back to the same depth-counter/poison-flag emulation as MSSQL,
+   even though Oracle's `SAVEPOINT`/`ROLLBACK TO SAVEPOINT` are both standard,
+   fully-supported syntax; it just has no `RELEASE SAVEPOINT` statement (a
+   `SAVEPOINT` reusing an already-used name simply re-marks it in place, and
+   whatever's left over is released implicitly by the eventual outer
+   commit/rollback). Added `oci` to `$savepointCapableDrivers` and a new
+   `$releaseSavepointCapableDrivers`/`supportsReleaseSavepoint()` pair so
+   `commit()` skips the (Oracle-invalid) `RELEASE SAVEPOINT` statement for
+   just that one driver. This was also the *deeper* cause of the segfault
+   above being reachable at all in the original run order: the coarse
+   poison-flag path made `testNestedTransactionRollBackSwallow` fail an
+   assertion mid-test, aborting the method without committing or rolling
+   back the shared connection's still-open outer transaction (left straddling
+   a deliberately-invalid `EXEC('INVALID SQL')` error) -- the next test then
+   ran into `pdo_oci`'s poor error-state handling on that already-broken
+   connection. Fixing the savepoint gap made this test pass cleanly instead,
+   independently reducing crash surface even before the cache-prepares fix.
+3. **`idMethod="native"` tables had no way to auto-populate their PK for a
+   raw SQL `INSERT`.** Unlike Postgres `SERIAL`/MySQL `AUTO_INCREMENT`/MSSQL
+   `IDENTITY`, an Oracle `SEQUENCE` (which `OraclePlatform::getAddSequencesDDL()`
+   already created) only advances when something explicitly asks for it --
+   fine for Propulsion's own generated `save()`/`doInsert()` (which calls
+   `DBOracle::getId()` explicitly first), but any raw SQL `INSERT` that omits
+   the PK column (exactly what `CmsDataPopulator`'s fixture-seeding SQL does,
+   and plenty of real-world code reasonably would, expecting the same
+   transparent behavior every other supported platform provides) inserted a
+   `NULL` PK and failed outright (ORA-01400) -- the single largest bucket of
+   failures (all `GeneratedNestedSet*Test`, `page`/`category` tables). Added
+   `OraclePlatform::getAddAutoIncrementTriggerDDL()`, emitting a
+   `BEFORE INSERT ... WHEN (new.id IS NULL)` trigger per native-idMethod table
+   (skipped entirely when an explicit PK value is supplied, so `allowPkInsert`
+   still works). This is a real, if narrow, PL/SQL parsing gap in
+   `PropulsionSQLParser` (used to split a generated DDL file into
+   individually-`exec()`'d statements, since OCI executes exactly one
+   statement per call): it previously split naively on every top-level `;`
+   with no awareness of a `BEGIN...END` block's own internal statement
+   terminator, which would have cut the trigger body into malformed
+   fragments. Added depth-tracking for (bare) `BEGIN`/`END` keyword pairs --
+   deliberately not a full PL/SQL parser (doesn't track `END IF`/`END LOOP`/
+   `END CASE`, which close a different construct with no matching `BEGIN` of
+   their own), sufficient for the simple single-`BEGIN`/`END` triggers this
+   project generates. Also had to *keep* (not strip, as it does for every
+   other statement) the delimiter on a statement that opened a PL/SQL block --
+   Oracle's PL/SQL compiler requires the final `END`'s trailing `;` as actual
+   required syntax, not merely a statement separator like it is everywhere
+   else, and the parser had always stripped it unconditionally before now.
+4. **`DBAdapter::getDeleteFromClause()`'s default aliased-`DELETE` shape
+   (`"DELETE <alias> FROM <table> AS <alias>"`) is invalid on two separate
+   counts for Oracle**: Oracle has no `AS` keyword for a table alias at all
+   (ORA-03048, unlike `SELECT`, where it does accept `AS`), and separately
+   doesn't allow an alias immediately after the `DELETE` keyword either
+   (ORA-00942 -- Oracle parses that leading identifier as the table name
+   itself). Added `DBOracle::getDeleteFromClause()`, matching Oracle's actual
+   alias syntax: `"DELETE FROM <table> <alias> WHERE <alias>.col = ..."`.
+5. **`IntegrationDatabase::pdoDriverPrefix()`/`pdoDsn()` didn't know Oracle's
+   PDO driver is `"oci"`, not a literal `"oracle"`** (which doesn't exist,
+   same class of gap `"mssql"` -> `"dblib"` already covers) -- broke every
+   generator command/manager integration test that builds its own raw PDO
+   connection against the shared testcontainer (`could not find driver`).
+   Also taught `pdoDsn()` Oracle's Easy Connect DSN shape (`oci:dbname=//host:port/service`,
+   not separate `host=`/`port=`/`dbname=` attributes) and that Oracle has no
+   per-caller database the way Postgres/MySQL/MSSQL do -- everything lives in
+   the one `FREEPDB1` pluggable database the `oracle-free` image ships, so the
+   `$dbname` argument itself is ignored for this platform. `MigrationCommandsTest`/
+   `PropulsionMigrationManagerTest` also needed an Oracle branch for their own
+   `CREATE TABLE`/`ADD COLUMN` syntax (`GENERATED BY DEFAULT AS IDENTITY`,
+   `ADD` not `ADD COLUMN` -- same as MSSQL) and a `dropTableIfExists()` helper
+   (Oracle has no `DROP TABLE IF EXISTS`, unlike every other platform here).
+
+All five are real bugs (or missing capability), not test-assertion shape
+issues -- fixed in `runtime/`/`generator/` (plus the one test-isolation fix,
+`testSetAttribute()`, and the `test/tools/helpers/` harness gaps in #5) --
+and verified with 0 regressions on Postgres/MySQL/MSSQL (three full runs each).
+
+**Update (2026-07-28, continued): full suite now 0 errors / 0 failures.**
+The remaining 9 errors + 55 failures were root-caused and fixed:
+
+6. **Migration ledger table creation wasn't idempotent on Oracle.** Two
+   separate causes, not one: (a) `dropTableIfExists()` (the test-only cleanup
+   helper added earlier this session) guessed the ledger table's sequence
+   name as a literal `"{table}_SEQ"`, but `OraclePlatform::getSequenceName()`
+   (inherited from `DefaultPlatform`) truncates and uniquely suffixes that
+   name once it would exceed Oracle's 30-character identifier limit -- true
+   for the original, longer `propulsion_migration_{command,manager}_test`
+   table names, so the guess silently dropped nothing and a leftover sequence
+   collided (`ORA-00955`) the next time `createMigrationTable()` ran; fixed
+   by shortening those test-only table name constants instead of teaching
+   the helper to recompute Oracle's real (truncated) name. (b)
+   `recordMigrationRun()`/`getCurrentVersion()` use a *second*, independent
+   PDO connection (`createPdoConnection()`, deliberately -- see its own doc
+   comment) that never ran `DBOracle::initConnection()`'s session setup the
+   way a normal runtime connection does: no `NLS_DATE_FORMAT`/
+   `NLS_TIMESTAMP_FORMAT` (`ORA-01843`, "invalid month", binding a plain
+   `date('Y-m-d H:i:s')` string against Oracle's locale-default format), and
+   no `PDO::ATTR_CASE => CASE_LOWER` (Oracle folds unquoted column names to
+   uppercase, but this code's own `FETCH_ASSOC` reads assume lowercase keys
+   like every other platform here) -- both now set explicitly in
+   `createPdoConnection()` for Oracle.
+7. **`acct_audit_log.uid` collides with Oracle's reserved word `UID`.** Fixed
+   by giving the *runtime* `DBOracle` adapter the same narrow, reserved-
+   word-only `quoteIdentifier()` the generator-side `OraclePlatform` already
+   had for DDL (not a blanket `useQuoteIdentifier() => true` the way MySQL
+   does -- that would've meant auditing every other identifier-casing
+   assumption in this codebase, e.g. `OracleSchemaParser`, for no benefit to
+   the overwhelming majority of columns that never hit a reserved word).
+   `DBAdapter::createSelectSqlPart()`'s SELECT column list and `Criterion`'s
+   WHERE-clause building both use plain, always-unquoted `"table.COLUMN"`
+   constants with no quoting step of their own (see `PeerBuilder::
+   addColumnNameConstants()`) -- rather than touch that shared code, quoting
+   is applied once, generically, in `DBOracle::cleanupSQL()` (`DBAdapter`'s
+   existing "adjust the final SQL text before it's prepared" hook, already
+   used by `DBMSSQL`) against the complete SQL string, which required wiring
+   `cleanupSQL()` into `BasePeer::doSelect()`/`doDelete()` and
+   `ModelCriteria`'s own separate `executeSelectSql()` -- previously only
+   `doInsert()`/`doUpdate()`/`doUpsert()` called it at all.
+8. **`DBOracle::supportsForShare()` correctly returns `false`** -- not a bug;
+   the one test asserting this throws just needed an Oracle-aware skip
+   (mirroring the existing MSSQL one) instead of running the same assertion
+   Postgres/MySQL/SQLite expect.
+9. **BLOB writes silently stored empty content.** A genuine `pdo_oci`
+   extension bug, not a Propulsion one: its `PDO::PARAM_LOB` bind (the
+   dynamic-bind/`OCILobWrite` path in the extension's own C source)
+   reproducibly writes an empty LOB with no error at all, confirmed
+   standalone (no Propulsion code involved) with both `bindValue()` and
+   `bindParam()`, a plain string and a real stream resource, and with and
+   without an explicit `RETURNING col INTO` clause. Worked around by never
+   using `PDO::PARAM_LOB` for Oracle at all: `DBOracle::cleanupSQL()` (the
+   same hook as #7) now hex-encodes any bound LOB value and rewrites its
+   placeholder to `HEXTORAW(:pN)`, since Oracle's implicit string -> BLOB
+   conversion already expects exactly that shape (confirmed working for
+   this project's own BLOB test fixtures; bound via `bindParam()` with an
+   explicit length, not `bindValue()`, since `pdo_oci`'s own C source
+   defaults to a mere 1332-byte buffer otherwise -- `ORA-01461`). Reading a
+   LOB back needed its own fix: the lazy-loader's non-LOB branch did a bare
+   `(string) $row[0]` cast, which for any column not classified as
+   `isLobType()` (e.g. `CLOB_EMU`) silently produced a useless
+   `"Resource id #N"` when `pdo_oci` happened to return that column as a
+   stream resource instead of a string -- fixed by reading the resource's
+   content first, universally, not just for Oracle. Separately, the
+   lazy-loader's LOB branch handed the caller pdo_oci's own *live* OCI LOB
+   locator stream directly (as pgsql's bytea columns also do, harmlessly) --
+   but Oracle errors (`ORA-22297`, "Open LOBs exist at transaction commit
+   time") if that locator is still open at `commit()`, and nothing guarantees
+   PHP's stream destructor runs before that happens. Fixed universally (not
+   just for Oracle) by always copying into a fresh `php://memory` stream and
+   closing the original immediately, rather than exposing the driver-native
+   resource beyond the lazy-loader's own scope.
+10. **Two genuinely undefined-SQL-ordering test bugs**, surfaced by Oracle
+    but not caused by it: `NestedSetBehaviorPeerBuilderModifierWithScopeTest::
+    testRetrieveRoots()` and `SortableBehaviorPeerBuilderModifierTest::
+    testReorder()` both relied on an unordered `SELECT`'s row order matching
+    insertion order -- true by accident on Postgres/MySQL/SQLite/MSSQL (a
+    full-table-scan artifact on a tiny table, not a documented guarantee),
+    false on Oracle. Fixed for real: `NestedSetBehaviorPeerBuilderModifier::
+    retrieveRoots()` (generated code, real bug) now orders by scope
+    explicitly; the `Sortable` test (test-only bug) now adds its own explicit
+    `ORDER BY` before building its id-to-rank mapping.
+11. **`SortableBehavior{Peer,QueryBuilder}Modifier::getMaxRank()`'s
+    `fetchColumn()` return value was never cast**, despite both being
+    declared `@return integer` -- harmless on platforms whose driver already
+    returns a real int for a `MAX(...)` aggregate, but `pdo_oci` returns a
+    numeric string instead, breaking a caller's `assertSame(4, ...)`-style
+    strict check. Fixed with an explicit `(int)` cast, careful to keep `null`
+    (an empty table's `MAX()` row) passing through as `null` rather than
+    becoming `(int) null`'s `0` -- a caller relies on `null` specifically
+    meaning "no rows at all".
+12. **The rest** (`ModelCriteria`/`ModelCriteriaSelectTest`'s `useQuery()`/
+    `withQuery()`/`findOne()`/`select()` family, a `DELETE`-with-alias test,
+    a few `DBAdapterTest`/`DBOracleTest` unit tests asserting
+    `turnSelectColumnsToAliases()`'s exact alias names) were the same
+    hardcoded-Postgres-SQL-string-assertion shape `normalizeGeneratedSql()`
+    already handles for MySQL/MSSQL, extended to Oracle's own `ROWNUM`-based
+    pagination rewrite and lack of `AS` in an aliased `DELETE`; three
+    `DBAdapterTest`/`DBOracleTest` tests asserting `turnSelectColumnsToAliases()`'s
+    exact alias names needed Oracle-specific expected values instead, since
+    `DBOracle` deliberately overrides that method with its own short,
+    positional `ORA_COL_ALIAS_<n>` naming (to stay under Oracle's identifier
+    length limit for a compound select expression) rather than the generic
+    `DBAdapter` implementation's `"book_ID"`-style substitution every other
+    platform shares.
+
+Verified with a clean full `PROPULSION_TEST_DB=oracle` run (0 errors/0
+failures) plus a full regression run against Postgres, MySQL, and MSSQL (all
+also 0 failures). `integration-oracle` CI job added alongside
+`integration-mysql`/`integration-mssql` -- unlike those two, its `pdo_oci`
+build step (PECL against a downloaded Instant Client, since no prebuilt
+package exists for it) is unverified in actual CI as of this writing; treat
+a red run there as possibly an Instant Client URL/build-step issue rather
+than a suite regression until confirmed otherwise.

@@ -25,6 +25,10 @@
  * - DELETE with a table alias: MySQL requires naming the alias being deleted from
  *   ("DELETE b FROM book AS b WHERE ..."); Postgres doesn't ("DELETE FROM book AS b
  *   WHERE ..."). The leading "DELETE <alias> FROM" is rewritten to "DELETE FROM".
+ * - Oracle DELETE with a table alias: Oracle has no "AS" keyword for a table
+ *   alias at all (see DBOracle::getDeleteFromClause()), so its own form is
+ *   "DELETE FROM book b WHERE ..." (no "AS"). Rewritten back to Postgres/
+ *   MySQL's "DELETE FROM book AS b WHERE ..." form.
  * - MSSQL LIMIT without OFFSET: DBMSSQL::applyLimit() emits "SELECT TOP n ..."
  *   instead of a trailing "... LIMIT n". Rewritten to the Postgres-style form.
  * - MSSQL aliased UPDATE: "UPDATE table alias SET ..." (every other platform) is
@@ -38,6 +42,13 @@
  *   every selected column to survive the wrapping. Unwrapped back into the
  *   original column list/FROM clause plus a trailing "LIMIT n OFFSET m", computed
  *   from the derived table's "WHERE RowNumber BETWEEN lo AND hi" bounds.
+ * - Oracle LIMIT/OFFSET: DBOracle::applyLimit() has no native LIMIT/OFFSET or
+ *   FETCH/OFFSET syntax at all (pre-12c-compatible ROWNUM-based paging) --
+ *   wraps the whole query in a double derived table ("SELECT B.* FROM (SELECT
+ *   A.*, rownum AS PROPEL_ROWNUM FROM (<inner>) A ) B WHERE ..."), filtering
+ *   on PROPEL_ROWNUM instead of a real LIMIT/OFFSET clause. Unwrapped back
+ *   into the original inner query plus a trailing "LIMIT n [OFFSET m]",
+ *   computed from the "B.PROPEL_ROWNUM [> lo AND] <= hi" bounds.
  *
  * Deliberately does *not* attempt to normalize every possible platform SQL-shape
  * difference (e.g. id-generation strategy changing which columns an INSERT's column
@@ -55,8 +66,10 @@ function normalizeGeneratedSql(string $sql): string
 	$sql = (string) preg_replace('/`([^`]*)`/', '$1', $sql);
 	$sql = (string) preg_replace('/\bLIMIT (\d+), (\d+)/', 'LIMIT $2 OFFSET $1', $sql);
 	$sql = (string) preg_replace('/\bDELETE \w+ FROM\b/', 'DELETE FROM', $sql);
+	$sql = (string) preg_replace('/^DELETE FROM (\w+) (\w+) WHERE\b/', 'DELETE FROM $1 AS $2 WHERE', $sql);
 	$sql = (string) preg_replace('/^UPDATE (\w+) SET (.+) FROM (\w+) AS \1 WHERE/', 'UPDATE $3 $1 SET $2 WHERE', $sql);
 	$sql = normalizeMssqlRowNumberOffset($sql);
+	$sql = normalizeOracleRownumOffset($sql);
 	if (preg_match('/^SELECT TOP (\d+) /', $sql, $m)) {
 		$sql = (string) preg_replace('/^SELECT TOP \d+ /', 'SELECT ', $sql, 1);
 		$sql .= ' LIMIT ' . $m[1];
@@ -105,4 +118,38 @@ function normalizeMssqlRowNumberOffset(string $sql): string
 	$offset = ((int) $lowerBound) - 1;
 
 	return "SELECT $columns FROM $fromClause LIMIT $limit OFFSET $offset";
+}
+
+/**
+ * Unwraps DBOracle::applyLimit()'s ROWNUM-based double-derived-table rewrite
+ * back into a plain "<inner query> LIMIT n [OFFSET m]" shape -- see
+ * normalizeGeneratedSql()'s own docblock. A no-op (returns $sql unchanged) if
+ * it isn't in that shape at all, i.e. every non-Oracle platform.
+ *
+ * @param      string $sql
+ * @return     string
+ */
+function normalizeOracleRownumOffset(string $sql): string
+{
+	// The outer column list is either the literal "B.*" (DBOracle::applyLimit()'s
+	// fallback when it can't parse the inner SELECT's own column list) or an
+	// explicit "B.col1, B.col2, ..." (see deriveOuterColumnList()) -- either way
+	// it's redundant for normalization purposes, since it's derived from (and so
+	// always consistent with) the original, unprefixed column list already
+	// captured from the inner query below; discarded rather than matched exactly.
+	$pattern = '/^SELECT .*? FROM \(SELECT A\.\*, rownum AS PROPEL_ROWNUM FROM \((.*)\) A \) B WHERE  B\.PROPEL_ROWNUM (?:> (\d+) AND B\.PROPEL_ROWNUM )?<= (\d+)$/s';
+	if (!preg_match($pattern, $sql, $m)) {
+		return $sql;
+	}
+	[, $innerSql, $lowerBound] = $m;
+	$upperBound = (int) $m[3];
+	$offset = $lowerBound === '' ? 0 : (int) $lowerBound;
+	$limit = $upperBound - $offset;
+
+	$result = "$innerSql LIMIT $limit";
+	if ($offset > 0) {
+		$result .= " OFFSET $offset";
+	}
+
+	return $result;
 }

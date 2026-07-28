@@ -56,16 +56,35 @@ class PropulsionPDO extends \PDO
 	 * this project's own test/deployment matrix targets (see IntegrationDatabase)
 	 * and whose SAVEPOINT support is both present and standard-syntax-compatible.
 	 *
-	 * Other drivers (e.g. Oracle -- which has no explicit RELEASE SAVEPOINT syntax
-	 * of its own -- or dblib/MSSQL, whose PropulsionPDO subclass doesn't use real
-	 * transactions at all) fall back to the pre-existing depth-counter/poison-flag
-	 * emulation, where a rollback of a nested transaction doesn't undo anything by
-	 * itself but instead poisons the outer transaction so that its eventual commit()
-	 * throws instead of silently discarding the rolled-back work.
+	 * dblib/MSSQL is the one driver here that doesn't use real transactions at
+	 * all (see MssqlPropulsionPDO), so it falls back to the pre-existing
+	 * depth-counter/poison-flag emulation instead, where a rollback of a nested
+	 * transaction doesn't undo anything by itself but instead poisons the outer
+	 * transaction so that its eventual commit() throws instead of silently
+	 * discarding the rolled-back work.
+	 *
+	 * Oracle ("oci") *is* included here -- SAVEPOINT and ROLLBACK TO SAVEPOINT are
+	 * both standard Oracle syntax -- even though it has no RELEASE SAVEPOINT
+	 * statement of its own; see $releaseSavepointCapableDrivers/
+	 * supportsReleaseSavepoint() for how commit() handles that one gap.
 	 *
 	 * @var       array<int, string>
 	 */
-	protected static $savepointCapableDrivers = ['pgsql', 'mysql', 'sqlite'];
+	protected static $savepointCapableDrivers = ['pgsql', 'mysql', 'sqlite', 'oci'];
+
+	/**
+	 * Subset of $savepointCapableDrivers whose SQL dialect also has an explicit
+	 * RELEASE SAVEPOINT statement, used by commit() to release a nested
+	 * transaction's savepoint once it's done with it. Oracle is deliberately
+	 * excluded: it has no RELEASE SAVEPOINT syntax at all, but doesn't need one
+	 * either -- a `SAVEPOINT` statement reusing an already-used name (as
+	 * getSavepointName()'s deterministic, depth-keyed names do) simply re-marks
+	 * it in place of the old one, and any savepoint still outstanding is released
+	 * implicitly by the eventual outer COMMIT/ROLLBACK.
+	 *
+	 * @var       array<int, string>
+	 */
+	protected static $releaseSavepointCapableDrivers = ['pgsql', 'mysql', 'sqlite'];
 
 	/**
 	 * Cache of prepared statements (PDOStatement) keyed by md5 of SQL.
@@ -293,7 +312,8 @@ class PropulsionPDO extends \PDO
 					}
 				}
 			} elseif ($this->supportsSavepoints()) {
-				$return = parent::exec('RELEASE SAVEPOINT ' . $this->getSavepointName($opcount)) !== false;
+				$return = !$this->supportsReleaseSavepoint()
+					|| parent::exec('RELEASE SAVEPOINT ' . $this->getSavepointName($opcount)) !== false;
 			}
 
 			$this->nestedTransactionCount--;
@@ -357,6 +377,21 @@ class PropulsionPDO extends \PDO
 		$driver = $this->getAttribute(\PDO::ATTR_DRIVER_NAME);
 
 		return is_string($driver) && in_array($driver, self::$savepointCapableDrivers, true);
+	}
+
+	/**
+	 * Whether this savepoint-capable connection's driver also has an explicit
+	 * RELEASE SAVEPOINT statement -- see $releaseSavepointCapableDrivers.
+	 * Only meaningful when supportsSavepoints() is already true; commit() is the
+	 * only caller.
+	 *
+	 * @return    boolean
+	 */
+	protected function supportsReleaseSavepoint(): bool
+	{
+		$driver = $this->getAttribute(\PDO::ATTR_DRIVER_NAME);
+
+		return is_string($driver) && in_array($driver, self::$releaseSavepointCapableDrivers, true);
 	}
 
 	/**

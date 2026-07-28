@@ -1092,8 +1092,25 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			if (is_array(\$row) && \$row[0] !== null) {
 				if (is_resource(\$row[0])) {
 					// Some PDO drivers (e.g. pgsql, for bytea columns) already return a
-					// stream for a LOB column; only string results need wrapping.
-					\$this->$phpname = \$row[0];
+					// stream for a LOB column -- but it's the driver's own live,
+					// backing resource (e.g. an open OCI LOB locator for pdo_oci),
+					// not a plain in-memory copy: leaving it up to the caller to
+					// eventually read/close/let-GC-collect it is what Postgres
+					// tolerates, but Oracle does not -- a LOB locator still open at
+					// COMMIT time is an error (ORA-22297), and PHP's own stream
+					// destructor isn't guaranteed to run before that happens just
+					// because nothing else references it anymore. Copying into a
+					// fresh, plain php://memory stream and closing the original
+					// immediately sidesteps that on every platform, not just
+					// Oracle, with no behavior change for the caller.
+					\$fp = fopen('php://memory', 'r+');
+					if (\$fp === false) {
+						throw new PropulsionException('Unable to open php://memory stream for [$clo] column.');
+					}
+					rewind(\$row[0]);
+					stream_copy_to_stream(\$row[0], \$fp);
+					fclose(\$row[0]);
+					\$this->$phpname = \$fp;
 				} else {
 					\$fp = fopen('php://memory', 'r+');
 					if (\$fp === false) {
@@ -1111,7 +1128,19 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			$phpType = $col->getPhpType();
 			$castType = match($phpType) { 'double' => 'float', 'integer' => 'int', 'boolean' => 'bool', default => $phpType };
 			$script .= "
-			\$this->$phpname = (is_array(\$row) && \$row[0] !== null) ? ($castType) \$row[0] : null;
+			if (is_array(\$row) && \$row[0] !== null) {
+				// A column not classified as isLobType() (e.g. CLOB_EMU, whose
+				// PHP-side representation is a plain string -- see
+				// PropulsionTypes::CLOB_EMU_NATIVE_TYPE) can still come back
+				// from some PDO drivers as a stream resource rather than a
+				// string (confirmed with pdo_oci/Oracle) -- a bare (string)
+				// cast of a resource produces a useless \"Resource id #N\"
+				// instead of its content, so read it out first.
+				\$rawValue = is_resource(\$row[0]) ? stream_get_contents(\$row[0]) : \$row[0];
+				\$this->$phpname = ($castType) \$rawValue;
+			} else {
+				\$this->$phpname = null;
+			}
 ";
 		}
 		$script .= "

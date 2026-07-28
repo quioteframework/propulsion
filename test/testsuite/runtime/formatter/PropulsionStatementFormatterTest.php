@@ -18,11 +18,16 @@ class PropulsionStatementFormatterTest extends BookstoreEmptyTestBase
 {
 	/**
 	 * FreeTDS/pdo_dblib (MSSQL) doesn't support PDOStatement::rowCount() for a
-	 * SELECT -- always -1 -- unlike Postgres/MySQL/SQLite.
+	 * SELECT -- always -1 -- unlike Postgres/MySQL/SQLite. pdo_oci (Oracle)
+	 * has the same portability gap, always reporting 0 instead.
 	 */
 	private function expectedRowCount(int $actual): int
 	{
-		return Propulsion::getDB(BookPeer::DATABASE_NAME) instanceof DBMSSQL ? -1 : $actual;
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
+		if ($db instanceof DBMSSQL) {
+			return -1;
+		}
+		return $db instanceof DBOracle ? 0 : $actual;
 	}
 
 	protected function setUp(): void
@@ -75,7 +80,13 @@ class PropulsionStatementFormatterTest extends BookstoreEmptyTestBase
 		$this->assertTrue($books instanceof PDOStatement, 'PropulsionStatementFormatter::format() returns a PDOStatement');
 		$this->assertEquals($this->expectedRowCount(1), $books->rowCount(), 'PropulsionStatementFormatter::format() returns as many rows as the results in the query');
 		$book = $books->fetch(PDO::FETCH_ASSOC);
-		$this->assertEquals('Quicksilver', $book['title'], 'PropulsionStatementFormatter::format() returns the rows matching the query');
+		// A raw "SELECT *" with no explicit column list/quoting -- unlike
+		// Postgres/MySQL/MSSQL (which all return this lowercase, matching how
+		// this fixture's own schema.xml declares the column), Oracle folds
+		// every unquoted identifier to uppercase, including in the column
+		// names FETCH_ASSOC reports.
+		$titleKey = Propulsion::getDB(BookPeer::DATABASE_NAME) instanceof DBOracle ? 'TITLE' : 'title';
+		$this->assertEquals('Quicksilver', $book[$titleKey], 'PropulsionStatementFormatter::format() returns the rows matching the query');
 		$books->closeCursor();
 	}
 

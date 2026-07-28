@@ -17,6 +17,20 @@
 class DBAdapterTest extends BookstoreTestBase
 {
 
+	/**
+	 * DBOracle overrides turnSelectColumnsToAliases() entirely with its own
+	 * short, positional "ORA_COL_ALIAS_<id>" naming (see its own doc comment)
+	 * instead of the generic DBAdapter::turnSelectColumnsToAliases()'s
+	 * "book_ID"-style substitution -- deliberately, since that generic scheme
+	 * can produce identifiers longer than Oracle's identifier limit for a
+	 * compound select expression. These tests need Oracle-shaped expected
+	 * aliases as a result, not a shared one every adapter can use.
+	 */
+	private function isOracle(): bool
+	{
+		return Propulsion::getDB(BookPeer::DATABASE_NAME) instanceof DBOracle;
+	}
+
 	public function testTurnSelectColumnsToAliases()
 	{
 		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
@@ -25,7 +39,7 @@ class DBAdapterTest extends BookstoreTestBase
 		$db->turnSelectColumnsToAliases($c1);
 
 		$c2 = new Criteria();
-		$c2->addAsColumn('book_ID', BookPeer::ID);
+		$c2->addAsColumn($this->isOracle() ? 'ORA_COL_ALIAS_0' : 'book_ID', BookPeer::ID);
 		$this->assertTrue($c1->equals($c2));
 	}
 
@@ -38,7 +52,7 @@ class DBAdapterTest extends BookstoreTestBase
 		$db->turnSelectColumnsToAliases($c1);
 
 		$c2 = new Criteria();
-		$c2->addAsColumn('book_ID', BookPeer::ID);
+		$c2->addAsColumn($this->isOracle() ? 'ORA_COL_ALIAS_0' : 'book_ID', BookPeer::ID);
 		$c2->addAsColumn('foo', BookPeer::TITLE);
 		$this->assertTrue($c1->equals($c2));
 	}
@@ -52,7 +66,7 @@ class DBAdapterTest extends BookstoreTestBase
 		$db->turnSelectColumnsToAliases($c1);
 
 		$c2 = new Criteria();
-		$c2->addAsColumn('book_ID_1', BookPeer::ID);
+		$c2->addAsColumn($this->isOracle() ? 'ORA_COL_ALIAS_0' : 'book_ID_1', BookPeer::ID);
 		$c2->addAsColumn('book_ID', BookPeer::ID);
 		$this->assertTrue($c1->equals($c2));
 	}
@@ -66,8 +80,8 @@ class DBAdapterTest extends BookstoreTestBase
 		$db->turnSelectColumnsToAliases($c1);
 
 		$c2 = new Criteria();
-		$c2->addAsColumn('book_ID', BookPeer::ID);
-		$c2->addAsColumn('book_ID_1', BookPeer::ID);
+		$c2->addAsColumn($this->isOracle() ? 'ORA_COL_ALIAS_0' : 'book_ID', BookPeer::ID);
+		$c2->addAsColumn($this->isOracle() ? 'ORA_COL_ALIAS_1' : 'book_ID_1', BookPeer::ID);
 		$this->assertTrue($c1->equals($c2));
 	}
 
@@ -104,7 +118,8 @@ class DBAdapterTest extends BookstoreTestBase
 		$c->addAsColumn('book_ID', BookPeer::ID);
 		$fromClause = array();
 		$selectSql = $db->createSelectSqlPart($c, $fromClause, true);
-		$this->assertEquals('SELECT book.ID AS book_ID_1, book.ID AS book_ID', $selectSql, 'createSelectSqlPart() aliases all columns if passed true as last parameter');
+		$expectedFirstAlias = $this->isOracle() ? 'ORA_COL_ALIAS_0' : 'book_ID_1';
+		$this->assertEquals("SELECT book.ID AS $expectedFirstAlias, book.ID AS book_ID", $selectSql, 'createSelectSqlPart() aliases all columns if passed true as last parameter');
 		$this->assertEquals(array(), $fromClause, 'createSelectSqlPart() does not add the tables from an all-aliased list of select columns');
 	}
 

@@ -160,15 +160,20 @@ class IntegrationDatabase
     /**
      * The PDO driver prefix for currentPlatform() -- identical to the platform
      * name for every platform except MSSQL, whose PDO driver is "dblib"
-     * (FreeTDS), not a literal "mssql" driver (which doesn't exist). Several
-     * generator command/manager integration tests build their own raw PDO DSN
-     * from currentPlatform() directly against the shared testcontainer; they
-     * need this instead so "new PDO(...)" doesn't fail with "could not find
-     * driver" under PROPULSION_TEST_DB=mssql.
+     * (FreeTDS), not a literal "mssql" driver (which doesn't exist), and Oracle,
+     * whose PDO driver is "oci" (pdo_oci), not a literal "oracle" driver (which
+     * likewise doesn't exist). Several generator command/manager integration
+     * tests build their own raw PDO DSN from currentPlatform() directly against
+     * the shared testcontainer; they need this instead so "new PDO(...)" doesn't
+     * fail with "could not find driver" under PROPULSION_TEST_DB=mssql/oracle.
      */
     public static function pdoDriverPrefix(): string
     {
-        return self::platform() === 'mssql' ? 'dblib' : self::platform();
+        return match (self::platform()) {
+            'mssql' => 'dblib',
+            'oracle' => 'oci',
+            default => self::platform(),
+        };
     }
 
     /**
@@ -178,12 +183,22 @@ class IntegrationDatabase
      * connection management. dblib (MSSQL) is the one platform here that
      * doesn't take host and port as separate DSN attributes -- it wants
      * "host=host:port" combined, unlike pgsql/mysql's "host=host;port=port".
+     * oci (Oracle) doesn't take them as separate attributes either -- it wants
+     * an Easy Connect string embedded in "dbname=", same format
+     * loadFixtureData() already uses to connect to the shared container itself.
+     * $dbname itself is ignored for Oracle: unlike Postgres/MySQL/MSSQL (each of
+     * which can host any number of independently-named databases), the
+     * oracle-free image's PDO Easy Connect target is the single "FREEPDB1"
+     * pluggable database it ships -- callers wanting a Postgres/MySQL/MSSQL-style
+     * separate scratch database have no Oracle equivalent to ask for one.
      */
     public static function pdoDsn(string $host, int $port, string $dbname): string
     {
-        return self::platform() === 'mssql'
-            ? "dblib:host=$host:$port;dbname=$dbname;charset=UTF8"
-            : self::pdoDriverPrefix() . ":host=$host;port=$port;dbname=$dbname";
+        return match (self::platform()) {
+            'mssql' => "dblib:host=$host:$port;dbname=$dbname;charset=UTF8",
+            'oracle' => "oci:dbname=//$host:$port/FREEPDB1;charset=UTF8",
+            default => self::pdoDriverPrefix() . ":host=$host;port=$port;dbname=$dbname",
+        };
     }
 
     /**

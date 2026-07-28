@@ -651,6 +651,12 @@ class ModelCriteriaTest extends BookstoreTestBase
 	public function testForShare()
 	{
 		$this->skipOnMssqlNoTrailingLockClause();
+		// Oracle only has FOR UPDATE row locking, no FOR SHARE equivalent at all
+		// (see DBOracle::supportsForShare()) -- correctly throws instead of
+		// emitting invalid SQL.
+		if (Propulsion::getDB(BookPeer::DATABASE_NAME) instanceof DBOracle) {
+			$this->markTestSkipped('Oracle has no FOR SHARE equivalent; see DBOracle::supportsForShare().');
+		}
 		$c = new ModelCriteria('bookstore', 'Book');
 		$c->forShare();
 		$sql = 'SELECT  FROM  FOR SHARE';

@@ -163,6 +163,8 @@ class BasePeer
 				}
 				$sql .= " WHERE " .  implode(" AND ", $whereClause);
 
+				$db->cleanupSQL($sql, $params, $criteria, $dbMap);
+
 				$stmt = $con->prepare($sql);
 				$db->bindValues($stmt, $params, $dbMap);
 				$stmt->execute();
@@ -727,6 +729,8 @@ class BasePeer
 	{
 		$dbMap = Propulsion::getDatabaseMap($criteria->getDbName());
 		$db = Propulsion::getDB($criteria->getDbName());
+
+		$db->cleanupSQL($sql, $params, $criteria, $dbMap);
 
 		try {
 			$stmt = $con->prepare($sql);

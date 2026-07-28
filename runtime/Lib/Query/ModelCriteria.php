@@ -1584,6 +1584,8 @@ class ModelCriteria extends Criteria
 		$dbMap = Propulsion::getDatabaseMap($this->getDbName());
 		$db = Propulsion::getDB($this->getDbName());
 
+		$db->cleanupSQL($sql, $params, $this, $dbMap);
+
 		try {
 			$stmt = $con->prepare($sql);
 			if ($stmt === false) {

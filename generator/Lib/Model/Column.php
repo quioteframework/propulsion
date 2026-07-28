@@ -1100,7 +1100,14 @@ class Column extends XMLElement
 				$dflt = (float) $defaultValue->getValue();
 			} elseif ($this->isTextType() || $this->getDefaultValue()->isExpression()) {
 				$dflt = "'" . str_replace("'", "\'", $defaultValue->getValue()) . "'";
-			} elseif ($this->getType() == PropulsionTypes::BOOLEAN) {
+			} elseif (PropulsionTypes::isBooleanType($this->getType())) {
+				// Not just PropulsionTypes::BOOLEAN: Oracle has no native
+				// BOOLEAN type, so OraclePlatform aliases a schema BOOLEAN
+				// column's domain to BOOLEAN_EMU (NUMBER(1)) instead -- the
+				// literal-only check here otherwise fell through to the
+				// generic string-literal branch below for Oracle, emitting
+				// the column's default as the *string* 'true'/'false'
+				// rather than an actual PHP bool.
 				$dflt = $this->booleanValue($defaultValue->getValue()) ? 'true' : 'false';
 			} else {
 				$dflt = "'" . $defaultValue->getValue() . "'";

@@ -48,7 +48,16 @@ class SortableBehaviorPeerBuilderModifierTest extends BookstoreSortableTestBase
 
 	public function testReorder()
 	{
-		$objects = Table11Peer::doSelect(new Criteria());
+		// An unordered SELECT's row order is unspecified SQL -- Postgres/
+		// MySQL/SQLite/MSSQL happen to return this small a table in
+		// insertion order (a full-table-scan artifact, not a documented
+		// guarantee), but Oracle's query planner does not; this test
+		// deliberately depends on getting $ids back in insertion order
+		// (matching populateTable11()'s own row-vs-rank assignment) to
+		// build a meaningful $order mapping below.
+		$criteria = new Criteria();
+		$criteria->addAscendingOrderByColumn(Table11Peer::ID);
+		$objects = Table11Peer::doSelect($criteria);
 		$ids = array();
 		foreach ($objects as $object) {
 			$ids[]= $object->getPrimaryKey();

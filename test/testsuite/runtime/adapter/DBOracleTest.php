@@ -25,7 +25,7 @@ class DBOracleTest extends BookstoreTestBase
 		$c->setLimit(1);
 		$params = array();
 		$sql = BasePeer::createSelectSql($c, $params);
-		$this->assertEquals('SELECT B.* FROM (SELECT A.*, rownum AS PROPEL_ROWNUM FROM (SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book) A ) B WHERE  B.PROPEL_ROWNUM <= 1', $sql, 'applyLimit() creates a subselect with the original column names by default');
+		$this->assertEquals('SELECT B.ID, B.TITLE, B.ISBN, B.PRICE, B.PUBLISHER_ID, B.AUTHOR_ID FROM (SELECT A.*, rownum AS PROPEL_ROWNUM FROM (SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book) A ) B WHERE  B.PROPEL_ROWNUM <= 1', $sql, 'applyLimit() creates a subselect with the original column names by default');
 	}
 
 	public function testApplyLimitDuplicateColumnName()
@@ -38,7 +38,7 @@ class DBOracleTest extends BookstoreTestBase
 		$c->setLimit(1);
 		$params = array();
 		$sql = BasePeer::createSelectSql($c, $params);
-		$this->assertEquals('SELECT B.* FROM (SELECT A.*, rownum AS PROPEL_ROWNUM FROM (SELECT book.ID AS ORA_COL_ALIAS_0, book.TITLE AS ORA_COL_ALIAS_1, book.ISBN AS ORA_COL_ALIAS_2, book.PRICE AS ORA_COL_ALIAS_3, book.PUBLISHER_ID AS ORA_COL_ALIAS_4, book.AUTHOR_ID AS ORA_COL_ALIAS_5, author.ID AS ORA_COL_ALIAS_6, author.FIRST_NAME AS ORA_COL_ALIAS_7, author.LAST_NAME AS ORA_COL_ALIAS_8, author.EMAIL AS ORA_COL_ALIAS_9, author.AGE AS ORA_COL_ALIAS_10 FROM book, author) A ) B WHERE  B.PROPEL_ROWNUM <= 1', $sql, 'applyLimit() creates a subselect with aliased column names when a duplicate column name is found');
+		$this->assertEquals('SELECT B.ORA_COL_ALIAS_0, B.ORA_COL_ALIAS_1, B.ORA_COL_ALIAS_2, B.ORA_COL_ALIAS_3, B.ORA_COL_ALIAS_4, B.ORA_COL_ALIAS_5, B.ORA_COL_ALIAS_6, B.ORA_COL_ALIAS_7, B.ORA_COL_ALIAS_8, B.ORA_COL_ALIAS_9, B.ORA_COL_ALIAS_10 FROM (SELECT A.*, rownum AS PROPEL_ROWNUM FROM (SELECT book.ID AS ORA_COL_ALIAS_0, book.TITLE AS ORA_COL_ALIAS_1, book.ISBN AS ORA_COL_ALIAS_2, book.PRICE AS ORA_COL_ALIAS_3, book.PUBLISHER_ID AS ORA_COL_ALIAS_4, book.AUTHOR_ID AS ORA_COL_ALIAS_5, author.ID AS ORA_COL_ALIAS_6, author.FIRST_NAME AS ORA_COL_ALIAS_7, author.LAST_NAME AS ORA_COL_ALIAS_8, author.EMAIL AS ORA_COL_ALIAS_9, author.AGE AS ORA_COL_ALIAS_10 FROM book, author) A ) B WHERE  B.PROPEL_ROWNUM <= 1', $sql, 'applyLimit() creates a subselect with aliased column names when a duplicate column name is found');
 	}
 
 	public function testApplyLimitDuplicateColumnNameWithColumn()
@@ -53,7 +53,7 @@ class DBOracleTest extends BookstoreTestBase
 		$params = array();
 		$asColumns = $c->getAsColumns();
 		$sql = BasePeer::createSelectSql($c, $params);
-		$this->assertEquals('SELECT B.* FROM (SELECT A.*, rownum AS PROPEL_ROWNUM FROM (SELECT book.ID AS ORA_COL_ALIAS_0, book.TITLE AS ORA_COL_ALIAS_1, book.ISBN AS ORA_COL_ALIAS_2, book.PRICE AS ORA_COL_ALIAS_3, book.PUBLISHER_ID AS ORA_COL_ALIAS_4, book.AUTHOR_ID AS ORA_COL_ALIAS_5, author.ID AS ORA_COL_ALIAS_6, author.FIRST_NAME AS ORA_COL_ALIAS_7, author.LAST_NAME AS ORA_COL_ALIAS_8, author.EMAIL AS ORA_COL_ALIAS_9, author.AGE AS ORA_COL_ALIAS_10, book.PRICE AS BOOK_PRICE FROM book, author) A ) B WHERE  B.PROPEL_ROWNUM <= 1', $sql, 'applyLimit() creates a subselect with aliased column names when a duplicate column name is found');
+		$this->assertEquals('SELECT B.ORA_COL_ALIAS_0, B.ORA_COL_ALIAS_1, B.ORA_COL_ALIAS_2, B.ORA_COL_ALIAS_3, B.ORA_COL_ALIAS_4, B.ORA_COL_ALIAS_5, B.ORA_COL_ALIAS_6, B.ORA_COL_ALIAS_7, B.ORA_COL_ALIAS_8, B.ORA_COL_ALIAS_9, B.ORA_COL_ALIAS_10, B.BOOK_PRICE FROM (SELECT A.*, rownum AS PROPEL_ROWNUM FROM (SELECT book.ID AS ORA_COL_ALIAS_0, book.TITLE AS ORA_COL_ALIAS_1, book.ISBN AS ORA_COL_ALIAS_2, book.PRICE AS ORA_COL_ALIAS_3, book.PUBLISHER_ID AS ORA_COL_ALIAS_4, book.AUTHOR_ID AS ORA_COL_ALIAS_5, author.ID AS ORA_COL_ALIAS_6, author.FIRST_NAME AS ORA_COL_ALIAS_7, author.LAST_NAME AS ORA_COL_ALIAS_8, author.EMAIL AS ORA_COL_ALIAS_9, author.AGE AS ORA_COL_ALIAS_10, book.PRICE AS BOOK_PRICE FROM book, author) A ) B WHERE  B.PROPEL_ROWNUM <= 1', $sql, 'applyLimit() creates a subselect with aliased column names when a duplicate column name is found');
 		$this->assertEquals($asColumns, $c->getAsColumns(), 'createSelectSql supplementary add alias column');
 	}
 

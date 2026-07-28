@@ -45,12 +45,26 @@ class PropulsionPDOTest extends TestCase
 	public function testSetAttribute()
 	{
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
-		$this->assertFalse($con->getAttribute(PropulsionPDO::PROPEL_ATTR_CACHE_PREPARES));
-		$con->setAttribute(PropulsionPDO::PROPEL_ATTR_CACHE_PREPARES, true);
-		$this->assertTrue($con->getAttribute(PropulsionPDO::PROPEL_ATTR_CACHE_PREPARES));
+		$originalCase = $con->getAttribute(PDO::ATTR_CASE);
+		try {
+			$this->assertFalse($con->getAttribute(PropulsionPDO::PROPEL_ATTR_CACHE_PREPARES));
+			$con->setAttribute(PropulsionPDO::PROPEL_ATTR_CACHE_PREPARES, true);
+			$this->assertTrue($con->getAttribute(PropulsionPDO::PROPEL_ATTR_CACHE_PREPARES));
 
-		$con->setAttribute(PDO::ATTR_CASE, PDO::CASE_LOWER);
-		$this->assertEquals(PDO::CASE_LOWER, $con->getAttribute(PDO::ATTR_CASE));
+			$con->setAttribute(PDO::ATTR_CASE, PDO::CASE_LOWER);
+			$this->assertEquals(PDO::CASE_LOWER, $con->getAttribute(PDO::ATTR_CASE));
+		} finally {
+			// $con is a single connection shared for the whole test process (see
+			// Propulsion::getConnection()), not recreated per test -- leaving either
+			// attribute flipped here would otherwise leak into every later test.
+			// PROPEL_ATTR_CACHE_PREPARES in particular is not just a test-isolation
+			// nicety: under Oracle, a cached PDOStatement re-executed across a
+			// commit()/rollBack() boundary (exactly what a later test's own
+			// prepare() of the same SQL text would hit, via
+			// PropulsionPDO::prepare()'s cache) reproducibly segfaults pdo_oci.
+			$con->setAttribute(PropulsionPDO::PROPEL_ATTR_CACHE_PREPARES, false);
+			$con->setAttribute(PDO::ATTR_CASE, $originalCase);
+		}
 	}
 
 	public function testCommitBeforeFetch()
@@ -384,7 +398,12 @@ class PropulsionPDOTest extends TestCase
 		$con->useDebug(true);
 		$books = BookPeer::doSelect($c, $con);
 		$latestExecutedQuery = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` WHERE book.TITLE LIKE 'Harry%s'";
-		if (!Propulsion::getDB(BookPeer::DATABASE_NAME)->useQuoteIdentifier()) {
+		// MySQL is the only adapter that backtick-quotes every identifier
+		// unconditionally. DBOracle::useQuoteIdentifier() is also true, but
+		// (see its own doc comment) only actually quotes identifiers that
+		// collide with a reserved word -- "book" isn't one, so its output
+		// here is unquoted too, same as every non-quoting adapter.
+		if (!(Propulsion::getDB(BookPeer::DATABASE_NAME) instanceof DBMySQL)) {
 			$latestExecutedQuery = str_replace('`', '', $latestExecutedQuery);
 		}
 		$this->assertEquals($latestExecutedQuery, $con->getLastExecutedQuery(), 'PropulsionPDO updates the last executed query when useLogging is true');
@@ -520,14 +539,21 @@ class PropulsionPDOTest extends TestCase
 
 		$books = BookPeer::doSelect($c, $con);
 		$latestExecutedQuery = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM `book` WHERE book.TITLE LIKE 'Harry%s'";
-		if (!Propulsion::getDB(BookPeer::DATABASE_NAME)->useQuoteIdentifier()) {
+		// MySQL is the only adapter that backtick-quotes every identifier
+		// unconditionally. DBOracle::useQuoteIdentifier() is also true, but
+		// (see its own doc comment) only actually quotes identifiers that
+		// collide with a reserved word -- "book" isn't one, so its output
+		// here is unquoted too, same as every non-quoting adapter.
+		if (!(Propulsion::getDB(BookPeer::DATABASE_NAME) instanceof DBMySQL)) {
 			$latestExecutedQuery = str_replace('`', '', $latestExecutedQuery);
 		}
 		$this->assertEquals('log: ' . $latestExecutedQuery, $testLog->latestMessage, 'PropulsionPDO logs queries and populates bound parameters in debug mode');
 
 		BookPeer::doDeleteAll($con);
 		$latestExecutedQuery = "DELETE FROM `book`";
-		if (!Propulsion::getDB(BookPeer::DATABASE_NAME)->useQuoteIdentifier()) {
+		// See the earlier assertion in this test for why this checks
+		// "instanceof DBMySQL" specifically rather than useQuoteIdentifier().
+		if (!(Propulsion::getDB(BookPeer::DATABASE_NAME) instanceof DBMySQL)) {
 			$latestExecutedQuery = str_replace('`', '', $latestExecutedQuery);
 		}
 		$this->assertEquals('log: ' . $latestExecutedQuery, $testLog->latestMessage, 'PropulsionPDO logs deletion queries in debug mode');

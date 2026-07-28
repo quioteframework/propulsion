@@ -95,7 +95,19 @@ class PropulsionTypes
 	const VARCHAR_NATIVE_TYPE = "string";
 	const LONGVARCHAR_NATIVE_TYPE = "string";
 	const CLOB_NATIVE_TYPE = "string";
-	const CLOB_EMU_NATIVE_TYPE = "resource";
+	// Despite the "EMU" name suggesting the same kind of stream-backed emulation as
+	// e.g. BLOB, CLOB_EMU's PHP-side representation is a plain string, same as CLOB
+	// -- OraclePlatform aliases a schema CLOB column's domain to this type purely
+	// so DBOracle::bindValue()/PropulsionColumnTypes can special-case its bind
+	// parameter handling (see DBOracle::bindValue()'s own CLOB_EMU branch, which
+	// throws unless given a string). Native type "resource" here was wrong: it made
+	// isPhpPrimitiveType() report CLOB_EMU columns as non-primitive without them
+	// ever being added to $LOB_TYPES either, so the generated lazy-loader's
+	// non-LOB branch (see ObjectBuilder::addLazyLoader()) emitted an
+	// (resource) $row[0] cast -- not a real PHP cast at all -- corrupting any
+	// generated Base*.php for a table with a CLOB column under Oracle with a
+	// syntax error.
+	const CLOB_EMU_NATIVE_TYPE = "string";
 	const NUMERIC_NATIVE_TYPE = "string";
 	const DECIMAL_NATIVE_TYPE = "string";
 	const TINYINT_NATIVE_TYPE = "int";

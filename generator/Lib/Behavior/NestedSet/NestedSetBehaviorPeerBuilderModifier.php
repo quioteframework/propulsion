@@ -138,6 +138,12 @@ public static function retrieveRoots(?Criteria \$criteria = null, ?PropulsionPDO
 		\$criteria = new Criteria($peerClassname::DATABASE_NAME);
 	}
 	\$criteria->add($peerClassname::LEFT_COL, 1, Criteria::EQUAL);
+	// Every scope's own root independently has LeftValue 1, so without an
+	// explicit order the relative order between different scopes' roots is
+	// unspecified SQL -- Postgres/MySQL/SQLite/MSSQL happen to return this
+	// small a result set in insertion order (a full-table-scan artifact, not
+	// a documented guarantee), but Oracle's query planner does not.
+	\$criteria->addAscendingOrderByColumn($peerClassname::SCOPE_COL);
 
 	return $peerClassname::doSelect(\$criteria, \$con);
 }

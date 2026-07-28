@@ -191,8 +191,67 @@ ALTER SESSION SET NLS_TIMESTAMP_FORMAT='YYYY-MM-DD HH24:MI:SS';
 
 		$ret .= $this->getAddPrimaryKeyDDL($table);
 		$ret .= $this->getAddSequencesDDL($table);
+		$ret .= $this->getAddAutoIncrementTriggerDDL($table);
 
 		return $ret;
+	}
+
+	/**
+	 * Unlike Postgres/MySQL/MSSQL's native auto-increment/SERIAL/IDENTITY, an
+	 * Oracle SEQUENCE (see getAddSequencesDDL()) only generates the next value
+	 * when something explicitly asks for it -- an INSERT that simply omits the
+	 * PK column (exactly what Propulsion's own generated save()/doInsert() does
+	 * NOT do, since DBOracle::getId()/isGetIdBeforeInsert() fetch it explicitly
+	 * first, but what any other raw-SQL INSERT reasonably expects the database
+	 * to handle transparently, the same as it would on every other platform
+	 * this project supports) would otherwise insert a NULL PK and fail
+	 * (ORA-01400). A BEFORE INSERT trigger that only fires when the PK wasn't
+	 * already supplied (so an explicit allowPkInsert-style value still wins)
+	 * closes that gap, matching the other platforms' actual behavior instead
+	 * of only Propulsion's own code path.
+	 */
+	public function getAddAutoIncrementTriggerDDL(Table $table): string
+	{
+		if ($table->getIdMethod() !== IDMethod::NATIVE) {
+			return '';
+		}
+		$pk = $table->getAutoIncrementPrimaryKey();
+		if ($pk === null) {
+			return '';
+		}
+
+		$pattern = "
+CREATE OR REPLACE TRIGGER %s
+BEFORE INSERT ON %s
+FOR EACH ROW
+WHEN (new.%s IS NULL)
+BEGIN
+	SELECT %s.NEXTVAL INTO :new.%s FROM dual;
+END;
+";
+		$pkName = $this->requireString($pk->getName(), 'Primary key column name');
+
+		return sprintf(
+			$pattern,
+			$this->quoteIdentifier($this->getTriggerName($table)),
+			$this->quoteIdentifier($this->requireString($table->getName(), 'Table name')),
+			$this->quoteIdentifier($pkName),
+			$this->quoteIdentifier($this->requireString($this->getSequenceName($table), 'Sequence name')),
+			$this->quoteIdentifier($pkName)
+		);
+	}
+
+	/**
+	 * Name of the BEFORE INSERT trigger getAddAutoIncrementTriggerDDL() creates
+	 * for a native-idMethod table -- truncated the same way getPrimaryKeyName()
+	 * already is, to stay within Oracle's (pre-12.2) 30-character identifier
+	 * limit once the "_TRG" suffix is appended.
+	 */
+	public function getTriggerName(Table $table): string
+	{
+		$tableName = $this->requireString($table->getName(), 'Table name');
+		$tableName = substr($tableName, 0, min(26, strlen($tableName)));
+		return $tableName . '_TRG';
 	}
 
 	public function getAddPrimaryKeyDDL(Table $table)

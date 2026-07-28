@@ -201,6 +201,19 @@ class PropulsionSQLParser
 		$isInString = false;
 		$stringQuotes = '';
 		$parsedString = '';
+		// PL/SQL block nesting depth (Oracle triggers/procedures) -- a BEGIN...END
+		// block's own internal statements are each terminated by the same ';'
+		// delimiter as the CREATE TRIGGER/PROCEDURE statement wrapping them, so a
+		// depth-0-only split (as this parser otherwise does throughout, for every
+		// other platform's generated DDL, none of which contains a PL/SQL block)
+		// would cut a trigger body into malformed fragments. Only "BEGIN" and a
+		// bare "END" are tracked, not "END IF"/"END LOOP"/"END CASE" (which close a
+		// different construct with no matching "BEGIN" of their own) -- sufficient
+		// for the simple single-BEGIN/END triggers this project currently generates
+		// (see OraclePlatform::getAddAutoIncrementTriggerDDL()), not a full PL/SQL
+		// parser.
+		$plsqlDepth = 0;
+		$sawPlsqlBlock = false;
 		while ($this->pos < $this->len) {
 			$char = $this->sql[$this->pos];
 
@@ -222,21 +235,55 @@ class PropulsionSQLParser
 					break;
 			}
 
+			if (!$isInString && $this->matchesWordAt($this->pos, 'BEGIN')) {
+				$plsqlDepth++;
+				$sawPlsqlBlock = true;
+			} elseif (!$isInString && $this->matchesWordAt($this->pos, 'END')) {
+				$plsqlDepth--;
+			}
+
 			$this->pos++;
 
 			if ($char !== "\\") {
 				$isAfterBackslash = false;
 			}
 
-			// check for end of statement
-			if (!$isInString && $char == $this->delimiter) {
-				return trim($parsedString);
-			}
-
 			$parsedString .= $char;
+
+			// check for end of statement
+			if (!$isInString && $plsqlDepth <= 0 && $char == $this->delimiter) {
+				// Unlike ordinary DDL/DML (which Oracle -- and every other platform
+				// here -- accepts fine with the delimiter stripped, since it's only
+				// ever a statement *separator* to begin with), a PL/SQL block's
+				// final "END" needs its OWN trailing ';' as actual required syntax,
+				// not just a separator -- stripping it here breaks the CREATE
+				// TRIGGER/PROCEDURE statement itself (Oracle: PLS-00103, "end-of-file
+				// when expecting ;"). Keep it for any statement that opened a
+				// BEGIN...END block; still stripped for everything else, unchanged.
+				return $sawPlsqlBlock ? trim($parsedString) : trim(substr($parsedString, 0, -1));
+			}
 		}
 
 		return trim($parsedString);
+	}
+
+	/**
+	 * Whether the given keyword occurs as a whole word starting at $pos (i.e.
+	 * not preceded or followed by another identifier character) -- used by
+	 * getNextStatement()'s PL/SQL BEGIN/END tracking so e.g. a column literally
+	 * named "ENDING" doesn't get mistaken for the "END" keyword.
+	 */
+	private function matchesWordAt(int $pos, string $keyword): bool
+	{
+		if ($pos > 0 && preg_match('/[a-zA-Z0-9_]/', $this->sql[$pos - 1])) {
+			return false;
+		}
+		$len = strlen($keyword);
+		if (strtoupper(substr($this->sql, $pos, $len)) !== $keyword) {
+			return false;
+		}
+		$next = $this->sql[$pos + $len] ?? '';
+		return $next === '' || !preg_match('/[a-zA-Z0-9_]/', $next);
 	}
 
 }

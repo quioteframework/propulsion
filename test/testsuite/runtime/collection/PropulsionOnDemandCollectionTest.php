@@ -46,13 +46,18 @@ class PropulsionOnDemandCollectionTest extends BookstoreEmptyTestBase
 	 * FreeTDS/pdo_dblib (MSSQL) doesn't support PDOStatement::rowCount() for a
 	 * SELECT -- always -1 -- unlike Postgres/MySQL/SQLite, which is exactly
 	 * the portability caveat PropulsionOnDemandIterator::count()'s own
-	 * docblock warns about ("inaccurate for most databases"). Not fixable
-	 * without buffering every row up front, which defeats the point of an
-	 * on-demand collection.
+	 * docblock warns about ("inaccurate for most databases"). pdo_oci
+	 * (Oracle) has the same portability gap, always reporting 0 instead.
+	 * Neither is fixable without buffering every row up front, which defeats
+	 * the point of an on-demand collection.
 	 */
 	private function expectedRowCount(int $actual): int
 	{
-		return Propulsion::getDB(BookPeer::DATABASE_NAME) instanceof DBMSSQL ? -1 : $actual;
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
+		if ($db instanceof DBMSSQL) {
+			return -1;
+		}
+		return $db instanceof DBOracle ? 0 : $actual;
 	}
 
 	public function testSetFormatter()

@@ -245,7 +245,12 @@ public function getMaxRank(" . ($useScope ? "\$scope = null, " : "") . "?Propuls
 	// (MSSQL) requires the cursor closed after a single scalar fetch.
 	\$stmt->closeCursor();
 
-	return \$rank;
+	// See SortableBehaviorPeerBuilderModifier::addGetMaxRank(): fetchColumn()'s
+	// raw return type isn't consistent across platforms for this MAX(...)
+	// aggregate (e.g. pdo_oci/Oracle returns a numeric string, not an int) --
+	// but null (an empty table's MAX() row) must stay null, not become
+	// (int) null's 0.
+	return \$rank !== null ? (int) \$rank : null;
 }
 ";
 	}
