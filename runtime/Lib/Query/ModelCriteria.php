@@ -2145,15 +2145,15 @@ class ModelCriteria extends Criteria
 	 * Inserts a row, or updates it instead if it conflicts with an existing row --
 	 * "upsert", a single round trip instead of a separate existence check plus
 	 * insert-or-update. See BasePeer::doUpsert() for full platform support notes
-	 * (Postgres/SQLite/MySQL/MariaDB; MSSQL/Oracle need MERGE and are not
-	 * supported here).
+	 * (Postgres/SQLite/MySQL/MariaDB via a rewritten INSERT; MSSQL/Oracle via
+	 * `MERGE`).
 	 *
 	 * @param      array<string, mixed> $insertValues Column phpName => value to insert.
 	 * @param      array<string, mixed> $updateValues Column phpName => value (or a
 	 *             ColumnExpression) to set on conflict. Empty means "do nothing on
 	 *             conflict" (unsupported on MySQL/MariaDB -- see BasePeer::doUpsert()).
 	 * @param      array<int, string> $conflictColumns Column phpNames identifying the
-	 *             conflict target (Postgres/SQLite only; MySQL infers this). Defaults
+	 *             conflict target (ignored on MySQL, which infers it). Defaults
 	 *             to the primary key.
 	 * @param      PropulsionPDO|null $con
 	 *

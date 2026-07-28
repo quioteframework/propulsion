@@ -29,6 +29,7 @@ use Propulsion\Exception\PropulsionException;
 use Propulsion\Map\ColumnMap;
 use Propulsion\Map\DatabaseMap;
 use Propulsion\Util\PropulsionColumnTypes;
+use Propulsion\Connection\PropulsionPDO;
 
 class DBOracle extends DBAdapter
 {
@@ -392,12 +393,157 @@ class DBOracle extends DBAdapter
 	}
 
 	/**
+	 * Holds the OUT-bound value from the most recent insert-returning statement's
+	 * "RETURNING col INTO :ret_id" -- see prepareInsertReturning()/
+	 * extractInsertedId(). Oracle's RETURNING ... INTO populates a bound PHP
+	 * variable directly; unlike Postgres/MariaDB's RETURNING or MSSQL's OUTPUT
+	 * (both a normal, post-execute-readable result set), there is no statement
+	 * result set for extractInsertedId(\PDOStatement $stmt) to read from, so the
+	 * value has to be stashed somewhere else for it to pick back up. Safe as
+	 * instance state (not thread-local/request-local) because PHP has no real
+	 * concurrency within one process: doInsert() calls prepareInsertReturning(),
+	 * execute(), then extractInsertedId() strictly in sequence, with no other
+	 * doInsert() call on this same adapter instance able to interleave in between.
+	 *
+	 * @var       mixed
+	 */
+	private mixed $lastInsertReturningId = null;
+
+	/**
+	 * Oracle has supported `RETURNING ... INTO` since 8i -- no version gating
+	 * needed the way MariaDB-vs-MySQL detection is (see DBMySQL::isMariaDb()).
+	 *
+	 * @see       DBAdapter::supportsInsertReturning()
+	 */
+	public function supportsInsertReturning(?PropulsionPDO $con = null): bool
+	{
+		return true;
+	}
+
+	/**
+	 * @see       DBAdapter::getInsertReturningSql()
+	 */
+	public function getInsertReturningSql(string $sql, string $idColumnName): string
+	{
+		return $sql . ' RETURNING ' . $idColumnName . ' INTO :ret_id';
+	}
+
+	/**
+	 * Oracle has no "DEFAULT VALUES" syntax (the DBAdapter default this would
+	 * otherwise inherit) -- every column needs to appear somewhere in the
+	 * statement. Explicitly naming just the id column and inserting NULL into it
+	 * is enough: id generation here is trigger-based, not a column DEFAULT (see
+	 * getAddAutoIncrementTriggerDDL()'s "WHEN (new.<pk> IS NULL)" on the generator
+	 * side), and an explicit NULL satisfies that condition exactly the same way
+	 * omitting the column from a non-empty column list already does.
+	 *
+	 * @see       DBAdapter::getEmptyInsertSql()
+	 */
+	public function getEmptyInsertSql(string $tableName, ?string $idColumnName): string
+	{
+		if ($idColumnName === null) {
+			throw new PropulsionException(static::class . ' cannot build an INSERT with no columns and no id to return -- Oracle has no DEFAULT VALUES syntax');
+		}
+		return 'INSERT INTO ' . $tableName . ' (' . $idColumnName . ') VALUES (NULL)'
+			. ' RETURNING ' . $idColumnName . ' INTO :ret_id';
+	}
+
+	/**
+	 * Binds the ":ret_id" OUT parameter getInsertReturningSql() added to the
+	 * statement -- must happen before execute() (PDO_OCI populates it by
+	 * reference as part of executing the RETURNING ... INTO clause, the same
+	 * "bind by reference, read the variable back afterward" shape
+	 * DBOracle::bindValue()'s own CLOB/LOB length-hinted bindParam() calls already
+	 * use elsewhere in this class, just for an OUT rather than an IN parameter).
+	 * 40 chars comfortably covers any NUMBER-typed surrogate PK.
+	 *
+	 * @see       DBAdapter::prepareInsertReturning()
+	 */
+	public function prepareInsertReturning(\PDOStatement $stmt, string $idColumnName): void
+	{
+		$this->lastInsertReturningId = null;
+		$stmt->bindParam(':ret_id', $this->lastInsertReturningId, PDO::PARAM_INT, 40);
+	}
+
+	/**
+	 * @see       DBAdapter::extractInsertedId()
+	 */
+	public function extractInsertedId(\PDOStatement $stmt): mixed
+	{
+		return $this->lastInsertReturningId;
+	}
+
+	/**
 	 * @param     string  $seed
 	 * @return    string
 	 */
 	public function random($seed=NULL): string
 	{
 		return 'dbms_random.value';
+	}
+
+	/**
+	 * Oracle has no `ON CONFLICT`/`ON DUPLICATE KEY UPDATE` clause; upserts need
+	 * `MERGE` instead, built from scratch by getMergeUpsertSql().
+	 *
+	 * @see       DBAdapter::supportsUpsert()
+	 */
+	public function supportsUpsert(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * @see       DBAdapter::usesMergeUpsert()
+	 */
+	public function usesMergeUpsert(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * Builds a `MERGE` statement. Same shape as DBMSSQL::getMergeUpsertSql() (see
+	 * its doc comment for why the insert columns are aliased into a one-row source
+	 * row rather than rebinding their ":pN" placeholders a second time, and why the
+	 * target is deliberately left un-aliased -- a raw ColumnExpression in
+	 * $setClause may reference the real, unqualified table name), except Oracle's
+	 * USING clause needs a real FROM ("FROM dual", since Oracle has no bare
+	 * "SELECT ... " without one) and the statement must NOT end with a semicolon --
+	 * unlike T-SQL, a trailing ";" on a single statement executed directly via OCI
+	 * is a syntax error (ORA-00911) here, not a requirement.
+	 *
+	 * @see       DBAdapter::getMergeUpsertSql()
+	 */
+	public function getMergeUpsertSql(string $tableName, array $insertColumns, array $conflictColumnNames, string $setClause): string
+	{
+		if (empty($conflictColumnNames)) {
+			throw new PropulsionException('DBOracle::getMergeUpsertSql() needs at least one conflict-target column');
+		}
+
+		$selectList = array();
+		foreach ($insertColumns as $p => $col) {
+			$selectList[] = ':p' . ($p + 1) . ' AS ' . $col;
+		}
+
+		$onClause = array();
+		foreach ($conflictColumnNames as $col) {
+			$onClause[] = $tableName . '.' . $col . ' = s.' . $col;
+		}
+
+		$insertValues = array();
+		foreach ($insertColumns as $col) {
+			$insertValues[] = 's.' . $col;
+		}
+
+		$sql = 'MERGE INTO ' . $tableName
+			. ' USING (SELECT ' . implode(', ', $selectList) . ' FROM dual) s'
+			. ' ON (' . implode(' AND ', $onClause) . ')';
+		if ($setClause !== '') {
+			$sql .= ' WHEN MATCHED THEN UPDATE SET ' . $setClause;
+		}
+		$sql .= ' WHEN NOT MATCHED THEN INSERT (' . implode(', ', $insertColumns) . ') VALUES (' . implode(', ', $insertValues) . ')';
+
+		return $sql;
 	}
 
 	/**

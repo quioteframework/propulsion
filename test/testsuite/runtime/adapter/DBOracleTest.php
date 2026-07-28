@@ -127,4 +127,37 @@ class DBOracleTest extends BookstoreTestBase
 		}
 	}
 
+	public function testSupportsUpsertAndUsesMerge()
+	{
+		$db = new DBOracle();
+		$this->assertTrue($db->supportsUpsert());
+		$this->assertTrue($db->usesMergeUpsert());
+	}
+
+	public function testGetMergeUpsertSql()
+	{
+		$db = new DBOracle();
+		$sql = $db->getMergeUpsertSql('book', array('ID', 'TITLE', 'ISBN'), array('ID'), 'TITLE = :p4');
+		$this->assertEquals(
+			'MERGE INTO book USING (SELECT :p1 AS ID, :p2 AS TITLE, :p3 AS ISBN FROM dual) s ON (book.ID = s.ID) WHEN MATCHED THEN UPDATE SET TITLE = :p4 WHEN NOT MATCHED THEN INSERT (ID, TITLE, ISBN) VALUES (s.ID, s.TITLE, s.ISBN)',
+			$sql,
+			'no trailing semicolon (unlike MSSQL) -- executing one directly via OCI is a syntax error'
+		);
+	}
+
+	public function testGetMergeUpsertSqlWithEmptySetClauseOmitsWhenMatched()
+	{
+		$db = new DBOracle();
+		$sql = $db->getMergeUpsertSql('book', array('ID', 'TITLE'), array('ID'), '');
+		$this->assertStringNotContainsString('WHEN MATCHED', $sql, 'an empty $setClause means "do nothing on conflict" -- no WHEN MATCHED clause at all');
+		$this->assertStringContainsString('WHEN NOT MATCHED THEN INSERT (ID, TITLE) VALUES (s.ID, s.TITLE)', $sql);
+	}
+
+	public function testGetMergeUpsertSqlThrowsWithoutConflictColumns()
+	{
+		$db = new DBOracle();
+		$this->expectException(PropulsionException::class);
+		$db->getMergeUpsertSql('book', array('ID', 'TITLE'), array(), 'TITLE = :p3');
+	}
+
 }

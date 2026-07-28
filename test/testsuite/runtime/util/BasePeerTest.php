@@ -559,13 +559,46 @@ class BasePeerTest extends BookstoreTestBase
 		$this->assertStringContainsString('OUTPUT INSERTED.ID', $con->getLastExecutedQuery(), 'the INSERT statement folds id retrieval in via an OUTPUT clause');
 	}
 
-	public function testUpsertInsertsWhenNoConflict()
+	/**
+	 * Runs $fn, then -- MSSQL only -- reseeds the "book" table's IDENTITY back to
+	 * whatever it was before $fn ran.
+	 *
+	 * Unlike Postgres/MySQL/SQLite, explicitly inserting a value into an IDENTITY
+	 * column via IDENTITY_INSERT ON (which doUpsert()/doInsert() do automatically
+	 * whenever a caller supplies one -- the norm for an upsert, whose whole point
+	 * is naming the conflict target) permanently advances SQL Server's internal
+	 * "current identity value" counter to that value, even after the row is later
+	 * deleted. Left unchecked, the literal high test IDs below (999901 etc.) would
+	 * make every subsequent auto-increment insert on "book" -- by an entirely
+	 * unrelated test, anywhere else in the same run -- receive an equally high
+	 * generated id, one that can (and, confirmed against a live MSSQL container
+	 * while developing this test, did) collide with another such literal test ID.
+	 */
+	private function preserveMssqlIdentity(callable $fn): void
 	{
 		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
-		if ($db instanceof DBMSSQL || $db instanceof DBOracle) {
-			$this->markTestSkipped();
+		if (!($db instanceof DBMSSQL)) {
+			$fn();
+			return;
 		}
 
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
+		$stmt = $con->query("SELECT IDENT_CURRENT('book')");
+		$before = $stmt !== false ? $stmt->fetchColumn() : false;
+		if (!is_numeric($before)) {
+			throw new PropulsionException("preserveMssqlIdentity() could not read book's current IDENTITY value");
+		}
+
+		try {
+			$fn();
+		} finally {
+			$con->exec('DBCC CHECKIDENT (\'book\', RESEED, ' . (int) $before . ')');
+		}
+	}
+
+	public function testUpsertInsertsWhenNoConflict()
+	{
+		$this->preserveMssqlIdentity(function () {
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$countBefore = BookQuery::create()->count();
 
@@ -582,15 +615,13 @@ class BasePeerTest extends BookstoreTestBase
 		$this->assertEquals($countBefore + 1, BookQuery::create()->count(), 'a non-conflicting upsert inserts a new row');
 		$book = BookQuery::create()->findPk(999901);
 		$this->assertEquals('Upserted Book', $book->getTitle());
+		});
 	}
 
 	public function testUpsertUpdatesOnConflict()
 	{
+		$this->preserveMssqlIdentity(function () {
 		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
-		if ($db instanceof DBMSSQL || $db instanceof DBOracle) {
-			$this->markTestSkipped();
-		}
-
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
 		$c = new Criteria();
@@ -622,15 +653,12 @@ class BasePeerTest extends BookstoreTestBase
 		$this->assertEquals($countBefore, BookQuery::create()->count(), 'a conflicting upsert does not insert a new row');
 		$book = BookQuery::create()->findPk(999902);
 		$this->assertEquals('Updated Title', $book->getTitle());
+		});
 	}
 
 	public function testUpsertColumnExpressionOnConflict()
 	{
-		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
-		if ($db instanceof DBMSSQL || $db instanceof DBOracle) {
-			$this->markTestSkipped();
-		}
-
+		$this->preserveMssqlIdentity(function () {
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
 		$c = new Criteria();
@@ -654,15 +682,17 @@ class BasePeerTest extends BookstoreTestBase
 
 		$book = BookQuery::create()->findPk(999903);
 		$this->assertEquals(15, $book->getPrice(), 'a ColumnExpression update value on conflict is spliced in as a raw SQL expression');
+		});
 	}
 
 	public function testUpsertDoesNothingWhenUpdateValuesEmpty()
 	{
 		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
-		if ($db instanceof DBMySQL || $db instanceof DBMSSQL || $db instanceof DBOracle) {
+		if ($db instanceof DBMySQL) {
 			$this->markTestSkipped();
 		}
 
+		$this->preserveMssqlIdentity(function () {
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
 		$c = new Criteria();
@@ -679,6 +709,7 @@ class BasePeerTest extends BookstoreTestBase
 
 		$book = BookQuery::create()->findPk(999904);
 		$this->assertEquals('Original Title', $book->getTitle(), 'an empty update-values Criteria means DO NOTHING on conflict');
+		});
 	}
 
 	public function testUpsertMysqlThrowsWhenUpdateValuesEmpty()
@@ -691,21 +722,6 @@ class BasePeerTest extends BookstoreTestBase
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$c = new Criteria();
 		$c->add(BookPeer::ID, 999905);
-		$c->add(BookPeer::TITLE, 'Book');
-		$this->expectException(PropulsionException::class);
-		BasePeer::doUpsert($c, new Criteria(), $con);
-	}
-
-	public function testUpsertUnsupportedOnMssql()
-	{
-		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
-		if (!($db instanceof DBMSSQL)) {
-			$this->markTestSkipped();
-		}
-
-		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
-		$c = new Criteria();
-		$c->add(BookPeer::ID, 999906);
 		$c->add(BookPeer::TITLE, 'Book');
 		$this->expectException(PropulsionException::class);
 		BasePeer::doUpsert($c, new Criteria(), $con);

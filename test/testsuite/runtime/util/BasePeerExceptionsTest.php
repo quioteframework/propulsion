@@ -91,16 +91,29 @@ class BasePeerExceptionsTest extends BookstoreTestBase
 			$c->add(BookPeer::AUTHOR_ID, 'lkhlkhj');
 			BasePeer::doInsert($c, Propulsion::getConnection());
 		} catch (PropulsionException $e) {
-			// The expected INSERT column list genuinely differs by id-generation
-			// strategy, not just quoting: DBAdapter::isGetIdBeforeInsert() platforms
-			// (e.g. Postgres's SEQUENCE method) pre-fetch the next id and include it
-			// explicitly; DBAdapter::isGetIdAfterInsert() platforms (e.g. MySQL's
-			// AUTOINCREMENT method) omit the id column and let its own default
-			// populate it -- see BasePeer::doInsert().
+			// The expected INSERT shape genuinely differs by id-generation/retrieval
+			// strategy, not just quoting -- see BasePeer::doInsert():
+			// - MSSQL folds id retrieval in via an OUTPUT clause spliced before VALUES.
+			// - Oracle folds it in via RETURNING ... INTO a bound OUT parameter.
+			// - Postgres/SQLite/MariaDB (DBAdapter::supportsInsertReturning()) fold it
+			//   in via a trailing RETURNING clause, and no longer pre-fetch/include the
+			//   id column at all -- it's left to the column's own SERIAL/AUTOINCREMENT
+			//   default.
+			// - Plain MySQL (DBAdapter::isGetIdAfterInsert()) has none of the above and
+			//   omits the id column, relying on a separate lastInsertId() round trip.
 			$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
-			$expected = $db->isGetIdBeforeInsert()
-				? '[INSERT INTO book (AUTHOR_ID,ID) VALUES (:p1,:p2)]'
-				: '[INSERT INTO book (AUTHOR_ID) VALUES (:p1)]';
+			$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
+			if ($db instanceof DBMSSQL) {
+				$expected = '[INSERT INTO book (AUTHOR_ID) OUTPUT INSERTED.ID VALUES (:p1)]';
+			} elseif ($db instanceof DBOracle) {
+				$expected = '[INSERT INTO book (AUTHOR_ID) VALUES (:p1) RETURNING ID INTO :ret_id]';
+			} elseif ($db->supportsInsertReturning($con)) {
+				$expected = '[INSERT INTO book (AUTHOR_ID) VALUES (:p1) RETURNING ID]';
+			} elseif ($db->isGetIdBeforeInsert()) {
+				$expected = '[INSERT INTO book (AUTHOR_ID,ID) VALUES (:p1,:p2)]';
+			} else {
+				$expected = '[INSERT INTO book (AUTHOR_ID) VALUES (:p1)]';
+			}
 			$this->assertStringContainsString($expected, normalizeGeneratedSql($e->getMessage()), 'SQL query is written in the exception message');
 		}
 	}

@@ -122,17 +122,29 @@ class BasePeer
 	 *
 	 * @param      Criteria $criteria The criteria to use.
 	 * @param      PropulsionPDO $con A PropulsionPDO connection object.
-	 * @return     int	The number of rows affected by last statement execution.  For most
-	 * 				uses there is only one delete statement executed, so this number
-	 * 				will correspond to the number of rows affected by the call to this
-	 * 				method.  Note that the return value does require that this information
-	 * 				is returned (supported) by the PDO driver.
+	 * @param      ?array<int,string> $returningColumns Fully-qualified column names to
+	 *             return for every removed row, instead of just a count -- see
+	 *             DBAdapter::supportsRowReturning(). Null (the default) means "just
+	 *             return the count", the original behavior.
+	 * @return     int|array<int,array<string,mixed>> The number of rows affected by last
+	 *             statement execution (see the multi-table caveat below), or, when
+	 *             $returningColumns is given, the removed rows themselves (each an
+	 *             associative array keyed by column name) -- concatenated across every
+	 *             table statement executed, for the rare multi-table Criteria. For most
+	 *             uses there is only one delete statement executed, so this corresponds
+	 *             directly to the one statement's own result. Note that the return value
+	 *             does require that this information is returned (supported) by the PDO
+	 *             driver.
 	 * @throws     PropulsionException
 	 */
-	public static function doDelete(Criteria $criteria, PropulsionPDO $con)
+	public static function doDelete(Criteria $criteria, PropulsionPDO $con, ?array $returningColumns = null)
 	{
 		$db = Propulsion::getDB($criteria->getDbName());
 		$dbMap = Propulsion::getDatabaseMap($criteria->getDbName());
+
+		if ($returningColumns !== null && !$db->supportsRowReturning($con)) {
+			throw new PropulsionException(get_class($db) . ' does not support RETURNING on DELETE');
+		}
 
 		//join are not supported with DELETE statement
 		if (count($criteria->getJoins())) {
@@ -147,6 +159,7 @@ class BasePeer
 		}
 
 		$affectedRows = 0; // initialize this in case the next loop has no iterations.
+		$returnedRows = array();
 
 		foreach ($tables as $tableName => $columns) {
 
@@ -163,12 +176,24 @@ class BasePeer
 				}
 				$sql .= " WHERE " .  implode(" AND ", $whereClause);
 
+				if ($returningColumns !== null) {
+					$sql = $db->getDeleteReturningSql($sql, self::unqualifyAndQuoteColumnNames($returningColumns, $db));
+				}
+
 				$db->cleanupSQL($sql, $params, $criteria, $dbMap);
 
 				$stmt = $con->prepare($sql);
+				if ($stmt === false) {
+					throw new PropulsionException('PropulsionPDO::prepare() returned false');
+				}
 				$db->bindValues($stmt, $params, $dbMap);
 				$stmt->execute();
-				$affectedRows = $stmt->rowCount();
+
+				if ($returningColumns !== null) {
+					$returnedRows = array_merge($returnedRows, $stmt->fetchAll(\PDO::FETCH_ASSOC));
+				} else {
+					$affectedRows = $stmt->rowCount();
+				}
 			} catch (Exception $e) {
 				Propulsion::log($e->getMessage(), Propulsion::LOG_ERR);
 				throw new PropulsionException(sprintf('Unable to execute DELETE statement [%s]', $sql), $e);
@@ -178,7 +203,7 @@ class BasePeer
 
 		} // for each table
 
-		return $affectedRows;
+		return $returningColumns !== null ? $returnedRows : $affectedRows;
 	}
 
 	/**
@@ -324,18 +349,6 @@ class BasePeer
 		// we're inserting into.
 		$needsGeneratedId = $pk !== null && $useIdGen && !$criteria->keyContainsValue($pk->getFullyQualifiedName());
 
-		// An allowPkInsert table's generated code never strips its PK column
-		// from the Criteria the way a plain auto-increment table's does (see
-		// ObjectBuilder.php's own comment on that), since the whole point of
-		// allowPkInsert is to let a caller supply an explicit value -- but
-		// when nobody actually does (still null here, e.g. relying on the id
-		// generator as usual), that leaves an explicit NULL entry for a
-		// platform where supportsInsertNullPk() is false (MSSQL) can't accept
-		// at all, not even implicitly.
-		if ($needsGeneratedId && !$db->supportsInsertNullPk() && $criteria->containsKey($pk->getFullyQualifiedName())) {
-			$criteria->remove($pk->getFullyQualifiedName());
-		}
-
 		// The opposite case: an explicit, non-null PK value was supplied for a
 		// column the id generator would otherwise have populated (allowPkInsert,
 		// or a Criteria-based doInsert() bypassing the object model entirely).
@@ -350,7 +363,25 @@ class BasePeer
 		// itself (e.g. MSSQL's OUTPUT clause), skip the separate before/after getId()
 		// round trip entirely -- one of the two branches below would otherwise run an
 		// extra query for exactly the value the INSERT is about to return anyway.
-		$useInsertReturning = $needsGeneratedId && $db->supportsInsertReturning();
+		$useInsertReturning = $needsGeneratedId && $db->supportsInsertReturning($con);
+
+		// An allowPkInsert table's generated code never strips its PK column
+		// from the Criteria the way a plain auto-increment table's does (see
+		// ObjectBuilder.php's own comment on that), since the whole point of
+		// allowPkInsert is to let a caller supply an explicit value -- but when
+		// nobody actually does (still null here, e.g. relying on the id
+		// generator as usual), that leaves an explicit NULL entry that either
+		// a platform where supportsInsertNullPk() is false (MSSQL) can't accept
+		// at all, not even implicitly, or -- now that $useInsertReturning skips
+		// the separate before-insert getId() call that used to overwrite this
+		// same null with a real value before the INSERT ever ran -- a NOT NULL
+		// id column on any platform (Postgres/Oracle; MySQL/MariaDB's
+		// AUTO_INCREMENT and SQLite's INTEGER PRIMARY KEY both special-case an
+		// explicit NULL as "generate one", so this never bit them) would
+		// otherwise reject outright.
+		if ($needsGeneratedId && ($useInsertReturning || !$db->supportsInsertNullPk()) && $criteria->containsKey($pk->getFullyQualifiedName())) {
+			$criteria->remove($pk->getFullyQualifiedName());
+		}
 
 		if ($needsGeneratedId && $db->isGetIdBeforeInsert() && !$useInsertReturning) {
 			try {
@@ -417,6 +448,10 @@ class BasePeer
 			}
 			$db->bindValues($stmt, $params, $dbMap);
 
+			if ($useInsertReturning) {
+				$adapter->prepareInsertReturning($stmt, $idColumnName);
+			}
+
 			$identityInsertOnSql = $explicitAutoIncrementValue !== null ? $adapter->getIdentityInsertOnSql($tableName) : null;
 			if ($identityInsertOnSql !== null) {
 				$con->exec($identityInsertOnSql);
@@ -471,17 +506,29 @@ class BasePeer
 	 * @param      $updateValues A Criteria object containing values used in set
 	 *		clause.
 	 * @param      PropulsionPDO $con The PropulsionPDO connection object to use.
-	 * @return     int	The number of rows affected by last update statement.  For most
-	 * 				uses there is only one update statement executed, so this number
-	 * 				will correspond to the number of rows affected by the call to this
-	 * 				method.  Note that the return value does require that this information
-	 * 				is returned (supported) by the Propulsion db driver.
+	 * @param      ?array<int,string> $returningColumns Fully-qualified column names to
+	 *             return for every affected row, instead of just a count -- see
+	 *             DBAdapter::supportsRowReturning(). Null (the default) means "just
+	 *             return the count", the original behavior.
+	 * @return     int|array<int,array<string,mixed>> The number of rows affected by
+	 *             last update statement (see the multi-table caveat below), or, when
+	 *             $returningColumns is given, the affected rows themselves (each an
+	 *             associative array keyed by column name) -- concatenated across
+	 *             every table statement executed, for the rare multi-table Criteria.
+	 *             For most uses there is only one update statement executed, so this
+	 *             corresponds directly to the one statement's own result. Note that
+	 *             the return value does require that this information is returned
+	 *             (supported) by the Propulsion db driver.
 	 * @throws     PropulsionException
 	 */
-	public static function doUpdate(Criteria $selectCriteria, Criteria $updateValues, ?PropulsionPDO $con = null) {
+	public static function doUpdate(Criteria $selectCriteria, Criteria $updateValues, ?PropulsionPDO $con = null, ?array $returningColumns = null) {
 
 		$db = Propulsion::getDB($selectCriteria->getDbName());
 		$dbMap = Propulsion::getDatabaseMap($selectCriteria->getDbName());
+
+		if ($returningColumns !== null && !$db->supportsRowReturning($con)) {
+			throw new PropulsionException(get_class($db) . ' does not support RETURNING on UPDATE');
+		}
 
 		// Get list of required tables, containing all columns
 		$tablesColumns = $selectCriteria->getTablesColumns();
@@ -493,6 +540,7 @@ class BasePeer
 		$updateTablesColumns = $updateValues->getTablesColumns();
 
 		$affectedRows = 0; // initialize this in case the next loop has no iterations.
+		$returnedRows = array();
 
 		foreach ($tablesColumns as $tableName => $columns) {
 
@@ -541,6 +589,10 @@ class BasePeer
 					$sql .= " WHERE " .  implode(" AND ", $whereClause);
 				}
 
+				if ($returningColumns !== null) {
+					$sql = $db->getUpdateReturningSql($sql, self::unqualifyAndQuoteColumnNames($returningColumns, $db));
+				}
+
 				$db->cleanupSQL($sql, $params, $updateValues, $dbMap);
 
 				$stmt = $con->prepare($sql);
@@ -553,7 +605,11 @@ class BasePeer
 
 				$stmt->execute();
 
-				$affectedRows = $stmt->rowCount();
+				if ($returningColumns !== null) {
+					$returnedRows = array_merge($returnedRows, $stmt->fetchAll(\PDO::FETCH_ASSOC));
+				} else {
+					$affectedRows = $stmt->rowCount();
+				}
 
 				$stmt = null; // close
 
@@ -567,7 +623,7 @@ class BasePeer
 
 		} // foreach table in the criteria
 
-		return $affectedRows;
+		return $returningColumns !== null ? $returnedRows : $affectedRows;
 	}
 
 	/**
@@ -579,9 +635,10 @@ class BasePeer
 	 * Supported on Postgres, SQLite (`ON CONFLICT ... DO UPDATE`/`DO NOTHING`) and
 	 * MySQL/MariaDB (`ON DUPLICATE KEY UPDATE`, which ignores $conflictColumns --
 	 * MySQL infers the conflict target from any unique/primary key violation, and has
-	 * no "do nothing" form, so an empty $updateValues throws there). MSSQL/Oracle need
-	 * `MERGE`, a structurally different statement, and are not supported by this
-	 * method -- see DBAdapter::supportsUpsert().
+	 * no "do nothing" form, so an empty $updateValues throws there). MSSQL/Oracle
+	 * express this via `MERGE` instead (DBAdapter::usesMergeUpsert()), a structurally
+	 * different statement built from scratch by getMergeUpsertSql() rather than a
+	 * clause appended to a plain INSERT.
 	 *
 	 * @param      Criteria $criteria The values to insert.
 	 * @param      Criteria $updateValues The columns (and values, or a
@@ -628,6 +685,14 @@ class BasePeer
 			}
 		}
 
+		// Same explicit-auto-increment-value detection as doInsert() -- an upsert's
+		// conflict target is typically the PK, so this is the common case on MSSQL,
+		// not the rare allowPkInsert one doInsert() mostly sees it for.
+		$pk = self::getPrimaryKey($criteria, $tableName);
+		$explicitAutoIncrementValue = $pk !== null && $tableMap->isUseIdGenerator() && $criteria->keyContainsValue($pk->getFullyQualifiedName())
+			? $pk->getFullyQualifiedName()
+			: null;
+
 		$sql = null;
 		try {
 			$qualifiedCols = $criteria->keys();
@@ -642,30 +707,27 @@ class BasePeer
 				$insertTableName = $db->quoteIdentifierTable($insertTableName);
 			}
 
-			$sql = 'INSERT INTO ' . $insertTableName
-			. ' (' . implode(',', $columns) . ')'
-			. ' VALUES (';
-			for($p=1, $cnt=count($columns); $p <= $cnt; $p++) {
-				$sql .= ':p'.$p;
-				if ($p !== $cnt) $sql .= ',';
-			}
-			$sql .= ')';
-
 			$params = self::buildParams($qualifiedCols, $criteria);
 
-			$conflictColumnNames = array();
-			foreach ($conflictColumns as $conflictCol) {
-				$name = substr($conflictCol, strrpos($conflictCol, '.') + 1);
-				if ($db->useQuoteIdentifier()) {
-					$name = $db->quoteIdentifier($name);
-				}
-				$conflictColumnNames[] = $name;
-			}
+			$conflictColumnNames = self::unqualifyAndQuoteColumnNames($conflictColumns, $db);
 
 			$updateColumnKeys = $updateValues->keys();
 			$setClause = self::buildSetClause($updateColumnKeys, $updateValues, $db, count($columns) + 1)[0];
 
-			$sql = $db->getUpsertSql($sql, $conflictColumnNames, $setClause);
+			if ($db->usesMergeUpsert()) {
+				$sql = $db->getMergeUpsertSql($insertTableName, $columns, $conflictColumnNames, $setClause);
+			} else {
+				$sql = 'INSERT INTO ' . $insertTableName
+				. ' (' . implode(',', $columns) . ')'
+				. ' VALUES (';
+				for($p=1, $cnt=count($columns); $p <= $cnt; $p++) {
+					$sql .= ':p'.$p;
+					if ($p !== $cnt) $sql .= ',';
+				}
+				$sql .= ')';
+
+				$sql = $db->getUpsertSql($sql, $conflictColumnNames, $setClause);
+			}
 
 			$params = array_merge($params, self::buildParams($updateColumnKeys, $updateValues));
 
@@ -676,7 +738,21 @@ class BasePeer
 				throw new PropulsionException('PropulsionPDO::prepare() returned false');
 			}
 			$db->bindValues($stmt, $params, $dbMap);
-			$stmt->execute();
+
+			$identityInsertOnSql = $explicitAutoIncrementValue !== null ? $db->getIdentityInsertOnSql($insertTableName) : null;
+			if ($identityInsertOnSql !== null) {
+				$con->exec($identityInsertOnSql);
+			}
+			try {
+				$stmt->execute();
+			} finally {
+				if ($identityInsertOnSql !== null) {
+					$identityInsertOffSql = $db->getIdentityInsertOffSql($insertTableName);
+					if ($identityInsertOffSql !== null) {
+						$con->exec($identityInsertOffSql);
+					}
+				}
+			}
 
 			$affectedRows = $stmt->rowCount();
 
@@ -1278,6 +1354,29 @@ class BasePeer
 			}
 		}
 		return $params;
+	}
+
+	/**
+	 * Unqualifies ("table.column" -> "column") and quotes-if-necessary each of
+	 * $columns, the shape doUpsert()'s $conflictColumns/getUpsertSql() and
+	 * doUpdate()/doDelete()'s $returningColumns/getUpdateReturningSql()/
+	 * getDeleteReturningSql() all need their column-name lists in.
+	 *
+	 * @param      array<int,string> $columns Fully-qualified column names.
+	 * @param      DBAdapter $db
+	 * @return     array<int,string>
+	 */
+	private static function unqualifyAndQuoteColumnNames(array $columns, DBAdapter $db): array
+	{
+		$names = array();
+		foreach ($columns as $col) {
+			$name = substr($col, strrpos($col, '.') + 1);
+			if ($db->useQuoteIdentifier()) {
+				$name = $db->quoteIdentifier($name);
+			}
+			$names[] = $name;
+		}
+		return $names;
 	}
 
 	/**

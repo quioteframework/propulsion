@@ -309,7 +309,13 @@ abstract class DBAdapter
 		return true;
 	}
 
-	public function supportsInsertReturning(): bool
+	/**
+	 * $con is available so a platform whose driver reports this differently per
+	 * server flavor (MySQL vs. MariaDB, both served by DBMySQL -- see its own
+	 * override) can decide based on the actual connection rather than statically;
+	 * every other adapter ignores it.
+	 */
+	public function supportsInsertReturning(?PropulsionPDO $con = null): bool
 	{
 		return false;
 	}
@@ -327,6 +333,21 @@ abstract class DBAdapter
 	public function getInsertReturningSql(string $sql, string $idColumnName): string
 	{
 		throw new PropulsionException(static::class . ' does not support folding id retrieval into INSERT');
+	}
+
+	/**
+	 * Runs immediately before an insert-returning statement's execute(), only when
+	 * supportsInsertReturning() is true -- a no-op for every platform except
+	 * Oracle, whose `RETURNING col INTO :bind` needs an OUT bind variable set up
+	 * beforehand (PDO_OCI has no post-execute result set to read the id from the
+	 * way Postgres/MariaDB's RETURNING or MSSQL's OUTPUT do; see DBOracle's own
+	 * override and its extractInsertedId()).
+	 *
+	 * @param     \PDOStatement $stmt
+	 * @param     string        $idColumnName Same value passed to getInsertReturningSql().
+	 */
+	public function prepareInsertReturning(\PDOStatement $stmt, string $idColumnName): void
+	{
 	}
 
 	/**
@@ -433,10 +454,8 @@ abstract class DBAdapter
 
 	/**
 	 * Whether this platform can express "insert this row, or update it instead if a
-	 * conflicting row already exists" as a single INSERT statement (Postgres/SQLite's
-	 * `ON CONFLICT`, MySQL/MariaDB's `ON DUPLICATE KEY UPDATE`). False by default;
-	 * MSSQL/Oracle need `MERGE`, a structurally different statement (not just a
-	 * clause appended to INSERT), and are not implemented via this hook.
+	 * conflicting row already exists" at all -- via either hook below, chosen by
+	 * usesMergeUpsert(). False by default.
 	 *
 	 * @return    boolean
 	 */
@@ -446,8 +465,22 @@ abstract class DBAdapter
 	}
 
 	/**
+	 * Whether this platform's upsert needs the structurally different `MERGE`
+	 * statement (MSSQL/Oracle) rather than a clause appended to a plain INSERT
+	 * (Postgres/SQLite's `ON CONFLICT`, MySQL/MariaDB's `ON DUPLICATE KEY UPDATE`).
+	 * Only consulted when supportsUpsert() is true; picks getMergeUpsertSql() over
+	 * getUpsertSql() in BasePeer::doUpsert().
+	 *
+	 * @return    boolean
+	 */
+	public function usesMergeUpsert(): bool
+	{
+		return false;
+	}
+
+	/**
 	 * Rewrites a plain "INSERT INTO table (cols) VALUES (...)" statement into an
-	 * upsert. Only called when supportsUpsert() is true.
+	 * upsert. Only called when supportsUpsert() is true and usesMergeUpsert() is false.
 	 *
 	 * @param     string             $sql
 	 * @param     array<int,string>  $conflictColumnNames Unqualified, already-quoted-if-necessary
@@ -463,6 +496,77 @@ abstract class DBAdapter
 	public function getUpsertSql(string $sql, array $conflictColumnNames, string $setClause): string
 	{
 		throw new PropulsionException(static::class . ' does not support upserts');
+	}
+
+	/**
+	 * Builds a complete `MERGE` upsert statement from scratch (there is no plain
+	 * INSERT to rewrite -- MERGE is its own statement shape). Only called when
+	 * supportsUpsert() and usesMergeUpsert() are both true.
+	 *
+	 * @param     string             $tableName Already-quoted-if-necessary table name.
+	 * @param     array<int,string>  $insertColumns Unqualified, already-quoted-if-necessary
+	 *                                column names to insert, in the same order as the bound
+	 *                                ":p1".."pN" placeholders (one per column).
+	 * @param     array<int,string>  $conflictColumnNames Unqualified, already-quoted-if-necessary
+	 *                                column names identifying the conflict target -- a subset
+	 *                                of $insertColumns.
+	 * @param     string             $setClause Already-built "col1 = :pN, col2 = :pN+1" SET-clause
+	 *                                fragment (no leading "SET " and no trailing comma), with
+	 *                                placeholders numbered right after $insertColumns's. Empty
+	 *                                string means "do nothing on conflict" (no WHEN MATCHED clause).
+	 *
+	 * @return    string
+	 */
+	public function getMergeUpsertSql(string $tableName, array $insertColumns, array $conflictColumnNames, string $setClause): string
+	{
+		throw new PropulsionException(static::class . ' does not support upserts');
+	}
+
+	/**
+	 * Whether this platform can return the rows an UPDATE/DELETE actually affected
+	 * directly from that statement (Postgres/SQLite/MariaDB's `RETURNING`, MSSQL's
+	 * `OUTPUT`), instead of a separate round trip to re-select them afterward.
+	 * False by default -- also false for plain MySQL (no such form at all) and for
+	 * Oracle, whose `RETURNING ... INTO` needs bulk-collect array binds to receive
+	 * more than one row and isn't implemented here (see PLATFORM_FEATURES.md).
+	 * $con is available for the same reason as supportsInsertReturning()'s --
+	 * MariaDB vs. MySQL needs a live connection to tell apart.
+	 *
+	 * @return    boolean
+	 */
+	public function supportsRowReturning(?PropulsionPDO $con = null): bool
+	{
+		return false;
+	}
+
+	/**
+	 * Rewrites a complete "UPDATE ... SET ... [FROM ...] WHERE ..." statement so it
+	 * also returns $columnNames for every row it affects. Only called when
+	 * supportsRowReturning() is true.
+	 *
+	 * @param     string             $sql
+	 * @param     array<int,string>  $columnNames Unqualified, already-quoted-if-necessary column names.
+	 *
+	 * @return    string
+	 */
+	public function getUpdateReturningSql(string $sql, array $columnNames): string
+	{
+		throw new PropulsionException(static::class . ' does not support RETURNING on UPDATE');
+	}
+
+	/**
+	 * Rewrites a complete "DELETE FROM ... WHERE ..." statement so it also returns
+	 * $columnNames for every row it removes. Only called when supportsRowReturning()
+	 * is true.
+	 *
+	 * @param     string             $sql
+	 * @param     array<int,string>  $columnNames Unqualified, already-quoted-if-necessary column names.
+	 *
+	 * @return    string
+	 */
+	public function getDeleteReturningSql(string $sql, array $columnNames): string
+	{
+		throw new PropulsionException(static::class . ' does not support RETURNING on DELETE');
 	}
 
 	/**

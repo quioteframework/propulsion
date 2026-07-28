@@ -17,6 +17,7 @@ namespace Propulsion\Adapter;
  */
 use PDO;
 use Propulsion\Exception\PropulsionException;
+use Propulsion\Connection\PropulsionPDO;
 class DBSQLite extends DBAdapter
 {
 
@@ -130,7 +131,7 @@ class DBSQLite extends DBAdapter
 	 *
 	 * @see       DBAdapter::supportsInsertReturning()
 	 */
-	public function supportsInsertReturning(): bool
+	public function supportsInsertReturning(?PropulsionPDO $con = null): bool
 	{
 		return true;
 	}
@@ -182,6 +183,33 @@ class DBSQLite extends DBAdapter
 		$sql .= ' ON CONFLICT (' . implode(', ', $conflictColumnNames) . ')';
 		$sql .= $setClause === '' ? ' DO NOTHING' : ' DO UPDATE SET ' . $setClause;
 		return $sql;
+	}
+
+	/**
+	 * SQLite (3.35+, same release RETURNING itself was added in) also supports it
+	 * on UPDATE/DELETE, for affected-row hydration without a separate re-SELECT.
+	 *
+	 * @see       DBAdapter::supportsRowReturning()
+	 */
+	public function supportsRowReturning(?PropulsionPDO $con = null): bool
+	{
+		return true;
+	}
+
+	/**
+	 * @see       DBAdapter::getUpdateReturningSql()
+	 */
+	public function getUpdateReturningSql(string $sql, array $columnNames): string
+	{
+		return $sql . ' RETURNING ' . implode(', ', $columnNames);
+	}
+
+	/**
+	 * @see       DBAdapter::getDeleteReturningSql()
+	 */
+	public function getDeleteReturningSql(string $sql, array $columnNames): string
+	{
+		return $sql . ' RETURNING ' . implode(', ', $columnNames);
 	}
 
 	/**

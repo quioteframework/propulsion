@@ -1923,33 +1923,47 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testDoUpsert()
 	{
+		// See BasePeerTest::preserveMssqlIdentity()'s doc comment: an explicit PK
+		// value (999910 here) on MSSQL permanently advances "book"'s IDENTITY
+		// counter, which would leak into any later, unrelated auto-increment
+		// insert on "book" elsewhere in the same run.
 		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
-		if ($db instanceof DBMSSQL || $db instanceof DBOracle) {
-			$this->markTestSkipped();
+		$mssqlIdentityBefore = null;
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
+		if ($db instanceof DBMSSQL) {
+			$stmt = $con->query("SELECT IDENT_CURRENT('book')");
+			$mssqlIdentityBefore = $stmt !== false ? $stmt->fetchColumn() : false;
+			if (!is_numeric($mssqlIdentityBefore)) {
+				throw new PropulsionException("testDoUpsert() could not read book's current IDENTITY value");
+			}
 		}
 
-		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
+		try {
+			// The update-values here are never actually applied (999910 doesn't exist yet, so
+			// this is a plain insert) -- passed anyway (matching the insert value) rather than
+			// empty, since MySQL's ON DUPLICATE KEY UPDATE has no "do nothing" form and would
+			// throw on an empty update-values array even though no conflict occurs.
+			$c = new ModelCriteria('bookstore', 'Book');
+			$c->doUpsert(array('Id' => 999910, 'Title' => 'First Insert', 'ISBN' => '0000000010'), array('Title' => 'First Insert'), array(), $con);
 
-		// The update-values here are never actually applied (999910 doesn't exist yet, so
-		// this is a plain insert) -- passed anyway (matching the insert value) rather than
-		// empty, since MySQL's ON DUPLICATE KEY UPDATE has no "do nothing" form and would
-		// throw on an empty update-values array even though no conflict occurs.
-		$c = new ModelCriteria('bookstore', 'Book');
-		$c->doUpsert(array('Id' => 999910, 'Title' => 'First Insert', 'ISBN' => '0000000010'), array('Title' => 'First Insert'), array(), $con);
+			$book = (new ModelCriteria('bookstore', 'Book'))->findPk(999910, $con);
+			$this->assertEquals('First Insert', $book->getTitle());
 
-		$book = (new ModelCriteria('bookstore', 'Book'))->findPk(999910, $con);
-		$this->assertEquals('First Insert', $book->getTitle());
+			$c2 = new ModelCriteria('bookstore', 'Book');
+			$c2->doUpsert(
+				array('Id' => 999910, 'Title' => 'Ignored Insert Value', 'ISBN' => '0000000010'),
+				array('Title' => 'Updated On Conflict'),
+				array(),
+				$con
+			);
 
-		$c2 = new ModelCriteria('bookstore', 'Book');
-		$c2->doUpsert(
-			array('Id' => 999910, 'Title' => 'Ignored Insert Value', 'ISBN' => '0000000010'),
-			array('Title' => 'Updated On Conflict'),
-			array(),
-			$con
-		);
-
-		$book = (new ModelCriteria('bookstore', 'Book'))->findPk(999910, $con);
-		$this->assertEquals('Updated On Conflict', $book->getTitle(), 'doUpsert() updates the conflicting row instead of inserting a second one');
+			$book = (new ModelCriteria('bookstore', 'Book'))->findPk(999910, $con);
+			$this->assertEquals('Updated On Conflict', $book->getTitle(), 'doUpsert() updates the conflicting row instead of inserting a second one');
+		} finally {
+			if ($mssqlIdentityBefore !== null) {
+				$con->exec('DBCC CHECKIDENT (\'book\', RESEED, ' . (int) $mssqlIdentityBefore . ')');
+			}
+		}
 	}
 
 	public function testUpdateOneByOne()
@@ -2193,6 +2207,16 @@ class ModelCriteriaTest extends BookstoreTestBase
 
 	public function testMagicGroupBy()
 	{
+		// MariaDB never adopted MySQL 5.7.5+'s ONLY_FULL_GROUP_BY as its own
+		// default sql_mode -- unlike real MySQL 8+ (see this test's main comment
+		// below), it still tolerates selecting a non-grouped/non-aggregated
+		// column, a genuine MariaDB-vs-MySQL divergence (see
+		// PLATFORM_FEATURES.md's "MariaDB divergences" item) rather than
+		// something DBMySQL's shared adapter class could paper over.
+		if (IntegrationDatabase::currentPlatform() === 'mariadb') {
+			$this->markTestSkipped('MariaDB has no ONLY_FULL_GROUP_BY-equivalent default sql_mode.');
+		}
+
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
 		// Standard SQL (and both Postgres and MySQL 8+'s default

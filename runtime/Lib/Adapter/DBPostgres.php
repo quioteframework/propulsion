@@ -122,6 +122,75 @@ class DBPostgres extends DBAdapter
 	}
 
 	/**
+	 * Postgres (8.2+) supports RETURNING, folding id retrieval into the INSERT
+	 * statement itself. getIdMethod() above still reports ID_METHOD_SEQUENCE (the
+	 * sequence's own default on the column, not a value this class populates
+	 * explicitly -- see getId()'s own pre-INSERT nextval() query, kept for any
+	 * caller still relying on isGetIdBeforeInsert()/getId() directly), but
+	 * BasePeer::doInsert() checks supportsInsertReturning() first and skips that
+	 * separate round trip whenever this is true, the same way it already does for
+	 * MSSQL/SQLite.
+	 *
+	 * @see       DBAdapter::supportsInsertReturning()
+	 */
+	public function supportsInsertReturning(?PropulsionPDO $con = null): bool
+	{
+		return true;
+	}
+
+	/**
+	 * @see       DBAdapter::getInsertReturningSql()
+	 */
+	public function getInsertReturningSql(string $sql, string $idColumnName): string
+	{
+		return $sql . ' RETURNING ' . $idColumnName;
+	}
+
+	/**
+	 * @see       DBAdapter::getEmptyInsertSql()
+	 */
+	public function getEmptyInsertSql(string $tableName, ?string $idColumnName): string
+	{
+		$sql = 'INSERT INTO ' . $tableName . ' DEFAULT VALUES';
+		return $idColumnName === null ? $sql : $sql . ' RETURNING ' . $idColumnName;
+	}
+
+	/**
+	 * @see       DBAdapter::extractInsertedId()
+	 */
+	public function extractInsertedId(\PDOStatement $stmt): mixed
+	{
+		return $stmt->fetchColumn();
+	}
+
+	/**
+	 * Postgres (8.2+) also supports RETURNING on UPDATE/DELETE, for affected-row
+	 * hydration without a separate re-SELECT.
+	 *
+	 * @see       DBAdapter::supportsRowReturning()
+	 */
+	public function supportsRowReturning(?PropulsionPDO $con = null): bool
+	{
+		return true;
+	}
+
+	/**
+	 * @see       DBAdapter::getUpdateReturningSql()
+	 */
+	public function getUpdateReturningSql(string $sql, array $columnNames): string
+	{
+		return $sql . ' RETURNING ' . implode(', ', $columnNames);
+	}
+
+	/**
+	 * @see       DBAdapter::getDeleteReturningSql()
+	 */
+	public function getDeleteReturningSql(string $sql, array $columnNames): string
+	{
+		return $sql . ' RETURNING ' . implode(', ', $columnNames);
+	}
+
+	/**
 	 * Returns timestamp formatter string for use in date() function.
 	 * @return    string
 	 */

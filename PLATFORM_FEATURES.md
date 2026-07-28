@@ -40,8 +40,8 @@ starting:
 4. **Cross-ORM ideas** — architectural features worth stealing that aren't
    platform-specific at all.
 
-Rough priority, if you want one: query-layer locking and upsert first (both
-are correctness-affecting, not just convenience), then `RETURNING`/ID-folding,
+Rough priority, if you want one: locking and upsert are done (both were
+correctness-affecting, not just convenience); `RETURNING`/ID-folding next,
 then SQLite parity (cheapest platform, no container needed in CI), then the
 type-system work.
 
@@ -57,27 +57,44 @@ These are gaps in the shared query builder — confirmed absent by grep across
   an ORM usable for job-queue workloads. Prior art: Doctrine `LockMode`,
   Rails `lock!`, SQLAlchemy `with_for_update()`. Probably the most
   conspicuous single omission in the runtime.
-- [ ] **Upsert abstraction** — no `ON CONFLICT` (Pg/SQLite) /
-  `ON DUPLICATE KEY UPDATE` (MySQL) / `MERGE` (MSSQL/Oracle) support in
-  `Criteria`/`BasePeer`. Needs a query-builder API plus per-platform SQL
-  generation. Django's `update_or_create`/`bulk_create(update_conflicts=)` is
-  a good API reference.
+- [x] **Upsert abstraction** — `ON CONFLICT` (Pg/SQLite) /
+  `ON DUPLICATE KEY UPDATE` (MySQL) / `MERGE` (MSSQL/Oracle), all five
+  platforms, via `BasePeer::doUpsert()` plus a `ModelCriteria::doUpsert()`
+  convenience wrapper. Django's `update_or_create`/
+  `bulk_create(update_conflicts=)` was the API reference.
   - [x] Postgres/SQLite (`ON CONFLICT (...) DO UPDATE SET ...`/`DO NOTHING`)
-    and MySQL/MariaDB (`ON DUPLICATE KEY UPDATE ...`) via `BasePeer::doUpsert()`
-    and `DBAdapter::supportsUpsert()`/`getUpsertSql()`, plus a
-    `ModelCriteria::doUpsert()` convenience wrapper. Conflict target defaults
+    and MySQL/MariaDB (`ON DUPLICATE KEY UPDATE ...`) via
+    `DBAdapter::supportsUpsert()`/`getUpsertSql()`. Conflict target defaults
     to the table's primary key (no unique-index metadata exists at runtime
     beyond the PK — see below); update values reuse the existing
     `ColumnExpression`/`Criteria::CUSTOM_EQUAL` raw-expression convention, so
     e.g. `view_count = view_count + 1` works on conflict too.
-  - [ ] MSSQL/Oracle `MERGE` — deferred. `MERGE` is a structurally different
-    statement (`MERGE INTO target USING (...) AS source ON (...) WHEN
-    MATCHED THEN UPDATE ... WHEN NOT MATCHED THEN INSERT ...`), not a clause
-    appended to `INSERT`, so it doesn't fit the `getUpsertSql(string $sql,
-    ...)` hook shape used for the other three platforms — it needs its own
-    design, and is riskier to get right without a live instance to verify
-    against (same reasoning as deferring Oracle's `RETURNING ... INTO`
-    above).
+  - [x] MSSQL/Oracle `MERGE` — `MERGE` is a structurally different statement
+    (`MERGE INTO target USING (...) AS source ON (...) WHEN MATCHED THEN
+    UPDATE ... WHEN NOT MATCHED THEN INSERT ...`), not a clause appended to
+    `INSERT`, so it doesn't fit `getUpsertSql(string $sql, ...)`'s
+    rewrite-an-existing-string shape — got its own hook,
+    `DBAdapter::usesMergeUpsert()`/`getMergeUpsertSql()`, which builds the
+    whole statement from scratch instead. The target table is deliberately
+    left un-aliased in the generated SQL (`MERGE INTO book USING (...) s ON
+    (book.ID = s.ID) ...`, not `... AS t ... ON (t.ID = s.ID) ...`) because a
+    raw `ColumnExpression` in the update clause (e.g. `view_count =
+    view_count + 1`, built from the same fully-qualified `book.VIEW_COUNT`
+    constant plain `doUpdate()` uses) references the table by its real name,
+    which only resolves if that name stays in scope. On MSSQL, an explicit
+    primary-key value in the upsert (the common case — the conflict target
+    usually *is* the PK) needs the same `IDENTITY_INSERT ON`/`OFF` wrapping
+    `doInsert()` already does for `allowPkInsert`, now added to `doUpsert()`
+    too — and, since that explicit value permanently advances SQL Server's
+    internal identity counter even after the row is later deleted, this
+    surfaced a real test-isolation hazard: literal high test IDs shared
+    across upsert tests could leak into an unrelated later auto-increment
+    insert's generated id (confirmed against a live `azure-sql-edge`
+    container while implementing this; the tests now reseed the identity
+    counter back down afterward). Verified against live MSSQL
+    (`azure-sql-edge`) and Oracle testcontainers, plus dedicated
+    SQL-string-shape unit tests (`DBMSSQLTest`, `DBOracleTest`) that need no
+    live connection.
   - [ ] Conflict target beyond the primary key (a named unique constraint)
     needs unique-index metadata to exist in the generated runtime
     `TableMap`/`ColumnMap` at all — today that only lives in the build-time
@@ -90,38 +107,93 @@ These are gaps in the shared query builder — confirmed absent by grep across
   to emit `SET counter = counter + 1`. Today every increment is a
   read-modify-write round trip, i.e. a lost-update race under concurrency.
   Small change relative to its correctness value.
-- [ ] **Fold ID retrieval into INSERT** — every platform does a separate
-  round-trip (`lastInsertId()` or an explicit `nextval`/`currval` query)
-  instead of using `RETURNING` (Pg, SQLite 3.35+, MariaDB), `OUTPUT` (MSSQL),
-  or `RETURNING ... INTO` (Oracle). Also unlocks `UPDATE/DELETE ... RETURNING`
-  for affected-row hydration.
-  - [x] MSSQL: `BasePeer::doInsert()` now asks the adapter
-    (`DBAdapter::supportsInsertReturning()`) whether it can fold id retrieval
-    into the INSERT itself; `DBMSSQL` implements it via an `OUTPUT
-    INSERTED.<col>` clause, replacing its `lastInsertId()` round trip (whose
-    behavior varies across the pdo_sqlsrv/pdo_dblib drivers).
-  - [x] SQLite: same hook, `DBSQLite` implements it via a trailing
-    `RETURNING <col>` clause. Assumed available unconditionally (no runtime
-    version probe exists anywhere in the codebase — every still-supported
-    PHP version bundles a far newer SQLite than the 3.35 (2021) RETURNING
-    was added in); revisit only if that assumption ever breaks against an
-    unusually old libsqlite3.
-  - [ ] Postgres/MariaDB `RETURNING`, Oracle `RETURNING ... INTO` (needs an
-    OUT-bound parameter via PDO_OCI, a different call shape than "append
-    SQL, fetch a row" and materially riskier to get right without a live
-    Oracle instance to verify against) are still open. Postgres in
-    particular still does an explicit pre-INSERT `nextval()` query today
-    (`DBPostgres::getId()`), which is a deliberate, already-working design
-    (the sequence value is known before the row is built) rather than the
-    same "extra round trip after INSERT" problem MSSQL's `lastInsertId()`
-    had — lower priority than the MSSQL/SQLite fixes were, and switching it
-    to RETURNING would also mean no longer including the PK column's value
-    explicitly in the INSERT (relying on the column's own `SERIAL` default
-    instead), a bigger behavioral change than SQLite's purely-additive one
-    that would need `BasePeerExceptionsTest::testDoInsert()`'s exact-SQL
-    assertion updated too.
-  - [ ] `UPDATE/DELETE ... RETURNING` for affected-row hydration — not
-    started.
+- [x] **Fold ID retrieval into INSERT** — every platform now folds id
+  retrieval into the INSERT itself instead of a separate round trip
+  (`lastInsertId()`, or an explicit pre-INSERT `nextval` query), via
+  `DBAdapter::supportsInsertReturning()`/`getInsertReturningSql()`/
+  `extractInsertedId()` (plus `prepareInsertReturning()` for Oracle's
+  different call shape — see below) consulted from `BasePeer::doInsert()`.
+  Also unlocked `UPDATE/DELETE ... RETURNING` for affected-row hydration —
+  see its own bullet below.
+  - [x] MSSQL: `OUTPUT INSERTED.<col>`, replacing its `lastInsertId()` round
+    trip (whose behavior varies across the pdo_sqlsrv/pdo_dblib drivers).
+  - [x] SQLite: a trailing `RETURNING <col>` clause. Assumed available
+    unconditionally (no runtime version probe exists anywhere in the
+    codebase — every still-supported PHP version bundles a far newer SQLite
+    than the 3.35 (2021) RETURNING was added in); revisit only if that
+    assumption ever breaks against an unusually old libsqlite3.
+  - [x] Postgres: same trailing `RETURNING <col>` clause. `DBPostgres::getId()`
+    (the explicit pre-INSERT `nextval()` query) is kept for any direct caller
+    still relying on `isGetIdBeforeInsert()`, but `doInsert()` itself now
+    skips straight to `supportsInsertReturning()` and never calls it. This
+    *did* need the bigger behavioral change flagged when this was still
+    open: the PK column is no longer included explicitly in the INSERT at
+    all (relying on the column's own `SERIAL` default) — surfaced a real bug
+    while implementing it (see below) and needed
+    `BasePeerExceptionsTest::testDoInsert()`'s exact-SQL assertion updated.
+  - [x] MariaDB: same trailing `RETURNING <col>` clause (10.5+). There is
+    still no separate `MariadbPlatform`/`DBMariadb` (see "MariaDB
+    divergences" below) — `DBMySQL::isMariaDb()` detects it at connection
+    time instead, via `PDO::ATTR_SERVER_VERSION` (handling the "5.5.5-"
+    backward-compatibility prefix some MariaDB builds still report), and
+    gates every RETURNING-related hook on that. A `PROPULSION_TEST_DB=mariadb`
+    testcontainer path (`test/tools/helpers/IntegrationDatabase.php`) was
+    added to verify this against a live `mariadb:11` server — not run in CI.
+    Confirmed, and unrelated to this feature: MariaDB has no
+    `ONLY_FULL_GROUP_BY`-equivalent default `sql_mode`
+    (`ModelCriteriaTest::testMagicGroupBy()` skips itself there now).
+  - [x] Oracle: `RETURNING <col> INTO :ret_id`, an OUT bind PDO_OCI populates
+    by reference rather than a normal post-execute result set —
+    structurally different from every other platform's hook shape, so it
+    needed its own `DBAdapter::prepareInsertReturning(PDOStatement, string):
+    void` hook (called just before `execute()`; a no-op everywhere else) for
+    `DBOracle` to bind `:ret_id` against an instance property, which
+    `extractInsertedId()` then reads back. Also needed its own
+    `getEmptyInsertSql()` override (Oracle has no `DEFAULT VALUES` syntax at
+    all): `INSERT INTO t (id) VALUES (NULL) RETURNING id INTO :ret_id`, an
+    explicit NULL satisfying the same `BEFORE INSERT ... WHEN (new.id IS
+    NULL)` trigger condition that omitting the column from a non-empty
+    column list already relies on. Verified against a live `gvenzl/oracle-free`
+    container.
+  - A real, only-live-instance-catchable bug surfaced implementing the
+    Postgres/Oracle cases above: omitting the PK column from a no-longer-
+    pre-fetched INSERT only works if it's *actually* omitted — but a plain
+    auto-increment table's generated code leaves an explicit `NULL` entry in
+    the `Criteria` whenever `supportsInsertNullPk()` is true (Postgres/Oracle
+    both are), previously overwritten by the pre-fetch branch's
+    `$criteria->add($pk, $id)` before the INSERT ever ran. Skipping that
+    branch for `$useInsertReturning` left the explicit `NULL` in place,
+    which Postgres's `NOT NULL` `SERIAL` column (explicit `NULL` bypasses a
+    column default, unlike omission) and Oracle's trigger (which only fires
+    `WHEN (new.id IS NULL)`, though an explicit `NULL` insert satisfies that
+    too, so this specific failure mode was Postgres-only in practice)
+    rejected outright. Fixed by broadening the existing null-PK-stripping
+    check in `BasePeer::doInsert()` to also strip whenever
+    `$useInsertReturning` is true, not just when `!supportsInsertNullPk()`
+    (MSSQL's original reason for that check). MySQL/MariaDB's
+    `AUTO_INCREMENT` and SQLite's `INTEGER PRIMARY KEY` both already
+    special-case an explicit `NULL` as "generate one", so this never bit
+    them either way.
+- [x] **`UPDATE/DELETE ... RETURNING` for affected-row hydration** —
+  `BasePeer::doUpdate()`/`doDelete()` take an optional trailing
+  `?array $returningColumns` parameter; when given, return the affected/
+  removed rows themselves (each an associative array) instead of a plain
+  count, via the new `DBAdapter::supportsRowReturning()`/
+  `getUpdateReturningSql()`/`getDeleteReturningSql()` hooks (the same
+  "rewrite the complete, already-built statement" shape `getUpsertSql()`/
+  `getInsertReturningSql()` already use). Implemented for Postgres, SQLite,
+  MariaDB (trailing `RETURNING col, ...`, gated on `DBMySQL::isMariaDb()`
+  the same as the INSERT case above) and MSSQL (`OUTPUT INSERTED.col`/
+  `OUTPUT DELETED.col`, regex-spliced into the statement between SET/FROM
+  and FROM/WHERE respectively, the same splice-into-a-built-string approach
+  MSSQL's own `getInsertReturningSql()`/upsert `MERGE` building already
+  use). **Not implemented for Oracle** — `RETURNING ... INTO` only populates
+  a scalar OUT bind per statement; returning more than one affected row
+  needs `BULK COLLECT INTO` array binds instead, a materially different and
+  larger mechanism than the single-row `INSERT`'s OUT bind above, deferred
+  rather than attempted here. `ModelCriteria`'s own `update()`/`BasePeer`-level
+  callers don't yet have a convenience wrapper exposing this — only the
+  `BasePeer::doUpdate()`/`doDelete()` primitives do.
 - [ ] **Common table expressions** — no `WITH` / `WITH RECURSIVE` support.
   Supported by all five platforms. Recursive CTEs would additionally give
   native adjacency-list tree queries, an alternative to
@@ -280,12 +352,15 @@ These are gaps in the shared query builder — confirmed absent by grep across
   `MyISAM`; `supportsNativeDeleteTrigger()` gates on InnoDB, so it's silently
   disabled unless `mysqlTableType=InnoDB` is set explicitly in build config.
   Consider defaulting to InnoDB to match modern MySQL/MariaDB installs.
-- [ ] **MariaDB divergences.** There is no `mariadb` string anywhere in the
-  tree — MariaDB is served by `MysqlPlatform` as though it were MySQL, but
-  the two have diverged enough to matter: `INSERT`/`DELETE ... RETURNING`,
-  real `CREATE SEQUENCE`, native `UUID` type (10.7+), and `VECTOR` (11.7+).
-  Needs at least a server-version probe before any of those can be used;
-  possibly a `MariadbPlatform` subclass.
+- [ ] **MariaDB divergences.** MariaDB is still served by `MysqlPlatform`
+  (generator) / `DBMySQL` (runtime) as though it were MySQL — no separate
+  `MariadbPlatform`/`DBMariadb` — but a runtime server-version probe now
+  exists (`DBMySQL::isMariaDb()`, gating `INSERT`/`UPDATE`/`DELETE
+  ... RETURNING`; see the query-layer section's "Fold ID retrieval into
+  INSERT" item) and a `PROPULSION_TEST_DB=mariadb` testcontainer path exists
+  to test against it (`test/tools/helpers/IntegrationDatabase.php`, not run
+  in CI). Still open: real `CREATE SEQUENCE`, native `UUID` type (10.7+),
+  and `VECTOR` (11.7+) — none of those are gated on `isMariaDb()` yet.
 
 ### SQLite
 
@@ -295,8 +370,10 @@ on. Modern SQLite has most of the cross-cutting query-layer items already, and
 it needs no container in CI — so it's the cheapest platform to bring to
 parity.
 
-- [ ] **`ON CONFLICT` upsert** and **`RETURNING`** (3.35+) — both supported
-  natively; see query-layer section.
+- [x] **`ON CONFLICT` upsert** and **`RETURNING`** (3.35+) — both implemented;
+  see query-layer section above (`BasePeer::doUpsert()`,
+  `DBSQLite::supportsInsertReturning()`/`getInsertReturningSql()`). Duplicate
+  of the query-layer bullets, kept checked off here for cross-reference.
 - [ ] Generated columns (`GENERATED ALWAYS AS ... [STORED|VIRTUAL]`, 3.31+).
 - [ ] `STRICT` tables (3.37+) and `WITHOUT ROWID`. Note the current type
   mappings (`SqlitePlatform::initialize()`) emit MySQL-flavored type names
@@ -321,9 +398,13 @@ parity.
 - [ ] Clustered vs. nonclustered index control — `Index` model has no
   clustering flag; `getAddIndexDDL` inherited unmodified from
   `DefaultPlatform`.
-- [ ] Modernize `DBMSSQL::applyLimit()` — currently a ~150-line regex-based
-  SQL rewriter (parses `SELECT ... FROM ...` via regex, requires explicit
-  aliases on aggregates, fragile against subqueries/CTEs). SQL Server 2012+
+- [ ] Modernize `DBMSSQL::applyLimit()` — partially done: the fallback path
+  (unparseable `FROM`, e.g. `UNION`) already uses native
+  `OFFSET ... ROWS FETCH NEXT ... ROWS ONLY` (`DBMSSQL.php` ~line 174), but
+  the main/common path (simple `SELECT` with an offset) still goes through
+  the ~150-line regex-based `ROW_NUMBER()` rewriter (parses
+  `SELECT ... FROM ...` via regex, requires explicit aliases on aggregates,
+  fragile against subqueries/CTEs). SQL Server 2012+
   supports `OFFSET n ROWS FETCH NEXT m ROWS ONLY` natively, which would
   eliminate the whole rewriter.
 - [ ] Modernize `getDropTableDDL`'s use of legacy `sysobjects`/`sysreferences`
@@ -342,11 +423,12 @@ parity.
 
 - [ ] **12c+ `GENERATED ... AS IDENTITY` columns** — still assumes the
   legacy sequence-only pattern; no support for native identity columns.
-- [ ] **Auto-increment trigger generation** — `getAddSequencesDDL` creates
-  the sequence half only; no `BEFORE INSERT` trigger DDL generator. Works
-  end-to-end via the ORM's own insert path (`DBOracle::getId()` does
-  `SELECT seq.nextval FROM dual` before insert), but there's no DB-level
-  auto-population for inserts made outside the ORM.
+- [x] **Auto-increment trigger generation** —
+  `OraclePlatform::getAddAutoIncrementTriggerDDL()`, wired into
+  `getAddTableDDL()`, emits a `BEFORE INSERT ... WHEN (new.<pk> IS NULL)`
+  trigger doing `SELECT seq.NEXTVAL INTO :new.<pk>`, giving DB-level
+  auto-population for inserts made outside the ORM too. Covered by
+  `OraclePlatformTest`.
 - [ ] Native JSON support (12c+ `IS JSON` constraint, 21c+ native `JSON`
   type) — currently falls through to `CLOB` unconditionally.
 - [ ] Modernize `DBOracle::applyLimit()` — currently rownum-based

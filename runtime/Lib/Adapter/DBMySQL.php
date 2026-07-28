@@ -30,6 +30,44 @@ use Propulsion\Connection\PropulsionPDO;
 class DBMySQL extends DBAdapter
 {
 	/**
+	 * Cached answer of isMariaDb() -- see its own doc comment for why caching
+	 * per adapter instance is safe.
+	 *
+	 * @var       ?bool
+	 */
+	private ?bool $isMariaDbCache = null;
+
+	/**
+	 * Distinguishes a real MariaDB server (RETURNING support on INSERT/UPDATE/
+	 * DELETE since 10.5) from plain MySQL (no RETURNING at all, any version) --
+	 * both served by this same adapter class; there is no separate MariadbPlatform/
+	 * DBMariadb anywhere in this codebase (see PLATFORM_FEATURES.md), so this is
+	 * the one place that divergence is handled, gating every RETURNING-related
+	 * hook below. Cached per adapter instance: DBAdapter instances are registered
+	 * once per datasource for the life of the process (Propulsion::setDb()) and
+	 * never repointed at a different backing server, so the version can't change
+	 * out from under a cached answer.
+	 *
+	 * @param     PropulsionPDO  $con
+	 * @return    boolean
+	 */
+	private function isMariaDb(PropulsionPDO $con): bool
+	{
+		if ($this->isMariaDbCache === null) {
+			$rawVersion = $con->getAttribute(PDO::ATTR_SERVER_VERSION);
+			$version = is_string($rawVersion) ? $rawVersion : '';
+			// MariaDB's version string is sometimes prefixed with a fake "5.5.5-"
+			// for backward compatibility with clients that gate features by
+			// version number, a well-known MariaDB quirk -- the real version
+			// always immediately precedes the "-MariaDB" marker regardless, so
+			// this regex finds it either way without special-casing the prefix.
+			$this->isMariaDbCache = (bool) preg_match('/(\d+\.\d+\.\d+)-MariaDB/i', $version, $m)
+				&& version_compare($m[1], '10.5', '>=');
+		}
+		return $this->isMariaDbCache;
+	}
+
+	/**
 	 * This method is used to ignore case.
 	 *
 	 * @param     string  $in  The string to transform to upper case.
@@ -156,10 +194,60 @@ class DBMySQL extends DBAdapter
 	 */
 	public function getEmptyInsertSql(string $tableName, ?string $idColumnName): string
 	{
-		if ($idColumnName !== null) {
-			throw new PropulsionException(static::class . ' does not support folding id retrieval into an empty INSERT');
-		}
-		return 'INSERT INTO ' . $tableName . ' () VALUES ()';
+		$sql = 'INSERT INTO ' . $tableName . ' () VALUES ()';
+		return $idColumnName === null ? $sql : $sql . ' RETURNING ' . $idColumnName;
+	}
+
+	/**
+	 * MariaDB (10.5+) supports RETURNING on INSERT/UPDATE/DELETE; plain MySQL has
+	 * no such form at all, at any version -- see isMariaDb()'s own doc comment for
+	 * why both are served by this one adapter class.
+	 *
+	 * @see       DBAdapter::supportsInsertReturning()
+	 */
+	public function supportsInsertReturning(?PropulsionPDO $con = null): bool
+	{
+		return $con !== null && $this->isMariaDb($con);
+	}
+
+	/**
+	 * @see       DBAdapter::getInsertReturningSql()
+	 */
+	public function getInsertReturningSql(string $sql, string $idColumnName): string
+	{
+		return $sql . ' RETURNING ' . $idColumnName;
+	}
+
+	/**
+	 * @see       DBAdapter::extractInsertedId()
+	 */
+	public function extractInsertedId(\PDOStatement $stmt): mixed
+	{
+		return $stmt->fetchColumn();
+	}
+
+	/**
+	 * @see       DBAdapter::supportsRowReturning()
+	 */
+	public function supportsRowReturning(?PropulsionPDO $con = null): bool
+	{
+		return $con !== null && $this->isMariaDb($con);
+	}
+
+	/**
+	 * @see       DBAdapter::getUpdateReturningSql()
+	 */
+	public function getUpdateReturningSql(string $sql, array $columnNames): string
+	{
+		return $sql . ' RETURNING ' . implode(', ', $columnNames);
+	}
+
+	/**
+	 * @see       DBAdapter::getDeleteReturningSql()
+	 */
+	public function getDeleteReturningSql(string $sql, array $columnNames): string
+	{
+		return $sql . ' RETURNING ' . implode(', ', $columnNames);
 	}
 
 	/**

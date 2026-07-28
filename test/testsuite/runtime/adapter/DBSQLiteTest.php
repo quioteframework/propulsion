@@ -120,6 +120,50 @@ class DBSQLiteTest extends TestCase
         $this->assertEquals(1, $this->db->extractInsertedId($stmt));
     }
 
+    public function testSupportsRowReturning()
+    {
+        $this->assertTrue($this->db->supportsRowReturning());
+    }
+
+    public function testGetUpdateReturningSql()
+    {
+        $sql = $this->db->getUpdateReturningSql("UPDATE foo SET bar=:p1 WHERE id=:p2", array('id', 'bar'));
+        $this->assertSame("UPDATE foo SET bar=:p1 WHERE id=:p2 RETURNING id, bar", $sql);
+    }
+
+    public function testGetDeleteReturningSql()
+    {
+        $sql = $this->db->getDeleteReturningSql("DELETE FROM foo WHERE id=:p1", array('id', 'bar'));
+        $this->assertSame("DELETE FROM foo WHERE id=:p1 RETURNING id, bar", $sql);
+    }
+
+    public function testUpdateReturningEndToEnd()
+    {
+        // Real end-to-end check, not just a SQL-string assertion.
+        $pdo = new PDO('sqlite::memory:');
+        $pdo->exec('CREATE TABLE foo (id INTEGER PRIMARY KEY, bar TEXT)');
+        $pdo->exec("INSERT INTO foo (id, bar) VALUES (1, 'before')");
+
+        $sql = $this->db->getUpdateReturningSql("UPDATE foo SET bar='after' WHERE id=1", array('id', 'bar'));
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute();
+
+        $this->assertSame(array(array('id' => 1, 'bar' => 'after')), $stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+
+    public function testDeleteReturningEndToEnd()
+    {
+        $pdo = new PDO('sqlite::memory:');
+        $pdo->exec('CREATE TABLE foo (id INTEGER PRIMARY KEY, bar TEXT)');
+        $pdo->exec("INSERT INTO foo (id, bar) VALUES (1, 'hello')");
+
+        $sql = $this->db->getDeleteReturningSql("DELETE FROM foo WHERE id=1", array('id', 'bar'));
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute();
+
+        $this->assertSame(array(array('id' => 1, 'bar' => 'hello')), $stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+
     public function testSupportsUpsert()
     {
         $this->assertTrue($this->db->supportsUpsert());

@@ -19,6 +19,7 @@ use PDO;
 use Propulsion\Exception\PropulsionException;
 use Propulsion\Query\Criteria;
 use Propulsion\Map\DatabaseMap;
+use Propulsion\Connection\PropulsionPDO;
 
 class DBMSSQL extends DBAdapter
 {
@@ -349,7 +350,7 @@ class DBMSSQL extends DBAdapter
 	 *
 	 * @see       DBAdapter::supportsInsertReturning()
 	 */
-	public function supportsInsertReturning(): bool
+	public function supportsInsertReturning(?PropulsionPDO $con = null): bool
 	{
 		return true;
 	}
@@ -375,6 +376,127 @@ class DBMSSQL extends DBAdapter
 			throw new PropulsionException('DBMSSQL::getInsertReturningSql() failed to splice the OUTPUT clause into: ' . $sql);
 		}
 		return $withOutput;
+	}
+
+	/**
+	 * SQL Server has no `ON CONFLICT`/`ON DUPLICATE KEY UPDATE` clause; upserts need
+	 * `MERGE` instead, built from scratch by getMergeUpsertSql().
+	 *
+	 * @see       DBAdapter::supportsUpsert()
+	 */
+	public function supportsUpsert(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * @see       DBAdapter::usesMergeUpsert()
+	 */
+	public function usesMergeUpsert(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * Builds a `MERGE` statement: the insert columns are aliased into a one-row
+	 * derived table ("USING (SELECT :p1 AS col1, ...) AS s") so the "WHEN NOT
+	 * MATCHED THEN INSERT" branch can reference them as "s.col1" without rebinding
+	 * the same ":pN" placeholder a second time (PDO doesn't support reusing a named
+	 * placeholder more than once per prepared statement on every driver). The SET
+	 * clause's own placeholders are untouched -- they're independent parameters,
+	 * not tied to the source row.
+	 *
+	 * The target is deliberately left un-aliased (no "AS t") -- $setClause may
+	 * contain a raw ColumnExpression referencing the real, unqualified table name
+	 * (e.g. "book.PRICE + ?", from a caller building "col = col + n" via
+	 * BookPeer::PRICE, the same fully-qualified constant plain doUpdate() uses),
+	 * and that only resolves if the target keeps its real name in scope rather
+	 * than being hidden behind an alias only this method would know about.
+	 *
+	 * T-SQL requires a MERGE statement to end with a semicolon (SQL Server error
+	 * 10713 otherwise).
+	 *
+	 * @see       DBAdapter::getMergeUpsertSql()
+	 */
+	public function getMergeUpsertSql(string $tableName, array $insertColumns, array $conflictColumnNames, string $setClause): string
+	{
+		if (empty($conflictColumnNames)) {
+			throw new PropulsionException('DBMSSQL::getMergeUpsertSql() needs at least one conflict-target column');
+		}
+
+		$selectList = array();
+		foreach ($insertColumns as $p => $col) {
+			$selectList[] = ':p' . ($p + 1) . ' AS ' . $col;
+		}
+
+		$onClause = array();
+		foreach ($conflictColumnNames as $col) {
+			$onClause[] = $tableName . '.' . $col . ' = s.' . $col;
+		}
+
+		$insertValues = array();
+		foreach ($insertColumns as $col) {
+			$insertValues[] = 's.' . $col;
+		}
+
+		$sql = 'MERGE INTO ' . $tableName
+			. ' USING (SELECT ' . implode(', ', $selectList) . ') AS s'
+			. ' ON (' . implode(' AND ', $onClause) . ')';
+		if ($setClause !== '') {
+			$sql .= ' WHEN MATCHED THEN UPDATE SET ' . $setClause;
+		}
+		$sql .= ' WHEN NOT MATCHED THEN INSERT (' . implode(', ', $insertColumns) . ') VALUES (' . implode(', ', $insertValues) . ')'
+			. ';';
+
+		return $sql;
+	}
+
+	/**
+	 * SQL Server (2005+) can return the rows an UPDATE/DELETE affected directly
+	 * from that statement via an OUTPUT clause -- see getUpdateReturningSql()/
+	 * getDeleteReturningSql().
+	 *
+	 * @see       DBAdapter::supportsRowReturning()
+	 */
+	public function supportsRowReturning(?PropulsionPDO $con = null): bool
+	{
+		return true;
+	}
+
+	/**
+	 * Splices an "OUTPUT INSERTED.col1, ..." clause right after the SET clause --
+	 * T-SQL's OUTPUT on UPDATE goes between SET and any FROM/WHERE clause, not at
+	 * the very end the way Postgres/MariaDB's trailing RETURNING does. Finds
+	 * whichever of " FROM "/" WHERE " occurs first in the already-fully-built SQL
+	 * (FROM only appears at all for an aliased update -- see
+	 * DBAdapter::getUpdateFromClauseSql() -- and always precedes WHERE when it
+	 * does), matching the same "regex-splice into a complete statement" approach
+	 * getInsertReturningSql() already uses for MSSQL's OUTPUT on INSERT.
+	 *
+	 * @see       DBAdapter::getUpdateReturningSql()
+	 */
+	public function getUpdateReturningSql(string $sql, array $columnNames): string
+	{
+		$outputClause = ' OUTPUT ' . implode(', ', array_map(fn (string $c): string => 'INSERTED.' . $c, $columnNames));
+		if (!preg_match('/\s(FROM|WHERE)\s/i', $sql)) {
+			return $sql . $outputClause;
+		}
+		return (string) preg_replace('/\s(FROM|WHERE)\s/i', $outputClause . ' $1 ', $sql, 1);
+	}
+
+	/**
+	 * Splices an "OUTPUT DELETED.col1, ..." clause right after the FROM clause,
+	 * before WHERE -- same regex-splice approach as getUpdateReturningSql().
+	 *
+	 * @see       DBAdapter::getDeleteReturningSql()
+	 */
+	public function getDeleteReturningSql(string $sql, array $columnNames): string
+	{
+		$outputClause = ' OUTPUT ' . implode(', ', array_map(fn (string $c): string => 'DELETED.' . $c, $columnNames));
+		if (!preg_match('/\sWHERE\s/i', $sql)) {
+			return $sql . $outputClause;
+		}
+		return (string) preg_replace('/\sWHERE\s/i', $outputClause . ' WHERE ', $sql, 1);
 	}
 
 	/**

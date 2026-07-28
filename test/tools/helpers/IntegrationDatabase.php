@@ -144,7 +144,23 @@ class IntegrationDatabase
     private static function platform(): string
     {
         $platform = getenv('PROPULSION_TEST_DB');
-        return in_array($platform, ['mysql', 'mssql', 'oracle'], true) ? $platform : 'pgsql';
+        return in_array($platform, ['mysql', 'mariadb', 'mssql', 'oracle'], true) ? $platform : 'pgsql';
+    }
+
+    /**
+     * The generator/runtime adapter name for currentPlatform() -- identical to
+     * platform() except for MariaDB, which maps to plain 'mysql': there is no
+     * separate MariadbPlatform (generator side) or DBMariadb (runtime side)
+     * anywhere in this codebase (see PLATFORM_FEATURES.md's "MariaDB divergences"
+     * item) -- DBMySQL itself detects MariaDB vs. real MySQL at connection time
+     * (DBMySQL::isMariaDb()) and only the generator's naming-convention platform
+     * class lookup ("platform.${propulsion.database}Platform") and the runtime's
+     * datasource 'adapter' key need steering back to the class that actually
+     * exists.
+     */
+    private static function generatorPlatform(): string
+    {
+        return self::platform() === 'mariadb' ? 'mysql' : self::platform();
     }
 
     /**
@@ -160,18 +176,21 @@ class IntegrationDatabase
     /**
      * The PDO driver prefix for currentPlatform() -- identical to the platform
      * name for every platform except MSSQL, whose PDO driver is "dblib"
-     * (FreeTDS), not a literal "mssql" driver (which doesn't exist), and Oracle,
+     * (FreeTDS), not a literal "mssql" driver (which doesn't exist); Oracle,
      * whose PDO driver is "oci" (pdo_oci), not a literal "oracle" driver (which
-     * likewise doesn't exist). Several generator command/manager integration
-     * tests build their own raw PDO DSN from currentPlatform() directly against
-     * the shared testcontainer; they need this instead so "new PDO(...)" doesn't
-     * fail with "could not find driver" under PROPULSION_TEST_DB=mssql/oracle.
+     * likewise doesn't exist); and MariaDB, served by the same pdo_mysql driver
+     * as real MySQL (there is no separate "pdo_mariadb"). Several generator
+     * command/manager integration tests build their own raw PDO DSN from
+     * currentPlatform() directly against the shared testcontainer; they need
+     * this instead so "new PDO(...)" doesn't fail with "could not find driver"
+     * under PROPULSION_TEST_DB=mssql/oracle/mariadb.
      */
     public static function pdoDriverPrefix(): string
     {
         return match (self::platform()) {
             'mssql' => 'dblib',
             'oracle' => 'oci',
+            'mariadb' => 'mysql',
             default => self::platform(),
         };
     }
@@ -360,7 +379,7 @@ class IntegrationDatabase
                 $fixtureDir . '/build.php',
                 $fixtureDir . '/build.propulsion.php',
             ],
-            ['propulsion.database' => $platform]
+            ['propulsion.database' => self::generatorPlatform()]
         );
 
         $schemas = glob($fixtureDir . '/*schema.xml') ?: [];
@@ -609,6 +628,34 @@ class IntegrationDatabase
                 self::enableMysqlLocalInfile(self::$container->getHost(), self::$container->getFirstMappedPort());
             } catch (\Throwable $e) {
                 throw new \RuntimeException('Could not start the MySQL testcontainer (is Docker running?): ' . $e->getMessage());
+            }
+        } elseif ($platform === 'mariadb') {
+            try {
+                // No MariadbContainer module ships in testcontainers/testcontainers --
+                // built directly on GenericContainer instead, mirroring
+                // MySQLContainer's own construction: the official mariadb image is a
+                // drop-in-compatible server that accepts the exact same
+                // MYSQL_ROOT_PASSWORD/MYSQL_USER/MYSQL_PASSWORD/MYSQL_DATABASE
+                // environment variables MySQLContainer uses -- but its healthcheck
+                // binary is "mariadb-admin", not "mysqladmin" (confirmed absent from
+                // $PATH in the mariadb:11 image; MySQLContainer's own WaitForExec
+                // relies on the latter, which is why this can't just reuse it).
+                // Version pinned to 11.x (well past the 10.5 RETURNING support floor
+                // DBMySQL::isMariaDb() gates on).
+                self::$container = (new GenericContainer('mariadb:11'))
+                    ->withExposedPorts(3306)
+                    ->withEnvironment([
+                        'MYSQL_ROOT_PASSWORD' => 'root',
+                        'MYSQL_USER' => 'propulsion',
+                        'MYSQL_PASSWORD' => 'propulsion',
+                        'MYSQL_DATABASE' => 'propulsion_test',
+                    ])
+                    ->withWait(new \Testcontainers\Wait\WaitForExec(['mariadb-admin', 'ping', '-h', '127.0.0.1'], null, 15000))
+                    ->withLabels(self::CONTAINER_LABELS)
+                    ->start();
+                self::enableMysqlLocalInfile(self::$container->getHost(), self::$container->getFirstMappedPort());
+            } catch (\Throwable $e) {
+                throw new \RuntimeException('Could not start the MariaDB testcontainer (is Docker running?): ' . $e->getMessage());
             }
         } elseif ($platform === 'mssql') {
             try {
@@ -930,7 +977,7 @@ class IntegrationDatabase
         $sqlDir = self::sqlDirFor($platform);
 
         [$dsn, $user, $password] = match ($platform) {
-            'mysql' => ["mysql:host=$host;port=$port;dbname=propulsion_test", 'propulsion', 'propulsion'],
+            'mysql', 'mariadb' => ["mysql:host=$host;port=$port;dbname=propulsion_test", 'propulsion', 'propulsion'],
             'mssql' => ["dblib:host=$host:$port;dbname=propulsion_test;charset=UTF8", 'sa', self::MSSQL_SA_PASSWORD],
             'oracle' => ["oci:dbname=//$host:$port/FREEPDB1;charset=UTF8", self::ORACLE_APP_USER, self::ORACLE_APP_PASSWORD],
             default => ["pgsql:host=$host;port=$port;dbname=propulsion_test", 'propulsion', 'propulsion'],
@@ -943,7 +990,7 @@ class IntegrationDatabase
             self::execSqlFile($pdo, $sqlFile, $platform);
         }
 
-        self::writeRuntimeConf($dsn, $platform, $user, $password);
+        self::writeRuntimeConf($dsn, self::generatorPlatform(), $user, $password);
     }
 
     /**
