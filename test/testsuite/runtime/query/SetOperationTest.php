@@ -16,7 +16,7 @@ class SetOperationTest extends BookstoreTestBase
 	protected function assertCriteriaTranslation($criteria, $expectedSql, $expectedParams, $message = '')
 	{
 		$params = array();
-		$result = BasePeer::createSelectSql($criteria, $params);
+		$result = normalizeGeneratedSql(BasePeer::createSelectSql($criteria, $params));
 
 		$this->assertEquals($expectedSql, $result, $message);
 		$this->assertEquals($expectedParams, $params, $message);

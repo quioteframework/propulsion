@@ -96,3 +96,42 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: test/coverage/clover.xml
           fail_ci_if_error: true
+
+  integration-mysql:
+    name: Full suite (with Docker/MySQL)
+    runs-on: ubuntu-latest
+    # Blocking: brought to 0 failures during the 2026-07-27 MySQL parity audit (see
+    # KNOWN_ISSUES.md) -- the ~32 errors from Postgres-only generator/reverse-
+    # engineering test suites (which always open their own independent Postgres
+    # testcontainer regardless of PROPULSION_TEST_DB) are pre-existing, unrelated,
+    # and were flaky under container-resource contention in that audit; if this job
+    # goes red only on those suites, that's the known issue, not a MySQL regression.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: pdo, pdo_sqlite, pdo_pgsql, pdo_mysql, mbstring, xml, simplexml
+          coverage: none
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Run full PHPUnit suite (starts its own MySQL testcontainer)
+        working-directory: test
+        env:
+          PROPULSION_TEST_DB: mysql
+        run: ../vendor/bin/phpunit -c phpunit.xml

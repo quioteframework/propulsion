@@ -44,6 +44,7 @@ class_exists(\Propulsion\Propulsion::class);
 // Include the base test case
 require_once __DIR__ . '/tools/helpers/BaseTestCase.php';
 require_once __DIR__ . '/tools/helpers/SchemaPlatformFixtures.php';
+require_once __DIR__ . '/tools/helpers/SqlAssertions.php';
 
 // Include data populators if they exist  
 $dataPopulatorFile = __DIR__ . '/tools/helpers/bookstore/BookstoreDataPopulator.php';

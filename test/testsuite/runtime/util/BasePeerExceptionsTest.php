@@ -25,7 +25,7 @@ class BasePeerExceptionsTest extends BookstoreTestBase
 			BookPeer::addSelectColumns($c);
 			BasePeer::doSelect($c);
 		} catch (PropulsionException $e) {
-			$this->assertStringContainsString('[SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book WHERE book.ID BAD SQL:p1]', $e->getMessage(), 'SQL query is written in the exception message');
+			$this->assertStringContainsString('[SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book WHERE book.ID BAD SQL:p1]', normalizeGeneratedSql($e->getMessage()), 'SQL query is written in the exception message');
 		}
 	}
 
@@ -37,7 +37,7 @@ class BasePeerExceptionsTest extends BookstoreTestBase
 			BookPeer::addSelectColumns($c);
 			BasePeer::doCount($c);
 		} catch (PropulsionException $e) {
-			$this->assertStringContainsString('[SELECT COUNT(*) FROM book WHERE book.ID BAD SQL:p1]', $e->getMessage(), 'SQL query is written in the exception message');
+			$this->assertStringContainsString('[SELECT COUNT(*) FROM book WHERE book.ID BAD SQL:p1]', normalizeGeneratedSql($e->getMessage()), 'SQL query is written in the exception message');
 		}
 	}
 
@@ -49,7 +49,7 @@ class BasePeerExceptionsTest extends BookstoreTestBase
 			$c->add(BookPeer::ID, 12, ' BAD SQL');
 			BasePeer::doDelete($c, Propulsion::getConnection());
 		} catch (PropulsionException $e) {
-			$this->assertStringContainsString('[DELETE FROM book WHERE book.ID BAD SQL:p1]', $e->getMessage(), 'SQL query is written in the exception message');
+			$this->assertStringContainsString('[DELETE FROM book WHERE book.ID BAD SQL:p1]', normalizeGeneratedSql($e->getMessage()), 'SQL query is written in the exception message');
 		}
 	}
 
@@ -58,7 +58,7 @@ class BasePeerExceptionsTest extends BookstoreTestBase
 		try {
 			BasePeer::doDeleteAll('BAD TABLE', Propulsion::getConnection());
 		} catch (PropulsionException $e) {
-			$this->assertStringContainsString('[DELETE FROM BAD TABLE]', $e->getMessage(), 'SQL query is written in the exception message');
+			$this->assertStringContainsString('[DELETE FROM BAD TABLE]', normalizeGeneratedSql($e->getMessage()), 'SQL query is written in the exception message');
 		}
 	}
 
@@ -72,7 +72,7 @@ class BasePeerExceptionsTest extends BookstoreTestBase
 			$c2->add(BookPeer::TITLE, 'Foo');
 			BasePeer::doUpdate($c1, $c2, Propulsion::getConnection());
 		} catch (PropulsionException $e) {
-			$this->assertStringContainsString('[UPDATE book SET TITLE=:p1 WHERE book.ID BAD SQL:p2]', $e->getMessage(), 'SQL query is written in the exception message');
+			$this->assertStringContainsString('[UPDATE book SET TITLE=:p1 WHERE book.ID BAD SQL:p2]', normalizeGeneratedSql($e->getMessage()), 'SQL query is written in the exception message');
 		}
 	}
 
@@ -84,7 +84,17 @@ class BasePeerExceptionsTest extends BookstoreTestBase
 			$c->add(BookPeer::AUTHOR_ID, 'lkhlkhj');
 			BasePeer::doInsert($c, Propulsion::getConnection());
 		} catch (PropulsionException $e) {
-			$this->assertStringContainsString('[INSERT INTO book (AUTHOR_ID,ID) VALUES (:p1,:p2)]', $e->getMessage(), 'SQL query is written in the exception message');
+			// The expected INSERT column list genuinely differs by id-generation
+			// strategy, not just quoting: DBAdapter::isGetIdBeforeInsert() platforms
+			// (e.g. Postgres's SEQUENCE method) pre-fetch the next id and include it
+			// explicitly; DBAdapter::isGetIdAfterInsert() platforms (e.g. MySQL's
+			// AUTOINCREMENT method) omit the id column and let its own default
+			// populate it -- see BasePeer::doInsert().
+			$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
+			$expected = $db->isGetIdBeforeInsert()
+				? '[INSERT INTO book (AUTHOR_ID,ID) VALUES (:p1,:p2)]'
+				: '[INSERT INTO book (AUTHOR_ID) VALUES (:p1)]';
+			$this->assertStringContainsString($expected, normalizeGeneratedSql($e->getMessage()), 'SQL query is written in the exception message');
 		}
 	}
 

@@ -548,6 +548,7 @@ class IntegrationDatabase
                     ->withMySQLDatabase('propulsion_test')
                     ->withLabels(self::CONTAINER_LABELS)
                     ->start();
+                self::enableMysqlLocalInfile(self::$container->getHost(), self::$container->getFirstMappedPort());
             } catch (\Throwable $e) {
                 throw new \RuntimeException('Could not start the MySQL testcontainer (is Docker running?): ' . $e->getMessage());
             }
@@ -607,6 +608,22 @@ class IntegrationDatabase
         register_shutdown_function(static function () {
             self::$container?->stop();
         });
+    }
+
+    /**
+     * MySQL 8+ ships with the server-side `local_infile` global variable OFF by
+     * default -- LOAD DATA LOCAL INFILE (DBMySQL::bulkLoad()'s mechanism) refuses to
+     * run at all otherwise, regardless of the client-side PDO::MYSQL_ATTR_LOCAL_INFILE
+     * setting writeRuntimeConf() also needs to set. MySQLContainer's constructor
+     * always sets MYSQL_ROOT_PASSWORD to 'root' (root/root), so connect as that to
+     * flip it -- the 'propulsion' user created by withMySQLUser() doesn't have the
+     * SYSTEM_VARIABLES_ADMIN/SUPER privilege SET GLOBAL requires.
+     */
+    private static function enableMysqlLocalInfile(string $host, int $port): void
+    {
+        $pdo = new \PDO("mysql:host=$host;port=$port", 'root', 'root');
+        $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+        $pdo->exec('SET GLOBAL local_infile = 1');
     }
 
     /**
@@ -947,6 +964,16 @@ class IntegrationDatabase
                     'mysql' => ['queries' => ['SET SESSION innodb_lock_wait_timeout = 5']],
                     'pgsql' => ['queries' => ['SET lock_timeout = 5000', 'SET statement_timeout = 15000']],
                     default => ['queries' => []],
+                },
+                // Client-side half of DBMySQL::bulkLoad()'s LOAD DATA LOCAL INFILE
+                // requirement -- can't be toggled after connecting, so this has to be a
+                // constructor-time PDO option, not a post-connect SET. The server-side
+                // half (the `local_infile` global variable) is set once per-container in
+                // enableMysqlLocalInfile() above, since it's a server, not a connection,
+                // setting.
+                'options' => match ($platform) {
+                    'mysql' => ['PDO::MYSQL_ATTR_LOCAL_INFILE' => ['value' => true]],
+                    default => [],
                 },
             ],
         ];

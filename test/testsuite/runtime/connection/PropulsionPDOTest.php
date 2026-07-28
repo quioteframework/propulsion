@@ -324,7 +324,7 @@ class PropulsionPDOTest extends TestCase
 		$c->add(BookPeer::ID, array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1), Criteria::IN);
 		$books = BookPeer::doSelect($c, $con);
 		$expected = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book WHERE book.ID IN (1,1,1,1,1,1,1,1,1,1,1,1)";
-		$this->assertEquals($expected, $con->getLastExecutedQuery(), 'PropulsionPDO correctly replaces arguments in queries');
+		$this->assertEquals($expected, normalizeGeneratedSql($con->getLastExecutedQuery()), 'PropulsionPDO correctly replaces arguments in queries');
 	}
 
 	public function testQueryCount()
@@ -366,7 +366,7 @@ class PropulsionPDOTest extends TestCase
 
 		BookPeer::doDeleteAll($con);
 		$latestExecutedQuery = "DELETE FROM book";
-		$this->assertEquals($latestExecutedQuery, $con->getLastExecutedQuery(), 'PropulsionPDO updates the last executed query on delete operations');
+		$this->assertEquals($latestExecutedQuery, normalizeGeneratedSql($con->getLastExecutedQuery()), 'PropulsionPDO updates the last executed query on delete operations');
 
 		$sql = 'DELETE FROM book WHERE 1=1';
 		$con->exec($sql);

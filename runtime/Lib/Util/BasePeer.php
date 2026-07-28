@@ -526,7 +526,12 @@ class BasePeer
 	 * @param      array<int,string> $conflictColumns Fully-qualified column names identifying
 	 *             the conflict target. Defaults to the table's primary key columns.
 	 *
-	 * @return     int Number of affected rows.
+	 * @return     int Number of affected rows -- except on MySQL/MariaDB, whose own C
+	 *             API reports 1 for a row inserted fresh but *2* (not 1) for a row
+	 *             updated via the ON DUPLICATE KEY UPDATE path, a real, documented
+	 *             MySQL quirk (see mysql_affected_rows()'s manual page) rather than
+	 *             something this method can normalize away without losing the
+	 *             insert-vs-update distinction other callers might want from it.
 	 * @throws     PropulsionException
 	 */
 	public static function doUpsert(Criteria $criteria, Criteria $updateValues, PropulsionPDO $con, array $conflictColumns = array()): int

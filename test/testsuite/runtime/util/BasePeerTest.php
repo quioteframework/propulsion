@@ -249,7 +249,7 @@ class BasePeerTest extends BookstoreTestBase
 		$c->add(BookPeer::TITLE, 'War And Peace');
 		BasePeer::doDelete($c, $con);
 		$expectedSQL = "DELETE FROM book WHERE book.TITLE='War And Peace'";
-		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'doDelete() translates a contition into a WHERE');
+		$this->assertEquals($expectedSQL, normalizeGeneratedSql($con->getLastExecutedQuery()), 'doDelete() translates a contition into a WHERE');
 	}
 
 	public function testDoDeleteSeveralConditions()
@@ -260,7 +260,7 @@ class BasePeerTest extends BookstoreTestBase
 		$c->add(BookPeer::ID, 12);
 		BasePeer::doDelete($c, $con);
 		$expectedSQL = "DELETE FROM book WHERE book.TITLE='War And Peace' AND book.ID=12";
-		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'doDelete() combines conditions in WHERE whith an AND');
+		$this->assertEquals($expectedSQL, normalizeGeneratedSql($con->getLastExecutedQuery()), 'doDelete() combines conditions in WHERE whith an AND');
 	}
 
 	public function testDoDeleteTableAlias()
@@ -271,7 +271,7 @@ class BasePeerTest extends BookstoreTestBase
 		$c->add('b.TITLE', 'War And Peace');
 		BasePeer::doDelete($c, $con);
 		$expectedSQL = "DELETE FROM book AS b WHERE b.TITLE='War And Peace'";
-		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'doDelete() accepts a Criteria with a table alias');
+		$this->assertEquals($expectedSQL, normalizeGeneratedSql($con->getLastExecutedQuery()), 'doDelete() accepts a Criteria with a table alias');
 	}
 
 	/**
@@ -287,7 +287,7 @@ class BasePeerTest extends BookstoreTestBase
 		$c->add(AuthorPeer::FIRST_NAME, 'Leo');
 		BasePeer::doDelete($c, $con);
 		$expectedSQL = "DELETE FROM author WHERE author.FIRST_NAME='Leo'";
-		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'doDelete() issues two DELETE queries when passed conditions on two tables');
+		$this->assertEquals($expectedSQL, normalizeGeneratedSql($con->getLastExecutedQuery()), 'doDelete() issues two DELETE queries when passed conditions on two tables');
 		$this->assertEquals($count + 2, $con->getQueryCount(), 'doDelete() issues two DELETE queries when passed conditions on two tables');
 
 		$c = new Criteria(BookPeer::DATABASE_NAME);
@@ -295,7 +295,7 @@ class BasePeerTest extends BookstoreTestBase
 		$c->add(BookPeer::TITLE, 'War And Peace');
 		BasePeer::doDelete($c, $con);
 		$expectedSQL = "DELETE FROM book WHERE book.TITLE='War And Peace'";
-		$this->assertEquals($expectedSQL, $con->getLastExecutedQuery(), 'doDelete() issues two DELETE queries when passed conditions on two tables');
+		$this->assertEquals($expectedSQL, normalizeGeneratedSql($con->getLastExecutedQuery()), 'doDelete() issues two DELETE queries when passed conditions on two tables');
 		$this->assertEquals($count + 4, $con->getQueryCount(), 'doDelete() issues two DELETE queries when passed conditions on two tables');
 	}
 
@@ -306,7 +306,7 @@ class BasePeerTest extends BookstoreTestBase
 		$c->addSelectColumn(BookPeer::ID);
 		$expected = 'SELECT /* Foo */ book.ID FROM book';
 		$params = array();
-		$this->assertEquals($expected, BasePeer::createSelectSQL($c, $params), 'Criteria::setComment() adds a comment to select queries');
+		$this->assertEquals($expected, normalizeGeneratedSql(BasePeer::createSelectSQL($c, $params)), 'Criteria::setComment() adds a comment to select queries');
 	}
 
 	public function testForUpdateDoSelect()
@@ -321,7 +321,7 @@ class BasePeerTest extends BookstoreTestBase
 		$c->setLockForUpdate();
 		$expected = 'SELECT book.ID FROM book FOR UPDATE';
 		$params = array();
-		$this->assertEquals($expected, BasePeer::createSelectSQL($c, $params), 'Criteria::setLockForUpdate() adds a trailing FOR UPDATE clause');
+		$this->assertEquals($expected, normalizeGeneratedSql(BasePeer::createSelectSQL($c, $params)), 'Criteria::setLockForUpdate() adds a trailing FOR UPDATE clause');
 	}
 
 	public function testForUpdateSkipLockedDoSelect()
@@ -336,7 +336,7 @@ class BasePeerTest extends BookstoreTestBase
 		$c->setLockForUpdate(true);
 		$expected = 'SELECT book.ID FROM book FOR UPDATE SKIP LOCKED';
 		$params = array();
-		$this->assertEquals($expected, BasePeer::createSelectSQL($c, $params), 'Criteria::setLockForUpdate(true) appends SKIP LOCKED');
+		$this->assertEquals($expected, normalizeGeneratedSql(BasePeer::createSelectSQL($c, $params)), 'Criteria::setLockForUpdate(true) appends SKIP LOCKED');
 	}
 
 	public function testForShareDoSelect()
@@ -351,7 +351,7 @@ class BasePeerTest extends BookstoreTestBase
 		$c->setLockForShare();
 		$expected = 'SELECT book.ID FROM book FOR SHARE';
 		$params = array();
-		$this->assertEquals($expected, BasePeer::createSelectSQL($c, $params), 'Criteria::setLockForShare() adds a trailing FOR SHARE clause');
+		$this->assertEquals($expected, normalizeGeneratedSql(BasePeer::createSelectSQL($c, $params)), 'Criteria::setLockForShare() adds a trailing FOR SHARE clause');
 	}
 
 	public function testForUpdateWithLimitDoSelect()
@@ -464,7 +464,7 @@ class BasePeerTest extends BookstoreTestBase
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		BasePeer::doUpdate($c1, $c2, $con);
 		$expected = 'UPDATE /* Foo */ book SET TITLE=\'Updated Title\'';
-		$this->assertEquals($expected, $con->getLastExecutedQuery(), 'Criteria::setComment() adds a comment to update queries');
+		$this->assertEquals($expected, normalizeGeneratedSql($con->getLastExecutedQuery()), 'Criteria::setComment() adds a comment to update queries');
 	}
 
 	public function testRawExpressionDoUpdate()
@@ -476,7 +476,7 @@ class BasePeerTest extends BookstoreTestBase
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		BasePeer::doUpdate($c1, $c2, $con);
 		$expected = 'UPDATE book SET PRICE = book.PRICE + 1';
-		$this->assertEquals($expected, $con->getLastExecutedQuery(), 'a raw update expression with a "?" placeholder binds its value');
+		$this->assertEquals($expected, normalizeGeneratedSql($con->getLastExecutedQuery()), 'a raw update expression with a "?" placeholder binds its value');
 	}
 
 	public function testRawExpressionDoUpdateWithoutValue()
@@ -488,7 +488,7 @@ class BasePeerTest extends BookstoreTestBase
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		BasePeer::doUpdate($c1, $c2, $con);
 		$expected = "UPDATE book SET TITLE = 'literal'";
-		$this->assertEquals($expected, $con->getLastExecutedQuery(), 'a raw update expression without a "?" placeholder needs no bound value');
+		$this->assertEquals($expected, normalizeGeneratedSql($con->getLastExecutedQuery()), 'a raw update expression without a "?" placeholder needs no bound value');
 	}
 
 	public function testRawExpressionDoUpdateWithoutValueDoesNotMisalignFollowingParams()
@@ -503,7 +503,7 @@ class BasePeerTest extends BookstoreTestBase
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		BasePeer::doUpdate($c1, $c2, $con);
 		$expected = "UPDATE book SET TITLE = 'literal', ISBN='1234567890'";
-		$this->assertEquals($expected, $con->getLastExecutedQuery());
+		$this->assertEquals($expected, normalizeGeneratedSql($con->getLastExecutedQuery()));
 	}
 
 	public function testRawExpressionDoUpdateMissingValueThrows()
@@ -572,7 +572,11 @@ class BasePeerTest extends BookstoreTestBase
 		$c->add(BookPeer::ID, 999902);
 		$c->add(BookPeer::TITLE, 'Original Title');
 		$c->add(BookPeer::ISBN, '0000000002');
-		BasePeer::doUpsert($c, new Criteria(), $con);
+		// Plain insert to seed the row this test's actual upsert-on-conflict call
+		// conflicts with -- MySQL's ON DUPLICATE KEY UPDATE has no "do nothing" form,
+		// so doUpsert() with an empty update-values Criteria (which this insert never
+		// needs, since ID 999902 doesn't exist yet) would throw there.
+		BasePeer::doInsert($c, $con);
 
 		$countBefore = BookQuery::create()->count();
 
@@ -585,7 +589,11 @@ class BasePeerTest extends BookstoreTestBase
 
 		$affected = BasePeer::doUpsert($c2, $updateValues, $con);
 
-		$this->assertEquals(1, $affected);
+		// MySQL's own C API reports affected-rows as 2 (not 1) for a row updated via
+		// ON DUPLICATE KEY UPDATE -- 1 means "inserted as a new row", 2 means "an
+		// existing row was updated". A real, documented MySQL quirk, not a bug in
+		// doUpsert() -- see its docblock.
+		$this->assertEquals($db instanceof DBMySQL ? 2 : 1, $affected);
 		$this->assertEquals($countBefore, BookQuery::create()->count(), 'a conflicting upsert does not insert a new row');
 		$book = BookQuery::create()->findPk(999902);
 		$this->assertEquals('Updated Title', $book->getTitle());
@@ -605,7 +613,9 @@ class BasePeerTest extends BookstoreTestBase
 		$c->add(BookPeer::TITLE, 'Book');
 		$c->add(BookPeer::ISBN, '0000000003');
 		$c->add(BookPeer::PRICE, 10);
-		BasePeer::doUpsert($c, new Criteria(), $con);
+		// See the comment in testUpsertUpdatesOnConflict() for why this is a plain
+		// insert rather than an upsert with an empty update-values Criteria.
+		BasePeer::doInsert($c, $con);
 
 		$c2 = new Criteria();
 		$c2->add(BookPeer::ID, 999903);
@@ -684,7 +694,7 @@ class BasePeerTest extends BookstoreTestBase
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		BasePeer::doDelete($c, $con);
 		$expected = 'DELETE /* Foo */ FROM book WHERE book.TITLE=\'War And Peace\'';
-		$this->assertEquals($expected, $con->getLastExecutedQuery(), 'Criteria::setComment() adds a comment to delete queries');
+		$this->assertEquals($expected, normalizeGeneratedSql($con->getLastExecutedQuery()), 'Criteria::setComment() adds a comment to delete queries');
 	}
 
 }

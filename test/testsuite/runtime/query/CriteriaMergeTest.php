@@ -21,7 +21,7 @@ class CriteriaMergeTest extends BookstoreTestBase
 	protected function assertCriteriaTranslation($criteria, $expectedSql, $message = '')
 	{
 		$params = array();
-		$result = BasePeer::createSelectSql($criteria, $params);
+		$result = normalizeGeneratedSql(BasePeer::createSelectSql($criteria, $params));
 		$this->assertEquals($expectedSql, $result, $message);
 	}
 

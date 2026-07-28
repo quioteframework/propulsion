@@ -49,6 +49,72 @@ rm -rf fixtures/bookstore/build fixtures/schemas/build fixtures/namespaced/build
 - **PSR-18**: not started, nothing to wire it into yet.
 - **MSSQL/Oracle platform parity**: unaudited against `DefaultPlatform`
   (only Pgsql vs Mysql has had that pass). Both now have real
-  `PROPULSION_TEST_DB` testcontainer options; no CI coverage yet.
+  `PROPULSION_TEST_DB` testcontainer options; MySQL now has CI coverage (see
+  below), MSSQL/Oracle still don't.
 - **Phase 4d (Quiote adapter integration)**: tracked in the Quiote-side repo,
   not here.
+
+## MySQL parity (2026-07-27 audit) -- resolved, now 0 failures
+
+Ran the full suite against a live MySQL testcontainer (`PROPULSION_TEST_DB=mysql`)
+for the first time -- previously only the "unit" tier (which skips everything
+needing a live DB) and Postgres ran in CI. Found ~130 pre-existing test
+*assertion* failures, none of them functional bugs: the test suite's
+`assertEquals($expectedSql, ...)`-style checks hardcode Postgres-style SQL
+strings (unquoted identifiers, `LIMIT n OFFSET m`, `DELETE FROM t AS alias`),
+but MySQL:
+
+- is the only built-in adapter whose `DBAdapter::useQuoteIdentifier()` returns
+  `true` (`DBMySQL::useQuoteIdentifier()`), so it correctly backtick-quotes
+  every identifier (`` `book` ``, `` `TITLE` ``) -- MSSQL/Oracle/Postgres/SQLite
+  all quote nothing by default, so this was invisible until MySQL was
+  actually run;
+- emits `LIMIT m, n` instead of `LIMIT n OFFSET m`;
+- requires naming the alias in an aliased `DELETE` (`DELETE b FROM book AS b
+  WHERE ...`, not `DELETE FROM book AS b WHERE ...`).
+
+Fixed by adding `normalizeGeneratedSql()` (`test/tools/helpers/SqlAssertions.php`,
+loaded from `bootstrap.php`) -- rewrites all three MySQL-specific shapes back
+to the Postgres-style form in the *actual* SQL before comparing to the
+(unchanged) expected string, applied at each shared `assertCriteriaTranslation()`-
+style helper and each direct `getLastExecutedQuery()`/`createSelectSql()` call
+site that was actually failing.
+
+Two more MySQL-specific behaviors needed real (not just cosmetic) test fixes,
+since they're genuine, correct MySQL semantics rather than a text-shape
+difference `normalizeGeneratedSql()` could paper over:
+
+- `BasePeer::doUpsert()` with an empty update-values `Criteria` (used by two of
+  this session's own tests purely to seed a non-conflicting row) is harmless
+  on Postgres/SQLite (`DO NOTHING`), but MySQL's `ON DUPLICATE KEY UPDATE` has
+  no such form and throws on an empty update-values set regardless of whether
+  a conflict actually occurs. Fixed by using a plain `doInsert()` (`BasePeerTest`)
+  or a non-empty but semantically inert update-values array (`ModelCriteriaTest`)
+  for those seed rows instead.
+- `BasePeer::doUpsert()`'s affected-row count: MySQL's own C API reports `2`
+  (not `1`) for a row updated via `ON DUPLICATE KEY UPDATE` -- `1` means
+  "inserted fresh", `2` means "an existing row was updated". Documented on the
+  method itself; `BasePeerTest::testUpsertUpdatesOnConflict` asserts the
+  platform-appropriate value.
+- Id-generation SQL shape: Postgres's `SEQUENCE` method pre-fetches the next
+  id and includes it explicitly in the `INSERT` column list; MySQL's
+  `AUTOINCREMENT` method omits the id column entirely and lets the column
+  default populate it. `BasePeerExceptionsTest::testDoInsert` now asserts a
+  platform-appropriate expected substring (keyed off
+  `DBAdapter::isGetIdBeforeInsert()`) rather than a single hardcoded one.
+
+**Result**: 0 failures against MySQL, confirmed with 0 regressions against
+Postgres (both full 2818-test runs).
+
+**Separate, pre-existing, NOT part of MySQL parity**: running the suite with
+`PROPULSION_TEST_DB=mysql` still shows ~32 errors, all from
+`PgsqlSchemaParserTest`/`SchemaReverseManagerTest`/`SqlExecManagerTest`/
+`SqlDiffCommandTest`/`DataDumpCommandTest`/`SqlExecCommandTest`/
+`SchemaReverseCommandTest`/`DataDumpAndSqlManagerTest`. These hardcode their
+own `pgsql:` DSN regardless of `PROPULSION_TEST_DB` (by design -- they test
+Postgres-specific reverse-engineering/schema-diff tooling) and open a second,
+independent Postgres testcontainer alongside whatever `PROPULSION_TEST_DB`
+started. Consistently hit transient SSL-negotiation errors from that second
+container under container-resource contention (running two testcontainers at
+once) across every audit run in this session -- worth investigating
+separately if it persists in CI, but unrelated to MySQL parity itself.

@@ -207,6 +207,13 @@ class DBMySQL extends DBAdapter
 	 * a clear, actionable error up front if the connection-side half of that isn't set,
 	 * rather than letting it fail with MySQL's own less obvious error message.
 	 *
+	 * As of PHP 8.5, PDO::MYSQL_ATTR_LOCAL_INFILE itself is deprecated in favor of
+	 * Pdo\Mysql::ATTR_LOCAL_INFILE -- same reasoning as DBPostgres::bulkLoad()'s note on
+	 * pgsqlCopyFromArray(): that only exists on an actual Pdo\Mysql instance, and
+	 * PropulsionPDO extends \PDO directly for every driver rather than being
+	 * auto-selected per-driver, so the deprecation notice here is likewise expected and,
+	 * for now, unavoidable without restructuring that whole class hierarchy.
+	 *
 	 * @see       DBAdapter::bulkLoad()
 	 */
 	public function bulkLoad(PropulsionPDO $con, string $tableName, array $columns, iterable $rows): int
