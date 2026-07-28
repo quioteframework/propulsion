@@ -39,7 +39,7 @@ class PropulsionOnDemandFormatter extends PropulsionObjectFormatter
 
 	public function format(PDOStatement $stmt): mixed
 	{
-		$this->checkInit();
+		$this->checkInit($stmt);
 		if ($this->isWithOneToMany()) {
 			// $stmt was already executed by the caller before format() ever runs
 			// -- since it's never getting wrapped in a PropulsionOnDemandIterator
