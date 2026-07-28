@@ -32,7 +32,7 @@ class PropulsionArrayFormatter extends PropulsionFormatter
 
 	public function format(PDOStatement $stmt): mixed
 	{
-		$this->checkInit();
+		$this->checkInit($stmt);
 		if ($this->isWithOneToMany() && $this->hasLimit) {
 			throw new PropulsionException('Cannot use limit() in conjunction with with() on a one-to-many relationship. Please remove the with() call, or the limit() call.');
 		}
@@ -72,7 +72,7 @@ class PropulsionArrayFormatter extends PropulsionFormatter
 
 	public function formatOne(PDOStatement $stmt): mixed
 	{
-		$this->checkInit();
+		$this->checkInit($stmt);
 		$result = null;
 		while ($row = $stmt->fetch(PDO::FETCH_NUM)) {
 			if ($object = &$this->getStructuredArrayFromRow($row)) {

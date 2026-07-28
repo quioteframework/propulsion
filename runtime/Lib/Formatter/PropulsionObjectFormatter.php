@@ -27,7 +27,7 @@ class PropulsionObjectFormatter extends PropulsionFormatter
 
 	public function format(PDOStatement $stmt): mixed
 	{
-		$this->checkInit();
+		$this->checkInit($stmt);
 		if($class = $this->collectionName) {
 			$collection = new $class();
 			$collection->setModel($this->class);
@@ -61,7 +61,7 @@ class PropulsionObjectFormatter extends PropulsionFormatter
 
 	public function formatOne(PDOStatement $stmt): ?BaseObject
 	{
-		$this->checkInit();
+		$this->checkInit($stmt);
 		$result = null;
 		while ($row = $stmt->fetch(PDO::FETCH_NUM)) {
 			$result = $this->getAllObjectsFromRow($row);

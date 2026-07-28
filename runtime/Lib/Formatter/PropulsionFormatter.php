@@ -155,9 +155,23 @@ abstract class PropulsionFormatter
 
 	abstract public function isObjectFormatter(): bool;
 
-	public function checkInit(): void
+	/**
+	 * @param     ?PDOStatement $stmt The statement format()/formatOne() was just
+	 *            handed, already executed by the caller before either of them
+	 *            ever runs -- closed here before throwing (if given) since
+	 *            it's otherwise abandoned with its result set still open.
+	 *            FreeTDS/pdo_dblib (MSSQL, no MARS support) can fail a later,
+	 *            unrelated statement on the same connection with "Attempt to
+	 *            initiate a new Adaptive Server operation with results
+	 *            pending" before PHP's GC gets around to it; harmless
+	 *            everywhere else.
+	 */
+	public function checkInit(?PDOStatement $stmt = null): void
 	{
 		if (null === $this->peer) {
+			if ($stmt !== null) {
+				$stmt->closeCursor();
+			}
 			throw new PropulsionException('You must initialize a formatter object before calling format() or formatOne()');
 		}
 	}

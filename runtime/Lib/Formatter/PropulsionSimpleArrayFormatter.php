@@ -24,7 +24,7 @@ class PropulsionSimpleArrayFormatter extends PropulsionFormatter {
 	protected string $collectionName = 'Propulsion\\Collection\\PropulsionArrayCollection';
 
 	public function format(PDOStatement $stmt): mixed {
-		$this->checkInit ();
+		$this->checkInit($stmt);
 		if ($class = $this->collectionName) {
 			$collection = new $class();
 			$collection->setModel ($this->class );
@@ -45,7 +45,7 @@ class PropulsionSimpleArrayFormatter extends PropulsionFormatter {
 	}
 
 	public function formatOne(PDOStatement $stmt): mixed {
-		$this->checkInit ();
+		$this->checkInit($stmt);
 		$result = null;
 		while ($row = $stmt->fetch (PDO::FETCH_NUM)) {
 			if ($rowArray = $this->getStructuredArrayFromRow ($row)) {
