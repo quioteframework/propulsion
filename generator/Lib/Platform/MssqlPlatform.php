@@ -52,6 +52,21 @@ class MssqlPlatform extends DefaultPlatform
 	}
 
 	/**
+	 * Foreign key names (ForeignKey::getName()) to emit as NO ACTION instead of
+	 * CASCADE on DELETE/UPDATE respectively, to avoid SQL Server error 1785
+	 * ("...may cause cycles or multiple cascade paths"). Computed once per
+	 * getAddTablesDDL() call (which has the whole Database graph available),
+	 * consulted by getForeignKeyDDL() (which only sees one ForeignKey at a
+	 * time) -- see computeCascadeDowngrades().
+	 *
+	 * @var array<string, true>
+	 */
+	private array $cascadeDeleteDowngrades = array();
+
+	/** @var array<string, true> Same as $cascadeDeleteDowngrades, for ON UPDATE CASCADE. */
+	private array $cascadeUpdateDowngrades = array();
+
+	/**
 	 * Initializes db specific domain mapping.
 	 */
 	protected function initialize(): void
@@ -123,6 +138,9 @@ class MssqlPlatform extends DefaultPlatform
 	 */
 	public function getAddTablesDDL(Database $database)
 	{
+		$this->cascadeDeleteDowngrades = $this->computeCascadeDowngrades($database, fn (ForeignKey $fk) => $fk->getOnDelete());
+		$this->cascadeUpdateDowngrades = $this->computeCascadeDowngrades($database, fn (ForeignKey $fk) => $fk->getOnUpdate());
+
 		$ret = $this->getBeginDDL();
 		foreach ($database->getTablesForSql() as $table) {
 			$ret .= $this->getCommentBlockDDL($this->requireString($table->getName(), 'Table name'));
@@ -135,6 +153,180 @@ class MssqlPlatform extends DefaultPlatform
 		}
 		$ret .= $this->getEndDDL();
 		return $ret;
+	}
+
+	/**
+	 * SQL Server refuses to create a foreign key with a cascading ON DELETE or ON
+	 * UPDATE action ("$actionGetter") if doing so would let the same row be
+	 * touched by more than one cascade path -- error 1785. Two distinct shapes of
+	 * this fork's own bookstore fixture hit it deliberately:
+	 *
+	 * 1. **Diamond via an intermediate table** ("Test multiple foreign keys for a
+	 *    single column"): `reader_favorite` cascade-deletes from both `book` and
+	 *    `book_reader` directly, *and* from both of those again indirectly via
+	 *    `book_opinion` (which itself cascade-deletes from `book` and
+	 *    `book_reader`) -- deleting a `book` row would need to cascade into
+	 *    `reader_favorite` by two different routes.
+	 * 2. **Two FKs from the same table straight to the same target**: `essay` has
+	 *    two separate `ON UPDATE CASCADE` FKs to `author` (`first_author` and
+	 *    `second_author`) -- updating an `author.id` could need to cascade into
+	 *    the *same* `essay` row twice, once per column.
+	 *
+	 * Detects both schema-wide and returns the set of FKs to downgrade to NO
+	 * ACTION instead. For (1), the *direct* edge from the ancestor is redundant --
+	 * deleting/updating it already cascades transitively through the other
+	 * parent, so dropping the direct edge loses no actual cleanup behavior, it
+	 * just removes the extra path SQL Server won't allow. For (2), only the first
+	 * (by declaration order) FK to a given repeated target is kept as cascading;
+	 * the rest are downgraded.
+	 *
+	 * @param      Database $database
+	 * @param      callable(ForeignKey): ?string $actionGetter ForeignKey::getOnDelete() or getOnUpdate().
+	 * @return     array<string, true> Set of ForeignKey names (see ForeignKey::getName()) to downgrade.
+	 */
+	private function computeCascadeDowngrades(Database $database, callable $actionGetter): array
+	{
+		$downgrades = array();
+
+		// Case 0: a self-referencing FK (local and foreign table are the same,
+		// e.g. essay.next_essay_id -> essay.id) with a cascading action -- SQL
+		// Server rejects this outright, the same error 1785 family, regardless of
+		// any other table's FKs. Always downgrade.
+		foreach ($database->getTables() as $table) {
+			$tableName = $table->getName();
+			if ($tableName === null) {
+				continue;
+			}
+			foreach ($table->getForeignKeys() as $fk) {
+				if ($actionGetter($fk) === ForeignKey::CASCADE && $fk->getForeignTableName() === $tableName) {
+					$fkName = $fk->getName();
+					if ($fkName !== null) {
+						$downgrades[$fkName] = true;
+					}
+				}
+			}
+		}
+
+		// Case 2: same table, 2+ direct CASCADE FKs to the same target --
+		// keep only the first, downgrade the rest. Done before building the graph
+		// below so case 1's diamond detection sees the graph *after* these
+		// redundant edges are already removed.
+		foreach ($database->getTables() as $table) {
+			$seenTargets = array();
+			foreach ($table->getForeignKeys() as $fk) {
+				$parentName = $fk->getForeignTableName();
+				$fkName = $fk->getName();
+				if ($actionGetter($fk) !== ForeignKey::CASCADE || $parentName === null
+					|| ($fkName !== null && isset($downgrades[$fkName]))
+				) {
+					continue;
+				}
+				if (isset($seenTargets[$parentName])) {
+					if ($fkName !== null) {
+						$downgrades[$fkName] = true;
+					}
+				} else {
+					$seenTargets[$parentName] = true;
+				}
+			}
+		}
+
+		// Whole-schema cascade graph (post-case-2): edge parentTable -> childTable
+		// for every surviving CASCADE FK (child.col REFERENCES parentTable.col
+		// [ON DELETE|ON UPDATE] CASCADE means a change to a parent row cascades to
+		// the child row).
+		$cascadeChildren = array();
+		foreach ($database->getTables() as $table) {
+			$childName = $table->getName();
+			if ($childName === null) {
+				continue;
+			}
+			foreach ($table->getForeignKeys() as $fk) {
+				$parentName = $fk->getForeignTableName();
+				$fkName = $fk->getName();
+				if ($actionGetter($fk) === ForeignKey::CASCADE && $parentName !== null
+					&& ($fkName === null || !isset($downgrades[$fkName]))
+				) {
+					$cascadeChildren[$parentName][$childName] = true;
+				}
+			}
+		}
+
+		// Case 1: diamonds via an intermediate table.
+		foreach ($database->getTables() as $table) {
+			$childName = $table->getName();
+			if ($childName === null) {
+				continue;
+			}
+
+			$directParentFks = array();
+			foreach ($table->getForeignKeys() as $fk) {
+				$fkName = $fk->getName();
+				if ($actionGetter($fk) === ForeignKey::CASCADE && $fk->getForeignTableName() !== null
+					&& ($fkName === null || !isset($downgrades[$fkName]))
+				) {
+					$directParentFks[] = $fk;
+				}
+			}
+			if (count($directParentFks) < 2) {
+				continue;
+			}
+
+			foreach ($directParentFks as $fk) {
+				$parentName = $fk->getForeignTableName();
+				if ($parentName === null) {
+					continue;
+				}
+				foreach ($directParentFks as $otherFk) {
+					$otherParentName = $otherFk->getForeignTableName();
+					if ($otherParentName === null || $otherFk === $fk || $parentName === $otherParentName) {
+						continue;
+					}
+					if ($this->cascadeReaches($cascadeChildren, $parentName, $otherParentName, $childName)) {
+						$fkName = $fk->getName();
+						if ($fkName !== null) {
+							$downgrades[$fkName] = true;
+						}
+						break;
+					}
+				}
+			}
+		}
+
+		return $downgrades;
+	}
+
+	/**
+	 * Whether $target is reachable from $source by following $cascadeChildren
+	 * edges (parentTable => [childTable => true, ...]), never passing through
+	 * $exclude -- excluded so a path that only "reaches" $target by going
+	 * through the very table being evaluated in computeCascadeDowngrades()
+	 * doesn't count as a redundant-path conflict.
+	 *
+	 * @param      array<string, array<string, true>> $cascadeChildren
+	 * @param      string $source
+	 * @param      string $target
+	 * @param      string $exclude
+	 * @return     bool
+	 */
+	private function cascadeReaches(array $cascadeChildren, string $source, string $target, string $exclude): bool
+	{
+		$visited = array($source => true);
+		$queue = array($source);
+		while ($queue) {
+			$current = array_shift($queue);
+			foreach (($cascadeChildren[$current] ?? array()) as $next => $unused) {
+				if ($next === $exclude || isset($visited[$next])) {
+					continue;
+				}
+				if ($next === $target) {
+					return true;
+				}
+				$visited[$next] = true;
+				$queue[] = $next;
+			}
+		}
+		return false;
 	}
 
 	public function getDropTableDDL(Table $table)
@@ -235,18 +427,32 @@ END
 		if ($fk->isSkipSql()) {
 			return '';
 		}
+		$fkName = $this->requireString($fk->getName(), 'Foreign key name');
 		$pattern = 'CONSTRAINT %s FOREIGN KEY (%s) REFERENCES %s (%s)';
 		$script = sprintf($pattern,
-			$this->quoteIdentifier($this->requireString($fk->getName(), 'Foreign key name')),
+			$this->quoteIdentifier($fkName),
 			$this->getColumnListDDL($fk->getLocalColumns()),
 			$this->quoteIdentifier($this->requireString($fk->getForeignTableName(), 'Foreign key target table name')),
 			$this->getColumnListDDL($fk->getForeignColumns())
 		);
+		// See computeCascadeDowngrades(): a CASCADE that would create a second
+		// cascade path SQL Server won't allow (error 1785) is emitted as NO ACTION
+		// instead -- the update/delete still reaches this table transitively
+		// through whichever other parent's path (or first-declared same-target
+		// FK) was kept.
 		if ($fk->hasOnUpdate() && $fk->getOnUpdate() != ForeignKey::SETNULL) {
-			$script .= ' ON UPDATE ' . $fk->getOnUpdate();
+			$onUpdate = $fk->getOnUpdate();
+			if ($onUpdate === ForeignKey::CASCADE && isset($this->cascadeUpdateDowngrades[$fkName])) {
+				$onUpdate = ForeignKey::NOACTION;
+			}
+			$script .= ' ON UPDATE ' . $onUpdate;
 		}
 		if ($fk->hasOnDelete() && $fk->getOnDelete() != ForeignKey::SETNULL) {
-			$script .= ' ON DELETE '.  $fk->getOnDelete();
+			$onDelete = $fk->getOnDelete();
+			if ($onDelete === ForeignKey::CASCADE && isset($this->cascadeDeleteDowngrades[$fkName])) {
+				$onDelete = ForeignKey::NOACTION;
+			}
+			$script .= ' ON DELETE '.  $onDelete;
 		}
 
 		return $script;

@@ -328,9 +328,15 @@ parity.
   eliminate the whole rewriter.
 - [ ] Modernize `getDropTableDDL`'s use of legacy `sysobjects`/`sysreferences`
   catalog views to `sys.foreign_keys`/`sys.tables` (works today, but dated).
-- [ ] (Tracked in `KNOWN_ISSUES.md`) auto-downgrade multiple CASCADE FKs to
-  the same target table to `NO ACTION` (SQL Server error 1785) so the shared
-  bookstore fixture can load on MSSQL.
+- [x] Auto-downgrade CASCADE FKs that would create multiple cascade paths to
+  `NO ACTION` (SQL Server error 1785) so the shared bookstore fixture can
+  load on MSSQL — `MssqlPlatform::computeCascadeDowngrades()`, handles
+  self-referencing FKs, repeated same-table/same-target FKs, and diamonds via
+  an intermediate table, for both `ON DELETE`/`ON UPDATE` independently.
+  Fixture verified against a live `azure-sql-edge` container. (Tracked in
+  `KNOWN_ISSUES.md`: the fixture builds now, but a full-suite parity audit
+  against MSSQL — same shape as the MySQL one — is still a separate,
+  much larger, not-yet-started task: 747 errors/4 failures out of 2818 tests.)
 
 ### Oracle
 

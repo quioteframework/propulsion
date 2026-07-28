@@ -647,6 +647,101 @@ ALTER TABLE [foo] DROP CONSTRAINT [foo_bar_FK];
 		$this->assertEquals($expected, $this->getPLatform()->getForeignKeyDDL($fk));
 	}
 
+	/**
+	 * Case 0 (see MssqlPlatform::computeCascadeDowngrades()): a self-referencing
+	 * FK with a CASCADE action must always be downgraded to NO ACTION, since SQL
+	 * Server rejects it outright (error 1785) regardless of any other table.
+	 */
+	public function testGetAddTablesDDLDowngradesSelfReferencingCascade()
+	{
+		$schema = <<<EOF
+<database name="test">
+	<table name="node">
+		<column name="id" primaryKey="true" type="INTEGER" autoIncrement="true" />
+		<column name="parent_id" type="INTEGER" />
+		<foreign-key foreignTable="node" onDelete="cascade" onUpdate="cascade">
+			<reference local="parent_id" foreign="id" />
+		</foreign-key>
+	</table>
+</database>
+EOF;
+		$database = $this->getDatabaseFromSchema($schema);
+		$ddl = $this->getPlatform()->getAddTablesDDL($database);
+		$this->assertStringContainsString('REFERENCES [node] ([id]) ON UPDATE NO ACTION ON DELETE NO ACTION', $ddl);
+		$this->assertStringNotContainsString('CASCADE', $ddl);
+	}
+
+	/**
+	 * Case 2: two FKs from the same table straight to the same target table --
+	 * only the first (by declaration order) may cascade, the rest are downgraded.
+	 */
+	public function testGetAddTablesDDLDowngradesRepeatedTargetCascade()
+	{
+		$schema = <<<EOF
+<database name="test">
+	<table name="author">
+		<column name="id" primaryKey="true" type="INTEGER" autoIncrement="true" />
+	</table>
+	<table name="essay">
+		<column name="id" primaryKey="true" type="INTEGER" autoIncrement="true" />
+		<column name="first_author_id" type="INTEGER" />
+		<column name="second_author_id" type="INTEGER" />
+		<foreign-key foreignTable="author" onUpdate="cascade">
+			<reference local="first_author_id" foreign="id" />
+		</foreign-key>
+		<foreign-key foreignTable="author" onUpdate="cascade">
+			<reference local="second_author_id" foreign="id" />
+		</foreign-key>
+	</table>
+</database>
+EOF;
+		$database = $this->getDatabaseFromSchema($schema);
+		$ddl = $this->getPlatform()->getAddTablesDDL($database);
+		$this->assertStringContainsString('FOREIGN KEY ([first_author_id]) REFERENCES [author] ([id]) ON UPDATE CASCADE', $ddl);
+		$this->assertStringContainsString('FOREIGN KEY ([second_author_id]) REFERENCES [author] ([id]) ON UPDATE NO ACTION', $ddl);
+	}
+
+	/**
+	 * Case 1: a diamond via an intermediate table -- `child` cascade-deletes
+	 * directly from both `parent_a` and `parent_b`, and `parent_b` itself
+	 * cascade-deletes from `parent_a`, so the direct `parent_a` -> `child` edge
+	 * is redundant (already reached transitively via `parent_b`) and gets
+	 * downgraded; the edges that remain the only path stay CASCADE.
+	 */
+	public function testGetAddTablesDDLDowngradesDiamondCascade()
+	{
+		$schema = <<<EOF
+<database name="test">
+	<table name="parent_a">
+		<column name="id" primaryKey="true" type="INTEGER" autoIncrement="true" />
+	</table>
+	<table name="parent_b">
+		<column name="id" primaryKey="true" type="INTEGER" autoIncrement="true" />
+		<column name="parent_a_id" type="INTEGER" />
+		<foreign-key foreignTable="parent_a" onDelete="cascade">
+			<reference local="parent_a_id" foreign="id" />
+		</foreign-key>
+	</table>
+	<table name="child">
+		<column name="id" primaryKey="true" type="INTEGER" autoIncrement="true" />
+		<column name="parent_a_id" type="INTEGER" />
+		<column name="parent_b_id" type="INTEGER" />
+		<foreign-key foreignTable="parent_a" onDelete="cascade">
+			<reference local="parent_a_id" foreign="id" />
+		</foreign-key>
+		<foreign-key foreignTable="parent_b" onDelete="cascade">
+			<reference local="parent_b_id" foreign="id" />
+		</foreign-key>
+	</table>
+</database>
+EOF;
+		$database = $this->getDatabaseFromSchema($schema);
+		$ddl = $this->getPlatform()->getAddTablesDDL($database);
+		$this->assertStringContainsString('FOREIGN KEY ([parent_a_id]) REFERENCES [parent_a] ([id]) ON DELETE CASCADE', $ddl);
+		$this->assertStringContainsString('FOREIGN KEY ([parent_a_id]) REFERENCES [parent_a] ([id]) ON DELETE NO ACTION', $ddl);
+		$this->assertStringContainsString('FOREIGN KEY ([parent_b_id]) REFERENCES [parent_b] ([id]) ON DELETE CASCADE', $ddl);
+	}
+
 	public function testGetCommentBlockDDL()
 	{
 		$expected = "

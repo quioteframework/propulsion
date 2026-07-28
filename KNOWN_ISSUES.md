@@ -23,10 +23,15 @@ rm -rf fixtures/bookstore/build fixtures/schemas/build fixtures/namespaced/build
 
 - **Testcontainer leak on `kill -9`** (theoretical, mitigated by
   `composer test:cleanup-containers`, not seen in practice).
-- **MSSQL: shared bookstore fixture can't fully load.** Some tables have
-  multiple `CASCADE` FKs to the same target table, which SQL Server
-  disallows (error 1785) but Postgres/MySQL allow. Needs either a schema
-  change or per-platform `NO ACTION` downgrade logic.
+- **MSSQL: full-suite parity audit not started.** The shared bookstore
+  fixture now *builds* cleanly against SQL Server (see below), but the first
+  full-suite run against a live MSSQL testcontainer
+  (`PROPULSION_TEST_DB=mssql`) reveals 747 errors + 4 failures + 1 risky
+  test out of 2818 -- MSSQL has never previously been exercised against
+  live fixture data at all (unlike MySQL, which started from a working
+  fixture and only needed test-assertion fixes). Needs the same kind of
+  audit as the 2026-07-27 MySQL parity pass, but starting from a much
+  larger, essentially untriaged error set.
 - **`buildtime-conf.xml`** (legacy XML build-time config) is still accepted
   alongside the plain-PHP format — no way to confirm from this repo that no
   consumer still relies on it. Drop at a major-version boundary.
@@ -50,9 +55,37 @@ rm -rf fixtures/bookstore/build fixtures/schemas/build fixtures/namespaced/build
 - **MSSQL/Oracle platform parity**: unaudited against `DefaultPlatform`
   (only Pgsql vs Mysql has had that pass). Both now have real
   `PROPULSION_TEST_DB` testcontainer options; MySQL now has CI coverage (see
-  below), MSSQL/Oracle still don't.
+  below), MSSQL/Oracle still don't. See "MSSQL fixture now builds" below for
+  the state of the MSSQL side specifically.
 - **Phase 4d (Quiote adapter integration)**: tracked in the Quiote-side repo,
   not here.
+
+## MSSQL fixture now builds (2026-07-28) -- full parity audit still pending
+
+The shared bookstore fixture previously couldn't be created at all against
+SQL Server: several tables have multiple `CASCADE` foreign keys that would
+touch the same row via more than one path (a self-referencing FK, two FKs
+from the same table to the same target, and a diamond via an intermediate
+table), which SQL Server rejects outright (error 1785, "...may cause cycles
+or multiple cascade paths") but Postgres/MySQL allow.
+
+Fixed with per-platform DDL-generation logic only (no schema change):
+`MssqlPlatform::computeCascadeDowngrades()` (`generator/Lib/Platform/MssqlPlatform.php`)
+detects all three shapes schema-wide (for `ON DELETE` and `ON UPDATE`
+independently) and emits `NO ACTION` instead of `CASCADE` for whichever FK is
+redundant (the transitively-reachable diamond edge, or all but the
+first-declared same-target FK) or unconditionally required (self-reference).
+Covered by `MssqlPlatformTest::testGetAddTablesDDLDowngrades*()`, and
+verified by replaying the regenerated fixture SQL statement-by-statement
+against a live `azure-sql-edge` container.
+
+**Not done yet**: with the fixture now building, running the full PHPUnit
+suite against it for the very first time (`PROPULSION_TEST_DB=mssql`)
+surfaces 747 errors + 4 failures + 1 risky test out of 2818 -- an order of
+magnitude larger than MySQL's initial ~130, since MSSQL was never previously
+exercised against live fixture data at all. This needs its own triage/fix
+pass (same shape as the MySQL parity audit above) before an `integration-mssql`
+CI job can be added.
 
 ## MySQL parity (2026-07-27 audit) -- resolved, now 0 failures
 
