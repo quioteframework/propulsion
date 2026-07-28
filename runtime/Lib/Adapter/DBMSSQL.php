@@ -164,7 +164,21 @@ class DBMSSQL extends DBAdapter
 			$selectStatement = trim($selectSegment[1]);
 			$fromStatement = trim($selectSegment[2]);
 		} else {
-			throw new \Exception('DBMSSQL::applyLimit() could not locate the select statement at the start of the query.');
+			// Not a single, plain "SELECT ... FROM ..." this regex-based
+			// rewriter can parse structurally (e.g. a UNION/INTERSECT/EXCEPT-
+			// combined query, which has no single FROM clause to hoist a
+			// ROW_NUMBER() window function into) -- fall back to SQL Server's
+			// native OFFSET/FETCH syntax instead, which applies to any
+			// complete query regardless of its internal shape, as long as it
+			// has an ORDER BY (which T-SQL requires for OFFSET/FETCH anyway).
+			if (!preg_match('/\bORDER BY\b/i', $sql)) {
+				throw new \Exception('DBMSSQL::applyLimit() requires an ORDER BY clause to paginate a query it cannot rewrite structurally (e.g. UNION/INTERSECT/EXCEPT).');
+			}
+			$sql .= ' OFFSET ' . $offset . ' ROWS';
+			if ($limit > 0) {
+				$sql .= ' FETCH NEXT ' . $limit . ' ROWS ONLY';
+			}
+			return;
 		}
 
 		if (preg_match('/\Aselect(\s+)distinct/i', $sql)) {

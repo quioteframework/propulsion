@@ -61,6 +61,20 @@ function normalizeGeneratedSql(string $sql): string
 		$sql = (string) preg_replace('/^SELECT TOP \d+ /', 'SELECT ', $sql, 1);
 		$sql .= ' LIMIT ' . $m[1];
 	}
+	// DBMSSQL::applyLimit()'s native-OFFSET/FETCH fallback (for a query it
+	// can't rewrite via the ROW_NUMBER derived-table trick, e.g. a
+	// UNION/INTERSECT/EXCEPT) -- "OFFSET 0 ROWS" alone (no FETCH NEXT) means
+	// an offset with no limit, matching Postgres's plain "OFFSET n" with no
+	// LIMIT at all.
+	if (preg_match('/ OFFSET (\d+) ROWS(?: FETCH NEXT (\d+) ROWS ONLY)?$/', $sql, $m)) {
+		$sql = (string) preg_replace('/ OFFSET \d+ ROWS(?: FETCH NEXT \d+ ROWS ONLY)?$/', '', $sql);
+		if (isset($m[2])) {
+			$sql .= ' LIMIT ' . $m[2];
+		}
+		if ((int) $m[1] !== 0) {
+			$sql .= ' OFFSET ' . $m[1];
+		}
+	}
 	return $sql;
 }
 
