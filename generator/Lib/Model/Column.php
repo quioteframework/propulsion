@@ -90,6 +90,20 @@ class Column extends XMLElement
 	protected array $valueSet = array();
 
 	/**
+	 * Fully-qualified class name of the backed PHP enum an ENUM column hydrates
+	 * to/from, if declared via the `enumClass` schema attribute.
+	 */
+	protected ?string $enumClass = null;
+
+	/**
+	 * Whether an ENUM column is declared `nativeEnum="true"`: the platform
+	 * emits its real enum mechanism (or closest equivalent -- see
+	 * PlatformInterface::supportsNativeEnumDDL()) and the column stores the
+	 * label text directly, instead of the emulated integer index.
+	 */
+	protected bool $isNativeEnum = false;
+
+	/**
 	 * @var				 Domain|null The domain object associated with this Column.
 	 */
 	private $domain;
@@ -225,11 +239,28 @@ class Column extends XMLElement
 				$this->getDomain()->setDefaultValue(new ColumnDefaultValue($this->getAttribute("defaultExpr"), ColumnDefaultValue::TYPE_EXPR));
 			}
 
-			if ($this->getAttribute('valueSet', null) !== null) {
+			$enumClassAttr = $this->getAttribute('enumClass', null);
+			if ($enumClassAttr !== null) {
+				if (!is_string($enumClassAttr)) {
+					throw new EngineException(sprintf('enumClass attribute on column "%s" must be a string', $this->getName()));
+				}
+				$enumClass = ltrim($enumClassAttr, '\\');
+				if (!enum_exists($enumClass) || !is_subclass_of($enumClass, \BackedEnum::class)) {
+					throw new EngineException(sprintf('enumClass "%s" on column "%s" is not a backed PHP enum', $enumClass, $this->getName()));
+				}
+				$this->enumClass = $enumClass;
+				// The enum's own case values are the single source of truth for the
+				// column's valueSet -- deriving it here (rather than requiring the
+				// schema author to also list `valueSet` and keep the two in sync by
+				// hand) means the generated code and the enum class can never disagree
+				// about what the legal labels are.
+				$this->valueSet = array_map(static fn ($case) => (string) $case->value, $enumClass::cases());
+			} elseif ($this->getAttribute('valueSet', null) !== null) {
 				$valueSet = explode(',', $this->getAttribute("valueSet"));
 				$valueSet = array_map('trim', $valueSet);
 				$this->valueSet = $valueSet;
 			}
+			$this->isNativeEnum = $this->booleanValue($this->getAttribute("nativeEnum"));
 
 			$this->inheritanceType = $this->getAttribute("inheritance");
 			$this->isInheritance = ($this->inheritanceType !== null
@@ -921,6 +952,42 @@ class Column extends XMLElement
 	}
 
 	/**
+	 * Whether this ENUM column declares a backing PHP enum class (`enumClass`
+	 * schema attribute) to hydrate to/from, instead of the plain string label.
+	 * @return		 boolean
+	 */
+	public function hasEnumClass(): bool
+	{
+		return $this->enumClass !== null;
+	}
+
+	/**
+	 * The fully-qualified class name of the backing PHP enum, or null if this
+	 * ENUM column has no `enumClass` declared.
+	 */
+	public function getEnumClass(): ?string
+	{
+		return $this->enumClass;
+	}
+
+	/**
+	 * Whether this ENUM column is declared `nativeEnum="true"` -- see the
+	 * property docblock for what that changes.
+	 */
+	public function isNativeEnum(): bool
+	{
+		return $this->isNativeEnum;
+	}
+
+	/**
+	 * Sets whether this ENUM column is `nativeEnum="true"`.
+	 */
+	public function setNativeEnum(bool $isNativeEnum): void
+	{
+		$this->isNativeEnum = $isNativeEnum;
+	}
+
+	/**
 	 * Utility method to know whether column is a JSON/JSONB column (stored as
 	 * real JSON text, decoded/encoded via json_decode()/json_encode()).
 	 * @return		 boolean
@@ -937,6 +1004,59 @@ class Column extends XMLElement
 	public function isUuidType()
 	{
 		return $this->getType() == PropulsionTypes::UUID;
+	}
+
+	/**
+	 * Utility method to know whether column is an INTERVAL column.
+	 * @return		 boolean
+	 */
+	public function isIntervalType(): bool
+	{
+		return $this->getType() === PropulsionTypes::INTERVAL;
+	}
+
+	/**
+	 * Utility method to know whether column is a Postgres range column
+	 * (mapped to Propulsion\Type\Range, not a plain string).
+	 * @return		 boolean
+	 */
+	public function isRangeType(): bool
+	{
+		return PropulsionTypes::isRangeType($this->getType());
+	}
+
+	/**
+	 * Utility method to know whether column is a VECTOR column (an
+	 * array<float> stored as a bracketed, comma-separated number list).
+	 * @return		 boolean
+	 */
+	public function isVectorType(): bool
+	{
+		return $this->getType() === PropulsionTypes::VECTOR;
+	}
+
+	/**
+	 * Utility method to know whether column is a GEOMETRY column (a WKT
+	 * "well-known text" string, e.g. "POINT(1 2)").
+	 * @return		 boolean
+	 */
+	public function isGeometryType(): bool
+	{
+		return $this->getType() === PropulsionTypes::GEOMETRY;
+	}
+
+	/**
+	 * Whether this column declares `phpType="\BcMath\Number"` (or without the
+	 * leading backslash) -- an opt-in mapping for DECIMAL/NUMERIC columns onto
+	 * PHP 8.4's arbitrary-precision `BcMath\Number`, instead of the default
+	 * plain string. Not restricted to DECIMAL/NUMERIC at the model level (any
+	 * numeric-ish column could declare it), matching how `phpType` isn't
+	 * restricted to any particular Propulsion type elsewhere either.
+	 * @return		 boolean
+	 */
+	public function isBcMathNumberType(): bool
+	{
+		return ltrim((string) $this->getPhpType(), '\\') === 'BcMath\\Number';
 	}
 
 	/**

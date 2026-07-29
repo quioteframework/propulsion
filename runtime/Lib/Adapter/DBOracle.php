@@ -28,7 +28,7 @@ use Propulsion\Util\BasePeer;
 use Propulsion\Exception\PropulsionException;
 use Propulsion\Map\ColumnMap;
 use Propulsion\Map\DatabaseMap;
-use Propulsion\Util\PropulsionColumnTypes;
+use Propulsion\Generator\Model\PropulsionTypes;
 use Propulsion\Connection\PropulsionPDO;
 
 class DBOracle extends DBAdapter
@@ -599,7 +599,7 @@ class DBOracle extends DBAdapter
 	{
 		if ($cMap->isTemporal()) {
 			$value = $this->formatTemporalValue($value, $cMap);
-		} elseif ($cMap->getType() == PropulsionColumnTypes::CLOB_EMU) {
+		} elseif ($cMap->getType() == PropulsionTypes::CLOB_EMU) {
 			if (!is_string($value)) {
 				throw new PropulsionException('DBOracle::bindValue() expected a string value for a CLOB_EMU column');
 			}

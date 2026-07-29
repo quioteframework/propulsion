@@ -33,7 +33,7 @@ use Propulsion\Exception\PropulsionException;
 use PDO;
 use Propulsion\Map\ColumnMap;
 use Propulsion\Util\PropulsionDateTime;
-use Propulsion\Util\PropulsionColumnTypes;
+use Propulsion\Generator\Model\PropulsionTypes;
 use Propulsion\Query\Criteria;
 use Propulsion\Map\DatabaseMap;
 use Propulsion\Connection\PropulsionPDO;
@@ -614,15 +614,15 @@ abstract class DBAdapter
 		$dt = PropulsionDateTime::newInstance($value);
 		if ($dt instanceof \DateTimeInterface) {
 			switch($cMap->getType()) {
-			case PropulsionColumnTypes::TIMESTAMP:
-			case PropulsionColumnTypes::BU_TIMESTAMP:
+			case PropulsionTypes::TIMESTAMP:
+			case PropulsionTypes::BU_TIMESTAMP:
 				$value = $dt->format($this->getTimestampFormatter());
 				break;
-			case PropulsionColumnTypes::DATE:
-			case PropulsionColumnTypes::BU_DATE:
+			case PropulsionTypes::DATE:
+			case PropulsionTypes::BU_DATE:
 				$value = $dt->format($this->getDateFormatter());
 				break;
-			case PropulsionColumnTypes::TIME:
+			case PropulsionTypes::TIME:
 				$value = $dt->format($this->getTimeFormatter());
 				break;
 			}

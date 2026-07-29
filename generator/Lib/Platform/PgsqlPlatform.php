@@ -61,6 +61,37 @@ class PgsqlPlatform extends DefaultPlatform
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::JSON, "JSON"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::JSONB, "JSONB"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::UUID, "UUID"));
+		// Native `interval` type -- forced to ISO-8601 text output via
+		// `SET intervalstyle = 'iso_8601'` on connect (DBPostgres::initConnection())
+		// so `new DateInterval($v)` round-trips it the same way every other
+		// platform's emulated (VARCHAR) INTERVAL column already does.
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::INTERVAL, "INTERVAL"));
+		// Native network address types -- no rich PHP value object for these
+		// (v1), hydrated as plain strings the same way UUID already is.
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::INET, "INET"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::CIDR, "CIDR"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::MACADDR, "MACADDR"));
+		// citext ships as a contrib extension, not a built-in type -- see
+		// getAddExtensionsDDL(), which emits `CREATE EXTENSION IF NOT EXISTS
+		// citext` before the table whenever a column actually uses it.
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::CITEXT, "CITEXT"));
+		// Native range types -- hydrate to/from Propulsion\Type\Range (see
+		// ObjectBuilder's isRangeType() branches), not a plain string.
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::INT4RANGE, "INT4RANGE"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::INT8RANGE, "INT8RANGE"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::NUMRANGE, "NUMRANGE"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::DATERANGE, "DATERANGE"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::TSRANGE, "TSRANGE"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::TSTZRANGE, "TSTZRANGE"));
+		// pgvector's `vector` type ships as an extension, not a built-in type --
+		// see getAddExtensionsDDL(). Dimension comes from the column's ordinary
+		// `size` attribute (e.g. `size="1536"`), handled generically by the
+		// same printSize()/hasSize() machinery VARCHAR(n) already goes through
+		// -- no VECTOR-specific DDL override needed.
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::VECTOR, "vector"));
+		// Emulated as plain text (WKT), not PostGIS's real `geometry` type --
+		// see PropulsionTypes::GEOMETRY_NATIVE_TYPE for why.
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::GEOMETRY, "TEXT"));
 	}
 
 	public function getNativeIdMethod()
@@ -332,8 +363,14 @@ SET search_path TO public;
 		$ret = $this->getBeginDDL();
 		$ret .= $this->getAddSchemasDDL($database);
 		foreach ($database->getTablesForSql() as $table) {
+			$ret .= $this->getAddExtensionsDDL($table);
 			$ret .= $this->getCommentBlockDDL($table->getName());
 			$ret .= $this->getDropTableDDL($table);
+			// The enum type must be dropped after the table that depends on it
+			// (a table's column type can't be dropped out from under it) and
+			// (re)created before the table that references it.
+			$ret .= $this->getDropEnumTypesDDL($table);
+			$ret .= $this->getAddEnumTypesDDL($table);
 			$ret .= $this->getAddTableDDL($table);
 			$ret .= $this->getAddIndicesDDL($table);
 		}
@@ -341,6 +378,85 @@ SET search_path TO public;
 			$ret .= $this->getAddForeignKeysDDL($table);
 		}
 		$ret .= $this->getEndDDL();
+		return $ret;
+	}
+
+	/**
+	 * Emits `CREATE EXTENSION IF NOT EXISTS citext` before the table if any of
+	 * its columns actually use the CITEXT type -- citext ships as a contrib
+	 * extension, not a built-in Postgres type, so the column type alone isn't
+	 * enough to make it available.
+	 *
+	 * @return     string
+	 */
+	public function getAddExtensionsDDL(Table $table)
+	{
+		$ret = '';
+		$extensions = [];
+		foreach ($table->getColumns() as $col) {
+			if ($col->getType() === PropulsionTypes::CITEXT) {
+				$extensions['citext'] = true;
+			} elseif ($col->isVectorType()) {
+				$extensions['vector'] = true;
+			}
+		}
+		foreach (array_keys($extensions) as $extension) {
+			$ret .= "
+CREATE EXTENSION IF NOT EXISTS $extension;
+";
+		}
+		return $ret;
+	}
+
+	/**
+	 * The name of the `CREATE TYPE ... AS ENUM` type backing a native-storage
+	 * ENUM column -- table- and column-qualified so two tables can each have
+	 * their own enum column without a type-name collision.
+	 *
+	 * @return     string
+	 */
+	protected function getEnumTypeRawName(Column $col, Table $table)
+	{
+		return $table->getName() . '_' . $col->getName() . '_enum';
+	}
+
+	/**
+	 * Builds `CREATE TYPE ... AS ENUM (...)` DDL for every `nativeEnum="true"`
+	 * ENUM column on $table, emitted before the table itself (see
+	 * getAddTablesDDL()) since the column's type must already exist.
+	 *
+	 * @return     string
+	 */
+	public function getAddEnumTypesDDL(Table $table)
+	{
+		$ret = '';
+		foreach ($table->getColumns() as $col) {
+			if ($col->isEnumType() && $col->isNativeEnum()) {
+				$values = implode(', ', array_map(fn ($v) => $this->quote($v), $col->getValueSet()));
+				$ret .= "
+CREATE TYPE " . $this->quoteIdentifier($this->getEnumTypeRawName($col, $table)) . " AS ENUM ($values);
+";
+			}
+		}
+		return $ret;
+	}
+
+	/**
+	 * Drops every `nativeEnum="true"` ENUM column's backing type for $table
+	 * -- emitted after the table itself is dropped (see getAddTablesDDL()).
+	 *
+	 * @return     string
+	 */
+	public function getDropEnumTypesDDL(Table $table)
+	{
+		$ret = '';
+		foreach ($table->getColumns() as $col) {
+			if ($col->isEnumType() && $col->isNativeEnum()) {
+				$ret .= "
+DROP TYPE IF EXISTS " . $this->quoteIdentifier($this->getEnumTypeRawName($col, $table)) . ";
+";
+			}
+		}
 		return $ret;
 	}
 
@@ -449,6 +565,13 @@ DROP TABLE IF EXISTS %s CASCADE;
 		$table = $col->getTable();
 		if ($col->isAutoIncrement() && $table && $table->getIdMethodParameters() == null) {
 			$sqlType = $col->getType() === PropulsionTypes::BIGINT ? 'bigserial' : 'serial';
+		} elseif ($col->isEnumType() && $col->isNativeEnum() && $table) {
+			// The real `CREATE TYPE ... AS ENUM` this column's type name refers
+			// to is emitted separately, before the table -- see getAddTablesDDL()/
+			// getAddEnumTypesDDL(). Postgres stores the label text natively here
+			// (not the emulated integer index), enforced by the enum type itself
+			// rather than a CHECK constraint (contrast SQLite/Oracle).
+			$sqlType = $this->quoteIdentifier($this->getEnumTypeRawName($col, $table));
 		}
 		if ($this->hasSize($sqlType) && $col->isDefaultSqlType($this)) {
 			$ddl[] = $sqlType . $domain->printSize();

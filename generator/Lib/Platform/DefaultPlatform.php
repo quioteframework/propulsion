@@ -328,7 +328,19 @@ DROP TABLE " . $this->quoteIdentifier($table->getName()) . ";
 
 		$ddl = array($this->quoteIdentifier($col->getName()));
 		$sqlType = $domain->getSqlType();
-		if ($this->hasSize($sqlType) && $col->isDefaultSqlType($this)) {
+		if ($this->usesNativeEnumStorage($col)) {
+			// A native-storage ENUM column holds the label text directly (see
+			// getColumnDefaultValueDDL()/getEnumCheckConstraintDDL() below),
+			// not the emulated integer index -- so it needs a text column
+			// sized to the longest declared label, not the domain's
+			// TINYINT/NUMBER emulated-int mapping.
+			$valueSet = $col->getValueSet();
+			if (empty($valueSet)) {
+				throw new EngineException(sprintf('nativeEnum column "%s" has no valueSet', $col->getName()));
+			}
+			$maxLen = max(array_map('strlen', $valueSet));
+			$ddl []= $this->getDomainForType(PropulsionTypes::VARCHAR)->getSqlType() . '(' . $maxLen . ')';
+		} elseif ($this->hasSize($sqlType) && $col->isDefaultSqlType($this)) {
 			$ddl []= $sqlType . $domain->printSize();
 		} else {
 			$ddl []= $sqlType;
@@ -341,6 +353,9 @@ DROP TABLE " . $this->quoteIdentifier($table->getName()) . ";
 		}
 		if ($autoIncrement = $col->getAutoIncrementString()) {
 			$ddl []= $autoIncrement;
+		}
+		if ($this->usesNativeEnumStorage($col)) {
+			$ddl []= $this->getEnumCheckConstraintDDL($col);
 		}
 
 		return implode(' ', $ddl);
@@ -359,12 +374,17 @@ DROP TABLE " . $this->quoteIdentifier($table->getName()) . ";
 			if ($defaultValue->isExpression()) {
 				$default .= $defaultValue->getValue();
 			} else {
-				if ($col->isTextType()) {
+				if ($col->getType() == PropulsionTypes::ENUM) {
+					// A native-storage enum column stores (and therefore
+					// defaults to) the label text itself; the emulated form
+					// still defaults to the label's index into valueSet.
+					$default .= $this->usesNativeEnumStorage($col)
+						? $this->quote($defaultValue->getValue())
+						: array_search($defaultValue->getValue(), $col->getValueSet());
+				} elseif ($col->isTextType()) {
 					$default .= $this->quote($defaultValue->getValue());
 				} elseif ($col->getType() == PropulsionTypes::BOOLEAN || $col->getType() == PropulsionTypes::BOOLEAN_EMU) {
 					$default .= $this->getBooleanString($defaultValue->getValue());
-				} elseif ($col->getType() == PropulsionTypes::ENUM) {
-					$default .= array_search($defaultValue->getValue(), $col->getValueSet());
 				} else {
 					$default .= $defaultValue->getValue();
 				}
@@ -372,6 +392,50 @@ DROP TABLE " . $this->quoteIdentifier($table->getName()) . ";
 		}
 
 		return $default;
+	}
+
+	/**
+	 * Whether `nativeEnum="true"` on an ENUM column emits this platform's own
+	 * native-ish enforcement (here: a CHECK constraint on the emulated text
+	 * column) and stores the label text directly, instead of staying purely
+	 * emulated as an integer index. MSSQL has no native enum mechanism and,
+	 * per PLATFORM_FEATURES.md, doesn't get an emulated CHECK constraint
+	 * either -- MssqlPlatform overrides this to false. MySQL and Postgres
+	 * override getColumnDDL()/getAddTablesDDL() with their own native
+	 * mechanisms entirely and don't consult this for their own column type,
+	 * but do still rely on it via getColumnDefaultValueDDL() (inherited,
+	 * unmodified) to know whether a default value is a label or an index.
+	 *
+	 * @return     boolean
+	 */
+	public function supportsNativeEnumDDL()
+	{
+		return true;
+	}
+
+	/**
+	 * Whether $col is an ENUM column whose value is stored as the label text
+	 * itself, rather than the emulated integer index -- i.e. `nativeEnum`
+	 * is set AND this platform doesn't reject it (see supportsNativeEnumDDL()).
+	 *
+	 * @return     boolean
+	 */
+	protected function usesNativeEnumStorage(Column $col)
+	{
+		return $col->isEnumType() && $col->isNativeEnum() && $this->supportsNativeEnumDDL();
+	}
+
+	/**
+	 * Builds a `CHECK (col IN (...))` constraint DDL fragment restricting a
+	 * native-storage ENUM column to its declared valueSet labels -- the
+	 * SQLite/Oracle enforcement mechanism, since neither has a real enum type.
+	 *
+	 * @return     string
+	 */
+	protected function getEnumCheckConstraintDDL(Column $col)
+	{
+		$values = implode(', ', array_map(fn ($v) => $this->quote($v), $col->getValueSet()));
+		return sprintf('CHECK (%s IN (%s))', $this->quoteIdentifier($col->getName()), $values);
 	}
 
 	/**

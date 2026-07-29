@@ -101,6 +101,19 @@ class MssqlPlatform extends DefaultPlatform
 		// (and comparisons/round-tripping through PDO) identical across every
 		// platform (see PropulsionTypes::UUID / Column::isUuidType()).
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::UUID, "CHAR", 36));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::INTERVAL, "VARCHAR", 32));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::INET, "VARCHAR", 43));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::CIDR, "VARCHAR", 43));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::MACADDR, "VARCHAR", 17));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::CITEXT, "VARCHAR(MAX)"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::INT4RANGE, "VARCHAR", 64));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::INT8RANGE, "VARCHAR", 64));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::NUMRANGE, "VARCHAR", 64));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::DATERANGE, "VARCHAR", 64));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::TSRANGE, "VARCHAR", 64));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::TSTZRANGE, "VARCHAR", 64));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::VECTOR, "VARCHAR(MAX)"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::GEOMETRY, "VARCHAR(MAX)"));
 	}
 
 	public function getMaxColumnNameLength()
@@ -119,6 +132,17 @@ class MssqlPlatform extends DefaultPlatform
 	}
 
 	public function supportsInsertNullPk()
+	{
+		return false;
+	}
+
+	/**
+	 * MSSQL has no native enum type; unlike SQLite/Oracle (see
+	 * DefaultPlatform::getEnumCheckConstraintDDL()), it also doesn't get an
+	 * emulated CHECK-constraint substitute -- `nativeEnum="true"` is simply
+	 * ignored here and the column stays the plain emulated integer.
+	 */
+	public function supportsNativeEnumDDL()
 	{
 		return false;
 	}

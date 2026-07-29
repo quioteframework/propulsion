@@ -26,6 +26,28 @@ class DBPostgres extends DBAdapter
 {
 
 	/**
+	 * This method is called after a connection was created to run necessary
+	 * post-initialization queries or code.
+	 *
+	 * Forces `intervalstyle` to `iso_8601` so a native `interval` column's
+	 * text output always round-trips through `new DateInterval($v)` the same
+	 * way an emulated INTERVAL column (VARCHAR storing an ISO-8601 duration
+	 * string, on every other platform) already does -- Postgres's *default*
+	 * `intervalstyle` ("postgres", e.g. "1 day 02:03:04") is not ISO-8601 and
+	 * would need fuzzy parsing on read instead of this one-line fix on connect.
+	 *
+	 * @see       parent::initConnection()
+	 *
+	 * @param     PDO    $con  A PDO connection instance.
+	 * @param     array<string,mixed>  $settings  An array of settings.
+	 */
+	public function initConnection(PDO $con, array $settings): void
+	{
+		$con->exec("SET intervalstyle = 'iso_8601'");
+		parent::initConnection($con, $settings);
+	}
+
+	/**
 	 * This method is used to ignore case.
 	 *
 	 * @param     string  $in  The string to transform to upper case.

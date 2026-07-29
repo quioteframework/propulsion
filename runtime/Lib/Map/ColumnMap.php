@@ -24,7 +24,7 @@ namespace Propulsion\Map;
  * @version    $Revision$
  */
 
- use Propulsion\Util\PropulsionColumnTypes;
+ use Propulsion\Generator\Model\PropulsionTypes;
  use Propulsion\Exception\PropulsionException;
  use Propulsion\Adapter\DBAdapter;
 class ColumnMap
@@ -65,6 +65,10 @@ class ColumnMap
 
   /** @var array<int, string> The allowed values for an ENUM column */
   protected array $valueSet = array();
+
+  // Whether an ENUM column is `nativeEnum="true"` -- stores the label text
+  // directly instead of the emulated integer index (see getPdoType()).
+  protected bool $isNativeEnum = false;
 
   // Is this a primaryString column?
   protected bool $isPkString = false;
@@ -169,7 +173,28 @@ class ColumnMap
    */
   public function getPdoType()
   {
-    return PropulsionColumnTypes::getPdoType($this->type);
+    if ($this->type === PropulsionTypes::ENUM && $this->isNativeEnum) {
+      // A native-storage enum column holds the label text itself, not the
+      // emulated integer index PropulsionTypes::getPDOType(ENUM) assumes.
+      return \PDO::PARAM_STR;
+    }
+    return PropulsionTypes::getPDOType($this->type);
+  }
+
+  /**
+   * Sets whether this ENUM column is `nativeEnum="true"`.
+   */
+  public function setNativeEnum(bool $isNativeEnum): void
+  {
+    $this->isNativeEnum = $isNativeEnum;
+  }
+
+  /**
+   * Whether this ENUM column is `nativeEnum="true"`.
+   */
+  public function isNativeEnum(): bool
+  {
+    return $this->isNativeEnum;
   }
 
   /**
@@ -178,7 +203,7 @@ class ColumnMap
    */
   public function isLob()
   {
-    return ($this->type == PropulsionColumnTypes::BLOB || $this->type == PropulsionColumnTypes::VARBINARY || $this->type == PropulsionColumnTypes::LONGVARBINARY);
+    return ($this->type == PropulsionTypes::BLOB || $this->type == PropulsionTypes::VARBINARY || $this->type == PropulsionTypes::LONGVARBINARY);
   }
 
   /**
@@ -189,7 +214,7 @@ class ColumnMap
    */
   public function isTemporal()
   {
-    return ($this->type == PropulsionColumnTypes::TIMESTAMP || $this->type == PropulsionColumnTypes::DATE || $this->type == PropulsionColumnTypes::TIME || $this->type == PropulsionColumnTypes::BU_DATE  || $this->type == PropulsionColumnTypes::BU_TIMESTAMP);
+    return ($this->type == PropulsionTypes::TIMESTAMP || $this->type == PropulsionTypes::DATE || $this->type == PropulsionTypes::TIME || $this->type == PropulsionTypes::BU_DATE  || $this->type == PropulsionTypes::BU_TIMESTAMP);
   }
 
   /**
@@ -203,7 +228,7 @@ class ColumnMap
    */
   public function isEpochTemporal()
   {
-    return ($this->type == PropulsionColumnTypes::TIMESTAMP || $this->type == PropulsionColumnTypes::DATE || $this->type == PropulsionColumnTypes::TIME);
+    return ($this->type == PropulsionTypes::TIMESTAMP || $this->type == PropulsionTypes::DATE || $this->type == PropulsionTypes::TIME);
   }
 
   /**
@@ -212,7 +237,7 @@ class ColumnMap
    */
   public function isNumeric()
   {
-    return ($this->type == PropulsionColumnTypes::NUMERIC || $this->type == PropulsionColumnTypes::DECIMAL || $this->type == PropulsionColumnTypes::TINYINT || $this->type == PropulsionColumnTypes::SMALLINT || $this->type == PropulsionColumnTypes::INTEGER || $this->type == PropulsionColumnTypes::BIGINT || $this->type == PropulsionColumnTypes::REAL || $this->type == PropulsionColumnTypes::FLOAT || $this->type == PropulsionColumnTypes::DOUBLE);
+    return ($this->type == PropulsionTypes::NUMERIC || $this->type == PropulsionTypes::DECIMAL || $this->type == PropulsionTypes::TINYINT || $this->type == PropulsionTypes::SMALLINT || $this->type == PropulsionTypes::INTEGER || $this->type == PropulsionTypes::BIGINT || $this->type == PropulsionTypes::REAL || $this->type == PropulsionTypes::FLOAT || $this->type == PropulsionTypes::DOUBLE);
   }
 
   /**
@@ -221,7 +246,7 @@ class ColumnMap
    */
   public function isText()
   {
-    return ($this->type == PropulsionColumnTypes::VARCHAR || $this->type == PropulsionColumnTypes::LONGVARCHAR || $this->type == PropulsionColumnTypes::CHAR || $this->type == PropulsionColumnTypes::UUID);
+    return ($this->type == PropulsionTypes::VARCHAR || $this->type == PropulsionTypes::LONGVARCHAR || $this->type == PropulsionTypes::CHAR || $this->type == PropulsionTypes::UUID);
   }
 
   /**

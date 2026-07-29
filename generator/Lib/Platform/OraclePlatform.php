@@ -108,6 +108,19 @@ class OraclePlatform extends DefaultPlatform
 		// 36-character hyphenated textual representation (see
 		// PropulsionTypes::UUID / Column::isUuidType()).
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::UUID, "CHAR", "36"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::INTERVAL, "VARCHAR2", 32));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::INET, "VARCHAR2", 43));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::CIDR, "VARCHAR2", 43));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::MACADDR, "VARCHAR2", 17));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::CITEXT, "NVARCHAR2", "2000"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::INT4RANGE, "VARCHAR2", 64));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::INT8RANGE, "VARCHAR2", 64));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::NUMRANGE, "VARCHAR2", 64));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::DATERANGE, "VARCHAR2", 64));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::TSRANGE, "VARCHAR2", 64));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::TSTZRANGE, "VARCHAR2", 64));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::VECTOR, "CLOB"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::GEOMETRY, "CLOB"));
 
 	}
 

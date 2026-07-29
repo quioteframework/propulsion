@@ -47,6 +47,22 @@ class SqlitePlatform extends DefaultPlatform
 		// 36-character hyphenated textual representation (see
 		// PropulsionTypes::UUID / Column::isUuidType()).
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::UUID, "CHAR", 36));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::INTERVAL, "VARCHAR", 32));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::INET, "VARCHAR", 43));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::CIDR, "VARCHAR", 43));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::MACADDR, "VARCHAR", 17));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::CITEXT, "MEDIUMTEXT"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::INT4RANGE, "VARCHAR", 64));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::INT8RANGE, "VARCHAR", 64));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::NUMRANGE, "VARCHAR", 64));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::DATERANGE, "VARCHAR", 64));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::TSRANGE, "VARCHAR", 64));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::TSTZRANGE, "VARCHAR", 64));
+		// No native vector type -- emulated as unbounded text (not a sized
+		// VARCHAR like the other emulated types above) since a high-dimension
+		// embedding vector's JSON-encoded text can be long.
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::VECTOR, "MEDIUMTEXT"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::GEOMETRY, "MEDIUMTEXT"));
 	}
 
 	/**

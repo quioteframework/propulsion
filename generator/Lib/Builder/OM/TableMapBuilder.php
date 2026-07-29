@@ -443,6 +443,13 @@ class ".$this->getClassname()." extends \Propulsion\Map\TableMap
             if ($col->isEnumType()) {
                 $script .= "
         \$this->getColumn('$cup')->setValueSet(" . var_export($col->getValueSet(), true). ");";
+                if ($col->isNativeEnum()) {
+                    // Affects ColumnMap::getPdoType() -- a native-storage enum
+                    // column holds the label text itself, not the emulated
+                    // integer index, so it must bind as PDO::PARAM_STR.
+                    $script .= "
+        \$this->getColumn('$cup')->setNativeEnum(true);";
+                }
             }
             if ($col->isPrimaryString()) {
                 $script .= "

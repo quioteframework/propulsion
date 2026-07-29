@@ -107,6 +107,8 @@ PHP class or method name.
   lazyLoad (true|false) "false"
   primaryString (true|false) "false"
   valueSet CDATA #IMPLIED
+  enumClass CDATA #IMPLIED
+  nativeEnum (true|false) "false"
 >
 
 <!ELEMENT inheritance EMPTY>

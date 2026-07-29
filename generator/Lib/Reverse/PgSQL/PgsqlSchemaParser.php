@@ -86,6 +86,20 @@ class PgsqlSchemaParser extends BaseSchemaParser
 				'timestamptz' => PropulsionTypes::TIMESTAMP,
 				'bytea' => PropulsionTypes::BLOB,
 				'text' => PropulsionTypes::LONGVARCHAR,
+				'interval' => PropulsionTypes::INTERVAL,
+				'inet' => PropulsionTypes::INET,
+				'cidr' => PropulsionTypes::CIDR,
+				'macaddr' => PropulsionTypes::MACADDR,
+				'citext' => PropulsionTypes::CITEXT,
+				'int4range' => PropulsionTypes::INT4RANGE,
+				'int8range' => PropulsionTypes::INT8RANGE,
+				'numrange' => PropulsionTypes::NUMRANGE,
+				'daterange' => PropulsionTypes::DATERANGE,
+				'tsrange' => PropulsionTypes::TSRANGE,
+				'tstzrange' => PropulsionTypes::TSTZRANGE,
+				'vector' => PropulsionTypes::VECTOR,
+				'geometry' => PropulsionTypes::GEOMETRY,
+				'geography' => PropulsionTypes::GEOMETRY,
 	);
 
 	/**

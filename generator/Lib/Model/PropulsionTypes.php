@@ -51,6 +51,19 @@ class PropulsionTypes
 	const JSON = "JSON";
 	const JSONB = "JSONB";
 	const UUID = "UUID";
+	const INTERVAL = "INTERVAL";
+	const INET = "INET";
+	const CIDR = "CIDR";
+	const MACADDR = "MACADDR";
+	const CITEXT = "CITEXT";
+	const INT4RANGE = "INT4RANGE";
+	const INT8RANGE = "INT8RANGE";
+	const NUMRANGE = "NUMRANGE";
+	const DATERANGE = "DATERANGE";
+	const TSRANGE = "TSRANGE";
+	const TSTZRANGE = "TSTZRANGE";
+	const VECTOR = "VECTOR";
+	const GEOMETRY = "GEOMETRY";
 
 	/** @var array<int|string, string> */
 	protected static array $creoleToPropulsionTypeMap = [];
@@ -68,7 +81,20 @@ class PropulsionTypes
 
 	/** @var string[] */
 	private static array $TEXT_TYPES = array(
-		self::CHAR, self::VARCHAR, self::LONGVARCHAR, self::CLOB, self::DATE, self::TIME, self::TIMESTAMP, self::BU_DATE, self::BU_TIMESTAMP, self::UUID
+		self::CHAR, self::VARCHAR, self::LONGVARCHAR, self::CLOB, self::DATE, self::TIME, self::TIMESTAMP, self::BU_DATE, self::BU_TIMESTAMP, self::UUID, self::INTERVAL, self::INET, self::CIDR, self::MACADDR, self::CITEXT,
+		self::INT4RANGE, self::INT8RANGE, self::NUMRANGE, self::DATERANGE, self::TSRANGE, self::TSTZRANGE, self::GEOMETRY
+	);
+
+	/**
+	 * Postgres range types -- see Column::isRangeType()/ObjectBuilder's
+	 * hydrate()/buildCriteria() branches, which map these to/from
+	 * Propulsion\Type\Range instead of the plain string every other TEXT_TYPES
+	 * entry gets.
+	 *
+	 * @var string[]
+	 */
+	private static array $RANGE_TYPES = array(
+		self::INT4RANGE, self::INT8RANGE, self::NUMRANGE, self::DATERANGE, self::TSRANGE, self::TSTZRANGE
 	);
 
 	/** @var string[] */
@@ -138,6 +164,46 @@ class PropulsionTypes
 	const JSON_NATIVE_TYPE = "";
 	const JSONB_NATIVE_TYPE = "";
 	const UUID_NATIVE_TYPE = "string";
+	// Stored as text (an ISO-8601 duration string, e.g. "P1DT2H") on every
+	// platform -- see ObjectBuilder's getPhp84TypeHint()/getPhp84PropertyType(),
+	// which special-case INTERVAL to the real ?DateInterval object the same way
+	// TIMESTAMP/DATE/TIME are special-cased to ?DateTimeInterface.
+	const INTERVAL_NATIVE_TYPE = "string";
+	// Pg network types and citext -- no rich PHP value object for these (v1),
+	// hydrated as plain strings the same way UUID is.
+	const INET_NATIVE_TYPE = "string";
+	const CIDR_NATIVE_TYPE = "string";
+	const MACADDR_NATIVE_TYPE = "string";
+	const CITEXT_NATIVE_TYPE = "string";
+	// Range types are stored as a Postgres range literal string (e.g.
+	// "[1,10)") but, like INTERVAL, hydrate to a real value object
+	// (Propulsion\Type\Range) -- see ObjectBuilder's getPhp84TypeHint()/
+	// getPhp84PropertyType().
+	const INT4RANGE_NATIVE_TYPE = "string";
+	const INT8RANGE_NATIVE_TYPE = "string";
+	const NUMRANGE_NATIVE_TYPE = "string";
+	const DATERANGE_NATIVE_TYPE = "string";
+	const TSRANGE_NATIVE_TYPE = "string";
+	const TSTZRANGE_NATIVE_TYPE = "string";
+	// Same native PHP type as PHP_ARRAY (a plain array<float>) -- see
+	// ObjectBuilder's addHydrate()/addBuildCriteria(), which json_encode()/
+	// json_decode() it (reusing BaseObject::encodeJsonColumn()/
+	// decodeJsonColumn()) rather than PHP_ARRAY's " | "-delimited format,
+	// since a vector's wire format on every platform (pgvector, MariaDB/MySQL
+	// VECTOR) is a bracketed comma-separated number list -- valid JSON already.
+	const VECTOR_NATIVE_TYPE = "array";
+	// Stored (and hydrated) as a plain WKT ("well-known text", e.g.
+	// "POINT(1 2)") string on every platform -- deliberately emulated as text
+	// everywhere rather than attempting each platform's real native geometry
+	// column type (PostGIS geometry, MySQL GEOMETRY, MSSQL geometry, Oracle
+	// SDO_GEOMETRY): none of those accept/return raw WKT text through a plain
+	// parameterized bind the way this codebase's other "native" mappings do
+	// (UUID, JSON, etc.) -- they need the bound value wrapped in a
+	// platform-specific conversion function (ST_GeomFromText()/
+	// STGeomFromText()/SDO_UTIL.FROM_WKTGEOMETRY()) at the SQL-statement
+	// level, which is a query-layer change (BasePeer/Criteria column-specific
+	// SQL rewriting), not a type-system one -- see PLATFORM_FEATURES.md.
+	const GEOMETRY_NATIVE_TYPE = "string";
 
 	/**
 	 * Mapping between Propulsion types and PHP native types.
@@ -176,6 +242,19 @@ class PropulsionTypes
 			self::JSON => self::JSON_NATIVE_TYPE,
 			self::JSONB => self::JSONB_NATIVE_TYPE,
 			self::UUID => self::UUID_NATIVE_TYPE,
+			self::INTERVAL => self::INTERVAL_NATIVE_TYPE,
+			self::INET => self::INET_NATIVE_TYPE,
+			self::CIDR => self::CIDR_NATIVE_TYPE,
+			self::MACADDR => self::MACADDR_NATIVE_TYPE,
+			self::CITEXT => self::CITEXT_NATIVE_TYPE,
+			self::INT4RANGE => self::INT4RANGE_NATIVE_TYPE,
+			self::INT8RANGE => self::INT8RANGE_NATIVE_TYPE,
+			self::NUMRANGE => self::NUMRANGE_NATIVE_TYPE,
+			self::DATERANGE => self::DATERANGE_NATIVE_TYPE,
+			self::TSRANGE => self::TSRANGE_NATIVE_TYPE,
+			self::TSTZRANGE => self::TSTZRANGE_NATIVE_TYPE,
+			self::VECTOR => self::VECTOR_NATIVE_TYPE,
+			self::GEOMETRY => self::GEOMETRY_NATIVE_TYPE,
 	);
 
 	/**
@@ -213,6 +292,19 @@ class PropulsionTypes
 			self::JSON => self::JSON,
 			self::JSONB => self::JSONB,
 			self::UUID => self::UUID,
+			self::INTERVAL => self::INTERVAL,
+			self::INET => self::INET,
+			self::CIDR => self::CIDR,
+			self::MACADDR => self::MACADDR,
+			self::CITEXT => self::CITEXT,
+			self::INT4RANGE => self::INT4RANGE,
+			self::INT8RANGE => self::INT8RANGE,
+			self::NUMRANGE => self::NUMRANGE,
+			self::DATERANGE => self::DATERANGE,
+			self::TSRANGE => self::TSRANGE,
+			self::TSTZRANGE => self::TSTZRANGE,
+			self::VECTOR => self::VECTOR,
+			self::GEOMETRY => self::GEOMETRY,
 			// These are pre-epoch dates, which we need to map to String type
 			// since they cannot be properly handled using strtotime() -- or even numeric
 			// timestamps on Windows.
@@ -256,6 +348,19 @@ class PropulsionTypes
 			self::JSON => PDO::PARAM_STR,
 			self::JSONB => PDO::PARAM_STR,
 			self::UUID => PDO::PARAM_STR,
+			self::INTERVAL => PDO::PARAM_STR,
+			self::INET => PDO::PARAM_STR,
+			self::CIDR => PDO::PARAM_STR,
+			self::MACADDR => PDO::PARAM_STR,
+			self::CITEXT => PDO::PARAM_STR,
+			self::INT4RANGE => PDO::PARAM_STR,
+			self::INT8RANGE => PDO::PARAM_STR,
+			self::NUMRANGE => PDO::PARAM_STR,
+			self::DATERANGE => PDO::PARAM_STR,
+			self::TSRANGE => PDO::PARAM_STR,
+			self::TSTZRANGE => PDO::PARAM_STR,
+			self::VECTOR => PDO::PARAM_STR,
+			self::GEOMETRY => PDO::PARAM_STR,
 
 			// These are pre-epoch dates, which we need to map to String type
 			// since they cannot be properly handled using strtotime() -- or even numeric
@@ -386,6 +491,18 @@ class PropulsionTypes
 	public static function isJsonType($type)
 	{
 		return in_array($type, self::$JSON_TYPES);
+	}
+
+	/**
+	 * Returns true if type is a Postgres range type (mapped to
+	 * Propulsion\Type\Range, not a plain string).
+	 *
+	 * @param      string $type The Propulsion type to check.
+	 * @return     boolean
+	 */
+	public static function isRangeType($type)
+	{
+		return in_array($type, self::$RANGE_TYPES);
 	}
 
 	/**

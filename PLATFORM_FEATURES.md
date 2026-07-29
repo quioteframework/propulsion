@@ -280,36 +280,189 @@ These are gaps in the shared query builder — confirmed absent by grep across
 
 ## 2. Type-system additions
 
-- [ ] **Native enum types at the DDL level** — Propulsion's `ENUM` column
-  type is universally emulated as an integer column (`INT2`/`TINYINT`/
-  `NUMBER`) with the value list tracked only in PHP
-  (`Column::getValueSet()`). Never emitted as each platform's native enum
-  mechanism (Pg `CREATE TYPE ... AS ENUM`, MySQL `ENUM(...)`, Oracle/SQLite
-  `CHECK` constraint; MSSQL has no native enum, so N/A there).
-- [ ] **Native PHP enum mapping** — `PropulsionTypes::ENUM_NATIVE_TYPE` is
-  `string`. Letting a column declare a backing PHP `enum` class and hydrating
-  to it is the most-requested modern-PHP mapping (Doctrine `enumType`,
-  Laravel casts). Orthogonal to the DDL item above — either can land first.
-- [ ] **`DECIMAL`/`NUMERIC` → `BcMath\Number`** (PHP 8.4+) instead of
-  `string`. Removes the standing money-handling footgun.
-- [ ] **Vector types** — Pg `pgvector` (`vector` column, `<=>`/`<->`
-  operators, HNSW/IVFFlat indexes) and MariaDB 11.7+ `VECTOR` /
-  `VEC_DISTANCE`. No PHP ORM ships this well today; a genuine
-  differentiator, and it needs the query layer (operators) as much as the DDL.
-- [ ] **Pg range types** (`tstzrange` et al.) — the natural companion to the
-  exclusion-constraint item under PostgreSQL below: ranges plus
-  `EXCLUDE USING gist` is what enforces booking/scheduling non-overlap in the
-  database instead of in application code.
-- [ ] **Pg network types** (`inet`, `cidr`, `macaddr`) and `citext`.
-- [ ] **`INTERVAL` → `DateInterval`** — currently no interval type at all
-  (`PgsqlSchemaParser` recognizes the DDL keyword on reverse-engineering
-  only).
-- [ ] **Spatial types as a first-class type**, not just the MySQL-only DDL
-  bullet below — PostGIS is the more common target.
+- [x] **Native enum types at the DDL level** — opt-in via `nativeEnum="true"`
+  on an ENUM column (`Column::isNativeEnum()`/`setNativeEnum()`), independent
+  of `enumClass` (either, neither, or both may be set). Postgres emits a real
+  `CREATE TYPE <table>_<column>_enum AS ENUM (...)` before the table (and
+  `DROP TYPE IF EXISTS` after dropping it) via
+  `PgsqlPlatform::getAddEnumTypesDDL()`/`getDropEnumTypesDDL()`, wired into
+  `getAddTablesDDL()`; MySQL emits inline `ENUM('a', 'b', ...)`
+  (`MysqlPlatform::getEnumSqlType()`); SQLite/Oracle stay on the emulated
+  text/int domain but gain a `CHECK (col IN (...))` constraint
+  (`DefaultPlatform::getEnumCheckConstraintDDL()`, gated by the new
+  `supportsNativeEnumDDL()`/`usesNativeEnumStorage()` platform hooks); MSSQL
+  has no native enum mechanism and, per the original scoping here, doesn't
+  get the emulated CHECK either (`MssqlPlatform::supportsNativeEnumDDL()`
+  returns `false`, the one platform override) — `nativeEnum` is silently a
+  no-op there. A native-storage column holds the label text itself, not the
+  emulated integer index — `DefaultPlatform::getColumnDefaultValueDDL()`
+  writes the quoted label as the DDL default, `ColumnMap::getPdoType()` binds
+  it as `PDO::PARAM_STR` instead of the emulated column's `PARAM_INT`
+  (`TableMapBuilder` now emits `setNativeEnum(true)` into the generated
+  `TableMap` for this), and `ObjectBuilder`'s `addHydrate()`/
+  `addBuildCriteria()`/`addBuildPkeyCriteria()` convert between the
+  in-memory representation (still the emulated index for a plain ENUM
+  property, or the enum instance for `enumClass`) and the label text at the
+  DB boundary, instead of passing the index straight through.
+- [x] **Native PHP enum mapping** — a column's `enumClass` attribute names a
+  backed PHP `enum` (Doctrine `enumType`/Laravel-cast style); the generated
+  property/getter/setter/hydrate/`buildCriteria()` work with the enum
+  instance directly instead of the raw label string (`Column::hasEnumClass()`
+  /`getEnumClass()`, `ObjectBuilder::getEnumShortName()` and the
+  `hasEnumClass()` branches in `getPhp84PropertyType()`/`getPhp84TypeHint()`/
+  `addEnumAccessor()`/`addEnumMutator()`/`addHydrate()`/`addBuildCriteria()`/
+  `addBuildPkeyCriteria()`/`getDefaultValueString()`). `valueSet` is derived
+  from the enum's own case values at parse time (`Column::setAttributes()`)
+  rather than hand-duplicated in the schema, so the two can't drift. Storage
+  representation is unchanged (still the emulated integer index — native DDL
+  is the separate item below); `copyInto()` needed no change since it already
+  round-trips enum columns through the getter/setter. Orthogonal to the DDL
+  item above — either can land first; this one did.
+- [x] **`DECIMAL`/`NUMERIC` → `BcMath\Number`** (PHP 8.4+) instead of
+  `string`. Opt-in, reusing the existing generic `phpType` column attribute
+  (already there for exactly this kind of override, no new schema syntax
+  needed) — `phpType="\BcMath\Number"` on any column (`Column::isBcMathNumberType()`
+  detects it, tolerating a missing leading backslash). Property/getter/setter
+  are typed `?Number`; the mutator additionally accepts
+  `string|int|float|null` and normalizes to `Number` (`ObjectBuilder::addColumnMutator()`'s
+  new `isBcMathNumberType()` branch), matching the existing temporal/boolean
+  mutators' style of accepting a wider input union than the strict property
+  type. `addHydrate()` needed its own branch *before* the existing
+  `isNumericType()` dispatch, which builds a `($castType) $v` cast from
+  `getPhpType()` — `(BcMath\Number) $v` isn't legal cast syntax, so falling
+  through to it would have been a generated syntax error, not just a wrong
+  value; the same hazard existed in the primary-key `getColumnValueCastExpr()`
+  helper `fromArray()`/`isPrimaryKeyNull()` share, fixed the same way.
+  `addBuildCriteria()`/`addBuildPkeyCriteria()` cast back to `(string)` for
+  the DB layer. Property declarations default a `BcMath\Number` column to
+  `NULL` the same way temporal/enum columns already do (PHP rejects `new
+  Number(...)` — or any `new` expression — as a *property declaration*
+  default, unlike a parameter default; confirmed by hitting exactly that
+  fatal error implementing this), with the real default applied via
+  `applyDefaultValues()` in the constructor instead, where a plain assignment
+  is allowed. `hasOnlyDefaultValues()` compares via `!=` rather than `!==`
+  for the same reason the enum branch already does: a freshly-constructed
+  `Number` default is never `===` the stored instance even when equal in
+  value, but `BcMath\Number` supports the loose/value comparison operators.
+- [x] **Vector types** — DDL + hydration only, as scoped: `vector(n)` native
+  on Postgres (pgvector; `CREATE EXTENSION IF NOT EXISTS vector` emitted the
+  same way `citext`'s extension is, generalized into a single
+  `getAddExtensionsDDL()` covering both) and native `VECTOR(n)` on
+  MySQL/MariaDB (both MariaDB 11.7+ and MySQL 9.0+ support the same
+  `VECTOR(n)` syntax, and this generator doesn't distinguish MySQL from
+  MariaDB for DDL purposes anywhere else either — see the "MariaDB
+  divergences" bullet below), emulated as unbounded text (not a sized
+  `VARCHAR` — an embedding vector's JSON-encoded text can be long) on
+  SQLite/MSSQL/Oracle. Dimension reuses the existing `size` column attribute
+  (`size="1536"`) rather than a new one, flowing through the same
+  `printSize()`/`hasSize()` machinery `VARCHAR(n)` already does — no
+  VECTOR-specific size handling needed in `getColumnDDL()` at all. Hydrates
+  to/from a plain `array<float>`; a vector's wire format (pgvector's own
+  output, and this codebase's text/JSON emulation elsewhere) is a bracketed
+  comma-separated number list, which is already valid JSON, so
+  `ObjectBuilder`'s `isVectorType()` branches reuse
+  `BaseObject::decodeJsonColumn()`/`encodeJsonColumn()` rather than
+  `PHP_ARRAY`'s `" | "`-delimited format or a new helper. Not live-verified
+  against a real pgvector/MariaDB-VECTOR instance (no Docker in this
+  environment) — flagging per this doc's convention for unverified items.
+  `<=>`/`<->` distance operators and HNSW/IVFFlat index support are
+  explicitly out of scope here (section 1 query-layer work, as this bullet
+  originally noted) — this item is DDL + hydration only.
+- [x] **Pg range types** (`tstzrange` et al.) — `int4range`/`int8range`/
+  `numrange`/`daterange`/`tsrange`/`tstzrange`, native on Postgres, emulated
+  as a `VARCHAR(64)` storing the range literal text (`"[1,10)"`) elsewhere —
+  the first item in this section needing a real "rich value object" beyond
+  `DateTimeInterface`/`DateInterval`, since range bounds have no fixed PHP
+  type (an `int4range`'s bounds are ints, a `daterange`'s are dates, etc.).
+  New `Propulsion\Type\Range` (`runtime/Lib/Type/Range.php`) keeps bounds as
+  raw strings rather than guessing a subtype-specific PHP type, with
+  `Range::parse()`/`__toString()` round-tripping Postgres's bracket notation
+  (`[1,10)`, `(,5]`, `empty`) including its escaped-double-quote form for
+  bound values containing a comma. `ObjectBuilder`'s `isRangeType()` branches
+  mirror the `INTERVAL` item's shape exactly (property/getter/setter typed
+  `?Range`; `applyDefaultValues()`/`getColumnValueCastExpr()` needing their
+  own branches for the same "can't be a property-declaration default"/
+  "would build an invalid cast" reasons `DateInterval` and `BcMath\Number`
+  already did). Query-layer range operators (`&&`, `@>`) and the
+  `EXCLUDE USING gist` exclusion-constraint companion feature stay out of
+  scope here, tracked separately under PostgreSQL DDL parity/section 1.
+- [x] **Pg network types** (`inet`, `cidr`, `macaddr`) and `citext`. New
+  `PropulsionTypes::INET`/`CIDR`/`MACADDR`/`CITEXT`, native on Postgres,
+  emulated as a sized `VARCHAR` (`TEXT`/`MEDIUMTEXT`/`NVARCHAR2` for `citext`,
+  matching each platform's own `LONGVARCHAR` convention) everywhere else. No
+  rich PHP value object for v1 -- hydrate as plain strings the same way
+  `UUID` already does, which meant zero `ObjectBuilder` changes were needed
+  at all (the existing generic accessor/mutator/hydrate/`buildCriteria()`
+  paths already handle a plain-string-native type correctly; this item is
+  pure `PropulsionTypes`/`Platform::initialize()`/`PgsqlSchemaParser` plumbing).
+  `citext` ships as a Postgres contrib extension, not a built-in type, so
+  `PgsqlPlatform::getAddExtensionsDDL()` emits `CREATE EXTENSION IF NOT
+  EXISTS citext` before a table, but only when one of its columns actually
+  uses it.
+- [x] **`INTERVAL` → `DateInterval`** — new `PropulsionTypes::INTERVAL`,
+  native on Postgres (`interval` column type; `PgsqlSchemaParser`'s
+  `'interval'` type-map entry now actually resolves, activating what was
+  previously dead code in its typmod-length parsing branch) and emulated as
+  `VARCHAR(32)` everywhere else, storing an ISO-8601 duration string
+  (`"P1DT2H"`) on every platform uniformly. Postgres's *default*
+  `intervalstyle` GUC doesn't output ISO-8601 (e.g. `"1 day 02:03:04"`), so
+  rather than fuzzy-parsing that on read, `DBPostgres::initConnection()` now
+  forces `SET intervalstyle = 'iso_8601'` on every new connection (same
+  `initConnection()` hook `DBOracle` already uses for its own session-level
+  `NLS_DATE_FORMAT` setup), making the wire format identical across every
+  platform and letting `ObjectBuilder`'s generated code stay a single
+  `new DateInterval($v)` (hydrate) / `$this->prop->format('P%yY%mM%dDT%hH%iM%sS')`
+  (buildCriteria) pair with no platform branching at all. Not live-verified
+  against Postgres (no Docker in this environment during implementation) --
+  the `SET intervalstyle` fix itself is standard, well-documented Postgres
+  behavior, but flagging per this doc's own convention for unverified items.
+  Property declarations default to `NULL` and the real default is applied
+  via `applyDefaultValues()` as `new DateInterval(...)`, the same
+  can't-be-a-property-declaration-default story as `DateTime`/`BcMath\Number`
+  above. `getColumnValueCastExpr()` (shared by `fromArray()`/
+  `isPrimaryKeyNull()`) needed its own branch for the same reason `BcMath\Number`
+  did — falling through to the generic numeric/string cast would have built
+  invalid `(DateInterval) $expr` PHP.
+- [x] **Spatial types as a first-class type**, not just the MySQL-only DDL
+  bullet below — new `PropulsionTypes::GEOMETRY`, deliberately emulated as
+  plain text (storing WKT, "well-known text", e.g. `"POINT(1 2)"`) on
+  *every* platform, including Postgres/MySQL/MSSQL, rather than attempting
+  each one's real native geometry column type (PostGIS `geometry`, MySQL
+  `GEOMETRY`, MSSQL `geometry`, Oracle `SDO_GEOMETRY`). This is a narrower
+  scope than every other item in this section shipped with a "native"
+  mapping for, for a real reason found while implementing it: unlike UUID/
+  JSON/`vector`/range types, none of those four native geometry types
+  accept or return raw WKT text through a plain parameterized bind — each
+  needs the bound value wrapped in a platform-specific conversion function
+  (`ST_GeomFromText()`/`STGeomFromText()`/`SDO_UTIL.FROM_WKTGEOMETRY()`) at
+  the SQL-statement level to write, and a matching `ST_AsText()`-equivalent
+  wrapped around the column in the `SELECT` list to read back as text at
+  all — genuinely a query-layer change (`BasePeer`/`Criteria` needing to
+  rewrite specific columns' SQL, not just bind a value), not a type-system
+  one. Shipping a "native" mapping without that would have produced
+  silently broken round-trips. WKT-parsing into a rich geometry value
+  object, and the native-column-plus-query-layer-rewriting work this bullet
+  originally also implied, are the natural v2 follow-ups — flagged the same
+  way `vector`'s distance operators are flagged as deferred, not silently
+  dropped.
 - [ ] **Custom type registry** — a user-extensible type/converter layer
   (Doctrine's `Type` registry, SQLAlchemy `TypeDecorator`). Would let most of
   the items above ship as plugins rather than as new `PropulsionTypes`
   constants, and covers value objects / embeddables at the same time.
+  Preparatory cleanup done as of 2026-07-29: the type system used to be
+  wired through *two* hand-duplicated hardcoded maps
+  (`generator/Lib/Model/PropulsionTypes.php` and the runtime's own
+  `PropulsionColumnTypes`, which had already drifted out of sync — CLOB and
+  BIGINT had different PDO param types in each copy, a real latent bug).
+  `runtime/Lib/Util/PropulsionColumnTypes.php` is deleted; `ColumnMap`/
+  `DBAdapter`/`DBOracle` now reference the generator's `PropulsionTypes`
+  directly (both PSR-4 roots live in the same Composer package, so this was
+  a same-package reference, not a new dependency), with the legacy
+  `PropelColumnTypes`/`PropulsionColumnTypes` bare-name aliases in
+  `legacy-class-map.php` repointed accordingly. This is *not* the
+  user-extensible registry itself (still not started) — just removing the
+  duplication every new type in this section would otherwise have had to
+  touch twice.
 
 ## 3. Per-platform DDL & adapter parity
 

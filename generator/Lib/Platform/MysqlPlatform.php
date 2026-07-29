@@ -60,6 +60,32 @@ class MysqlPlatform extends DefaultPlatform
 		// 36-character hyphenated textual representation (see
 		// PropulsionTypes::UUID / Column::isUuidType()).
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::UUID, "CHAR", 36));
+		// No native interval/duration type -- emulated as a VARCHAR storing an
+		// ISO-8601 duration string (e.g. "P1DT2H"), same convention as UUID above.
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::INTERVAL, "VARCHAR", 32));
+		// No native network address types or case-insensitive text -- emulated
+		// as VARCHAR, sized to fit an IPv6/CIDR address, a MAC address, and
+		// (for CITEXT) this platform's own plain-text fallback respectively.
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::INET, "VARCHAR", 43));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::CIDR, "VARCHAR", 43));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::MACADDR, "VARCHAR", 17));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::CITEXT, "TEXT"));
+		// No native range types -- emulated as a VARCHAR storing the Postgres
+		// range literal text (e.g. "[1,10)"), which Propulsion\Type\Range parses
+		// the same way regardless of platform.
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::INT4RANGE, "VARCHAR", 64));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::INT8RANGE, "VARCHAR", 64));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::NUMRANGE, "VARCHAR", 64));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::DATERANGE, "VARCHAR", 64));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::TSRANGE, "VARCHAR", 64));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::TSTZRANGE, "VARCHAR", 64));
+		// Native on MariaDB 11.7+ and MySQL 9.0+ -- dimension comes from the
+		// column's `size` attribute the same way it does for Postgres's pgvector
+		// mapping above.
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::VECTOR, "VECTOR"));
+		// Emulated as plain text (WKT), not MySQL's own real `GEOMETRY` type --
+		// see PropulsionTypes::GEOMETRY_NATIVE_TYPE for why.
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::GEOMETRY, "TEXT"));
 	}
 
 	public function setGeneratorConfig(GeneratorConfig $generatorConfig): void
@@ -298,7 +324,12 @@ DROP TABLE IF EXISTS " . $this->quoteIdentifier($table->getName()) . ";
 		}
 
 		$ddl = array($this->quoteIdentifier($col->getName()));
-		if ($this->hasSize($sqlType) && $col->isDefaultSqlType($this)) {
+		if ($col->isEnumType() && $col->isNativeEnum()) {
+			// MySQL's own native ENUM(...) column type stores the label text
+			// directly -- no separate CHECK constraint or custom type needed,
+			// unlike the SQLite/Oracle/Postgres native-enum mechanisms.
+			$ddl []= $this->getEnumSqlType($col);
+		} elseif ($this->hasSize($sqlType) && $col->isDefaultSqlType($this)) {
 			$ddl []= $sqlType . $domain->printSize();
 		} else {
 			$ddl []= $sqlType;
@@ -341,6 +372,18 @@ DROP TABLE IF EXISTS " . $this->quoteIdentifier($table->getName()) . ";
 		}
 
 		return implode(' ', $ddl);
+	}
+
+	/**
+	 * Builds MySQL's inline native `ENUM('a', 'b', ...)` column type from a
+	 * column's declared valueSet.
+	 *
+	 * @return     string
+	 */
+	protected function getEnumSqlType(Column $col)
+	{
+		$values = implode(', ', array_map(fn ($v) => $this->quote($v), $col->getValueSet()));
+		return "ENUM({$values})";
 	}
 
 	/**

@@ -52,6 +52,19 @@
 			<xs:enumeration value="ARRAY"/>
 			<xs:enumeration value="ENUM"/>
 			<xs:enumeration value="UUID"/>
+			<xs:enumeration value="INTERVAL"/>
+			<xs:enumeration value="INET"/>
+			<xs:enumeration value="CIDR"/>
+			<xs:enumeration value="MACADDR"/>
+			<xs:enumeration value="CITEXT"/>
+			<xs:enumeration value="INT4RANGE"/>
+			<xs:enumeration value="INT8RANGE"/>
+			<xs:enumeration value="NUMRANGE"/>
+			<xs:enumeration value="DATERANGE"/>
+			<xs:enumeration value="TSRANGE"/>
+			<xs:enumeration value="TSTZRANGE"/>
+			<xs:enumeration value="VECTOR"/>
+			<xs:enumeration value="GEOMETRY"/>
 		</xs:restriction>
 	</xs:simpleType>
 
@@ -492,6 +505,28 @@
 			<xs:annotation>
 				<xs:documentation xml:lang="en">
 					 The list of values for an ENUM column, separated by commas
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="enumClass" type="xs:string" use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					 Fully-qualified class name of a backed PHP enum for an ENUM column
+					 to hydrate to/from, instead of a plain string label. When set, the
+					 column's valueSet is derived from the enum's own case values and
+					 does not need to be (and should not be) also specified separately.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="nativeEnum" type="xs:boolean" use="optional" default="false">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					 Whether an ENUM column should use the platform's native enum
+					 mechanism (Postgres CREATE TYPE ... AS ENUM, MySQL inline
+					 ENUM(...), a CHECK constraint on SQLite/Oracle) and store the
+					 label text directly, instead of the default emulated integer
+					 column. MSSQL has no native enum mechanism and stays emulated
+					 regardless of this attribute.
 				</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
