@@ -1017,7 +1017,11 @@ class ModelCriteria extends Criteria
 	 * @param     string $relationName Relation name or alias
 	 * @param     class-string<T>|null $secondaryCriteriaClass Classname for the ModelCriteria to be used
 	 *
-	 * @return    ($secondaryCriteriaClass is null ? static : T) The secondary criteria object
+	 * @return    ($secondaryCriteriaClass is null ? ModelCriteria : T) The secondary criteria object --
+	 *            note the null branch is a plain ModelCriteria for the *related* model's own generated
+	 *            Query class (resolved via PropulsionQuery::from()), not `static`: the joined relation is
+	 *            a different model than the one this method is called on, so it can never legitimately
+	 *            share $this's exact class.
 	 */
     public function useQuery(string $relationName, ?string $secondaryCriteriaClass = null) : ModelCriteria
 	{
@@ -1055,6 +1059,9 @@ class ModelCriteria extends Criteria
 			$this->removeAlias($this->modelAlias);
 		}
 		$primaryCriteria = $this->getPrimaryCriteria();
+		if ($primaryCriteria === null) {
+			throw new PropulsionException('endUse() called on a ModelCriteria that was not created via useQuery()');
+		}
 		$primaryCriteria->mergeWith($this);
 
 		return $primaryCriteria;
@@ -1069,8 +1076,9 @@ class ModelCriteria extends Criteria
 	 *
 	 * @template T of ModelCriteria
 	 * @param     string $relationName Relation name or alias
-	 * @param     ($secondaryCriteriaClass is null ? callable(static): void : callable(T): void) $callback
-	 *            Receives the secondary criteria to add conditions to
+	 * @param     ($secondaryCriteriaClass is null ? callable(ModelCriteria): void : callable(T): void) $callback
+	 *            Receives the secondary criteria to add conditions to -- note the null-class branch
+	 *            receives a plain ModelCriteria, not `static`: see the same note on useQuery().
 	 * @param     class-string<T>|null $secondaryCriteriaClass Classname for the ModelCriteria to be used
 	 *
 	 * @return    static
