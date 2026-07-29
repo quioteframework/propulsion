@@ -83,6 +83,24 @@ class Index extends XMLElement
 	private bool $concurrent = false;
 
 	/**
+	 * Whether this index (or unique constraint, since `Unique extends Index`)
+	 * is physically `CLUSTERED` rather than `NONCLUSTERED` (`clustered="true"`,
+	 * SQL Server's own clustering concept -- a table has at most one clustered
+	 * index/constraint, determining the physical row order). Null (the
+	 * default) means "don't say" -- the platform's own implicit default
+	 * applies: a plain `CREATE INDEX`/`UNIQUE` constraint defaults to
+	 * `NONCLUSTERED`, while a `PRIMARY KEY` constraint defaults to `CLUSTERED`
+	 * unless a clustered index/constraint already exists elsewhere on the
+	 * table (see also `Table::isPrimaryKeyClustered()`, the equivalent control
+	 * for the primary key's own constraint, which isn't an `Index` instance in
+	 * this model). The schema author is responsible for not declaring more
+	 * than one `clustered="true"`/implicitly-clustered constraint per table
+	 * (SQL Server rejects that at DDL-execution time, not validated here).
+	 * Only honored by MssqlPlatform.
+	 */
+	private ?bool $clustered = null;
+
+	/**
 	 * Creates a new Index instance.
 	 *
 	 * @param      string $name
@@ -129,6 +147,8 @@ class Index extends XMLElement
 		}
 		$this->storageParameters = $this->getAttribute('storageParameters', null);
 		$this->concurrent = $this->booleanValue($this->getAttribute('concurrently'));
+		$clusteredAttr = $this->getAttribute('clustered', null);
+		$this->clustered = $clusteredAttr !== null ? $this->booleanValue($clusteredAttr) : null;
 	}
 
 	/**
@@ -210,6 +230,21 @@ class Index extends XMLElement
 	public function setIndexType(?string $indexType): void
 	{
 		$this->indexType = $indexType;
+	}
+
+	/**
+	 * Whether this index is physically `CLUSTERED` (true), `NONCLUSTERED`
+	 * (false), or unspecified (null, the platform's own implicit default
+	 * applies). See the property docblock.
+	 */
+	public function isClustered(): ?bool
+	{
+		return $this->clustered;
+	}
+
+	public function setClustered(?bool $clustered): void
+	{
+		$this->clustered = $clustered;
 	}
 
 	/**

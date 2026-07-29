@@ -133,10 +133,8 @@ class DBMSSQL extends DBAdapter
 	 * Simulated Limit/Offset
 	 *
 	 * This rewrites the $sql query to apply the offset and limit.
-	 * some of the ORDER BY logic borrowed from Doctrine MsSqlPlatform
 	 *
 	 * @see       DBAdapter::applyLimit()
-	 * @author    Benjamin Runnels <kraven@kraven.org>
 	 *
 	 * @param     string      $sql
 	 * @param     int|string  $offset  Expected to be numeric; validated at runtime since
@@ -155,137 +153,44 @@ class DBMSSQL extends DBAdapter
 			throw new PropulsionException('DBMSSQL::applyLimit() expects a number for argument 2 and 3');
 		}
 
-		//split the select and from clauses out of the original query
-		$selectSegment = array();
-
-		$selectText = 'SELECT ';
-
-		preg_match('/\Aselect(.*)from(.*)/si', $sql, $selectSegment);
-		if(count($selectSegment) == 3) {
-			$selectStatement = trim($selectSegment[1]);
-			$fromStatement = trim($selectSegment[2]);
-		} else {
-			// Not a single, plain "SELECT ... FROM ..." this regex-based
-			// rewriter can parse structurally (e.g. a UNION/INTERSECT/EXCEPT-
-			// combined query, which has no single FROM clause to hoist a
-			// ROW_NUMBER() window function into) -- fall back to SQL Server's
-			// native OFFSET/FETCH syntax instead, which applies to any
-			// complete query regardless of its internal shape, as long as it
-			// has an ORDER BY (which T-SQL requires for OFFSET/FETCH anyway).
-			if (!preg_match('/\bORDER BY\b/i', $sql)) {
-				throw new \Exception('DBMSSQL::applyLimit() requires an ORDER BY clause to paginate a query it cannot rewrite structurally (e.g. UNION/INTERSECT/EXCEPT).');
-			}
-			$sql .= ' OFFSET ' . $offset . ' ROWS';
-			if ($limit > 0) {
-				$sql .= ' FETCH NEXT ' . $limit . ' ROWS ONLY';
-			}
-			return;
-		}
-
-		if (preg_match('/\Aselect(\s+)distinct/i', $sql)) {
-			$selectText .= 'DISTINCT ';
-			$selectStatement = str_ireplace('distinct ', '', $selectStatement);
-		}
-
-		// if we're starting at offset 0 then theres no need to simulate limit,
-		// just grab the top $limit number of rows
-		if($offset == 0) {
-			$sql = $selectText . 'TOP ' . $limit . ' ' . $selectStatement . ' FROM ' . $fromStatement;
-			return;
-		}
-
-		//get the ORDER BY clause if present
-		$orderStatement = stristr($fromStatement, 'ORDER BY');
-		$orders = '';
-
-		if($orderStatement !== false) {
-			//remove order statement from the from statement
-			$fromStatement = trim(str_replace($orderStatement, '', $fromStatement));
-
-			$order = str_ireplace('ORDER BY', '', $orderStatement);
-			$orders = explode(',', $order);
-
-			for($i = 0; $i < count($orders); $i ++) {
-				$normalizedOrder = preg_replace('/\s+(ASC|DESC)$/i', '', $orders[$i]) ?? $orders[$i];
-				$orderArr[trim($normalizedOrder)] = array(
-					'sort' => (stripos($orders[$i], ' DESC') !== false) ? 'DESC' : 'ASC',
-					'key' => $i
-				);
-			}
-		}
-
-		//setup inner and outer select selects
-		$innerSelect = '';
-		$outerSelect = '';
-		foreach(explode(', ', $selectStatement) as $selCol) {
-			$selColArr = explode(' ', $selCol);
-			$selColCount = count($selColArr) - 1;
-
-			//make sure the current column isn't * or an aggregate
-			if($selColArr[0] != '*' && ! strstr($selColArr[0], '(')) {
-				if(isset($orderArr[$selColArr[0]])) {
-					$orders[$orderArr[$selColArr[0]]['key']] = $selColArr[0] . ' ' . $orderArr[$selColArr[0]]['sort'];
+		// No offset: SQL Server's TOP needs no ORDER BY and applies to any plain
+		// "SELECT ... FROM ..." regardless of its internal shape, so it's kept as
+		// the simplest rewrite for this common case.
+		if ($offset == 0 && $limit > 0) {
+			$selectSegment = array();
+			if (preg_match('/\Aselect(.*)from(.*)/si', $sql, $selectSegment)) {
+				$selectStatement = trim($selectSegment[1]);
+				$fromStatement = trim($selectSegment[2]);
+				$selectText = 'SELECT ';
+				if (preg_match('/\Aselect(\s+)distinct/i', $sql)) {
+					$selectText .= 'DISTINCT ';
+					$selectStatement = str_ireplace('distinct ', '', $selectStatement);
 				}
-
-				//use the alias if one was present otherwise use the column name
-				$alias = (! stristr($selCol, ' AS ')) ? $selColArr[0] : $selColArr[$selColCount];
-				//don't quote the identifier if it is already quoted
-				if($alias !== '' && $alias[0] != '[') $alias = $this->quoteIdentifier($alias);
-
-				//save the first non-aggregate column for use in ROW_NUMBER() if required
-				if(! isset($firstColumnOrderStatement)) {
-					$firstColumnOrderStatement = 'ORDER BY ' . $selColArr[0];
-				}
-
-				//add an alias to the inner select so all columns will be unique
-				$innerSelect .= $selColArr[0] . ' AS ' . $alias . ', ';
-				$outerSelect .= $alias . ', ';
-			} else {
-				//agregate columns must always have an alias clause
-				if(! stristr($selCol, ' AS ')) {
-					throw new \Exception('DBMSSQL::applyLimit() requires aggregate columns to have an Alias clause');
-				}
-
-				//aggregate column alias can't be used as the count column you must use the entire aggregate statement
-				if(isset($orderArr[$selColArr[$selColCount]])) {
-					$orders[$orderArr[$selColArr[$selColCount]]['key']] = str_replace($selColArr[$selColCount - 1] . ' ' . $selColArr[$selColCount], '', $selCol) . $orderArr[$selColArr[$selColCount]]['sort'];
-				}
-
-				//quote the alias
-				$alias = $selColArr[$selColCount];
-				//don't quote the identifier if it is already quoted
-				if($alias !== '' && $alias[0] != '[') $alias = $this->quoteIdentifier($alias);
-				$innerSelect .= str_replace($selColArr[$selColCount], $alias, $selCol) . ', ';
-				$outerSelect .= $alias . ', ';
+				$sql = $selectText . 'TOP ' . $limit . ' ' . $selectStatement . ' FROM ' . $fromStatement;
+				return;
 			}
+			// Structurally unparseable (e.g. a UNION/INTERSECT/EXCEPT-combined
+			// query, which has no single FROM clause) -- fall through to the
+			// native OFFSET/FETCH rewrite below, which needs no structural
+			// parsing at all.
 		}
 
-		if(is_array($orders)) {
-			$orderStatement = 'ORDER BY ' . implode(', ', $orders);
-		} else {
-			//use the first non aggregate column in our select statement if no ORDER BY clause present
-			if(isset($firstColumnOrderStatement)) {
-				$orderStatement = $firstColumnOrderStatement;
-			} else {
-				throw new \Exception('DBMSSQL::applyLimit() unable to find column to use with ROW_NUMBER()');
-			}
+		// SQL Server 2012+ supports OFFSET ... ROWS FETCH NEXT ... ROWS ONLY
+		// natively on any complete query, regardless of its internal shape
+		// (UNION/INTERSECT/EXCEPT included) -- this replaces the previous
+		// regex-based ROW_NUMBER() rewriter, which only handled a single,
+		// structurally simple "SELECT ... FROM ..." and broke on subqueries or
+		// aggregate columns without an explicit alias. OFFSET/FETCH requires an
+		// ORDER BY clause; when the query has none, an arbitrary
+		// "ORDER BY (SELECT NULL)" satisfies the syntax requirement without
+		// imposing a real ordering.
+		if (!preg_match('/\bORDER BY\b/i', $sql)) {
+			$sql .= ' ORDER BY (SELECT NULL)';
 		}
-
-		//substring the select strings to get rid of the last comma and add our FROM and SELECT clauses
-		$innerSelect = $selectText . 'ROW_NUMBER() OVER(' . $orderStatement . ') AS [RowNumber], ' . substr($innerSelect, 0, - 2) . ' FROM';
-		//outer select can't use * because of the RowNumber column
-		$outerSelect = 'SELECT ' . substr($outerSelect, 0, - 2) . ' FROM';
-
-		//ROW_NUMBER() starts at 1 not 0
-		$derivedTable = $outerSelect . ' (' . $innerSelect . ' ' . $fromStatement . ') AS derivedb WHERE RowNumber ';
-		// A limit <= 0 means "no limit" (Criteria::$limit's own default) -- with
-		// only an offset and no cap, there's no upper bound to add at all;
-		// "BETWEEN offset+1 AND limit+offset" would otherwise collapse into an
-		// inverted, always-empty range (e.g. offset 10, limit 0 -> BETWEEN 11
-		// AND 10).
-		$sql = $limit > 0
-			? $derivedTable . 'BETWEEN ' . ($offset + 1) . ' AND ' . ($limit + $offset)
-			: $derivedTable . '>= ' . ($offset + 1);
+		$sql .= ' OFFSET ' . $offset . ' ROWS';
+		if ($limit > 0) {
+			$sql .= ' FETCH NEXT ' . $limit . ' ROWS ONLY';
+		}
 	}
 
 	/**

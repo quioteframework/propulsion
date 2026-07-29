@@ -41,6 +41,59 @@ class MssqlPlatformTest extends PlatformTestProvider
 	}
 
 	/**
+	 * Unlike PgsqlPlatform's own equivalent test, a NATIVE-id-method table with
+	 * no explicit id-method-parameter must NOT get a real CREATE SEQUENCE --
+	 * MSSQL's implicit default id method is IDENTITY, a column property with no
+	 * backing sequence object; getSequenceName() itself still resolves a
+	 * default "foo_SEQ" name for this case (see testGetSequenceNameDefault()
+	 * above / TableMapBuilder), but that name is never turned into DDL unless a
+	 * sequence is named explicitly.
+	 */
+	public function testGetAddTablesDDLNoImplicitSequence()
+	{
+		$schema = <<<EOF
+<database name="test">
+	<table name="foo">
+		<column name="id" primaryKey="true" type="INTEGER" autoIncrement="true" />
+	</table>
+</database>
+EOF;
+		$database = $this->getDatabaseFromSchema($schema);
+		$this->assertStringNotContainsString('CREATE SEQUENCE', $this->getPlatform()->getAddTablesDDL($database));
+	}
+
+	public function testGetAddTablesDDLNamedSequence()
+	{
+		$schema = <<<EOF
+<database name="test">
+	<table name="foo">
+		<column name="id" primaryKey="true" type="INTEGER" defaultExpr="NEXT VALUE FOR [my_custom_sequence]" />
+		<id-method-parameter value="my_custom_sequence"/>
+	</table>
+</database>
+EOF;
+		$database = $this->getDatabaseFromSchema($schema);
+		$ddl = $this->getPlatform()->getAddTablesDDL($database);
+		$this->assertStringContainsString("\nCREATE SEQUENCE [my_custom_sequence] AS BIGINT START WITH 1 INCREMENT BY 1;\n", $ddl);
+		$this->assertStringContainsString('[id] INT DEFAULT NEXT VALUE FOR [my_custom_sequence] NOT NULL', $ddl);
+	}
+
+	public function testGetDropTableDDLNamedSequence()
+	{
+		$schema = <<<EOF
+<database name="test">
+	<table name="foo">
+		<column name="id" primaryKey="true" type="INTEGER" defaultExpr="NEXT VALUE FOR [my_custom_sequence]" />
+		<id-method-parameter value="my_custom_sequence"/>
+	</table>
+</database>
+EOF;
+		$table = $this->getTableFromSchema($schema);
+		$ddl = $this->getPlatform()->getDropTableDDL($table);
+		$this->assertStringContainsString("\nIF EXISTS (SELECT 1 FROM sys.sequences WHERE name = 'my_custom_sequence')\n\tDROP SEQUENCE [my_custom_sequence];\n", $ddl);
+	}
+
+	/**
 	 * @dataProvider providerForTestGetAddTablesDDL
 	 */
 	#[\PHPUnit\Framework\Attributes\DataProvider('providerForTestGetAddTablesDDL')]
@@ -49,26 +102,33 @@ class MssqlPlatformTest extends PlatformTestProvider
 		$database = $this->getDatabaseFromSchema($schema);
 		$expected = <<<EOF
 
+SET ANSI_NULLS ON;
+SET ANSI_PADDING ON;
+SET ANSI_WARNINGS ON;
+SET ARITHABORT ON;
+SET CONCAT_NULL_YIELDS_NULL ON;
+SET QUOTED_IDENTIFIER ON;
+SET NUMERIC_ROUNDABORT OFF;
+
 -----------------------------------------------------------------------
 -- book
 -----------------------------------------------------------------------
 
-IF EXISTS (SELECT 1 FROM sysobjects WHERE type ='RI' AND name='book_FK_1')
+IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'book' AND temporal_type = 2)
+	ALTER TABLE [book] SET (SYSTEM_VERSIONING = OFF);
+
+IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'book_FK_1')
 	ALTER TABLE [book] DROP CONSTRAINT [book_FK_1];
 
-IF EXISTS (SELECT 1 FROM sysobjects WHERE type = 'U' AND name = 'book')
+IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'book')
 BEGIN
 	DECLARE @reftable_book nvarchar(60), @constraintname_book nvarchar(60)
 	DECLARE refcursor_book CURSOR FOR
-	select reftables.name tablename, cons.name constraintname
-		from sysobjects tables,
-			sysobjects reftables,
-			sysobjects cons,
-			sysreferences ref
-		where tables.id = ref.rkeyid
-			and cons.id = ref.constid
-			and reftables.id = ref.fkeyid
-			and tables.name = 'book'
+	select childtable.name tablename, fk.name constraintname
+		from sys.foreign_keys fk
+			join sys.tables childtable on fk.parent_object_id = childtable.object_id
+			join sys.tables reftable on fk.referenced_object_id = reftable.object_id
+		where reftable.name = 'book'
 	OPEN refcursor_book
 	FETCH NEXT from refcursor_book into @reftable_book, @constraintname_book
 	while @@FETCH_STATUS = 0
@@ -95,19 +155,18 @@ CREATE INDEX [book_I_1] ON [book] ([title]);
 -- author
 -----------------------------------------------------------------------
 
-IF EXISTS (SELECT 1 FROM sysobjects WHERE type = 'U' AND name = 'author')
+IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'author' AND temporal_type = 2)
+	ALTER TABLE [author] SET (SYSTEM_VERSIONING = OFF);
+
+IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'author')
 BEGIN
 	DECLARE @reftable_author nvarchar(60), @constraintname_author nvarchar(60)
 	DECLARE refcursor_author CURSOR FOR
-	select reftables.name tablename, cons.name constraintname
-		from sysobjects tables,
-			sysobjects reftables,
-			sysobjects cons,
-			sysreferences ref
-		where tables.id = ref.rkeyid
-			and cons.id = ref.constid
-			and reftables.id = ref.fkeyid
-			and tables.name = 'author'
+	select childtable.name tablename, fk.name constraintname
+		from sys.foreign_keys fk
+			join sys.tables childtable on fk.parent_object_id = childtable.object_id
+			join sys.tables reftable on fk.referenced_object_id = reftable.object_id
+		where reftable.name = 'author'
 	OPEN refcursor_author
 	FETCH NEXT from refcursor_author into @reftable_author, @constraintname_author
 	while @@FETCH_STATUS = 0
@@ -146,26 +205,33 @@ EOF;
 		$database = $this->getDatabaseFromSchema($schema);
 		$expected = <<<EOF
 
+SET ANSI_NULLS ON;
+SET ANSI_PADDING ON;
+SET ANSI_WARNINGS ON;
+SET ARITHABORT ON;
+SET CONCAT_NULL_YIELDS_NULL ON;
+SET QUOTED_IDENTIFIER ON;
+SET NUMERIC_ROUNDABORT OFF;
+
 -----------------------------------------------------------------------
 -- x.book
 -----------------------------------------------------------------------
 
-IF EXISTS (SELECT 1 FROM sysobjects WHERE type ='RI' AND name='book_FK_1')
+IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'x.book' AND temporal_type = 2)
+	ALTER TABLE [x].[book] SET (SYSTEM_VERSIONING = OFF);
+
+IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'book_FK_1')
 	ALTER TABLE [x].[book] DROP CONSTRAINT [book_FK_1];
 
-IF EXISTS (SELECT 1 FROM sysobjects WHERE type = 'U' AND name = 'x.book')
+IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'x.book')
 BEGIN
 	DECLARE @reftable_x_book nvarchar(60), @constraintname_x_book nvarchar(60)
 	DECLARE refcursor_x_book CURSOR FOR
-	select reftables.name tablename, cons.name constraintname
-		from sysobjects tables,
-			sysobjects reftables,
-			sysobjects cons,
-			sysreferences ref
-		where tables.id = ref.rkeyid
-			and cons.id = ref.constid
-			and reftables.id = ref.fkeyid
-			and tables.name = 'x.book'
+	select childtable.name tablename, fk.name constraintname
+		from sys.foreign_keys fk
+			join sys.tables childtable on fk.parent_object_id = childtable.object_id
+			join sys.tables reftable on fk.referenced_object_id = reftable.object_id
+		where reftable.name = 'x.book'
 	OPEN refcursor_x_book
 	FETCH NEXT from refcursor_x_book into @reftable_x_book, @constraintname_x_book
 	while @@FETCH_STATUS = 0
@@ -192,19 +258,18 @@ CREATE INDEX [book_I_1] ON [x].[book] ([title]);
 -- y.author
 -----------------------------------------------------------------------
 
-IF EXISTS (SELECT 1 FROM sysobjects WHERE type = 'U' AND name = 'y.author')
+IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'y.author' AND temporal_type = 2)
+	ALTER TABLE [y].[author] SET (SYSTEM_VERSIONING = OFF);
+
+IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'y.author')
 BEGIN
 	DECLARE @reftable_y_author nvarchar(60), @constraintname_y_author nvarchar(60)
 	DECLARE refcursor_y_author CURSOR FOR
-	select reftables.name tablename, cons.name constraintname
-		from sysobjects tables,
-			sysobjects reftables,
-			sysobjects cons,
-			sysreferences ref
-		where tables.id = ref.rkeyid
-			and cons.id = ref.constid
-			and reftables.id = ref.fkeyid
-			and tables.name = 'y.author'
+	select childtable.name tablename, fk.name constraintname
+		from sys.foreign_keys fk
+			join sys.tables childtable on fk.parent_object_id = childtable.object_id
+			join sys.tables reftable on fk.referenced_object_id = reftable.object_id
+		where reftable.name = 'y.author'
 	OPEN refcursor_y_author
 	FETCH NEXT from refcursor_y_author into @reftable_y_author, @constraintname_y_author
 	while @@FETCH_STATUS = 0
@@ -229,22 +294,21 @@ CREATE TABLE [y].[author]
 -- x.book_summary
 -----------------------------------------------------------------------
 
-IF EXISTS (SELECT 1 FROM sysobjects WHERE type ='RI' AND name='book_summary_FK_1')
+IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'x.book_summary' AND temporal_type = 2)
+	ALTER TABLE [x].[book_summary] SET (SYSTEM_VERSIONING = OFF);
+
+IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'book_summary_FK_1')
 	ALTER TABLE [x].[book_summary] DROP CONSTRAINT [book_summary_FK_1];
 
-IF EXISTS (SELECT 1 FROM sysobjects WHERE type = 'U' AND name = 'x.book_summary')
+IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'x.book_summary')
 BEGIN
 	DECLARE @reftable_x_book_summary nvarchar(60), @constraintname_x_book_summary nvarchar(60)
 	DECLARE refcursor_x_book_summary CURSOR FOR
-	select reftables.name tablename, cons.name constraintname
-		from sysobjects tables,
-			sysobjects reftables,
-			sysobjects cons,
-			sysreferences ref
-		where tables.id = ref.rkeyid
-			and cons.id = ref.constid
-			and reftables.id = ref.fkeyid
-			and tables.name = 'x.book_summary'
+	select childtable.name tablename, fk.name constraintname
+		from sys.foreign_keys fk
+			join sys.tables childtable on fk.parent_object_id = childtable.object_id
+			join sys.tables reftable on fk.referenced_object_id = reftable.object_id
+		where reftable.name = 'x.book_summary'
 	OPEN refcursor_x_book_summary
 	FETCH NEXT from refcursor_x_book_summary into @reftable_x_book_summary, @constraintname_x_book_summary
 	while @@FETCH_STATUS = 0
@@ -369,19 +433,18 @@ CREATE TABLE [Woopah].[foo]
 	{
 		$table = new Table('foo');
 		$expected = "
-IF EXISTS (SELECT 1 FROM sysobjects WHERE type = 'U' AND name = 'foo')
+IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'foo' AND temporal_type = 2)
+	ALTER TABLE [foo] SET (SYSTEM_VERSIONING = OFF);
+
+IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'foo')
 BEGIN
 	DECLARE @reftable_foo nvarchar(60), @constraintname_foo nvarchar(60)
 	DECLARE refcursor_foo CURSOR FOR
-	select reftables.name tablename, cons.name constraintname
-		from sysobjects tables,
-			sysobjects reftables,
-			sysobjects cons,
-			sysreferences ref
-		where tables.id = ref.rkeyid
-			and cons.id = ref.constid
-			and reftables.id = ref.fkeyid
-			and tables.name = 'foo'
+	select childtable.name tablename, fk.name constraintname
+		from sys.foreign_keys fk
+			join sys.tables childtable on fk.parent_object_id = childtable.object_id
+			join sys.tables reftable on fk.referenced_object_id = reftable.object_id
+		where reftable.name = 'foo'
 	OPEN refcursor_foo
 	FETCH NEXT from refcursor_foo into @reftable_foo, @constraintname_foo
 	while @@FETCH_STATUS = 0
@@ -405,19 +468,18 @@ END
 	{
 		$table = $this->getTableFromSchema($schema, 'Woopah.foo');
 		$expected = "
-IF EXISTS (SELECT 1 FROM sysobjects WHERE type = 'U' AND name = 'Woopah.foo')
+IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Woopah.foo' AND temporal_type = 2)
+	ALTER TABLE [Woopah].[foo] SET (SYSTEM_VERSIONING = OFF);
+
+IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Woopah.foo')
 BEGIN
 	DECLARE @reftable_Woopah_foo nvarchar(60), @constraintname_Woopah_foo nvarchar(60)
 	DECLARE refcursor_Woopah_foo CURSOR FOR
-	select reftables.name tablename, cons.name constraintname
-		from sysobjects tables,
-			sysobjects reftables,
-			sysobjects cons,
-			sysreferences ref
-		where tables.id = ref.rkeyid
-			and cons.id = ref.constid
-			and reftables.id = ref.fkeyid
-			and tables.name = 'Woopah.foo'
+	select childtable.name tablename, fk.name constraintname
+		from sys.foreign_keys fk
+			join sys.tables childtable on fk.parent_object_id = childtable.object_id
+			join sys.tables reftable on fk.referenced_object_id = reftable.object_id
+		where reftable.name = 'Woopah.foo'
 	OPEN refcursor_Woopah_foo
 	FETCH NEXT from refcursor_Woopah_foo into @reftable_Woopah_foo, @constraintname_Woopah_foo
 	while @@FETCH_STATUS = 0
@@ -455,6 +517,58 @@ END
 		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($column));
 	}
 
+	public function testGetColumnDDLGeneratedVirtual()
+	{
+		$column = new Column('foo');
+		$column->setGeneratedExpr('bar + baz');
+		$expected = '[foo] AS (bar + baz)';
+		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($column));
+	}
+
+	public function testGetColumnDDLGeneratedStored()
+	{
+		$column = new Column('foo');
+		$column->setGeneratedExpr('bar + baz');
+		$column->setGeneratedType('STORED');
+		$column->setNotNull(true);
+		$expected = '[foo] AS (bar + baz) PERSISTED NOT NULL';
+		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($column));
+	}
+
+	public function testGetColumnDDLGeneratedStoredNullable()
+	{
+		$column = new Column('foo');
+		$column->setGeneratedExpr('bar + baz');
+		$column->setGeneratedType('STORED');
+		$expected = '[foo] AS (bar + baz) PERSISTED';
+		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($column));
+	}
+
+	public function testGetColumnDDLRowVersion()
+	{
+		$column = new Column('foo');
+		$column->setRowVersion(true);
+		$column->setNotNull(true);
+		$expected = '[foo] ROWVERSION NOT NULL';
+		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($column));
+	}
+
+	public function testGetColumnDDLPeriodRowStart()
+	{
+		$column = new Column('sys_start_time');
+		$column->setPeriodRowStart(true);
+		$expected = '[sys_start_time] DATETIME2 GENERATED ALWAYS AS ROW START NOT NULL';
+		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($column));
+	}
+
+	public function testGetColumnDDLPeriodRowEnd()
+	{
+		$column = new Column('sys_end_time');
+		$column->setPeriodRowEnd(true);
+		$expected = '[sys_end_time] DATETIME2 GENERATED ALWAYS AS ROW END NOT NULL';
+		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($column));
+	}
+
 	public function testGetPrimaryKeyDDLSimpleKey()
 	{
 		$table = new Table('foo');
@@ -475,6 +589,17 @@ END
 		$column2->setPrimaryKey(true);
 		$table->addColumn($column2);
 		$expected = 'CONSTRAINT [foo_PK] PRIMARY KEY ([bar1],[bar2])';
+		$this->assertEquals($expected, $this->getPlatform()->getPrimaryKeyDDL($table));
+	}
+
+	public function testGetPrimaryKeyDDLNonClustered()
+	{
+		$table = new Table('foo');
+		$column = new Column('bar');
+		$column->setPrimaryKey(true);
+		$table->addColumn($column);
+		$table->setPrimaryKeyClustered(false);
+		$expected = 'CONSTRAINT [foo_PK] PRIMARY KEY NONCLUSTERED ([bar])';
 		$this->assertEquals($expected, $this->getPlatform()->getPrimaryKeyDDL($table));
 	}
 
@@ -558,6 +683,49 @@ DROP INDEX [babar];
 	{
 		$expected = 'UNIQUE ([bar1],[bar2])';
 		$this->assertEquals($expected, $this->getPLatform()->getUniqueDDL($index));
+	}
+
+	public function testAddIndexDDLClustered()
+	{
+		$table = new Table('foo');
+		$column = new Column('bar');
+		$table->addColumn($column);
+		$index = new Index('babar');
+		$index->addColumn($column);
+		$index->setClustered(true);
+		$table->addIndex($index);
+		$expected = "
+CREATE CLUSTERED INDEX [babar] ON [foo] ([bar]);
+";
+		$this->assertEquals($expected, $this->getPlatform()->getAddIndexDDL($index));
+	}
+
+	public function testAddIndexDDLNonClustered()
+	{
+		$table = new Table('foo');
+		$column = new Column('bar');
+		$table->addColumn($column);
+		$index = new Index('babar');
+		$index->addColumn($column);
+		$index->setClustered(false);
+		$table->addIndex($index);
+		$expected = "
+CREATE NONCLUSTERED INDEX [babar] ON [foo] ([bar]);
+";
+		$this->assertEquals($expected, $this->getPlatform()->getAddIndexDDL($index));
+	}
+
+	public function testGetUniqueDDLClustered()
+	{
+		$table = new Table('foo');
+		$column = new Column('bar');
+		$table->addColumn($column);
+		$unique = new Unique('babar');
+		$unique->addColumn($column);
+		$unique->setClustered(true);
+		$table->addUnique($unique);
+		$expected = 'UNIQUE CLUSTERED ([bar])';
+		$this->assertEquals($expected, $this->getPlatform()->getUniqueDDL($unique));
 	}
 
 	/**
@@ -794,5 +962,81 @@ EOF;
 -----------------------------------------------------------------------
 ";
 		$this->assertEquals($expected, $this->getPLatform()->getCommentBlockDDL('foo bar'));
+	}
+
+	public function testGetAddTableDDLTemporal()
+	{
+		$schema = <<<EOF
+<database name="test">
+	<table name="foo" temporal="true">
+		<column name="id" primaryKey="true" type="INTEGER" autoIncrement="true" />
+		<column name="bar" type="VARCHAR" size="255" />
+		<column name="sys_start_time" periodRowStart="true" type="INTEGER" />
+		<column name="sys_end_time" periodRowEnd="true" type="INTEGER" />
+	</table>
+</database>
+EOF;
+		$table = $this->getTableFromSchema($schema);
+		$expected = <<<EOF
+
+CREATE TABLE [foo]
+(
+	[id] INT NOT NULL IDENTITY,
+	[bar] VARCHAR(255) NULL,
+	[sys_start_time] DATETIME2 GENERATED ALWAYS AS ROW START NOT NULL,
+	[sys_end_time] DATETIME2 GENERATED ALWAYS AS ROW END NOT NULL,
+	PERIOD FOR SYSTEM_TIME ([sys_start_time], [sys_end_time]),
+	CONSTRAINT [foo_PK] PRIMARY KEY ([id])
+)
+WITH (SYSTEM_VERSIONING = ON (HISTORY_TABLE = [dbo].[foo_History]));
+
+EOF;
+		$this->assertEquals($expected, $this->getPlatform()->getAddTableDDL($table));
+	}
+
+	public function testGetAddTableDDLTemporalNamedHistoryTable()
+	{
+		$schema = <<<EOF
+<database name="test">
+	<table name="foo" temporal="true" historyTable="foo_versions">
+		<column name="id" primaryKey="true" type="INTEGER" autoIncrement="true" />
+		<column name="sys_start_time" periodRowStart="true" type="INTEGER" />
+		<column name="sys_end_time" periodRowEnd="true" type="INTEGER" />
+	</table>
+</database>
+EOF;
+		$table = $this->getTableFromSchema($schema);
+		$this->assertStringContainsString('WITH (SYSTEM_VERSIONING = ON (HISTORY_TABLE = [dbo].[foo_versions]));', $this->getPlatform()->getAddTableDDL($table));
+	}
+
+	public function testGetAddTableDDLTemporalMissingPeriodColumnsThrows()
+	{
+		$schema = <<<EOF
+<database name="test">
+	<table name="foo" temporal="true">
+		<column name="id" primaryKey="true" type="INTEGER" autoIncrement="true" />
+	</table>
+</database>
+EOF;
+		$table = $this->getTableFromSchema($schema);
+		$this->expectException(EngineException::class);
+		$this->getPlatform()->getAddTableDDL($table);
+	}
+
+	public function testGetDropTableDDLTemporal()
+	{
+		$schema = <<<EOF
+<database name="test">
+	<table name="foo" temporal="true">
+		<column name="id" primaryKey="true" type="INTEGER" autoIncrement="true" />
+		<column name="sys_start_time" periodRowStart="true" type="INTEGER" />
+		<column name="sys_end_time" periodRowEnd="true" type="INTEGER" />
+	</table>
+</database>
+EOF;
+		$table = $this->getTableFromSchema($schema);
+		$ddl = $this->getPlatform()->getDropTableDDL($table);
+		$this->assertStringContainsString("\nIF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'foo' AND temporal_type = 2)\n\tALTER TABLE [foo] SET (SYSTEM_VERSIONING = OFF);\n", $ddl);
+		$this->assertStringContainsString("\nIF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'foo_History')\n\tDROP TABLE [dbo].[foo_History];\n", $ddl);
 	}
 }

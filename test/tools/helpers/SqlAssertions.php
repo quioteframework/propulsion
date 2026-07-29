@@ -36,12 +36,11 @@
  *   table AS alias ..." (see DBAdapter::getUpdateTargetSql()/
  *   getUpdateFromClauseSql()). Rewritten back to the plain "UPDATE table alias
  *   SET ..." form.
- * - MSSQL LIMIT *with* OFFSET: DBMSSQL::applyLimit() has no native OFFSET/FETCH
- *   support (see KNOWN_ISSUES.md's "Modernize DBMSSQL::applyLimit()" item) and
- *   instead wraps the query in a `ROW_NUMBER() OVER(...)` derived table, aliasing
- *   every selected column to survive the wrapping. Unwrapped back into the
- *   original column list/FROM clause plus a trailing "LIMIT n OFFSET m", computed
- *   from the derived table's "WHERE RowNumber BETWEEN lo AND hi" bounds.
+ * - MSSQL LIMIT/OFFSET: DBMSSQL::applyLimit() emits a trailing native
+ *   "OFFSET n ROWS [FETCH NEXT m ROWS ONLY]" clause (SQL Server 2012+),
+ *   injecting a synthetic "ORDER BY (SELECT NULL)" first when the query has no
+ *   ORDER BY of its own (required by T-SQL's OFFSET/FETCH syntax). Both are
+ *   stripped/rewritten back to Postgres-style "LIMIT m [OFFSET n]".
  * - Oracle LIMIT/OFFSET: DBOracle::applyLimit() has no native LIMIT/OFFSET or
  *   FETCH/OFFSET syntax at all (pre-12c-compatible ROWNUM-based paging) --
  *   wraps the whole query in a double derived table ("SELECT B.* FROM (SELECT
@@ -68,19 +67,18 @@ function normalizeGeneratedSql(string $sql): string
 	$sql = (string) preg_replace('/\bDELETE \w+ FROM\b/', 'DELETE FROM', $sql);
 	$sql = (string) preg_replace('/^DELETE FROM (\w+) (\w+) WHERE\b/', 'DELETE FROM $1 AS $2 WHERE', $sql);
 	$sql = (string) preg_replace('/^UPDATE (\w+) SET (.+) FROM (\w+) AS \1 WHERE/', 'UPDATE $3 $1 SET $2 WHERE', $sql);
-	$sql = normalizeMssqlRowNumberOffset($sql);
 	$sql = normalizeOracleRownumOffset($sql);
 	if (preg_match('/^SELECT TOP (\d+) /', $sql, $m)) {
 		$sql = (string) preg_replace('/^SELECT TOP \d+ /', 'SELECT ', $sql, 1);
 		$sql .= ' LIMIT ' . $m[1];
 	}
-	// DBMSSQL::applyLimit()'s native-OFFSET/FETCH fallback (for a query it
-	// can't rewrite via the ROW_NUMBER derived-table trick, e.g. a
-	// UNION/INTERSECT/EXCEPT) -- "OFFSET 0 ROWS" alone (no FETCH NEXT) means
-	// an offset with no limit, matching Postgres's plain "OFFSET n" with no
-	// LIMIT at all.
-	if (preg_match('/ OFFSET (\d+) ROWS(?: FETCH NEXT (\d+) ROWS ONLY)?$/', $sql, $m)) {
-		$sql = (string) preg_replace('/ OFFSET \d+ ROWS(?: FETCH NEXT \d+ ROWS ONLY)?$/', '', $sql);
+	// DBMSSQL::applyLimit()'s native OFFSET/FETCH clause -- "OFFSET 0 ROWS"
+	// alone (no FETCH NEXT) means an offset with no limit, matching Postgres's
+	// plain "OFFSET n" with no LIMIT at all. The synthetic "ORDER BY (SELECT
+	// NULL)" applyLimit() injects when the query has no ORDER BY of its own is
+	// stripped along with it, since it carries no real ordering to preserve.
+	if (preg_match('/(?: ORDER BY \(SELECT NULL\))? OFFSET (\d+) ROWS(?: FETCH NEXT (\d+) ROWS ONLY)?$/', $sql, $m)) {
+		$sql = (string) preg_replace('/(?: ORDER BY \(SELECT NULL\))? OFFSET \d+ ROWS(?: FETCH NEXT \d+ ROWS ONLY)?$/', '', $sql);
 		if (isset($m[2])) {
 			$sql .= ' LIMIT ' . $m[2];
 		}
@@ -89,35 +87,6 @@ function normalizeGeneratedSql(string $sql): string
 		}
 	}
 	return $sql;
-}
-
-/**
- * Unwraps DBMSSQL::applyLimit()'s ROW_NUMBER()-based derived-table rewrite (used
- * whenever an OFFSET is present) back into a plain "SELECT ... FROM ... LIMIT n
- * OFFSET m" shape -- see normalizeGeneratedSql()'s own docblock. A no-op (returns
- * $sql unchanged) if it isn't in that shape at all, i.e. every non-MSSQL platform
- * and any MSSQL query without an OFFSET.
- *
- * @param      string $sql
- * @return     string
- */
-function normalizeMssqlRowNumberOffset(string $sql): string
-{
-	$pattern = '/^SELECT .*? FROM \(SELECT ROW_NUMBER\(\) OVER\(ORDER BY .*?\) AS \[RowNumber\], (.*?) FROM (.*?)\) AS derived\w+ WHERE RowNumber BETWEEN (\d+) AND (\d+)$/';
-	if (!preg_match($pattern, $sql, $m)) {
-		return $sql;
-	}
-	[, $innerColumns, $fromClause, $lowerBound, $upperBound] = $m;
-	// Each inner column is aliased as "col AS [alias]" -- except a genuinely
-	// empty column (this file's own degenerate "no columns selected at all"
-	// unit tests), whose "alias" is the empty string and so isn't
-	// bracket-quoted at all (see DBMSSQL::applyLimit()'s own alias-quoting
-	// guard), leaving a bare trailing "AS ".
-	$columns = (string) preg_replace('/ AS (?:\[[^\]]*\])?/', '', $innerColumns);
-	$limit = ((int) $upperBound) - ((int) $lowerBound) + 1;
-	$offset = ((int) $lowerBound) - 1;
-
-	return "SELECT $columns FROM $fromClause LIMIT $limit OFFSET $offset";
 }
 
 /**

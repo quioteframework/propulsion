@@ -212,6 +212,36 @@ class Table extends ScopedElement implements IDMethod
 	private ?string $inheritsFrom = null;
 
 	/**
+	 * Whether this table's `PRIMARY KEY` constraint is physically `CLUSTERED`
+	 * (true, the default -- SQL Server's own implicit default when a table has
+	 * no other clustered index/constraint) or `NONCLUSTERED` (false,
+	 * `primaryKeyClustered="false"` -- freeing up the one clustered
+	 * index/constraint slot for a `<unique clustered="true">`/`<index
+	 * clustered="true">` elsewhere on the table, see `Index::isClustered()`).
+	 * Only honored by MssqlPlatform; every other platform has no clustering
+	 * concept and ignores this attribute.
+	 */
+	private bool $primaryKeyClustered = true;
+
+	/**
+	 * Whether this table is a SQL Server system-versioned temporal table
+	 * (`temporal="true"`, `WITH (SYSTEM_VERSIONING = ON)`) -- requires exactly
+	 * one column with `Column::isPeriodRowStart()` and one with
+	 * `isPeriodRowEnd()` set, forming the `PERIOD FOR SYSTEM_TIME` the feature
+	 * is built on. Only honored by MssqlPlatform (SQL Server 2016+/Azure SQL);
+	 * every other platform ignores it (no equivalent mechanism exists on any
+	 * other supported platform).
+	 */
+	private bool $isTemporal = false;
+
+	/**
+	 * The history table backing a temporal table's row versions
+	 * (`historyTable="dbo.book_history"`), or null to let MssqlPlatform derive
+	 * the default `<table>_History` name. Meaningless without $isTemporal set.
+	 */
+	private ?string $historyTable = null;
+
+	/**
 	 * The base peer class to extend for generated "peer" class.
 	 *
 	 * @var       string
@@ -353,6 +383,10 @@ class Table extends ScopedElement implements IDMethod
 		$this->basePeer = $this->getAttribute("basePeer");
 		$this->alias = $this->getAttribute("alias");
 		$this->inheritsFrom = $this->getAttribute("inheritsFrom");
+		$primaryKeyClusteredAttr = $this->getAttribute("primaryKeyClustered", null);
+		$this->primaryKeyClustered = $primaryKeyClusteredAttr !== null ? $this->booleanValue($primaryKeyClusteredAttr) : true;
+		$this->isTemporal = $this->booleanValue($this->getAttribute("temporal"));
+		$this->historyTable = $this->getAttribute("historyTable", null);
 
 		$this->heavyIndexing = ( $this->booleanValue($this->getAttribute("heavyIndexing"))
 		|| ("false" !== $this->getAttribute("heavyIndexing")
@@ -669,6 +703,49 @@ class Table extends ScopedElement implements IDMethod
 	public function setInheritsFrom(?string $inheritsFrom): void
 	{
 		$this->inheritsFrom = $inheritsFrom;
+	}
+
+	/**
+	 * Whether this table's `PRIMARY KEY` constraint is physically `CLUSTERED`.
+	 * See the property docblock.
+	 */
+	public function isPrimaryKeyClustered(): bool
+	{
+		return $this->primaryKeyClustered;
+	}
+
+	public function setPrimaryKeyClustered(bool $primaryKeyClustered): void
+	{
+		$this->primaryKeyClustered = $primaryKeyClustered;
+	}
+
+	/**
+	 * Whether this table is a SQL Server system-versioned temporal table. See
+	 * the property docblock.
+	 */
+	public function isTemporal(): bool
+	{
+		return $this->isTemporal;
+	}
+
+	public function setTemporal(bool $isTemporal): void
+	{
+		$this->isTemporal = $isTemporal;
+	}
+
+	/**
+	 * The explicitly-declared history table name (`historyTable="..."`), or
+	 * null to let MssqlPlatform derive the default. See the property
+	 * docblock.
+	 */
+	public function getHistoryTable(): ?string
+	{
+		return $this->historyTable;
+	}
+
+	public function setHistoryTable(?string $historyTable): void
+	{
+		$this->historyTable = $historyTable;
 	}
 
 	/**
@@ -1809,6 +1886,15 @@ class Table extends ScopedElement implements IDMethod
 
 		if ($this->inheritsFrom !== null) {
 			$tableNode->setAttribute('inheritsFrom', $this->inheritsFrom);
+		}
+		if (!$this->primaryKeyClustered) {
+			$tableNode->setAttribute('primaryKeyClustered', 'false');
+		}
+		if ($this->isTemporal) {
+			$tableNode->setAttribute('temporal', 'true');
+		}
+		if ($this->historyTable !== null) {
+			$tableNode->setAttribute('historyTable', $this->historyTable);
 		}
 
 		if ($this->getIsCrossRef()) {

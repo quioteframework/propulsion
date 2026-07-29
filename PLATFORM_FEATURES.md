@@ -817,26 +817,153 @@ parity.
 
 ### MSSQL
 
-- [ ] **Sequences** (`CREATE SEQUENCE`, SQL Server 2012+) — only `IDENTITY`
-  is supported; `getNativeIdMethod()` isn't overridden in `MssqlPlatform`.
-- [ ] Computed columns (`AS (expression) [PERSISTED]`).
-- [ ] Temporal tables (`SYSTEM_VERSIONING = ON`, `PERIOD FOR SYSTEM_TIME`).
-- [ ] `rowversion`/`timestamp` type mapping — would also serve as the
-  concurrency token for `UNIT_OF_WORK.md`'s optimistic-concurrency item.
-- [ ] Clustered vs. nonclustered index control — `Index` model has no
-  clustering flag; `getAddIndexDDL` inherited unmodified from
-  `DefaultPlatform`.
-- [ ] Modernize `DBMSSQL::applyLimit()` — partially done: the fallback path
-  (unparseable `FROM`, e.g. `UNION`) already uses native
-  `OFFSET ... ROWS FETCH NEXT ... ROWS ONLY` (`DBMSSQL.php` ~line 174), but
-  the main/common path (simple `SELECT` with an offset) still goes through
-  the ~150-line regex-based `ROW_NUMBER()` rewriter (parses
-  `SELECT ... FROM ...` via regex, requires explicit aliases on aggregates,
-  fragile against subqueries/CTEs). SQL Server 2012+
-  supports `OFFSET n ROWS FETCH NEXT m ROWS ONLY` natively, which would
-  eliminate the whole rewriter.
-- [ ] Modernize `getDropTableDDL`'s use of legacy `sysobjects`/`sysreferences`
-  catalog views to `sys.foreign_keys`/`sys.tables` (works today, but dated).
+Lowest supported version raised to SQL Server 2012+ (Azure SQL is always
+current) as part of this pass — every item below assumes at least that floor;
+temporal tables additionally need 2016+/Azure SQL, called out again on that
+item itself.
+
+- [x] **Sequences** (`CREATE SEQUENCE`, SQL Server 2012+) — opt in via
+  `<table><id-method-parameter value="my_sequence"/></table>` (the same
+  schema-level mechanism PgsqlPlatform's own named-sequence support uses),
+  `MssqlPlatform::getAddSequenceDDL()`/`getDropSequenceDDL()` emitting
+  `CREATE SEQUENCE %s AS BIGINT START WITH 1 INCREMENT BY 1;`/a guarded
+  `DROP SEQUENCE`, wired into `getAddTablesDDL()`/`getDropTableDDL()`. Unlike
+  Postgres, MSSQL's default id method (`IDENTITY`) is a column property with
+  no backing sequence object at all, so this is a fully independent,
+  additive mechanism rather than an alternative naming path for the same
+  underlying object — a column that wants its value from the sequence uses
+  its own `defaultExpr="NEXT VALUE FOR my_sequence"` (this codebase's existing
+  raw-expression column default, unmodified), and must *not* also be
+  `autoIncrement="true"` (that would give the column two competing value
+  sources). Deliberately does **not** gate on
+  `$table->getIdMethod() == IDMethod::NATIVE` the way `PgsqlPlatform`'s
+  equivalent guard does — `Table::finalize()` silently downgrades `NATIVE` to
+  `NO_ID_METHOD` whenever a table has no `autoIncrement` column (see
+  `Table.php`), which every real use of this defaultExpr-only pattern hits,
+  unlike Postgres's own usage (always paired with `autoIncrement="true"`) —
+  surfaced by live-verifying against a real `azure-sql-edge` container, where
+  the first cut (gated on `IDMethod::NATIVE`) silently never emitted the
+  `CREATE SEQUENCE` at all. `MssqlPlatform::getSequenceName()` is overridden
+  only to look past that same downgrade (falling through to
+  `DefaultPlatform`'s own `<table>_SEQ`-default/`IDMethod::NATIVE`-gated
+  behavior — still relied on by `TableMapBuilder::setPrimaryKeyMethodInfo()`
+  and this platform's own pre-existing `getSequenceName()` tests — whenever no
+  `<id-method-parameter>` is declared at all). Verified end-to-end against a
+  live `azure-sql-edge` container: `CREATE SEQUENCE` + a `defaultExpr`-driven
+  column DEFAULT actually produced sequential ids on insert.
+- [x] **Computed columns** (`AS (expression) [PERSISTED]`) — reuses the
+  platform-generic `generatedAs="expr"`/`generatedType="stored"` `Column`
+  attributes SQLite's own generated-column support introduced;
+  `MssqlPlatform::getColumnDDL()` gains an `isGenerated()` branch emitting
+  `AS (expr)` (`VIRTUAL`, the SQL Server default, needs no suffix at all —
+  unlike SQLite there's no `VIRTUAL` keyword) or `AS (expr) PERSISTED[ NOT
+  NULL]` for `generatedType="stored"` (T-SQL only allows `NOT NULL` alongside
+  `PERSISTED`, and never allows a bare `NULL` keyword on a computed column at
+  all, stricter than SQLite's own grammar). Verified end-to-end against a live
+  `azure-sql-edge` container, including a real round-trip through a `PERSISTED`
+  column after an `UPDATE` to one of its inputs — surfaced a real, purely
+  environmental gap while doing so (see the `SET ANSI_NULLS ON` bullet below).
+- [x] **`rowversion`/`timestamp` type mapping** — new `rowVersion="true"`
+  column attribute (mirrors the existing MySQL-only `unsigned`/`zerofill`
+  opt-in-boolean pattern), only honored by `MssqlPlatform::getColumnDDL()`,
+  which emits the real `ROWVERSION` type in place of the column's own mapped
+  domain type. Serves as the concurrency token for `UNIT_OF_WORK.md`'s
+  optimistic-concurrency item; hydration/comparison at the runtime/ObjectBuilder
+  layer for that use case is not implemented here — DDL + type mapping only,
+  the same scoping convention `vector`/`GEOMETRY` used for their own
+  DDL-only v1s. Verified live: a `ROWVERSION` column's value changed on
+  `UPDATE` as expected.
+- [x] **Clustered vs. nonclustered index control** — new `clustered="true"/
+  "false"` attribute on `Index`/`Unique` (`Unique extends Index`, so both
+  `<index>` and `<unique>` get it), defaulting to `null` ("unspecified" —
+  reproducing the exact prior DDL unchanged when unset, verified by keeping
+  every pre-existing index/unique DDL test passing byte-for-byte).
+  `MssqlPlatform::getAddIndexDDL()`/`getUniqueDDL()` are now overridden
+  (previously both inherited `DefaultPlatform`'s un-clustering-aware version
+  unmodified) to splice `CLUSTERED`/`NONCLUSTERED` in when set. Since the
+  primary key (not an `Index` instance in this model) is SQL Server's own
+  implicit default clustered object, a new `primaryKeyClustered="false"`
+  `Table` attribute (default `true`, reproducing prior DDL unchanged) lets a
+  schema move clustering to a different index/unique constraint instead —
+  `MssqlPlatform::getPrimaryKeyDDL()` emits an explicit `NONCLUSTERED` only
+  when set to `false`. The schema author is responsible for not declaring
+  more than one clustered index/constraint per table (SQL Server rejects that
+  at DDL-execution time, not validated here). Verified live: a
+  `primaryKeyClustered="false"` table plus a `clustered="true"` index actually
+  swapped which object SQL Server reports as `CLUSTERED` in `sys.indexes`.
+- [x] **Temporal tables** (`SYSTEM_VERSIONING = ON`, `PERIOD FOR SYSTEM_TIME`,
+  SQL Server 2016+/Azure SQL — a higher floor than every other MSSQL item in
+  this pass, called out explicitly since it's the one exception) — new
+  `temporal="true"` + optional `historyTable="..."` `Table` attributes, and
+  `periodRowStart="true"`/`periodRowEnd="true"` `Column` attributes marking
+  the table's two system-time boundary columns (the schema author declares
+  them explicitly, like every other column, rather than this generator
+  synthesizing hidden ones from nothing). `MssqlPlatform::getColumnDDL()`
+  emits `col DATETIME2 GENERATED ALWAYS AS ROW START|END NOT NULL` for those
+  two; `getAddTableDDL()` is overridden (previously inherited
+  `DefaultPlatform`'s version unmodified) to append a `PERIOD FOR SYSTEM_TIME
+  (start, end)` clause and a trailing `WITH (SYSTEM_VERSIONING = ON
+  (HISTORY_TABLE = ...))` clause, throwing an `EngineException` if a
+  `temporal="true"` table doesn't declare exactly one of each boundary column.
+  `getDropTableDDL()` now unconditionally checks
+  `sys.tables.temporal_type = 2` (not just `$table->isTemporal()`, so this
+  still works against a live database left over from a schema that used to
+  declare `temporal="true"` and no longer does) and runs `ALTER TABLE ... SET
+  (SYSTEM_VERSIONING = OFF)` before the normal drop path -- SQL Server
+  otherwise rejects dropping (or altering FK/PK constraints on) a
+  still-versioned table outright (error 13552) -- then also drops the
+  now-demoted-to-ordinary history table explicitly (SQL Server doesn't do
+  that automatically when the base table is dropped). The history table name
+  defaults to `<table>_History`, always auto-qualified with an explicit
+  schema (`dbo` when the base table has none) even when named explicitly via
+  `historyTable="..."` — surfaced live against a real `azure-sql-edge`
+  container: `HISTORY_TABLE` is rejected outright ("not specified in
+  two-part name format", error 13735) for a bare single-part name, which
+  `$table->getName()`'s own schema-qualification (only present when the table
+  itself has a schema) doesn't cover for the common schema-less case. Verified
+  end-to-end live: `sys.tables.temporal_type` read back as `2`, an `UPDATE`
+  actually produced a row in the history table, and `DROP` cleanly removed
+  both tables.
+- [x] **`SET ANSI_NULLS/ANSI_PADDING/ANSI_WARNINGS/ARITHABORT/
+  CONCAT_NULL_YIELDS_NULL/QUOTED_IDENTIFIER ON, NUMERIC_ROUNDABORT OFF`** —
+  not itself a roadmap item, but a real, only-live-instance-catchable gap
+  surfaced implementing the computed-columns item above:  all seven of these
+  session-level `SET` options must be in this exact state for the *session
+  that creates it* for several object types SQL Server otherwise rejects
+  outright at `CREATE`/`ALTER` time (computed columns among them — also
+  indexed views, filtered indexes, indexes on computed columns). SSMS and the
+  `pdo_sqlsrv` driver (`DBSQLSRV`) already default all seven correctly, but
+  FreeTDS's `pdo_dblib` (the driver this codebase's own MSSQL integration
+  tests connect over) does not, and `bin/propulsion sql:exec`
+  (`SqlExecManager`) opens a bare `PDO` with no MSSQL-specific session setup
+  of its own — a generated DDL file with a `PERSISTED` computed column failed
+  outright against a live `azure-sql-edge` container over `dblib` (SQL Server
+  error 20018) until this was tracked down. Fixed by having
+  `MssqlPlatform::getAddTablesDDL()` emit all seven `SET` statements once at
+  the very top of the generated file (guarded on the database actually having
+  any table to emit DDL for, so an all-`skipSql` schema still produces a
+  truly empty string) — every one is a session-scoped option that persists
+  for the rest of that one connection's statements, so this needed no
+  platform-agnostic change to `SqlExecManager` itself to take effect.
+- [x] Modernize `DBMSSQL::applyLimit()` — the ~150-line regex-based
+  `ROW_NUMBER()` rewriter (parsed `SELECT ... FROM ...` via regex, required
+  explicit aliases on aggregates, fragile against subqueries/CTEs) is gone
+  entirely. The no-offset case still rewrites to `SELECT TOP n ...` (needs no
+  `ORDER BY`, applies to any plain `SELECT ... FROM ...`); every offset case
+  (including the query it previously couldn't parse structurally at all, e.g.
+  `UNION`/`INTERSECT`/`EXCEPT`) now uses SQL Server 2012+'s native `OFFSET n
+  ROWS [FETCH NEXT m ROWS ONLY]`, injecting a synthetic `ORDER BY (SELECT
+  NULL)` first when the query has no `ORDER BY` of its own (required by
+  T-SQL's `OFFSET`/`FETCH` syntax, satisfied here without imposing a real
+  ordering). `test/tools/helpers/SqlAssertions.php`'s cross-platform SQL
+  normalization updated to match (the old `ROW_NUMBER()`-unwrapping regex is
+  now dead code, removed).
+- [x] Modernize `getDropTableDDL`'s use of legacy `sysobjects`/`sysreferences`
+  catalog views to `sys.foreign_keys`/`sys.tables` — both the per-FK
+  existence check and the cross-database "who else references this table"
+  cursor query now join `sys.foreign_keys` to `sys.tables` via
+  `parent_object_id`/`referenced_object_id` instead of the legacy
+  `sysobjects`/`sysreferences` views.
 - [x] Auto-downgrade CASCADE FKs that would create multiple cascade paths to
   `NO ACTION` (SQL Server error 1785) so the shared bookstore fixture can
   load on MSSQL — `MssqlPlatform::computeCascadeDowngrades()`, handles

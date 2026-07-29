@@ -147,16 +147,17 @@ class Column extends XMLElement
 
 	/**
 	 * The raw SQL expression a generated column (`generatedAs="expr"`) is
-	 * computed from, or null for an ordinary column. Currently only honored
-	 * by SqlitePlatform (`GENERATED ALWAYS AS (expr) VIRTUAL|STORED`,
-	 * SQLite 3.31+).
+	 * computed from, or null for an ordinary column. Honored by SqlitePlatform
+	 * (`GENERATED ALWAYS AS (expr) VIRTUAL|STORED`, SQLite 3.31+) and
+	 * MssqlPlatform (`AS (expr) [PERSISTED]`, SQL Server 2005+).
 	 */
 	protected ?string $generatedAs = null;
 
 	/**
 	 * Whether a generated column (see $generatedAs) is `VIRTUAL` (computed on
-	 * read, the SQLite default) or `STORED` (computed on write and persisted)
-	 * -- `generatedType="stored"`. Meaningless without $generatedAs set.
+	 * read, the SQLite/MSSQL default) or `STORED` (computed on write and
+	 * persisted; `PERSISTED` on MSSQL) -- `generatedType="stored"`. Meaningless
+	 * without $generatedAs set.
 	 */
 	protected string $generatedType = 'VIRTUAL';
 
@@ -174,6 +175,31 @@ class Column extends XMLElement
 	 * silently ignored otherwise.
 	 */
 	protected bool $isZerofill = false;
+
+	/**
+	 * Whether a column is declared `rowVersion="true"` (SQL Server's
+	 * `ROWVERSION`/`TIMESTAMP` auto-updating binary column, a database-wide
+	 * monotonic counter bumped on every row write -- the standard MSSQL
+	 * optimistic-concurrency token). Only honored by MssqlPlatform, which emits
+	 * the real `ROWVERSION` type in place of the column's own mapped domain
+	 * type; silently ignored on every other platform.
+	 */
+	protected bool $isRowVersion = false;
+
+	/**
+	 * Whether this column is the `ROW START` boundary of a temporal table's
+	 * `PERIOD FOR SYSTEM_TIME` (`periodRowStart="true"`, SQL Server
+	 * `GENERATED ALWAYS AS ROW START`) -- meaningful only on a table with
+	 * `Table::isTemporal()` set. Only honored by MssqlPlatform. See also
+	 * $isPeriodRowEnd.
+	 */
+	protected bool $isPeriodRowStart = false;
+
+	/**
+	 * The `ROW END` counterpart to $isPeriodRowStart
+	 * (`periodRowEnd="true"`, SQL Server `GENERATED ALWAYS AS ROW END`).
+	 */
+	protected bool $isPeriodRowEnd = false;
 
 	/**
 	 * @var				 Domain|null The domain object associated with this Column.
@@ -352,6 +378,9 @@ class Column extends XMLElement
 
 			$this->isUnsigned = $this->booleanValue($this->getAttribute("unsigned"));
 			$this->isZerofill = $this->booleanValue($this->getAttribute("zerofill"));
+			$this->isRowVersion = $this->booleanValue($this->getAttribute("rowVersion"));
+			$this->isPeriodRowStart = $this->booleanValue($this->getAttribute("periodRowStart"));
+			$this->isPeriodRowEnd = $this->booleanValue($this->getAttribute("periodRowEnd"));
 
 			$this->inheritanceType = $this->getAttribute("inheritance");
 			$this->isInheritance = ($this->inheritanceType !== null
@@ -1322,6 +1351,48 @@ class Column extends XMLElement
 	public function setZerofill(bool $isZerofill): void
 	{
 		$this->isZerofill = $isZerofill;
+	}
+
+	/**
+	 * Whether this column is declared `rowVersion="true"`. See the property
+	 * docblock.
+	 */
+	public function isRowVersion(): bool
+	{
+		return $this->isRowVersion;
+	}
+
+	public function setRowVersion(bool $isRowVersion): void
+	{
+		$this->isRowVersion = $isRowVersion;
+	}
+
+	/**
+	 * Whether this column is declared `periodRowStart="true"`. See the
+	 * property docblock.
+	 */
+	public function isPeriodRowStart(): bool
+	{
+		return $this->isPeriodRowStart;
+	}
+
+	public function setPeriodRowStart(bool $isPeriodRowStart): void
+	{
+		$this->isPeriodRowStart = $isPeriodRowStart;
+	}
+
+	/**
+	 * Whether this column is declared `periodRowEnd="true"`. See the
+	 * property docblock.
+	 */
+	public function isPeriodRowEnd(): bool
+	{
+		return $this->isPeriodRowEnd;
+	}
+
+	public function setPeriodRowEnd(bool $isPeriodRowEnd): void
+	{
+		$this->isPeriodRowEnd = $isPeriodRowEnd;
 	}
 
 	/**

@@ -17,10 +17,13 @@ namespace Propulsion\Generator\Platform;
  * @version    $Revision$
  */
 use Propulsion\Generator\Exception\EngineException;
+use Propulsion\Generator\Model\Column;
 use Propulsion\Generator\Model\Database;
 use Propulsion\Generator\Model\Domain;
+use Propulsion\Generator\Model\Index;
 use Propulsion\Generator\Model\PropulsionTypes;
 use Propulsion\Generator\Model\Table;
+use Propulsion\Generator\Model\Unique;
 use Propulsion\Generator\Model\ForeignKey;
 
 class MssqlPlatform extends DefaultPlatform
@@ -131,6 +134,7 @@ class MssqlPlatform extends DefaultPlatform
 		return ($notNull ? "NOT NULL" : "NULL");
 	}
 
+
 	public function supportsNativeDeleteTrigger()
 	{
 		return true;
@@ -139,6 +143,86 @@ class MssqlPlatform extends DefaultPlatform
 	public function supportsInsertNullPk()
 	{
 		return false;
+	}
+
+	/**
+	 * Overridden only to look past `Table::finalize()`'s "idMethod=native but
+	 * no autoIncrement column on the table -> silently downgrade to
+	 * NO_ID_METHOD" rule (see Table.php), which
+	 * `DefaultPlatform::getSequenceName()`'s own NATIVE-only gate would
+	 * otherwise make this platform's named-sequence feature (see
+	 * getAddSequenceDDL() below) unreachable for -- a MSSQL table using an
+	 * explicit sequence has no reason to also declare an autoIncrement column
+	 * (its column instead uses `defaultExpr="NEXT VALUE FOR <sequence>"`), so
+	 * it never stays NATIVE post-finalize() the way Postgres's own usage of
+	 * this same `<id-method-parameter>` mechanism does (always paired with
+	 * `autoIncrement="true"`, precisely because SERIAL's implicit sequence and
+	 * a named explicit one are the same kind of object there). Falls through
+	 * to the inherited NATIVE-gated behavior -- including its `<table>_SEQ`
+	 * default-name fallback, still relied on by
+	 * `TableMapBuilder::setPrimaryKeyMethodInfo()` and this platform's own
+	 * pre-existing testGetSequenceNameDefault()/testGetSequenceNameCustom() --
+	 * whenever no id-method-parameter is declared at all.
+	 *
+	 * @param      Table $table
+	 * @return     string|null
+	 */
+	public function getSequenceName(Table $table): ?string
+	{
+		$idMethodParams = $table->getIdMethodParameters();
+		if (empty($idMethodParams)) {
+			return parent::getSequenceName($table);
+		}
+		return $idMethodParams[0]->getValue();
+	}
+
+	/**
+	 * A named sequence, opt in via `<table><id-method-parameter value="..."/>
+	 * </table>` -- unlike Postgres, MSSQL has no implicit per-autoIncrement-
+	 * column sequence to back, since IDENTITY (DefaultPlatform::getAutoIncrement(),
+	 * still this platform's default id method) is a column property, not backed
+	 * by a real CREATE SEQUENCE object at all. A column that wants its value
+	 * from the sequence created here does so via its own `defaultExpr="NEXT
+	 * VALUE FOR <sequence>"` -- CREATE SEQUENCE itself carries no column
+	 * association for getAddSequenceDDL()/getDropSequenceDDL() to hook a
+	 * column's DDL through, and pairing it with `autoIncrement="true"` on the
+	 * same column would be a genuine schema-author error (IDENTITY and a
+	 * sequence-driven DEFAULT would both try to supply the same column's
+	 * value), not something this method attempts to validate.
+	 *
+	 * @param      Table $table
+	 * @return     string|null
+	 */
+	protected function getAddSequenceDDL(Table $table): ?string
+	{
+		if (empty($table->getIdMethodParameters())) {
+			return null;
+		}
+		$sequenceName = $this->requireString($this->getSequenceName($table), 'Sequence name');
+		// SQL Server 2012+. START WITH 1 is specified explicitly -- omitting it
+		// would default to the sequence type's minimum value (a large negative
+		// number for BIGINT), not 1.
+		$pattern = "
+CREATE SEQUENCE %s AS BIGINT START WITH 1 INCREMENT BY 1;
+";
+		return sprintf($pattern, $this->quoteIdentifier($sequenceName));
+	}
+
+	/**
+	 * @param      Table $table
+	 * @return     string|null
+	 */
+	protected function getDropSequenceDDL(Table $table): ?string
+	{
+		if (empty($table->getIdMethodParameters())) {
+			return null;
+		}
+		$sequenceName = $this->requireString($this->getSequenceName($table), 'Sequence name');
+		$pattern = "
+IF EXISTS (SELECT 1 FROM sys.sequences WHERE name = '%s')
+	DROP SEQUENCE %s;
+";
+		return sprintf($pattern, $sequenceName, $this->quoteIdentifier($sequenceName));
 	}
 
 	/**
@@ -170,14 +254,51 @@ class MssqlPlatform extends DefaultPlatform
 		$this->cascadeDeleteDowngrades = $this->computeCascadeDowngrades($database, fn (ForeignKey $fk) => $fk->getOnDelete());
 		$this->cascadeUpdateDowngrades = $this->computeCascadeDowngrades($database, fn (ForeignKey $fk) => $fk->getOnUpdate());
 
+		$tables = $database->getTablesForSql();
 		$ret = $this->getBeginDDL();
-		foreach ($database->getTablesForSql() as $table) {
+		if ($tables) {
+			// This exact six-option combination (ON for every one except
+			// NUMERIC_ROUNDABORT) is what SQL Server itself requires -- and
+			// names in its own error text -- for the *session that creates it*
+			// for several object types (computed columns -- see
+			// getColumnDDL()'s isGenerated() branch -- indexed views, filtered
+			// indexes, and indexes on computed columns among them); all six
+			// already default correctly for SSMS and the pdo_sqlsrv driver
+			// (DBSQLSRV), but FreeTDS's pdo_dblib (the driver this codebase's
+			// own MSSQL integration tests connect over, see
+			// IntegrationDatabase::pdoDriverPrefix()) does not -- a
+			// generated-DDL-with-a-PERSISTED-computed-column run through
+			// SqlExecManager (bin/propulsion sql:exec), which opens a bare PDO
+			// with no MSSQL-specific session setup of its own, failed outright
+			// against a live azure-sql-edge container over dblib (SQL Server
+			// error 20018, "SET options have incorrect settings: ...") while
+			// verifying getColumnDDL()'s new isGenerated() branch -- confirmed
+			// this is a real, session-level requirement, not a DDL-string
+			// mistake. Setting all six explicitly here, once at the top of the
+			// file (guarded on there being any table to actually emit, so an
+			// all-skipSql schema still produces a truly empty string), is
+			// harmless on every other connection -- these are already in
+			// effect there -- and needs no platform-agnostic SqlExecManager
+			// change to take effect, since every one is a session SET option
+			// that persists for the rest of that one connection's statements.
+			$ret .= "
+SET ANSI_NULLS ON;
+SET ANSI_PADDING ON;
+SET ANSI_WARNINGS ON;
+SET ARITHABORT ON;
+SET CONCAT_NULL_YIELDS_NULL ON;
+SET QUOTED_IDENTIFIER ON;
+SET NUMERIC_ROUNDABORT OFF;
+";
+		}
+		foreach ($tables as $table) {
 			$ret .= $this->getCommentBlockDDL($this->requireString($table->getName(), 'Table name'));
 			$ret .= $this->getDropTableDDL($table);
+			$ret .= $this->getAddSequenceDDL($table);
 			$ret .= $this->getAddTableDDL($table);
 			$ret .= $this->getAddIndicesDDL($table);
 		}
-		foreach ($database->getTablesForSql() as $table) {
+		foreach ($tables as $table) {
 			$ret .= $this->getAddForeignKeysDDL($table);
 		}
 		$ret .= $this->getEndDDL();
@@ -374,11 +495,20 @@ class MssqlPlatform extends DefaultPlatform
 		// $table->getName() call sites) so the null-guard only has to happen once.
 		$tableName = $this->requireString($table->getName(), 'Table name');
 
-		$ret = '';
+		// A system-versioned temporal table can't be dropped (or have its FK/PK
+		// constraints altered) while versioning is still on -- SQL Server error
+		// 13552. Checked against sys.tables.temporal_type (2 =
+		// SYSTEM_VERSIONED_TEMPORAL_TABLE) rather than $table->isTemporal(),
+		// since this DDL may run against a live database left over from a
+		// schema that used to declare `temporal="true"` and no longer does.
+		$ret = "
+IF EXISTS (SELECT 1 FROM sys.tables WHERE name = '" . $tableName . "' AND temporal_type = 2)
+	ALTER TABLE " . $this->quoteIdentifier($tableName) . " SET (SYSTEM_VERSIONING = OFF);
+";
 		foreach ($table->getForeignKeys() as $fk) {
 			$fkName = $this->requireString($fk->getName(), 'Foreign key name');
 			$ret .= "
-IF EXISTS (SELECT 1 FROM sysobjects WHERE type ='RI' AND name='" . $fkName . "')
+IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = '" . $fkName . "')
 	ALTER TABLE " . $this->quoteIdentifier($tableName) . " DROP CONSTRAINT " . $this->quoteIdentifier($fkName) . ";
 ";
 		}
@@ -403,19 +533,15 @@ IF EXISTS (SELECT 1 FROM sysobjects WHERE type ='RI' AND name='" . $fkName . "')
 		$cursorName = 'refcursor_' . $suffix;
 
 		$ret .= "
-IF EXISTS (SELECT 1 FROM sysobjects WHERE type = 'U' AND name = '" . $tableName . "')
+IF EXISTS (SELECT 1 FROM sys.tables WHERE name = '" . $tableName . "')
 BEGIN
 	DECLARE @reftable_{$suffix} nvarchar(60), @constraintname_{$suffix} nvarchar(60)
 	DECLARE {$cursorName} CURSOR FOR
-	select reftables.name tablename, cons.name constraintname
-		from sysobjects tables,
-			sysobjects reftables,
-			sysobjects cons,
-			sysreferences ref
-		where tables.id = ref.rkeyid
-			and cons.id = ref.constid
-			and reftables.id = ref.fkeyid
-			and tables.name = '" . $tableName . "'
+	select childtable.name tablename, fk.name constraintname
+		from sys.foreign_keys fk
+			join sys.tables childtable on fk.parent_object_id = childtable.object_id
+			join sys.tables reftable on fk.referenced_object_id = reftable.object_id
+		where reftable.name = '" . $tableName . "'
 	OPEN {$cursorName}
 	FETCH NEXT from {$cursorName} into @reftable_{$suffix}, @constraintname_{$suffix}
 	while @@FETCH_STATUS = 0
@@ -428,20 +554,241 @@ BEGIN
 	DROP TABLE " . $this->quoteIdentifier($tableName) . "
 END
 ";
+		$ret .= $this->getDropSequenceDDL($table);
+		if ($table->isTemporal()) {
+			// Turning SYSTEM_VERSIONING off (above) demotes the history table to
+			// an ordinary table -- it's dropped here explicitly, the same way
+			// dropping the base table doesn't do it automatically on real SQL
+			// Server either.
+			$historyTableName = $this->getHistoryTableName($table);
+			$ret .= "
+IF EXISTS (SELECT 1 FROM sys.tables WHERE name = '" . $this->getHistoryTableUnqualifiedName($table) . "')
+	DROP TABLE " . $this->quoteIdentifier($historyTableName) . ";
+";
+		}
 		return $ret;
 	}
 
+	/**
+	 * Computed columns (`generatedAs="expr"` -- see SqlitePlatform's own generated
+	 * column support, this is the same platform-generic `Column` attribute) and
+	 * `rowVersion="true"` (SQL Server's auto-maintained `ROWVERSION` binary
+	 * column, the standard optimistic-concurrency token there).
+	 *
+	 * T-SQL's grammar for a computed column is stricter than SQLite's: `NOT NULL`
+	 * is only legal alongside `PERSISTED` (a non-persisted/virtual computed
+	 * column can never be declared `NOT NULL`, and neither can be declared plain
+	 * `NULL` at all -- there's no keyword for it), and `IDENTITY`/a `DEFAULT`
+	 * make no sense on a column whose value is always derived from its
+	 * expression, so neither is emitted here the way SqlitePlatform's own
+	 * override still emits an (always-true) null-string branch.
+	 *
+	 * `ROWVERSION` is a fixed, server-maintained binary(8) type: no size, no
+	 * `DEFAULT`, and only one such column is allowed per table (a schema
+	 * declaring more than one is the author's own error -- not validated here,
+	 * the same way this codebase doesn't validate a second `autoIncrement`
+	 * column elsewhere).
+	 */
+	public function getColumnDDL(Column $col)
+	{
+		if ($col->isGenerated()) {
+			$ddl = array($this->quoteIdentifier($this->requireString($col->getName(), 'Column name')), sprintf('AS (%s)', $col->getGeneratedExpr()));
+			if ($col->isGeneratedStored()) {
+				$ddl []= 'PERSISTED';
+				if ($col->isNotNull()) {
+					$ddl []= 'NOT NULL';
+				}
+			}
+			return implode(' ', $ddl);
+		}
+
+		if ($col->isRowVersion()) {
+			$ddl = array($this->quoteIdentifier($this->requireString($col->getName(), 'Column name')), 'ROWVERSION');
+			if ($notNull = $this->getNullString($col->isNotNull())) {
+				$ddl []= $notNull;
+			}
+			return implode(' ', $ddl);
+		}
+
+		if ($col->isPeriodRowStart() || $col->isPeriodRowEnd()) {
+			// The PERIOD FOR SYSTEM_TIME boundary columns of a temporal table
+			// (see getAddTableDDL()) -- always DATETIME2, always server-generated
+			// and NOT NULL, regardless of the column's own declared domain type.
+			return sprintf('%s DATETIME2 GENERATED ALWAYS AS ROW %s NOT NULL',
+				$this->quoteIdentifier($this->requireString($col->getName(), 'Column name')),
+				$col->isPeriodRowStart() ? 'START' : 'END'
+			);
+		}
+
+		return parent::getColumnDDL($col);
+	}
+
+	/**
+	 * The history table backing a temporal table's row versions --
+	 * `Table::getHistoryTable()` if explicitly declared, else `<table>_History`
+	 * (the same naming convention PgsqlPlatform's own getSequenceName() uses
+	 * for an unnamed sequence), always qualified with an explicit schema --
+	 * confirmed against a live azure-sql-edge container while implementing
+	 * this that `HISTORY_TABLE = <single-part name>` is rejected outright
+	 * ("not specified in two-part name format", error 13735), even for a base
+	 * table with no schema of its own -- which is why this can't simply reuse
+	 * `$table->getName()` (already schema-qualified when the table has one,
+	 * see Table::getName()) unconditionally the way getAddSequenceDDL()'s
+	 * sequence naming does: a schema-less table still needs the "dbo." this
+	 * falls back to, but $table->getName() would return just the bare name.
+	 *
+	 * An explicit `historyTable="..."` is auto-qualified the same way when it
+	 * names a bare table with no schema prefix of its own -- a schema author
+	 * naming just `historyTable="foo_versions"` almost certainly means "in
+	 * whichever schema the versioned table itself is in", not a name SQL
+	 * Server will actually accept as-is.
+	 *
+	 * @see        getHistoryTableUnqualifiedName()
+	 */
+	protected function getHistoryTableName(Table $table): string
+	{
+		$historyTable = $table->getHistoryTable()
+			?? ($this->requireString($table->getCommonName(), 'Table name') . '_History');
+		if (strpos($historyTable, '.') !== false) {
+			return $historyTable;
+		}
+		return ($table->getSchema() ?? 'dbo') . '.' . $historyTable;
+	}
+
+	/**
+	 * The bare table name (no schema prefix) getHistoryTableName() resolves to
+	 * -- needed because `sys.tables.name` itself is never schema-qualified, so
+	 * an `IF EXISTS (SELECT 1 FROM sys.tables WHERE name = '...')` guard (see
+	 * getDropTableDDL()) must filter on this, not getHistoryTableName()'s own
+	 * two-part return value.
+	 */
+	protected function getHistoryTableUnqualifiedName(Table $table): string
+	{
+		$name = $this->getHistoryTableName($table);
+		$dotPos = strrpos($name, '.');
+		return $dotPos === false ? $name : substr($name, $dotPos + 1);
+	}
+
+	/**
+	 * SQL Server system-versioned temporal tables (`temporal="true"`, SQL
+	 * Server 2016+/Azure SQL): a plain `CREATE TABLE` gains a trailing
+	 * `PERIOD FOR SYSTEM_TIME (start, end)` clause naming the table's two
+	 * `Column::isPeriodRowStart()`/`isPeriodRowEnd()` columns (see
+	 * getColumnDDL()), plus a `WITH (SYSTEM_VERSIONING = ON (HISTORY_TABLE =
+	 * ...))` clause after the column list, which is what actually turns on
+	 * versioning and starts SQL Server auto-populating the history table on
+	 * every UPDATE/DELETE.
+	 *
+	 * @see        DefaultPlatform::getAddTableDDL()
+	 */
+	public function getAddTableDDL(Table $table)
+	{
+		if (!$table->isTemporal()) {
+			return parent::getAddTableDDL($table);
+		}
+
+		$tableDescription = $table->hasDescription() ? $this->getCommentLineDDL($this->requireString($table->getDescription(), 'Table description')) : '';
+
+		$periodStart = null;
+		$periodEnd = null;
+		$lines = array();
+		foreach ($table->getColumns() as $column) {
+			$lines[] = $this->getColumnDDL($column);
+			if ($column->isPeriodRowStart()) {
+				$periodStart = $column;
+			} elseif ($column->isPeriodRowEnd()) {
+				$periodEnd = $column;
+			}
+		}
+		if ($periodStart === null || $periodEnd === null) {
+			throw new EngineException(sprintf(
+				'Table "%s" is temporal="true" but does not declare exactly one periodRowStart="true" and one periodRowEnd="true" column',
+				$this->requireString($table->getName(), 'Table name')
+			));
+		}
+		$lines[] = sprintf('PERIOD FOR SYSTEM_TIME (%s, %s)',
+			$this->quoteIdentifier($this->requireString($periodStart->getName(), 'Column name')),
+			$this->quoteIdentifier($this->requireString($periodEnd->getName(), 'Column name'))
+		);
+
+		if ($table->hasPrimaryKey()) {
+			$lines[] = $this->getPrimaryKeyDDL($table);
+		}
+		foreach ($table->getUnices() as $unique) {
+			$lines[] = $this->getUniqueDDL($unique);
+		}
+
+		$pattern = "
+%sCREATE TABLE %s
+(
+	%s
+)
+WITH (SYSTEM_VERSIONING = ON (HISTORY_TABLE = %s));
+";
+		return sprintf($pattern,
+			$tableDescription,
+			$this->quoteIdentifier($this->requireString($table->getName(), 'Table name')),
+			implode(",\n\t", $lines),
+			$this->quoteIdentifier($this->getHistoryTableName($table))
+		);
+	}
+
+	/**
+	 * `Table::isPrimaryKeyClustered()` defaults to true, matching SQL Server's
+	 * own implicit default for a `PRIMARY KEY` constraint (`CLUSTERED` unless
+	 * another clustered index/constraint already exists on the table) -- so
+	 * the common case emits no explicit keyword at all, identical to the DDL
+	 * this method has always produced. `primaryKeyClustered="false"` emits an
+	 * explicit `NONCLUSTERED` to free that slot for a `<unique clustered="true">`/
+	 * `<index clustered="true">` elsewhere (see Index::isClustered()).
+	 */
 	public function getPrimaryKeyDDL(Table $table)
 	{
 		if ($table->hasPrimaryKey()) {
-			$pattern = 'CONSTRAINT %s PRIMARY KEY (%s)';
+			$pattern = 'CONSTRAINT %s PRIMARY KEY %s(%s)';
 			return sprintf($pattern,
 				$this->quoteIdentifier($this->getPrimaryKeyName($table)),
+				$table->isPrimaryKeyClustered() ? '' : 'NONCLUSTERED ',
 				$this->getColumnListDDL($table->getPrimaryKey())
 			);
 		}
 
 		return '';
+	}
+
+	/**
+	 * `Index::isClustered()` is null (unspecified) by default, matching this
+	 * method's previous, un-overridden `DefaultPlatform::getAddIndexDDL()`
+	 * output exactly -- only an explicit `clustered="true"`/`"false"` emits the
+	 * corresponding keyword at all.
+	 *
+	 * @see        DefaultPlatform::getAddIndexDDL()
+	 */
+	public function getAddIndexDDL(Index $index)
+	{
+		$clustered = $index->isClustered();
+		$pattern = "
+CREATE %s%sINDEX %s ON %s (%s);
+";
+		return sprintf($pattern,
+			$index->isUnique() ? 'UNIQUE ' : '',
+			$clustered === null ? '' : ($clustered ? 'CLUSTERED ' : 'NONCLUSTERED '),
+			$this->quoteIdentifier($this->requireString($index->getName(), 'Index name')),
+			$this->quoteIdentifier($this->requireString($this->requireTable($index->getTable())->getName(), 'Table name')),
+			$this->getColumnListDDL($index->getColumns())
+		);
+	}
+
+	/**
+	 * @see        DefaultPlatform::getUniqueDDL()
+	 */
+	public function getUniqueDDL(Unique $unique)
+	{
+		$clustered = $unique->isClustered();
+		return sprintf('UNIQUE %s(%s)',
+			$clustered === null ? '' : ($clustered ? 'CLUSTERED ' : 'NONCLUSTERED '),
+			$this->getColumnListDDL($unique->getColumns())
+		);
 	}
 
 	public function getAddForeignKeyDDL(ForeignKey $fk)

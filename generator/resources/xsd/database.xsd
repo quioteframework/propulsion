@@ -327,6 +327,16 @@
 				</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
+		<xs:attribute name="clustered" type="xs:boolean" use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					Whether this index is physically CLUSTERED (true) or NONCLUSTERED
+					(false) rather than the platform's own implicit default (unset). A
+					table has at most one clustered index/constraint. Only honored by
+					MssqlPlatform.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
 	</xs:complexType>
 
 	<xs:complexType name="unique">
@@ -335,6 +345,16 @@
 			<xs:element ref="vendor" minOccurs="0" maxOccurs="unbounded"/>
 		</xs:choice>
 		<xs:attribute name="name" type="index_name" use="optional"/>
+		<xs:attribute name="clustered" type="xs:boolean" use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					Whether this unique constraint is physically CLUSTERED (true) or
+					NONCLUSTERED (false) rather than the platform's own implicit default
+					(unset). A table has at most one clustered index/constraint. Only
+					honored by MssqlPlatform.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
 	</xs:complexType>
 
 	<xs:complexType name="index-column">
@@ -675,6 +695,25 @@
 				</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
+		<xs:attribute name="generatedAs" type="xs:string" use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					 The raw SQL expression a computed/generated column is derived
+					 from. Honored by SqlitePlatform (`GENERATED ALWAYS AS (expr)
+					 VIRTUAL|STORED`, SQLite 3.31+) and MssqlPlatform (`AS (expr)
+					 [PERSISTED]`, SQL Server 2005+). See also `generatedType`.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="generatedType" type="xs:string" use="optional" default="VIRTUAL">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					 Whether a `generatedAs` computed column is `VIRTUAL` (computed on
+					 read) or `STORED` (computed on write and persisted; `PERSISTED`
+					 on MSSQL). Meaningless without `generatedAs` also set.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
 		<xs:attribute name="unsigned" type="xs:boolean" use="optional" default="false">
 			<xs:annotation>
 				<xs:documentation xml:lang="en">
@@ -689,6 +728,35 @@
 					 For a numeric column, MySQL/MariaDB's `ZEROFILL` column modifier
 					 (which also implies `UNSIGNED`). Only honored by MysqlPlatform, and
 					 only for a numeric column there.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="rowVersion" type="xs:boolean" use="optional" default="false">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					 SQL Server's auto-maintained `ROWVERSION`/`TIMESTAMP` binary
+					 column -- a database-wide monotonic counter bumped on every row
+					 write, the standard MSSQL optimistic-concurrency token. Only
+					 honored by MssqlPlatform, which emits `ROWVERSION` in place of
+					 the column's own mapped type; silently ignored elsewhere.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="periodRowStart" type="xs:boolean" use="optional" default="false">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					 Marks this column as the ROW START boundary of a temporal
+					 table's PERIOD FOR SYSTEM_TIME (see `<table temporal="true">`).
+					 Only honored by MssqlPlatform.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="periodRowEnd" type="xs:boolean" use="optional" default="false">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					 Marks this column as the ROW END boundary of a temporal
+					 table's PERIOD FOR SYSTEM_TIME (see `<table temporal="true">`).
+					 Only honored by MssqlPlatform.
 				</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
@@ -1011,6 +1079,37 @@
 					inherit from (Postgres `CREATE TABLE child (...) INHERITS (parent)`).
 					Only honored by PgsqlPlatform; every other platform ignores it (no
 					equivalent mechanism exists on any other supported platform).
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="primaryKeyClustered" type="xs:boolean" use="optional" default="true">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					Whether this table's PRIMARY KEY constraint is physically CLUSTERED
+					(the default) rather than NONCLUSTERED. Set to false to free the
+					table's one clustered index/constraint slot for a `<unique
+					clustered="true">`/`<index clustered="true">` elsewhere. Only
+					honored by MssqlPlatform.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="temporal" type="xs:boolean" use="optional" default="false">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					Whether this is a SQL Server system-versioned temporal table
+					(SQL Server 2016+/Azure SQL, `WITH (SYSTEM_VERSIONING = ON)`).
+					Requires exactly one column with `periodRowStart="true"` and one
+					with `periodRowEnd="true"`. Only honored by MssqlPlatform.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="historyTable" type="table_name" use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					The history table backing a `temporal="true"` table's row
+					versions, or unset to let MssqlPlatform derive the default
+					`&lt;table&gt;_History` name. Meaningless without `temporal`
+					also set.
 				</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
