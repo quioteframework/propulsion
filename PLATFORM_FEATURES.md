@@ -673,20 +673,71 @@ These are gaps in the shared query builder — confirmed absent by grep across
 
 ### MySQL / MariaDB
 
-- [ ] **Native `ENUM`/`SET` types** — see type-system section; there is also
-  no `SET` type at all.
+- [x] **Native `ENUM`/`SET` types** — native ENUM already shipped (see the
+  type-system section's `nativeEnum` entry); the `SET` gap is now closed
+  too. New `PropulsionTypes::SET`, reusing the same `valueSet` schema
+  attribute ENUM already has (no new schema syntax needed for the
+  vocabulary itself). Unlike ENUM, this needed no opt-in flag: MySQL always
+  emits the real inline `SET('a', 'b', ...)` column type
+  (`MysqlPlatform::getSetSqlType()`), and every other platform emulates it
+  as a comma-joined string in a plain long-text column
+  (`TEXT`/`MEDIUMTEXT`/`VARCHAR(MAX)`/`CLOB`, the same per-platform choices
+  `OBJECT`/`TSVECTOR` already made). The reason no flag was needed: unlike
+  ENUM's real behavioral choice (a compact emulated integer index vs. the
+  label text itself), a SET column can have several labels selected at
+  once, so a comma-joined string of labels is the *only* sane
+  representation off of MySQL -- there's no meaningful "emulated index"
+  alternative to opt out of. This also means the wire format is identical
+  whether the column is MySQL's real native `SET` or another platform's
+  emulated text (PDO returns/accepts a SET value as a single comma-joined
+  string either way, no special array binding involved), so
+  `Column::isSetType()`'s `ObjectBuilder`/`QueryBuilder` hydrate/
+  `buildCriteria()`/filter branches need no platform branching at all --
+  contrast `PHP_ARRAY`'s native-vs-emulated split. Hydrates to/from
+  `array<string>`; plural-named SET columns get the same
+  has/add/remove-element convenience methods `PHP_ARRAY` columns with a
+  plural name already do.
 - [ ] **Generated/virtual columns** (`GENERATED ALWAYS AS (...) VIRTUAL|STORED`).
-- [ ] **Unsigned integer types** — no `UNSIGNED`/`ZEROFILL` modifier support
-  in `PropulsionTypes`.
-- [ ] Spatial types (`GEOMETRY`, `POINT`, ...) and spatial indexes.
-- [ ] First-class FULLTEXT/SPATIAL index support — currently only reachable
-  via manually setting the `Index_type` vendor parameter, no model-level
-  flag (e.g. `Index::isFulltext()`).
+- [x] **Unsigned integer types** — new `unsigned="true"`/`zerofill="true"`
+  column attributes (`Column::isUnsigned()`/`isZerofill()`), only honored by
+  MysqlPlatform and only for a numeric column there (silently ignored
+  otherwise, e.g. on a text column or any other platform).
+  `MysqlPlatform::getColumnDDL()` appends `UNSIGNED`/`UNSIGNED ZEROFILL`
+  right after the type/size (`ZEROFILL` implies `UNSIGNED` in MySQL even
+  without the `unsigned` attribute also set, matched here). No new schema
+  syntax needed for `ALTER`-path DDL: `getModifyColumnDDL()` already
+  delegates entirely to `getColumnDDL()` via its `CHANGE` clause, so it
+  picked this up for free.
+- [ ] Spatial types (`GEOMETRY`, `POINT`, ...) and spatial indexes -- out of
+  scope here, for the same reason `GEOMETRY`'s own type-system entry above
+  deliberately stayed WKT-text-only: MySQL's real native geometry column
+  type doesn't accept/return raw WKT text through a plain parameterized
+  bind, so shipping it needs the same query-layer SQL-rewriting work
+  (`ST_GeomFromText()`-equivalent wrapping) already flagged as a deferred
+  v2 follow-up there, not a type-system change.
+- [x] **First-class FULLTEXT/SPATIAL index support** — `Index::getIndexType()`
+  (already added for Postgres's `USING gin`/`gist`, see that platform's
+  own section) is now also consulted by `MysqlPlatform::getIndexType()`,
+  ahead of the legacy `<vendor type="mysql"><parameter name="Index_type"
+  .../>` convention (kept working as a fallback for any schema still using
+  it): `indexType="fulltext"` on an `<index>` now gets a model-level flag
+  instead of the vendor-parameter escape hatch this document itself used to
+  flag as the gap here. A FULLTEXT/SPATIAL index can't also be `UNIQUE`, so
+  `indexType` (or the legacy `Index_type` vendor parameter) takes priority
+  over `isUnique()` when both are set, same as before.
 - [ ] Partitioning (`PARTITION BY`).
-- [ ] Check/fix default storage engine: `MysqlPlatform`'s default is still
-  `MyISAM`; `supportsNativeDeleteTrigger()` gates on InnoDB, so it's silently
-  disabled unless `mysqlTableType=InnoDB` is set explicitly in build config.
-  Consider defaulting to InnoDB to match modern MySQL/MariaDB installs.
+- [x] **Fixed default storage engine** — `MysqlPlatform::$defaultTableEngine`
+  and `generator/default.php`'s `propulsion.mysql.tableType` both now
+  default to `InnoDB` instead of `MyISAM` (InnoDB has been MySQL's own
+  default since 5.5 (2010), and is required for
+  `supportsNativeDeleteTrigger()`'s FK-driven `ON DELETE` triggers, which
+  MyISAM never supported at all) -- every one of this repo's own test
+  fixtures (`test/fixtures/*/build.php`) already explicitly overrode to
+  `InnoDB` regardless, confirming the shipped default was stale. `MyISAM`
+  is still available via `mysqlTableType`/`propulsion.mysql.tableType` for
+  anyone who still needs it. Updated the dozen `MysqlPlatformTest`/
+  `MysqlPlatformMigrationTest` DDL-string assertions that had `ENGINE=MyISAM`
+  hardcoded.
 - [ ] **MariaDB divergences.** MariaDB is still served by `MysqlPlatform`
   (generator) / `DBMySQL` (runtime) as though it were MySQL — no separate
   `MariadbPlatform`/`DBMariadb` — but a runtime server-version probe now

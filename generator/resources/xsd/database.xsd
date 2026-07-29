@@ -66,6 +66,7 @@
 			<xs:enumeration value="VECTOR"/>
 			<xs:enumeration value="GEOMETRY"/>
 			<xs:enumeration value="TSVECTOR"/>
+			<xs:enumeration value="SET"/>
 		</xs:restriction>
 	</xs:simpleType>
 
@@ -602,7 +603,7 @@
 		<xs:attribute name="valueSet" type="xs:string" use="optional">
 			<xs:annotation>
 				<xs:documentation xml:lang="en">
-					 The list of values for an ENUM column, separated by commas
+					 The list of values for an ENUM or SET column, separated by commas
 				</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
@@ -671,6 +672,23 @@
 					 The Postgres text-search configuration (regconfig) name a
 					 `tsvectorFrom`-generated TSVECTOR column's `to_tsvector()` call
 					 uses. Only meaningful together with `tsvectorFrom`.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="unsigned" type="xs:boolean" use="optional" default="false">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					 For a numeric column, MySQL/MariaDB's `UNSIGNED` column modifier.
+					 Only honored by MysqlPlatform, and only for a numeric column there.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="zerofill" type="xs:boolean" use="optional" default="false">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					 For a numeric column, MySQL/MariaDB's `ZEROFILL` column modifier
+					 (which also implies `UNSIGNED`). Only honored by MysqlPlatform, and
+					 only for a numeric column there.
 				</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>

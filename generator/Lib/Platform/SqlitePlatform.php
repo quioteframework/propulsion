@@ -64,6 +64,8 @@ class SqlitePlatform extends DefaultPlatform
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::VECTOR, "MEDIUMTEXT"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::GEOMETRY, "MEDIUMTEXT"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::TSVECTOR, "MEDIUMTEXT"));
+		// No native SET type -- emulated as comma-joined text.
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::SET, "MEDIUMTEXT"));
 	}
 
 	/**

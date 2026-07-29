@@ -279,4 +279,45 @@ EOF;
 		$this->assertSame('english', $plain->getTsvectorConfig(), 'defaults to english when not specified');
 	}
 
+	public function testSetTypeAttributesParsedFromSchema()
+	{
+		$xmlToAppData = new XmlToAppData(new MysqlPlatform());
+		$schema = <<<EOF
+<database name="set_type_test">
+  <table name="users">
+    <column name="id" type="INTEGER" primaryKey="true" />
+    <column name="roles" type="SET" valueSet="admin, editor, viewer" />
+  </table>
+</database>
+EOF;
+		$appData = $xmlToAppData->parseString($schema);
+		$column = $appData->getDatabase('set_type_test')->getTable('users')->getColumn('roles');
+
+		$this->assertTrue($column->isSetType());
+		$this->assertSame(['admin', 'editor', 'viewer'], $column->getValueSet());
+	}
+
+	public function testUnsignedAndZerofillAttributesParsedFromSchema()
+	{
+		$xmlToAppData = new XmlToAppData(new MysqlPlatform());
+		$schema = <<<EOF
+<database name="unsigned_test">
+  <table name="stats">
+    <column name="id" type="INTEGER" primaryKey="true" />
+    <column name="plain_count" type="INTEGER" />
+    <column name="view_count" type="INTEGER" unsigned="true" />
+    <column name="zerofilled_count" type="INTEGER" zerofill="true" />
+  </table>
+</database>
+EOF;
+		$appData = $xmlToAppData->parseString($schema);
+		$table = $appData->getDatabase('unsigned_test')->getTable('stats');
+
+		$this->assertFalse($table->getColumn('plain_count')->isUnsigned());
+		$this->assertFalse($table->getColumn('plain_count')->isZerofill());
+		$this->assertTrue($table->getColumn('view_count')->isUnsigned());
+		$this->assertFalse($table->getColumn('view_count')->isZerofill());
+		$this->assertTrue($table->getColumn('zerofilled_count')->isZerofill());
+	}
+
 }

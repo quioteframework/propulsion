@@ -122,6 +122,8 @@ class OraclePlatform extends DefaultPlatform
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::VECTOR, "CLOB"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::GEOMETRY, "CLOB"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::TSVECTOR, "CLOB"));
+		// No native SET type -- emulated as comma-joined text.
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::SET, "CLOB"));
 
 	}
 

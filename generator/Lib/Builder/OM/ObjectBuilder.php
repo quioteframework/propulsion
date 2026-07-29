@@ -677,7 +677,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			// DateTime/enum cases above), so this can be set directly here rather than
 			// deferred to applyDefaultValues() -- which, for tables with no column that has
 			// an explicit default at all, is never even generated (see hasDefaultValues()).
-			if (($defaultVal === 'NULL' || $defaultVal === 'null') && $col->getType() === PropulsionTypes::PHP_ARRAY) {
+			if (($defaultVal === 'NULL' || $defaultVal === 'null') && ($col->getType() === PropulsionTypes::PHP_ARRAY || $col->isSetType())) {
 				$defaultVal = 'array()';
 			}
 
@@ -892,8 +892,8 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 					$script .= "
 		\$this->$phpname = $defaultValue;";
 				}
-			} elseif ($col->getType() === PropulsionTypes::PHP_ARRAY) {
-				// See addProperties() -- array columns default to an empty array, not null.
+			} elseif ($col->getType() === PropulsionTypes::PHP_ARRAY || $col->isSetType()) {
+				// See addProperties() -- array/SET columns default to an empty array, not null.
 				$script .= "
 		\$this->$phpname = array();";
 			} else {
@@ -924,12 +924,12 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			} else {
 				$this->addColumnAccessor($script, $col);
 			}
-			// Array-typed columns with a plural name (e.g. "tags") additionally get
-			// has<Singular>()/add<Singular>()/remove<Singular>() convenience methods --
-			// ported from PHP5ObjectBuilder::addHasArrayElement()/addAddArrayElement()/
-			// addRemoveArrayElement(), which were entirely missing from the promoted
-			// builder (see KNOWN_ISSUES.md, Phase 3.5).
-			if ($col->getType() === PropulsionTypes::PHP_ARRAY && $col->isNamePlural()) {
+			// Array/SET-typed columns with a plural name (e.g. "tags") additionally
+			// get has<Singular>()/add<Singular>()/remove<Singular>() convenience
+			// methods -- ported from PHP5ObjectBuilder::addHasArrayElement()/
+			// addAddArrayElement()/addRemoveArrayElement(), which were entirely
+			// missing from the promoted builder (see KNOWN_ISSUES.md, Phase 3.5).
+			if (($col->getType() === PropulsionTypes::PHP_ARRAY || $col->isSetType()) && $col->isNamePlural()) {
 				$this->addHasArrayElement($script, $col);
 				$this->addAddArrayElement($script, $col);
 				$this->addRemoveArrayElement($script, $col);
@@ -2060,6 +2060,11 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 				$script .= "PgArray::decode(\$v)";
 			} elseif ($col->getType() === PropulsionTypes::PHP_ARRAY) {
 				$script .= "(\$v === '' ? array() : (preg_match('/^ \\| (.*) \\| $/s', \$v, \$matches) ? explode(' | ', \$matches[1]) : explode(' | ', \$v)))";
+			} elseif ($col->isSetType()) {
+				// \$v is a comma-joined string of selected labels on every
+				// platform (MySQL's own native SET included -- PDO returns it
+				// as a plain string, not an array) -- see Column::isSetType().
+				$script .= "(\$v === '' ? array() : explode(',', \$v))";
 			} elseif ($col->getType() === PropulsionTypes::OBJECT) {
 				$script .= "unserialize(\$v)";
 			} elseif ($col->isJsonType()) {
@@ -2991,6 +2996,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			} elseif ($col->getType() === PropulsionTypes::PHP_ARRAY) {
 				$script .= "
 		if (\$this->isColumnModified($const)) \$criteria->add($const, \$this->$phpname ? ' | ' . implode(' | ', \$this->$phpname) . ' | ' : '');";
+			} elseif ($col->isSetType()) {
+				$script .= "
+		if (\$this->isColumnModified($const)) \$criteria->add($const, implode(',', \$this->$phpname));";
 			} elseif ($col->getType() === PropulsionTypes::OBJECT) {
 				$script .= "
 		if (\$this->isColumnModified($const)) \$criteria->add($const, \$this->$phpname === null ? null : serialize(\$this->$phpname));";
@@ -3069,6 +3077,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			} elseif ($pk->getType() === PropulsionTypes::PHP_ARRAY) {
 				$script .= "
 		\$criteria->add($const, \$this->$phpname ? ' | ' . implode(' | ', \$this->$phpname) . ' | ' : '');";
+			} elseif ($pk->isSetType()) {
+				$script .= "
+		\$criteria->add($const, implode(',', \$this->$phpname));";
 			} elseif ($pk->getType() === PropulsionTypes::OBJECT) {
 				$script .= "
 		\$criteria->add($const, \$this->$phpname === null ? null : serialize(\$this->$phpname));";
@@ -3236,6 +3247,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			return "($varExpr instanceof \\Propulsion\\Type\\Range ? $varExpr : (is_string($varExpr) ? \\Propulsion\\Type\\Range::parse($varExpr) : null))";
 		} elseif (
 			$col->getType() === PropulsionTypes::PHP_ARRAY
+			|| $col->isSetType()
 			|| $col->getType() === PropulsionTypes::OBJECT
 			|| $col->isJsonType()
 			|| $col->isLobType()

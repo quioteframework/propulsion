@@ -65,6 +65,7 @@ class PropulsionTypes
 	const VECTOR = "VECTOR";
 	const GEOMETRY = "GEOMETRY";
 	const TSVECTOR = "TSVECTOR";
+	const SET = "SET";
 
 	/** @var array<int|string, string> */
 	protected static array $creoleToPropulsionTypeMap = [];
@@ -214,6 +215,15 @@ class PropulsionTypes
 	// `tsvectorFrom`-driven GENERATED ALWAYS AS (to_tsvector(...)) STORED
 	// column DDL for the intended way to populate one.
 	const TSVECTOR_NATIVE_TYPE = "string";
+	// MySQL/MariaDB's native SET(...) column type -- a fixed vocabulary of
+	// labels, any subset of which may be selected at once (unlike ENUM's
+	// single selection). PDO returns/accepts a SET value as a single
+	// comma-joined string on every platform (MySQL's own driver included --
+	// there's no special array binding for it), so, unlike PHP_ARRAY, the
+	// same comma-join/explode hydrate/buildCriteria code works identically
+	// whether the column is MySQL's native SET or another platform's emulated
+	// text fallback; see ObjectBuilder's isSetType() branches.
+	const SET_NATIVE_TYPE = "array";
 
 	/**
 	 * Mapping between Propulsion types and PHP native types.
@@ -266,6 +276,7 @@ class PropulsionTypes
 			self::VECTOR => self::VECTOR_NATIVE_TYPE,
 			self::GEOMETRY => self::GEOMETRY_NATIVE_TYPE,
 			self::TSVECTOR => self::TSVECTOR_NATIVE_TYPE,
+			self::SET => self::SET_NATIVE_TYPE,
 	);
 
 	/**
@@ -317,6 +328,7 @@ class PropulsionTypes
 			self::VECTOR => self::VECTOR,
 			self::GEOMETRY => self::GEOMETRY,
 			self::TSVECTOR => self::TSVECTOR,
+			self::SET => self::SET,
 			// These are pre-epoch dates, which we need to map to String type
 			// since they cannot be properly handled using strtotime() -- or even numeric
 			// timestamps on Windows.
@@ -374,6 +386,7 @@ class PropulsionTypes
 			self::VECTOR => PDO::PARAM_STR,
 			self::GEOMETRY => PDO::PARAM_STR,
 			self::TSVECTOR => PDO::PARAM_STR,
+			self::SET => PDO::PARAM_STR,
 
 			// These are pre-epoch dates, which we need to map to String type
 			// since they cannot be properly handled using strtotime() -- or even numeric

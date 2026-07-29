@@ -339,8 +339,11 @@ return [
     //  M Y S Q L   S P E C I F I C   S E T T I N G S
     // -------------------------------------------------------------------
 
-    // Default table type
-    'propulsion.mysql.tableType' => 'MyISAM',
+    // Default table type. InnoDB has been MySQL's own default since 5.5 (2010)
+    // and is required for foreign-key-driven ON DELETE triggers
+    // (MysqlPlatform::supportsNativeDeleteTrigger()) -- set to 'MyISAM' to
+    // restore the old default if a project still needs it.
+    'propulsion.mysql.tableType' => 'InnoDB',
     // Keyword used to specify table type. MYSQL < 5 should use TYPE instead
     'propulsion.mysql.tableEngineKeyword' => 'ENGINE',
 

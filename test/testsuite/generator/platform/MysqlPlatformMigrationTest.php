@@ -50,7 +50,7 @@ CREATE TABLE `foo5`
 	`lkdjfsh` INTEGER,
 	`dfgdsgf` TEXT,
 	PRIMARY KEY (`id`)
-) ENGINE=MyISAM;
+) ENGINE=InnoDB;
 
 # This restores the fkey checks, after having unset them earlier
 SET FOREIGN_KEY_CHECKS = 1;

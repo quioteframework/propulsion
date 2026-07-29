@@ -899,7 +899,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      *              Use scalar values for equality.
      *              Use array values for in_array() equivalent.
      *              Use associative array('min' => \$minValue, 'max' => \$maxValue) for intervals.";
-        } elseif ($col->getType() == PropulsionTypes::PHP_ARRAY) {
+        } elseif ($col->getType() == PropulsionTypes::PHP_ARRAY || $col->isSetType()) {
             $script .= "
      * @param     array \$$variableName The values to use as filter.";
         } elseif ($col->isJsonType()) {
@@ -990,6 +990,17 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
             $script .= "
         if (is_array(\$$variableName)) {
             \$$variableName = PgArray::encode(\$$variableName);
+        }";
+        } elseif ($col->isSetType()) {
+            // SET's comma-joined wire format is the same on every platform
+            // (see Column::isSetType()), but the CONTAINS_ALL/SOME/NONE
+            // LIKE-based containment trick below is PHP_ARRAY-specific and
+            // isn't offered here; a plain array filter value is encoded to
+            // the same comma-joined string buildCriteria() writes, for
+            // equality/IN-style comparisons only.
+            $script .= "
+        if (is_array(\$$variableName)) {
+            \$$variableName = implode(',', \$$variableName);
         }";
         } elseif ($col->getType() == PropulsionTypes::PHP_ARRAY) {
             $script .= "

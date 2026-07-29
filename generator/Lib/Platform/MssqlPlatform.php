@@ -115,6 +115,10 @@ class MssqlPlatform extends DefaultPlatform
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::VECTOR, "VARCHAR(MAX)"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::GEOMETRY, "VARCHAR(MAX)"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::TSVECTOR, "VARCHAR(MAX)"));
+		// No native SET type -- emulated as comma-joined text (see
+		// PropulsionTypes::SET_NATIVE_TYPE for why the same comma-join/explode
+		// code works unmodified across every platform).
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::SET, "VARCHAR(MAX)"));
 	}
 
 	public function getMaxColumnNameLength()

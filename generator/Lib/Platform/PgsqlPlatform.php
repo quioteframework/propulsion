@@ -98,6 +98,11 @@ class PgsqlPlatform extends DefaultPlatform
 		// (to_tsvector(...)) STORED column (see getColumnDDL()) rather than
 		// written to directly.
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::TSVECTOR, "TSVECTOR"));
+		// No native SET type -- emulated as comma-joined text (see
+		// PropulsionTypes::SET_NATIVE_TYPE for why the same comma-join/explode
+		// code works unmodified across every platform, including MySQL's real
+		// native SET).
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::SET, "TEXT"));
 	}
 
 	public function getNativeIdMethod()

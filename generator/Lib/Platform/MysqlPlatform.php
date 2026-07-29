@@ -32,7 +32,12 @@ class MysqlPlatform extends DefaultPlatform
 {
 
 	protected string $tableEngineKeyword = 'ENGINE';  // overwritten in build.properties
-	protected string $defaultTableEngine = 'MyISAM';  // overwritten in build.properties
+	// InnoDB has been MySQL's own default storage engine since 5.5 (2010) and is
+	// required for supportsNativeDeleteTrigger() (foreign-key-driven ON DELETE
+	// triggers need real FK support, which MyISAM never had) -- MyISAM is kept
+	// available via mysqlTableType for anyone who still needs it, but a modern
+	// install shouldn't have to opt into InnoDB by hand.
+	protected string $defaultTableEngine = 'InnoDB';  // overwritten in build.properties
 
 	/**
 	 * Initializes db specific domain mapping.
@@ -332,10 +337,26 @@ DROP TABLE IF EXISTS " . $this->quoteIdentifier($table->getName()) . ";
 			// directly -- no separate CHECK constraint or custom type needed,
 			// unlike the SQLite/Oracle/Postgres native-enum mechanisms.
 			$ddl []= $this->getEnumSqlType($col);
+		} elseif ($col->isSetType()) {
+			// Unlike ENUM (opt-in via nativeEnum -- an emulated integer index
+			// is a real, meaningful alternative there), SET's only sane
+			// emulated form elsewhere is the same comma-joined text its native
+			// wire format already is, so this is unconditional: no opt-in flag
+			// needed, MySQL always gets the real SET(...) column type.
+			$ddl []= $this->getSetSqlType($col);
 		} elseif ($this->hasSize($sqlType) && $col->isDefaultSqlType($this)) {
 			$ddl []= $sqlType . $domain->printSize();
 		} else {
 			$ddl []= $sqlType;
+		}
+		if ($col->isNumericType()) {
+			if ($col->isZerofill()) {
+				// ZEROFILL implies UNSIGNED in MySQL/MariaDB even if `unsigned`
+				// wasn't also set.
+				$ddl []= 'UNSIGNED ZEROFILL';
+			} elseif ($col->isUnsigned()) {
+				$ddl []= 'UNSIGNED';
+			}
 		}
 		$colinfo = $col->getVendorInfoForType($this->getDatabaseType());
 		if ($colinfo->hasParameter('Charset')) {
@@ -387,6 +408,18 @@ DROP TABLE IF EXISTS " . $this->quoteIdentifier($table->getName()) . ";
 	{
 		$values = implode(', ', array_map(fn ($v) => $this->quote($v), $col->getValueSet()));
 		return "ENUM({$values})";
+	}
+
+	/**
+	 * Builds MySQL's inline native `SET('a', 'b', ...)` column type from a
+	 * column's declared valueSet.
+	 *
+	 * @return     string
+	 */
+	protected function getSetSqlType(Column $col)
+	{
+		$values = implode(', ', array_map(fn ($v) => $this->quote($v), $col->getValueSet()));
+		return "SET({$values})";
 	}
 
 	/**
@@ -470,8 +503,22 @@ DROP INDEX %s ON %s;
 		);
 	}
 
+	/**
+	 * Resolves the `CREATE {type}INDEX`/inline `{type}INDEX` prefix for
+	 * $index. `Index::getIndexType()` (`indexType="fulltext"`/`"spatial"`,
+	 * the same shared model-level flag PgsqlPlatform's `USING <method>`
+	 * consults) takes priority as the modern, cross-platform-consistent way
+	 * to ask for one; the legacy `<vendor type="mysql"><parameter
+	 * name="Index_type" .../>` convention is still honored as a fallback for
+	 * any schema still using it. A FULLTEXT/SPATIAL index can't also be
+	 * UNIQUE, so `indexType`/`Index_type` both take priority over
+	 * `isUnique()` when both are set.
+	 */
 	protected function getIndexType(Index $index): string
 	{
+		if ($index->getIndexType()) {
+			return strtoupper($index->getIndexType()) . ' ';
+		}
 		$type = '';
 		$vendorInfo = $index->getVendorInfoForType($this->getDatabaseType());
 		if ($vendorInfo->getParameter('Index_type')) {

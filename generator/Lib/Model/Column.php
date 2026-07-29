@@ -146,6 +146,21 @@ class Column extends XMLElement
 	protected string $tsvectorConfig = 'english';
 
 	/**
+	 * Whether a numeric column is declared `unsigned="true"` (MySQL/MariaDB's
+	 * `UNSIGNED` column modifier). Only honored by MysqlPlatform, and only
+	 * for a numeric column there -- silently ignored otherwise.
+	 */
+	protected bool $isUnsigned = false;
+
+	/**
+	 * Whether a numeric column is declared `zerofill="true"` (MySQL/MariaDB's
+	 * `ZEROFILL` column modifier, which also implies `UNSIGNED`). Only
+	 * honored by MysqlPlatform, and only for a numeric column there --
+	 * silently ignored otherwise.
+	 */
+	protected bool $isZerofill = false;
+
+	/**
 	 * @var				 Domain|null The domain object associated with this Column.
 	 */
 	private $domain;
@@ -311,6 +326,9 @@ class Column extends XMLElement
 				$this->tsvectorFrom = array_map('trim', explode(',', (string) $tsvectorFromAttr));
 			}
 			$this->tsvectorConfig = (string) $this->getAttribute('tsvectorConfig', 'english');
+
+			$this->isUnsigned = $this->booleanValue($this->getAttribute("unsigned"));
+			$this->isZerofill = $this->booleanValue($this->getAttribute("zerofill"));
 
 			$this->inheritanceType = $this->getAttribute("inheritance");
 			$this->isInheritance = ($this->inheritanceType !== null
@@ -1002,6 +1020,20 @@ class Column extends XMLElement
 	}
 
 	/**
+	 * Utility method to know whether column is a SET column (MySQL/MariaDB's
+	 * native `SET(...)` type, or its emulated comma-joined-text equivalent
+	 * elsewhere). Like ENUM, its fixed vocabulary comes from the `valueSet`
+	 * schema attribute -- but unlike ENUM, any number of those labels may be
+	 * selected at once, so it hydrates to/from `array<string>` rather than a
+	 * single label.
+	 * @return		 boolean
+	 */
+	public function isSetType(): bool
+	{
+		return $this->getType() === PropulsionTypes::SET;
+	}
+
+	/**
 	 * Whether this ENUM column declares a backing PHP enum class (`enumClass`
 	 * schema attribute) to hydrate to/from, instead of the plain string label.
 	 * @return		 boolean
@@ -1191,6 +1223,34 @@ class Column extends XMLElement
 	public function setTsvectorConfig(string $tsvectorConfig): void
 	{
 		$this->tsvectorConfig = $tsvectorConfig;
+	}
+
+	/**
+	 * Whether this numeric column is declared `unsigned="true"`. See the
+	 * property docblock.
+	 */
+	public function isUnsigned(): bool
+	{
+		return $this->isUnsigned;
+	}
+
+	public function setUnsigned(bool $isUnsigned): void
+	{
+		$this->isUnsigned = $isUnsigned;
+	}
+
+	/**
+	 * Whether this numeric column is declared `zerofill="true"`. See the
+	 * property docblock.
+	 */
+	public function isZerofill(): bool
+	{
+		return $this->isZerofill;
+	}
+
+	public function setZerofill(bool $isZerofill): void
+	{
+		$this->isZerofill = $isZerofill;
 	}
 
 	/**

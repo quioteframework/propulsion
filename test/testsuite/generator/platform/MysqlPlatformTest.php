@@ -70,7 +70,7 @@ CREATE TABLE `x`.`book`
 	CONSTRAINT `book_FK_1`
 		FOREIGN KEY (`author_id`)
 		REFERENCES `y`.`author` (`id`)
-) ENGINE=MyISAM;
+) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------------------
 -- y.author
@@ -84,7 +84,7 @@ CREATE TABLE `y`.`author`
 	`first_name` VARCHAR(100),
 	`last_name` VARCHAR(100),
 	PRIMARY KEY (`id`)
-) ENGINE=MyISAM;
+) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------------------
 -- x.book_summary
@@ -103,7 +103,7 @@ CREATE TABLE `x`.`book_summary`
 		FOREIGN KEY (`book_id`)
 		REFERENCES `x`.`book` (`id`)
 		ON DELETE CASCADE
-) ENGINE=MyISAM;
+) ENGINE=InnoDB;
 
 # This restores the fkey checks, after having unset them earlier
 SET FOREIGN_KEY_CHECKS = 1;
@@ -142,7 +142,7 @@ CREATE TABLE `book`
 	CONSTRAINT `book_FK_1`
 		FOREIGN KEY (`author_id`)
 		REFERENCES `author` (`id`)
-) ENGINE=MyISAM;
+) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------------------
 -- author
@@ -156,7 +156,7 @@ CREATE TABLE `author`
 	`first_name` VARCHAR(100),
 	`last_name` VARCHAR(100),
 	PRIMARY KEY (`id`)
-) ENGINE=MyISAM;
+) ENGINE=InnoDB;
 
 # This restores the fkey checks, after having unset them earlier
 SET FOREIGN_KEY_CHECKS = 1;
@@ -196,7 +196,7 @@ CREATE TABLE `foo`
 	`id` INTEGER NOT NULL AUTO_INCREMENT,
 	`bar` VARCHAR(255) NOT NULL,
 	PRIMARY KEY (`id`)
-) ENGINE=MyISAM COMMENT='This is foo table';
+) ENGINE=InnoDB COMMENT='This is foo table';
 ";
 		$this->assertEquals($expected, $this->getPlatform()->getAddTableDDL($table));
 	}
@@ -215,7 +215,7 @@ CREATE TABLE `foo`
 	`bar` INTEGER NOT NULL,
 	`baz` VARCHAR(255) NOT NULL,
 	PRIMARY KEY (`foo`,`bar`)
-) ENGINE=MyISAM;
+) ENGINE=InnoDB;
 ";
 		$this->assertEquals($expected, $this->getPlatform()->getAddTableDDL($table));
 	}
@@ -234,7 +234,7 @@ CREATE TABLE `foo`
 	`bar` INTEGER,
 	PRIMARY KEY (`id`),
 	UNIQUE INDEX `foo_U_1` (`bar`)
-) ENGINE=MyISAM;
+) ENGINE=InnoDB;
 ";
 		$this->assertEquals($expected, $this->getPlatform()->getAddTableDDL($table));
 	}
@@ -260,7 +260,7 @@ CREATE TABLE `foo`
 	`bar` INTEGER,
 	PRIMARY KEY (`id`),
 	INDEX `foo_I_1` (`bar`)
-) ENGINE=MyISAM;
+) ENGINE=InnoDB;
 ";
 		$this->assertEquals($expected, $this->getPlatform()->getAddTableDDL($table));
 	}
@@ -292,7 +292,7 @@ CREATE TABLE `foo`
 	CONSTRAINT `foo_FK_1`
 		FOREIGN KEY (`bar_id`)
 		REFERENCES `bar` (`id`)
-) ENGINE=MyISAM;
+) ENGINE=InnoDB;
 ";
 		$this->assertEquals($expected, $this->getPlatform()->getAddTableDDL($table));
 	}
@@ -321,7 +321,7 @@ CREATE TABLE `foo`
 	`bar_id` INTEGER,
 	PRIMARY KEY (`id`),
 	INDEX `foo_FI_1` (`bar_id`)
-) ENGINE=MyISAM;
+) ENGINE=InnoDB;
 ";
 		$this->assertEquals($expected, $this->getPlatform()->getAddTableDDL($table));
 	}
@@ -388,7 +388,7 @@ CREATE TABLE `Woopah`.`foo`
 	`id` INTEGER NOT NULL AUTO_INCREMENT,
 	`bar` INTEGER,
 	PRIMARY KEY (`id`)
-) ENGINE=MyISAM;
+) ENGINE=InnoDB;
 ";
 		$this->assertEquals($expected, $this->getPlatform()->getAddTableDDL($table));
 	}
@@ -427,6 +427,34 @@ DROP TABLE IF EXISTS `Woopah`.`foo`;
 		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($column));
 	}
 
+	public function testGetColumnDDLUnsigned()
+	{
+		$column = new Column('foo');
+		$column->getDomain()->copy($this->getPlatform()->getDomainForType(PropulsionTypes::INTEGER));
+		$column->setUnsigned(true);
+		$expected = '`foo` INTEGER UNSIGNED';
+		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($column));
+	}
+
+	public function testGetColumnDDLZerofillImpliesUnsigned()
+	{
+		$column = new Column('foo');
+		$column->getDomain()->copy($this->getPlatform()->getDomainForType(PropulsionTypes::INTEGER));
+		$column->setZerofill(true);
+		$expected = '`foo` INTEGER UNSIGNED ZEROFILL';
+		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($column));
+	}
+
+	public function testGetColumnDDLUnsignedIgnoredOnNonNumericColumn()
+	{
+		$column = new Column('foo');
+		$column->getDomain()->copy($this->getPlatform()->getDomainForType(PropulsionTypes::VARCHAR));
+		$column->getDomain()->replaceSize(255);
+		$column->setUnsigned(true);
+		$expected = '`foo` VARCHAR(255)';
+		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($column));
+	}
+
 	public function testGetColumnDDLUuid()
 	{
 		$column = new Column('foo');
@@ -434,6 +462,25 @@ DROP TABLE IF EXISTS `Woopah`.`foo`;
 		$column->setNotNull(true);
 		$expected = '`foo` CHAR(36) NOT NULL';
 		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($column));
+	}
+
+	public function testGetColumnDDLSet()
+	{
+		$column = new Column('roles');
+		$column->getDomain()->copy($this->getPlatform()->getDomainForType(PropulsionTypes::SET));
+		$column->setValueSet(['admin', 'editor', 'viewer']);
+		$expected = "`roles` SET('admin', 'editor', 'viewer')";
+		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($column));
+	}
+
+	public function testGetColumnDDLSetIsAlwaysNativeUnconditionally()
+	{
+		// Unlike ENUM, SET has no opt-in flag -- MySQL always gets the real
+		// SET(...) type since there's no reasonable emulated alternative.
+		$column = new Column('roles');
+		$column->getDomain()->copy($this->getPlatform()->getDomainForType(PropulsionTypes::SET));
+		$column->setValueSet(['a', 'b']);
+		$this->assertStringStartsWith('`roles` SET(', $this->getPlatform()->getColumnDDL($column));
 	}
 
 	public function testGetColumnDDLCharsetVendor()
@@ -623,6 +670,36 @@ DROP INDEX `babar` ON `foo`;
 		$table->addIndex($index);
 		$expected = 'FULLTEXT INDEX `bar_index` (`bar1`)';
 		$this->assertEquals($expected, $this->getPLatform()->getIndexDDL($index));
+	}
+
+	public function testGetIndexDDLFulltextViaIndexType()
+	{
+		$table = new Table('foo');
+		$column1 = new Column('bar1');
+		$column1->getDomain()->copy($this->getPlatform()->getDomainForType('LONGVARCHAR'));
+		$table->addColumn($column1);
+		$index = new Index('bar_index');
+		$index->addColumn($column1);
+		$index->setIndexType('fulltext');
+		$table->addIndex($index);
+		$expected = 'FULLTEXT INDEX `bar_index` (`bar1`)';
+		$this->assertEquals($expected, $this->getPLatform()->getIndexDDL($index));
+	}
+
+	public function testGetAddIndexDDLSpatialViaIndexType()
+	{
+		$table = new Table('foo');
+		$column1 = new Column('bar1');
+		$column1->getDomain()->copy($this->getPlatform()->getDomainForType('GEOMETRY'));
+		$table->addColumn($column1);
+		$index = new Index('bar_index');
+		$index->addColumn($column1);
+		$index->setIndexType('spatial');
+		$table->addIndex($index);
+		$expected = "
+CREATE SPATIAL INDEX `bar_index` ON `foo` (`bar1`);
+";
+		$this->assertEquals($expected, $this->getPLatform()->getAddIndexDDL($index));
 	}
 
 	/**
