@@ -290,7 +290,7 @@ class PropulsionMigrationManager
 	public function getOldestDatabaseVersion(): int
 	{
 		if (!$connections = $this->getConnections()) {
-			throw new Exception('You must define database connection settings in a build-time connection config file (a buildtime-conf.php returning [\'default\' => ..., \'datasources\' => [...]], or a legacy buildtime-conf.xml) to use migrations');
+			throw new Exception('You must define database connection settings in a build-time connection config file (a buildtime-conf.php returning [\'default\' => ..., \'datasources\' => [...]]) to use migrations');
 		}
 		$oldestMigrationTimestamp = null;
 		$migrationTimestamps = array();

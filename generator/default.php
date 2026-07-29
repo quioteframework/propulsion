@@ -163,8 +163,6 @@ return [
     'propulsion.runtime.phpconf-classmap.file' => 'classmap-${propulsion.runtime.phpconf.file}',
     'propulsion.default.schema.basename' => 'schema',
 
-    'propulsion.buildtime.conf.file' => 'buildtime-conf.xml',
-
     // Can't use because of inconsistencies in where the files
     // are named (some from build-propel.xml, but some from within templates)
     // propulsion.default.data.basename = ${propulsion.project}-data

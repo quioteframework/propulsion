@@ -66,11 +66,9 @@ class GeneratorConfigTest extends TestCase
 	}
 
 	/**
-	 * The recommended build-time connection config format: a plain PHP array
-	 * passed directly via the `propulsion.buildtimeConfigArray` build property
-	 * (e.g. an ad-hoc `--config` override), in the same shape
-	 * getBuildConnections() returns. See KNOWN_ISSUES.md for why this
-	 * supersedes the legacy buildtime-conf.xml format.
+	 * A plain PHP array passed directly via the `propulsion.buildtimeConfigArray`
+	 * build property (e.g. an ad-hoc `--config` override), in the same shape
+	 * getBuildConnections() returns.
 	 */
 	public function testGetBuildConnectionsFromDirectPhpArray()
 	{
@@ -95,8 +93,7 @@ class GeneratorConfigTest extends TestCase
 	/**
 	 * Same format as testGetBuildConnectionsFromDirectPhpArray(), but loaded
 	 * from a `.php` file via `propulsion.buildtimeConfFile` -- the file-based
-	 * equivalent of --buildtime-conf pointing at a plain PHP config file
-	 * instead of the legacy XML format.
+	 * equivalent of --buildtime-conf pointing at a plain PHP config file.
 	 */
 	public function testGetBuildConnectionsFromPhpConfigFile()
 	{
@@ -118,36 +115,6 @@ class GeneratorConfigTest extends TestCase
 
 			$this->assertSame([
 				'bookstore' => ['adapter' => 'mysql', 'dsn' => 'mysql:host=localhost;dbname=mydb', 'user' => 'me', 'password' => 'secret'],
-			], $connections);
-		} finally {
-			unlink($file);
-			rmdir($dir);
-		}
-	}
-
-	/**
-	 * The legacy buildtime-conf.xml format (deprecated but still supported --
-	 * see KNOWN_ISSUES.md) must keep working, dispatched to based on the
-	 * `.xml` file extension.
-	 */
-	public function testGetBuildConnectionsFromLegacyXmlConfigFile()
-	{
-		$dir = sys_get_temp_dir() . '/propulsion-generator-config-test-' . uniqid();
-		mkdir($dir, 0777, true);
-		$file = $dir . '/buildtime-conf.xml';
-		file_put_contents($file, '<config><propel><datasources default="bookstore">'
-			. '<datasource id="bookstore"><adapter>pgsql</adapter>'
-			. '<connection><dsn>pgsql:host=localhost;dbname=mydb</dsn><user>me</user><password>secret</password></connection>'
-			. '</datasource></datasources></propel></config>');
-
-		try {
-			$generator = new GeneratorConfig();
-			$generator->setBuildProperty('buildtimeConfFile', $file);
-
-			$connections = $generator->getBuildConnections();
-
-			$this->assertSame([
-				'bookstore' => ['adapter' => 'pgsql', 'dsn' => 'pgsql:host=localhost;dbname=mydb', 'user' => 'me', 'password' => 'secret'],
 			], $connections);
 		} finally {
 			unlink($file);

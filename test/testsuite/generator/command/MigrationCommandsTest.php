@@ -51,7 +51,6 @@ class MigrationCommandsTest extends TestCase
 
     private ?PDO $pdo = null;
     private string $migrationDir;
-    private string $buildtimeConfFile;
     private string $buildtimeConfigPhpFile;
     private string $dsn;
     private string $platform;
@@ -84,19 +83,6 @@ class MigrationCommandsTest extends TestCase
 
         $this->migrationDir = sys_get_temp_dir() . '/propulsion-migration-command-test-' . uniqid();
         mkdir($this->migrationDir, 0777, true);
-
-        $this->buildtimeConfFile = $this->migrationDir . '/buildtime-conf.xml';
-        file_put_contents($this->buildtimeConfFile, sprintf(
-            '<config><propel><datasources default="%1$s">'
-            . '<datasource id="%1$s"><adapter>%3$s</adapter>'
-            . '<connection><dsn>%2$s</dsn><user>%4$s</user><password>%5$s</password></connection>'
-            . '</datasource></datasources></propel></config>',
-            self::DATASOURCE,
-            htmlspecialchars($this->dsn, ENT_XML1),
-            $this->platform,
-            htmlspecialchars($dbUser, ENT_XML1),
-            htmlspecialchars($dbPassword, ENT_XML1)
-        ));
 
         $this->buildtimeConfigPhpFile = $this->migrationDir . '/buildtime-conf.php';
         file_put_contents($this->buildtimeConfigPhpFile, '<?php return ' . var_export([
@@ -508,7 +494,7 @@ EOT
         $exitCode = $statusTester->execute([
             '--migration-dir' => $this->migrationDir,
             '--migration-table' => 'not a valid identifier; drop table foo',
-            '--buildtime-conf' => $this->buildtimeConfFile,
+            '--buildtime-conf' => $this->buildtimeConfigPhpFile,
             '--database' => $this->platform,
         ], ['verbosity' => \Symfony\Component\Console\Output\OutputInterface::VERBOSITY_VERY_VERBOSE]);
 
@@ -582,48 +568,6 @@ EOT
         $this->assertStringContainsString((string) $timestamp, $statusTester->getDisplay());
     }
 
-    /**
-     * Same status -> up -> down cycle as
-     * testStatusUpDownCycleAgainstRealDatabase(), but via the recommended
-     * plain-PHP-array buildtime config file (--buildtime-conf pointing at a
-     * .php file returning ['default' => ..., 'datasources' => [...]]) instead
-     * of the legacy buildtime-conf.xml format -- proves GeneratorConfig's
-     * extension-based dispatch (see getBuildConnections()/
-     * loadBuildConnectionsFile()) actually wires a PHP config all the way
-     * through the console commands, not just at the GeneratorConfig unit level.
-     */
-    public function testStatusUpDownCycleAgainstRealDatabaseUsingPhpConfigFile(): void
-    {
-        $timestamp = 1750000300;
-        $this->writeMigrationFile($timestamp, [
-            self::DATASOURCE => $this->addColumnSql('subtitle VARCHAR(120)'),
-        ], [
-            self::DATASOURCE => 'ALTER TABLE mig_cmd_book DROP COLUMN subtitle;',
-        ]);
-
-        $args = [
-            '--migration-dir' => $this->migrationDir,
-            '--migration-table' => self::MIGRATION_TABLE,
-            '--buildtime-conf' => $this->buildtimeConfigPhpFile,
-            '--database' => $this->platform,
-        ];
-
-        $statusTester = $this->tester(new MigrationStatusCommand(), 'migration:status');
-        $exitCode = $statusTester->execute($args);
-        $this->assertSame(0, $exitCode, $statusTester->getDisplay());
-        $this->assertStringContainsString('PropulsionMigration_' . $timestamp, $statusTester->getDisplay());
-
-        $upTester = $this->tester(new MigrationUpCommand(), 'migration:up');
-        $exitCode = $upTester->execute($args);
-        $this->assertSame(0, $exitCode, $upTester->getDisplay());
-        $this->assertTrue($this->columnExists('subtitle'), 'migration:up should have added the column for real');
-
-        $downTester = $this->tester(new MigrationDownCommand(), 'migration:down');
-        $exitCode = $downTester->execute($args);
-        $this->assertSame(0, $exitCode, $downTester->getDisplay());
-        $this->assertFalse($this->columnExists('subtitle'), 'migration:down should have dropped the column for real');
-    }
-
     public function testStatusCommandFailsCleanlyWithNoConnectionSettings(): void
     {
         $emptyDir = sys_get_temp_dir() . '/propulsion-migration-command-noconf-' . uniqid();
@@ -658,7 +602,7 @@ EOT
         return [
             '--migration-dir' => $this->migrationDir,
             '--migration-table' => self::MIGRATION_TABLE,
-            '--buildtime-conf' => $this->buildtimeConfFile,
+            '--buildtime-conf' => $this->buildtimeConfigPhpFile,
             '--database' => $this->platform,
         ];
     }

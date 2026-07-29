@@ -15,7 +15,7 @@ use Propulsion\Generator\Config\GeneratorConfig;
 
 /**
  * Console replacement for the Phing-based PropulsionSQLDiffTask: compares a
- * live database (via a buildtime-conf.xml connection) against a schema.xml
+ * live database (via a buildtime-conf connection) against a schema.xml
  * file and generates a PropulsionMigration_<timestamp>.php migration class
  * with the resulting up/down SQL.
  *
@@ -34,7 +34,7 @@ class SqlDiffCommand extends Command
         $this
             ->addArgument('schema', InputArgument::OPTIONAL, 'Schema file or directory', './schema')
             ->addOption('migration-dir', 'o', InputOption::VALUE_REQUIRED, 'Output directory for the generated migration class', './migrations')
-            ->addOption('buildtime-conf', null, InputOption::VALUE_REQUIRED, 'Path to a build-time connection config file describing the datasource(s) to diff against: a plain PHP file returning [\'default\' => ..., \'datasources\' => [...]] (recommended), or a legacy buildtime-conf.xml file')
+            ->addOption('buildtime-conf', null, InputOption::VALUE_REQUIRED, 'Path to a build-time connection config file describing the datasource(s) to diff against: a plain PHP file returning [\'default\' => ..., \'datasources\' => [...]]')
             ->addOption('config', 'c', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Build properties file overriding generator/default.php (repeatable; later files win)', [])
             ->addOption('database', 'd', InputOption::VALUE_REQUIRED, 'Target database adapter (mysql, pgsql, sqlite, ...)')
             ->addOption('case-insensitive', null, InputOption::VALUE_NONE, 'Perform a case-insensitive structure comparison')
@@ -53,8 +53,6 @@ Where buildtime-conf.php is a plain PHP file returning:
           'bookstore' => ['adapter' => 'pgsql', 'dsn' => 'pgsql:host=localhost;dbname=mydb', 'user' => 'me', 'password' => 'secret'],
       ],
   ];</comment>
-
-A legacy buildtime-conf.xml file (deprecated) is also still accepted.
 EOT
             );
     }

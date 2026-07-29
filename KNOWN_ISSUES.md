@@ -21,9 +21,6 @@ rm -rf fixtures/bookstore/build fixtures/schemas/build fixtures/namespaced/build
 
 ## Open issues
 
-- **`buildtime-conf.xml`** (legacy XML build-time config) is still accepted
-  alongside the plain-PHP format — no way to confirm from this repo that no
-  consumer still relies on it. Drop at a major-version boundary.
 - **Worker-safety harness (`test/worker/`)** only covers SQLite on a single
   FrankenPHP worker thread, not Postgres or cross-thread behavior.
 - **Query result cache (`Criteria::setQueryCache()`) is request-scoped only.**

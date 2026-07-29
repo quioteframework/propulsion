@@ -87,11 +87,9 @@ class GeneratorConfig implements GeneratorConfigInterface
 	 * `require`d and expected to `return` a flat `['propulsion.foo' => ..., ...]`
 	 * array directly (recommended -- see NOTICE.md/KNOWN_ISSUES.md), while
 	 * anything else falls back to the legacy Ant/Phing `.properties` text
-	 * format, for the same reason `loadBuildConnectionsFile()` keeps XML
-	 * support for `buildtime-conf.xml`: these files are user-authored content
-	 * that may live in a consuming project's own repo, not code inside this
-	 * one, so dropping the legacy format outright isn't provably safe from
-	 * here alone.
+	 * format: these files are user-authored content that may live in a
+	 * consuming project's own repo, not code inside this one, so dropping the
+	 * legacy format outright isn't provably safe from here alone.
 	 *
 	 * @return array<string,mixed>
 	 */
@@ -430,16 +428,11 @@ class GeneratorConfig implements GeneratorConfigInterface
 	 *  - a `propulsion.buildtimeConfigArray` build property: a plain PHP array,
 	 *    already in the shape this method returns (see
 	 *    {@see applyBuildConnectionsArray()}), e.g. set programmatically or
-	 *    via an ad-hoc `--config` override. This is the recommended path --
-	 *    see KNOWN_ISSUES.md.
-	 *  - a `propulsion.buildtimeConfFile` build property naming either a plain
-	 *    PHP file (recommended -- returns the same array shape as above,
-	 *    loaded via `require`) or a legacy `buildtime-conf.xml` file (kept
-	 *    for backward compatibility with existing project configs -- see
-	 *    {@see parseBuildConnections()}), tried at a direct path, CWD, or a
-	 *    repository `build/propel/` directory.
-	 *  - a `propulsion.buildtimeConf` base64-encoded XML string build property
-	 *    (legacy; command-line-friendly since it avoids whitespace).
+	 *    via an ad-hoc `--config` override.
+	 *  - a `propulsion.buildtimeConfFile` build property naming a plain PHP
+	 *    file returning the same array shape as above, loaded via `require`
+	 *    and tried at a direct path, CWD, or a repository `build/propel/`
+	 *    directory.
 	 *
 	 * @return array<string,array{adapter:?string,dsn:?string,user:?string,password:?string}>
 	 */
@@ -454,12 +447,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 				$buildTimeConfFileName = $this->getBuildProperty('buildtimeConfFile');
 				$buildTimeConfigPath = $buildTimeConfFileName ? $this->getBuildProperty('projectDir') . DIRECTORY_SEPARATOR . $buildTimeConfFileName : null;
 
-				if ($buildTimeConfigString = $this->getBuildProperty('buildtimeConf')) {
-					// configuration passed as propulsion.buildtimeConf string
-					// probably using the command line, which doesn't accept whitespace
-					// therefore base64 encoded
-					$this->parseBuildConnections(base64_decode($buildTimeConfigString));
-				} elseif ($buildTimeConfFileName) {
+				if ($buildTimeConfFileName) {
 					// Try, in order: the resolved projectDir-relative path, the
 					// filename as given directly (e.g. -Dpropel.buildtime.conf.file=/path/to/file),
 					// then a few alternative locations (CWD, repository build/propel directory).
@@ -486,10 +474,8 @@ class GeneratorConfig implements GeneratorConfigInterface
 	}
 
 	/**
-	 * Loads build connections from a file if it exists, dispatching to the
-	 * plain-PHP-array format (a `.php` file returning the
-	 * `getBuildConnections()` array shape) or the legacy XML format based on
-	 * the file extension.
+	 * Loads build connections from a `.php` file if it exists (a file
+	 * returning the `getBuildConnections()` array shape, loaded via `require`).
 	 *
 	 * @return bool true if the file existed and was loaded.
 	 */
@@ -498,12 +484,8 @@ class GeneratorConfig implements GeneratorConfigInterface
 		if (!file_exists($path)) {
 			return false;
 		}
-		if (strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'php') {
-			$config = require $path;
-			$this->applyBuildConnectionsArray(is_array($config) ? $config : []);
-		} else {
-			$this->parseBuildConnections(file_get_contents($path));
-		}
+		$config = require $path;
+		$this->applyBuildConnectionsArray(is_array($config) ? $config : []);
 		return true;
 	}
 
@@ -524,29 +506,6 @@ class GeneratorConfig implements GeneratorConfigInterface
 	{
 		$this->defaultBuildConnection = $config['default'] ?? null;
 		$this->buildConnections = $config['datasources'] ?? [];
-	}
-
-	/**
-	 * Parses the legacy `buildtime-conf.xml` format. Kept for backward
-	 * compatibility with existing project configs -- see
-	 * {@see getBuildConnections()} and KNOWN_ISSUES.md for why the plain-PHP
-	 * array format (a `.php` file, or `propulsion.buildtimeConfigArray`) is
-	 * recommended for new configs instead.
-	 */
-	protected function parseBuildConnections(string $xmlString): void
-	{
-		$conf = simplexml_load_string($xmlString);
-		$this->defaultBuildConnection = (string) $conf->propel->datasources['default'];
-		$buildConnections = array();
-		foreach ($conf->propel->datasources->datasource as $datasource) {
-			$buildConnections[(string) $datasource['id']] = array(
-				'adapter'  => (string) $datasource->adapter,
-				'dsn'      => (string) $datasource->connection->dsn,
-				'user'     => (string) $datasource->connection->user,
-				'password' => (string) $datasource->connection->password,
-			);
-		}
-		$this->buildConnections = $buildConnections;
 	}
 
 	/**

@@ -42,8 +42,6 @@ Up SQL against the configured datasource(s), recording the outcome in the
 migration ledger.
 
 <info>php bin/propulsion migration:up --buildtime-conf=buildtime-conf.php --migration-dir=./migrations</info>
-
-A legacy buildtime-conf.xml file (deprecated) is also still accepted.
 EOT
             );
     }

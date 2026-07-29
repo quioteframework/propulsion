@@ -28,7 +28,6 @@ class SqlDiffCommandTest extends TestCase
 {
     private string $fixtureDir;
     private string $migrationDir;
-    private string $buildtimeConfFile;
     private ?PDO $pdo = null;
     private string $dbName;
 
@@ -82,80 +81,6 @@ class SqlDiffCommandTest extends TestCase
         $this->pdo->exec('CREATE TABLE diff_author (id SERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL)');
         $this->pdo->exec('CREATE TABLE diff_book (id SERIAL PRIMARY KEY, title VARCHAR(100) NOT NULL)');
 
-        $this->buildtimeConfFile = $this->migrationDir . '/buildtime-conf.xml';
-        file_put_contents($this->buildtimeConfFile, sprintf(
-            '<config><propel><datasources default="diff_parity">'
-            . '<datasource id="diff_parity"><adapter>pgsql</adapter>'
-            . '<connection><dsn>%s</dsn><user>propulsion</user><password>propulsion</password></connection>'
-            . '</datasource></datasources></propel></config>',
-            htmlspecialchars($dsn, ENT_XML1)
-        ));
-
-        try {
-            $application = new Application();
-            $application->addCommand(new SqlDiffCommand());
-            $tester = new CommandTester($application->find('sql:diff'));
-
-            $exitCode = $tester->execute([
-                'schema' => $this->fixtureDir . '/schema-v2.xml',
-                '--buildtime-conf' => $this->buildtimeConfFile,
-                '--migration-dir' => $this->migrationDir,
-                '--database' => 'pgsql',
-            ]);
-
-            $this->assertSame(0, $exitCode, $tester->getDisplay());
-
-            $migrationFiles = glob($this->migrationDir . '/PropulsionMigration_*.php');
-            $this->assertNotEmpty($migrationFiles, 'A migration class file should have been generated');
-
-            $body = file_get_contents($migrationFiles[0]);
-            $this->assertStringContainsString('getUpSQL', $body);
-            $this->assertStringContainsString('getDownSQL', $body);
-            $this->assertMatchesRegularExpression('/author_id/i', $body);
-            $this->assertMatchesRegularExpression('/price/i', $body);
-            $this->assertMatchesRegularExpression('/FOREIGN KEY/i', $body);
-        } finally {
-            $this->pdo->exec('DROP TABLE IF EXISTS diff_book');
-            $this->pdo->exec('DROP TABLE IF EXISTS diff_author');
-        }
-    }
-
-    /**
-     * Same scenario as testCommandGeneratesMigrationClassForLiveDatabaseDrift(),
-     * but via the recommended plain-PHP-array buildtime config file
-     * (--buildtime-conf pointing at a .php file returning
-     * ['default' => ..., 'datasources' => [...]]) instead of the legacy
-     * buildtime-conf.xml format.
-     */
-    public function testCommandGeneratesMigrationClassForLiveDatabaseDriftUsingPhpConfigFile(): void
-    {
-        if (IntegrationDatabase::currentPlatform() !== 'pgsql') {
-            $this->markTestSkipped('Exercises Postgres-specific SQL-diff tooling (pg_database catalog, CREATE DATABASE) regardless of PROPULSION_TEST_DB.');
-        }
-
-        try {
-            $conn = IntegrationDatabase::containerConnection();
-        } catch (\RuntimeException $e) {
-            $this->markTestSkipped($e->getMessage());
-        }
-
-        $this->dbName = 'propulsion_test_sqldiff_command_php';
-        $adminDsn = "pgsql:host={$conn['host']};port={$conn['port']};dbname=propulsion_test";
-        $admin = new PDO($adminDsn, 'propulsion', 'propulsion');
-        $admin->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        if (!$admin->query('SELECT 1 FROM pg_database WHERE datname = ' . $admin->quote($this->dbName))->fetchColumn()) {
-            $admin->exec('CREATE DATABASE ' . $this->dbName);
-        }
-
-        $dsn = "pgsql:host={$conn['host']};port={$conn['port']};dbname={$this->dbName}";
-        $this->pdo = new PDO($dsn, 'propulsion', 'propulsion');
-        $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
-        $this->pdo->exec('DROP TABLE IF EXISTS diff_book');
-        $this->pdo->exec('DROP TABLE IF EXISTS diff_author');
-        $this->pdo->exec('CREATE TABLE diff_author (id SERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL)');
-        $this->pdo->exec('CREATE TABLE diff_book (id SERIAL PRIMARY KEY, title VARCHAR(100) NOT NULL)');
-
         $buildtimeConfigPhpFile = $this->migrationDir . '/buildtime-conf.php';
         file_put_contents($buildtimeConfigPhpFile, '<?php return ' . var_export([
             'default' => 'diff_parity',
@@ -187,7 +112,11 @@ class SqlDiffCommandTest extends TestCase
             $this->assertNotEmpty($migrationFiles, 'A migration class file should have been generated');
 
             $body = file_get_contents($migrationFiles[0]);
+            $this->assertStringContainsString('getUpSQL', $body);
+            $this->assertStringContainsString('getDownSQL', $body);
             $this->assertMatchesRegularExpression('/author_id/i', $body);
+            $this->assertMatchesRegularExpression('/price/i', $body);
+            $this->assertMatchesRegularExpression('/FOREIGN KEY/i', $body);
         } finally {
             $this->pdo->exec('DROP TABLE IF EXISTS diff_book');
             $this->pdo->exec('DROP TABLE IF EXISTS diff_author');
@@ -256,14 +185,18 @@ class SqlDiffCommandTest extends TestCase
 EOT
         );
 
-        $this->buildtimeConfFile = $this->migrationDir . '/buildtime-conf.xml';
-        file_put_contents($this->buildtimeConfFile, sprintf(
-            '<config><propel><datasources default="diff_parity">'
-            . '<datasource id="diff_parity"><adapter>pgsql</adapter>'
-            . '<connection><dsn>%s</dsn><user>propulsion</user><password>propulsion</password></connection>'
-            . '</datasource></datasources></propel></config>',
-            htmlspecialchars($dsn, ENT_XML1)
-        ));
+        $buildtimeConfigPhpFile = $this->migrationDir . '/buildtime-conf.php';
+        file_put_contents($buildtimeConfigPhpFile, '<?php return ' . var_export([
+            'default' => 'diff_parity',
+            'datasources' => [
+                'diff_parity' => [
+                    'adapter' => 'pgsql',
+                    'dsn' => $dsn,
+                    'user' => 'propulsion',
+                    'password' => 'propulsion',
+                ],
+            ],
+        ], true) . ';');
 
         $application = new Application();
         $application->addCommand(new SqlDiffCommand());
@@ -271,7 +204,7 @@ EOT
 
         $exitCode = $tester->execute([
             'schema' => $noDiffSchemaFile,
-            '--buildtime-conf' => $this->buildtimeConfFile,
+            '--buildtime-conf' => $buildtimeConfigPhpFile,
             '--migration-dir' => $this->migrationDir,
             '--database' => 'pgsql',
         ]);
