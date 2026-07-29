@@ -33,6 +33,7 @@ namespace Propulsion\Query;
  use Propulsion\Event\PreBulkDeleteEvent;
  use Propulsion\Event\PreBulkUpdateEvent;
  use Propulsion\Map\TableMap;
+ use Propulsion\OM\BaseObject;
  use Propulsion\Formatter\PropulsionFormatter;
  use Propulsion\Exception\PropulsionException;
  use Propulsion\Util\BasePeer;
@@ -344,6 +345,9 @@ class ModelCriteria extends Criteria
 	{
 		if (is_array($clause)) {
 			// where(array('cond1', 'cond2'), Criteria::LOGICAL_OR)
+			if ($value !== null && !is_string($value)) {
+				throw new PropulsionException('where() expects a Criteria::LOGICAL_AND/LOGICAL_OR string as $value when $clause is an array of condition names');
+			}
 			$criterion = $this->getCriterionForConditions($clause, $value);
 		} else {
 			// where('Book.AuthorId = ?', 12)
@@ -405,6 +409,9 @@ class ModelCriteria extends Criteria
 	{
 		if (is_array($clause)) {
 			// having(array('cond1', 'cond2'), Criteria::LOGICAL_OR)
+			if ($value !== null && !is_string($value)) {
+				throw new PropulsionException('having() expects a Criteria::LOGICAL_AND/LOGICAL_OR string as $value when $clause is an array of condition names');
+			}
 			$criterion = $this->getCriterionForConditions($clause, $value);
 		} else {
 			// having('Book.AuthorId = ?', 12)
@@ -635,6 +642,7 @@ class ModelCriteria extends Criteria
 			// leave early
 			return;
 		}
+		$select = $this->select;
 
 		// select() needs the PropulsionSimpleArrayFormatter
 		$this->setFormatter('Propulsion\\Formatter\\PropulsionSimpleArrayFormatter');
@@ -650,13 +658,18 @@ class ModelCriteria extends Criteria
 		}
 
 		// Add requested columns which are not withColumns
-		$columnNames = is_array($this->select) ? $this->select : array($this->select);
+		$columnNames = is_array($select) ? $select : array($select);
 		foreach ($columnNames as $columnName) {
 			// check if the column was added by a withColumn, if not add it
 			if (!array_key_exists($columnName, $this->getAsColumns())) {
-				$column = $this->getColumnFromName($columnName);
+				$realColumnName = $this->getColumnFromName($columnName)[1];
+				if ($realColumnName === null) {
+					// unknown column name -- fails silently by design (getColumnFromName()'s
+					// default $failSilently=true), so just skip adding it
+					continue;
+				}
 				// always put quotes around the columnName to be safe, we strip them in the formatter
-				$this->addAsColumn('"' . $columnName . '"', $column[1]);
+				$this->addAsColumn('"' . $columnName . '"', $realColumnName);
 			}
 		}
 	}
@@ -844,12 +857,17 @@ class ModelCriteria extends Criteria
 			throw new PropulsionException(sprintf('Adding a condition to a nonexistent join, %s. Try calling join() first.', $name));
 		}
 		$join = $this->joins[$name];
-		if (!$join->getJoinCondition() instanceof Criterion) {
+		$joinCondition = $join->getJoinCondition();
+		if (!$joinCondition instanceof Criterion) {
 			$join->buildJoinCondition($this);
+			$joinCondition = $join->getJoinCondition();
+			if (!$joinCondition instanceof Criterion) {
+				throw new PropulsionException(sprintf('Join %s has no condition after buildJoinCondition()', $name));
+			}
 		}
 		$criterion = $this->getCriterionForClause($clause, $value);
 		$method = $operator === Criteria::LOGICAL_OR ? 'addOr' : 'addAnd';
-		$join->getJoinCondition()->$method($criterion);
+		$joinCondition->$method($criterion);
 
 		return $this;
 	}
@@ -877,10 +895,11 @@ class ModelCriteria extends Criteria
 		}
 		if ($condition instanceof Criterion) {
 			$this->getJoin($name)->setJoinCondition($condition);
-		} elseif (isset($this->namedCriterions[$condition])) {
+		} elseif (is_string($condition) && isset($this->namedCriterions[$condition])) {
 			$this->getJoin($name)->setJoinCondition($this->namedCriterions[$condition]);
 		} else {
-			throw new PropulsionException(sprintf('Cannot add condition %s on join %s. setJoinCondition() expects either a Criterion, or a condition added by way of condition()', $condition, $name));
+			$conditionDescription = is_string($condition) ? $condition : get_debug_type($condition);
+			throw new PropulsionException(sprintf('Cannot add condition %s on join %s. setJoinCondition() expects either a Criterion, or a condition added by way of condition()', $conditionDescription, $name));
 		}
 		return $this;
 	}
@@ -1400,6 +1419,9 @@ class ModelCriteria extends Criteria
 			if (null === $alias) {
 				end($this->selectQueries);
 				$alias = key($this->selectQueries);
+				if (!is_string($alias)) {
+					throw new PropulsionException('Cannot determine the subquery alias: no select queries registered');
+				}
 			}
 			$this->setModelAlias($alias, true);
 			// so we can add selfSelectColumns
@@ -1535,8 +1557,12 @@ class ModelCriteria extends Criteria
 
 		if (!$criteria->isQueryCacheEnabled()) {
 			$stmt = $criteria->getSelectStatement($con);
+			$result = $criteria->getFormatter()->init($criteria)->format($stmt);
+			if (!$result instanceof PropulsionCollection) {
+				throw new PropulsionException('find() formatter did not return a PropulsionCollection');
+			}
 
-			return $criteria->getFormatter()->init($criteria)->format($stmt);
+			return $result;
 		}
 
 		$con = $criteria->resolveConnection($con);
@@ -1564,12 +1590,15 @@ class ModelCriteria extends Criteria
 	/**
 	 * Issue a SELECT ... LIMIT 1 query based on the current ModelCriteria
 	 * and format the result with the current formatter
-	 * By default (with FORMAT_OBJECT formatter), returns a BaseObject or null
-	 * With other formatters, may return different types - use PHPDoc annotation if needed
+	 * By default (with FORMAT_OBJECT formatter), returns a BaseObject or null.
+	 * With other formatters, returns whatever that formatter's formatOne() produces
+	 * (genuinely formatter-dependent, hence the `mixed` return type -- generated
+	 * subclasses narrow this to the concrete model via their own @method annotation
+	 * for the common default-formatter case).
 	 *
 	 * @param     PropulsionPDO $con an optional connection object
 	 *
-	 * @return    ?\Propulsion\OM\BaseObject the result (null if no result found with default formatter)
+	 * @return    mixed the result (null if no result found with the default formatter)
 	 */
 	public function findOne(?PropulsionPDO $con = null) : mixed
 	{
@@ -1600,12 +1629,13 @@ class ModelCriteria extends Criteria
 	/**
 	 * Issue a SELECT ... LIMIT 1 query based on the current ModelCriteria
 	 * and format the result with the current formatter
-	 * By default (with FORMAT_OBJECT formatter), returns a BaseObject (creates new if not found, so never null)
-	 * With other formatters, may return different types - use PHPDoc annotation if needed
+	 * By default (with FORMAT_OBJECT formatter), returns a BaseObject (creates new if not found, so never null).
+	 * With other formatters, returns whatever findOne()/formatRecord() produce (genuinely
+	 * formatter-dependent, hence the `mixed` return type -- see findOne()).
 	 *
 	 * @param     PropulsionPDO $con an optional connection object
 	 *
-	 * @return    \Propulsion\OM\BaseObject the result (never null with default formatter - creates new object if not found)
+	 * @return    mixed the result (never null with the default formatter - creates new object if not found)
 	 */
 	public function findOneOrCreate(?PropulsionPDO $con = null) : mixed
 	{
@@ -1621,6 +1651,9 @@ class ModelCriteria extends Criteria
 					$value = $this->unconvertValueForColumn($value, $this->getTableMap()->getColumn($columnName));
 				}
 				$obj->setByName($key, $value, BasePeer::TYPE_COLNAME);
+			}
+			if (!$obj instanceof BaseObject) {
+				throw new PropulsionException("{$class} does not extend BaseObject");
 			}
 			$ret = $this->getFormatter()->formatRecord($obj);
 		}
@@ -1639,7 +1672,8 @@ class ModelCriteria extends Criteria
 	 * @param     mixed $key Primary key to use for the query
 	 * @param     PropulsionPDO $con an optional connection object
 	 *
-	 * @return    ?\Propulsion\OM\BaseObject the result (null if no result found with default formatter)
+	 * @return    mixed the result (null if no result found with the default formatter --
+	 *             see the note on findOne() about why this is `mixed`)
 	 */
 	public function findPk(mixed $key, ?PropulsionPDO $con = null) : mixed
 	{
@@ -1651,6 +1685,9 @@ class ModelCriteria extends Criteria
 			return $this->findOne($con);
 		} else {
 			// composite primary key
+			if (!is_array($key)) {
+				throw new PropulsionException('findPk() expects an array of key parts for a composite primary key');
+			}
 			foreach ($pkCols as $pkCol) {
 				$keyPart = array_shift($key);
 				$this->add($pkCol->getFullyQualifiedName(), $keyPart);
@@ -1849,12 +1886,12 @@ class ModelCriteria extends Criteria
 	 * @see       filterByArray()
 	 * @see       find()
 	 *
-	 * @param     mixed $conditions An array of conditions, using column phpNames as key
+	 * @param     array<string, mixed> $conditions An array of conditions, using column phpNames as key
 	 * @param     PropulsionPDO $con an optional connection object
 	 *
 	 * @return    PropulsionCollection the list of results (default formatter returns PropulsionObjectCollection, never null)
 	 */
-	public function findByArray($conditions, ?PropulsionPDO $con = null) : PropulsionCollection
+	public function findByArray(array $conditions, ?PropulsionPDO $con = null) : PropulsionCollection
 	{
 		$this->filterByArray($conditions);
 
@@ -1871,7 +1908,8 @@ class ModelCriteria extends Criteria
 	 * @param     mixed  $value A value for the condition
 	 * @param     PropulsionPDO $con an optional connection object
 	 *
-	 * @return    ?\Propulsion\OM\BaseObject the result (null if no result found with default formatter)
+	 * @return    mixed the result (null if no result found with the default formatter --
+	 *             see the note on findOne() about why this is `mixed`)
 	 */
 	public function findOneBy(string $column, mixed $value, ?PropulsionPDO $con = null) : mixed
 	{
@@ -1893,12 +1931,13 @@ class ModelCriteria extends Criteria
 	 * @see       filterByArray()
 	 * @see       findOne()
 	 *
-	 * @param     mixed $conditions An array of conditions, using column phpNames as key
+	 * @param     array<string, mixed> $conditions An array of conditions, using column phpNames as key
 	 * @param     PropulsionPDO $con an optional connection object
 	 *
-	 * @return    ?\Propulsion\OM\BaseObject the result (null if no result found with default formatter)
+	 * @return    mixed the result (null if no result found with the default formatter --
+	 *             see the note on findOne() about why this is `mixed`)
 	 */
-	public function findOneByArray($conditions, ?PropulsionPDO $con = null) : mixed
+	public function findOneByArray(array $conditions, ?PropulsionPDO $con = null) : mixed
 	{
 		$this->filterByArray($conditions);
 
@@ -1951,7 +1990,8 @@ class ModelCriteria extends Criteria
 
 	private function fetchCount(\PDOStatement $stmt): int
 	{
-		if ($row = $stmt->fetch(PDO::FETCH_NUM)) {
+		$row = $stmt->fetch(PDO::FETCH_NUM);
+		if (is_array($row) && isset($row[0]) && is_scalar($row[0])) {
 			$count = (int) $row[0];
 		} else {
 			$count = 0; // no rows returned; we infer that means 0 matches.
@@ -2324,13 +2364,13 @@ class ModelCriteria extends Criteria
 
 			// Update rows one by one
 			$objects = $this->setFormatter(ModelCriteria::FORMAT_OBJECT)->find($con);
+			if (!$objects instanceof PropulsionObjectCollection) {
+				throw new PropulsionException('doUpdate() with $forceIndividualSaves expects a PropulsionObjectCollection');
+			}
 			foreach ($objects as $object) {
 				foreach ($values as $key => $value) {
 					$object->setByName($key, $value);
 				}
-			}
-			if (!$objects instanceof PropulsionObjectCollection) {
-				throw new PropulsionException('doUpdate() with $forceIndividualSaves expects a PropulsionObjectCollection');
 			}
 			$objects->save($con);
 			$affectedRows = count($objects);
@@ -2492,7 +2532,8 @@ class ModelCriteria extends Criteria
 			// ObjectBuilder's buildCriteria()/hydrate() serialize array columns to
 			// (see ObjectBuilder::addBuildCriteria() and the hydrate() regex), or a plain
 			// "column = ?" comparison against a real array value never matches a stored row.
-			$value = ' | ' . implode(' | ', $value) . ' | ';
+			$stringValues = array_map(fn($v) => is_scalar($v) || $v === null ? (string) $v : serialize($v), $value);
+			$value = ' | ' . implode(' | ', $stringValues) . ' | ';
 		} elseif ($colMap->getType() == 'ENUM') {
 			if (is_array($value)) {
 				$value = array_map(array($colMap, 'getValueSetKey'), $value);
@@ -2524,9 +2565,9 @@ class ModelCriteria extends Criteria
 		if ($colMap->getType() == 'ENUM') {
 			$valueSet = $colMap->getValueSet();
 			if (is_array($value)) {
-				return array_map(fn($v) => $valueSet[$v] ?? $v, $value);
+				return array_map(fn($v) => (is_int($v) || is_string($v)) ? ($valueSet[$v] ?? $v) : $v, $value);
 			}
-			return $valueSet[$value] ?? $value;
+			return (is_int($value) || is_string($value)) ? ($valueSet[$value] ?? $value) : $value;
 		} elseif ($colMap->getType() == 'ARRAY' && is_string($value)) {
 			$trimmed = trim(trim($value, '%|'));
 			if ($trimmed === '') {
@@ -2614,7 +2655,9 @@ class ModelCriteria extends Criteria
 	{
 		$key = $matches[0];
 		list($column, $realColumnName) = $this->getColumnFromName($key);
-		if ($column instanceof ColumnMap) {
+		// getColumnFromName() always pairs a non-null ColumnMap with a non-null
+		// $realColumnName -- the null-check here is just to narrow the type for PHPStan.
+		if ($column instanceof ColumnMap && $realColumnName !== null) {
 			$this->replacedColumns[]= $column;
 			$this->foundMatch = true;
 			return $realColumnName;
@@ -2637,7 +2680,9 @@ class ModelCriteria extends Criteria
 	 *
 	 * @param      string $phpName String representing the column name in a pseudo SQL clause, e.g. 'Book.Title'
 	 *
-	 * @return     array{0: ?ColumnMap, 1: ?string} List($columnMap, $realColumnName)
+	 * @return     ($failSilently is false ? array{0: ?ColumnMap, 1: string} : array{0: ?ColumnMap, 1: ?string})
+	 *             List($columnMap, $realColumnName) -- $failSilently=false guarantees a non-null
+	 *             $realColumnName (every path either returns one or throws)
 	 */
 	protected function getColumnFromName(string $phpName, bool $failSilently = true) : array
 	{
@@ -2686,7 +2731,9 @@ class ModelCriteria extends Criteria
 	/**
 	 * Special case for subquery columns
 	 *
-	 * @return     array{0: ?ColumnMap, 1: ?string} List($columnMap, $realColumnName)
+	 * @return     ($failSilently is false ? array{0: ?ColumnMap, 1: string} : array{0: ?ColumnMap, 1: ?string})
+	 *             List($columnMap, $realColumnName) -- $failSilently=false guarantees a non-null
+	 *             $realColumnName (every path either returns one or throws)
 	 */
 	protected function getColumnFromSubQuery(string $class, string $phpName, bool $failSilently = true) : array
 	{
@@ -2739,8 +2786,9 @@ class ModelCriteria extends Criteria
 	 */
 	public function getAliasedColName(string $colName) : string
 	{
-	    if ($this->useAliasInSQL && $this->modelAlias) {
-	        return $this->modelAlias . substr($colName, strrpos($colName, '.'));
+	    $dotPos = strrpos($colName, '.');
+	    if ($this->useAliasInSQL && $this->modelAlias && $dotPos !== false) {
+	        return $this->modelAlias . substr($colName, $dotPos);
 	    } else {
 	        // Fallback: always return the original column name if alias is not set
 	        return $colName;
@@ -2779,15 +2827,22 @@ class ModelCriteria extends Criteria
 
 			$table = null;
 			foreach ($criterion->getAttachedCriterion() as $attachedCriterion) {
+				// A raw/custom-SQL criterion with no column at all (e.g. where('1=1'))
+				// has no table either -- nothing to look up for the ignore-case check below.
 				$tableName = $attachedCriterion->getTable();
+				if ($tableName === null) {
+					continue;
+				}
 
 				$table = $this->getTableForAlias($tableName);
 				if (null === $table) {
 					$table = $tableName;
 				}
 
-				if (($this->isIgnoreCase() || $attachedCriterion->isIgnoreCase())
-				&& $dbMap->getTable($table)->getColumn($attachedCriterion->getColumn())->isText()) {
+				$columnName = $attachedCriterion->getColumn();
+				if ($columnName !== null
+				&& ($this->isIgnoreCase() || $attachedCriterion->isIgnoreCase())
+				&& $dbMap->getTable($table)->getColumn($columnName)->isText()) {
 					$attachedCriterion->setIgnoreCase(true);
 				}
 			}
@@ -2848,7 +2903,10 @@ class ModelCriteria extends Criteria
 				$joinType = Criteria::INNER_JOIN;
 			}
 			if(!$relation = substr($name, $pos + 8)) {
-				$relation = $arguments[0];
+				$relation = $arguments[0] ?? null;
+				if (!is_string($relation)) {
+					throw new PropulsionException(sprintf('%s::%s() expects a relation name as its first argument', __CLASS__, $name));
+				}
 			}
 			return $this->joinWith($relation, $joinType);
 		}
