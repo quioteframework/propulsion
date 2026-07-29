@@ -7,3 +7,9 @@ parameters:
     excludePaths:
         - generator/Lib/Behavior/*/templates/*
     tmpDir: /tmp/phpstan-propulsion
+
+services:
+    -
+        class: Propulsion\PHPStan\ModelCriteriaMagicMethodsExtension
+        tags:
+            - phpstan.broker.methodsClassReflectionExtension

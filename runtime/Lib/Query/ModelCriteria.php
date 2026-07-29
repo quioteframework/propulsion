@@ -16,11 +16,11 @@ namespace Propulsion\Query;
  * A ModelCriteria requires additional information to be initialized.
  * Using a model name and tablemaps, a ModelCriteria can do more powerful things than a simple Criteria
  *
- * magic methods:
- *
- * @method     ModelCriteria leftJoin($relation) Adds a LEFT JOIN clause to the query
- * @method     ModelCriteria rightJoin($relation) Adds a RIGHT JOIN clause to the query
- * @method     ModelCriteria innerJoin($relation) Adds a INNER JOIN clause to the query
+ * See __call() for the magic methods this class supports (findByXxx(), filterByXxx(),
+ * leftJoin()/rightJoin()/innerJoin(), joinWithXxx(), etc.) -- PHPStan is taught about
+ * them via Propulsion\PHPStan\ModelCriteriaMagicMethodsExtension rather than @method
+ * annotations here, since (verified) PHPStan does not appear to honor @method tags on
+ * this class in practice.
  *
  * @author     François Zaninotto
  * @version    $Revision$
@@ -180,6 +180,22 @@ class ModelCriteria extends Criteria
 	}
 
 	/**
+	 * Returns this model's fully qualified, unaliased table name, i.e. the
+	 * Peer class's TABLE_NAME constant.
+	 *
+	 * @return string
+	 */
+	protected function getModelTableName() : string
+	{
+		$tableName = $this->modelPeerName::TABLE_NAME;
+		if (!is_string($tableName)) {
+			throw new PropulsionException("{$this->modelPeerName}::TABLE_NAME is not a string");
+		}
+
+		return $tableName;
+	}
+
+	/**
 	 * Returns the TabkleMap object for this Criteria
 	 *
 	 * @return TableMap
@@ -223,7 +239,11 @@ class ModelCriteria extends Criteria
 	{
 		if (null === $this->formatter) {
 			$formatterClass = $this->defaultFormatterClass;
-			$this->formatter = new $formatterClass();
+			$formatter = new $formatterClass();
+			if (!$formatter instanceof PropulsionFormatter) {
+				throw new PropulsionException("{$formatterClass} does not extend PropulsionFormatter");
+			}
+			$this->formatter = $formatter;
 		}
 		return $this->formatter;
 	}
@@ -293,7 +313,8 @@ class ModelCriteria extends Criteria
 	public function filterByArray(array $conditions) : static
 	{
 		foreach ($conditions as $column => $args) {
-			call_user_func_array(array($this, 'filterBy' . $column), (array) $args);
+			$method = 'filterBy' . $column;
+			$this->$method(...(array) $args);
 		}
 
 		return $this;
@@ -587,7 +608,7 @@ class ModelCriteria extends Criteria
 
 		if ($columnArray == '*') {
 			$columnArray = array();
-			foreach (call_user_func(array($this->modelPeerName, 'getFieldNames'), BasePeer::TYPE_PHPNAME) as $column) {
+			foreach (BasePeer::getFieldNames($this->modelName, BasePeer::TYPE_PHPNAME) as $column) {
 				$columnArray []= $this->modelName . '.' . $column;
 			}
 		}
@@ -625,7 +646,7 @@ class ModelCriteria extends Criteria
 		// it will be impossible for the BasePeer::createSelectSql() method to determine which
 		// tables go into the FROM clause.
 		if (!$this->selectQueries) {
-			$this->setPrimaryTableName(constant($this->modelPeerName . '::TABLE_NAME'));
+			$this->setPrimaryTableName($this->getModelTableName());
 		}
 
 		// Add requested columns which are not withColumns
@@ -1318,7 +1339,7 @@ class ModelCriteria extends Criteria
 	 */
 	public function addSelfSelectColumns() : static
 	{
-		call_user_func(array($this->modelPeerName, 'addSelectColumns'), $this, $this->useAliasInSQL ? $this->modelAlias : null);
+		$this->modelPeerName::addSelectColumns($this, $this->useAliasInSQL ? $this->modelAlias : null);
 
 		return $this;
 	}
@@ -1333,7 +1354,8 @@ class ModelCriteria extends Criteria
 	public function addRelationSelectColumns(string $relation) : static
 	{
 		$join = $this->getNamedModelJoin($relation);
-		call_user_func(array($join->getTableMap()->getPeerClassname(), 'addSelectColumns'), $this, $join->getRelationAlias());
+		$peerClass = $join->getTableMap()->getPeerClassname();
+		$peerClass::addSelectColumns($this, $join->getRelationAlias());
 
 		return $this;
 	}
@@ -1825,7 +1847,7 @@ class ModelCriteria extends Criteria
 		// We need to set the primary table name, since in the case that there are no WHERE columns
 		// it will be impossible for the BasePeer::createSelectSql() method to determine which
 		// tables go into the FROM clause.
-		$criteria->setPrimaryTableName(constant($this->modelPeerName.'::TABLE_NAME'));
+		$criteria->setPrimaryTableName($this->getModelTableName());
 
 		if (!$criteria->isQueryCacheEnabled()) {
 			$stmt = $criteria->getCountStatement($con);
@@ -2034,7 +2056,10 @@ class ModelCriteria extends Criteria
 	 */
 	public function doDelete(PropulsionPDO $con)
 	{
-		$affectedRows = call_user_func(array($this->modelPeerName, 'doDelete'), $this, $con);
+		$affectedRows = $this->modelPeerName::doDelete($this, $con);
+		if (!is_int($affectedRows)) {
+			throw new PropulsionException("{$this->modelPeerName}::doDelete() was expected to return an int");
+		}
 
 		return $affectedRows;
 	}
@@ -2099,7 +2124,10 @@ class ModelCriteria extends Criteria
 		// (e.g. this fixture's 'bookstore-behavior') it opened a second real session
 		// against the same database, which could race/deadlock against uncommitted
 		// rows held by the first connection's still-open transaction.
-		$affectedRows = call_user_func(array($this->modelPeerName, 'doDeleteAll'), $con);
+		$affectedRows = $this->modelPeerName::doDeleteAll($con);
+		if (!is_int($affectedRows)) {
+			throw new PropulsionException("{$this->modelPeerName}::doDeleteAll() was expected to return an int");
+		}
 
 		return $affectedRows;
 	}
@@ -2177,7 +2205,7 @@ class ModelCriteria extends Criteria
 		}
 
 		$criteria = $this->isKeepQuery() ? clone $this : $this;
-		$criteria->setPrimaryTableName(constant($this->modelPeerName.'::TABLE_NAME'));
+		$criteria->setPrimaryTableName($this->getModelTableName());
 
 		$con->beginTransaction();
 		try {
@@ -2244,8 +2272,8 @@ class ModelCriteria extends Criteria
 				}
 			}
 			$affectedRows = BasePeer::doUpdate($this, $set, $con);
-			call_user_func(array($this->modelPeerName, 'clearInstancePool'));
-			call_user_func(array($this->modelPeerName, 'clearRelatedInstancePool'));
+			$this->modelPeerName::clearInstancePool();
+			$this->modelPeerName::clearRelatedInstancePool();
 		}
 
 		return $affectedRows;
@@ -2283,7 +2311,7 @@ class ModelCriteria extends Criteria
 			$realColumnName = $this->getTableMap()->getColumnByPhpName($columnName)->getFullyQualifiedName();
 			$insertCriteria->add($realColumnName, $value);
 		}
-		$insertCriteria->setPrimaryTableName(constant($this->modelPeerName.'::TABLE_NAME'));
+		$insertCriteria->setPrimaryTableName($this->getModelTableName());
 
 		$updateCriteria = new Criteria($this->getDbName());
 		foreach ($updateValues as $columnName => $value) {
@@ -2301,8 +2329,8 @@ class ModelCriteria extends Criteria
 		}
 
 		$affectedRows = BasePeer::doUpsert($insertCriteria, $updateCriteria, $con, $realConflictColumns);
-		call_user_func(array($this->modelPeerName, 'clearInstancePool'));
-		call_user_func(array($this->modelPeerName, 'clearRelatedInstancePool'));
+		$this->modelPeerName::clearInstancePool();
+		$this->modelPeerName::clearRelatedInstancePool();
 
 		return $affectedRows;
 	}
@@ -2731,7 +2759,7 @@ class ModelCriteria extends Criteria
 				} else {
 					array_unshift($arguments, $columns);
 				}
-				return call_user_func_array(array($this, $method), $arguments);
+				return $this->$method(...$arguments);
 			}
 		}
 
@@ -2764,7 +2792,7 @@ class ModelCriteria extends Criteria
 				$method = substr($name, $pos);
 				// no lcfirst in php<5.3...
 				$method[0] = strtolower($method[0]);
-				return call_user_func_array(array($this, $method), $arguments);
+				return $this->$method(...$arguments);
 			}
 		}
 

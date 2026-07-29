@@ -94,11 +94,25 @@ class BasePeer
 	 * @param      string $type The type of fieldnames to return: one of the class type
 	 *                     constants TYPE_PHPNAME, TYPE_STUDLYPHPNAME, TYPE_COLNAME,
 	 *                     TYPE_FIELDNAME, TYPE_NUM.
-	 * @return     array<int, string> A list of field names
+	 * @return     array<int, int|string> A list of field names (ints when $type is TYPE_NUM)
 	 */
 	public static function getFieldNames($classname, $type = self::TYPE_PHPNAME)
 	{
-		return call_user_func(array($classname . 'Peer', 'getFieldNames'), $type);
+		$peerClass = $classname . 'Peer';
+		$fieldNames = $peerClass::getFieldNames($type);
+		if (!is_array($fieldNames)) {
+			throw new PropulsionException("{$peerClass}::getFieldNames() was expected to return an array");
+		}
+
+		$result = array();
+		foreach ($fieldNames as $fieldName) {
+			if (!is_int($fieldName) && !is_string($fieldName)) {
+				throw new PropulsionException("{$peerClass}::getFieldNames() was expected to return an array of ints or strings");
+			}
+			$result[] = $fieldName;
+		}
+
+		return $result;
 	}
 
 	/**
@@ -113,7 +127,9 @@ class BasePeer
 	 */
 	public static function translateFieldName($classname, $name, $fromType, $toType)
 	{
-		return call_user_func(array($classname . 'Peer', 'translateFieldName'), $name, $fromType, $toType);
+		$peerClass = $classname . 'Peer';
+
+		return $peerClass::translateFieldName($name, $fromType, $toType);
 	}
 
 	/**
@@ -511,15 +527,15 @@ class BasePeer
 	 *             return for every affected row, instead of just a count -- see
 	 *             DBAdapter::supportsRowReturning(). Null (the default) means "just
 	 *             return the count", the original behavior.
-	 * @return     int|array<int,array<string,mixed>> The number of rows affected by
-	 *             last update statement (see the multi-table caveat below), or, when
-	 *             $returningColumns is given, the affected rows themselves (each an
-	 *             associative array keyed by column name) -- concatenated across
-	 *             every table statement executed, for the rare multi-table Criteria.
-	 *             For most uses there is only one update statement executed, so this
-	 *             corresponds directly to the one statement's own result. Note that
-	 *             the return value does require that this information is returned
-	 *             (supported) by the Propulsion db driver.
+	 * @return     ($returningColumns is null ? int : array<int,array<string,mixed>>)
+	 *             The number of rows affected by last update statement (see the
+	 *             multi-table caveat below), or, when $returningColumns is given, the
+	 *             affected rows themselves (each an associative array keyed by column
+	 *             name) -- concatenated across every table statement executed, for the
+	 *             rare multi-table Criteria. For most uses there is only one update
+	 *             statement executed, so this corresponds directly to the one
+	 *             statement's own result. Note that the return value does require that
+	 *             this information is returned (supported) by the Propulsion db driver.
 	 * @throws     PropulsionException
 	 */
 	public static function doUpdate(Criteria $selectCriteria, Criteria $updateValues, PropulsionPDO $con, ?array $returningColumns = null) {
