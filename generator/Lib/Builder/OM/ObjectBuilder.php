@@ -29,6 +29,7 @@ use Propulsion\Generator\Model\PropulsionTypes;
 use Propulsion\Generator\Model\ForeignKey;
 use Propulsion\Generator\Model\IDMethod;
 use Propulsion\Generator\Platform\MysqlPlatform;
+use Propulsion\Generator\Builder\OM\ColumnType\ColumnTypeHandlerRegistry;
 
 class ObjectBuilder extends AbstractObjectBuilder
 {
@@ -205,7 +206,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 	 * Declares the use-import for an ENUM column's backing enum class and
 	 * returns its short (unqualified) name, for use in generated type hints.
 	 */
-	protected function getEnumShortName(Column $col): string
+	public function getEnumShortName(Column $col): string
 	{
 		$enumClass = (string) $col->getEnumClass();
 		$this->declareClass($enumClass);
@@ -221,72 +222,15 @@ class ObjectBuilder extends AbstractObjectBuilder
 	 */
 	protected function getPhp84TypeHint(Column $col): string
 	{
-		// A backed-enum column hydrates to/from the declared enum class directly
-		// (see addEnumAccessor()/addEnumMutator()/addHydrate()), instead of the
-		// plain string label plain ENUM columns use -- check this before the
-		// generic type-mapping below, which would otherwise fall through to
-		// '?string' the same way plain ENUM columns do.
-		if ($col->hasEnumClass()) {
-			return '?' . $this->getEnumShortName($col);
-		}
-		// A `phpType="\BcMath\Number"` column hydrates to/from that arbitrary-
-		// precision value object directly (see addHydrate()/addColumnMutator()),
-		// instead of the plain string a DECIMAL/NUMERIC column gets by default.
-		if ($col->isBcMathNumberType()) {
-			$this->declareClass('\\BcMath\\Number');
-			return '?Number';
-		}
-		// Always use nullable types for getters and setters to support clearing relationships
-		// and object state, regardless of database constraints
-
-		// LOB columns (BLOB/VARBINARY/LONGVARBINARY) are stored internally as a PHP
-		// stream resource, matching PHP5ObjectBuilder's addLobMutator() -- callers can
-		// pass either a resource or a raw string (normalized to a resource by the
-		// mutator, see addColumnMutator()). "resource" isn't a legal PHP type
-		// declaration, so `mixed` is used for the property/getter/setter signatures.
-		if ($col->isLobType()) {
-			return 'mixed';
-		}
-
-		// Check for temporal types first, before relying on getPhpType()
-		if ($col->isTemporalType()) {
-			$this->declareClass('\\DateTimeInterface');
-			return '?DateTimeInterface';
-		}
-
-		// INTERVAL columns are stored as an ISO-8601 duration string (see
-		// PropulsionTypes::INTERVAL_NATIVE_TYPE) but hydrate to/from a real
-		// DateInterval object, the same way TIMESTAMP/DATE/TIME map to
-		// DateTimeInterface above.
-		if ($col->isIntervalType()) {
-			$this->declareClass('\\DateInterval');
-			return '?DateInterval';
-		}
-
-		// Postgres range columns are stored as a range literal string (see
-		// PropulsionTypes::isRangeType()) but hydrate to/from a real
-		// Propulsion\Type\Range value object.
-		if ($col->isRangeType()) {
-			$this->declareClass('\\Propulsion\\Type\\Range');
-			return '?Range';
-		}
-
-		// OBJECT columns store an arbitrary, caller-supplied PHP object (serialized on
-		// save, unserialized on hydrate -- see hydrate()/buildCriteria()/
-		// buildPkeyCriteria()). PropulsionTypes::getPhpNative() maps OBJECT to an empty
-		// string (no single PHP class fits every possible stored object), which used to
-		// fall through to the "default: ?string" case below and reject any real object
-		// passed to the setter. `mixed` is used for the same reason LOB columns are.
-		if ($col->getType() === PropulsionTypes::OBJECT) {
-			return 'mixed';
-		}
-
-		// JSON/JSONB columns decode (via json_decode()) to whatever shape the stored
-		// document actually has -- an array, a scalar, or null -- so, like OBJECT
-		// above, no single PHP type fits every possible value. `mixed` is used for
-		// the same reason.
-		if ($col->isJsonType()) {
-			return 'mixed';
+		// Always use nullable types for getters and setters to support clearing
+		// relationships and object state, regardless of database constraints.
+		//
+		// Per-type overrides (backed-enum columns, BcMath\Number, LOB resources,
+		// temporal/interval/range value objects, OBJECT/JSON's "any shape")
+		// live in a ColumnTypeHandler -- see ColumnType/ColumnTypeHandler.php.
+		$handler = ColumnTypeHandlerRegistry::resolve($col);
+		if ($handler !== null && ($hint = $handler->getPhpTypeHint($col, $this)) !== null) {
+			return $hint;
 		}
 
 		// Check the actual Propulsion type for better type hints
@@ -323,94 +267,16 @@ class ObjectBuilder extends AbstractObjectBuilder
 	}
 
 	/**
-	 * Gets the appropriate PHP 8.4 property type for a column
+	 * Gets the appropriate PHP 8.4 property type for a column. Identical to
+	 * getPhp84TypeHint() -- kept as a separate method since property/getter/
+	 * setter type hints are conceptually distinct call sites even though
+	 * they've always resolved the same way here.
 	 * @param Column $col
 	 * @return string
 	 */
 	protected function getPhp84PropertyType(Column $col): string
 	{
-		// All properties need to be nullable in PHP to support object clearing/resetting
-		// Unlike strongly typed languages like C#, PHP objects need to be clearable
-
-		// See getPhp84TypeHint() -- a backed-enum column's property holds the
-		// enum instance directly (not the raw stored index), so accessor/mutator
-		// generated by addEnumAccessor()/addEnumMutator() can be plain pass-throughs.
-		if ($col->hasEnumClass()) {
-			return '?' . $this->getEnumShortName($col);
-		}
-
-		// See getPhp84TypeHint() -- a BcMath\Number column's property holds the
-		// value object directly.
-		if ($col->isBcMathNumberType()) {
-			$this->declareClass('\\BcMath\\Number');
-			return '?Number';
-		}
-
-		// See getPhp84TypeHint() -- LOB columns store a stream resource internally.
-		if ($col->isLobType()) {
-			return 'mixed';
-		}
-
-		// Check for temporal types first, before relying on getPhpType()
-		if ($col->isTemporalType()) {
-			$this->declareClass('\\DateTimeInterface');
-			return '?DateTimeInterface';
-		}
-
-		// See getPhp84TypeHint() -- an INTERVAL column's property holds a real
-		// DateInterval instance.
-		if ($col->isIntervalType()) {
-			$this->declareClass('\\DateInterval');
-			return '?DateInterval';
-		}
-
-		// See getPhp84TypeHint() -- a range column's property holds a real
-		// Propulsion\Type\Range instance.
-		if ($col->isRangeType()) {
-			$this->declareClass('\\Propulsion\\Type\\Range');
-			return '?Range';
-		}
-
-		// See getPhp84TypeHint() -- OBJECT columns store an arbitrary caller-supplied object.
-		if ($col->getType() === PropulsionTypes::OBJECT) {
-			return 'mixed';
-		}
-
-		// See getPhp84TypeHint() -- JSON/JSONB columns can decode to any JSON shape.
-		if ($col->isJsonType()) {
-			return 'mixed';
-		}
-
-		// Check the actual Propulsion type for better type hints
-		// For BIGINT, use int since we're on 64-bit PHP 8.4 (handles up to 2^63-1)
-		$propelType = $col->getType();
-
-		if ($propelType === PropulsionTypes::BIGINT || $propelType === PropulsionTypes::INTEGER ||
-		    $propelType === PropulsionTypes::SMALLINT || $propelType === PropulsionTypes::TINYINT) {
-			return '?int';
-		}
-		
-		// Fall back to the PHP type mapping
-		$phpType = $col->getPhpType();
-		
-		switch ($phpType) {
-			case 'int':
-				return '?int';
-			case 'string':
-				return '?string';
-			case 'float':
-			case 'double':
-				return '?float';
-			case 'boolean':
-				return '?bool';
-			case 'array':
-				return '?array'; // Arrays can be nullable in PHP 8.4
-			case 'DateTime':
-				$this->declareClass('\\DateTimeInterface');
-				return '?DateTimeInterface';
-			default:
-				return '?string';
-		}
+		return $this->getPhp84TypeHint($col);
 	}
 
 	/**
@@ -668,7 +534,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			// BcMath\Number is the same story as temporal columns just above: its
 			// default is a `new Number(...)` expression, which PHP property
 			// declarations reject just as they reject `new DateTime(...)`.
-			$defaultVal = ($col->isTemporalType() || $col->isEnumType() || $col->isBcMathNumberType() || $col->isIntervalType() || $col->isRangeType()) ? 'NULL' : $this->getDefaultValueString($col);
+			$handler = ColumnTypeHandlerRegistry::resolve($col);
+			$deferToConstructor = $handler !== null && $handler->isConstructorDeferredDefault($col);
+			$defaultVal = $deferToConstructor ? 'NULL' : $this->getDefaultValueString($col);
 			// Array-typed columns default to an empty array, not null, absent an explicit
 			// schema default -- PHP5ObjectBuilder's array getter lazily coerced a null
 			// internal value to array() on read; this builder's getter is a plain property
@@ -677,8 +545,11 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			// DateTime/enum cases above), so this can be set directly here rather than
 			// deferred to applyDefaultValues() -- which, for tables with no column that has
 			// an explicit default at all, is never even generated (see hasDefaultValues()).
-			if (($defaultVal === 'NULL' || $defaultVal === 'null') && ($col->getType() === PropulsionTypes::PHP_ARRAY || $col->isSetType())) {
-				$defaultVal = 'array()';
+			if (($defaultVal === 'NULL' || $defaultVal === 'null') && $handler !== null) {
+				$emptyLiteral = $handler->getEmptyValueLiteral($col);
+				if ($emptyLiteral !== null) {
+					$defaultVal = $emptyLiteral;
+				}
 			}
 
 			// Add property documentation
@@ -863,39 +734,25 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		foreach ($table->getColumns() as $col) {
 			$phpname = $col->getPhpName();
 			$def = $col->getDefaultValue();
-			
+			$handler = ColumnTypeHandlerRegistry::resolve($col);
+
 			if ($def !== null && !$def->isExpression()) {
 				// Use the explicit default value. Temporal columns need an actual
 				// DateTime instance assigned here (a typed ?DateTimeInterface property
 				// can't be assigned the raw formatted string getDefaultValueString()
 				// returns for them -- see addProperties() for why it can't just be the
-				// property's compile-time default either).
+				// property's compile-time default either). Per-type wrapping (temporal/
+				// interval/range) lives in a ColumnTypeHandler.
 				$defaultValue = $this->getDefaultValueString($col);
-				if ($col->isTemporalType() && $defaultValue !== 'NULL' && $defaultValue !== 'null') {
-					$this->declareClass('\\DateTime');
-					$script .= "
-		\$this->$phpname = new \\DateTime($defaultValue);";
-				} elseif ($col->isIntervalType() && $defaultValue !== 'NULL' && $defaultValue !== 'null') {
-					// $defaultValue is a quoted ISO-8601 duration string literal (see
-					// getDefaultValueString()'s isTextType() branch -- INTERVAL is a
-					// text type) -- DateInterval's constructor parses that directly.
-					$this->declareClass('\\DateInterval');
-					$script .= "
-		\$this->$phpname = new \\DateInterval($defaultValue);";
-				} elseif ($col->isRangeType() && $defaultValue !== 'NULL' && $defaultValue !== 'null') {
-					// $defaultValue is a quoted range literal string (e.g. "[1,10)") --
-					// same isTextType() story as INTERVAL above.
-					$this->declareClass('\\Propulsion\\Type\\Range');
-					$script .= "
-		\$this->$phpname = Range::parse($defaultValue);";
-				} else {
-					$script .= "
-		\$this->$phpname = $defaultValue;";
-				}
-			} elseif ($col->getType() === PropulsionTypes::PHP_ARRAY || $col->isSetType()) {
+				$wrapped = ($handler !== null && $defaultValue !== 'NULL' && $defaultValue !== 'null')
+					? $handler->wrapDefaultValueAssignment($col, $defaultValue, $this)
+					: null;
+				$script .= "
+		\$this->$phpname = " . ($wrapped ?? $defaultValue) . ";";
+			} elseif ($handler !== null && ($emptyLiteral = $handler->getEmptyValueLiteral($col)) !== null) {
 				// See addProperties() -- array/SET columns default to an empty array, not null.
 				$script .= "
-		\$this->$phpname = array();";
+		\$this->$phpname = $emptyLiteral;";
 			} else {
 				// For typed properties without explicit defaults, initialize to null if nullable
 				$returnType = $this->getPhp84TypeHint($col);
@@ -929,7 +786,8 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			// methods -- ported from PHP5ObjectBuilder::addHasArrayElement()/
 			// addAddArrayElement()/addRemoveArrayElement(), which were entirely
 			// missing from the promoted builder (see KNOWN_ISSUES.md, Phase 3.5).
-			if (($col->getType() === PropulsionTypes::PHP_ARRAY || $col->isSetType()) && $col->isNamePlural()) {
+			$handler = ColumnTypeHandlerRegistry::resolve($col);
+			if ($handler !== null && $handler->hasArrayElementConvenienceMethods($col) && $col->isNamePlural()) {
 				$this->addHasArrayElement($script, $col);
 				$this->addAddArrayElement($script, $col);
 				$this->addRemoveArrayElement($script, $col);
@@ -2001,7 +1859,6 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 				continue;
 			}
 			$phpname = $col->getPhpName();
-			$colname = $col->getName();
 			// Read each result cell exactly once into a local ($v) instead of
 			// indexing $row (with the $startcol + N offset arithmetic) two or
 			// three times per column. hydrate() runs once per result row, so
@@ -2010,75 +1867,15 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		\$v = \$row[\$startcol + " . $n . "];
 		\$this->$phpname = (\$v !== null) ? ";
 
-			if ($col->isTemporalType()) {
-				$script .= "new DateTime(\$v)";
-			} elseif ($col->isIntervalType()) {
-				// \$v is an ISO-8601 duration string on every platform -- see
-				// PgsqlPlatform::initialize()'s INTERVAL mapping comment for why
-				// that holds for Postgres's native `interval` column too.
-				$script .= "new DateInterval(\$v)";
-			} elseif ($col->isRangeType()) {
-				// \$v is a Postgres range literal (e.g. "[1,10)") on every
-				// platform -- emulated platforms store the same text
-				// PropulsionTypes::isRangeType()-driven columns write.
-				$script .= "Range::parse(\$v)";
-			} elseif ($col->isVectorType()) {
-				// A vector's wire format (pgvector, MariaDB/MySQL VECTOR, and
-				// this codebase's own JSON-array emulation on every other
-				// platform) is a bracketed, comma-separated number list --
-				// valid JSON already, so this reuses the same decode helper
-				// JSON/JSONB columns use rather than PHP_ARRAY's " | "-delimited
-				// format.
-				$script .= "self::decodeJsonColumn(\$v, '$colname')";
-			} elseif ($col->hasEnumClass() && $col->isNativeEnum()) {
-				// A native-storage enum column's DB value is already the label
-				// text (see the Platform's usesNativeEnumStorage()), so it maps
-				// straight to the enum case -- no valueSet index lookup needed.
-				$script .= $this->getEnumShortName($col) . "::from(\$v)";
-			} elseif ($col->hasEnumClass()) {
-				// \$v is the raw stored index (see addBuildCriteria()); resolve it
-				// back to its label via the peer's valueSet, then to the enum case
-				// that label belongs to.
-				$enumShortName = $this->getEnumShortName($col);
-				$peerClass = $this->getPeerClassname();
-				$columnConstant = $this->getColumnConstant($col);
-				$script .= "{$enumShortName}::from({$peerClass}::getValueSet($columnConstant)[(int) \$v])";
-			} elseif ($col->isEnumType() && $col->isNativeEnum()) {
-				// The property still holds the emulated index internally (see
-				// addEnumAccessor()/addEnumMutator()), but a native-storage
-				// column's DB value is the label text -- convert it back to the
-				// index it would have had under emulation.
-				$peerClass = $this->getPeerClassname();
-				$columnConstant = $this->getColumnConstant($col);
-				$script .= "array_search(\$v, {$peerClass}::getValueSet($columnConstant))";
-			} elseif ($col->getType() === PropulsionTypes::BOOLEAN) {
-				$script .= "(bool) \$v";
-			} elseif ($col->isNativeArrayStorage()) {
-				// \$v is a Postgres array literal (e.g. "{a,\"b,c\",NULL}") --
-				// see Column::isNativeArray().
-				$this->declareClass('\\Propulsion\\Type\\PgArray');
-				$script .= "PgArray::decode(\$v)";
-			} elseif ($col->getType() === PropulsionTypes::PHP_ARRAY) {
-				$script .= "(\$v === '' ? array() : (preg_match('/^ \\| (.*) \\| $/s', \$v, \$matches) ? explode(' | ', \$matches[1]) : explode(' | ', \$v)))";
-			} elseif ($col->isSetType()) {
-				// \$v is a comma-joined string of selected labels on every
-				// platform (MySQL's own native SET included -- PDO returns it
-				// as a plain string, not an array) -- see Column::isSetType().
-				$script .= "(\$v === '' ? array() : explode(',', \$v))";
-			} elseif ($col->getType() === PropulsionTypes::OBJECT) {
-				$script .= "unserialize(\$v)";
-			} elseif ($col->isJsonType()) {
-				// See BaseObject::decodeJsonColumn() -- throws a PropulsionException
-				// (rather than silently returning null, as a bare json_decode() call
-				// would on malformed input) so bad data in the database surfaces as a
-				// loud failure at hydration time instead of a confusing null downstream.
-				$script .= "self::decodeJsonColumn(\$v, '$colname')";
-			} elseif ($col->isBcMathNumberType()) {
-				// isNumericType() below builds a `($castType) $v` cast expression from
-				// getPhpType() -- valid for the primitive numeric types, but
-				// "(BcMath\Number) $v" isn't legal PHP cast syntax, so this needs its
-				// own branch checked first.
-				$script .= "new Number((string) \$v)";
+			// Per-type hydrate expressions (temporal/interval/range/vector value
+			// objects, enum label<->index conversion, native/emulated array,
+			// SET, OBJECT, JSON, BcMath\Number) live in a ColumnTypeHandler --
+			// see ColumnType/ColumnTypeHandler.php. What's left inline here is
+			// the generic fallback: a plain scalar cast.
+			$handler = ColumnTypeHandlerRegistry::resolve($col);
+			$expr = $handler !== null ? $handler->buildHydrateExpr($col, $this) : null;
+			if ($expr !== null) {
+				$script .= $expr;
 			} elseif ($col->isNumericType()) {
 				$phpType = $col->getPhpType();
 				// Use canonical cast names (PHP 8.5 deprecates non-canonical forms)
@@ -2985,64 +2782,17 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		// with zero columns at all.
 		\$criteria->setPrimaryTableName(" . $this->getPeerClassname() . "::TABLE_NAME);
 ";
+		// Per-type DB-write expressions live in a ColumnTypeHandler -- see
+		// ColumnType/ColumnTypeHandler.php. The generic fallback (a plain
+		// passthrough) stays inline here.
 		foreach ($table->getColumns() as $col) {
-			$cptype = $col->getPhpType();
 			$phpname = $col->getPhpName();
 			$const = $this->getColumnConstant($col);
-			if ($col->isNativeArrayStorage()) {
-				$this->declareClass('\\Propulsion\\Type\\PgArray');
-				$script .= "
-		if (\$this->isColumnModified($const)) \$criteria->add($const, PgArray::encode(\$this->$phpname));";
-			} elseif ($col->getType() === PropulsionTypes::PHP_ARRAY) {
-				$script .= "
-		if (\$this->isColumnModified($const)) \$criteria->add($const, \$this->$phpname ? ' | ' . implode(' | ', \$this->$phpname) . ' | ' : '');";
-			} elseif ($col->isSetType()) {
-				$script .= "
-		if (\$this->isColumnModified($const)) \$criteria->add($const, implode(',', \$this->$phpname));";
-			} elseif ($col->getType() === PropulsionTypes::OBJECT) {
-				$script .= "
-		if (\$this->isColumnModified($const)) \$criteria->add($const, \$this->$phpname === null ? null : serialize(\$this->$phpname));";
-			} elseif ($col->isJsonType()) {
-				$script .= "
-		if (\$this->isColumnModified($const)) \$criteria->add($const, \$this->$phpname === null ? null : self::encodeJsonColumn(\$this->$phpname, '" . $col->getName() . "'));";
-			} elseif ($col->hasEnumClass() && $col->isNativeEnum()) {
-				// The DB column stores the label text directly -- the enum's own
-				// ->value already *is* that label (see Column::setAttributes()'s
-				// enumClass valueSet derivation), so no index lookup is needed.
-				$script .= "
-		if (\$this->isColumnModified($const)) \$criteria->add($const, \$this->$phpname === null ? null : \$this->{$phpname}->value);";
-			} elseif ($col->hasEnumClass()) {
-				// Stores the enum case's emulated index (see addHydrate()), not
-				// the enum instance the property actually holds.
-				$peerClass = $this->getPeerClassname();
-				$script .= "
-		if (\$this->isColumnModified($const)) \$criteria->add($const, \$this->$phpname === null ? null : array_search(\$this->{$phpname}->value, {$peerClass}::getValueSet($const)));";
-			} elseif ($col->isEnumType() && $col->isNativeEnum()) {
-				// The property holds the emulated index (see addEnumMutator()),
-				// but a native-storage column needs the label text -- resolve it
-				// back via valueSet before sending it to the DB.
-				$peerClass = $this->getPeerClassname();
-				$script .= "
-		if (\$this->isColumnModified($const)) \$criteria->add($const, \$this->$phpname === null ? null : {$peerClass}::getValueSet($const)[(int) \$this->$phpname]);";
-			} elseif ($col->isBcMathNumberType()) {
-				$script .= "
-		if (\$this->isColumnModified($const)) \$criteria->add($const, \$this->$phpname === null ? null : (string) \$this->$phpname);";
-			} elseif ($col->isIntervalType()) {
-				// Fixed-specifier format() always yields a valid ISO-8601 duration
-				// string (leading zero components, e.g. \"P0Y0M1DT2H3M4S\", are legal
-				// ISO-8601 and round-trip cleanly through `new DateInterval()`).
-				$script .= "
-		if (\$this->isColumnModified($const)) \$criteria->add($const, \$this->$phpname === null ? null : \$this->{$phpname}->format('P%yY%mM%dDT%hH%iM%sS'));";
-			} elseif ($col->isRangeType()) {
-				$script .= "
-		if (\$this->isColumnModified($const)) \$criteria->add($const, \$this->$phpname === null ? null : (string) \$this->$phpname);";
-			} elseif ($col->isVectorType()) {
-				$script .= "
-		if (\$this->isColumnModified($const)) \$criteria->add($const, \$this->$phpname === null ? null : self::encodeJsonColumn(\$this->$phpname, '" . $col->getName() . "'));";
-			} else {
-				$script .= "
-		if (\$this->isColumnModified($const)) \$criteria->add($const, \$this->$phpname);";
-			}
+			$handler = ColumnTypeHandlerRegistry::resolve($col);
+			$valueExpr = $handler !== null ? $handler->buildValueExpr($col, "\$this->$phpname", $this) : null;
+			$valueExpr ??= "\$this->$phpname";
+			$script .= "
+		if (\$this->isColumnModified($const)) \$criteria->add($const, $valueExpr);";
 		}
 		$script .= "
 
@@ -3067,52 +2817,16 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	{
 		\$criteria = new Criteria(" . $this->getPeerClassname() . "::DATABASE_NAME);";
 
+		// See addBuildCriteria() -- same per-type value expressions, minus the
+		// isColumnModified() guard (a primary key is always included here).
 		foreach ($pks as $pk) {
 			$phpname = $pk->getPhpName();
 			$const = $this->getColumnConstant($pk);
-			if ($pk->isNativeArrayStorage()) {
-				$this->declareClass('\\Propulsion\\Type\\PgArray');
-				$script .= "
-		\$criteria->add($const, PgArray::encode(\$this->$phpname));";
-			} elseif ($pk->getType() === PropulsionTypes::PHP_ARRAY) {
-				$script .= "
-		\$criteria->add($const, \$this->$phpname ? ' | ' . implode(' | ', \$this->$phpname) . ' | ' : '');";
-			} elseif ($pk->isSetType()) {
-				$script .= "
-		\$criteria->add($const, implode(',', \$this->$phpname));";
-			} elseif ($pk->getType() === PropulsionTypes::OBJECT) {
-				$script .= "
-		\$criteria->add($const, \$this->$phpname === null ? null : serialize(\$this->$phpname));";
-			} elseif ($pk->isJsonType()) {
-				$script .= "
-		\$criteria->add($const, \$this->$phpname === null ? null : self::encodeJsonColumn(\$this->$phpname, '" . $pk->getName() . "'));";
-			} elseif ($pk->hasEnumClass() && $pk->isNativeEnum()) {
-				$script .= "
-		\$criteria->add($const, \$this->$phpname === null ? null : \$this->{$phpname}->value);";
-			} elseif ($pk->hasEnumClass()) {
-				$peerClass = $this->getPeerClassname();
-				$script .= "
-		\$criteria->add($const, \$this->$phpname === null ? null : array_search(\$this->{$phpname}->value, {$peerClass}::getValueSet($const)));";
-			} elseif ($pk->isEnumType() && $pk->isNativeEnum()) {
-				$peerClass = $this->getPeerClassname();
-				$script .= "
-		\$criteria->add($const, \$this->$phpname === null ? null : {$peerClass}::getValueSet($const)[(int) \$this->$phpname]);";
-			} elseif ($pk->isBcMathNumberType()) {
-				$script .= "
-		\$criteria->add($const, \$this->$phpname === null ? null : (string) \$this->$phpname);";
-			} elseif ($pk->isIntervalType()) {
-				$script .= "
-		\$criteria->add($const, \$this->$phpname === null ? null : \$this->{$phpname}->format('P%yY%mM%dDT%hH%iM%sS'));";
-			} elseif ($pk->isRangeType()) {
-				$script .= "
-		\$criteria->add($const, \$this->$phpname === null ? null : (string) \$this->$phpname);";
-			} elseif ($pk->isVectorType()) {
-				$script .= "
-		\$criteria->add($const, \$this->$phpname === null ? null : self::encodeJsonColumn(\$this->$phpname, '" . $pk->getName() . "'));";
-			} else {
-				$script .= "
-		\$criteria->add($const, \$this->$phpname);";
-			}
+			$handler = ColumnTypeHandlerRegistry::resolve($pk);
+			$valueExpr = $handler !== null ? $handler->buildValueExpr($pk, "\$this->$phpname", $this) : null;
+			$valueExpr ??= "\$this->$phpname";
+			$script .= "
+		\$criteria->add($const, $valueExpr);";
 		}
 		$script .= "
 
@@ -3216,47 +2930,17 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	protected function getColumnValueCastExpr(Column $col, string $varExpr): string
 	{
-		if ($col->isBooleanType()) {
-			$castType = 'bool';
-		} elseif ($col->isBcMathNumberType()) {
-			// The mutator (see addColumnMutator()) already accepts
-			// BcMath\Number|string|int|float|null and normalizes internally, so
-			// the raw value passes straight through -- isNumericType() below
-			// would otherwise build an invalid "(\BcMath\Number) $expr" cast.
-			return $varExpr;
-		} elseif ($col->isNumericType()) {
+		// Per-type cast expressions live in a ColumnTypeHandler -- see
+		// ColumnType/ColumnTypeHandler.php. What's left inline here is the
+		// generic fallback: a plain numeric/string cast.
+		$handler = ColumnTypeHandlerRegistry::resolve($col);
+		$expr = $handler !== null ? $handler->buildCastExpr($col, $varExpr) : null;
+		if ($expr !== null) {
+			return $expr;
+		}
+		if ($col->isNumericType()) {
 			$phpType = $col->getPhpType();
 			$castType = match($phpType) { 'double' => 'float', 'integer' => 'int', default => $phpType };
-		} elseif ($col->isTemporalType()) {
-			// The mutator accepts DateTimeInterface|string|int|null. A mixed caller-supplied
-			// value already of one of those types is passed through unchanged (the common
-			// case); anything else scalar is stringified, and non-scalar/non-DateTimeInterface
-			// values (which the setter can't handle anyway) become null rather than fataling
-			// on an invalid (string) cast of an object.
-			return "($varExpr === null || $varExpr instanceof \\DateTimeInterface || is_int($varExpr) || is_string($varExpr) ? $varExpr : (is_scalar($varExpr) ? (string) $varExpr : null))";
-		} elseif ($col->isIntervalType()) {
-			// The setter is strictly typed ?DateInterval (see getPhp84TypeHint()) --
-			// unlike temporal columns above, DateInterval has no int-timestamp
-			// input mode, and isNumericType()/the final `else` below would
-			// otherwise build an invalid "(DateInterval) $expr"/wrong (string)
-			// cast. An already-DateInterval value passes through; an ISO-8601
-			// duration string is parsed into one; anything else becomes null.
-			return "($varExpr instanceof \\DateInterval ? $varExpr : (is_string($varExpr) ? new \\DateInterval($varExpr) : null))";
-		} elseif ($col->isRangeType()) {
-			// Same story as INTERVAL above: the setter is strictly typed ?Range.
-			return "($varExpr instanceof \\Propulsion\\Type\\Range ? $varExpr : (is_string($varExpr) ? \\Propulsion\\Type\\Range::parse($varExpr) : null))";
-		} elseif (
-			$col->getType() === PropulsionTypes::PHP_ARRAY
-			|| $col->isSetType()
-			|| $col->getType() === PropulsionTypes::OBJECT
-			|| $col->isJsonType()
-			|| $col->isLobType()
-			|| $col->isVectorType()
-		) {
-			// These setters already accept a broader union (mixed, a resource, etc.) or need
-			// value-specific handling; passing the raw value through preserves existing
-			// behavior for these rare/exotic primary key types.
-			return $varExpr;
 		} else {
 			$castType = 'string';
 		}
