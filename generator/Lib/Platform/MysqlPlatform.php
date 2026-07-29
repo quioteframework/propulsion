@@ -86,6 +86,9 @@ class MysqlPlatform extends DefaultPlatform
 		// Emulated as plain text (WKT), not MySQL's own real `GEOMETRY` type --
 		// see PropulsionTypes::GEOMETRY_NATIVE_TYPE for why.
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::GEOMETRY, "TEXT"));
+		// No native full-text-search vector type -- emulated as plain text;
+		// see PgsqlPlatform for the real `tsvector` mapping.
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::TSVECTOR, "TEXT"));
 	}
 
 	public function setGeneratorConfig(GeneratorConfig $generatorConfig): void

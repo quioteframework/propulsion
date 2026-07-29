@@ -13,7 +13,7 @@ namespace Propulsion\Generator\Reverse\PgSQL;
 /**
  * PostgreSQL database schema parser.
  *
- * Targets PostgreSQL 15+ (the minimum supported version -- see
+ * Targets PostgreSQL 16+ (the minimum supported version -- see
  * KNOWN_ISSUES.md). Uses pg_get_expr(adbin, adrelid) rather than the older
  * pg_attrdef.adsrc text column (dropped in Postgres 12), so this has always
  * worked on every version this project still supports; there is no

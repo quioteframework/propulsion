@@ -64,6 +64,7 @@ class PropulsionTypes
 	const TSTZRANGE = "TSTZRANGE";
 	const VECTOR = "VECTOR";
 	const GEOMETRY = "GEOMETRY";
+	const TSVECTOR = "TSVECTOR";
 
 	/** @var array<int|string, string> */
 	protected static array $creoleToPropulsionTypeMap = [];
@@ -82,7 +83,7 @@ class PropulsionTypes
 	/** @var string[] */
 	private static array $TEXT_TYPES = array(
 		self::CHAR, self::VARCHAR, self::LONGVARCHAR, self::CLOB, self::DATE, self::TIME, self::TIMESTAMP, self::BU_DATE, self::BU_TIMESTAMP, self::UUID, self::INTERVAL, self::INET, self::CIDR, self::MACADDR, self::CITEXT,
-		self::INT4RANGE, self::INT8RANGE, self::NUMRANGE, self::DATERANGE, self::TSRANGE, self::TSTZRANGE, self::GEOMETRY
+		self::INT4RANGE, self::INT8RANGE, self::NUMRANGE, self::DATERANGE, self::TSRANGE, self::TSTZRANGE, self::GEOMETRY, self::TSVECTOR
 	);
 
 	/**
@@ -202,8 +203,17 @@ class PropulsionTypes
 	// platform-specific conversion function (ST_GeomFromText()/
 	// STGeomFromText()/SDO_UTIL.FROM_WKTGEOMETRY()) at the SQL-statement
 	// level, which is a query-layer change (BasePeer/Criteria column-specific
-	// SQL rewriting), not a type-system one -- see PLATFORM_FEATURES.md.
+	// SQL rewriting), not a type-system one -- out of scope for this type
+	// mapping.
 	const GEOMETRY_NATIVE_TYPE = "string";
+	// Native `tsvector` on Postgres, emulated as a plain text column
+	// everywhere else -- same "no rich PHP value object, hydrate as a plain
+	// string" choice as UUID/INET/GEOMETRY. A tsvector's own text
+	// representation (lexeme:position lists) isn't meant to be constructed or
+	// read back by application code anyway; see PgsqlPlatform's
+	// `tsvectorFrom`-driven GENERATED ALWAYS AS (to_tsvector(...)) STORED
+	// column DDL for the intended way to populate one.
+	const TSVECTOR_NATIVE_TYPE = "string";
 
 	/**
 	 * Mapping between Propulsion types and PHP native types.
@@ -255,6 +265,7 @@ class PropulsionTypes
 			self::TSTZRANGE => self::TSTZRANGE_NATIVE_TYPE,
 			self::VECTOR => self::VECTOR_NATIVE_TYPE,
 			self::GEOMETRY => self::GEOMETRY_NATIVE_TYPE,
+			self::TSVECTOR => self::TSVECTOR_NATIVE_TYPE,
 	);
 
 	/**
@@ -305,6 +316,7 @@ class PropulsionTypes
 			self::TSTZRANGE => self::TSTZRANGE,
 			self::VECTOR => self::VECTOR,
 			self::GEOMETRY => self::GEOMETRY,
+			self::TSVECTOR => self::TSVECTOR,
 			// These are pre-epoch dates, which we need to map to String type
 			// since they cannot be properly handled using strtotime() -- or even numeric
 			// timestamps on Windows.
@@ -361,6 +373,7 @@ class PropulsionTypes
 			self::TSTZRANGE => PDO::PARAM_STR,
 			self::VECTOR => PDO::PARAM_STR,
 			self::GEOMETRY => PDO::PARAM_STR,
+			self::TSVECTOR => PDO::PARAM_STR,
 
 			// These are pre-epoch dates, which we need to map to String type
 			// since they cannot be properly handled using strtotime() -- or even numeric

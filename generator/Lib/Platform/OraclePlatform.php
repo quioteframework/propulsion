@@ -121,6 +121,7 @@ class OraclePlatform extends DefaultPlatform
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::TSTZRANGE, "VARCHAR2", 64));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::VECTOR, "CLOB"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::GEOMETRY, "CLOB"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::TSVECTOR, "CLOB"));
 
 	}
 

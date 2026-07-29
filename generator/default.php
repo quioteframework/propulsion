@@ -322,7 +322,7 @@ return [
     // database.
 
     'propulsion.reverse.parser.mysql.class' => 'Propulsion\Generator\Reverse\MySQL\MysqlSchemaParser',
-    // PostgreSQL 15+ is the minimum supported version (see KNOWN_ISSUES.md).
+    // PostgreSQL 16+ is the minimum supported version (see KNOWN_ISSUES.md).
     // PgsqlSchemaParser uses pg_get_expr(adbin, adrelid) rather than the older
     // pg_attrdef.adsrc text column (dropped in Postgres 12) -- there used to be a
     // separate pre-12 parser variant (PgsqlSchemaParserV12Plus was the modern one),

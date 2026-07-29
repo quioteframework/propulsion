@@ -63,6 +63,7 @@ class SqlitePlatform extends DefaultPlatform
 		// embedding vector's JSON-encoded text can be long.
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::VECTOR, "MEDIUMTEXT"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::GEOMETRY, "MEDIUMTEXT"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::TSVECTOR, "MEDIUMTEXT"));
 	}
 
 	/**

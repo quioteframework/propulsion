@@ -528,7 +528,7 @@ abstract class DBAdapter
 	 * `OUTPUT`), instead of a separate round trip to re-select them afterward.
 	 * False by default -- also false for plain MySQL (no such form at all) and for
 	 * Oracle, whose `RETURNING ... INTO` needs bulk-collect array binds to receive
-	 * more than one row and isn't implemented here (see PLATFORM_FEATURES.md).
+	 * more than one row and isn't implemented here.
 	 * $con is available for the same reason as supportsInsertReturning()'s --
 	 * MariaDB vs. MySQL needs a live connection to tell apart.
 	 *

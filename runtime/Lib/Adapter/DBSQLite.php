@@ -126,8 +126,8 @@ class DBSQLite extends DBAdapter
 	 * INSERT statement itself instead of a separate lastInsertId() round trip. Assumed
 	 * available unconditionally: every PHP version still receiving security support
 	 * bundles a far newer SQLite than 3.35 (no runtime version probe exists anywhere in
-	 * this codebase today -- see PLATFORM_FEATURES.md if that assumption ever needs
-	 * revisiting for an unusually old libsqlite3).
+	 * this codebase today -- revisit this assumption if it ever needs to change for an
+	 * unusually old libsqlite3).
 	 *
 	 * @see       DBAdapter::supportsInsertReturning()
 	 */

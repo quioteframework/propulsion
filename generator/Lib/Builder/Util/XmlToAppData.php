@@ -30,6 +30,7 @@ namespace Propulsion\Generator\Builder\Util;
  use Propulsion\Generator\Model\ForeignKey;
  use Propulsion\Generator\Model\Index;
  use Propulsion\Generator\Model\Unique;
+ use Propulsion\Generator\Model\Exclusion;
  use Propulsion\Generator\Model\Validator;
  use Propulsion\Generator\Model\Behavior;
  use Propulsion\Generator\Model\VendorInfo;
@@ -48,6 +49,7 @@ class XmlToAppData
 	private ?ForeignKey $currFK = null;
 	private ?Index $currIndex = null;
 	private ?Unique $currUnique = null;
+	private ?Exclusion $currExclusion = null;
 	private ?Validator $currValidator = null;
 	private ?Behavior $currBehavior = null;
 	private ?VendorInfo $currVendorObject = null;
@@ -235,6 +237,10 @@ class XmlToAppData
 					$this->currUnique = $this->currTable->addUnique($attributes);
 				break;
 
+				case "exclusion":
+					$this->currExclusion = $this->currTable->addExclusion($attributes);
+				break;
+
 				case "vendor":
 					$this->currVendorObject = $this->currTable->addVendorInfo($attributes);
 				break;
@@ -309,6 +315,20 @@ class XmlToAppData
 
 				case "vendor":
 					$this->currVendorObject = $this->currUnique->addVendorInfo($attributes);
+				break;
+
+				default:
+					$this->_throwInvalidTagException($parser, $name);
+			}
+		} elseif ($parentTag == "exclusion") {
+
+			switch($name) {
+				case "exclusion-column":
+					$this->currExclusion->addColumn($attributes);
+				break;
+
+				case "vendor":
+					$this->currVendorObject = $this->currExclusion->addVendorInfo($attributes);
 				break;
 
 				default:

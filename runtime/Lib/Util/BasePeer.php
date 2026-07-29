@@ -255,8 +255,10 @@ class BasePeer
 	 * Bulk-loads $rows into $tableName via the platform's fast bulk-insert mechanism
 	 * (Postgres COPY, MySQL/MariaDB LOAD DATA), bypassing doInsert()'s per-row path
 	 * entirely -- an order of magnitude faster for seeding/imports. See
-	 * DBAdapter::bulkLoad() for the per-platform mechanism and value-encoding details,
-	 * and PLATFORM_FEATURES.md for why MSSQL/Oracle aren't supported here.
+	 * DBAdapter::bulkLoad() for the per-platform mechanism and value-encoding details.
+	 * MSSQL/Oracle aren't supported here: MSSQL's BULK INSERT needs the file readable
+	 * by the SQL Server process itself, not the PHP client, and Oracle has no
+	 * equivalent bulk-load mechanism this codebase implements.
 	 *
 	 * @param      string $tableName Real (unquoted) table name.
 	 * @param      array<int,string> $columns Unqualified column names, in the same order as each row's values.

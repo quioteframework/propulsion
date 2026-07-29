@@ -421,7 +421,12 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         $this->addFilterByPrimaryKeys($script);
         foreach ($this->getTable()->getColumns() as $col) {
             $this->addFilterByCol($script, $col);
-            if ($col->getType() === PropulsionTypes::PHP_ARRAY && $col->isNamePlural()) {
+            // addFilterByArrayCol()'s CONTAINS_ALL/NONE shortcut is built on the
+            // emulated " | " LIKE-containment trick (see addFilterByCol()'s own
+            // PHP_ARRAY branch) -- not offered for a native array column (see
+            // Column::isNativeArrayStorage()), where it would emit a LIKE
+            // comparison against a real Postgres array column.
+            if ($col->getType() === PropulsionTypes::PHP_ARRAY && $col->isNamePlural() && !$col->isNativeArrayStorage()) {
                 $this->addFilterByArrayCol($script, $col);
             }
         }
@@ -973,6 +978,18 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
             $script .= "
         if (is_array(\$$variableName) || is_object(\$$variableName)) {
             \$$variableName = json_encode(\$$variableName);
+        }";
+        } elseif ($col->isNativeArrayStorage()) {
+            // Postgres array column (see Column::isNativeArray()) --
+            // CONTAINS_ALL/SOME/NONE's LIKE-based containment check below
+            // only works against the default emulated " | " format and
+            // isn't offered here; a plain array filter value is encoded to
+            // the same {a,b,c} literal buildCriteria() writes, for
+            // equality/IN-style comparisons only.
+            $this->declareClass('\\Propulsion\\Type\\PgArray');
+            $script .= "
+        if (is_array(\$$variableName)) {
+            \$$variableName = PgArray::encode(\$$variableName);
         }";
         } elseif ($col->getType() == PropulsionTypes::PHP_ARRAY) {
             $script .= "

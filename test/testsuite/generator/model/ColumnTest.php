@@ -210,4 +210,73 @@ EOF;
 		$this->assertFalse($column3->isJsonType());
 	}
 
+	public function testIsNativeArrayStorageRequiresPlatformSupport()
+	{
+		$database = new Database();
+		$database->setPlatform(new PgsqlPlatform());
+		$table = new Table('foo_table');
+		$database->addTable($table);
+
+		$column = new Column('tags');
+		$column->setType(PropulsionTypes::PHP_ARRAY);
+		$column->setNativeArray(true);
+		$table->addColumn($column);
+		$this->assertTrue($column->isNativeArrayStorage(), 'nativeArray + a platform that supports it uses native storage');
+	}
+
+	public function testIsNativeArrayStorageFalseOnUnsupportedPlatform()
+	{
+		$database = new Database();
+		$database->setPlatform(new SqlitePlatform());
+		$table = new Table('foo_table');
+		$database->addTable($table);
+
+		$column = new Column('tags');
+		$column->setType(PropulsionTypes::PHP_ARRAY);
+		$column->setNativeArray(true);
+		$table->addColumn($column);
+		$this->assertFalse($column->isNativeArrayStorage(), 'nativeArray on a platform without native array support stays emulated');
+	}
+
+	public function testIsNativeArrayStorageFalseWhenNotOptedIn()
+	{
+		$database = new Database();
+		$database->setPlatform(new PgsqlPlatform());
+		$table = new Table('foo_table');
+		$database->addTable($table);
+
+		$column = new Column('tags');
+		$column->setType(PropulsionTypes::PHP_ARRAY);
+		$table->addColumn($column);
+		$this->assertFalse($column->isNativeArrayStorage());
+	}
+
+	public function testTsvectorAttributesParsedFromSchema()
+	{
+		$xmlToAppData = new XmlToAppData(new PgsqlPlatform());
+		$schema = <<<EOF
+<database name="tsvector_test">
+  <table name="articles">
+    <column name="id" type="INTEGER" primaryKey="true" />
+    <column name="title" type="VARCHAR" size="255" />
+    <column name="body" type="LONGVARCHAR" />
+    <column name="search_vector" type="TSVECTOR" tsvectorFrom="title, body" tsvectorConfig="simple" />
+    <column name="plain_vector" type="TSVECTOR" />
+  </table>
+</database>
+EOF;
+		$appData = $xmlToAppData->parseString($schema);
+		$table = $appData->getDatabase('tsvector_test')->getTable('articles');
+
+		$generated = $table->getColumn('search_vector');
+		$this->assertTrue($generated->isTsvectorType());
+		$this->assertSame(['title', 'body'], $generated->getTsvectorSourceColumns());
+		$this->assertSame('simple', $generated->getTsvectorConfig());
+
+		$plain = $table->getColumn('plain_vector');
+		$this->assertTrue($plain->isTsvectorType());
+		$this->assertSame([], $plain->getTsvectorSourceColumns());
+		$this->assertSame('english', $plain->getTsvectorConfig(), 'defaults to english when not specified');
+	}
+
 }

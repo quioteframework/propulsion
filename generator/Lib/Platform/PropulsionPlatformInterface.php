@@ -213,7 +213,16 @@ interface PropulsionPlatformInterface
 	 * @return boolean
 	 */
 	public function supportsVarcharWithoutSize();
-	
+
+	/**
+	 * Whether this platform has a real native array column type (`type[]`)
+	 * for a `nativeArray="true"` PHP_ARRAY column to use, instead of the
+	 * default emulated `" | "`-delimited text.
+	 *
+	 * @return boolean
+	 */
+	public function supportsNativeArrayDDL();
+
 	/**
 	 * Returns the boolean value for the RDBMS.
 	 *

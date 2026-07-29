@@ -114,6 +114,7 @@ class MssqlPlatform extends DefaultPlatform
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::TSTZRANGE, "VARCHAR", 64));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::VECTOR, "VARCHAR(MAX)"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::GEOMETRY, "VARCHAR(MAX)"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::TSVECTOR, "VARCHAR(MAX)"));
 	}
 
 	public function getMaxColumnNameLength()

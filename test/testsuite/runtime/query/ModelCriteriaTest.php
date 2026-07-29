@@ -2210,9 +2210,8 @@ class ModelCriteriaTest extends BookstoreTestBase
 		// MariaDB never adopted MySQL 5.7.5+'s ONLY_FULL_GROUP_BY as its own
 		// default sql_mode -- unlike real MySQL 8+ (see this test's main comment
 		// below), it still tolerates selecting a non-grouped/non-aggregated
-		// column, a genuine MariaDB-vs-MySQL divergence (see
-		// PLATFORM_FEATURES.md's "MariaDB divergences" item) rather than
-		// something DBMySQL's shared adapter class could paper over.
+		// column, a genuine MariaDB-vs-MySQL divergence rather than something
+		// DBMySQL's shared adapter class could paper over.
 		if (IntegrationDatabase::currentPlatform() === 'mariadb') {
 			$this->markTestSkipped('MariaDB has no ONLY_FULL_GROUP_BY-equivalent default sql_mode.');
 		}

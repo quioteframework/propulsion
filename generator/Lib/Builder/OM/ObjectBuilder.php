@@ -213,6 +213,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 		return $pos === false ? $enumClass : substr($enumClass, $pos + 1);
 	}
 
+
 	/**
 	 * Gets the appropriate PHP 8.4 type hint for a column
 	 * @param Column $col
@@ -2052,6 +2053,11 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 				$script .= "array_search(\$v, {$peerClass}::getValueSet($columnConstant))";
 			} elseif ($col->getType() === PropulsionTypes::BOOLEAN) {
 				$script .= "(bool) \$v";
+			} elseif ($col->isNativeArrayStorage()) {
+				// \$v is a Postgres array literal (e.g. "{a,\"b,c\",NULL}") --
+				// see Column::isNativeArray().
+				$this->declareClass('\\Propulsion\\Type\\PgArray');
+				$script .= "PgArray::decode(\$v)";
 			} elseif ($col->getType() === PropulsionTypes::PHP_ARRAY) {
 				$script .= "(\$v === '' ? array() : (preg_match('/^ \\| (.*) \\| $/s', \$v, \$matches) ? explode(' | ', \$matches[1]) : explode(' | ', \$v)))";
 			} elseif ($col->getType() === PropulsionTypes::OBJECT) {
@@ -2978,7 +2984,11 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			$cptype = $col->getPhpType();
 			$phpname = $col->getPhpName();
 			$const = $this->getColumnConstant($col);
-			if ($col->getType() === PropulsionTypes::PHP_ARRAY) {
+			if ($col->isNativeArrayStorage()) {
+				$this->declareClass('\\Propulsion\\Type\\PgArray');
+				$script .= "
+		if (\$this->isColumnModified($const)) \$criteria->add($const, PgArray::encode(\$this->$phpname));";
+			} elseif ($col->getType() === PropulsionTypes::PHP_ARRAY) {
 				$script .= "
 		if (\$this->isColumnModified($const)) \$criteria->add($const, \$this->$phpname ? ' | ' . implode(' | ', \$this->$phpname) . ' | ' : '');";
 			} elseif ($col->getType() === PropulsionTypes::OBJECT) {
@@ -3052,7 +3062,11 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		foreach ($pks as $pk) {
 			$phpname = $pk->getPhpName();
 			$const = $this->getColumnConstant($pk);
-			if ($pk->getType() === PropulsionTypes::PHP_ARRAY) {
+			if ($pk->isNativeArrayStorage()) {
+				$this->declareClass('\\Propulsion\\Type\\PgArray');
+				$script .= "
+		\$criteria->add($const, PgArray::encode(\$this->$phpname));";
+			} elseif ($pk->getType() === PropulsionTypes::PHP_ARRAY) {
 				$script .= "
 		\$criteria->add($const, \$this->$phpname ? ' | ' . implode(' | ', \$this->$phpname) . ' | ' : '');";
 			} elseif ($pk->getType() === PropulsionTypes::OBJECT) {

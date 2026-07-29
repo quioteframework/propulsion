@@ -21,6 +21,12 @@ rm -rf fixtures/bookstore/build fixtures/schemas/build fixtures/namespaced/build
 
 ## Open issues
 
+- **PostgreSQL 16+ is the minimum supported version.** Referenced from
+  `README.md`, `generator/default.php`, `PgsqlPlatform::getMaxColumnNameLength()`,
+  and `PgsqlSchemaParser`'s docblock. Nothing in this codebase currently has
+  version-conditional Postgres behavior below that floor to audit, but keep
+  it in mind if any future Postgres-specific feature work considers gating
+  on server version.
 - **Testcontainer leak on `kill -9`** (theoretical, mitigated by
   `composer test:cleanup-containers`, not seen in practice).
 - **MSSQL nested transactions are emulated, not real.** `MssqlPropulsionPDO`

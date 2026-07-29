@@ -69,6 +69,14 @@ class Table extends ScopedElement implements IDMethod
 	private array $unices = array();
 
 	/**
+	 * Postgres exclusion constraints for this table (`EXCLUDE USING gist
+	 * (...)`, see the Exclusion class). Only honored by PgsqlPlatform.
+	 *
+	 * @var       Exclusion[]
+	 */
+	private array $exclusions = array();
+
+	/**
 	 * Any parameters for the ID method (currently supports changing sequence name).
 	 *
 	 * @var       IdMethodParameter[]
@@ -193,6 +201,15 @@ class Table extends ScopedElement implements IDMethod
 	 * @var       string
 	 */
 	private $baseClass;
+
+	/**
+	 * The name of the table this one classically inherits from
+	 * (`inheritsFrom="parent_table"`, Postgres `CREATE TABLE child (...)
+	 * INHERITS (parent)`), or null for none. Only honored by PgsqlPlatform;
+	 * every other platform silently ignores this attribute (no `INHERITS`
+	 * equivalent exists on any other platform this codebase supports).
+	 */
+	private ?string $inheritsFrom = null;
 
 	/**
 	 * The base peer class to extend for generated "peer" class.
@@ -335,6 +352,7 @@ class Table extends ScopedElement implements IDMethod
 		$this->baseClass = $this->getAttribute("baseClass");
 		$this->basePeer = $this->getAttribute("basePeer");
 		$this->alias = $this->getAttribute("alias");
+		$this->inheritsFrom = $this->getAttribute("inheritsFrom");
 
 		$this->heavyIndexing = ( $this->booleanValue($this->getAttribute("heavyIndexing"))
 		|| ("false" !== $this->getAttribute("heavyIndexing")
@@ -637,6 +655,20 @@ class Table extends ScopedElement implements IDMethod
 	public function setBaseClass(?string $v): void
 	{
 		$this->baseClass = $v;
+	}
+
+	/**
+	 * The name of the table this one classically inherits from
+	 * (`inheritsFrom="..."`), or null for none. See the property docblock.
+	 */
+	public function getInheritsFrom(): ?string
+	{
+		return $this->inheritsFrom;
+	}
+
+	public function setInheritsFrom(?string $inheritsFrom): void
+	{
+		$this->inheritsFrom = $inheritsFrom;
 	}
 
 	/**
@@ -1029,6 +1061,35 @@ class Table extends ScopedElement implements IDMethod
 			$unique->loadFromXML($unqdata);
 			return $this->addUnique($unique);
 		}
+	}
+
+	/**
+	 * Adds a new Exclusion constraint to the table's exclusion-constraint
+	 * list and sets its parent table to the current table.
+	 *
+	 * @param     array<string, mixed>|Exclusion $excldata
+	 */
+	public function addExclusion($excldata): Exclusion
+	{
+		if ($excldata instanceof Exclusion) {
+			$exclusion = $excldata;
+			$exclusion->setTable($this);
+			$exclusion->getName(); // create a name now if it doesn't already have one
+			$this->exclusions[] = $exclusion;
+			return $exclusion;
+		} else {
+			$exclusion = new Exclusion();
+			$exclusion->loadFromXML($excldata);
+			return $this->addExclusion($exclusion);
+		}
+	}
+
+	/**
+	 * @return    Exclusion[]
+	 */
+	public function getExclusions(): array
+	{
+		return $this->exclusions;
 	}
 
 	/**
@@ -1746,6 +1807,10 @@ class Table extends ScopedElement implements IDMethod
 			$tableNode->setAttribute('basePeer', $this->basePeer);
 		}
 
+		if ($this->inheritsFrom !== null) {
+			$tableNode->setAttribute('inheritsFrom', $this->inheritsFrom);
+		}
+
 		if ($this->getIsCrossRef()) {
 			$tableNode->setAttribute('isCrossRef', var_export($this->getIsCrossRef(), true));
 		}
@@ -1772,6 +1837,10 @@ class Table extends ScopedElement implements IDMethod
 
 		foreach ($this->unices as $unique) {
 			$unique->appendXml($tableNode);
+		}
+
+		foreach ($this->exclusions as $exclusion) {
+			$exclusion->appendXml($tableNode);
 		}
 
 		foreach ($this->vendorInfos as $vi) {

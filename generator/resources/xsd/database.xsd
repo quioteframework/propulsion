@@ -65,6 +65,7 @@
 			<xs:enumeration value="TSTZRANGE"/>
 			<xs:enumeration value="VECTOR"/>
 			<xs:enumeration value="GEOMETRY"/>
+			<xs:enumeration value="TSVECTOR"/>
 		</xs:restriction>
 	</xs:simpleType>
 
@@ -280,6 +281,51 @@
 			<xs:element ref="vendor" minOccurs="0" maxOccurs="unbounded"/>
 		</xs:choice>
 		<xs:attribute name="name" type="index_name" use="optional"/>
+		<xs:attribute name="indexType" type="xs:string" use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					The index access method ("gin", "gist", "brin", "hash", ...) instead
+					of the platform's default (a btree). Only honored by PgsqlPlatform.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="where" type="xs:string" use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					A `WHERE` predicate restricting this index to a subset of rows (a
+					"partial" index). Only honored by PgsqlPlatform.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="include" type="xs:string" use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					A comma-separated list of non-key "covering" column names appended
+					via `INCLUDE (...)`, stored in the index for index-only scans without
+					being part of the index's own key/uniqueness. Only honored by
+					PgsqlPlatform.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="storageParameters" type="xs:string" use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					Raw storage-parameter text (e.g. "fillfactor=70") emitted verbatim
+					inside a trailing `WITH (...)` clause. Only honored by PgsqlPlatform.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="concurrently" type="xs:boolean" use="optional" default="false">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					Whether to build the index without locking out concurrent writes
+					(`CREATE INDEX CONCURRENTLY`). The caller is responsible for not
+					running the generated statement inside a transaction block --
+					Postgres rejects `CREATE INDEX CONCURRENTLY` there. Only honored by
+					PgsqlPlatform.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
 	</xs:complexType>
 
 	<xs:complexType name="unique">
@@ -294,8 +340,60 @@
 		<xs:sequence>
 			<xs:element ref="vendor" minOccurs="0" maxOccurs="unbounded"/>
 		</xs:sequence>
-		<xs:attribute name="name" type="column_name" use="required"/>
+		<xs:attribute name="name" type="column_name" use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					The column name this index entry covers. Required unless
+					`expression` is given instead.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
 		<xs:attribute name="size" type="xs:positiveInteger" use="optional"/>
+		<xs:attribute name="expression" type="xs:string" use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					A raw SQL expression (e.g. "lower(title)") for an expression index
+					entry, instead of a plain column `name`. Only honored by
+					PgsqlPlatform. Exactly one of `name`/`expression` must be given.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+	</xs:complexType>
+
+	<xs:complexType name="exclusion">
+		<xs:choice maxOccurs="unbounded">
+			<xs:element name="exclusion-column" type="exclusion-column" minOccurs="1" maxOccurs="unbounded"/>
+			<xs:element ref="vendor" minOccurs="0" maxOccurs="unbounded"/>
+		</xs:choice>
+		<xs:attribute name="name" type="index_name" use="optional"/>
+		<xs:attribute name="indexType" type="xs:string" use="optional" default="gist">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					The index access method the exclusion constraint's implicit index
+					uses -- "gist" unless overridden.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="where" type="xs:string" use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					A `WHERE` predicate restricting the constraint to a subset of rows
+					(a "partial" exclusion constraint).
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+	</xs:complexType>
+
+	<xs:complexType name="exclusion-column">
+		<xs:attribute name="name" type="column_name" use="required"/>
+		<xs:attribute name="operator" type="xs:string" use="required">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					The comparison operator (e.g. "=", "&amp;&amp;") this column is
+					compared with in the exclusion constraint.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
 	</xs:complexType>
 
 	<xs:complexType name="unique-column">
@@ -530,6 +628,52 @@
 				</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
+		<xs:attribute name="identity" type="xs:boolean" use="optional" default="false">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					 For an autoIncrement column, whether to emit the SQL-standard
+					 `GENERATED BY DEFAULT AS IDENTITY` column constraint instead of
+					 a legacy vendor-specific auto-increment pseudo-type. Currently
+					 only honored by PgsqlPlatform, where it replaces the default
+					 `serial`/`bigserial` pseudo-type.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="nativeArray" type="xs:boolean" use="optional" default="false">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					 For a PHP_ARRAY column, whether to use the platform's real native
+					 array column type and wire format instead of the default emulated
+					 `" | "`-delimited text. Currently only honored by PgsqlPlatform
+					 (`type[]`, Postgres array literal format). Opt-in: flipping this on
+					 an existing column is a breaking storage-format change for any
+					 data already written in the emulated format, including by
+					 non-PHP/non-Propulsion consumers reading the raw column directly --
+					 migrating existing data to the native format is the schema author's
+					 responsibility.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="tsvectorFrom" type="xs:string" use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					 For a TSVECTOR column, a comma-separated list of sibling column
+					 names to auto-populate this column from. Currently only honored by
+					 PgsqlPlatform, which emits a `GENERATED ALWAYS AS (to_tsvector(...))
+					 STORED` column instead of an ordinary, manually-populated TSVECTOR
+					 column. See also `tsvectorConfig`.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="tsvectorConfig" type="xs:string" use="optional" default="english">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					 The Postgres text-search configuration (regconfig) name a
+					 `tsvectorFrom`-generated TSVECTOR column's `to_tsvector()` call
+					 uses. Only meaningful together with `tsvectorFrom`.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
 	</xs:complexType>
 
 	<xs:complexType name="foreign-key">
@@ -638,6 +782,16 @@
 				<xs:annotation>
 					<xs:documentation xml:lang="en">
 						A unique index on one or several columns of the current table
+					</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+
+			<xs:element name="exclusion" type="exclusion" minOccurs="0" maxOccurs="unbounded">
+				<xs:annotation>
+					<xs:documentation xml:lang="en">
+						A Postgres exclusion constraint (`EXCLUDE USING gist (...)`) on one
+						or several columns of the current table, each paired with its own
+						comparison operator. Only honored by PgsqlPlatform.
 					</xs:documentation>
 				</xs:annotation>
 			</xs:element>
@@ -829,6 +983,16 @@
 			<xs:annotation>
 				<xs:documentation xml:lang="en">
 					The default format used to convert objects based on this table to strings. Propulsion supports by default the 'XML', 'YAML', 'JSON', and 'CSV' formats, but custom formats are also possible.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="inheritsFrom" type="table_name" use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					The name of another table in this schema for this table to classically
+					inherit from (Postgres `CREATE TABLE child (...) INHERITS (parent)`).
+					Only honored by PgsqlPlatform; every other platform ignores it (no
+					equivalent mechanism exists on any other supported platform).
 				</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>

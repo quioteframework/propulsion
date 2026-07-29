@@ -399,8 +399,8 @@ DROP TABLE " . $this->quoteIdentifier($table->getName()) . ";
 	 * native-ish enforcement (here: a CHECK constraint on the emulated text
 	 * column) and stores the label text directly, instead of staying purely
 	 * emulated as an integer index. MSSQL has no native enum mechanism and,
-	 * per PLATFORM_FEATURES.md, doesn't get an emulated CHECK constraint
-	 * either -- MssqlPlatform overrides this to false. MySQL and Postgres
+	 * by design, doesn't get an emulated CHECK constraint either --
+	 * MssqlPlatform overrides this to false. MySQL and Postgres
 	 * override getColumnDDL()/getAddTablesDDL() with their own native
 	 * mechanisms entirely and don't consult this for their own column type,
 	 * but do still rely on it via getColumnDefaultValueDDL() (inherited,
@@ -411,6 +411,20 @@ DROP TABLE " . $this->quoteIdentifier($table->getName()) . ";
 	public function supportsNativeEnumDDL()
 	{
 		return true;
+	}
+
+	/**
+	 * Whether this platform has a real native array column type (`type[]`)
+	 * for a `nativeArray="true"` PHP_ARRAY column to use, instead of the
+	 * default emulated `" | "`-delimited text. False by default -- only
+	 * `PgsqlPlatform` overrides this; every other platform stays on the
+	 * emulated format regardless of the `nativeArray` attribute.
+	 *
+	 * @return     boolean
+	 */
+	public function supportsNativeArrayDDL()
+	{
+		return false;
 	}
 
 	/**

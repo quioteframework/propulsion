@@ -41,9 +41,9 @@ class DBMySQL extends DBAdapter
 	 * Distinguishes a real MariaDB server (RETURNING support on INSERT/UPDATE/
 	 * DELETE since 10.5) from plain MySQL (no RETURNING at all, any version) --
 	 * both served by this same adapter class; there is no separate MariadbPlatform/
-	 * DBMariadb anywhere in this codebase (see PLATFORM_FEATURES.md), so this is
-	 * the one place that divergence is handled, gating every RETURNING-related
-	 * hook below. Cached per adapter instance: DBAdapter instances are registered
+	 * DBMariadb anywhere in this codebase, so this is the one place that
+	 * divergence is handled, gating every RETURNING-related hook below.
+	 * Cached per adapter instance: DBAdapter instances are registered
 	 * once per datasource for the life of the process (Propulsion::setDb()) and
 	 * never repointed at a different backing server, so the version can't change
 	 * out from under a cached answer.

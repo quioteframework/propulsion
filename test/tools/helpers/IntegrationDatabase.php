@@ -151,12 +151,11 @@ class IntegrationDatabase
      * The generator/runtime adapter name for currentPlatform() -- identical to
      * platform() except for MariaDB, which maps to plain 'mysql': there is no
      * separate MariadbPlatform (generator side) or DBMariadb (runtime side)
-     * anywhere in this codebase (see PLATFORM_FEATURES.md's "MariaDB divergences"
-     * item) -- DBMySQL itself detects MariaDB vs. real MySQL at connection time
-     * (DBMySQL::isMariaDb()) and only the generator's naming-convention platform
-     * class lookup ("platform.${propulsion.database}Platform") and the runtime's
-     * datasource 'adapter' key need steering back to the class that actually
-     * exists.
+     * anywhere in this codebase -- DBMySQL itself detects MariaDB vs. real MySQL
+     * at connection time (DBMySQL::isMariaDb()) and only the generator's
+     * naming-convention platform class lookup
+     * ("platform.${propulsion.database}Platform") and the runtime's datasource
+     * 'adapter' key need steering back to the class that actually exists.
      */
     private static function generatorPlatform(): string
     {
