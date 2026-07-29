@@ -1,35 +1,14 @@
 # Tech debt
 
-Larger, systemic PHPStan level-9 findings that don't fit the "fix while you
-touch the file" rule in `CLAUDE.md` — each of these is a standalone rewrite,
-not a local fix. Discovered while landing the `PLATFORM_FEATURES.md` batches
-(pessimistic locking, `ColumnExpression`, MSSQL `OUTPUT`, the upsert
-abstraction, SQLite `RETURNING`, the `EXISTS`/`IN` subquery filters); see
-that history for what *was* fixed inline in the same files (e.g.
-`DBPostgres`/`DBMySQL`/`DBOracle`/`DBMSSQL`/`DBAdapter`/`Criterion` were all
-brought to a clean `--level 9` as part of these batches; `DBSQLite`/
-`Criteria`/`ColumnExpression` started and stayed clean).
-
-Baseline at time of writing: `runtime/Lib/Query/ModelCriteria.php` has 70
-level-9 findings, `runtime/Lib/Util/BasePeer.php` has 29. Neither is fully
-explained by this file's own §1/§2 pattern anymore, so the count history is
-worth spelling out:
-
-- 66 → 69 (`ModelCriteria.php`), the upsert batch: three more instances of
-  the exact same §1/§2 pattern below -- dynamic `call_user_func` dispatch to
-  `$this->modelPeerName` and a `constant($this->modelPeerName.'::TABLE_NAME')`
-  call in the new `doUpsert()` method, mirroring the pre-existing `doUpdate()`
-  code it was modeled on.
-- 69 → 70 (`ModelCriteria.php`) and 28 → 29 (`BasePeer.php`), the `EXISTS`/`IN`
-  batch: both are a direct cascade of *correctly* fixing
-  `Criterion::getColumn()`'s docblock (it was wrongly declared non-nullable;
-  fixed to `string|null`, its true, documented behavior for a custom
-  expression with no column) -- one pre-existing, untouched call site in each
-  file assumed the old, wrong type and now shows a real (if narrow) finding.
-  The two *new* call sites this batch added (inside `useExistsQuery()`/
-  `useInQuery()`) got the same null-check fixed inline rather than left as
-  more debt -- see git history. `Criteria.php` and `Criterion.php` themselves
-  stayed/came in fully clean.
+All six items originally tracked in this file (§1-§6 below, as landed one
+commit each: guard PDO::prepare() failures, verify BasePeer::getValidator()'s
+dynamic instantiation, make ModelCriteria's model-identity properties
+non-nullable, replace call_user_func Peer dispatch with dynamic static calls
+plus a first-party PHPStan extension for ModelCriteria's magic methods, audit
+nullable Criteria/Criterion strings into BasePeer, and fix useQuery()'s broken
+generic contract) are now resolved. `BasePeer.php` and `Criteria.php` are
+fully clean at `--level 9`; `ModelCriteria.php` went from 71 findings to 39.
+See git history for the original text of each item and how it was fixed.
 
 Verify current counts with:
 
@@ -38,179 +17,79 @@ vendor/bin/phpstan analyse runtime/Lib/Query/ModelCriteria.php --level 9
 vendor/bin/phpstan analyse runtime/Lib/Util/BasePeer.php --level 9
 ```
 
-## 1. Dynamic `call_user_func`/`call_user_func_array` dispatch to the Peer class
+What follows is the debt discovered *while* closing out those six items --
+either genuinely new (revealed once a wrong nullable/non-nullable annotation
+elsewhere was corrected) or pre-existing but outside this batch's scope.
 
-`ModelCriteria` holds the generated Peer class name as a plain string
-(`$this->modelPeerName`, typed `string|null`) and calls static methods on it
-by name at runtime instead of a direct static call, e.g.
-(`runtime/Lib/Query/ModelCriteria.php`):
+## A. `ModelCriteria.php`: `RelationMap|null` treated as always-set
 
-- `call_user_func(array($this->modelPeerName, 'doDelete'), ...)` (~line 1822)
-- `call_user_func(array($this->modelPeerName, 'doDeleteAll'), ...)` (~line 1887)
-- `call_user_func(array($this->modelPeerName, 'clearInstancePool'))` /
-  `'clearRelatedInstancePool'` (~lines 2032-2033)
-- `call_user_func(array($this->modelPeerName, 'getFieldNames'), ...)` /
-  `'translateFieldName'` (`BasePeer.php` ~lines 100, 115, called with a Peer
-  class name threaded in from elsewhere)
-- `call_user_func_array(array($this, 'filterBy' . $relation), $args)`
-  (~line 2496) and similar `$this`-based dynamic method dispatch for magic
-  `filterBy*`/`joinWith` methods
+`ModelJoin::getRelationMap()`/`getTableMap()` are declared nullable (only set
+via `setRelationMap()`/`setTableMap()`), but call sites in `with()` (~line
+921-923) and `useQuery()` (~line 1039) call methods on the result unchecked.
+Same shape as the original §2 (`ModelCriteria`) and §4 (`Criteria`) items --
+needs the same audit: is a `ModelJoin` returned by `getNamedModelJoin()` ever
+missing its `RelationMap`/`TableMap` in practice, or is this another
+"declared nullable, always populated by construction" case that can be
+tightened at the source?
 
-PHPStan can't verify any of these — the callable shape is
-`array{string|null, 'methodName'}`, which is never assignable to
-`callable(): mixed` since a `null` class name isn't callable and PHPStan has
-no way to confirm the named method exists on whatever class the string
-names. Each call site is a separate, unverifiable finding (~15 of the 66 in
-`ModelCriteria.php`).
+## B. `withQuery()`'s callback type hits a PHPStan generics limitation
 
-**Why this exists:** the generated `BaseXxxQuery`/`BaseXxxPeer` classes are
-produced at build time from XML schema, so `ModelCriteria` (hand-written,
-shared across every model) has no compile-time way to know the concrete Peer
-class — hence the string-keyed dynamic dispatch. This is architecturally the
-same problem `PLATFORM_FEATURES.md`'s cross-ORM ideas section already flags:
+Fixing `useQuery()`'s null-branch return type from (wrong) `static` to
+(correct) `ModelCriteria` -- the actual fix this file's old §6 called for --
+forces the same correction onto `withQuery()`'s `$callback` parameter type
+(`($secondaryCriteriaClass is null ? callable(static): void : callable(T):
+void)` was equally wrong, for the same reason). Once corrected to
+`callable(ModelCriteria): void` for the null branch, the single remaining
+finding (`Parameter #1 of callable callable(T): void expects T of
+ModelCriteria, ModelCriteria given`) is a verified, unavoidable PHPStan
+soundness limitation, not a real bug -- confirmed by reproducing the
+identical error in a minimal, unrelated class hierarchy where the annotated
+type and the actual runtime type are provably identical. PHPStan does not
+narrow a conditionally-typed callable parameter per branch inside the
+implementing method's own body (the conditional type is a caller-facing
+contract only); reverting to `static` just trades this finding for a
+different, equally real one (`static` no longer matches `useQuery()`'s now-
+honest `ModelCriteria` return). Tried and rejected: inlining the branch
+logic, extracting private per-branch helpers, dispatching via
+`call_user_func()` -- all reproduce the same error. A real fix needs an API
+decision (split `withQuery()` into a class-string-required generic method
+and a separate non-generic no-class method, accepting a small public API
+change) rather than a docblock tweak.
 
-> **PHPStan extension.** Given the level-9 goal in `CLAUDE.md`, shipping an
-> extension that teaches PHPStan about generated query/Peer classes and the
-> magic `__call()` filters (as Doctrine and Larastan do for their ecosystems)
-> would pay off for consumers as well as this repo.
+## C. `Validator/*.php`: real findings unmasked by fixing `BasicValidator`'s docblock
 
-**Options, roughly in order of effort:**
-1. A small first-party PHPStan extension (dynamic-return-type + method
-   existence reflection against the generated classmap) — the "proper" fix,
-   and reusable by every consumer of generated Propulsion models, not just
-   this repo's own analysis.
-2. Replace the `call_user_func`/`array($class, $method)` calls with PHP 8.1+
-   first-class callable syntax where the class is knowable
-   (`$this->modelPeerName::doDelete(...)` reads identically at runtime and
-   at least lets PHPStan see it's a static call, even if it still can't
-   verify the method exists on an unknown class string).
-3. Narrow `$modelPeerName` to non-nullable `string` (see §2) so at minimum
-   the "expects callable, `string|null` given" half of each finding goes
-   away, leaving only the "method existence on an unverified class" half.
+`BasicValidator::isValid()`'s `@param string $str` was simply wrong --
+validators receive arbitrary column values, not just strings, as
+`MaxValueValidator`/`MinValueValidator`'s own comparison logic already
+assumed. Correcting it to `@param mixed $str` (needed to close a `BasePeer.php`
+finding) surfaced pre-existing, previously-hidden level-9 findings in the
+validator implementations themselves (each was being silently checked against
+the wrong inherited `string` type before): `MatchValidator`/`NotMatchValidator`
+`prepareRegexp()` return/param nullability, `TypeValidator::isValid()` passing
+a mixed value to `function_exists()`, `UniqueValidator`'s own
+`call_user_func()`-based Peer dispatch (same shape as the old §1), and
+`ValidValuesValidator`'s `preg_split()`/`in_array()` typing. Not fixed here --
+these files weren't touched by this batch, so CLAUDE.md's
+"clean the file you edit" rule didn't apply -- but now visible and worth a
+pass.
 
-None of these are a small, local diff — each is its own PR.
+## D. `ModelCriteria.php`: assorted `mixed`-typed findings, not part of the original six
 
-## 2. Nullable model metadata treated as always-initialized
+Independent of the above, `--level 9` on `ModelCriteria.php` still shows:
 
-`ModelCriteria`'s core identity properties are declared nullable but every
-real code path (any generated `BaseXxxQuery` constructor) always sets them:
+- `find()`/`findOne()`/`findOneOrCreate()` (~1471, 1514-1529, 1559) declare
+  concrete return types but return whatever `PropulsionFormatter::format()`/
+  `formatRecord()` gives back, typed `mixed` -- same "declared type doesn't
+  match what actually flows through" shape as the old §1/§2, just on the
+  formatter dispatch path instead of the Peer dispatch path.
+- `getCriterionForConditions()`'s `$operator` parameter (~347, 408) and a
+  handful of `string|null`-into-non-nullable-`string` call sites (~439, 442,
+  466, 656-659, 1336, 2722) -- likely more instances of the same
+  always-set-in-practice pattern already fixed elsewhere in this file; not
+  yet audited.
+- `Criterion|null` at `addAnd()`/`addOr()` (~815) and a few `mixed` array-key/
+  `sprintf` findings (~843-846, 2459-2461) in the pseudo-SQL clause parser --
+  not yet looked at.
 
-```php
-/** @var string|null */
-protected $modelName;
-/** @var string|null */
-protected $modelPeerName;
-/** @var TableMap|null */
-protected $tableMap;
-```
-
-This is the root cause of most of the remaining ~40 findings in
-`ModelCriteria.php` — every getter built on top of these
-(`getModelName()`, `getModelPeerName()`, `getTableMap()`,
-`getModelAliasOrName()`, `useQuery()`/`endUse()`'s stored parent-query
-reference, etc.) is declared to return the non-nullable type but PHPStan
-correctly infers the nullable one leaking through, e.g.:
-
-- `getTableMap(): TableMap` actually returns `TableMap|null`
-- `getModelPeerName(): string` actually returns `string|null`
-- `getModelName()`/`getModelAliasOrName()`: same shape
-- Every downstream caller that assumes non-null (`$this->tableMap->getColumn(...)`,
-  `$this->getTableMap()->getName()`, etc.) then produces its own
-  "Cannot call method X on Foo|null" finding one level further out.
-
-**Why this is a rewrite, not a fix:** `ModelCriteria` genuinely does have a
-brief nullable window (the no-arg `new ModelCriteria()` constructor exists
-and is used, e.g. by `Criteria`-style raw usage in a few tests), so simply
-widening these to non-nullable types would be lying to PHPStan the same way
-`@phpstan-ignore` would — the constructor really can leave them unset. A
-real fix needs one of:
-1. A dedicated "identified" state — e.g. split into `ModelCriteria` (always
-   has model identity, non-nullable properties) vs. a bare
-   `Criteria`-like variant for the no-model-yet construction path, so the
-   type system reflects the real invariant instead of a runtime one.
-2. Or: make the no-model constructor throw/require a follow-up call that
-   the type checker can see narrows the properties (awkward in PHP without
-   proper flow-sensitive typing across method boundaries).
-3. Or, cheapest but weakest: assert-and-throw at the top of every method
-   that needs non-null identity (`getModelName()`, `doDelete()`, etc.),
-   which at least turns "silently wrong at runtime" into "loud exception",
-   without fully resolving the PHPStan findings (assertions don't narrow
-   property types across method calls the way local variable narrowing
-   does).
-
-## 3. `BasePeer.php`: unchecked `PDO::prepare()`/`PDOStatement::execute()` returns
-
-Three call sites in `BasePeer.php` (~lines 166-168, 211-213, 500) call
-`$con->prepare($sql)` and use the result without checking for PDO's
-documented `false` return on failure — `doInsert()` already got this fix in
-the "fold id retrieval into INSERT" batch (see git history), but
-`doSelect()`/`doCount()`/`doDelete()`'s equivalents did not. Same shape each
-time:
-
-```php
-$stmt = $con->prepare($sql);
-$db->bindValues($stmt, $params, $dbMap); // PDOStatement|false given
-$stmt->execute();                         // Cannot call method on PDOStatement|false
-```
-
-**Fix shape** (already applied once, see `doInsert()`): add
-`if ($stmt === false) { throw new PropulsionException(...); }` right after
-each `prepare()` call. Mechanical, low-risk, ~3 call sites — this one is
-close to a "small batch" and could reasonably be picked up on its own
-without the rest of this document's larger items.
-
-## 4. `BasePeer.php`: nullable strings flowing from `Criteria`/`Criterion` into non-nullable APIs
-
-A cluster of findings (~lines 208, 268, 313, 667-670, 795, 902-903, 907,
-915) where a value typed `string|null` somewhere upstream in `Criteria`
-(table name, alias, classname for a validator, etc.) reaches a method that
-declares a non-nullable `string` parameter — `quoteIdentifierTable()`,
-`DatabaseMap::getTable()`, `getValidator()`, `hasSelectQuery()`,
-`array_map()` over `quoteIdentifierTable`, `strpos()`/`explode()`. Same root
-shape as §2 (nullable state that's realistically always set by the time
-these run) but on `Criteria`'s side rather than `ModelCriteria`'s — worth
-tracking separately since fixing §2 won't fix these; they'd need their own
-audit of which `Criteria` properties are genuinely optional vs.
-always-populated-by-the-time-BasePeer-touches-them.
-
-## 5. `BasePeer::getValidator()`'s untyped validator registry
-
-```php
-/** @var array<string, BasicValidator> */
-private static $validatorMap = [];
-...
-$cls = Propulsion::importClass($classname); // returns a class-string, loosely
-$v = new $cls();                             // typed `object`, not `BasicValidator`
-self::$validatorMap[$classname] = $v;        // assign.propertyType: array<string,object> given
-```
-
-`getValidator()` is documented to return `BasicValidator|null` but nothing
-actually verifies the dynamically-loaded class extends `BasicValidator` —
-this is a real (if narrow) correctness gap, not just a PHPStan annoyance: a
-misconfigured validator class name would only fail once something calls an
-undeclared method on it, far from the actual misconfiguration. Fix: an
-`instanceof BasicValidator` check right after instantiation, throwing a
-clear `PropulsionException` if it fails, mirroring the `DBAdapter::factory()`
-fix already applied to `DBAdapter.php` for the exact same "dynamically
-instantiated class isn't what we expected" shape.
-
-## 6. `ModelCriteria::useQuery()`'s broken generic contract
-
-```php
-/**
- * @template T of ModelCriteria
- * @param class-string<T>|null $secondCriteria
- * @return static|T
- */
-public function useQuery($relationName, $secondCriteria = null): ModelCriteria
-```
-
-PHPStan flags that the method always returns a concrete `ModelCriteria`
-regardless of the `T` template parameter passed in — the `@return static|T`
-contract is unenforced by the actual return statements. Callers that pass
-a `class-string<T>` and expect a `T` back (a documented, presumably
-intentional feature for query subclass chaining) get an object PHPStan
-can't confirm matches. Needs either an actual `instanceof $secondCriteria`
-narrowing return, or dropping the generic contract if it was never
-actually honored at runtime — needs a decision on which behavior is
-"correct" before it's fixable either way.
+None of these were part of the original six items, so they weren't in scope
+for this batch; listed here so they're not lost.
