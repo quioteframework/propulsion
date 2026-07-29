@@ -15,6 +15,7 @@ namespace Propulsion\Query;
  * @author     Francois Zaninotto (Propel)
  */
 
+ use Propulsion\Exception\PropulsionException;
  use Propulsion\Map\RelationMap;
  use Propulsion\Map\TableMap;
 
@@ -66,11 +67,13 @@ class ModelJoin extends Join
 	}
 
 	/**
-	 * Gets the right tableMap for this join
+	 * Gets the right tableMap for this join, lazily derived from the RelationMap
+	 * if not set directly.
 	 *
-	 * @return TableMap The table map
+	 * @return TableMap|null The table map, or null if neither setTableMap() nor
+	 *                       setRelationMap() has been called yet.
 	 */
-	public function getTableMap()
+	public function getTableMap(): ?TableMap
 	{
 		if (null === $this->tableMap && null !== $this->relationMap)
 		{
@@ -129,14 +132,17 @@ class ModelJoin extends Join
 	 */
 	public function getObjectToRelate($startObject)
 	{
-		if($this->isPrimary()) {
+		$previousJoin = $this->getPreviousJoin();
+		if ($previousJoin === null) {
 			return $startObject;
-		} else {
-			$previousJoin = $this->getPreviousJoin();
-			$previousObject = $previousJoin->getObjectToRelate($startObject);
-			$method = 'get' . $previousJoin->getRelationMap()->getName();
-			return $previousObject->$method();
 		}
+		$previousObject = $previousJoin->getObjectToRelate($startObject);
+		$previousRelationMap = $previousJoin->getRelationMap();
+		if ($previousRelationMap === null) {
+			throw new PropulsionException('Previous join has no RelationMap set');
+		}
+		$method = 'get' . $previousRelationMap->getName();
+		return $previousObject->$method();
 	}
 
 	/**
@@ -155,7 +161,7 @@ class ModelJoin extends Join
 	{
 		return parent::toString()
 			. ' tableMap: ' . ($this->tableMap ? get_class($this->tableMap) : 'null')
-			. ' relationMap: ' . $this->relationMap->getName()
+			. ' relationMap: ' . ($this->relationMap ? $this->relationMap->getName() : 'null')
 			. ' previousJoin: ' . ($this->previousJoin ? '(' . $this->previousJoin . ')' : 'null')
 			. ' relationAlias: ' . $this->rightTableAlias;
 	}

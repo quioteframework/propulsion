@@ -488,7 +488,7 @@ class ModelCriteria extends Criteria
 			$tableMap = $this->getTableMap();
 		} elseif (isset($this->joins[$class])) {
 			// column of a relations's model
-			$tableMap = $this->getNamedModelJoin($class)->getTableMap();
+			$tableMap = $this->getJoinTableMap($this->getNamedModelJoin($class), $class);
 		} else {
 			throw new PropulsionException('Unknown model or alias ' . $class);
 		}
@@ -704,6 +704,43 @@ class ModelCriteria extends Criteria
 	}
 
 	/**
+	 * Narrows a ModelJoin's RelationMap to non-null: ModelJoin::getRelationMap() is
+	 * declared nullable (a hand-built ModelJoin genuinely has none until
+	 * setRelationMap() is called), but every ModelJoin reachable via
+	 * getNamedModelJoin() was built by join() or useQuery(), which always call
+	 * setRelationMap() immediately.
+	 *
+	 * @throws PropulsionException if $join has no RelationMap (defensive only).
+	 */
+	private function getJoinRelationMap(ModelJoin $join, string $name): RelationMap
+	{
+		$relationMap = $join->getRelationMap();
+		if ($relationMap === null) {
+			throw new PropulsionException('Join ' . $name . ' has no RelationMap set');
+		}
+		return $relationMap;
+	}
+
+	/**
+	 * Narrows a ModelJoin's TableMap to non-null: ModelJoin::getTableMap() is
+	 * declared nullable (a hand-built ModelJoin genuinely has none until
+	 * setTableMap()/setRelationMap() is called), but every ModelJoin reachable via
+	 * getNamedModelJoin() was built by join() or useQuery(), which always call
+	 * setRelationMap() immediately -- and getTableMap() lazily derives itself from
+	 * the RelationMap when set directly.
+	 *
+	 * @throws PropulsionException if $join has no TableMap (defensive only).
+	 */
+	private function getJoinTableMap(ModelJoin $join, string $name): TableMap
+	{
+		$tableMap = $join->getTableMap();
+		if ($tableMap === null) {
+			throw new PropulsionException('Join ' . $name . ' has no TableMap set');
+		}
+		return $tableMap;
+	}
+
+	/**
 	 * This method returns an already defined join clause from the query
 	 *
 	 * @param      string $name    The name of the join clause
@@ -754,7 +791,7 @@ class ModelCriteria extends Criteria
 				$tableMap = $this->getTableMap();
 			} elseif (isset($this->joins[$leftName])) {
 				$previousJoin = $this->getNamedModelJoin($leftName);
-				$tableMap = $previousJoin->getTableMap();
+				$tableMap = $this->getJoinTableMap($previousJoin, $leftName);
 			} else {
 				throw new PropulsionException('Unknown table or alias ' . $leftName);
 			}
@@ -918,9 +955,10 @@ class ModelCriteria extends Criteria
 	public function with(string $relation) : static
 	{
 		$join = $this->getNamedModelJoin($relation);
-		if ($join->getRelationMap()->getType() == RelationMap::MANY_TO_MANY) {
+		$relationMap = $this->getJoinRelationMap($join, $relation);
+		if ($relationMap->getType() == RelationMap::MANY_TO_MANY) {
 			throw new PropulsionException('with() does not allow hydration for many-to-many relationships');
-		} elseif ($join->getRelationMap()->getType() == RelationMap::ONE_TO_MANY) {
+		} elseif ($relationMap->getType() == RelationMap::ONE_TO_MANY) {
 			// For performance reasons, the formatters will use a special routine in this case
 			$this->isWithOneToMany = true;
 		}
@@ -1029,14 +1067,19 @@ class ModelCriteria extends Criteria
 			throw new PropulsionException('Unknown class or alias ' . $relationName);
 		}
 		$namedJoin = $this->getNamedModelJoin($relationName);
-		$className = $namedJoin->getTableMap()->getPhpName();
+		$tableMap = $namedJoin->getTableMap();
+		if ($tableMap === null) {
+			throw new PropulsionException('Join ' . $relationName . ' has no TableMap set');
+		}
+		$className = $tableMap->getPhpName();
 		if (null === $secondaryCriteriaClass) {
 			$secondaryCriteria = PropulsionQuery::from($className);
 		} else {
 			$secondaryCriteria = new $secondaryCriteriaClass();
 		}
 		if ($className != $relationName) {
-			$secondaryCriteria->setModelAlias($relationName, $relationName == $namedJoin->getRelationMap()->getName() ? false : true);
+			$relationMap = $this->getJoinRelationMap($namedJoin, $relationName);
+			$secondaryCriteria->setModelAlias($relationName, $relationName == $relationMap->getName() ? false : true);
 		}
 		$secondaryCriteria->setPrimaryCriteria($this, $namedJoin);
 
@@ -1362,7 +1405,7 @@ class ModelCriteria extends Criteria
 	public function addRelationSelectColumns(string $relation) : static
 	{
 		$join = $this->getNamedModelJoin($relation);
-		$peerClass = $join->getTableMap()->getPeerClassname();
+		$peerClass = $this->getJoinTableMap($join, $relation)->getPeerClassname();
 		$peerClass::addSelectColumns($this, $join->getRelationAlias());
 
 		return $this;
@@ -2587,7 +2630,7 @@ class ModelCriteria extends Criteria
 			$tableMap = $this->getTableMap();
 		} elseif (isset($this->joins[$class])) {
 			// column of a relations's model
-			$tableMap = $this->getNamedModelJoin($class)->getTableMap();
+			$tableMap = $this->getJoinTableMap($this->getNamedModelJoin($class), $class);
 		} elseif ($this->hasSelectQuery($class)) {
 			return $this->getColumnFromSubQuery($class, $phpName, $failSilently);
 		} elseif ($failSilently) {
