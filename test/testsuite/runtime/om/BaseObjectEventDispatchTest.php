@@ -231,6 +231,11 @@ class TestableEventObject extends \Propulsion\OM\BaseObject
 	public function clearAllReferences(bool $deep = false): void
 	{
 	}
+
+	public function getPeer(): string
+	{
+		return 'TestableEventObjectPeer';
+	}
 }
 
 class RecordingEventDispatcher implements EventDispatcherInterface

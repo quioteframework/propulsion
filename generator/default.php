@@ -373,6 +373,7 @@ return [
     'propulsion.behavior.concrete_inheritance.class' => 'Propulsion\Generator\Behavior\ConcreteInheritance\ConcreteInheritanceBehavior',
     'propulsion.behavior.aggregate_column.class' => 'Propulsion\Generator\Behavior\AggregateColumn\AggregateColumnBehavior',
     'propulsion.behavior.versionable.class' => 'Propulsion\Generator\Behavior\Versionable\VersionableBehavior',
+    'propulsion.behavior.optimistic_lock.class' => 'Propulsion\Generator\Behavior\OptimisticLock\OptimisticLockBehavior',
     'propulsion.behavior.i18n.class' => 'Propulsion\Generator\Behavior\I18n\I18nBehavior',
     'propulsion.behavior.delegate.class' => 'Propulsion\Generator\Behavior\DelegateBehavior',
     'propulsion.behavior.archivable.class' => 'Propulsion\Generator\Behavior\Archivable\ArchivableBehavior',

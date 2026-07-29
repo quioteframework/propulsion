@@ -874,7 +874,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		$script .= "
 		} elseif (\$values instanceof ".$this->getObjectClassname().") { // \$values is ".$this->getObjectClassname()." object
 			\$criteria = \$values->buildCriteria(); // gets full criteria
-			\$selectCriteria = \$values->buildPkeyCriteria(); // gets criteria w/ primary key(s)
+			\$selectCriteria = \$values->buildPkeyCriteria(); // gets criteria w/ primary key(s)";
+		$this->applyBehaviorModifier('doUpdateSelectCriteria', $script, "\t\t\t");
+		$script .= "
 			// An auto-increment primary key column identifies *which* row this
 			// is (already in \$selectCriteria's WHERE), not a value actually
 			// being changed -- buildCriteria() includes it anyway whenever the

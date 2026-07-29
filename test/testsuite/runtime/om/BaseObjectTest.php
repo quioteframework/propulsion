@@ -65,9 +65,10 @@ class TestableBaseObject extends BaseObject
 {
 	public $virtualColumns = array();
 
-	// BaseObject::getPrimaryKey()/clearAllReferences() are abstract -- every generated Object
-	// class implements them (unconditionally), but this hand-written test double isn't
-	// generated, so it needs its own (trivial, unused-by-these-tests) stubs.
+	// BaseObject::getPrimaryKey()/clearAllReferences()/getPeer() are abstract -- every
+	// generated Object class implements them (unconditionally), but this hand-written
+	// test double isn't generated, so it needs its own (trivial, unused-by-these-tests)
+	// stubs.
 	public function getPrimaryKey()
 	{
 		return null;
@@ -75,5 +76,10 @@ class TestableBaseObject extends BaseObject
 
 	public function clearAllReferences(bool $deep = false): void
 	{
+	}
+
+	public function getPeer(): string
+	{
+		return 'TestableBaseObjectPeer';
 	}
 }

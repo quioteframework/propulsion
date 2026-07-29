@@ -2254,14 +2254,26 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			// were passed to this object by their corresponding set
 			// method. This object relates to these object(s) by a
 			// foreign key reference.";
-			
+
 			foreach ($table->getForeignKeys() as $fk) {
 				$aVarName = $this->getFKVarName($fk);
 				$script .= "
 			if (\$this->$aVarName !== null) {
-				if (\$this->{$aVarName}->isModified() || \$this->{$aVarName}->isNew()) {
-					\$affectedRows += \$this->{$aVarName}->save(\$con);
+				// The recursive save() -- not the re-sync just below -- is what
+				// something driving the whole object graph itself (a
+				// UnitOfWork flush) has already decided the correct save order
+				// for and skips via \$suppressAutoCascade; see
+				// BaseObject::\$suppressAutoCascade's own doc comment.
+				if (!\$this->suppressAutoCascade) {
+					if (\$this->{$aVarName}->isModified() || \$this->{$aVarName}->isNew()) {
+						\$affectedRows += \$this->{$aVarName}->save(\$con);
+					}
 				}
+				// Always re-syncs this FK column from \$this->$aVarName's current
+				// primary key, cascade-suppressed or not -- cheap and idempotent
+				// when it was already saved and already has a stable PK, and the
+				// only thing that would otherwise pick up a PK a UnitOfWork just
+				// generated for it moments ago via its own, separate save() call.
 				\$this->set" . $this->getFKPhpNameAffix($fk, false) . "(\$this->$aVarName);
 			}";
 			}
@@ -2351,7 +2363,10 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 					}";
 		}
 		$script .= "
-					\$affectedRows += " . $this->getPeerClassname() . "::doUpdateThis(\$this, \$con);
+					\$updateAffectedRows = " . $this->getPeerClassname() . "::doUpdateThis(\$this, \$con);";
+		$this->applyBehaviorModifier('postUpdateAffectedRows', $script, "\t\t\t\t\t");
+		$script .= "
+					\$affectedRows += \$updateAffectedRows;
 				}
 				\$this->resetModified();
 			}
@@ -2390,29 +2405,37 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			}
 		}
 
-		// Add referrers save logic (many-to-many collections)
-		foreach ($table->getReferrers() as $refFK) {
-			if ($refFK->isLocalPrimaryKey()) {
-				$varName = $this->getPKRefFKVarName($refFK);
-				$script .= "
-			if (\$this->$varName !== null) {
-				if (!\$this->{$varName}->isDeleted()) {
-					\$affectedRows += \$this->{$varName}->save(\$con);
-				}
-			}
-";
-			} else {
-				$collName = $this->getRefFKCollVarName($refFK);
-				$script .= "
-			if (\$this->$collName !== null) {
-				foreach (\$this->$collName as \$referrerFK) {
-					if (!\$referrerFK->isDeleted()) {
-						\$affectedRows += \$referrerFK->save(\$con);
+		// Add referrers save logic (many-to-many collections) -- same
+		// $suppressAutoCascade gate as the FK-parent cascade above.
+		if (count($table->getReferrers())) {
+			$script .= "
+			if (!\$this->suppressAutoCascade) {";
+			foreach ($table->getReferrers() as $refFK) {
+				if ($refFK->isLocalPrimaryKey()) {
+					$varName = $this->getPKRefFKVarName($refFK);
+					$script .= "
+				if (\$this->$varName !== null) {
+					if (!\$this->{$varName}->isDeleted()) {
+						\$affectedRows += \$this->{$varName}->save(\$con);
 					}
 				}
+";
+				} else {
+					$collName = $this->getRefFKCollVarName($refFK);
+					$script .= "
+				if (\$this->$collName !== null) {
+					foreach (\$this->$collName as \$referrerFK) {
+						if (!\$referrerFK->isDeleted()) {
+							\$affectedRows += \$referrerFK->save(\$con);
+						}
+					}
+				}
+";
+				}
+			}
+			$script .= "
 			}
 ";
-			}
 		}
 
 		$script .= "

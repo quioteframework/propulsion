@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="no"?>
+<database name="bookstore-behavior" defaultIdMethod="native" package="behavior.optimistic_lock">
+
+	<table name="table15">
+		<column name="id" required="true" primaryKey="true" autoIncrement="true" type="INTEGER" />
+		<column name="title" type="VARCHAR" size="100" primaryString="true" />
+		<behavior name="optimistic_lock" />
+	</table>
+
+	<table name="table16">
+		<column name="id" required="true" primaryKey="true" autoIncrement="true" type="INTEGER" />
+		<column name="title" type="VARCHAR" size="100" primaryString="true" />
+		<column name="lock_version" type="INTEGER" />
+		<behavior name="optimistic_lock">
+			<parameter name="version_column" value="lock_version" />
+		</behavior>
+	</table>
+
+</database>

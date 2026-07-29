@@ -84,6 +84,43 @@ abstract class BaseObject
 	protected $virtualColumns = array();
 
 	/**
+	 * When true, the generated doSave()'s own cascade -- saving modified/new FK
+	 * parents first, then referrer collections -- is skipped entirely. False
+	 * (the default) preserves today's behavior exactly.
+	 *
+	 * Meant to be toggled by something driving the whole object graph itself
+	 * (a {@see \Propulsion\UnitOfWork} flush, chiefly), which has already
+	 * decided the correct save/delete order across every tracked entity and
+	 * would otherwise pay for -- and race against -- each object's own
+	 * redundant depth-first cascade. Not meant to be left set on a plain
+	 * ActiveRecord-style `$object->save()` call: doing so means related
+	 * objects reachable only via this one's FK setters/collections are never
+	 * persisted unless something else already tracked and saved them.
+	 *
+	 * @var        boolean
+	 */
+	protected bool $suppressAutoCascade = false;
+
+	/**
+	 * @see        $suppressAutoCascade
+	 * @param      boolean $suppress
+	 * @return     void
+	 */
+	public function setSuppressAutoCascade(bool $suppress): void
+	{
+		$this->suppressAutoCascade = $suppress;
+	}
+
+	/**
+	 * @see        $suppressAutoCascade
+	 * @return     boolean
+	 */
+	public function isSuppressAutoCascade(): bool
+	{
+		return $this->suppressAutoCascade;
+	}
+
+	/**
 	 * Empty constructor (this allows people with their own BaseObject implementation to use its constructor)
 	 */
 	public function __construct() {
@@ -122,6 +159,17 @@ abstract class BaseObject
 	abstract public function getPrimaryKey();
 
 	abstract public function clearAllReferences(bool $deep = false): void;
+
+	// getPeer() is likewise always generated (ObjectBuilder::addGetPeer(), called
+	// unconditionally from addClassBody() alongside getPrimaryKey()/
+	// clearAllReferences() above -- no isReadOnly()/build-property gate the way
+	// toArray()/fromArray() have) -- declared abstract for the same reason: a real,
+	// always-implemented contract, made visible to PHPStan and to a hand-written
+	// BaseObject subclass that forgets it, instead of an undeclared call generated
+	// code alone would otherwise resolve. Used by UnitOfWork to get from an
+	// arbitrary tracked entity to its table/database name generically
+	// ({$entity->getPeer()}::TABLE_NAME / ::DATABASE_NAME).
+	abstract public function getPeer(): string;
 
 	/**
 	 * Returns whether the object has been modified.
