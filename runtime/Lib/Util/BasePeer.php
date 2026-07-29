@@ -226,7 +226,7 @@ class BasePeer
 	 * 				is returned (supported) by the Propulsion db driver.
 	 * @throws     PropulsionException - wrapping SQLException caught from statement execution.
 	 */
-	public static function doDeleteAll(?string $tableName = null, ?PropulsionPDO $con = null, ?string $databaseName = null)
+	public static function doDeleteAll(string $tableName, PropulsionPDO $con, string $databaseName)
 	{
 		$originalTableName = $tableName;
 		$sql = null;
@@ -237,6 +237,9 @@ class BasePeer
 			}
 			$sql = "DELETE FROM " . $tableName;
 			$stmt = $con->prepare($sql);
+			if ($stmt === false) {
+				throw new PropulsionException('PropulsionPDO::prepare() returned false');
+			}
 			$stmt->execute();
 			$affectedRows = $stmt->rowCount();
 		} catch (Exception $e) {
@@ -244,9 +247,7 @@ class BasePeer
 			throw new PropulsionException(sprintf('Unable to execute DELETE ALL statement [%s]', $sql), $e);
 		}
 
-		if ($originalTableName !== null) {
-			Propulsion::getSession()->getQueryResultCache()->invalidateTable($originalTableName);
-		}
+		Propulsion::getSession()->getQueryResultCache()->invalidateTable($originalTableName);
 
 		return $affectedRows;
 	}
@@ -478,9 +479,7 @@ class BasePeer
 			throw new PropulsionException(sprintf('Unable to execute INSERT statement [%s]', $sql), $e);
 		}
 
-		if ($originalTableName !== null) {
-			Propulsion::getSession()->getQueryResultCache()->invalidateTable($originalTableName);
-		}
+		Propulsion::getSession()->getQueryResultCache()->invalidateTable($originalTableName);
 
 		// If the primary key column is auto-incremented, get the id now.
 		if ($needsGeneratedId && $db->isGetIdAfterInsert() && !$useInsertReturning) {
@@ -523,7 +522,7 @@ class BasePeer
 	 *             (supported) by the Propulsion db driver.
 	 * @throws     PropulsionException
 	 */
-	public static function doUpdate(Criteria $selectCriteria, Criteria $updateValues, ?PropulsionPDO $con = null, ?array $returningColumns = null) {
+	public static function doUpdate(Criteria $selectCriteria, Criteria $updateValues, PropulsionPDO $con, ?array $returningColumns = null) {
 
 		$db = Propulsion::getDB($selectCriteria->getDbName());
 		$dbMap = Propulsion::getDatabaseMap($selectCriteria->getDbName());

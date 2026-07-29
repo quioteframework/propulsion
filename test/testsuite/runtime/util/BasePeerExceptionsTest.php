@@ -56,7 +56,7 @@ class BasePeerExceptionsTest extends BookstoreTestBase
 	public function testDoDeleteAll()
 	{
 		try {
-			BasePeer::doDeleteAll('BAD TABLE', Propulsion::getConnection());
+			BasePeer::doDeleteAll('BAD TABLE', Propulsion::getConnection(), Propulsion::getDefaultDB());
 		} catch (PropulsionException $e) {
 			// "TABLE" (the second, alias-shaped word in this deliberately fake
 			// table name) is a genuine Oracle reserved word -- DBOracle quotes
