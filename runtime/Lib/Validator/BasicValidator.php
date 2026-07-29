@@ -26,7 +26,8 @@ interface BasicValidator
 	 * Determine whether a value meets the criteria specified
 	 *
 	 * @param     ValidatorMap $map A column map object for the column to be validated.
-	 * @param     string $str a <code>String</code> to be tested
+	 * @param     mixed $str The column value to be tested -- despite the name, not
+	 *                    necessarily a string; its actual type depends on the column.
 	 *
 	 * @return    mixed TRUE if valid, error message otherwise
 	 */

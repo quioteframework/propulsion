@@ -26,12 +26,20 @@ class ValidatorMap
 {
 	/** rule name of this validator */
 	private ?string $name = null;
-	/** the dot-path to class to use for validator */
-	private ?string $classname = null;
+	/**
+	 * The dot-path to class to use for validator. Uninitialized until setClass()
+	 * is called -- TableMap::addValidator(), the only place that constructs a
+	 * ValidatorMap, always calls it immediately after construction.
+	 */
+	private string $classname;
 	/** value to check against */
 	private ?string $value = null;
-	/** execption message thrown on invalid input */
-	private ?string $message = null;
+	/**
+	 * Exception message thrown on invalid input. Uninitialized until setMessage()
+	 * is called -- TableMap::addValidator(), the only place that constructs a
+	 * ValidatorMap, always calls it immediately after construction.
+	 */
+	private string $message;
 	/** related column */
 	private ColumnMap $column;
 
@@ -75,7 +83,7 @@ class ValidatorMap
 		return $this->name;
 	}
 
-	public function getClass(): ?string
+	public function getClass(): string
 	{
 		return $this->classname;
 	}
@@ -85,7 +93,7 @@ class ValidatorMap
 		return $this->value;
 	}
 
-	public function getMessage(): ?string
+	public function getMessage(): string
 	{
 		return $this->message;
 	}

@@ -550,7 +550,11 @@ class BasePeer
 		// Get list of required tables, containing all columns
 		$tablesColumns = $selectCriteria->getTablesColumns();
 		if (empty($tablesColumns)) {
-			$tablesColumns = array($selectCriteria->getPrimaryTableName() => array());
+			$primaryTableName = $selectCriteria->getPrimaryTableName();
+			if ($primaryTableName === null) {
+				throw new PropulsionException('Cannot update: no columns and no primary table name set on the Criteria');
+			}
+			$tablesColumns = array($primaryTableName => array());
 		}
 
 		// we also need the columns for the update SQL
@@ -1141,9 +1145,17 @@ class BasePeer
 
 			// add 'em to the queues..
 			if (!$fromClause) {
-				$fromClause[] = $join->getLeftTableWithAlias();
+				$leftTableWithAlias = $join->getLeftTableWithAlias();
+				if ($leftTableWithAlias === null) {
+					throw new PropulsionException('Cannot build a join clause: the join has no left table name');
+				}
+				$fromClause[] = $leftTableWithAlias;
 			}
-			$joinTables[] = $join->getRightTableWithAlias();
+			$rightTableWithAlias = $join->getRightTableWithAlias();
+			if ($rightTableWithAlias === null) {
+				throw new PropulsionException('Cannot build a join clause: the join has no right table name');
+			}
+			$joinTables[] = $rightTableWithAlias;
 			$joinClause[] = $join->getClause($params);
 		}
 
@@ -1155,7 +1167,13 @@ class BasePeer
 			$criterion = $criteria->getCriterion($key);
 			$table = null;
 			foreach ($criterion->getAttachedCriterion() as $attachedCriterion) {
+				// A raw/custom-SQL criterion with no column at all (e.g. where('1=1'))
+				// has no table either -- it contributes nothing to the FROM clause and
+				// has no column to look up for the ignore-case check below.
 				$tableName = $attachedCriterion->getTable();
+				if ($tableName === null) {
+					continue;
+				}
 
 				$table = $criteria->getTableForAlias($tableName);
 				if ($table !== null) {
@@ -1165,8 +1183,10 @@ class BasePeer
 					$table = $tableName;
 				}
 
-				if (($criteria->isIgnoreCase() || $attachedCriterion->isIgnoreCase())
-				&& $dbMap->getTable($table)->getColumn($attachedCriterion->getColumn())->isText()) {
+				$columnName = $attachedCriterion->getColumn();
+				if ($columnName !== null
+				&& ($criteria->isIgnoreCase() || $attachedCriterion->isIgnoreCase())
+				&& $dbMap->getTable($table)->getColumn($columnName)->isText()) {
 					$attachedCriterion->setIgnoreCase(true);
 				}
 			}
@@ -1266,8 +1286,11 @@ class BasePeer
 			}
 		}
 
-		if (empty($fromClause) && $criteria->getPrimaryTableName()) {
-			$fromClause[] = $criteria->getPrimaryTableName();
+		if (empty($fromClause)) {
+			$primaryTableName = $criteria->getPrimaryTableName();
+			if ($primaryTableName !== null) {
+				$fromClause[] = $primaryTableName;
+			}
 		}
 
 		// tables should not exist as alias of subQuery
@@ -1453,6 +1476,9 @@ class BasePeer
 					$hasPlaceholder = false;
 					if (isset($param['raw'])) {
 						$raw = $param['raw'];
+						if (!is_string($raw)) {
+							throw new PropulsionException("Raw update expression for column '$col' must be a string.");
+						}
 						$rawcvt = '';
 						// parse the $params['raw'] for ? chars
 						for($r=0,$len=strlen($raw); $r < $len; $r++) {
@@ -1482,6 +1508,9 @@ class BasePeer
 						$values->remove($col);
 					}
 				} else {
+					if (!is_string($param)) {
+						throw new PropulsionException("Raw update expression for column '$col' must be a string.");
+					}
 					$values->remove($col);
 					$sql .= $param . ', ';
 				}

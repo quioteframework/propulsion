@@ -260,8 +260,9 @@ class Criteria implements \IteratorAggregate
 	/**
 	 * The primary table for this Criteria.
 	 * Useful in cases where there are no select or where
-	 * columns.
-	 * @var        string
+	 * columns. Null until setPrimaryTableName() is called -- not every
+	 * Criteria/ModelCriteria construction path sets it.
+	 * @var        string|null
 	 */
 	protected $primaryTableName;
 
@@ -880,9 +881,9 @@ class Criteria implements \IteratorAggregate
 	 * any SELECT columns or WHERE columns.  This must be explicitly
 	 * set, of course, in order to be useful.
 	 *
-	 * @return     string
+	 * @return     string|null
 	 */
-	public function getPrimaryTableName()
+	public function getPrimaryTableName() : ?string
 	{
 		return $this->primaryTableName;
 	}
