@@ -9,6 +9,7 @@
  */
 namespace Propulsion;
 
+use Propulsion\Cache\CompiledQueryCache;
 use Propulsion\Cache\QueryResultCache;
 use Propulsion\Connection\PropulsionPDO;
 
@@ -79,9 +80,18 @@ class Session
      */
     private QueryResultCache $queryCache;
 
+    /**
+     * Request-scoped cache of compiled SELECT SQL strings (see
+     * {@see CompiledQueryCache}). Same axis as $queryCache: cleared at every
+     * request boundary by {@see reset()} so a compiled entry from one worker
+     * request never leaks into the next.
+     */
+    private CompiledQueryCache $compiledQueryCache;
+
     public function __construct()
     {
         $this->queryCache = new QueryResultCache();
+        $this->compiledQueryCache = new CompiledQueryCache();
     }
 
     /**
@@ -91,6 +101,15 @@ class Session
     public function getQueryResultCache(): QueryResultCache
     {
         return $this->queryCache;
+    }
+
+    /**
+     * The current request's compiled-query (SQL-string) cache. Opted into per
+     * query via {@see \Propulsion\Query\Criteria::setCompiledQueryCache()}.
+     */
+    public function getCompiledQueryCache(): CompiledQueryCache
+    {
+        return $this->compiledQueryCache;
     }
 
     /**
@@ -205,6 +224,8 @@ class Session
      *  4. Clear the query result cache ({@see QueryResultCache}) -- same
      *     reasoning as step 2: a result cached while serving one request must
      *     not be handed out to a later, unrelated request.
+     *  5. Clear the compiled-query cache ({@see CompiledQueryCache}) -- same
+     *     reasoning as step 4, applied to cached SQL strings instead of rows.
      */
     public function reset(): void
     {
@@ -212,6 +233,7 @@ class Session
         $this->clearAllPools();
         $this->forceMasterConnection = false;
         $this->queryCache->clear();
+        $this->compiledQueryCache->clear();
     }
 
     /**

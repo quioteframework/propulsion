@@ -1144,11 +1144,53 @@ change-tracker steal list, which is deliberately not repeated here.
   generated-Peer architecture; that assessment is worth revisiting — the
   hydration side already handles collections and `findPks()` is the fetch
   primitive, so the pieces exist.
-- [ ] **Compiled-query / SQL-string cache.** The opt-in cache added in
-  87e43c4 caches *result rows*. Caching `Criteria` → SQL string is a separate
-  and cheaper win (Doctrine's query cache, EF Core compiled queries),
-  especially in long-lived worker processes where the same query shapes are
-  rebuilt on every request.
+- [x] **Compiled-query / SQL-string cache.** The opt-in cache added in
+  87e43c4 caches *result rows*; new `Propulsion\Cache\CompiledQueryCache`
+  (mirroring that class's own shape, owned by `Session` the same way, cleared
+  at the same request boundary) caches the compiled SELECT *SQL string*
+  instead, via `Criteria::setCompiledQueryCache(string $key)` /
+  `isCompiledQueryCacheEnabled()` / `getCompiledQueryCacheKey()`, consulted
+  from `BasePeer::createSelectSql()`. Unlike the result cache's key (built
+  *after* SQL+params exist, from the rendered SQL itself), a compiled-query
+  cache has to be keyed *before* paying the cost of building that SQL, and
+  `Criteria` has no existing shape-fingerprint mechanism cheap enough to
+  justify computing one automatically (limit/offset are written as literal
+  integers straight into the SQL text on every platform -- see
+  `DBAdapter::applyLimit()` -- not bound, and an `IN (...)` list's own
+  placeholder count varies with its element count, so a naive
+  table/column/comparison-only fingerprint would be unsafe); the key is
+  therefore caller-supplied (a natural choice: `__METHOD__` of the generated
+  Query/Peer method building the Criteria), the same tradeoff Doctrine's own
+  query cache and EF Core's compiled queries make. On a cache hit, the SQL
+  string itself isn't rebuilt -- only params are freshly collected via a new
+  `BasePeer::collectSelectParams()` fast path that re-walks joins/WHERE/HAVING
+  criterions (reusing `Join::getClause()`/`Criterion::appendPsTo()` as-is, so
+  there's no duplicated dispatch logic to drift out of sync) without any of
+  the SQL-text assembly (FROM/JOIN clause building, identifier quoting, ORDER
+  BY/ignore-case resolution) that a shape-stable query doesn't need redone. As
+  a safety net against the most common way a caller could violate the "key
+  uniquely identifies one shape" contract -- reusing a key for a Criteria with
+  a different number of bound parameters -- a cache hit whose freshly-collected
+  param count doesn't match the count recorded when the entry was built throws
+  a clear `PropulsionException` rather than silently returning mismatched SQL;
+  this doesn't catch every possible shape mismatch (e.g. same count, different
+  structure), only the common one. **Scope**: only the plain-SELECT path is
+  covered -- a `Criteria` carrying common table expressions, set operations, or
+  FROM-clause subqueries (`withCte()`, `union()`/`intersect()`/`except()`,
+  `addSelectQuery()`) silently falls back to an uncached build every time (the
+  cache is simply never consulted for those), since each recurses into further
+  `Criteria` objects with their own params that the fast params-only path above
+  doesn't attempt to mirror -- the same kind of deliberate scope-down this
+  document already used for Oracle's multi-row `RETURNING`/MSSQL's
+  `BULK INSERT`. Benchmarked at `bench/compiled_query_cache_bench.php`: ~1.5x
+  faster `BasePeer::createSelectSql()` for a join + two WHERE conditions +
+  ORDER BY + LIMIT/OFFSET shape (median 4.3µs → 2.8µs per call, 20k iterations,
+  JIT enabled/pcov disabled) -- the saving scales with how much FROM/JOIN/WHERE
+  text there is to skip re-deriving, so a simpler single-table query sees less
+  benefit and a heavily-joined one sees more. Covered by
+  `CompiledQueryCacheUnitTest` (storage API in isolation) and
+  `CompiledQueryCacheTest` (end-to-end via `ModelCriteria`/BookstoreTestBase,
+  including the different-shared-key-different-param-count exception).
 - [ ] **Execution strategy: connection liveness + transaction retry.**
   Reconnect-on-drop exists but is ad hoc and undocumented
   (`PropulsionPDO.php:507`, `:546`, `DebugPDOStatement.php:99`) — and it

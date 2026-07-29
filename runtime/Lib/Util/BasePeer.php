@@ -1001,6 +1001,106 @@ class BasePeer
 			return self::createSetOperationSql($criteria, $params);
 		}
 
+		if ($criteria->isCompiledQueryCacheEnabled() && !$criteria->hasSelectQueries()) {
+			return self::createSelectSqlWithCompiledCache($criteria, $params);
+		}
+
+		return self::buildSelectSql($criteria, $params);
+	}
+
+	/**
+	 * Consults/populates {@see \Propulsion\Cache\CompiledQueryCache} for a plain
+	 * SELECT (no CTEs/set operations -- excluded by createSelectSql() already;
+	 * no FROM-clause subqueries -- excluded by the caller's hasSelectQueries()
+	 * check) before falling back to {@see buildSelectSql()}.
+	 *
+	 * On a cache hit, the SQL string itself is not rebuilt -- instead
+	 * {@see collectSelectParams()} re-walks just the joins/WHERE/HAVING
+	 * criterions to collect $params (cheap: no adapter calls, no identifier
+	 * quoting, no FROM/JOIN/ORDER BY clause assembly), the same traversal
+	 * order buildSelectSql() itself uses, so placeholder positions line up.
+	 *
+	 * @param      Criteria $criteria
+	 * @param      array<int, array{table: string|null, column: string|null, value: mixed}> &$params
+	 * @return     string
+	 * @throws     PropulsionException if the freshly-collected parameter count for a
+	 *             cache hit doesn't match the count recorded when the entry was built --
+	 *             see Criteria::setCompiledQueryCache()'s docblock for what this guards against.
+	 */
+	private static function createSelectSqlWithCompiledCache(Criteria $criteria, &$params): string
+	{
+		$key = $criteria->getCompiledQueryCacheKey();
+		if ($key === null) {
+			// Can't happen via createSelectSql()'s own isCompiledQueryCacheEnabled() guard,
+			// but this method isn't itself guaranteed a non-null key by its signature.
+			throw new PropulsionException('createSelectSqlWithCompiledCache() called without a compiled query cache key');
+		}
+		$cache = Propulsion::getSession()->getCompiledQueryCache();
+
+		$cached = $cache->get($key);
+		if ($cached !== null) {
+			self::collectSelectParams($criteria, $params);
+			if (count($params) !== $cached['paramCount']) {
+				throw new PropulsionException(sprintf(
+					"Compiled query cache key '%s' was reused for a query with a different number ".
+					"of bound parameters (expected %d, got %d) -- a compiled query cache key must ".
+					"uniquely identify one query shape; only bound parameter values may vary between ".
+					"calls sharing a key. See Criteria::setCompiledQueryCache().",
+					$key,
+					$cached['paramCount'],
+					count($params)
+				));
+			}
+			return $cached['sql'];
+		}
+
+		$sql = self::buildSelectSql($criteria, $params);
+		$cache->set($key, $sql, count($params));
+		return $sql;
+	}
+
+	/**
+	 * Re-walks a plain SELECT Criteria's joins, WHERE criterions, and HAVING
+	 * criterion to append bound values to $params, in the exact same order
+	 * buildSelectSql() itself produces them in -- without any of the SQL-text
+	 * assembly (FROM/JOIN clause building, identifier quoting, ORDER BY/ignore
+	 * -case resolution) that doesn't affect which/how-many values get bound.
+	 * Reused as-is by createSelectSqlWithCompiledCache()'s cache-hit path.
+	 *
+	 * @param      Criteria $criteria
+	 * @param      array<int, array{table: string|null, column: string|null, value: mixed}> &$params
+	 * @return     void
+	 */
+	private static function collectSelectParams(Criteria $criteria, array &$params): void
+	{
+		foreach ($criteria->getJoins() as $join) {
+			$join->getClause($params);
+		}
+
+		foreach ($criteria->keys() as $key) {
+			$criterion = $criteria->getCriterion($key);
+			$sb = '';
+			$criterion->appendPsTo($sb, $params);
+		}
+
+		$having = $criteria->getHaving();
+		if ($having !== null) {
+			$sb = '';
+			$having->appendPsTo($sb, $params);
+		}
+	}
+
+	/**
+	 * The actual plain-SELECT SQL builder -- everything createSelectSql() used
+	 * to do inline before the compiled-query cache fast path above was split out.
+	 *
+	 * @param      Criteria $criteria Criteria for the SELECT query.
+	 * @param      array<int, array{table: string|null, column: string|null, value: mixed}> &$params Parameters that are to be replaced in prepared statement.
+	 * @return     string
+	 * @throws     PropulsionException Trouble creating the query string.
+	 */
+	private static function buildSelectSql(Criteria $criteria, &$params)
+	{
 		$db = Propulsion::getDB($criteria->getDbName());
 		$dbMap = Propulsion::getDatabaseMap($criteria->getDbName());
 

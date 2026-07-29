@@ -177,6 +177,14 @@ class Criteria implements \IteratorAggregate
 	protected bool $queryCacheEnabled = false;
 
 	/**
+	 * Shape key for the current request's {@see \Propulsion\Cache\CompiledQueryCache},
+	 * or null (the default) if compiled-query caching is off for this Criteria.
+	 * Unlike $queryCacheEnabled this is a caller-supplied string, not a bool --
+	 * see setCompiledQueryCache() for what the caller is responsible for.
+	 */
+	protected ?string $compiledQueryCacheKey = null;
+
+	/**
 	 * Storage of select data. Collection of column names.
 	 * @var        array<int, string>
 	 */
@@ -360,6 +368,7 @@ class Criteria implements \IteratorAggregate
 		$this->ignoreCase = false;
 		$this->singleRecord = false;
 		$this->queryCacheEnabled = false;
+		$this->compiledQueryCacheKey = null;
 		$this->selectModifiers = array();
 		$this->selectColumns = array();
 		$this->orderByColumns = array();
@@ -1480,6 +1489,74 @@ class Criteria implements \IteratorAggregate
 	public function isQueryCacheEnabled(): bool
 	{
 		return $this->queryCacheEnabled;
+	}
+
+	/**
+	 * Opt this query into the current request's compiled-query cache (see
+	 * {@see \Propulsion\Cache\CompiledQueryCache}) -- a cache of *SQL strings*,
+	 * not rows (contrast {@see setQueryCache()}). Useful in long-lived worker
+	 * processes where the same generated Query/Peer method is called
+	 * repeatedly with only bound values differing between calls: the SELECT
+	 * SQL text itself is identical every time, so re-walking joins/columns/
+	 * criterions to re-derive it is wasted work.
+	 *
+	 * `$key` must uniquely identify this query's *shape* -- the same joins,
+	 * the same WHERE/HAVING comparisons in the same order, the same number of
+	 * elements in any `IN (...)` list, the same LIMIT/OFFSET values (these are
+	 * written as literal integers into the SQL text on every platform, not
+	 * bound -- see `DBAdapter::applyLimit()`), and the same literal text for
+	 * any `Criteria::CUSTOM` raw expression. Only ordinary bound scalar values
+	 * (the common case: `$criteria->add('book.TITLE', $title)`) may vary
+	 * between calls sharing a key. A natural choice is the calling method's
+	 * own name (e.g. `__METHOD__`), since that's exactly "the same query shape
+	 * rebuilt on every request" this feature targets.
+	 *
+	 * This is the caller's responsibility to get right -- there is no general
+	 * way to auto-derive a shape fingerprint that's both cheap to compute
+	 * (cheaper than just building the SQL) and safe against every case above,
+	 * so unlike {@see setQueryCache()}'s plain boolean this takes an explicit
+	 * key. As a safety net against the most common mistake (reusing a key for
+	 * a Criteria with a different bound-parameter count), a cache hit whose
+	 * freshly-collected parameter count doesn't match the count recorded when
+	 * the entry was built throws a {@see \Propulsion\Exception\PropulsionException}
+	 * rather than silently returning mismatched SQL -- this does not catch
+	 * every possible shape mismatch (e.g. same count, different structure),
+	 * only the common one.
+	 *
+	 * Not supported (silently falls back to an uncached build; the cache is
+	 * simply never consulted) for a Criteria carrying common table expressions,
+	 * set operations, or FROM-clause subqueries ({@see withCte()}, {@see union()}
+	 * and friends, {@see addSelectQuery()}) -- each of those recurses into
+	 * further `Criteria` objects with their own params, which the fast
+	 * params-only collection path this cache relies on does not attempt to
+	 * mirror.
+	 *
+	 * @param      string|null $key Shape key, or null to disable (the default).
+	 * @return     Criteria Modified Criteria object (for fluent API)
+	 */
+	public function setCompiledQueryCache(?string $key)
+	{
+		$this->compiledQueryCacheKey = $key;
+		return $this;
+	}
+
+	/**
+	 * Is this query allowed to be served from/stored into the compiled-query cache?
+	 *
+	 * @return     boolean
+	 */
+	public function isCompiledQueryCacheEnabled(): bool
+	{
+		return $this->compiledQueryCacheKey !== null;
+	}
+
+	/**
+	 * The caller-supplied compiled-query cache shape key, or null if disabled.
+	 * @see setCompiledQueryCache()
+	 */
+	public function getCompiledQueryCacheKey(): ?string
+	{
+		return $this->compiledQueryCacheKey;
 	}
 
 	/**
