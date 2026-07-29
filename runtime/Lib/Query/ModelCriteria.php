@@ -57,15 +57,12 @@ class ModelCriteria extends Criteria
 	const FORMAT_OBJECT = 'Propulsion\\Formatter\\PropulsionObjectFormatter';
 	const FORMAT_ON_DEMAND = 'Propulsion\\Formatter\\PropulsionOnDemandFormatter';
 
-	/** @var string|null */
-	protected $modelName;
-	/** @var string|null */
-	protected $modelPeerName;
+	protected string $modelName;
+	protected string $modelPeerName;
 	/** @var string|null */
 	protected $modelAlias;
 	protected bool $useAliasInSQL = false;
-	/** @var TableMap|null */
-	protected $tableMap;
+	protected TableMap $tableMap;
 	/** @var ModelCriteria|null */
 	protected $primaryCriteria;
 	/** @var PropulsionFormatter|null */
@@ -102,16 +99,23 @@ class ModelCriteria extends Criteria
 	 * Creates a new instance with the default capacity which corresponds to
 	 * the specified database.
 	 *
-	 * @param     string $dbName The dabase name
+	 * @param     string|null $dbName The dabase name (null uses the default database)
 	 * @param     string $modelName The phpName of a model, e.g. 'Book'
 	 * @param     string $modelAlias The alias for the model in this query, e.g. 'b'
 	 */
-	public function __construct($dbName = null, $modelName = null, $modelAlias = null)
+	public function __construct(?string $dbName = null, ?string $modelName = null, $modelAlias = null)
 	{
 		$this->setDbName($dbName);
 		$this->originalDbName = $dbName;
+		if ($modelName === null) {
+			throw new PropulsionException('ModelCriteria requires a model name');
+		}
 		$this->modelName = $modelName;
-		$this->modelPeerName = constant($this->modelName . '::PEER');
+		$modelPeerName = constant($this->modelName . '::PEER');
+		if (!is_string($modelPeerName)) {
+			throw new PropulsionException("Constant {$this->modelName}::PEER is not a string");
+		}
+		$this->modelPeerName = $modelPeerName;
 		$this->modelAlias = $modelAlias;
 		$this->tableMap = Propulsion::getDatabaseMap($this->getDbName())->getTableByPhpName($this->modelName);
 	}
