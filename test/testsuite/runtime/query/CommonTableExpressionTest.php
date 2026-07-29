@@ -119,7 +119,16 @@ class CommonTableExpressionTest extends BookstoreTestBase
 		$params = array();
 		$sql = normalizeGeneratedSql(BasePeer::createSelectSql($main, $params));
 
-		$this->assertStringStartsWith('WITH RECURSIVE category_tree (ID, PARENT_ID) AS (', $sql, 'a recursive CTE is prefixed with WITH RECURSIVE on an adapter using the default supportsRecursiveCteKeyword()');
+		// MSSQL and Oracle both override DBAdapter::supportsRecursiveCteKeyword()
+		// to false -- T-SQL has no RECURSIVE keyword at all (and rejects it as a
+		// syntax error if present), and Oracle likewise accepts a plain "WITH"
+		// for a self-referencing CTE. Every other platform here (Postgres/MySQL/
+		// MariaDB/SQLite) uses the default (true).
+		$db = Propulsion::getDB(BookPeer::DATABASE_NAME);
+		$expectedPrefix = $db->supportsRecursiveCteKeyword()
+			? 'WITH RECURSIVE category_tree (ID, PARENT_ID) AS ('
+			: 'WITH category_tree (ID, PARENT_ID) AS (';
+		$this->assertStringStartsWith($expectedPrefix, $sql, 'a recursive CTE is prefixed with WITH RECURSIVE only on adapters whose supportsRecursiveCteKeyword() returns true');
 	}
 
 	public function testWithCteFiltersRealData()

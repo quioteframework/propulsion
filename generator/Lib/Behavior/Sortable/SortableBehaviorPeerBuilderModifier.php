@@ -228,7 +228,7 @@ public static function reorder(array \$order, ?PropulsionPDO \$con = null)
 		\$con->commit();
 
 		return true;
-	} catch (PropulsionException \$e) {
+	} catch (\Throwable \$e) {
 		\$con->rollback();
 		throw \$e;
 	}

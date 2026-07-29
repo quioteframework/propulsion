@@ -465,6 +465,18 @@ class DBMSSQL extends DBAdapter
 	 */
 	public function extractInsertedId(\PDOStatement $stmt): mixed
 	{
+		// pdo_dblib's PDOStatement::execute() doesn't throw when the INSERT
+		// itself fails (e.g. a constraint violation, or a value that can't be
+		// converted to the column's type) -- it returns true with the OUTPUT
+		// INSERTED.<col> result set simply empty. A plain INSERT with no
+		// OUTPUT clause throws correctly in the same situation. Note this
+		// can't be detected via rowCount(): confirmed against a live
+		// azure-sql-edge container that pdo_dblib's rowCount() returns -1
+		// for *every* OUTPUT-clause INSERT here, success or failure alike --
+		// it is not a usable signal for this statement shape. fetchColumn()
+		// returning false is: a real inserted id (an IDENTITY column) is
+		// never itself boolean false, so false unambiguously means the
+		// OUTPUT result set had no row, i.e. nothing was inserted.
 		$id = $stmt->fetchColumn();
 		// FreeTDS/pdo_dblib has no MARS support: every INSERT here goes
 		// through the OUTPUT INSERTED.<col> clause (see getInsertReturningSql()),
@@ -474,6 +486,10 @@ class DBMSSQL extends DBAdapter
 		// "Attempt to initiate a new Adaptive Server operation with results
 		// pending" before PHP's GC gets around to closing it.
 		$stmt->closeCursor();
+
+		if ($id === false) {
+			throw new PropulsionException('MSSQL INSERT affected 0 rows; the row was not inserted (likely a constraint violation or type conversion error swallowed by pdo_dblib)');
+		}
 
 		return $id;
 	}

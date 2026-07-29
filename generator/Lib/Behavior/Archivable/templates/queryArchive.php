@@ -33,7 +33,7 @@ public function archive($con = null, $useLittleMemory = true)
 			$totalArchivedObjects++;
 		}
 		$con->commit();
-	} catch (PropulsionException $e) {
+	} catch (\Throwable $e) {
 		$con->rollBack();
 		throw $e;
 	}

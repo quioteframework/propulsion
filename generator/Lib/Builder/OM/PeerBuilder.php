@@ -1903,7 +1903,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		$script .= "
 			\$con->commit();
 			return \$affectedRows;
-		} catch (PropulsionException \$e) {
+		} catch (\Throwable \$e) {
 			\$con->rollBack();
 			throw \$e;
 		}
@@ -2264,7 +2264,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		$script .= "
 			\$con->commit();
 			return \$affectedRows;
-		} catch (PropulsionException \$e) {
+		} catch (\Throwable \$e) {
 			\$con->rollBack();
 			throw \$e;
 		}

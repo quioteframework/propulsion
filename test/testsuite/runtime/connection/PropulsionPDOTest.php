@@ -248,20 +248,6 @@ class PropulsionPDOTest extends TestCase
 	public function testNestedTransactionRollBackSwallow()
 	{
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
-		if ($con instanceof MssqlPropulsionPDO) {
-			// MSSQL's nested transactions are emulated via a depth counter and
-			// a coarse "poisoned" flag (see PropulsionPDO::$savepointCapableDrivers'
-			// own docblock and MssqlPropulsionPDO::beginTransaction()) rather than
-			// real SAVEPOINT/SAVE TRANSACTION statements -- a nested rollBack()
-			// here doesn't undo just its own work, it poisons the *whole* outer
-			// transaction so a later commit() throws. A real-savepoint version of
-			// this was tried and reverted: something elsewhere in this codebase
-			// leaves getNestedTransactionCount() unbalanced across a large number
-			// of otherwise-unrelated tests sharing one process-lifetime
-			// connection, which this coarse emulation tolerates silently but a
-			// real nested SAVE TRANSACTION does not (see KNOWN_ISSUES.md).
-			$this->markTestSkipped('MSSQL nested transactions poison the outer transaction on rollback (no real savepoints); see KNOWN_ISSUES.md.');
-		}
 		$driver = $con->getAttribute(PDO::ATTR_DRIVER_NAME);
 
 		$con->beginTransaction();

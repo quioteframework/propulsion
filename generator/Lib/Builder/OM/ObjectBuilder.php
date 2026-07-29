@@ -2125,7 +2125,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			\$this->setDeleted(true);";
 		}
 		$script .= "
-		} catch (PropulsionException \$e) {
+		} catch (\Throwable \$e) {
 			\$con->rollBack();
 			throw \$e;
 		}
@@ -2230,7 +2230,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			return \$affectedRows;";
 		}
 		$script .= "
-		} catch (PropulsionException \$e) {
+		} catch (\Throwable \$e) {
 			\$con->rollBack();
 			throw \$e;
 		}

@@ -175,17 +175,13 @@ class EventDispatchIntegrationTest extends BookstoreTestBase
 	}
 
 	/**
-	 * A listener that throws during save() is not caught by the generated
-	 * save() method's `catch (PropulsionException $e)` block (a plain
-	 * RuntimeException isn't a PropulsionException), so it propagates all
-	 * the way out of save() uncaught -- and, notably, the transaction that
-	 * save() began is left neither committed nor rolled back in that case
-	 * (see Propulsion::dispatch()'s docblock). Callers registering listeners
-	 * that might throw should either keep them exception-safe or throw
-	 * PropulsionException specifically if they want save()'s existing
-	 * rollback-on-PropulsionException behavior.
+	 * A listener that throws during save() is caught by the generated save()
+	 * method's `catch (\Throwable $e)` block, so the transaction save() began
+	 * is rolled back before the exception propagates out of save() -- even
+	 * though the thrown exception (a plain RuntimeException) isn't a
+	 * PropulsionException. See Propulsion::dispatch()'s docblock.
 	 */
-	public function testThrowingListenerDuringSavePropagatesAndLeavesTransactionOpen(): void
+	public function testThrowingListenerDuringSavePropagatesAndRollsBackTransaction(): void
 	{
 		Propulsion::setEventDispatcher(new IntegrationThrowingEventDispatcher());
 
@@ -201,12 +197,9 @@ class EventDispatchIntegrationTest extends BookstoreTestBase
 			$this->assertSame('listener boom', $e->getMessage());
 		}
 
-		// save()'s own beginTransaction() was never matched by a commit/rollback
-		// since only PropulsionException is caught -- clean up explicitly so
-		// tearDown() (which expects a single outer transaction) doesn't choke.
-		$this->assertSame($nestedCountBefore + 1, $this->con->getNestedTransactionCount());
-		$this->con->forceRollBack();
-		$this->con->beginTransaction();
+		// save()'s own beginTransaction() was rolled back by its catch (\Throwable)
+		// block, so the nested transaction count is back to its pre-save() value.
+		$this->assertSame($nestedCountBefore, $this->con->getNestedTransactionCount());
 	}
 }
 

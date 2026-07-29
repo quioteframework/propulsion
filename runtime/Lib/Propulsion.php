@@ -387,11 +387,10 @@ class Propulsion
 	 * Exceptions thrown by a listener are not caught here -- they propagate
 	 * out of dispatch() (and therefore out of whichever preSave()/postSave()/
 	 * etc. hook triggered the dispatch, and the save()/delete() call that
-	 * invoked the hook). Note that generated save()/delete() code only
-	 * catches PropulsionException around the hook calls, so a listener
-	 * throwing anything else will skip the transaction rollback there; keep
-	 * listeners exception-safe (or throw PropulsionException) if that
-	 * matters for your use case.
+	 * invoked the hook). Generated save()/delete() code catches \Throwable
+	 * around the hook calls specifically so that any listener exception,
+	 * regardless of type, still rolls back the transaction save()/delete()
+	 * began before propagating.
 	 *
 	 * @param      object $event
 	 * @return     object The event, potentially mutated by listeners (same

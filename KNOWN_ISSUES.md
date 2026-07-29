@@ -21,32 +21,6 @@ rm -rf fixtures/bookstore/build fixtures/schemas/build fixtures/namespaced/build
 
 ## Open issues
 
-- **PostgreSQL 16+ is the minimum supported version.** Referenced from
-  `README.md`, `generator/default.php`, `PgsqlPlatform::getMaxColumnNameLength()`,
-  and `PgsqlSchemaParser`'s docblock. Nothing in this codebase currently has
-  version-conditional Postgres behavior below that floor to audit, but keep
-  it in mind if any future Postgres-specific feature work considers gating
-  on server version.
-- **Testcontainer leak on `kill -9`** (theoretical, mitigated by
-  `composer test:cleanup-containers`, not seen in practice).
-- **MSSQL nested transactions are emulated, not real.** `MssqlPropulsionPDO`
-  uses a depth counter + coarse "poisoned" flag rather than real T-SQL
-  `SAVE TRANSACTION`/`ROLLBACK TRANSACTION` savepoints — a nested rollback
-  doesn't undo just its own work, it poisons the whole outer transaction so a
-  later `commit()` throws. A real-savepoint version regressed ~500 tests
-  (something leaves `getNestedTransactionCount()` unbalanced across many
-  otherwise-unrelated tests sharing one process-lifetime connection); needs
-  that root cause found before real savepoints can be attempted again.
-  `PropulsionPDOTest::testNestedTransactionRollBackSwallow` is skipped on
-  MSSQL as a result.
-- **MSSQL: a failed `INSERT` can silently "succeed" instead of throwing.**
-  Every `INSERT` folds id retrieval in via `DBMSSQL`'s `OUTPUT INSERTED.<col>`
-  clause; when that `INSERT` violates a constraint, pdo_dblib's
-  `PDOStatement::execute()` returns `true` with an empty `OUTPUT` result set
-  instead of throwing, so `extractInsertedId()` gets back `false`/`null` with
-  no exception at all — a plain `INSERT` with no `OUTPUT` clause throws
-  correctly. Needs a `rowCount() === 0` (or similar) check specifically on
-  the insert-returning path.
 - **`buildtime-conf.xml`** (legacy XML build-time config) is still accepted
   alongside the plain-PHP format — no way to confirm from this repo that no
   consumer still relies on it. Drop at a major-version boundary.

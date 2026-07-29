@@ -1405,7 +1405,7 @@ protected function moveSubtreeTo(\$destLeft, \$levelDelta, ?PropulsionPDO \$con 
 		$peerClassname::updateLoadedNodes(null, \$con);
 
 		\$con->commit();
-	} catch (PropulsionException \$e) {
+	} catch (\Throwable \$e) {
 		\$con->rollback();
 		throw \$e;
 	}
