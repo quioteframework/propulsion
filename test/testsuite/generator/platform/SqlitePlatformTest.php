@@ -370,4 +370,66 @@ DROP INDEX [babar];
 		$this->assertEquals($expected, $this->getPLatform()->getCommentBlockDDL('foo bar'));
 	}
 
+	public function testGetAddIndexDDLPartial()
+	{
+		$table = new Table('foo');
+		$column = new Column('bar1');
+		$column->getDomain()->copy(new Domain('FOOTYPE'));
+		$table->addColumn($column);
+		$index = new Index('babar');
+		$index->addColumn($column);
+		$index->setWhereClause('bar1 IS NOT NULL');
+		$table->addIndex($index);
+
+		$expected = "
+CREATE INDEX [babar] ON [foo] ([bar1]) WHERE (bar1 IS NOT NULL);
+";
+		$this->assertEquals($expected, $this->getPlatform()->getAddIndexDDL($index));
+	}
+
+	public function testGetAddIndexDDLExpression()
+	{
+		$table = new Table('foo');
+		$column = new Column('title');
+		$column->getDomain()->copy(new Domain('FOOTYPE'));
+		$table->addColumn($column);
+		$index = new Index('babar');
+		$index->addColumn(['expression' => 'lower(title)']);
+		$table->addIndex($index);
+
+		$expected = "
+CREATE INDEX [babar] ON [foo] ((lower(title)));
+";
+		$this->assertEquals($expected, $this->getPlatform()->getAddIndexDDL($index));
+	}
+
+	public function testGetColumnDDLGeneratedVirtual()
+	{
+		$table = new Table('foo');
+		$column = new Column('title_upper');
+		$column->setTable($table);
+		$column->getDomain()->copy(new Domain('VARCHAR'));
+		$column->getDomain()->replaceSize(255);
+		$column->setGeneratedExpr('upper(title)');
+		$table->addColumn($column);
+
+		$expected = '[title_upper] VARCHAR(255) GENERATED ALWAYS AS (upper(title)) VIRTUAL';
+		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($column));
+	}
+
+	public function testGetColumnDDLGeneratedStored()
+	{
+		$table = new Table('foo');
+		$column = new Column('title_upper');
+		$column->setTable($table);
+		$column->getDomain()->copy(new Domain('VARCHAR'));
+		$column->getDomain()->replaceSize(255);
+		$column->setGeneratedExpr('upper(title)');
+		$column->setGeneratedType('stored');
+		$table->addColumn($column);
+
+		$expected = '[title_upper] VARCHAR(255) GENERATED ALWAYS AS (upper(title)) STORED';
+		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($column));
+	}
+
 }

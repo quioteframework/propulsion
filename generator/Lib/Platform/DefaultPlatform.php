@@ -568,6 +568,27 @@ CREATE %sINDEX %s ON %s (%s);
 	}
 
 	/**
+	 * Builds the DDL SQL for an index's column list, honoring
+	 * Index::isExpressionAtPosition() -- a plain column name is quoted as an
+	 * identifier as usual, while an expression entry is emitted verbatim,
+	 * wrapped in an extra pair of parentheses (always safe/valid even when
+	 * the expression is itself already parenthesized, e.g. a function call,
+	 * and required when it isn't, e.g. `a || b`). Shared by any platform
+	 * whose `CREATE INDEX` syntax accepts expression index columns
+	 * (currently PgsqlPlatform and SqlitePlatform).
+	 */
+	protected function getIndexColumnListDDL(Index $index): string
+	{
+		$parts = array();
+		foreach ($index->getColumns() as $pos => $column) {
+			$parts[] = $index->isExpressionAtPosition($pos)
+				? '(' . $column . ')'
+				: $this->quoteIdentifier($column);
+		}
+		return implode(',', $parts);
+	}
+
+	/**
 	 * Builds the DDL SQL to drop an Index.
 	 *
 	 * @param      Index $index

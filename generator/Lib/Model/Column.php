@@ -146,6 +146,21 @@ class Column extends XMLElement
 	protected string $tsvectorConfig = 'english';
 
 	/**
+	 * The raw SQL expression a generated column (`generatedAs="expr"`) is
+	 * computed from, or null for an ordinary column. Currently only honored
+	 * by SqlitePlatform (`GENERATED ALWAYS AS (expr) VIRTUAL|STORED`,
+	 * SQLite 3.31+).
+	 */
+	protected ?string $generatedAs = null;
+
+	/**
+	 * Whether a generated column (see $generatedAs) is `VIRTUAL` (computed on
+	 * read, the SQLite default) or `STORED` (computed on write and persisted)
+	 * -- `generatedType="stored"`. Meaningless without $generatedAs set.
+	 */
+	protected string $generatedType = 'VIRTUAL';
+
+	/**
 	 * Whether a numeric column is declared `unsigned="true"` (MySQL/MariaDB's
 	 * `UNSIGNED` column modifier). Only honored by MysqlPlatform, and only
 	 * for a numeric column there -- silently ignored otherwise.
@@ -326,6 +341,14 @@ class Column extends XMLElement
 				$this->tsvectorFrom = array_map('trim', explode(',', (string) $tsvectorFromAttr));
 			}
 			$this->tsvectorConfig = (string) $this->getAttribute('tsvectorConfig', 'english');
+
+			$generatedAsAttr = $this->getAttribute('generatedAs', null);
+			$this->generatedAs = $generatedAsAttr !== null ? (string) $generatedAsAttr : null;
+			$generatedTypeAttr = strtoupper((string) $this->getAttribute('generatedType', 'VIRTUAL'));
+			if ($generatedTypeAttr !== 'VIRTUAL' && $generatedTypeAttr !== 'STORED') {
+				throw new EngineException(sprintf('generatedType attribute on column "%s" must be "VIRTUAL" or "STORED", got "%s"', $this->getName(), $generatedTypeAttr));
+			}
+			$this->generatedType = $generatedTypeAttr;
 
 			$this->isUnsigned = $this->booleanValue($this->getAttribute("unsigned"));
 			$this->isZerofill = $this->booleanValue($this->getAttribute("zerofill"));
@@ -1223,6 +1246,54 @@ class Column extends XMLElement
 	public function setTsvectorConfig(string $tsvectorConfig): void
 	{
 		$this->tsvectorConfig = $tsvectorConfig;
+	}
+
+	/**
+	 * Whether this is a generated column (`generatedAs="expr"` set).
+	 */
+	public function isGenerated(): bool
+	{
+		return $this->generatedAs !== null;
+	}
+
+	/**
+	 * The raw SQL expression this generated column is computed from, or null
+	 * for an ordinary column.
+	 */
+	public function getGeneratedExpr(): ?string
+	{
+		return $this->generatedAs;
+	}
+
+	public function setGeneratedExpr(?string $generatedAs): void
+	{
+		$this->generatedAs = $generatedAs;
+	}
+
+	/**
+	 * "VIRTUAL" (computed on read, the default) or "STORED" (computed on
+	 * write and persisted) -- see $generatedType's docblock.
+	 */
+	public function getGeneratedType(): string
+	{
+		return $this->generatedType;
+	}
+
+	public function setGeneratedType(string $generatedType): void
+	{
+		$generatedType = strtoupper($generatedType);
+		if ($generatedType !== 'VIRTUAL' && $generatedType !== 'STORED') {
+			throw new EngineException(sprintf('generatedType must be "VIRTUAL" or "STORED", got "%s"', $generatedType));
+		}
+		$this->generatedType = $generatedType;
+	}
+
+	/**
+	 * Whether this generated column is `STORED` rather than `VIRTUAL`.
+	 */
+	public function isGeneratedStored(): bool
+	{
+		return $this->generatedType === 'STORED';
 	}
 
 	/**

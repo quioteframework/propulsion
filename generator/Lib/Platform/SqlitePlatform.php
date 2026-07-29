@@ -15,7 +15,9 @@ namespace Propulsion\Generator\Platform;
  * @author     Hans Lellelid <hans@xmpl.org>
  * @version    $Revision$
  */
+use Propulsion\Generator\Model\Column;
 use Propulsion\Generator\Model\Domain;
+use Propulsion\Generator\Model\Index;
 use Propulsion\Generator\Model\PropulsionTypes;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Model\ForeignKey;
@@ -154,6 +156,70 @@ class SqlitePlatform extends DefaultPlatform
 			$this->getColumnListDDL($fk->getLocalColumns()),
 			$fk->getForeignTableName(),
 			$this->getColumnListDDL($fk->getForeignColumns())
+		);
+	}
+
+	/**
+	 * Overrides DefaultPlatform to emit a SQLite (3.31+) generated column --
+	 * `GENERATED ALWAYS AS (expr) VIRTUAL|STORED` -- when Column::isGenerated()
+	 * is set, in place of the ordinary DEFAULT-value DDL (a generated column
+	 * can't also carry a DEFAULT, the same mutual exclusivity
+	 * PgsqlPlatform's own tsvectorFrom-generated columns already have).
+	 * Otherwise identical to the parent implementation.
+	 */
+	public function getColumnDDL(Column $col)
+	{
+		if (!$col->isGenerated()) {
+			// No SQLite-specific behavior needed for an ordinary column --
+			// defer to the parent implementation (which also handles the
+			// nativeEnum CHECK-constraint branch).
+			return parent::getColumnDDL($col);
+		}
+
+		$domain = $col->getDomain();
+
+		$ddl = array($this->quoteIdentifier($col->getName()));
+		$sqlType = $domain->getSqlType();
+		if ($this->hasSize($sqlType) && $col->isDefaultSqlType($this)) {
+			$ddl []= $sqlType . $domain->printSize();
+		} else {
+			$ddl []= $sqlType;
+		}
+		// SQLite (3.31+) generated column -- can't also carry a DEFAULT, so
+		// this branch is mutually exclusive with getColumnDefaultValueDDL(),
+		// the same way PgsqlPlatform's own tsvectorFrom-generated columns are.
+		$ddl []= sprintf('GENERATED ALWAYS AS (%s) %s', $col->getGeneratedExpr(), $col->getGeneratedType());
+		if ($notNull = $this->getNullString($col->isNotNull())) {
+			$ddl []= $notNull;
+		}
+		if ($autoIncrement = $col->getAutoIncrementString()) {
+			$ddl []= $autoIncrement;
+		}
+
+		return implode(' ', $ddl);
+	}
+
+	/**
+	 * Overrides DefaultPlatform to support SQLite's partial-index `WHERE`
+	 * predicate (3.8+) and expression index columns (3.9+), reusing the same
+	 * `Index::getWhereClause()`/`Index::isExpressionAtPosition()` model
+	 * PgsqlPlatform's own `getAddIndexDDL()` already honors. Unlike Postgres,
+	 * SQLite has no index access method (`USING`), `INCLUDE`, storage
+	 * parameters, or `CONCURRENTLY` clause, so only the column list and
+	 * `WHERE` clause differ from the base implementation.
+	 */
+	public function getAddIndexDDL(Index $index)
+	{
+		$pattern = "
+CREATE %sINDEX %s ON %s (%s)%s;
+";
+		return sprintf(
+			$pattern,
+			$index->isUnique() ? 'UNIQUE ' : '',
+			$this->quoteIdentifier($index->getName()),
+			$this->quoteIdentifier($index->getTable()->getName()),
+			$this->getIndexColumnListDDL($index),
+			$index->getWhereClause() !== null ? ' WHERE (' . $index->getWhereClause() . ')' : ''
 		);
 	}
 

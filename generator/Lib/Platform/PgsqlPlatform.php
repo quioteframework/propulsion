@@ -674,25 +674,6 @@ DROP TABLE IF EXISTS %s CASCADE;
 	}
 
 	/**
-	 * Builds the DDL SQL for an index's column list, honoring
-	 * Index::isExpressionAtPosition() -- a plain column name is quoted as an
-	 * identifier as usual, while an expression entry is emitted verbatim,
-	 * wrapped in an extra pair of parentheses (always safe/valid even when
-	 * the expression is itself already parenthesized, e.g. a function call,
-	 * and required when it isn't, e.g. `a || b`).
-	 */
-	protected function getIndexColumnListDDL(Index $index): string
-	{
-		$parts = array();
-		foreach ($index->getColumns() as $pos => $column) {
-			$parts[] = $index->isExpressionAtPosition($pos)
-				? '(' . $column . ')'
-				: $this->quoteIdentifier($column);
-		}
-		return implode(',', $parts);
-	}
-
-	/**
 	 * Overrides DefaultPlatform to add Postgres-specific index DDL this
 	 * codebase's shared `Index` model now supports: a `USING <method>`
 	 * clause for a non-default index access method (`indexType`, e.g. GIN

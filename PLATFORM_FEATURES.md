@@ -760,18 +760,60 @@ parity.
   see query-layer section above (`BasePeer::doUpsert()`,
   `DBSQLite::supportsInsertReturning()`/`getInsertReturningSql()`). Duplicate
   of the query-layer bullets, kept checked off here for cross-reference.
-- [ ] Generated columns (`GENERATED ALWAYS AS ... [STORED|VIRTUAL]`, 3.31+).
+- [x] **Generated columns** (`GENERATED ALWAYS AS (expr) [VIRTUAL|STORED]`,
+  3.31+) — new, platform-generic `Column` attributes `generatedAs="expr"`
+  (the raw SQL expression) and `generatedType="virtual"|"stored"` (default
+  `VIRTUAL`, SQLite's own default), `Column::isGenerated()`/
+  `getGeneratedExpr()`/`getGeneratedType()`/`isGeneratedStored()`, currently
+  only honored by `SqlitePlatform::getColumnDDL()` (falls through to
+  `DefaultPlatform::getColumnDDL()` unchanged for any non-generated column,
+  so the nativeEnum CHECK-constraint branch there is untouched). A generated
+  column can't also carry a `DEFAULT`, the same mutual exclusivity
+  PgsqlPlatform's `tsvectorFrom`-generated columns already have. Modeled as
+  generic rather than SQLite-specific since MySQL's own "Generated/virtual
+  columns" gap (still open, see that platform's section) could reuse the same
+  attributes later. Live-verified against a real SQLite (`pdo_sqlite`) file
+  -- including that a `STORED` generated column round-trips correctly through
+  a plain `SELECT`.
 - [ ] `STRICT` tables (3.37+) and `WITHOUT ROWID`. Note the current type
   mappings (`SqlitePlatform::initialize()`) emit MySQL-flavored type names
   (`MEDIUMTEXT`, `LONGBLOB`, `MEDIUMBLOB`), which SQLite accepts today only
   because of its permissive type affinity — those names are *not* valid under
   `STRICT`, so this item is a prerequisite for that one.
-- [ ] Partial and expression indexes (3.8+).
+- [x] **Partial and expression indexes** (3.8+/3.9+) — `SqlitePlatform` now
+  overrides `getAddIndexDDL()` to honor the same `Index::getWhereClause()`
+  (`where="..."`) and `Index::isExpressionAtPosition()` (`<index-column
+  expression="...">`) attributes PgsqlPlatform's own partial/expression index
+  support already introduced (see the Postgres section above) -- SQLite's
+  `CREATE INDEX` syntax accepts both a trailing `WHERE` predicate and
+  expression columns the same way. Unlike Postgres, SQLite has no index
+  access method (`USING`), `INCLUDE`, storage parameters, or `CONCURRENTLY`
+  clause, so only the column list and `WHERE` clause differ from the base
+  `DefaultPlatform` implementation. The shared column-list-building helper
+  (`getIndexColumnListDDL()`, quotes a plain column name but emits an
+  expression entry verbatim) moved from `PgsqlPlatform` up into
+  `DefaultPlatform` so both platforms can use it -- surfaced one incidental
+  fix along the way: `MysqlPlatform` already had its own unrelated
+  same-named `getIndexColumnListDDL()` (handling per-column index-prefix
+  *sizes*, a different feature) with no declared return type, which became a
+  fatal "declaration must be compatible" error once the newly-shared parent
+  method declared `: string` -- fixed by adding the matching return type to
+  MySQL's own method (pure type annotation, no behavior change). Live-verified
+  against a real SQLite database, including confirming via `EXPLAIN QUERY
+  PLAN` that a partial index is actually selected by the query planner.
 - [ ] FTS5 full-text search; JSON functions (JSON1, built in since 3.38).
-- [ ] `ALTER TABLE` capability audit — `getAddForeignKeyDDL()`/
-  `getDropForeignKeyDDL()` exist but SQLite cannot add or drop an FK on an
-  existing table (the 12-step table-rebuild dance is the only route).
-  Confirm what these actually emit and what `supportsMigrations()` promises.
+- [x] **`ALTER TABLE` capability audit** — confirmed, no code changes needed.
+  `SqlDiffManager::diff()` (the only caller of the migration path) checks
+  `Platform::supportsMigrations()` per-database and skips the database
+  entirely (with a logged message) when false; `SqlitePlatform::
+  supportsMigrations()` returns `false`, so `SqlitePlatform::
+  getAddForeignKeyDDL()`/`getDropForeignKeyDDL()` (a reference-only SQL
+  comment and an empty string, respectively -- confirmed by reading them)
+  are never invoked by that path at all. The 12-step table-rebuild dance
+  this item's own text flags remains genuinely unimplemented, but it's
+  correctly unreachable rather than silently broken -- `sql:diff` simply
+  doesn't support SQLite today, which is what `supportsMigrations() === false`
+  already promises.
 
 ### MSSQL
 

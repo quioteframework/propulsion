@@ -429,7 +429,7 @@ DROP TABLE IF EXISTS " . $this->quoteIdentifier($table->getName()) . ";
 	 * @param      Index $index
 	 * @return     string
 	 */
-	protected function getIndexColumnListDDL(Index $index)
+	protected function getIndexColumnListDDL(Index $index): string
 	{
 		$list = array();
 		foreach ($index->getColumns() as $col) {

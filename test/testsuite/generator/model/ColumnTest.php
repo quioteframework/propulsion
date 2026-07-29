@@ -279,6 +279,61 @@ EOF;
 		$this->assertSame('english', $plain->getTsvectorConfig(), 'defaults to english when not specified');
 	}
 
+	public function testGeneratedAttributesParsedFromSchema()
+	{
+		$xmlToAppData = new XmlToAppData(new SqlitePlatform());
+		$schema = <<<EOF
+<database name="generated_test">
+  <table name="books">
+    <column name="id" type="INTEGER" primaryKey="true" />
+    <column name="title" type="VARCHAR" size="255" />
+    <column name="title_upper" type="VARCHAR" size="255" generatedAs="upper(title)" generatedType="stored" />
+    <column name="title_lower" type="VARCHAR" size="255" generatedAs="lower(title)" />
+    <column name="plain" type="VARCHAR" size="255" />
+  </table>
+</database>
+EOF;
+		$appData = $xmlToAppData->parseString($schema);
+		$table = $appData->getDatabase('generated_test')->getTable('books');
+
+		$stored = $table->getColumn('title_upper');
+		$this->assertTrue($stored->isGenerated());
+		$this->assertSame('upper(title)', $stored->getGeneratedExpr());
+		$this->assertSame('STORED', $stored->getGeneratedType());
+		$this->assertTrue($stored->isGeneratedStored());
+
+		$virtual = $table->getColumn('title_lower');
+		$this->assertTrue($virtual->isGenerated());
+		$this->assertSame('VIRTUAL', $virtual->getGeneratedType(), 'defaults to VIRTUAL when not specified');
+		$this->assertFalse($virtual->isGeneratedStored());
+
+		$plain = $table->getColumn('plain');
+		$this->assertFalse($plain->isGenerated());
+		$this->assertNull($plain->getGeneratedExpr());
+	}
+
+	public function testGeneratedTypeRejectsInvalidValue()
+	{
+		$xmlToAppData = new XmlToAppData(new SqlitePlatform());
+		$schema = <<<EOF
+<database name="generated_invalid_test">
+  <table name="books">
+    <column name="id" type="INTEGER" primaryKey="true" />
+    <column name="title_upper" type="VARCHAR" size="255" generatedAs="upper(id)" generatedType="bogus" />
+  </table>
+</database>
+EOF;
+		$this->expectException(EngineException::class);
+		$xmlToAppData->parseString($schema);
+	}
+
+	public function testSetGeneratedTypeRejectsInvalidValue()
+	{
+		$column = new Column('foo');
+		$this->expectException(EngineException::class);
+		$column->setGeneratedType('bogus');
+	}
+
 	public function testSetTypeAttributesParsedFromSchema()
 	{
 		$xmlToAppData = new XmlToAppData(new MysqlPlatform());
