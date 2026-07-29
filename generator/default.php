@@ -50,11 +50,13 @@ return [
 
     // Default behavior settings
     //
-    // Unset (rather than "php5") so GeneratorConfig::getBuilderClassname() falls
-    // straight through to the unsuffixed propulsion.builder.*.class defaults below,
-    // which (since Phase 3, see KNOWN_ISSUES.md) are the modern builders formerly
-    // suffixed .php84. Explicitly set this to "php5" to opt back into the legacy
-    // PHP5* builders via the propulsion.builder.*.php5.class overrides.
+    // Unset so GeneratorConfig::getBuilderClassname() falls straight through to
+    // the unsuffixed propulsion.builder.*.class defaults below. There is no
+    // "php5" dialect to opt into -- the legacy PHP5* builders were removed from
+    // the codebase entirely (see archaeology/php5-builders/ and the BUILDER
+    // SETTINGS section below); this key only exists at all for the generic
+    // propulsion.builder.*.<platform>.class override mechanism
+    // GeneratorConfig::getBuilderClassname() still supports.
     'propulsion.targetPlatform' => '',
     'propulsion.packageObjectModel' => 'false',
     'propulsion.useDateTimeClass' => 'true',

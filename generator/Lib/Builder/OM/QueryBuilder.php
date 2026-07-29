@@ -14,8 +14,9 @@ namespace Propulsion\Generator\Builder\OM;
  *
  * This class produces the base query class (e.g. BaseBookQuery) which contains all
  * the custom-built query methods, using modern PHP 8.4 features (typed properties,
- * typed method signatures, etc). The legacy untyped equivalent lives on as
- * PHP5QueryBuilder for anyone who explicitly opts into propulsion.targetPlatform=php5.
+ * typed method signatures, etc). It is the only "query" builder this codebase has
+ * -- the legacy untyped PHP5QueryBuilder was removed entirely (see
+ * archaeology/php5-builders/).
  *
  * @author     Francois Zaninotto
  * @author     Modernized for PHP 8.4

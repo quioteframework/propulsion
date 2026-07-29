@@ -27,7 +27,7 @@ class ModelBuildCommand extends Command
             ->addOption('output-dir', 'o', InputOption::VALUE_REQUIRED, 'Output directory for generated classes', './generated-classes')
             ->addOption('config', 'c', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Build properties file overriding generator/default.php (repeatable; later files win)', [])
             ->addOption('database', 'd', InputOption::VALUE_REQUIRED, 'Target database adapter (mysql, pgsql, sqlite, ...)')
-            ->addOption('target-platform', null, InputOption::VALUE_REQUIRED, 'Codegen dialect: php5 (legacy) or php84 (current)')
+            ->addOption('target-platform', null, InputOption::VALUE_REQUIRED, 'Codegen dialect override (advanced; selects propulsion.builder.*.<platform>.class overrides, e.g. php84)')
             ->addOption('namespace', null, InputOption::VALUE_REQUIRED, 'Default package/namespace for generated classes')
             ->setHelp(<<<'EOT'
 The <info>model:build</info> command generates Object Model classes from XML schema files.

@@ -308,13 +308,10 @@ class GeneratorConfig implements GeneratorConfigInterface
 	{
 		$platform = $this->getBuildProperty('targetPlatform');
 
-		// Check for platform-specific builder first. 'php5' used to be special-cased
-		// here to always skip straight to the unsuffixed default -- back when the
-		// unsuffixed propulsion.builder.*.class keys *were* the PHP5 builders. Since
-		// Phase 3 (see KNOWN_ISSUES.md) promoted the modern (formerly PHP84) builders
-		// to the unsuffixed defaults, 'php5' now needs the same platform-specific
-		// override lookup as any other explicit targetPlatform value, so that
-		// propulsion.builder.*.php5.class overrides remain reachable.
+		// Check for a platform-specific builder override first (e.g.
+		// propulsion.builder.*.php84.class), falling back to the unsuffixed
+		// default below when targetPlatform is unset or has no matching
+		// override.
 		if ($platform) {
 			$platformPropname = 'builder' . ucfirst(strtolower($type)) . ucfirst($platform) . 'Class';
 			if ($this->getBuildProperty($platformPropname)) {
