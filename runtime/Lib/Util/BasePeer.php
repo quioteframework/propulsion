@@ -1534,6 +1534,9 @@ class BasePeer
 			if ($v === null) {
 				$cls = Propulsion::importClass($classname);
 				$v = new $cls();
+				if (!$v instanceof BasicValidator) {
+					throw new PropulsionException("Configured validator class \"$cls\" is not a " . BasicValidator::class);
+				}
 				self::$validatorMap[$classname] = $v;
 			}
 			return $v;
