@@ -161,13 +161,13 @@ class PropulsionTypes
 	const ENUM_NATIVE_TYPE = "string";
 	// Like OBJECT, a JSON document's decoded PHP shape isn't a single native type
 	// (json_decode() can yield an array, a scalar, or null) -- see ObjectBuilder's
-	// getPhp84TypeHint()/getPhp84PropertyType(), which special-case JSON/JSONB the
+	// getPhp85TypeHint()/getPhp85PropertyType(), which special-case JSON/JSONB the
 	// same way they already special-case OBJECT, to a `mixed` PHP type.
 	const JSON_NATIVE_TYPE = "";
 	const JSONB_NATIVE_TYPE = "";
 	const UUID_NATIVE_TYPE = "string";
 	// Stored as text (an ISO-8601 duration string, e.g. "P1DT2H") on every
-	// platform -- see ObjectBuilder's getPhp84TypeHint()/getPhp84PropertyType(),
+	// platform -- see ObjectBuilder's getPhp85TypeHint()/getPhp85PropertyType(),
 	// which special-case INTERVAL to the real ?DateInterval object the same way
 	// TIMESTAMP/DATE/TIME are special-cased to ?DateTimeInterface.
 	const INTERVAL_NATIVE_TYPE = "string";
@@ -179,8 +179,8 @@ class PropulsionTypes
 	const CITEXT_NATIVE_TYPE = "string";
 	// Range types are stored as a Postgres range literal string (e.g.
 	// "[1,10)") but, like INTERVAL, hydrate to a real value object
-	// (Propulsion\Type\Range) -- see ObjectBuilder's getPhp84TypeHint()/
-	// getPhp84PropertyType().
+	// (Propulsion\Type\Range) -- see ObjectBuilder's getPhp85TypeHint()/
+	// getPhp85PropertyType().
 	const INT4RANGE_NATIVE_TYPE = "string";
 	const INT8RANGE_NATIVE_TYPE = "string";
 	const NUMRANGE_NATIVE_TYPE = "string";

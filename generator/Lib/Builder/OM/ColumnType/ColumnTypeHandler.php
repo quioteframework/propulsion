@@ -15,7 +15,7 @@ use Propulsion\Generator\Model\Column;
 /**
  * One column "kind"'s (ENUM, JSON, a Postgres array, ...) codegen behavior,
  * previously scattered as parallel `elseif` chains across six independent
- * `ObjectBuilder` methods (`getPhp84TypeHint()`, `addProperties()`/
+ * `ObjectBuilder` methods (`getPhp85TypeHint()`, `addProperties()`/
  * `addApplyDefaultValues()`'s default-value handling, `addHydrate()`,
  * `addBuildCriteria()`/`addBuildPkeyCriteria()`, `getColumnValueCastExpr()`).
  * Adding a new column type used to mean touching all six; a handler collects
@@ -46,9 +46,9 @@ abstract class ColumnTypeHandler
 	abstract public function applies(Column $col): bool;
 
 	/**
-	 * The PHP 8.4 type hint (property type / getter return type / setter
+	 * The PHP 8.5 type hint (property type / getter return type / setter
 	 * parameter type) for $col, e.g. `?DateTimeInterface`. Null falls
-	 * through to `ObjectBuilder::getPhp84TypeHint()`'s own generic mapping
+	 * through to `ObjectBuilder::getPhp85TypeHint()`'s own generic mapping
 	 * (from `Column::getPhpType()`).
 	 */
 	public function getPhpTypeHint(Column $col, ObjectBuilder $builder): ?string

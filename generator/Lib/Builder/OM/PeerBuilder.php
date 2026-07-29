@@ -1556,7 +1556,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		$objectClass = $this->getStubObjectBuilder()->getFullyQualifiedClassname();
 		if (count($primaryKeys) === 1) {
 			$pk = $primaryKeys[0];
-			$pkType = $this->getPhp84TypeHint($pk);
+			$pkType = $this->getPhp85TypeHint($pk);
 
 			$script .= "
 
@@ -1588,9 +1588,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	}
 
 	/**
-	 * Helper method to get PHP 8.4 type hint for a column
+	 * Helper method to get PHP 8.5 type hint for a column
 	 */
-	protected function getPhp84TypeHint(Column $col): string
+	protected function getPhp85TypeHint(Column $col): string
 	{
 		$phpType = $col->getPhpType();
 		$isNullable = !$col->isNotNull();

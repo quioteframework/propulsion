@@ -162,7 +162,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 			}
 			if ($col->hasEnumClass()) {
 				// The property holds the enum instance directly (see
-				// getPhp84PropertyType()), so the default needs to be a real
+				// getPhp85PropertyType()), so the default needs to be a real
 				// instantiation expression, not the raw stored index literal.
 				$defaultValue = $this->getEnumShortName($col) . '::from(' . var_export($val, true) . ')';
 			} else {
@@ -216,11 +216,11 @@ class ObjectBuilder extends AbstractObjectBuilder
 
 
 	/**
-	 * Gets the appropriate PHP 8.4 type hint for a column
+	 * Gets the appropriate PHP 8.5 type hint for a column
 	 * @param Column $col
 	 * @return string
 	 */
-	protected function getPhp84TypeHint(Column $col): string
+	protected function getPhp85TypeHint(Column $col): string
 	{
 		// Always use nullable types for getters and setters to support clearing
 		// relationships and object state, regardless of database constraints.
@@ -267,16 +267,16 @@ class ObjectBuilder extends AbstractObjectBuilder
 	}
 
 	/**
-	 * Gets the appropriate PHP 8.4 property type for a column. Identical to
-	 * getPhp84TypeHint() -- kept as a separate method since property/getter/
+	 * Gets the appropriate PHP 8.5 property type for a column. Identical to
+	 * getPhp85TypeHint() -- kept as a separate method since property/getter/
 	 * setter type hints are conceptually distinct call sites even though
 	 * they've always resolved the same way here.
 	 * @param Column $col
 	 * @return string
 	 */
-	protected function getPhp84PropertyType(Column $col): string
+	protected function getPhp85PropertyType(Column $col): string
 	{
-		return $this->getPhp84TypeHint($col);
+		return $this->getPhp85TypeHint($col);
 	}
 
 	/**
@@ -519,7 +519,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		foreach ($table->getColumns() as $col) {
 			$colname = $col->getName();
 			$phpname = $col->getPhpName();
-			$type = $this->getPhp84PropertyType($col);
+			$type = $this->getPhp85PropertyType($col);
 			// Temporal (DateTimeInterface-typed) columns can have a non-null default, but
 			// PHP property declarations only accept constant/scalar expressions as defaults
 			// -- `new DateTime(...)` isn't legal here (unlike in a constructor-promoted
@@ -755,7 +755,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		\$this->$phpname = $emptyLiteral;";
 			} else {
 				// For typed properties without explicit defaults, initialize to null if nullable
-				$returnType = $this->getPhp84TypeHint($col);
+				$returnType = $this->getPhp85TypeHint($col);
 				if (strpos($returnType, '?') === 0 || strpos($returnType, 'null') !== false) {
 					$script .= "
 		\$this->$phpname = null;";
@@ -923,7 +923,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	{
 		$colname = $col->getName();
 		$description = $col->getDescription() ? $col->getDescription() : "Get the value of [$colname] column.";
-		$returnType = $this->getPhp84TypeHint($col);
+		$returnType = $this->getPhp85TypeHint($col);
 		$script .= "
 
 	/**
@@ -941,7 +941,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	public function addDefaultAccessorOpen(string &$script, Column $col): void
 	{
 		$phpname = $col->getPhpName();
-		$returnType = $this->getPhp84TypeHint($col);
+		$returnType = $this->getPhp85TypeHint($col);
 		$script .= "
 	public function get$phpname(): $returnType
 	{";
@@ -1161,7 +1161,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	public function addMutatorComment(string &$script, Column $col): void
 	{
 		$colname = $col->getName();
-		$paramType = $this->getPhp84TypeHint($col);
+		$paramType = $this->getPhp85TypeHint($col);
 		$returnType = $this->getClassname();
 		$description = $col->getDescription() ? $col->getDescription() : "Set the value of [$colname] column.";
 		$script .= "
@@ -1192,7 +1192,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		} elseif ($col->isBooleanType()) {
 			$paramType = 'bool|int|string|null';
 		} else {
-			$paramType = $this->getPhp84TypeHint($col);
+			$paramType = $this->getPhp85TypeHint($col);
 		}
 		$script .= "
 	public function set$phpname($paramType \$value = null): $returnType
@@ -1206,7 +1206,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	{
 		$colname = $col->getName();
 		$phpname = $col->getPhpName();
-		$paramType = $this->getPhp84TypeHint($col);
+		$paramType = $this->getPhp85TypeHint($col);
 		$returnType = $this->getClassname();
 
 		if ($col->isTemporalType() || $col->isLobType() || $col->isUuidType()) {
@@ -1480,7 +1480,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 
 		if ($col->hasEnumClass()) {
 			// The property already holds the enum instance (see
-			// getPhp84PropertyType()/addHydrate()), so the accessor is a plain
+			// getPhp85PropertyType()/addHydrate()), so the accessor is a plain
 			// pass-through -- unlike the plain-ENUM case below, there's no
 			// index-to-label lookup to do here.
 			$enumShortName = $this->getEnumShortName($col);
@@ -2841,7 +2841,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		
 		if (count($pks) == 1) {
 			$phpname = $pks[0]->getPhpName();
-			$type = $this->getPhp84PropertyType($pks[0]);
+			$type = $this->getPhp85PropertyType($pks[0]);
 			$script .= "
 
 	/**
