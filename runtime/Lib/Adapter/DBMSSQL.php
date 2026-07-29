@@ -24,6 +24,14 @@ use Propulsion\Connection\PropulsionPDO;
 class DBMSSQL extends DBAdapter
 {
 	/**
+	 * @see       DBAdapter::getDefaultPdoClass()
+	 */
+	public function getDefaultPdoClass(): string
+	{
+		return \Propulsion\Adapter\MSSQL\MssqlPropulsionPDO::class;
+	}
+
+	/**
 	 * MS SQL Server does not support SET NAMES
 	 *
 	 * @see       DBAdapter::setCharset()

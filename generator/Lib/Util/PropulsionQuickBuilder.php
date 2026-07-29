@@ -102,7 +102,8 @@ class PropulsionQuickBuilder
 		if (null === $adapter) {
 			$adapter = new DBSQLite();
 		}
-		$con = new PropulsionPDO($dsn, $user, $pass);
+		$pdoClass = $adapter->getDefaultPdoClass();
+		$con = new $pdoClass($dsn, $user, $pass);
 		$con->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_WARNING);
 		$this->buildSQL($con);
 		$this->buildClasses();
@@ -126,7 +127,7 @@ class PropulsionQuickBuilder
 		return $this->database;
 	}
 
-	public function buildSQL(PDO $con): int
+	public function buildSQL(PropulsionPDO $con): int
 	{
 		$statements = PropulsionSQLParser::parseString($this->getSQL());
 		foreach ($statements as $statement) {

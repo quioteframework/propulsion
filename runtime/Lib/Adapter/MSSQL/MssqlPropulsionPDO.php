@@ -12,12 +12,21 @@ namespace Propulsion\Adapter\MSSQL;
 /**
  * dblib doesn't support transactions so we need to add a workaround for transactions, last insert ID, and quoting
  *
+ * Extends PHP 8.4+'s driver-specific \Pdo\Dblib (rather than plain \PDO) for the same
+ * reason PgsqlPropulsionPDO extends \Pdo\Pgsql -- see PropulsionPDO's own docblock.
+ * \Pdo\Dblib doesn't currently add any extra methods of its own (confirmed via
+ * Reflection), so there's no deprecated-method risk this specifically guards against
+ * today, but it keeps this class future-proof against one appearing, and consistent
+ * with every other platform here.
  */
 use Propulsion\Connection\PropulsionPDO;
+use Propulsion\Connection\PropulsionPDOTrait;
 use Propulsion\Exception\PropulsionException;
 
-class MssqlPropulsionPDO extends PropulsionPDO
+class MssqlPropulsionPDO extends \Pdo\Dblib implements PropulsionPDO
 {
+	use PropulsionPDOTrait;
+
 	/**
 	 * Begin a transaction.
 	 *

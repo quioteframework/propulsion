@@ -586,7 +586,7 @@ class IntegrationDatabase
                         'dsn' => $dsn,
                         'user' => 'propulsion',
                         'password' => 'propulsion',
-                        'classname' => 'DebugPDO',
+                        'classname' => 'Propulsion\\Adapter\\Pgsql\\PgsqlDebugPDO', // these two fixtures are always Postgres, see this method's own docblock
                         'settings' => [
                             'queries' => [
                                 'SET lock_timeout = 5000',
@@ -855,7 +855,7 @@ class IntegrationDatabase
                         'dsn' => $dsn,
                         'user' => 'propulsion',
                         'password' => 'propulsion',
-                        'classname' => 'DebugPDO',
+                        'classname' => 'Propulsion\\Adapter\\Pgsql\\PgsqlDebugPDO', // this fixture is always Postgres, see this method's own docblock
                         'settings' => [
                             'queries' => [
                                 'SET lock_timeout = 5000',
@@ -1054,11 +1054,20 @@ class IntegrationDatabase
                 'dsn' => $dsn,
                 'user' => $user,
                 'password' => $password,
-                // dblib (FreeTDS) doesn't support native PDO transactions -- see
-                // MssqlPropulsionPDO's own docblock for the commit/rollback/
-                // lastInsertId workaround this specific subclass provides. Every
-                // other platform here is fine with the generic DebugPDO.
-                'classname' => $platform === 'mssql' ? 'MssqlDebugPDO' : 'DebugPDO',
+                // Driver-specific *DebugPDO (each extends the matching driver-specific
+                // PropulsionPDO -- see that class's own docblock for why: keeps
+                // driver-specific PDO methods like \Pdo\Pgsql::copyFromArray() reachable,
+                // instead of only the ones PDO::pgsql*()-style bolted-on methods expose).
+                // dblib (FreeTDS/MSSQL) additionally doesn't support native PDO
+                // transactions at all -- see MssqlPropulsionPDO's own docblock for the
+                // commit/rollback/lastInsertId workaround that class provides on top.
+                'classname' => match ($platform) {
+                    'mssql' => 'Propulsion\\Adapter\\MSSQL\\MssqlDebugPDO',
+                    'oracle' => 'Propulsion\\Adapter\\Oracle\\OracleDebugPDO',
+                    'mysql', 'mariadb' => 'Propulsion\\Adapter\\Mysql\\MysqlDebugPDO',
+                    'sqlite' => 'Propulsion\\Adapter\\Sqlite\\SqliteDebugPDO',
+                    default => 'Propulsion\\Adapter\\Pgsql\\PgsqlDebugPDO',
+                },
                 // Fail fast instead of hanging the whole suite: a test that opens a
                 // second connection/transaction against a row the first one is still
                 // holding (uncommitted) should error out in a few seconds, not block

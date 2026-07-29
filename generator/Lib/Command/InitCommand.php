@@ -85,7 +85,9 @@ class InitCommand extends Command
                     'connections' => [
                         'default' => [
                             'adapter' => $platform,
-                            'classname' => 'Propulsion\\Connection\\PropulsionPDO',
+                            // No explicit 'classname': Propulsion::initConnection() picks the
+                            // matching driver-specific PropulsionPDO implementation for
+                            // $platform automatically (see DBAdapter::getDefaultPdoClass()).
                             'dsn' => $this->generateDsn($platform, $projectName),
                             'user' => 'your_username',
                             'password' => 'your_password'

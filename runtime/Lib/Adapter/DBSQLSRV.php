@@ -25,6 +25,21 @@ use Propulsion\Map\DatabaseMap;
 class DBSQLSRV extends DBMSSQL
 {
 	/**
+	 * Deliberately NOT DBMSSQL::getDefaultPdoClass()'s MssqlPropulsionPDO: that
+	 * class extends \Pdo\Dblib specifically for the dblib driver DBMSSQL/dblib
+	 * connections use, and a class extending one driver-specific PDO subclass
+	 * throws immediately if constructed against a different driver's DSN
+	 * (confirmed empirically) -- this adapter's DSN uses the "sqlsrv" driver
+	 * instead. Falls back to the driver-agnostic GenericPropulsionPDO.
+	 *
+	 * @see       DBAdapter::getDefaultPdoClass()
+	 */
+	public function getDefaultPdoClass(): string
+	{
+		return \Propulsion\Connection\GenericPropulsionPDO::class;
+	}
+
+	/**
 	 * @see       parent::initConnection()
 	 *
 	 * @param     \PDO    $con

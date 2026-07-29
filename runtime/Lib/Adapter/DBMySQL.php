@@ -38,6 +38,14 @@ class DBMySQL extends DBAdapter
 	private ?bool $isMariaDbCache = null;
 
 	/**
+	 * @see       DBAdapter::getDefaultPdoClass()
+	 */
+	public function getDefaultPdoClass(): string
+	{
+		return \Propulsion\Adapter\Mysql\MysqlPropulsionPDO::class;
+	}
+
+	/**
 	 * Distinguishes a real MariaDB server (RETURNING support on INSERT/UPDATE/
 	 * DELETE since 10.5) from plain MySQL (no RETURNING at all, any version) --
 	 * both served by this same adapter class; there is no separate MariadbPlatform/

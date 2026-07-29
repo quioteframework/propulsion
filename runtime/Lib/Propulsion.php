@@ -737,14 +737,20 @@ class Propulsion
 	 *
 	 * @param      array<string,mixed> $conparams Connection paramters.
 	 * @param      string $name Datasource name.
-	 * @param      string $defaultClass The PDO subclass to instantiate if there is no explicit classname
-	 * 									specified in the connection params (default is Propulsion::CLASS_PROPEL_PDO)
+	 * @param      ?string $defaultClass The PDO subclass to instantiate if there is no explicit
+	 * 									classname specified in the connection params. Defaults to
+	 * 									null, meaning $adapter->getDefaultPdoClass() decides --
+	 * 									the driver-specific PropulsionPDO implementation matching
+	 * 									this datasource's own adapter (e.g. PgsqlPropulsionPDO for a
+	 * 									DBPostgres datasource). An explicit override here is only
+	 * 									meaningful for callers that need to bypass that per-adapter
+	 * 									dispatch entirely.
 	 *
 	 * @return     PDO|PropulsionPDO A database connection of the given class (PDO, PropulsionPDO, SlavePDO or user-defined)
 	 *
 	 * @throws     PropulsionException - if lower-level exception caught when trying to connect.
 	 */
-	public static function initConnection($conparams, $name, $defaultClass = Propulsion::CLASS_PROPEL_PDO)
+	public static function initConnection($conparams, $name, ?string $defaultClass = null)
 	{
 		$adapter = self::getDB($name);
 
@@ -761,7 +767,7 @@ class Propulsion
 				throw new PropulsionException('Unable to load specified PDO subclass: ' . $classname);
 			}
 		} else {
-			$classname = $defaultClass;
+			$classname = $defaultClass ?? $adapter->getDefaultPdoClass();
 		}
 
 		$user = isset($conparams['user']) ? $conparams['user'] : null;

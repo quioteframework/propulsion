@@ -7,12 +7,13 @@
  *
  * @license    MIT License
  */
-namespace Propulsion\Adapter\MSSQL;
+namespace Propulsion\Adapter\Oracle;
+
 /**
- * dblib doesn't support transactions so we need to add a workaround for transactions, last insert ID, and quoting
- *
+ * OraclePropulsionPDO with debug logging/query-counting on by default -- see
+ * Propulsion\Connection\DebugPDO's own docblock for what that entails.
  */
-class MssqlDebugPDO extends MssqlPropulsionPDO
+class OracleDebugPDO extends OraclePropulsionPDO
 {
 	public $useDebug = true;
 

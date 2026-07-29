@@ -41,13 +41,12 @@
  *   injecting a synthetic "ORDER BY (SELECT NULL)" first when the query has no
  *   ORDER BY of its own (required by T-SQL's OFFSET/FETCH syntax). Both are
  *   stripped/rewritten back to Postgres-style "LIMIT m [OFFSET n]".
- * - Oracle LIMIT/OFFSET: DBOracle::applyLimit() has no native LIMIT/OFFSET or
- *   FETCH/OFFSET syntax at all (pre-12c-compatible ROWNUM-based paging) --
- *   wraps the whole query in a double derived table ("SELECT B.* FROM (SELECT
- *   A.*, rownum AS PROPEL_ROWNUM FROM (<inner>) A ) B WHERE ..."), filtering
- *   on PROPEL_ROWNUM instead of a real LIMIT/OFFSET clause. Unwrapped back
- *   into the original inner query plus a trailing "LIMIT n [OFFSET m]",
- *   computed from the "B.PROPEL_ROWNUM [> lo AND] <= hi" bounds.
+ * - Oracle LIMIT/OFFSET: DBOracle::applyLimit() emits the same ANSI SQL:2008
+ *   OFFSET/FETCH clause as MSSQL (Oracle 12c+), with the identical synthetic
+ *   no-op ORDER BY trick when the query has none of its own -- except Oracle
+ *   requires a FROM on every query (including this one), so its version is
+ *   "ORDER BY (SELECT NULL FROM dual)", not MSSQL's bare "(SELECT NULL)".
+ *   Handled by the same MSSQL OFFSET/FETCH rewrite below.
  *
  * Deliberately does *not* attempt to normalize every possible platform SQL-shape
  * difference (e.g. id-generation strategy changing which columns an INSERT's column
@@ -67,7 +66,6 @@ function normalizeGeneratedSql(string $sql): string
 	$sql = (string) preg_replace('/\bDELETE \w+ FROM\b/', 'DELETE FROM', $sql);
 	$sql = (string) preg_replace('/^DELETE FROM (\w+) (\w+) WHERE\b/', 'DELETE FROM $1 AS $2 WHERE', $sql);
 	$sql = (string) preg_replace('/^UPDATE (\w+) SET (.+) FROM (\w+) AS \1 WHERE/', 'UPDATE $3 $1 SET $2 WHERE', $sql);
-	$sql = normalizeOracleRownumOffset($sql);
 	if (preg_match('/^SELECT TOP (\d+) /', $sql, $m)) {
 		$sql = (string) preg_replace('/^SELECT TOP \d+ /', 'SELECT ', $sql, 1);
 		$sql .= ' LIMIT ' . $m[1];
@@ -77,8 +75,13 @@ function normalizeGeneratedSql(string $sql): string
 	// plain "OFFSET n" with no LIMIT at all. The synthetic "ORDER BY (SELECT
 	// NULL)" applyLimit() injects when the query has no ORDER BY of its own is
 	// stripped along with it, since it carries no real ordering to preserve.
-	if (preg_match('/(?: ORDER BY \(SELECT NULL\))? OFFSET (\d+) ROWS(?: FETCH NEXT (\d+) ROWS ONLY)?$/', $sql, $m)) {
-		$sql = (string) preg_replace('/(?: ORDER BY \(SELECT NULL\))? OFFSET \d+ ROWS(?: FETCH NEXT \d+ ROWS ONLY)?$/', '', $sql);
+	// DBOracle::applyLimit() emits the same ANSI SQL:2008 OFFSET/FETCH clause
+	// (12c+) with the identical no-op-ORDER-BY trick, except Oracle requires a
+	// FROM on every query (including this one), so its synthetic ORDER BY is
+	// "(SELECT NULL FROM dual)", not MSSQL's bare "(SELECT NULL)" -- both
+	// variants are stripped here.
+	if (preg_match('/(?: ORDER BY \(SELECT NULL(?: FROM dual)?\))? OFFSET (\d+) ROWS(?: FETCH NEXT (\d+) ROWS ONLY)?$/', $sql, $m)) {
+		$sql = (string) preg_replace('/(?: ORDER BY \(SELECT NULL(?: FROM dual)?\))? OFFSET \d+ ROWS(?: FETCH NEXT \d+ ROWS ONLY)?$/', '', $sql);
 		if (isset($m[2])) {
 			$sql .= ' LIMIT ' . $m[2];
 		}
@@ -87,38 +90,4 @@ function normalizeGeneratedSql(string $sql): string
 		}
 	}
 	return $sql;
-}
-
-/**
- * Unwraps DBOracle::applyLimit()'s ROWNUM-based double-derived-table rewrite
- * back into a plain "<inner query> LIMIT n [OFFSET m]" shape -- see
- * normalizeGeneratedSql()'s own docblock. A no-op (returns $sql unchanged) if
- * it isn't in that shape at all, i.e. every non-Oracle platform.
- *
- * @param      string $sql
- * @return     string
- */
-function normalizeOracleRownumOffset(string $sql): string
-{
-	// The outer column list is either the literal "B.*" (DBOracle::applyLimit()'s
-	// fallback when it can't parse the inner SELECT's own column list) or an
-	// explicit "B.col1, B.col2, ..." (see deriveOuterColumnList()) -- either way
-	// it's redundant for normalization purposes, since it's derived from (and so
-	// always consistent with) the original, unprefixed column list already
-	// captured from the inner query below; discarded rather than matched exactly.
-	$pattern = '/^SELECT .*? FROM \(SELECT A\.\*, rownum AS PROPEL_ROWNUM FROM \((.*)\) A \) B WHERE  B\.PROPEL_ROWNUM (?:> (\d+) AND B\.PROPEL_ROWNUM )?<= (\d+)$/s';
-	if (!preg_match($pattern, $sql, $m)) {
-		return $sql;
-	}
-	[, $innerSql, $lowerBound] = $m;
-	$upperBound = (int) $m[3];
-	$offset = $lowerBound === '' ? 0 : (int) $lowerBound;
-	$limit = $upperBound - $offset;
-
-	$result = "$innerSql LIMIT $limit";
-	if ($offset > 0) {
-		$result .= " OFFSET $offset";
-	}
-
-	return $result;
 }

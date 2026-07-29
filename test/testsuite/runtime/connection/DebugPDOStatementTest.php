@@ -11,6 +11,7 @@
 use PHPUnit\Framework\TestCase;
 use Propulsion\Connection\PropulsionPDO;
 use Propulsion\Connection\DebugPDOStatement;
+use Propulsion\Adapter\Sqlite\SqlitePropulsionPDO;
 
 /**
  * Test class for DebugPDOStatement. Uses a real sqlite in-memory connection since
@@ -23,7 +24,7 @@ class DebugPDOStatementTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->pdo = new PropulsionPDO('sqlite::memory:');
+        $this->pdo = new SqlitePropulsionPDO('sqlite::memory:');
         $this->pdo->useDebug = true;
         $this->pdo->setConfiguration(new \Propulsion\Config\PropulsionConfiguration(array()));
         $this->pdo->setAttribute(PDO::ATTR_STATEMENT_CLASS, array(DebugPDOStatement::class, array($this->pdo)));

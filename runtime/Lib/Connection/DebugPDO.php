@@ -101,7 +101,7 @@ namespace Propulsion\Connection;
  * @author     Jarno Rantanen <jarno.rantanen@tkk.fi>
  * @since      2006-09-22
  */
-class DebugPDO extends PropulsionPDO
+class DebugPDO extends GenericPropulsionPDO
 {
 	/**
 	 * @var       boolean

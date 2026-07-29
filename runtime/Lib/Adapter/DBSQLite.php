@@ -20,6 +20,13 @@ use Propulsion\Exception\PropulsionException;
 use Propulsion\Connection\PropulsionPDO;
 class DBSQLite extends DBAdapter
 {
+	/**
+	 * @see       DBAdapter::getDefaultPdoClass()
+	 */
+	public function getDefaultPdoClass(): string
+	{
+		return \Propulsion\Adapter\Sqlite\SqlitePropulsionPDO::class;
+	}
 
 	/**
 	 * For SQLite this method has no effect, since SQLite doesn't support specifying a character

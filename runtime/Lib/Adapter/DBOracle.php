@@ -33,6 +33,14 @@ use Propulsion\Connection\PropulsionPDO;
 class DBOracle extends DBAdapter
 {
 	/**
+	 * @see       DBAdapter::getDefaultPdoClass()
+	 */
+	public function getDefaultPdoClass(): string
+	{
+		return \Propulsion\Adapter\Oracle\OraclePropulsionPDO::class;
+	}
+
+	/**
 	 * This method is called after a connection was created to run necessary
 	 * post-initialization queries or code.
 	 * Removes the charset query and adds the date queries

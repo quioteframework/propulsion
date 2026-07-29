@@ -7,12 +7,13 @@
  *
  * @license    MIT License
  */
-namespace Propulsion\Adapter\MSSQL;
+namespace Propulsion\Adapter\Mysql;
+
 /**
- * dblib doesn't support transactions so we need to add a workaround for transactions, last insert ID, and quoting
- *
+ * MysqlPropulsionPDO with debug logging/query-counting on by default -- see
+ * Propulsion\Connection\DebugPDO's own docblock for what that entails.
  */
-class MssqlDebugPDO extends MssqlPropulsionPDO
+class MysqlDebugPDO extends MysqlPropulsionPDO
 {
 	public $useDebug = true;
 

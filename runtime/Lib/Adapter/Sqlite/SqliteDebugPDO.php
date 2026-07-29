@@ -7,12 +7,13 @@
  *
  * @license    MIT License
  */
-namespace Propulsion\Adapter\MSSQL;
+namespace Propulsion\Adapter\Sqlite;
+
 /**
- * dblib doesn't support transactions so we need to add a workaround for transactions, last insert ID, and quoting
- *
+ * SqlitePropulsionPDO with debug logging/query-counting on by default -- see
+ * Propulsion\Connection\DebugPDO's own docblock for what that entails.
  */
-class MssqlDebugPDO extends MssqlPropulsionPDO
+class SqliteDebugPDO extends SqlitePropulsionPDO
 {
 	public $useDebug = true;
 

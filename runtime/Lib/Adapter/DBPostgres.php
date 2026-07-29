@@ -24,6 +24,13 @@ use Propulsion\Exception\PropulsionException;
 use Propulsion\Connection\PropulsionPDO;
 class DBPostgres extends DBAdapter
 {
+	/**
+	 * @see       DBAdapter::getDefaultPdoClass()
+	 */
+	public function getDefaultPdoClass(): string
+	{
+		return \Propulsion\Adapter\Pgsql\PgsqlPropulsionPDO::class;
+	}
 
 	/**
 	 * This method is called after a connection was created to run necessary
@@ -278,18 +285,15 @@ class DBPostgres extends DBAdapter
 	}
 
 	/**
-	 * Bulk-loads $rows via PDO's pgsqlCopyFromArray() (COPY FROM STDIN under the hood) --
-	 * a PDO_PGSQL-specific method, not part of the base \PDO class, only present on an
-	 * actual pgsql-driver connection.
+	 * Bulk-loads $rows via COPY FROM STDIN -- a PDO_PGSQL-specific operation, not part
+	 * of the base \PDO class, only present on an actual pgsql-driver connection.
 	 *
-	 * As of PHP 8.5, this method is deprecated in favor of Pdo\Pgsql::copyFromArray() --
-	 * but that only exists on an actual Pdo\Pgsql instance, the driver-specific subclass
-	 * PHP's own `new PDO('pgsql:...')` auto-selects. PropulsionPDO extends \PDO directly
-	 * (its own class, used for every driver, not auto-selected per-driver), so it's never
-	 * an instance of Pdo\Pgsql and the new method isn't reachable without restructuring
-	 * that whole class hierarchy -- a much larger, unrelated change. pgsqlCopyFromArray()
-	 * still works and is the only option compatible with the current architecture; the
-	 * resulting deprecation notice is expected and, for now, unavoidable.
+	 * As of PHP 8.5, the old bolted-on-\PDO method (PDO::pgsqlCopyFromArray()) is
+	 * deprecated in favor of \Pdo\Pgsql::copyFromArray() -- reachable here because $con
+	 * is always a PgsqlPropulsionPDO, which extends \Pdo\Pgsql specifically so this stays
+	 * reachable (see PropulsionPDO's own docblock). Falls back to the deprecated method
+	 * for the (in-practice-unreachable-in-this-codebase) case of some custom `classname`
+	 * override that isn't a \Pdo\Pgsql instance.
 	 *
 	 * @see       DBAdapter::bulkLoad()
 	 */
@@ -309,14 +313,16 @@ class DBPostgres extends DBAdapter
 			return 0;
 		}
 
-		// Empirically verified quirk (not documented in the PHP manual): pgsqlCopyFromArray()'s
-		// $null_as parameter must be passed in its own doubly-escaped form -- to recognize the
+		// Empirically verified quirk (not documented in the PHP manual): copyFromArray()'s
+		// $nullAs parameter must be passed in its own doubly-escaped form -- to recognize the
 		// literal 2-character "\N" sequence escapeCopyValue() writes into the row data below as
-		// the null marker, $null_as itself must be the 3-character string "\\N" (backslash,
+		// the null marker, $nullAs itself must be the 3-character string "\\N" (backslash,
 		// backslash, N), not the 2-character "\N" one might expect from the row data alone.
 		// Passing the "obvious" 2-character value here throws
 		// "invalid input syntax for type integer" on the first NULL in a non-text column.
-		$result = $con->pgsqlCopyFromArray($tableName, $lines, "\t", '\\\\N', implode(',', $columns));
+		$result = $con instanceof \Pdo\Pgsql
+			? $con->copyFromArray($tableName, $lines, "\t", '\\\\N', implode(',', $columns))
+			: $con->pgsqlCopyFromArray($tableName, $lines, "\t", '\\\\N', implode(',', $columns));
 		if ($result === false) {
 			throw new PropulsionException('DBPostgres::bulkLoad() failed: ' . implode('; ', $con->errorInfo()));
 		}

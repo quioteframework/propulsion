@@ -95,6 +95,18 @@ abstract class DBAdapter
 	}
 
 	/**
+	 * The concrete PropulsionPDO implementation Propulsion::initConnection() should
+	 * construct for a datasource using this adapter when the datasource's own
+	 * connection config doesn't explicitly name a `classname` override. Each
+	 * platform's own subclass names its matching driver-specific class (e.g.
+	 * DBPostgres -> PgsqlPropulsionPDO, which extends PHP 8.4+'s \Pdo\Pgsql rather
+	 * than plain \PDO -- see PropulsionPDO's own docblock for why that matters).
+	 *
+	 * @return    class-string<\Propulsion\Connection\PropulsionPDO>
+	 */
+	abstract public function getDefaultPdoClass(): string;
+
+	/**
 	 * This method is called after a connection was created to run necessary
 	 * post-initialization queries or code.
 	 *

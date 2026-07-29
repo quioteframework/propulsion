@@ -21,6 +21,13 @@ use PDO;
 
 class DBNone extends DBAdapter
 {
+	/**
+	 * @see       DBAdapter::getDefaultPdoClass()
+	 */
+	public function getDefaultPdoClass(): string
+	{
+		return \Propulsion\Connection\GenericPropulsionPDO::class;
+	}
 
 	/**
 	 * @see        DBAdapter::initConnection()

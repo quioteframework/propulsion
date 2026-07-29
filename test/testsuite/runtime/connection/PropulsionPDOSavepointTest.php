@@ -10,6 +10,7 @@
 
 use PHPUnit\Framework\TestCase;
 use Propulsion\Connection\PropulsionPDO;
+use Propulsion\Adapter\Sqlite\SqlitePropulsionPDO;
 use Propulsion\Exception\PropulsionException;
 use Propulsion\Propulsion;
 use Propulsion\Session;
@@ -32,7 +33,7 @@ class PropulsionPDOSavepointTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->pdo = new PropulsionPDO('sqlite::memory:');
+        $this->pdo = new SqlitePropulsionPDO('sqlite::memory:');
         $this->pdo->setConfiguration(new \Propulsion\Config\PropulsionConfiguration(array()));
         $this->pdo->exec('CREATE TABLE widgets (id INTEGER PRIMARY KEY, name TEXT)');
     }
@@ -230,7 +231,7 @@ class PropulsionPDOSavepointTest extends TestCase
      */
     public function testFallsBackToPoisonFlagEmulationWhenSavepointsAreNotSupported(): void
     {
-        $con = new class ('sqlite::memory:') extends PropulsionPDO {
+        $con = new class ('sqlite::memory:') extends SqlitePropulsionPDO {
             protected function supportsSavepoints(): bool
             {
                 return false;
