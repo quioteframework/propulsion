@@ -219,7 +219,8 @@ CODE_SAMPLE
         }
 
         if ($openerName === 'useQuery') {
-            // withQuery(string $relationName, callable $callback, ?string $secondaryCriteriaClass = null)
+            // withQuery(string $relationName, callable $callback)
+            // withTypedQuery(string $relationName, callable $callback, string $secondaryCriteriaClass)
             $relationNameArg = $openerArgs[0] ?? null;
             $secondaryClassArg = $openerArgs[1] ?? null;
 
@@ -232,7 +233,9 @@ CODE_SAMPLE
                 $newArgs[] = $secondaryClassArg;
             }
 
-            return new MethodCall($opener->var, new Identifier('withQuery'), $newArgs);
+            $newMethodName = $secondaryClassArg !== null ? 'withTypedQuery' : 'withQuery';
+
+            return new MethodCall($opener->var, new Identifier($newMethodName), $newArgs);
         }
 
         // with<Relation>Query(callable $callback, ...same trailing args as use<Relation>Query())

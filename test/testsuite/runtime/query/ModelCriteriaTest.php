@@ -2381,15 +2381,15 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$c->setLimit(10);
 		$c->leftJoin('b.Author a');
 
-		$c = $c->withQuery('a', function ($c2) {
-			$this->assertTrue($c2 instanceof ModelCriteriaForUseQuery, 'withQuery() calls back with a secondary Criteria of the custom class');
+		$c = $c->withTypedQuery('a', function ($c2) {
+			$this->assertTrue($c2 instanceof ModelCriteriaForUseQuery, 'withTypedQuery() calls back with a secondary Criteria of the custom class');
 			$c2->withNoName();
 		}, 'ModelCriteriaForUseQuery');
 
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$c->find($con);
 		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book LEFT JOIN author a ON (book.AUTHOR_ID=a.ID) WHERE book.TITLE = 'foo' AND a.FIRST_NAME IS NOT NULL  AND a.LAST_NAME IS NOT NULL LIMIT 10";
-		$this->assertEquals($expectedSQL, normalizeGeneratedSql($con->getLastExecutedQuery()), 'withQuery() honors the custom secondary criteria class');
+		$this->assertEquals($expectedSQL, normalizeGeneratedSql($con->getLastExecutedQuery()), 'withTypedQuery() honors the custom secondary criteria class');
 	}
 
 	public function testWithQuerySequential()

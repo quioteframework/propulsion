@@ -1489,7 +1489,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * return to this query (and loses this query's concrete type across that call), \$callback
      * receives the secondary query directly and this method returns \$this, statically typed.
      *
-     * @see       \\Propulsion\\Query\\ModelCriteria::withQuery()
+     * @see       \\Propulsion\\Query\\ModelCriteria::withTypedQuery()
      *
      * @param     callable($queryClass): void \$callback Receives the secondary query to add conditions to
      * @param     string \$relationAlias optional alias for the relation,
@@ -1502,7 +1502,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
     {
         return \$this
             ->join" . $relationName . "(\$relationAlias, \$joinType)
-            ->withQuery(\$relationAlias ? \$relationAlias : '$relationName', \$callback, '$queryClass');
+            ->withTypedQuery(\$relationAlias ? \$relationAlias : '$relationName', \$callback, '$queryClass');
     }
 ";
     }

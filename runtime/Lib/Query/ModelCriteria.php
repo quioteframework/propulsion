@@ -1044,14 +1044,16 @@ class ModelCriteria extends Criteria
 	/**
 	 * Initializes a secondary ModelCriteria object, to be later merged with the current object
 	 *
-	 * @deprecated Use withQuery() (or the generated with<Relation>Query() wrapper) instead.
-	 *             endUse() cannot recover the concrete class of the object that called
-	 *             useQuery() -- it returns the untemplated ModelCriteria supertype, which
-	 *             collapses the type of every chained call after it. withQuery() closes
-	 *             over the same operation and returns @return static instead.
+	 * @deprecated Use withQuery()/withTypedQuery() (or the generated with<Relation>Query()
+	 *             wrapper) instead. endUse() cannot recover the concrete class of the object
+	 *             that called useQuery() -- it returns the untemplated ModelCriteria
+	 *             supertype, which collapses the type of every chained call after it.
+	 *             withQuery()/withTypedQuery() close over the same operation and return
+	 *             @return static instead.
 	 * @template T of ModelCriteria
 	 * @see       ModelCriteria::endUse()
 	 * @see       ModelCriteria::withQuery()
+	 * @see       ModelCriteria::withTypedQuery()
 	 * @param     string $relationName Relation name or alias
 	 * @param     class-string<T>|null $secondaryCriteriaClass Classname for the ModelCriteria to be used
 	 *
@@ -1089,10 +1091,11 @@ class ModelCriteria extends Criteria
 	/**
 	 * Finalizes a secondary criteria and merges it with its primary Criteria
 	 *
-	 * @deprecated Use withQuery() (or the generated with<Relation>Query() wrapper) instead --
-	 *             see the @deprecated note on useQuery() for why.
+	 * @deprecated Use withQuery()/withTypedQuery() (or the generated with<Relation>Query()
+	 *             wrapper) instead -- see the @deprecated note on useQuery() for why.
 	 * @see       Criteria::mergeWith()
 	 * @see       ModelCriteria::withQuery()
+	 * @see       ModelCriteria::withTypedQuery()
 	 *
 	 * @return    ModelCriteria The primary criteria object
 	 */
@@ -1117,24 +1120,46 @@ class ModelCriteria extends Criteria
 	 * (it returns the untemplated ModelCriteria supertype), this returns @return static,
 	 * so chained calls keep their type through any number of relations, nested to any depth.
 	 *
-	 * @template T of ModelCriteria
+	 * @see withTypedQuery() for the equivalent that hands $callback a specific ModelCriteria
+	 *      subclass instead of a plain ModelCriteria.
+	 *
 	 * @param     string $relationName Relation name or alias
-	 * @param     ($secondaryCriteriaClass is null ? callable(ModelCriteria): void : callable(T): void) $callback
-	 *            Receives the secondary criteria to add conditions to -- note the null-class branch
-	 *            receives a plain ModelCriteria, not `static`: see the same note on useQuery().
-	 * @param     class-string<T>|null $secondaryCriteriaClass Classname for the ModelCriteria to be used
+	 * @param     callable(ModelCriteria): void $callback Receives the secondary criteria to
+	 *             add conditions to
 	 *
 	 * @return    static
 	 */
-	public function withQuery(string $relationName, callable $callback, ?string $secondaryCriteriaClass = null) : static
+	public function withQuery(string $relationName, callable $callback) : static
 	{
-		if ($secondaryCriteriaClass === null) {
-			$secondary = $this->useQuery($relationName);
-			$callback($secondary);
-		} else {
-			$secondary = $this->useQuery($relationName, $secondaryCriteriaClass);
-			$callback($secondary);
-		}
+		$secondary = $this->useQuery($relationName);
+		$callback($secondary);
+		$secondary->endUse();
+
+		return $this;
+	}
+
+	/**
+	 * Same as withQuery(), but hands $callback a specific ModelCriteria subclass instead of
+	 * a plain ModelCriteria -- split out from withQuery() rather than accepting an optional
+	 * $secondaryCriteriaClass there, since a single method whose $callback type depends on
+	 * whether that argument is given isn't verifiable against its own implementation: PHPStan
+	 * does not narrow a conditionally-typed parameter per branch inside the method's own body
+	 * (the conditional type is a caller-facing contract only), so no restructuring of a single
+	 * method's body avoids a false-positive here -- confirmed by reproducing the identical
+	 * error in a minimal, unrelated class hierarchy where the annotated and actual runtime
+	 * types are provably identical.
+	 *
+	 * @template T of ModelCriteria
+	 * @param     string $relationName Relation name or alias
+	 * @param     callable(T): void $callback Receives the secondary criteria to add conditions to
+	 * @param     class-string<T> $secondaryCriteriaClass Classname for the ModelCriteria to be used
+	 *
+	 * @return    static
+	 */
+	public function withTypedQuery(string $relationName, callable $callback, string $secondaryCriteriaClass) : static
+	{
+		$secondary = $this->useQuery($relationName, $secondaryCriteriaClass);
+		$callback($secondary);
 		$secondary->endUse();
 
 		return $this;

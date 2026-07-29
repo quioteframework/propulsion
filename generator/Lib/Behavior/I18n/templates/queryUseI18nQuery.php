@@ -23,7 +23,7 @@ public function useI18nQuery($locale = '<?php echo $defaultLocale ?>', $relation
  * query (and loses this query's concrete type across that call), $callback receives
  * the secondary query directly and this method returns $this, typed @return static.
  *
- * @see       \Propulsion\Query\ModelCriteria::withQuery()
+ * @see       \Propulsion\Query\ModelCriteria::withTypedQuery()
  *
  * @param     callable(<?php echo $queryClass ?>): void $callback Receives the secondary query to add conditions to
  * @param     string $locale Locale to use for the join condition, e.g. 'fr_FR'
@@ -36,5 +36,5 @@ public function withI18nQuery(callable $callback, $locale = '<?php echo $default
 {
 	return $this
 		->joinI18n($locale, $relationAlias, $joinType)
-		->withQuery($relationAlias ? $relationAlias : '<?php echo $i18nRelationName ?>', $callback, '<?php echo $namespacedQueryClass ?>');
+		->withTypedQuery($relationAlias ? $relationAlias : '<?php echo $i18nRelationName ?>', $callback, '<?php echo $namespacedQueryClass ?>');
 }
