@@ -394,6 +394,31 @@ class DBMySQL extends DBAdapter
 	}
 
 	/**
+	 * @see       DBAdapter::supportsExplain()
+	 */
+	public function supportsExplain(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * @see       DBAdapter::getExplainSql()
+	 *
+	 * $analyze is accepted but ignored: MySQL's own `EXPLAIN ANALYZE` (8.0.18+)
+	 * changes the *output format* to a text execution tree rather than adding
+	 * an option to the same tabular result shape plain `EXPLAIN` returns, and
+	 * MariaDB's `ANALYZE FORMAT=JSON` (not `EXPLAIN ANALYZE`) differs again --
+	 * neither is a drop-in superset of the plain `EXPLAIN` row shape, so
+	 * always returning the plain form keeps this method's output uniform
+	 * across MySQL/MariaDB versions rather than branching into
+	 * differently-shaped results depending on $analyze.
+	 */
+	public function getExplainSql(string $sql, bool $analyze = false): string
+	{
+		return 'EXPLAIN ' . $sql;
+	}
+
+	/**
 	 * @see       DBAdapter::random()
 	 *
 	 * @param     string  $seed

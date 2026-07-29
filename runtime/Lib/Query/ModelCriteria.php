@@ -1664,6 +1664,58 @@ class ModelCriteria extends Criteria
 	}
 
 	/**
+	 * Returns this query's plan on the current platform, instead of its rows
+	 * (Rails, Django, and Laravel all ship an equivalent). Builds the exact
+	 * same SELECT SQL {@see find()} would (same joins/WHERE/ORDER BY/LIMIT),
+	 * then executes it wrapped in the platform's EXPLAIN syntax via
+	 * {@see \Propulsion\Adapter\DBAdapter::getExplainSql()} -- so the plan
+	 * reflects the query as it would really run, not a hand-reconstructed
+	 * approximation.
+	 *
+	 * Deliberately bypasses the query result cache entirely ({@see setQueryCache()}):
+	 * a plan is diagnostic, not a result a caller would want served stale from
+	 * a previous, unrelated call.
+	 *
+	 * Only supported where {@see \Propulsion\Adapter\DBAdapter::supportsExplain()}
+	 * is true (Postgres/MySQL/MariaDB/SQLite) -- MSSQL and Oracle both need a
+	 * genuinely different, multi-statement mechanism to get a plan (session
+	 * option toggling / a separate PLAN_TABLE query respectively), not a
+	 * simple SQL-prefix rewrite, so calling this against either throws
+	 * instead of silently returning nothing useful.
+	 *
+	 * @param      bool $analyze Postgres/MySQL `EXPLAIN ANALYZE`: actually run the
+	 *                           query while collecting the plan, instead of only
+	 *                           estimating it. Ignored by platforms with no such
+	 *                           distinction (e.g. SQLite).
+	 * @param      PropulsionPDO $con an optional connection object
+	 * @return     list<array<string, mixed>> Each element is one plan row, shaped
+	 *                                        however the current platform's EXPLAIN
+	 *                                        output is shaped -- this varies by
+	 *                                        platform (and is not itself normalized
+	 *                                        here), so a caller working across
+	 *                                        platforms should not assume fixed keys.
+	 * @throws     PropulsionException if the current platform doesn't support explain()
+	 *                                 ({@see \Propulsion\Adapter\DBAdapter::supportsExplain()}).
+	 */
+	public function explain(bool $analyze = false, ?PropulsionPDO $con = null): array
+	{
+		$criteria = $this->isKeepQuery() ? clone $this : $this;
+
+		$db = Propulsion::getDB($criteria->getDbName());
+		if (!$db->supportsExplain()) {
+			throw new PropulsionException(get_class($db) . ' does not support ->explain()');
+		}
+
+		$con = $criteria->resolveConnection($con);
+		[$sql, $params] = $criteria->prepareSelectSql($con);
+		$explainSql = $db->getExplainSql($sql, $analyze);
+
+		$stmt = $criteria->executeSelectSql($con, $explainSql, $params, 'EXPLAIN');
+
+		return array_values($stmt->fetchAll(\PDO::FETCH_ASSOC));
+	}
+
+	/**
 	 * Apply a condition on a column and issues the SELECT query
 	 *
 	 * @see       filterBy()

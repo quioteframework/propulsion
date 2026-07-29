@@ -213,6 +213,27 @@ class DBSQLite extends DBAdapter
 	}
 
 	/**
+	 * @see       DBAdapter::supportsExplain()
+	 */
+	public function supportsExplain(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * SQLite's `EXPLAIN QUERY PLAN` (unlike plain `EXPLAIN`, which dumps raw VDBE
+	 * bytecode, not a human-readable plan) never actually executes the query --
+	 * $analyze is accepted for interface parity with Postgres/MySQL but has no
+	 * SQLite equivalent to apply it to, so it's ignored.
+	 *
+	 * @see       DBAdapter::getExplainSql()
+	 */
+	public function getExplainSql(string $sql, bool $analyze = false): string
+	{
+		return 'EXPLAIN QUERY PLAN ' . $sql;
+	}
+
+	/**
 	 * SQLite has no row-level locking (the whole database file is locked at the
 	 * connection/transaction level), so SELECT ... FOR UPDATE has no equivalent here.
 	 *

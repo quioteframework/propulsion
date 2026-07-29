@@ -354,6 +354,22 @@ class DBPostgres extends DBAdapter
 	}
 
 	/**
+	 * @see       DBAdapter::supportsExplain()
+	 */
+	public function supportsExplain(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * @see       DBAdapter::getExplainSql()
+	 */
+	public function getExplainSql(string $sql, bool $analyze = false): string
+	{
+		return 'EXPLAIN ' . ($analyze ? 'ANALYZE ' : '') . $sql;
+	}
+
+	/**
 	 * @see       DBAdapter::random()
 	 *
 	 * @param     string  $seed

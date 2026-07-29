@@ -190,6 +190,27 @@ class DBMySQLTest extends BookstoreTestBase
 		$con2->expects($this->once())->method('exec')->with('UNLOCK TABLES');
 		$db->unlockTable($con2, 'foo');
 	}
+
+	public function testSupportsExplain()
+	{
+		$db = new DBMySQL();
+		$this->assertTrue($db->supportsExplain());
+	}
+
+	public function testGetExplainSql()
+	{
+		$db = new DBMySQL();
+		$this->assertEquals('EXPLAIN SELECT * FROM foo WHERE id=:p1', $db->getExplainSql('SELECT * FROM foo WHERE id=:p1'));
+	}
+
+	public function testGetExplainSqlIgnoresAnalyze()
+	{
+		// EXPLAIN ANALYZE changes MySQL's output *shape* to a text execution tree
+		// rather than the plain EXPLAIN row shape, so $analyze is deliberately ignored
+		// -- see DBMySQL::getExplainSql()'s own docblock.
+		$db = new DBMySQL();
+		$this->assertEquals('EXPLAIN SELECT * FROM foo', $db->getExplainSql('SELECT * FROM foo', true));
+	}
 }
 
 // See: http://stackoverflow.com/questions/3138946/mocking-the-pdo-object-using-phpunit

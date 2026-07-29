@@ -1202,8 +1202,37 @@ change-tracker steal list, which is deliberately not repeated here.
 - [ ] **Observability hooks.** PSR-3 query logging exists; there is no
   OpenTelemetry span emission, query-timing metric, or slow-query-threshold
   callback (SQLAlchemy events, Doctrine middleware, EF Core interceptors).
-- [ ] **`->explain()`** on a query object, returning the platform's plan
-  (Rails, Django, Laravel all ship this).
+- [x] **`->explain()`** on a query object, returning the platform's plan
+  (Rails, Django, Laravel all ship this). New `ModelCriteria::explain(bool
+  $analyze = false, ?PropulsionPDO $con = null): array` builds the exact same
+  SELECT SQL `find()` would (same `prepareSelectSql()`/`executeSelectSql()`
+  seam, so the plan reflects the query as it would really run, not a
+  hand-reconstructed approximation), then executes it wrapped in the
+  platform's EXPLAIN syntax via new `DBAdapter::supportsExplain()`/
+  `getExplainSql(string $sql, bool $analyze): string` hooks -- `EXPLAIN
+  [ANALYZE]` (Postgres), `EXPLAIN` (MySQL/MariaDB -- `$analyze` accepted but
+  ignored, since MySQL's own `EXPLAIN ANALYZE` changes the *output shape* to a
+  text execution tree rather than adding an option to the same tabular result
+  plain `EXPLAIN` returns, and MariaDB's own analyze variant differs again),
+  `EXPLAIN QUERY PLAN` (SQLite -- never executes the query either way, so
+  `$analyze` is a no-op here too). Deliberately bypasses the query result
+  cache entirely: a plan is diagnostic, not a result a caller would want
+  served stale from an unrelated earlier call. **Not implemented for MSSQL/
+  Oracle** -- unlike every other per-platform SQL-rewrite hook in this
+  adapter interface (including Oracle's own RETURNING-INTO OUT bind), neither
+  fits a single-statement "wrap already-built SQL" shape: MSSQL's plan needs
+  a session option (`SET SHOWPLAN_ALL ON`) toggled around the query as
+  separate statements, and Oracle's needs `EXPLAIN PLAN FOR <sql>` followed by
+  a second, unrelated query against `PLAN_TABLE`/`DBMS_XPLAN.DISPLAY()`; no
+  existing hook shape in this codebase covers "run more than one statement",
+  so rather than force-fit one in, `supportsExplain()` returns `false` for
+  both and `explain()` throws a clear `PropulsionException`, the same
+  "deliberately deferred" story `DBAdapter::bulkLoad()` already uses for
+  MSSQL's `BULK INSERT`. Covered by `DBPostgresTest`/`DBMySQLTest`/
+  `DBSQLiteTest` (SQL-string-shape, no live connection needed) and
+  `ModelCriteriaExplainTest` (end-to-end against whichever platform the test
+  run targets, including the MSSQL/Oracle throw path and the query-result-
+  cache bypass).
 - [ ] **Schema drift check** — a `schema:validate`-style command comparing the
   live database against the schema, alongside the existing
   `migration:status`/`sql:diff` commands.

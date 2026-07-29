@@ -186,4 +186,38 @@ class DBSQLiteTest extends TestCase
         $this->expectException(PropulsionException::class);
         $this->db->getUpsertSql('INSERT INTO foo (id) VALUES (:p1)', array(), 'id=:p2');
     }
+
+    public function testSupportsExplain()
+    {
+        $this->assertTrue($this->db->supportsExplain());
+    }
+
+    public function testGetExplainSql()
+    {
+        $sql = $this->db->getExplainSql('SELECT * FROM foo WHERE id=:p1');
+        $this->assertSame('EXPLAIN QUERY PLAN SELECT * FROM foo WHERE id=:p1', $sql);
+    }
+
+    public function testGetExplainSqlIgnoresAnalyze()
+    {
+        // SQLite's EXPLAIN QUERY PLAN never executes the query either way --
+        // there is no ANALYZE-equivalent to toggle.
+        $sql = $this->db->getExplainSql('SELECT * FROM foo', true);
+        $this->assertSame('EXPLAIN QUERY PLAN SELECT * FROM foo', $sql);
+    }
+
+    public function testExplainEndToEnd()
+    {
+        // Real end-to-end check, not just a SQL-string assertion.
+        $pdo = new PDO('sqlite::memory:');
+        $pdo->exec('CREATE TABLE foo (id INTEGER PRIMARY KEY, bar TEXT)');
+
+        $sql = $this->db->getExplainSql('SELECT * FROM foo WHERE id=1');
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute();
+
+        $plan = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $this->assertNotEmpty($plan, 'EXPLAIN QUERY PLAN must return at least one plan row');
+        $this->assertArrayHasKey('detail', $plan[0], 'SQLite EXPLAIN QUERY PLAN rows have an "id", "parent", "notused", and "detail" column');
+    }
 }

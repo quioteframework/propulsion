@@ -601,6 +601,54 @@ abstract class DBAdapter
 	}
 
 	/**
+	 * Whether this platform can produce a query plan via a simple prefix
+	 * rewrite of an already-built SELECT ({@see getExplainSql()}) -- i.e.
+	 * `EXPLAIN <sql>`/`EXPLAIN QUERY PLAN <sql>`, executed as one ordinary
+	 * prepared statement whose result set *is* the plan instead of the
+	 * query's own rows. True for Postgres/MySQL/MariaDB/SQLite.
+	 *
+	 * Deliberately false (unsupported, base getExplainSql() throws) for
+	 * MSSQL and Oracle: neither fits this shape. MSSQL's plan needs a
+	 * session option toggled around the query as two separate statements
+	 * (`SET SHOWPLAN_ALL ON`/run the query, which then returns the plan
+	 * instead of executing it/`SET SHOWPLAN_ALL OFF`), and Oracle's needs
+	 * `EXPLAIN PLAN FOR <sql>` followed by a *second*, unrelated query
+	 * against `PLAN_TABLE`/`DBMS_XPLAN.DISPLAY()` -- both genuinely
+	 * multi-statement, unlike every other per-platform SQL-rewrite hook this
+	 * adapter interface has (including Oracle's own RETURNING-INTO OUT bind,
+	 * which is still one statement). No existing hook shape in this codebase
+	 * covers "run more than one statement", so rather than force-fitting one
+	 * in, this is deferred the same way MSSQL's BULK INSERT is above.
+	 *
+	 * @return    bool
+	 */
+	public function supportsExplain(): bool
+	{
+		return false;
+	}
+
+	/**
+	 * Wraps an already-built SELECT $sql so executing it returns the
+	 * platform's query plan instead of the query's own result rows. Only
+	 * called when supportsExplain() is true.
+	 *
+	 * @param     string  $sql     A complete SELECT statement, as built by
+	 *                             {@see \Propulsion\Util\BasePeer::createSelectSql()}.
+	 * @param     bool    $analyze Whether to actually execute the query while
+	 *                             collecting the plan (Postgres/MySQL
+	 *                             `EXPLAIN ANALYZE`) rather than estimate it
+	 *                             without running it. Ignored by platforms
+	 *                             with no such distinction (SQLite's
+	 *                             `EXPLAIN QUERY PLAN` never executes).
+	 *
+	 * @return    string
+	 */
+	public function getExplainSql(string $sql, bool $analyze = false): string
+	{
+		throw new PropulsionException(static::class . ' does not support ->explain()');
+	}
+
+	/**
 	 * Formats a temporal value brefore binding, given a ColumnMap object
 	 *
 	 * @param     mixed      $value  The temporal value
