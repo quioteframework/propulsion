@@ -14,7 +14,6 @@
  * instantiating a builder class by name.
  *
  * @author     François Zaninotto
- * @version    $Id$
  */
 class TableMapBuilderRelationsTest extends BookstoreTestBase
 {

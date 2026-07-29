@@ -18,7 +18,6 @@ if (file_exists($bookstoreConfFile)) {
  * Test class for Join.
  *
  * @author     François Zaninotto
- * @version    $Id$
  */
 class JoinTest extends BaseTestCase
 {

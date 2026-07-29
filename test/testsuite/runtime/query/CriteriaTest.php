@@ -13,7 +13,6 @@
  *
  * @author     <a href="mailto:celkins@scardini.com">Christopher Elkins</a>
  * @author     <a href="mailto:sam@neurogrid.com">Sam Joseph</a>
- * @version    $Id$
  */
 class CriteriaTest extends \PHPUnit\Framework\TestCase
 {

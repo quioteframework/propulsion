@@ -12,7 +12,6 @@
  * Test class for BaseObject serialization.
  *
  * @author     Francois Zaninotto
- * @version    $Id: PropulsionCollectionTest.php 1348 2009-12-03 21:49:00Z francois $
  */
 class BaseObjectSerializeTest extends BookstoreTestBase
 {

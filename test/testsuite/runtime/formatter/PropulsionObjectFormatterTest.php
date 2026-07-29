@@ -12,7 +12,6 @@
  * Test class for PropulsionObjectFormatter.
  *
  * @author     Francois Zaninotto
- * @version    $Id$
  */
 class PropulsionObjectFormatterTest extends BookstoreEmptyTestBase
 {

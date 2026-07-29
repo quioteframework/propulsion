@@ -12,7 +12,6 @@
  * Test class for PropulsionObjectCollection.
  *
  * @author     Francois Zaninotto
- * @version    $Id: PropulsionObjectCollectionTest.php 1348 2009-12-03 21:49:00Z francois $
  */
 class PropulsionArrayCollectionTest extends BookstoreEmptyTestBase
 {

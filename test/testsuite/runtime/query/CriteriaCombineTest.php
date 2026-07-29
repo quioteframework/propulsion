@@ -22,7 +22,6 @@ if (file_exists($bookstoreConfFile)) {
  * Test class for Criteria combinations.
  *
  * @author     Francois Zaninotto
- * @version    $Id$
  */
 class CriteriaCombineTest extends BaseTestCase
 {

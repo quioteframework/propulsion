@@ -12,7 +12,6 @@
  * Test class for PropulsionObjectCollection.
  *
  * @author     Francois Zaninotto
- * @version    $Id$
  */
 class PropulsionObjectCollectionWithFixturesTest extends BookstoreEmptyTestBase
 {

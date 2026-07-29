@@ -12,7 +12,6 @@
  * Test class for TableMapBuilder.
  *
  * @author     François Zaninotto
- * @version    $Id$
  */
 class GeneratedRelationMapTest extends BookstoreTestBase
 {

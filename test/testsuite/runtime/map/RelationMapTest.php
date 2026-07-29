@@ -13,7 +13,6 @@ use PHPUnit\Framework\TestCase;
  * Test class for RelationMap.
  *
  * @author     François Zaninotto
- * @version    $Id$
  */
 class RelationMapTest extends TestCase
 {

@@ -12,7 +12,6 @@
  * Test class for PropulsionObjectFormatter.
  *
  * @author     Francois Zaninotto
- * @version    $Id: PropulsionObjectFormatterTest.php 1374 2009-12-26 23:21:37Z francois $
  */
 class PropulsionObjectFormatterInheritanceTest extends BookstoreEmptyTestBase
 {

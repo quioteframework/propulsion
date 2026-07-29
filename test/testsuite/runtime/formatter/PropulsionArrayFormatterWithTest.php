@@ -12,7 +12,6 @@
  * Test class for PropulsionArrayFormatter when Criteria uses with().
  *
  * @author     Francois Zaninotto
- * @version    $Id: PropulsionArrayFormatterWithTest.php 1348 2009-12-03 21:49:00Z francois $
  */
 class PropulsionArrayFormatterWithTest extends BookstoreEmptyTestBase
 {

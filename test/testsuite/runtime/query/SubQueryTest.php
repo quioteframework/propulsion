@@ -12,7 +12,6 @@
  * Test class for SubQueryTest.
  *
  * @author     Francois Zaninotto
- * @version    $Id$
  */
 class SubQueryTest extends BookstoreTestBase
 {

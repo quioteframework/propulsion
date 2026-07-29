@@ -12,7 +12,6 @@
  * Test class for RelatedMap::getSymmetricalRelation with schemas.
  *
  * @author     Ulf Hermann
- * @version    $Id$
  */
 class RelatedMapSymmetricalWithSchemasTest extends SchemasTestBase
 {

@@ -21,7 +21,6 @@
  * characters.</p>
  *
  * @author     <a href="mailto:dlr@collab.net">Daniel Rall</a>
- * @version    $Id$
  */
 class NameFactoryTest extends BaseTestCase
 {

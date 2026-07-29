@@ -12,7 +12,6 @@
  * Test class for ModelCriteria withs schemas.
  *
  * @author     Francois Zaninotto
- * @version    $Id: ModelCriteriaTest.php 2090 2010-12-13 22:37:03Z francois $
  */
 class ModelCriteriaWithSchemaTest extends SchemasTestBase
 {

@@ -13,7 +13,6 @@ use PHPUnit\Framework\TestCase;
  * Test class for TableMap.
  *
  * @author     François Zaninotto
- * @version    $Id$
  */
 class TableMapTest extends TestCase
 {

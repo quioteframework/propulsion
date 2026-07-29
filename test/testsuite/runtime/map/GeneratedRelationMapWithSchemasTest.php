@@ -12,7 +12,6 @@
  * Test class for TableMapBuilder with schemas.
  *
  * @author     Ulf Hermann
- * @version    $Id$
  */
 class GeneratedRelationMapWithSchemasTest extends SchemasTestBase
 {

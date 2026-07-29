@@ -12,7 +12,6 @@
  * Test the utility class PropulsionPager
  *
  * @author     Niklas Närhinen <niklas@narhinen.net>
- * @version    $Id: PropulsionPagerTest.php
  */
 class PropulsionPagerTest extends BookstoreEmptyTestBase
 {

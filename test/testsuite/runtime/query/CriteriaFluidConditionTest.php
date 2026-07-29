@@ -12,7 +12,6 @@
  * Test class for Criteria fluid conditions.
  *
  * @author     Francois Zaninotto
- * @version    $Id: CriteriaCombineTest.php 1347 2009-12-03 21:06:36Z francois $
  */
 class CriteriaFluidConditionTest extends BaseTestCase
 {

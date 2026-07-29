@@ -12,7 +12,6 @@
  * Test class for DatabaseMap.
  *
  * @author     François Zaninotto
- * @version    $Id$
  */
 class DatabaseMapTest extends BookstoreTestBase
 {

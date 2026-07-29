@@ -12,7 +12,6 @@
  * Test class for PropulsionCollection.
  *
  * @author     Francois Zaninotto
- * @version    $Id: PropulsionCollectionTest.php 1348 2009-12-03 21:49:00Z francois $
  */
 class PropulsionCollectionTest extends BookstoreTestBase
 {

@@ -12,7 +12,6 @@
  * Test class for QueryBuilder.
  *
  * @author     François Zaninotto
- * @version    $Id: QueryBuilderTest.php 1347 2009-12-03 21:06:36Z francois $
  */
 class QueryBuilderTest extends BookstoreTestBase
 {

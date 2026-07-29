@@ -12,7 +12,6 @@
  * Test class for PropulsionOnDemandFormatter.
  *
  * @author     Francois Zaninotto
- * @version    $Id: PropulsionOnDemandFormatterTest.php 1374 2009-12-26 23:21:37Z francois $
  */
 class PropulsionOnDemandFormatterTest extends BookstoreEmptyTestBase
 {

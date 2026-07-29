@@ -12,7 +12,6 @@
  * Test class for PropulsionArrayFormatter.
  *
  * @author     Francois Zaninotto
- * @version    $Id$
  */
 class PropulsionArrayFormatterTest extends BookstoreEmptyTestBase
 {

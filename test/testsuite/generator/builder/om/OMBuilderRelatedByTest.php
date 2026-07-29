@@ -13,7 +13,6 @@ use PHPUnit\Framework\TestCase;
  * Test class for OMBuilder.
  *
  * @author     François Zaninotto
- * @version    $Id: OMBuilderBuilderTest.php 1347 2009-12-03 21:06:36Z francois $
  */
 class OMBuilderRelatedByTest extends TestCase
 {

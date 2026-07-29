@@ -12,7 +12,6 @@
  * Test class for ModelCriteria.
  *
  * @author     Francois Zaninotto
- * @version    $Id$
  */
 class ModelCriteriaTest extends BookstoreTestBase
 {
