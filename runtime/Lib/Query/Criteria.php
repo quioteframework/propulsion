@@ -237,6 +237,13 @@ class Criteria implements \IteratorAggregate
 	protected $selectQueries = array();
 
 	/**
+	 * Storage of common table expressions (WITH ... AS (...)) prefixed onto this
+	 * Criteria's own query. See withCte().
+	 * @var        array<int, array{name: string, query: Criteria, columns: array<int, string>, recursive: bool}>
+	 */
+	protected $commonTableExpressions = array();
+
+	/**
 	 * The name of the database.
 	 * @var        string
 	 */
@@ -362,6 +369,7 @@ class Criteria implements \IteratorAggregate
 		$this->joins = array();
 		$this->selectQueries = array();
 		$this->setOperations = array();
+		$this->commonTableExpressions = array();
 		$this->setDbName($this->originalDbName);
 		$this->offset = 0;
 		$this->limit = 0;
@@ -716,6 +724,70 @@ class Criteria implements \IteratorAggregate
 	public function clearSetOperations()
 	{
 		$this->setOperations = array();
+		return $this;
+	}
+
+	/**
+	 * Prefixes this query with a "WITH name AS (<$query>)" common table expression --
+	 * or "WITH RECURSIVE name AS (...)" when $recursive is true. $name can then be
+	 * referenced anywhere a table name is otherwise expected in this Criteria's own
+	 * query (setPrimaryTableName(), addJoin(), a plain "name.column" in a WHERE/select
+	 * column) -- CTE resolution is purely name-based, the same way a real table name
+	 * is, so no separate "reference a CTE" API is needed.
+	 *
+	 * A recursive CTE's own $query is typically built as an anchor branch UNION ALL a
+	 * recursive branch that joins back to $name by that same name (see union()/
+	 * unionAll()); $recursive requires an explicit $columns list because the
+	 * self-reference inside $query's own recursive branch needs $name's column names
+	 * to exist before $query itself can be analyzed -- some platforms (Postgres) can
+	 * infer them from the anchor branch's own SELECT list, but Oracle cannot, so an
+	 * explicit list is required uniformly here rather than only on the one platform
+	 * that strictly needs it.
+	 *
+	 * Multiple withCte() calls are cumulative and chainable: "WITH a AS (...), b AS (...)
+	 * SELECT ...". "RECURSIVE" (on platforms that use the keyword at all -- see
+	 * DBAdapter::supportsRecursiveCteKeyword()) is emitted once for the whole WITH
+	 * clause if *any* of them is recursive, per standard SQL.
+	 *
+	 * @param      string $name
+	 * @param      Criteria $query
+	 * @param      array<int, string> $columns Explicit column list for "name (col1, col2)
+	 *                                         AS (...)" -- required when $recursive is true.
+	 * @param      bool $recursive
+	 * @return     static A modified Criteria object (for fluent API).
+	 * @throws     PropulsionException If $recursive is true and $columns is empty.
+	 */
+	public function withCte(string $name, Criteria $query, array $columns = array(), bool $recursive = false)
+	{
+		if ($recursive && !$columns) {
+			throw new PropulsionException("withCte(): a recursive common table expression requires an explicit \$columns list (needed by the self-reference inside its own recursive branch, and by platforms, e.g. Oracle, that cannot infer it from the anchor branch)");
+		}
+		$this->commonTableExpressions[] = array(
+			'name' => $name,
+			'query' => $query,
+			'columns' => $columns,
+			'recursive' => $recursive,
+		);
+		return $this;
+	}
+
+	/**
+	 * @return     array<int, array{name: string, query: Criteria, columns: array<int, string>, recursive: bool}>
+	 *             Common table expressions combined with this query, in the order they were added.
+	 */
+	public function getCommonTableExpressions(): array
+	{
+		return $this->commonTableExpressions;
+	}
+
+	/**
+	 * Removes any common table expressions previously added via withCte().
+	 *
+	 * @return     static A modified Criteria object (for fluent API).
+	 */
+	public function clearCommonTableExpressions()
+	{
+		$this->commonTableExpressions = array();
 		return $this;
 	}
 

@@ -403,6 +403,19 @@ class DBOracle extends DBAdapter
 	}
 
 	/**
+	 * Oracle accepts a self-referencing CTE under a plain "WITH name (cols) AS (...)"
+	 * with no "RECURSIVE" keyword at all (has since 11gR2) -- the explicit column list
+	 * Criteria::withCte() already requires for a recursive CTE is what Oracle actually
+	 * needs to resolve the self-reference, not a keyword.
+	 *
+	 * @see       DBAdapter::supportsRecursiveCteKeyword()
+	 */
+	public function supportsRecursiveCteKeyword(): bool
+	{
+		return false;
+	}
+
+	/**
 	 * Oracle has no `ON CONFLICT`/`ON DUPLICATE KEY UPDATE` clause; upserts need
 	 * `MERGE` instead, built from scratch by getMergeUpsertSql().
 	 *

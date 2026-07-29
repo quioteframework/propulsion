@@ -949,16 +949,21 @@ class ModelCriteria extends Criteria
 	 * Adds a supplementary column to the select clause
 	 * These columns can later be retrieved from the hydrated objects using getVirtualColumn()
 	 *
-	 * @param     string $clause The SQL clause with object model column names
-	 *                           e.g. 'UPPER(Author.FirstName)'
+	 * @param     string|WindowExpression $clause The SQL clause with object model column names
+	 *                           e.g. 'UPPER(Author.FirstName)', or a WindowExpression built via
+	 *                           e.g. WindowExpression::rowNumber()->partitionBy(...)->orderBy(...)
+	 *                           for a "<function>(...) OVER (...)" window-function column -- either
+	 *                           way, Model.Column names are resolved the same, since a WindowExpression
+	 *                           is converted to its SQL string form before that happens.
 	 * @param     string $name   Optional alias for the added column
 	 *                           If no alias is provided, the clause is used as a column alias
 	 *                           This alias is used for retrieving the column via BaseObject::getVirtualColumn($alias)
 	 *
 	 * @return     static The current object, for fluid interface
 	 */
-	public function withColumn(string $clause, ?string $name = null) : static
+	public function withColumn(string|WindowExpression $clause, ?string $name = null) : static
 	{
+		$clause = (string) $clause;
 		if (null === $name) {
 			$name = str_replace(array('.', '(', ')'), '', $clause);
 		}
@@ -1158,6 +1163,55 @@ class ModelCriteria extends Criteria
 		$callback($subQuery);
 		$realColumnName = $this->getTableMap()->getColumnByPhpName($columnName)->getFullyQualifiedName();
 		$this->addInQuery($realColumnName, $subQuery, $negate);
+
+		return $this;
+	}
+
+	/**
+	 * Prefixes this query with "WITH $name AS (<$callback's query>)", built from $modelName
+	 * the same closure-scoped way useExistsQuery()/useInQuery() build their own subquery --
+	 * $callback receives a ModelCriteria for $modelName to add select columns/conditions to.
+	 * $name can then be used anywhere a table name is otherwise expected in this query (e.g.
+	 * a plain "$name.column" passed to where()/addSelectColumn(), or joinExtra()-style raw
+	 * conditions), the same way Criteria::withCte() itself works -- see its own docblock.
+	 *
+	 * This convenience only covers the common non-recursive case: a recursive CTE's own
+	 * query needs a UNION ALL branch that joins back to $name by that same name, which
+	 * isn't expressible as a single $modelName's worth of subquery -- build it as a plain
+	 * Criteria (anchor unionAll() recursive-member) and pass it to withCte() directly for
+	 * that case instead.
+	 *
+	 * <code>
+	 * $c = BookQuery::create()->useCteQuery('recent_reviews', 'Review', function ($sub) {
+	 *     $sub->addSelectColumn(ReviewPeer::BOOK_ID);
+	 *     $sub->add(ReviewPeer::CREATED_AT, $cutoff, Criteria::GREATER_EQUAL);
+	 * });
+	 * $c->where('recent_reviews.BOOK_ID = book.ID');
+	 * // WITH recent_reviews AS (SELECT review.BOOK_ID FROM review WHERE review.CREATED_AT >= ?)
+	 * // SELECT ... FROM book WHERE recent_reviews.BOOK_ID = book.ID
+	 * </code>
+	 *
+	 * @param      string $name
+	 * @param      string $modelName The phpName of the model to query, e.g. 'Review'.
+	 * @param      callable(ModelCriteria): void $callback Receives the subquery to add columns/conditions to.
+	 * @param      array<int, string> $columns Explicit column list -- see withCte()'s own $columns parameter.
+	 * @param      string|null $modelAlias Optional alias for the subquery's own table.
+	 *
+	 * @return     static
+	 */
+	public function useCteQuery(string $name, string $modelName, callable $callback, array $columns = array(), ?string $modelAlias = null) : static
+	{
+		$subQuery = PropulsionQuery::from($modelName);
+		$subQueryTableName = $subQuery->getTableMap()->getName();
+		if ($subQueryTableName === null) {
+			throw new PropulsionException("Could not resolve the table name for model '$modelName'");
+		}
+		$subQuery->setPrimaryTableName($subQueryTableName);
+		if ($modelAlias !== null) {
+			$subQuery->setModelAlias($modelAlias, true);
+		}
+		$callback($subQuery);
+		$this->withCte($name, $subQuery, $columns);
 
 		return $this;
 	}

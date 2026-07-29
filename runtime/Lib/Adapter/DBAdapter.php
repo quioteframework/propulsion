@@ -699,6 +699,20 @@ abstract class DBAdapter
 	public abstract function applyLimit(&$sql, $offset, $limit, $criteria = null): void;
 
 	/**
+	 * Whether a recursive common table expression needs the literal "RECURSIVE"
+	 * keyword ("WITH RECURSIVE name AS (...)"), as Postgres/MySQL/MariaDB/SQLite all
+	 * require. MSSQL and Oracle accept a self-referencing CTE under a plain "WITH"
+	 * with no such keyword at all (and MSSQL rejects the keyword outright), so both
+	 * override this to false. See BasePeer::createCommonTableExpressionSql().
+	 *
+	 * @return    boolean
+	 */
+	public function supportsRecursiveCteKeyword(): bool
+	{
+		return true;
+	}
+
+	/**
 	 * Whether this platform supports SELECT ... FOR UPDATE.
 	 *
 	 * @return    boolean

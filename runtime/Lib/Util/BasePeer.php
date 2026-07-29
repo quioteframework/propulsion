@@ -993,6 +993,10 @@ class BasePeer
 	 */
 	public static function createSelectSql(Criteria $criteria, &$params)
 	{
+		if ($criteria->getCommonTableExpressions()) {
+			return self::createCommonTableExpressionSql($criteria, $params);
+		}
+
 		if ($criteria->getSetOperations()) {
 			return self::createSetOperationSql($criteria, $params);
 		}
@@ -1212,6 +1216,42 @@ class BasePeer
 		}
 
 		return $sql;
+	}
+
+	/**
+	 * Builds "WITH [RECURSIVE] name (col1, col2) AS (<cte query>), ... <criteria's own
+	 * query>" for a Criteria with getCommonTableExpressions() set -- see Criteria::withCte().
+	 * Each CTE's own query is built via a recursive createSelectSql() call sharing the
+	 * same $params array (the same nesting mechanism addSelectQuery()'s FROM-clause
+	 * subqueries already use), so a CTE query may itself carry set operations, further
+	 * CTEs, or bound parameters with no special-casing here. The main body (this
+	 * Criteria stripped of its own CTE list, which may still itself have set operations)
+	 * is built via the ordinary createSelectSql() entry point, so it falls straight
+	 * through to whichever of the plain-SELECT or set-operation branches applies -- the
+	 * WITH clause is purely a textual prefix, unrelated to how the body itself is shaped.
+	 *
+	 * @param      Criteria $criteria
+	 * @param      array<int, array{table: string|null, column: string|null, value: mixed}> $params
+	 * @return     string
+	 */
+	private static function createCommonTableExpressionSql(Criteria $criteria, &$params): string
+	{
+		$db = Propulsion::getDB($criteria->getDbName());
+
+		$recursive = false;
+		$cteParts = array();
+		foreach ($criteria->getCommonTableExpressions() as $cte) {
+			$recursive = $recursive || $cte['recursive'];
+			$columnList = $cte['columns'] ? ' (' . implode(', ', $cte['columns']) . ')' : '';
+			$cteParts[] = $cte['name'] . $columnList . ' AS (' . self::createSelectSql($cte['query'], $params) . ')';
+		}
+
+		$bodyCriteria = clone $criteria;
+		$bodyCriteria->clearCommonTableExpressions();
+
+		$recursiveKeyword = ($recursive && $db->supportsRecursiveCteKeyword()) ? 'RECURSIVE ' : '';
+
+		return 'WITH ' . $recursiveKeyword . implode(', ', $cteParts) . ' ' . self::createSelectSql($bodyCriteria, $params);
 	}
 
 	/**

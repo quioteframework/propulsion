@@ -194,14 +194,66 @@ These are gaps in the shared query builder — confirmed absent by grep across
   rather than attempted here. `ModelCriteria`'s own `update()`/`BasePeer`-level
   callers don't yet have a convenience wrapper exposing this — only the
   `BasePeer::doUpdate()`/`doDelete()` primitives do.
-- [ ] **Common table expressions** — no `WITH` / `WITH RECURSIVE` support.
-  Supported by all five platforms. Recursive CTEs would additionally give
-  native adjacency-list tree queries, an alternative to
-  `NestedSetBehavior`'s write amplification.
-- [ ] **Window functions** — no `OVER (PARTITION BY ... )` builder;
-  `withColumn()` can only smuggle one in as a raw string. Worth noting:
-  `ROW_NUMBER() OVER (...)` is exactly what would let both legacy
-  `applyLimit()` rewriters (MSSQL, Oracle — see below) be deleted.
+- [x] **Common table expressions** — `Criteria::withCte(string $name, Criteria
+  $query, array $columns = [], bool $recursive = false)` prefixes a `WITH name
+  AS (<$query>)` (or `WITH RECURSIVE name AS (...)` when `$recursive`) onto
+  this query, via `BasePeer::createCommonTableExpressionSql()`, consulted
+  first in `createSelectSql()` (ahead of the plain-SELECT/set-operation
+  branches, which the CTE'd body then falls straight through to via an
+  ordinary recursive `createSelectSql()` call on a clone with the CTE list
+  cleared — the same "clone, strip, recurse" shape `createSetOperationSql()`
+  already uses for `UNION`/etc., and composable with it: a CTE's own body may
+  itself carry set operations). `$name` is resolved purely by string
+  identity, the same way a real table name already is — `setPrimaryTableName('name')`/
+  `addJoin()`/a plain `"name.column"` passed to `where()`/`addSelectColumn()`
+  all already work against a CTE name with no new "reference a CTE" API
+  needed, since `createSelectSql()`'s `FROM`-clause construction was never
+  restricted to only known `DatabaseMap` tables in the first place. A
+  recursive CTE's `$columns` is **required** (throws otherwise) rather than
+  left to per-platform inference: Postgres/MySQL/MariaDB/SQLite can infer a
+  recursive CTE's column list from its anchor branch's own `SELECT`, but
+  Oracle cannot, so an explicit list is required uniformly rather than only
+  on the one platform that strictly needs it (a recursive CTE's own
+  recursive branch also needs `$name`'s columns to already be known to
+  reference them, before `$query` itself can even be built — see
+  `withCte()`'s own docblock). New `DBAdapter::supportsRecursiveCteKeyword()`
+  hook (default `true`) gates the literal `RECURSIVE` keyword itself:
+  Postgres/MySQL/MariaDB/SQLite all require it on a recursive CTE, but MSSQL
+  rejects it outright and Oracle has never needed it (has supported a
+  self-referencing plain `WITH` since 11gR2) — both override the hook to
+  `false`. `ModelCriteria::useCteQuery(string $name, string $modelName,
+  callable $callback, array $columns = [], ?string $modelAlias = null)` adds
+  a closure-scoped convenience for the common non-recursive case, mirroring
+  `useExistsQuery()`/`useInQuery()`'s own style — a recursive CTE's query
+  (anchor `unionAll()` a self-referencing recursive branch) doesn't fit a
+  single `$modelName`'s worth of subquery, so it stays a plain `Criteria`
+  built by hand and passed to `withCte()` directly. Recursive adjacency-list
+  tree queries as a `NestedSetBehavior` alternative (this item's own original
+  motivation) are unlocked but not themselves implemented — no new
+  behavior/query-builder wrapper for a tree walk ships here, just the
+  primitive that would make one possible. Covered by
+  `CommonTableExpressionTest`.
+- [x] **Window functions** — new `Propulsion\Query\WindowExpression`, a
+  fluent `<function>(...) OVER (PARTITION BY ... ORDER BY ... <frame>)`
+  builder (`WindowExpression::rowNumber()`/`rank()`/`denseRank()`/
+  `percentRank()`/`ntile()`/`lag()`/`lead()`/`firstValue()`/`lastValue()`/
+  `sum()`/`avg()`/`count()`/`min()`/`max()`/`raw()` for anything else,
+  chained with `partitionBy()`/`orderBy()`/`rowsBetween()`/`rangeBetween()`),
+  replacing the "smuggle one in as a raw string" escape hatch with real
+  ergonomics on top of the same mechanism — `ModelCriteria::withColumn()` now
+  accepts `string|WindowExpression` (converted to its SQL string form via
+  `__toString()` before the existing `Model.Column` name-replacement pass
+  runs, so `WindowExpression`'s own column arguments get the same
+  `replaceNames()` treatment a raw string clause already did). No new
+  `Criteria`/`BasePeer` plumbing was needed beyond that — a window function
+  is syntactically just another `SELECT`-list expression, which
+  `withColumn()`/`addAsColumn()` already had a general-purpose slot for; this
+  item was purely about not hand-writing the `OVER` clause as a string
+  anymore. `ROW_NUMBER() OVER (...)` replacing the legacy `applyLimit()`
+  rewriters this item's own original text flagged (MSSQL, Oracle) turned out
+  to be moot — both were already modernized to native `OFFSET ... FETCH`
+  independently of this (see MSSQL/Oracle's own per-platform sections below),
+  so there was nothing left to delete. Covered by `WindowExpressionTest`.
 - [x] **Set operations** — no `UNION` / `UNION ALL` / `INTERSECT` / `EXCEPT`.
   `Criteria::union()`/`unionAll()`/`intersect()`/`except()` combine two full
   `Criteria` queries into `(<query>) <OP> (<other's query>)`, chainable and

@@ -130,6 +130,18 @@ class DBMSSQL extends DBAdapter
 	}
 
 	/**
+	 * T-SQL has no "RECURSIVE" keyword at all -- a self-referencing CTE is written
+	 * under a plain "WITH name AS (...)" exactly like a non-recursive one, and MSSQL
+	 * rejects the keyword as a syntax error if it's present.
+	 *
+	 * @see       DBAdapter::supportsRecursiveCteKeyword()
+	 */
+	public function supportsRecursiveCteKeyword(): bool
+	{
+		return false;
+	}
+
+	/**
 	 * Simulated Limit/Offset
 	 *
 	 * This rewrites the $sql query to apply the offset and limit.
