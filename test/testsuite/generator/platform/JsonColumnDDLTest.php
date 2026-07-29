@@ -11,8 +11,8 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * Tests the per-platform DDL generated for JSON/JSONB columns: native JSON/JSONB
- * on PostgreSQL, native JSON on MySQL, and a text/CLOB fallback everywhere else
- * (SQLite, MSSQL, Oracle) that has no dedicated JSON column type.
+ * on PostgreSQL, native JSON on MySQL and Oracle (21c+), and a text fallback on
+ * SQLite/MSSQL, which have no dedicated JSON column type.
  */
 class JsonColumnDDLTest extends TestCase
 {
@@ -53,10 +53,12 @@ class JsonColumnDDLTest extends TestCase
 		$this->assertSame('VARCHAR(MAX)', $platform->getDomainForType(PropulsionTypes::JSONB)->getSqlType());
 	}
 
-	public function testOracleJsonAndJsonbFallBackToClob()
+	public function testOracleJsonAndJsonbAreNative()
 	{
 		$platform = new OraclePlatform();
-		$this->assertSame('CLOB', $platform->getDomainForType(PropulsionTypes::JSON)->getSqlType());
-		$this->assertSame('CLOB', $platform->getDomainForType(PropulsionTypes::JSONB)->getSqlType());
+		$this->assertSame('JSON', $platform->getDomainForType(PropulsionTypes::JSON)->getSqlType());
+		$this->assertSame('JSON', $platform->getDomainForType(PropulsionTypes::JSONB)->getSqlType());
+		$this->assertSame('foo JSON', $this->columnDDLFor($platform, PropulsionTypes::JSON));
+		$this->assertSame('foo JSON', $this->columnDDLFor($platform, PropulsionTypes::JSONB));
 	}
 }

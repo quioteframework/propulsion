@@ -25,11 +25,28 @@ class DBOracleTest extends BookstoreTestBase
 		$c->setLimit(1);
 		$params = array();
 		$sql = BasePeer::createSelectSql($c, $params);
-		$this->assertEquals('SELECT B.ID, B.TITLE, B.ISBN, B.PRICE, B.PUBLISHER_ID, B.AUTHOR_ID FROM (SELECT A.*, rownum AS PROPEL_ROWNUM FROM (SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book) A ) B WHERE  B.PROPEL_ROWNUM <= 1', $sql, 'applyLimit() creates a subselect with the original column names by default');
+		$this->assertEquals('SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book ORDER BY (SELECT NULL FROM dual) OFFSET 0 ROWS FETCH NEXT 1 ROWS ONLY', $sql, 'applyLimit() appends the native OFFSET/FETCH clause with no subquery wrapping');
 	}
 
-	public function testApplyLimitDuplicateColumnName()
+	public function testApplyLimitWithOffset()
 	{
+		Propulsion::setDb('oracle', new DBOracle());
+		$c = new Criteria();
+		$c->setDbName('oracle');
+		BookPeer::addSelectColumns($c);
+		$c->setOffset(5);
+		$c->setLimit(10);
+		$params = array();
+		$sql = BasePeer::createSelectSql($c, $params);
+		$this->assertEquals('SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book ORDER BY (SELECT NULL FROM dual) OFFSET 5 ROWS FETCH NEXT 10 ROWS ONLY', $sql, 'applyLimit() honors both offset and limit via native OFFSET/FETCH');
+	}
+
+	public function testApplyLimitDuplicateColumnNameNoLongerNeedsAliasing()
+	{
+		// Duplicate select-column names across joined tables no longer need
+		// pre-aliasing for pagination now that applyLimit() appends a native
+		// OFFSET/FETCH clause instead of wrapping the query in nested
+		// subqueries -- see DBOracle::applyLimit()'s own doc comment.
 		Propulsion::setDb('oracle', new DBOracle());
 		$c = new Criteria();
 		$c->setDbName('oracle');
@@ -38,23 +55,7 @@ class DBOracleTest extends BookstoreTestBase
 		$c->setLimit(1);
 		$params = array();
 		$sql = BasePeer::createSelectSql($c, $params);
-		$this->assertEquals('SELECT B.ORA_COL_ALIAS_0, B.ORA_COL_ALIAS_1, B.ORA_COL_ALIAS_2, B.ORA_COL_ALIAS_3, B.ORA_COL_ALIAS_4, B.ORA_COL_ALIAS_5, B.ORA_COL_ALIAS_6, B.ORA_COL_ALIAS_7, B.ORA_COL_ALIAS_8, B.ORA_COL_ALIAS_9, B.ORA_COL_ALIAS_10 FROM (SELECT A.*, rownum AS PROPEL_ROWNUM FROM (SELECT book.ID AS ORA_COL_ALIAS_0, book.TITLE AS ORA_COL_ALIAS_1, book.ISBN AS ORA_COL_ALIAS_2, book.PRICE AS ORA_COL_ALIAS_3, book.PUBLISHER_ID AS ORA_COL_ALIAS_4, book.AUTHOR_ID AS ORA_COL_ALIAS_5, author.ID AS ORA_COL_ALIAS_6, author.FIRST_NAME AS ORA_COL_ALIAS_7, author.LAST_NAME AS ORA_COL_ALIAS_8, author.EMAIL AS ORA_COL_ALIAS_9, author.AGE AS ORA_COL_ALIAS_10 FROM book, author) A ) B WHERE  B.PROPEL_ROWNUM <= 1', $sql, 'applyLimit() creates a subselect with aliased column names when a duplicate column name is found');
-	}
-
-	public function testApplyLimitDuplicateColumnNameWithColumn()
-	{
-		Propulsion::setDb('oracle', new DBOracle());
-		$c = new Criteria();
-		$c->setDbName('oracle');
-		BookPeer::addSelectColumns($c);
-		AuthorPeer::addSelectColumns($c);
-		$c->addAsColumn('BOOK_PRICE', BookPeer::PRICE);
-		$c->setLimit(1);
-		$params = array();
-		$asColumns = $c->getAsColumns();
-		$sql = BasePeer::createSelectSql($c, $params);
-		$this->assertEquals('SELECT B.ORA_COL_ALIAS_0, B.ORA_COL_ALIAS_1, B.ORA_COL_ALIAS_2, B.ORA_COL_ALIAS_3, B.ORA_COL_ALIAS_4, B.ORA_COL_ALIAS_5, B.ORA_COL_ALIAS_6, B.ORA_COL_ALIAS_7, B.ORA_COL_ALIAS_8, B.ORA_COL_ALIAS_9, B.ORA_COL_ALIAS_10, B.BOOK_PRICE FROM (SELECT A.*, rownum AS PROPEL_ROWNUM FROM (SELECT book.ID AS ORA_COL_ALIAS_0, book.TITLE AS ORA_COL_ALIAS_1, book.ISBN AS ORA_COL_ALIAS_2, book.PRICE AS ORA_COL_ALIAS_3, book.PUBLISHER_ID AS ORA_COL_ALIAS_4, book.AUTHOR_ID AS ORA_COL_ALIAS_5, author.ID AS ORA_COL_ALIAS_6, author.FIRST_NAME AS ORA_COL_ALIAS_7, author.LAST_NAME AS ORA_COL_ALIAS_8, author.EMAIL AS ORA_COL_ALIAS_9, author.AGE AS ORA_COL_ALIAS_10, book.PRICE AS BOOK_PRICE FROM book, author) A ) B WHERE  B.PROPEL_ROWNUM <= 1', $sql, 'applyLimit() creates a subselect with aliased column names when a duplicate column name is found');
-		$this->assertEquals($asColumns, $c->getAsColumns(), 'createSelectSql supplementary add alias column');
+		$this->assertEquals('SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID, author.ID, author.FIRST_NAME, author.LAST_NAME, author.EMAIL, author.AGE FROM book, author ORDER BY (SELECT NULL FROM dual) OFFSET 0 ROWS FETCH NEXT 1 ROWS ONLY', $sql);
 	}
 
 	public function testCreateSelectSqlPart()

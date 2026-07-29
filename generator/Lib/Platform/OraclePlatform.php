@@ -19,6 +19,8 @@ namespace Propulsion\Generator\Platform;
  */
 
  use Propulsion\Generator\Exception\EngineException;
+ use Propulsion\Generator\Model\Column;
+ use Propulsion\Generator\Model\Diff\PropulsionColumnDiff;
  use Propulsion\Generator\Model\Domain;
  use Propulsion\Generator\Model\PropulsionTypes;
  use Propulsion\Generator\Model\Table;
@@ -55,6 +57,14 @@ class OraclePlatform extends DefaultPlatform
 		return $table;
 	}
 
+	private function requireColumn(?Column $column): Column
+	{
+		if ($column === null) {
+			throw new EngineException('Expected a Column but got null.');
+		}
+		return $column;
+	}
+
 	/**
 	 * VendorInfo::getParameter() is untyped (a generic bag for arbitrary
 	 * `<vendor><parameter>` XML attributes), but every Oracle-specific
@@ -71,6 +81,27 @@ class OraclePlatform extends DefaultPlatform
 	}
 
 	/**
+	 * Whether $table's auto-increment primary key is declared `identity="true"`
+	 * and therefore uses Oracle 12c+'s native `GENERATED ... AS IDENTITY`
+	 * column mechanism (its own implicit, hidden sequence) instead of this
+	 * platform's legacy explicit `CREATE SEQUENCE` + `BEFORE INSERT` trigger
+	 * pair -- see getColumnDDL()/getAddSequencesDDL()/
+	 * getAddAutoIncrementTriggerDDL(). Guarded on `getIdMethodParameters()`
+	 * being empty the same way PgsqlPlatform's own `identity` guard is: a
+	 * table using a named/external sequence (`<id-method-parameter>`) is
+	 * explicitly opting into that sequence's own naming, not this column's
+	 * implicit one, so `identity="true"` is ignored there.
+	 */
+	private function usesNativeIdentity(Table $table): bool
+	{
+		if ($table->getIdMethodParameters()) {
+			return false;
+		}
+		$pk = $table->getAutoIncrementPrimaryKey();
+		return $pk !== null && $pk->isIdentity();
+	}
+
+	/**
 	 * Initializes db specific domain mapping.
 	 */
 	protected function initialize(): void
@@ -83,8 +114,17 @@ class OraclePlatform extends DefaultPlatform
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::SMALLINT, "NUMBER", "5", "0"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::INTEGER, "NUMBER"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::BIGINT, "NUMBER", "20", "0"));
-		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::REAL, "NUMBER"));
-		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::DOUBLE, "FLOAT"));
+		// Native IEEE-754 binary floating-point types (available since
+		// Oracle 10g, long past this pass's 12c+ floor) instead of the
+		// previous, decimal-exact NUMBER/FLOAT mapping -- NUMBER is exact
+		// decimal (like SQL NUMERIC), so it was already a poor fit for
+		// PropulsionTypes::REAL/DOUBLE's own "approximate binary float"
+		// semantics (matching every other platform's REAL/DOUBLE ->
+		// float4/float8-equivalent mapping); BINARY_FLOAT/BINARY_DOUBLE are
+		// Oracle's real equivalent of PHP's own float type, including the
+		// same rounding behavior, rather than an arbitrary-precision decimal.
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::REAL, "BINARY_FLOAT"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::DOUBLE, "BINARY_DOUBLE"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::DECIMAL, "NUMBER"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::NUMERIC, "NUMBER"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::VARCHAR, "NVARCHAR2"));
@@ -98,12 +138,17 @@ class OraclePlatform extends DefaultPlatform
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::OBJECT, "NVARCHAR2", "2000"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::PHP_ARRAY, "NVARCHAR2", "2000"));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::ENUM, "NUMBER", "3", "0"));
-		// No dedicated JSON domain mapping here: Oracle has no native JSON column type
-		// on the versions this codebase targets, so fall through to CLOB via the
-		// CLOB_EMU aliasing set up above -- a JSON document can far exceed NVARCHAR2's
-		// 2000-char limit (unlike OBJECT/PHP_ARRAY above, which historically fit).
-		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::JSON, "CLOB"));
-		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::JSONB, "CLOB"));
+		// Native JSON column type (Oracle 21c+ -- see this pass's own floor
+		// note in PLATFORM_FEATURES.md). Oracle enforces well-formed JSON on
+		// this type itself (the same guarantee 12c+'s "IS JSON" CHECK
+		// constraint gives a plain CLOB, without needing that constraint
+		// spelled out separately here), and it's bound/fetched through
+		// PDO the same as a plain string -- no CLOB_EMU-style LOB bind
+		// handling needed in DBOracle::bindValue(), the same as before this
+		// change (JSON was never routed through the CLOB_EMU alias to begin
+		// with, just a bare "CLOB" sqlType).
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::JSON, "JSON"));
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::JSONB, "JSON"));
 		// Oracle has no native UUID column type; fall back to the canonical
 		// 36-character hyphenated textual representation (see
 		// PropulsionTypes::UUID / Column::isUuidType()).
@@ -125,6 +170,73 @@ class OraclePlatform extends DefaultPlatform
 		// No native SET type -- emulated as comma-joined text.
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::SET, "CLOB"));
 
+	}
+
+	/**
+	 * Adds the `GENERATED BY DEFAULT AS IDENTITY` clause (Oracle 12c+) for an
+	 * `identity="true"` auto-increment column -- see usesNativeIdentity()'s
+	 * own doc comment for the guard this shares with PgsqlPlatform's own
+	 * `identity` support. Every other column (including a plain, non-identity
+	 * auto-increment one, still handled by the legacy sequence+trigger pair)
+	 * falls through to `DefaultPlatform::getColumnDDL()` unchanged.
+	 *
+	 * $allowIdentity is `false` only from getModifyColumnDDL() below: Oracle
+	 * rejects re-declaring `GENERATED ... AS IDENTITY` on a column that
+	 * already has it (ORA-30675), so an ALTER TABLE ... MODIFY doesn't
+	 * attempt to change a column's identity-ness itself, matching the same
+	 * "not attempted here" limitation PgsqlPlatform's own identity/serial
+	 * migration path already has.
+	 */
+	public function getColumnDDL(Column $col, bool $allowIdentity = true)
+	{
+		$table = $col->getTable();
+		if ($allowIdentity && $col->isAutoIncrement() && $col->isIdentity() && $table && $this->usesNativeIdentity($table)) {
+			$domain = $col->getDomain();
+			$ddl = array($this->quoteIdentifier($this->requireString($col->getName(), 'Column name')));
+			$sqlType = $this->requireString($domain->getSqlType(), 'Column SQL type');
+			if ($this->hasSize($sqlType) && $col->isDefaultSqlType($this)) {
+				$ddl []= $sqlType . $domain->printSize();
+			} else {
+				$ddl []= $sqlType;
+			}
+			// An auto-increment column has no user-declared default anyway,
+			// so there's no DEFAULT-vs-identity clash to resolve here (unlike
+			// TSVECTOR's generated-column branch elsewhere in this codebase).
+			if ($notNull = $this->getNullString($col->isNotNull())) {
+				$ddl []= $notNull;
+			}
+			$ddl []= 'GENERATED BY DEFAULT AS IDENTITY';
+
+			return implode(' ', $ddl);
+		}
+
+		return parent::getColumnDDL($col);
+	}
+
+	public function getModifyColumnDDL(PropulsionColumnDiff $columnDiff)
+	{
+		$toColumn = $this->requireColumn($columnDiff->getToColumn());
+		$table = $this->requireTable($toColumn->getTable());
+		$pattern = "
+ALTER TABLE %s MODIFY %s;
+";
+		return sprintf($pattern,
+			$this->quoteIdentifier($this->requireString($table->getName(), 'Table name')),
+			$this->getColumnDDL($toColumn, false)
+		);
+	}
+
+	/**
+	 * BINARY_FLOAT/BINARY_DOUBLE (unlike the NUMBER/FLOAT they replaced --
+	 * see initialize()) and JSON take no parenthesized size/precision
+	 * argument in Oracle at all; DefaultPlatform's own hasSize() is
+	 * unconditionally true, which would otherwise print a schema-declared
+	 * `size`/`scale` (carried over from a plain numeric column, or simply
+	 * unset and defaulted) as invalid syntax like `BINARY_DOUBLE(3)`.
+	 */
+	public function hasSize($sqlType)
+	{
+		return !("BINARY_FLOAT" == $sqlType || "BINARY_DOUBLE" == $sqlType || "JSON" == $sqlType);
 	}
 
 	public function getMaxColumnNameLength()
@@ -225,10 +337,14 @@ ALTER SESSION SET NLS_TIMESTAMP_FORMAT='YYYY-MM-DD HH24:MI:SS';
 	 * already supplied (so an explicit allowPkInsert-style value still wins)
 	 * closes that gap, matching the other platforms' actual behavior instead
 	 * of only Propulsion's own code path.
+	 *
+	 * Skipped entirely for an `identity="true"` PK (see usesNativeIdentity()):
+	 * a native `GENERATED ... AS IDENTITY` column already auto-populates
+	 * itself on a PK-omitting INSERT with no trigger needed at all.
 	 */
 	public function getAddAutoIncrementTriggerDDL(Table $table): string
 	{
-		if ($table->getIdMethod() !== IDMethod::NATIVE) {
+		if ($table->getIdMethod() !== IDMethod::NATIVE || $this->usesNativeIdentity($table)) {
 			return '';
 		}
 		$pk = $table->getAutoIncrementPrimaryKey();
@@ -281,7 +397,10 @@ END;
 
 	public function getAddSequencesDDL(Table $table): ?string
 	{
-		if ($table->getIdMethod() == "native") {
+		// An identity="true" PK (see usesNativeIdentity()) gets its value from
+		// its own hidden, implicit sequence rather than this explicit named
+		// one -- skipped here the same way its trigger counterpart is above.
+		if ($table->getIdMethod() == "native" && !$this->usesNativeIdentity($table)) {
 			$pattern = "
 CREATE SEQUENCE %s
 	INCREMENT BY 1 START WITH 1 NOMAXVALUE NOCYCLE NOCACHE ORDER;
@@ -299,7 +418,7 @@ CREATE SEQUENCE %s
 		$ret = "
 DROP TABLE " . $this->quoteIdentifier($this->requireString($table->getName(), 'Table name')) . " CASCADE CONSTRAINTS;
 ";
-		if ($table->getIdMethod() == IDMethod::NATIVE) {
+		if ($table->getIdMethod() == IDMethod::NATIVE && !$this->usesNativeIdentity($table)) {
 			$ret .= "
 DROP SEQUENCE " . $this->quoteIdentifier($this->requireString($this->getSequenceName($table), 'Sequence name')) . ";
 ";

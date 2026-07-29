@@ -24,7 +24,6 @@ namespace Propulsion\Adapter;
 use PDO;
 use PDOStatement;
 use Propulsion\Query\Criteria;
-use Propulsion\Util\BasePeer;
 use Propulsion\Exception\PropulsionException;
 use Propulsion\Map\ColumnMap;
 use Propulsion\Map\DatabaseMap;
@@ -122,124 +121,45 @@ class DBOracle extends DBAdapter
 	/**
 	 * @see       DBAdapter::applyLimit()
 	 *
-	 * @param     string   $sql
-	 * @param     integer  $offset
-	 * @param     integer  $limit
+	 * @param     string      $sql
+	 * @param     int|string  $offset  Expected to be numeric; validated at runtime since
+	 *                                 this method has no native parameter type and is part
+	 *                                 of a public, pluggable adapter interface.
+	 * @param     int|string  $limit   Expected to be numeric; validated at runtime (see $offset).
 	 * @param     null|Criteria  $criteria
 	 */
 	public function applyLimit(&$sql, $offset, $limit, $criteria = null): void
 	{
-		if ($criteria !== null && BasePeer::needsSelectAliases($criteria)) {
-			$crit = clone $criteria;
-			$selectSql = $this->createSelectSqlPart($crit, $params, true);
-			$sql = $selectSql . substr($sql, strpos($sql, 'FROM') - 1);
-		}
-		// "SELECT B.*" would also re-expose the synthetic "rownum AS
-		// PROPEL_ROWNUM" column added below as part of "A.*" -- an extra
-		// trailing column on every row of a paginated result set, which
-		// PDO::FETCH_NUM-based hydration/formatters (indexed purely by
-		// position, with no idea a pagination rewrite happened) would then
-		// misread as belonging to the query's actual last selected column.
-		// Deriving the real outer column list (falling back to the old "B.*"
-		// wildcard only if the SELECT clause can't be parsed this way, e.g.
-		// this method's own no-op-select unit tests) avoids the leak instead
-		// of requiring every caller to know to strip a trailing column.
-		$outerColumns = $this->deriveOuterColumnList($sql) ?? 'B.*';
-		$sql = 'SELECT ' . $outerColumns . ' FROM ('
-			. 'SELECT A.*, rownum AS PROPEL_ROWNUM FROM (' . $sql . ') A '
-			. ') B WHERE ';
-
-		if ( $offset > 0 ) {
-			$sql .= ' B.PROPEL_ROWNUM > ' . $offset;
-			if ( $limit > 0 ) {
-				$sql .= ' AND B.PROPEL_ROWNUM <= ' . ( $offset + $limit );
-			}
-		} else {
-			$sql .= ' B.PROPEL_ROWNUM <= ' . $limit;
-		}
-	}
-
-	/**
-	 * Derives the explicit "B.col1, B.col2, ..." column list applyLimit()
-	 * needs to avoid re-exposing its own synthetic PROPEL_ROWNUM column via a
-	 * "B.*" wildcard -- see applyLimit()'s own doc comment. Parses just the
-	 * "SELECT ... FROM" column list of the (not yet wrapped) query, splitting
-	 * on top-level commas (respecting parens and string literals, so a
-	 * function call or a comma inside a string literal isn't mistaken for a
-	 * column separator) and, for each entry, using its explicit "AS alias" if
-	 * present or its trailing "table.COLUMN"-shaped identifier otherwise --
-	 * matching Oracle's own implicit-naming rule for an unaliased expression.
-	 * Returns null (caller falls back to the old, leaky "B.*" wildcard) if
-	 * the SELECT clause can't be parsed this way at all (e.g. no columns
-	 * selected, as in this method's own unit tests) or if any single entry's
-	 * name can't be determined.
-	 *
-	 * @param     string  $sql
-	 * @return    ?string
-	 */
-	private function deriveOuterColumnList(string $sql): ?string
-	{
-		if (!preg_match('/^SELECT\s+(.*?)\s+FROM\s/is', $sql, $m) || trim($m[1]) === '') {
-			return null;
+		if (!is_numeric($offset) || !is_numeric($limit)) {
+			throw new PropulsionException('DBOracle::applyLimit() expects a number for argument 2 and 3');
 		}
 
-		$names = [];
-		foreach ($this->splitTopLevelSql($m[1], ',') as $column) {
-			$column = trim($column);
-			if ($column === '') {
-				return null;
-			}
-			if (preg_match('/\sAS\s+("(?:[^"]|"")*"|[A-Za-z_][A-Za-z0-9_]*)\s*$/i', $column, $aliasMatch)) {
-				$names[] = 'B.' . $aliasMatch[1];
-				continue;
-			}
-			if (preg_match('/([A-Za-z_][A-Za-z0-9_]*)\s*$/', $column, $identMatch)) {
-				$names[] = 'B.' . $identMatch[1];
-				continue;
-			}
-			return null;
+		// Oracle 12c+ supports the ANSI SQL:2008 "OFFSET ... ROWS FETCH NEXT
+		// ... ROWS ONLY" clause natively, appended directly to the existing
+		// query text with no subquery wrapping at all. This replaces the
+		// legacy ROWNUM-based double-nested-subquery rewrite, which had to
+		// derive an explicit outer column list to avoid a synthetic
+		// PROPEL_ROWNUM column leaking through a "B.*" wildcard, and had to
+		// pre-alias the Criteria's select columns (via
+		// BasePeer::needsSelectAliases()/turnSelectColumnsToAliases()) to
+		// dodge an ORA-00918 "column ambiguously defined" error from a
+		// "SELECT A.*" star-expansion over a derived table with duplicate
+		// column names (a multi-table join without column aliases). None of
+		// that applies once pagination is just a clause appended to the
+		// original, unwrapped SELECT.
+		//
+		// OFFSET/FETCH requires an ORDER BY clause; when the query has none,
+		// a no-op scalar subquery satisfies the syntax requirement without
+		// imposing a real ordering (Oracle requires a FROM on every query
+		// including this one, unlike DBMSSQL::applyLimit()'s own bare
+		// "ORDER BY (SELECT NULL)" for the same native clause).
+		if (!preg_match('/\bORDER BY\b/i', $sql)) {
+			$sql .= ' ORDER BY (SELECT NULL FROM dual)';
 		}
-
-		return implode(', ', $names);
-	}
-
-	/**
-	 * Splits a SQL fragment on a delimiter that appears only at "top level"
-	 * -- not inside parens (a function call's own argument list) or a
-	 * single-quoted string literal -- used by deriveOuterColumnList() to
-	 * split a column list on commas without being fooled by a comma inside
-	 * e.g. "COALESCE(a, b)" or a string literal default value.
-	 *
-	 * @param     string  $sql
-	 * @param     string  $delimiter  Single character.
-	 * @return    array<int, string>
-	 */
-	private function splitTopLevelSql(string $sql, string $delimiter): array
-	{
-		$parts = [];
-		$current = '';
-		$depth = 0;
-		$inString = false;
-		for ($i = 0, $len = strlen($sql); $i < $len; $i++) {
-			$char = $sql[$i];
-			if ($char === "'") {
-				$inString = !$inString;
-			} elseif (!$inString) {
-				if ($char === '(') {
-					$depth++;
-				} elseif ($char === ')') {
-					$depth--;
-				} elseif ($char === $delimiter && $depth === 0) {
-					$parts[] = $current;
-					$current = '';
-					continue;
-				}
-			}
-			$current .= $char;
+		$sql .= ' OFFSET ' . $offset . ' ROWS';
+		if ($limit > 0) {
+			$sql .= ' FETCH NEXT ' . $limit . ' ROWS ONLY';
 		}
-		$parts[] = $current;
-
-		return $parts;
 	}
 
 	/**

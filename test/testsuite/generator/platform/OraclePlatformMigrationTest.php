@@ -254,7 +254,7 @@ ALTER TABLE foo RENAME COLUMN bar1 TO bar2;
 	public function testGetModifyColumnDDL($columnDiff)
 	{
 		$expected = "
-ALTER TABLE foo MODIFY bar FLOAT(3);
+ALTER TABLE foo MODIFY bar BINARY_DOUBLE;
 ";
 		$this->assertEquals($expected, $this->getPlatform()->getModifyColumnDDL($columnDiff));
 	}
@@ -268,7 +268,7 @@ ALTER TABLE foo MODIFY bar FLOAT(3);
 		$expected = "
 ALTER TABLE foo MODIFY
 (
-	bar1 FLOAT(3),
+	bar1 BINARY_DOUBLE,
 	bar2 INTEGER NOT NULL
 );
 ";
@@ -297,7 +297,7 @@ ALTER TABLE foo ADD bar NUMBER;
 ALTER TABLE foo ADD
 (
 	bar1 NUMBER,
-	bar2 FLOAT(3,2) DEFAULT -1 NOT NULL
+	bar2 BINARY_DOUBLE DEFAULT -1 NOT NULL
 );
 ";
 		$this->assertEquals($expected, $this->getPlatform()->getAddColumnsDDL($columns));
