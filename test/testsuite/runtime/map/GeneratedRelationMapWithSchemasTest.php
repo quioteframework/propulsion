@@ -9,7 +9,7 @@
  */
 
 /**
- * Test class for PHP5TableMapBuilder with schemas.
+ * Test class for TableMapBuilder with schemas.
  *
  * @author     Ulf Hermann
  * @version    $Id$

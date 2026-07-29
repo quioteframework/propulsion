@@ -9,7 +9,7 @@
  */
 
 /**
- * Test class for PHP5TableMapBuilder.
+ * Test class for TableMapBuilder.
  *
  * @author     François Zaninotto
  * @version    $Id$

@@ -424,11 +424,14 @@ class IntegrationDatabase
     /**
      * Same idea as ensureReady(), for the separate "namespaced" fixture project
      * (test/fixtures/namespaced/schema.xml) used by NamespaceTest: its tables
-     * declare a `namespace="..."` attribute, which only the PHP84 builders honor,
-     * so this targets that platform explicitly (ensureReady()'s bookstore fixtures
-     * stay on the default PHP5 target). Reuses the same running container as
-     * ensureReady() (starting one if neither has run yet) but a separate database,
-     * since both fixture projects define tables named book/author/publisher.
+     * declare a `namespace="..."` attribute, which the modern builders honor
+     * regardless of targetPlatform -- this still passes `targetPlatform=php84`
+     * explicitly only for parity with the fixture's own historical build.php,
+     * not because it changes which builder class runs (there is only one
+     * builder set left; see generator/default.php's "BUILDER SETTINGS"
+     * section). Reuses the same running container as ensureReady() (starting
+     * one if neither has run yet) but a separate database, since both fixture
+     * projects define tables named book/author/publisher.
      */
     public static function ensureNamespacedReady(): void
     {
@@ -476,7 +479,7 @@ class IntegrationDatabase
      * schema name into the generated PHP class/table names (e.g.
      * `BookstoreSchemasBookstore`, `ContestBookstoreContest`) rather than needing real
      * Postgres `CREATE SCHEMA`/`search_path` support -- so, like the bookstore fixtures,
-     * this targets the default (PHP5, flat/unnamespaced) builder. Reuses the same
+     * this targets the default, flat/unnamespaced builder. Reuses the same
      * running container as ensureReady() (starting one if none has run yet) but a
      * separate database, since the schemas project's tables overlap in name with the
      * bookstore fixtures (book, bookstore, customer, ...).
@@ -873,8 +876,8 @@ class IntegrationDatabase
     }
 
     /**
-     * The bookstore fixtures are generated with the PHP5 builder (flat, unnamespaced
-     * classes -- BookPeer, Author, etc.), which composer's PSR-4 autoloading can't
+     * The bookstore fixtures are generated with the default, flat/unnamespaced
+     * builder (BookPeer, Author, etc.), which composer's PSR-4 autoloading can't
      * find; the namespaced fixtures use real `namespace Foo\Bar;` declarations, but
      * not in a PSR-4-compatible directory layout composer could map either.
      * Historically this relied on a plain "search the include path" autoloader that
