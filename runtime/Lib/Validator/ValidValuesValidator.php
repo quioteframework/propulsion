@@ -24,6 +24,7 @@ namespace Propulsion\Validator;
  * @version    $Revision$
  */
 
+use Propulsion\Exception\PropulsionException;
 use Propulsion\Map\ValidatorMap;
 
 class ValidValuesValidator implements BasicValidator
@@ -38,6 +39,16 @@ class ValidValuesValidator implements BasicValidator
 	 */
 	public function isValid(ValidatorMap $map, $str)
 	{
-		return in_array($str, preg_split("/[|,]/", $map->getValue()));
+		$value = $map->getValue();
+		if ($value === null) {
+			throw new PropulsionException('ValidValuesValidator requires a "value" attribute with the list of valid values');
+		}
+
+		$validValues = preg_split("/[|,]/", $value);
+		if ($validValues === false) {
+			throw new PropulsionException("Failed to parse valid values from \"$value\"");
+		}
+
+		return in_array($str, $validValues);
 	}
 }

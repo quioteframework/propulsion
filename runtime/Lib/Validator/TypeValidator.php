@@ -61,7 +61,7 @@ class TypeValidator implements BasicValidator
 			case 'string':
 				return is_string($value);
 			case 'function':
-				return function_exists($value);
+				return is_string($value) && function_exists($value);
 			default:
 				throw new PropulsionException('Unkonwn type ' . $map->getValue());
 		}

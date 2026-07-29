@@ -36,6 +36,7 @@ namespace Propulsion\Validator;
  * @version    $Revision$
  */
 
+use Propulsion\Exception\PropulsionException;
 use Propulsion\Map\ValidatorMap;
 class NotMatchValidator implements BasicValidator
 {
@@ -54,9 +55,12 @@ class NotMatchValidator implements BasicValidator
 		}
 
 		// if they did not escape / chars; we do that for them
-		$exp = preg_replace('/([^\\\])\/([^$])/', '$1\/$2', $exp);
+		$prepared = preg_replace('/([^\\\])\/([^$])/', '$1\/$2', $exp);
+		if ($prepared === null) {
+			throw new PropulsionException("Invalid regular expression: $exp");
+		}
 
-		return $exp;
+		return $prepared;
 	}
 
 	/**
@@ -69,6 +73,11 @@ class NotMatchValidator implements BasicValidator
 	 */
 	public function isValid(ValidatorMap $map, $str)
 	{
-		return (preg_match($this->prepareRegexp($map->getValue()), $str) == 0);
+		$value = $map->getValue();
+		if ($value === null) {
+			throw new PropulsionException('NotMatchValidator requires a "value" attribute with the pattern to match');
+		}
+
+		return (preg_match($this->prepareRegexp($value), $str) == 0);
 	}
 }

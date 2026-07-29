@@ -24,6 +24,7 @@ namespace Propulsion\Validator;
  * @version    $Revision$
  */
 
+use Propulsion\Exception\PropulsionException;
 use Propulsion\Map\ValidatorMap;
 use Propulsion\Query\Criteria;
 
@@ -46,11 +47,12 @@ class UniqueValidator implements BasicValidator
 
 		$table = $column->getTable()->getClassName();
 
-		$clazz = $table . 'Peer';
-		$count = call_user_func(array($clazz, 'doCount'), $c);
+		$peerClass = $table . 'Peer';
+		$count = $peerClass::doCount($c);
+		if (!is_int($count)) {
+			throw new PropulsionException("{$peerClass}::doCount() was expected to return an int");
+		}
 
-		$isValid = ($count === 0);
-
-		return $isValid;
+		return $count === 0;
 	}
 }

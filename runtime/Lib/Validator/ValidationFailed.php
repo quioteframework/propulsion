@@ -98,11 +98,13 @@ class ValidationFailed {
 	}
 
 	/**
-	 * Gets the validator object that caused this to fail.
+	 * Gets the validator object that caused this to fail, or null if none was
+	 * given (e.g. BasePeer::getValidator() couldn't instantiate the configured
+	 * validator class).
 	 *
-	 * @return    object
+	 * @return    object|null
 	 */
-	public function getValidator()
+	public function getValidator(): ?object
 	{
 		return $this->validator;
 	}
