@@ -19,6 +19,7 @@ namespace Propulsion\Generator\Behavior\ConcreteInheritance;
  */
 
  use Propulsion\Generator\Builder\OM\ObjectBuilder;
+ use Propulsion\Generator\Exception\EngineException;
  use Propulsion\Generator\Model\Behavior;
 
 class ConcreteInheritanceParentBehavior extends Behavior
@@ -32,12 +33,39 @@ class ConcreteInheritanceParentBehavior extends Behavior
 	);
 
 	protected ?ObjectBuilder $builder = null;
-	public function modifyTable(): void
+
+	/**
+	 * modifyTable() is only ever invoked once this behavior is attached
+	 * to a table, but getTable() stays nullable to also cover the
+	 * not-yet-attached construction phase. Guard against the
+	 * (should-never-happen) unattached case with a clear error instead
+	 * of a null dereference.
+	 */
+	private function requireTable(): \Propulsion\Generator\Model\Table
 	{
 		$table = $this->getTable();
-		if (!$table->hasColumn($this->getParameter('descendant_column'))) {
+		if ($table === null) {
+			throw new EngineException('ConcreteInheritanceParentBehavior is not attached to a table');
+		}
+		return $table;
+	}
+
+	private function getStringParameter(string $name): string
+	{
+		$value = $this->getParameter($name);
+		if (!is_string($value)) {
+			throw new EngineException(sprintf("Parameter '%s' is expected to be a string", $name));
+		}
+		return $value;
+	}
+
+	public function modifyTable(): void
+	{
+		$table = $this->requireTable();
+		$descendantColumn = $this->getStringParameter('descendant_column');
+		if (!$table->hasColumn($descendantColumn)) {
 			$table->addColumn(array(
-				'name' => $this->getParameter('descendant_column'),
+				'name' => $descendantColumn,
 				'type' => 'VARCHAR',
 				'size' => 100
 			));
@@ -46,7 +74,11 @@ class ConcreteInheritanceParentBehavior extends Behavior
 
 	protected function getColumnGetter(): string
 	{
-		return 'get' . $this->getColumnForParameter('descendant_column')->getPhpName();
+		$column = $this->getColumnForParameter('descendant_column');
+		if ($column === null) {
+			throw new EngineException("Parameter 'descendant_column' does not reference an existing column");
+		}
+		return 'get' . $column->getPhpName();
 	}
 
 	public function objectMethods(ObjectBuilder $builder): string
