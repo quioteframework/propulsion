@@ -9,6 +9,8 @@
  */
  namespace Propulsion\Generator\Model;
 
+use Propulsion\Generator\Exception\EngineException;
+
 /**
  * A <code>NameGenerator</code> implementation for PHP-esque names.
  *
@@ -44,12 +46,23 @@ class PhpNameGenerator implements NameGenerator
 	 */
 	public function generateName($inputs)
 	{
-		$schemaName = $inputs[0];
-		$method = $inputs[1];
+		$schemaNameInput = $inputs[0] ?? null;
+		if ($schemaNameInput !== null && !is_string($schemaNameInput)) {
+			throw new EngineException('PhpNameGenerator::generateName() expects a string (or null) name as $inputs[0].');
+		}
+		// Null (e.g. an unnamed, not-yet-configured Column/Table) is tolerated
+		// and treated as an empty name, matching this class's own
+		// underscoreMethod()/phpnameMethod() null-tolerant behavior.
+		$schemaName = $schemaNameInput ?? '';
+		// The conversion method ($inputs[1]) is intentionally left untyped:
+		// any value that doesn't match one of the CONV_METHOD_* case labels
+		// below (including null, e.g. an unset Table::$phpNamingMethod)
+		// falls through to the underscoreMethod() default, same as before.
+		$method = $inputs[1] ?? null;
 
 		if (count($inputs)>2) {
 			$prefix = $inputs[2];
-			if ($prefix != '' && substr($schemaName, 0, strlen($prefix)) == $prefix) {
+			if (is_string($prefix) && $prefix != '' && substr($schemaName, 0, strlen($prefix)) == $prefix) {
 				$schemaName = substr($schemaName, strlen($prefix));
 			}
 		}

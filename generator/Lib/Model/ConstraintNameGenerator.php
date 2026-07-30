@@ -41,15 +41,32 @@ class ConstraintNameGenerator implements NameGenerator
 	public function generateName($inputs)
 	{
 
-		$db = $inputs[0];
-		$name = $inputs[1];
-		$namePostfix = $inputs[2];
-		$constraintNbr = (string) $inputs[3];
+		$db = $inputs[0] ?? null;
+		if (!($db instanceof Database)) {
+			throw new EngineException('ConstraintNameGenerator::generateName() expects a Database as $inputs[0].');
+		}
+		$name = $inputs[1] ?? null;
+		if (!is_string($name)) {
+			throw new EngineException('ConstraintNameGenerator::generateName() expects a string name as $inputs[1].');
+		}
+		$namePostfix = $inputs[2] ?? null;
+		if (!is_string($namePostfix)) {
+			throw new EngineException('ConstraintNameGenerator::generateName() expects a string postfix as $inputs[2].');
+		}
+		$constraintNbrRaw = $inputs[3] ?? null;
+		if (!is_int($constraintNbrRaw) && !is_string($constraintNbrRaw)) {
+			throw new EngineException('ConstraintNameGenerator::generateName() expects an int/string constraint number as $inputs[3].');
+		}
+		$constraintNbr = (string) $constraintNbrRaw;
 
 		// Calculate maximum RDBMS-specific column character limit.
 		$maxBodyLength = -1;
 		try {
-			$maxColumnNameLength = (int) $db->getPlatform()->getMaxColumnNameLength();
+			$platform = $db->getPlatform();
+			if ($platform === null) {
+				throw new EngineException('Cannot generate a constraint name: no platform is configured for this Database.');
+			}
+			$maxColumnNameLength = $platform->getMaxColumnNameLength();
 			$maxBodyLength = ($maxColumnNameLength - strlen($namePostfix)
 					- strlen($constraintNbr) - 2);
 		} catch (EngineException $e) {

@@ -45,12 +45,12 @@ class Exclusion extends XMLElement
 	 */
 	protected function setupObject(): void
 	{
-		$this->name = $this->getAttribute('name');
-		$indexType = $this->getAttribute('indexType', null);
+		$this->name = $this->getStringAttribute('name');
+		$indexType = $this->getStringAttribute('indexType');
 		if ($indexType !== null) {
-			$this->indexType = (string) $indexType;
+			$this->indexType = $indexType;
 		}
-		$this->whereClause = $this->getAttribute('where', null);
+		$this->whereClause = $this->getStringAttribute('where');
 	}
 
 	public function getName(): ?string
@@ -113,15 +113,17 @@ class Exclusion extends XMLElement
 	 */
 	public function addColumn($data): void
 	{
-		if (!isset($data['name']) || !isset($data['operator'])) {
+		$name = $data['name'] ?? null;
+		$operator = $data['operator'] ?? null;
+		if (!is_string($name) || $name === '' || !is_string($operator) || $operator === '') {
 			throw new EngineException(sprintf(
 				'exclusion-column on exclusion constraint "%s" requires both a "name" and an "operator" attribute',
-				(string) $this->name
+				$this->name ?? '(unnamed)'
 			));
 		}
 		$this->exclusionColumns[] = array(
-			'name' => (string) $data['name'],
-			'operator' => (string) $data['operator'],
+			'name' => $name,
+			'operator' => $operator,
 		);
 	}
 
@@ -139,9 +141,12 @@ class Exclusion extends XMLElement
 	public function appendXml(\DOMNode $node): void
 	{
 		$doc = ($node instanceof DOMDocument) ? $node : $node->ownerDocument;
+		if ($doc === null) {
+			throw new EngineException('Cannot append XML: given DOMNode has no owner document');
+		}
 
 		$exclusionNode = $node->appendChild($doc->createElement('exclusion'));
-		$exclusionNode->setAttribute('name', (string) $this->getName());
+		$exclusionNode->setAttribute('name', $this->getName() ?? '');
 		$exclusionNode->setAttribute('indexType', $this->indexType);
 		if ($this->whereClause !== null) {
 			$exclusionNode->setAttribute('where', $this->whereClause);
