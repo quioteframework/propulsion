@@ -107,6 +107,11 @@ abstract class PropulsionParser
 			throw new PropulsionException(sprintf('Unknown parser class "%s"', $class));
 		}
 
-		return new $class;
+		$parser = new $class;
+		if (!$parser instanceof self) {
+			throw new PropulsionException(sprintf('Class "%s" is not a PropulsionParser', $class));
+		}
+
+		return $parser;
 	}
 }

@@ -9,6 +9,8 @@
  */
 namespace Propulsion\Parser;
 
+use Propulsion\Exception\PropulsionException;
+
 /**
  * CSV parser. Converts data between associative array and CSV formats.
  * CSV parsing code borrowed from php-csv-utils by Luke Visinoni
@@ -25,7 +27,9 @@ class PropulsionCSVParser extends PropulsionParser
 
 	// these settings are predefined for Excel CSV format
 
+	/** @var non-empty-string */
 	public string $delimiter = ',';
+	/** @var non-empty-string */
 	public string $lineTerminator = "\r\n";
 	public string $quotechar = '"';
 	public string $escapechar = "\\";
@@ -45,9 +49,16 @@ class PropulsionCSVParser extends PropulsionParser
 		$rows = array();
 		if ($isList) {
 			if ($includeHeading) {
-				$rows[] = implode($this->delimiter, $this->formatRow(array_keys(reset($array))));
+				$firstRow = reset($array);
+				if (!is_array($firstRow)) {
+					throw new PropulsionException('Cannot build CSV heading: the first row of the source data is not an array');
+				}
+				$rows[] = implode($this->delimiter, $this->formatRow(array_keys($firstRow)));
 			}
 			foreach ($array as $row) {
+				if (!is_array($row)) {
+					throw new PropulsionException('Cannot format CSV row: source data row is not an array');
+				}
 				$rows[] = implode($this->delimiter, $this->formatRow($row));
 			}
 		} else {
@@ -73,12 +84,15 @@ class PropulsionCSVParser extends PropulsionParser
 	 * Accepts a row of data and returns it formatted
 	 *
 	 * @param array<int|string, mixed>	$row	An array of data to be formatted for output to the file
-	 * @return array<int|string, mixed>	The formatted array
+	 * @return array<int|string, string>	The formatted array
 	 */
 	protected function formatRow(array $row): array
 	{
-		foreach ($row as &$column) {
-			if (!is_scalar($column)) {
+		$formatted = array();
+		foreach ($row as $key => $column) {
+			if (is_scalar($column)) {
+				$column = (string) $column;
+			} else {
 				$column = $this->serialize($column);
 			}
 			switch ($this->quoting) {
@@ -100,8 +114,9 @@ class PropulsionCSVParser extends PropulsionParser
 					}
 					break;
 			}
+			$formatted[$key] = $column;
 		}
-		return $row;
+		return $formatted;
 	}
 
 	/**
@@ -201,7 +216,11 @@ class PropulsionCSVParser extends PropulsionParser
 				}
 			}
 		} else {
-			$values = $this->cleanupRow($this->getColumns(array_shift($rows)));
+			$lastRow = array_shift($rows);
+			if ($lastRow === null) {
+				$lastRow = '';
+			}
+			$values = $this->cleanupRow($this->getColumns($lastRow));
 			if ($keys === array('') && $values === array()) {
 				$array = array();
 			} else {
