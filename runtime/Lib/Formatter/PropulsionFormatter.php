@@ -83,7 +83,11 @@ abstract class PropulsionFormatter
 	public function setClass(string $class): void
 	{
 		$this->class = $class;
-		$this->peer = constant($this->class . '::PEER');
+		$peer = constant($this->class . '::PEER');
+		if (!is_string($peer)) {
+			throw new PropulsionException('The PEER constant of ' . $class . ' must be a string');
+		}
+		$this->peer = $peer;
 	}
 
 	public function getClass(): ?string
@@ -208,7 +212,11 @@ abstract class PropulsionFormatter
 		if(isset($this->currentObjects[$col])) {
 			$this->currentObjects[$col]->clear();
 		} else {
-			$this->currentObjects[$col] = new $class();
+			$object = new $class();
+			if (!$object instanceof BaseObject) {
+				throw new PropulsionException($class . ' must be a subclass of ' . BaseObject::class);
+			}
+			$this->currentObjects[$col] = $object;
 		}
 		return $this->currentObjects[$col];
 	}
