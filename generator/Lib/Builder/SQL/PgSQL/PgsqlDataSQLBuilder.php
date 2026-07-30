@@ -18,6 +18,7 @@ use Propulsion\Generator\Builder\SQL\DataSQLBuilder;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Builder\Util\DataRow;
 use Propulsion\Generator\Model\IDMethod;
+use Propulsion\Generator\Exception\EngineException;
 class PgsqlDataSQLBuilder extends DataSQLBuilder
 {
 
@@ -26,7 +27,7 @@ class PgsqlDataSQLBuilder extends DataSQLBuilder
 	 *
 	 * @var        int
 	 */
-	private $maxSeqVal;
+	private int $maxSeqVal = 0;
 
 	/**
 	 * Construct a new PgsqlDataSQLBuilder object.
@@ -52,8 +53,9 @@ class PgsqlDataSQLBuilder extends DataSQLBuilder
 		if ($table->hasAutoIncrementPrimaryKey() && $table->getIdMethod() == IDMethod::NATIVE) {
 			foreach ($row->getColumnValues() as $colValue) {
 				if ($colValue->getColumn()->isAutoIncrement()) {
-					if ($colValue->getValue() > $this->maxSeqVal) {
-						$this->maxSeqVal = $colValue->getValue();
+					$value = $colValue->getValue();
+					if (is_numeric($value) && (int) $value > $this->maxSeqVal) {
+						$this->maxSeqVal = (int) $value;
 					}
 				}
 			}
@@ -96,7 +98,13 @@ class PgsqlDataSQLBuilder extends DataSQLBuilder
 	{
 		// they took magic __toString() out of PHP5.0.0; this sucks
 		if (is_object($blob)) {
-			$blob = $blob->__toString();
+			if (!$blob instanceof \Stringable) {
+				throw new EngineException(sprintf('BLOB value object of type %s does not implement Stringable.', get_class($blob)));
+			}
+			$blob = (string) $blob;
+		}
+		if (!is_string($blob)) {
+			throw new EngineException(sprintf('BLOB value must be a string or Stringable object, got %s.', get_debug_type($blob)));
 		}
 		return "'" . pg_escape_bytea($blob) . "'";
 	}

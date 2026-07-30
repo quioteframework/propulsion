@@ -17,6 +17,7 @@ namespace Propulsion\Generator\Builder\SQL;
 use Propulsion\Generator\Builder\DataModelBuilder;
 use Propulsion\Generator\Builder\Util\DataRow;
 use Propulsion\Generator\Builder\Util\ColumnValue;
+use Propulsion\Generator\Exception\EngineException;
 abstract class DataSQLBuilder extends DataModelBuilder
 {
 
@@ -81,12 +82,12 @@ abstract class DataSQLBuilder extends DataModelBuilder
 		$platform = $this->getPlatform();
 		$table = $this->getTable();
 
-		$sql .= "INSERT INTO ".$this->quoteIdentifier($this->getTable()->getName())." (";
+		$sql .= "INSERT INTO ".$this->quoteIdentifier($this->getTable()->getName() ?? '(unnamed)')." (";
 
 		// add column names to SQL
 		$colNames = array();
 		foreach ($row->getColumnValues() as $colValue) {
-			$colNames[] = $this->quoteIdentifier($colValue->getColumn()->getName());
+			$colNames[] = $this->quoteIdentifier($colValue->getColumn()->getName() ?? '(unnamed)');
 		}
 
 		$sql .= implode(',', $colNames);
@@ -95,7 +96,15 @@ abstract class DataSQLBuilder extends DataModelBuilder
 
 		$colVals = array();
 		foreach ($row->getColumnValues() as $colValue) {
-			$colVals[] = $this->getColumnValueSql($colValue);
+			$colSql = $this->getColumnValueSql($colValue);
+			if (!is_scalar($colSql)) {
+				throw new EngineException(sprintf(
+					'Column value SQL for column "%s" must be a scalar, got %s.',
+					$colValue->getColumn()->getName() ?? '(unnamed)',
+					get_debug_type($colSql)
+				));
+			}
+			$colVals[] = (string) $colSql;
 		}
 
 		$sql .= implode(',', $colVals);
@@ -137,8 +146,14 @@ abstract class DataSQLBuilder extends DataModelBuilder
 	{
 		// they took magic __toString() out of PHP5.0.0; this sucks
 		if (is_object($blob)) {
-			return $this->getPlatform()->quote($blob->__toString());
+			if (!$blob instanceof \Stringable) {
+				throw new EngineException(sprintf('BLOB value object of type %s does not implement Stringable.', get_class($blob)));
+			}
+			return $this->getPlatform()->quote((string) $blob);
 		} else {
+			if (!is_string($blob)) {
+				throw new EngineException(sprintf('BLOB value must be a string or Stringable object, got %s.', get_debug_type($blob)));
+			}
 			return $this->getPlatform()->quote($blob);
 		}
 	}
@@ -152,8 +167,14 @@ abstract class DataSQLBuilder extends DataModelBuilder
 	{
 		// they took magic __toString() out of PHP5.0.0; this sucks
 		if (is_object($clob)) {
-			return $this->getPlatform()->quote($clob->__toString());
+			if (!$clob instanceof \Stringable) {
+				throw new EngineException(sprintf('CLOB value object of type %s does not implement Stringable.', get_class($clob)));
+			}
+			return $this->getPlatform()->quote((string) $clob);
 		} else {
+			if (!is_string($clob)) {
+				throw new EngineException(sprintf('CLOB value must be a string or Stringable object, got %s.', get_debug_type($clob)));
+			}
 			return $this->getPlatform()->quote($clob);
 		}
 	}
@@ -165,7 +186,11 @@ abstract class DataSQLBuilder extends DataModelBuilder
 	 */
 	protected function getDateSql($value)
 	{
-		return "'" . date('Y-m-d', strtotime($value)) . "'";
+		$timestamp = strtotime($value);
+		if (false === $timestamp) {
+			throw new EngineException(sprintf('Unable to parse date value "%s".', $value));
+		}
+		return "'" . date('Y-m-d', $timestamp) . "'";
 	}
 
 	/**
@@ -232,9 +257,13 @@ abstract class DataSQLBuilder extends DataModelBuilder
 	 * @param      string $value
 	 * @return     string
 	 */
-	protected function getTimeSql(mixed $paramIndex, $value)
+	protected function getTimeSql($value)
 	{
-		return "'" . date('H:i:s', strtotime($value)) . "'";
+		$timestamp = strtotime($value);
+		if (false === $timestamp) {
+			throw new EngineException(sprintf('Unable to parse time value "%s".', $value));
+		}
+		return "'" . date('H:i:s', $timestamp) . "'";
 	}
 
 	/**
@@ -244,7 +273,11 @@ abstract class DataSQLBuilder extends DataModelBuilder
 	 */
 	function getTimestampSql($value)
 	{
-		return "'" . date('Y-m-d H:i:s', strtotime($value)) . "'";
+		$timestamp = strtotime($value);
+		if (false === $timestamp) {
+			throw new EngineException(sprintf('Unable to parse timestamp value "%s".', $value));
+		}
+		return "'" . date('Y-m-d H:i:s', $timestamp) . "'";
 	}
 
 }
