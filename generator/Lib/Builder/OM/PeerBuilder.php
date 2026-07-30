@@ -1625,7 +1625,10 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	protected function addRetrieveByPKs(string &$script): void
 	{
 		$firstPk = $this->getFirstPrimaryKeyColumn();
-		
+		if ($firstPk === null) {
+			throw new EngineException(sprintf("Cannot generate retrieveByPKs() for table '%s': it has no primary key.", $this->getTable()->getName() ?? '(unnamed)'));
+		}
+
 		$script .= "
 
 	/**
@@ -2115,7 +2118,12 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 */
 	protected function addGetOMClass_Inheritance(string &$script): void
 	{
+		// Only ever called by addGetOMClassMethod() after it already checked
+		// $table->getChildrenColumn() is truthy -- this can't actually be null.
 		$col = $this->getTable()->getChildrenColumn();
+		if ($col === null) {
+			throw new EngineException('addGetOMClass_Inheritance() called on a table with no children column.');
+		}
 		$script .= "
 	/**
 	 * The returned Class will contain objects of the default type or
@@ -3156,7 +3164,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			$index = 2;
 			foreach ($table->getForeignKeys() as $subfk) {
 				if ($subfk->getForeignTableName() != $table->getName()) {
-					$joinTable = $table->getDatabase()->getTable($subfk->getForeignTableName());
+					$joinTable = $subfk->requireForeignTable();
 					$joinTablePeerBuilder = $this->getNewPeerBuilder($joinTable);
 					$joinClassName = $joinTablePeerBuilder->getObjectClassname();
 
@@ -3173,7 +3181,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 			foreach ($table->getForeignKeys() as $subfk) {
 				if ($subfk->getForeignTableName() != $table->getName()) {
-					$joinTable = $table->getDatabase()->getTable($subfk->getForeignTableName());
+					$joinTable = $subfk->requireForeignTable();
 					$joinedTablePeerBuilder = $this->getNewPeerBuilder($joinTable);
 					$joinClassName = $joinedTablePeerBuilder->getObjectClassname();
 
@@ -3224,7 +3232,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			$index = 1;
 			foreach ($table->getForeignKeys() as $subfk) {
 				if ($subfk->getForeignTableName() != $table->getName()) {
-					$joinTable = $table->getDatabase()->getTable($subfk->getForeignTableName());
+					$joinTable = $subfk->requireForeignTable();
 
 					$joinedTableObjectBuilder = $this->getNewObjectBuilder($joinTable);
 					$joinedTablePeerBuilder = $this->getNewPeerBuilder($joinTable);
@@ -3337,7 +3345,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 ";
 			foreach ($table->getForeignKeys() as $subfk) {
 				if ($subfk->getForeignTableName() != $table->getName()) {
-					$joinTable = $table->getDatabase()->getTable($subfk->getForeignTableName());
+					$joinTable = $subfk->requireForeignTable();
 					$joinedTablePeerBuilder = $this->getNewPeerBuilder($joinTable);
 					$joinClassName = $joinedTablePeerBuilder->getObjectClassname();
 
