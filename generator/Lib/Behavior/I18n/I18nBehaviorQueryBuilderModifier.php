@@ -28,7 +28,7 @@ class I18nBehaviorQueryBuilderModifier
 	public function __construct(I18nBehavior $behavior)
 	{
 		$this->behavior = $behavior;
-		$this->table = $behavior->getTable();
+		$this->table = $behavior->requireTable();
 	}
 
 	public function queryMethods(QueryBuilder $builder): string

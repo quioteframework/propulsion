@@ -45,7 +45,7 @@ class I18nBehavior extends Behavior
 
 	public function modifyDatabase(): void
 	{
-		foreach ($this->getDatabase()->getTables() as $table) {
+		foreach ($this->requireDatabase()->getTables() as $table) {
 			if ($table->hasBehavior('i18n') && !$table->getBehavior('i18n')->getParameter('default_locale')) {
 				$table->getBehavior('i18n')->addParameter(array(
 					'name' => 'default_locale',
@@ -65,8 +65,8 @@ class I18nBehavior extends Behavior
 
 	protected function addI18nTable(): void
 	{
-		$table = $this->getTable();
-		$database = $table->getDatabase();
+		$table = $this->requireTable();
+		$database = $table->requireDatabase();
 		$i18nTableName = $this->getI18nTableName();
 		if($database->hasTable($i18nTableName)) {
 			$this->i18nTable = $database->getTable($i18nTableName);
@@ -87,9 +87,9 @@ class I18nBehavior extends Behavior
 
 	protected function relateI18nTableToMainTable(): void
 	{
-		$table = $this->getTable();
+		$table = $this->requireTable();
 		$i18nTable = $this->i18nTable;
-		$pks = $this->getTable()->getPrimaryKey();
+		$pks = $this->requireTable()->getPrimaryKey();
 		if (count($pks) > 1) {
 			throw new EngineException('The i18n behavior does not support tables with composite primary keys');
 		}
@@ -134,7 +134,7 @@ class I18nBehavior extends Behavior
 	 */
 	protected function moveI18nColumns(): void
 	{
-		$table = $this->getTable();
+		$table = $this->requireTable();
 		$i18nTable = $this->i18nTable;
 		foreach ($this->getI18nColumnNamesFromConfig() as $columnName) {
 			if (!$i18nTable->hasColumn($columnName)) {
@@ -240,7 +240,7 @@ class I18nBehavior extends Behavior
 
 	public function replaceTokens(string $string): string
 	{
-		$table = $this->getTable();
+		$table = $this->requireTable();
 		return strtr($string, array(
 			'%TABLE%'   => $table->getName(),
 			'%PHPNAME%' => $table->getPhpName(),

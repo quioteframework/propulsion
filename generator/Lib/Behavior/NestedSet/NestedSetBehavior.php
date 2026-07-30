@@ -38,27 +38,27 @@ class NestedSetBehavior extends Behavior
 	 */
 	public function modifyTable(): void
 	{
-		if(!$this->getTable()->hasColumn($this->getParameter('left_column'))) {
-			$this->getTable()->addColumn(array(
+		if(!$this->requireTable()->hasColumn($this->getParameter('left_column'))) {
+			$this->requireTable()->addColumn(array(
 				'name' => $this->getParameter('left_column'),
 				'type' => 'INTEGER'
 			));
 		}
-		if(!$this->getTable()->hasColumn($this->getParameter('right_column'))) {
-			$this->getTable()->addColumn(array(
+		if(!$this->requireTable()->hasColumn($this->getParameter('right_column'))) {
+			$this->requireTable()->addColumn(array(
 				'name' => $this->getParameter('right_column'),
 				'type' => 'INTEGER'
 			));
 		}
-		if(!$this->getTable()->hasColumn($this->getParameter('level_column'))) {
-			$this->getTable()->addColumn(array(
+		if(!$this->requireTable()->hasColumn($this->getParameter('level_column'))) {
+			$this->requireTable()->addColumn(array(
 				'name' => $this->getParameter('level_column'),
 				'type' => 'INTEGER'
 			));
 		}
 		if ($this->getParameter('use_scope') == 'true' &&
-			 !$this->getTable()->hasColumn($this->getParameter('scope_column'))) {
-			$this->getTable()->addColumn(array(
+			 !$this->requireTable()->hasColumn($this->getParameter('scope_column'))) {
+			$this->requireTable()->addColumn(array(
 				'name' => $this->getParameter('scope_column'),
 				'type' => 'INTEGER'
 			));

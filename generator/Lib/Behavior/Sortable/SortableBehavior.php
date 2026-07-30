@@ -36,15 +36,15 @@ class SortableBehavior extends Behavior
 	 */
 	public function modifyTable(): void
 	{
-		if (!$this->getTable()->hasColumn($this->getParameter('rank_column'))) {
-			$this->getTable()->addColumn(array(
+		if (!$this->requireTable()->hasColumn($this->getParameter('rank_column'))) {
+			$this->requireTable()->addColumn(array(
 				'name' => $this->getParameter('rank_column'),
 				'type' => 'INTEGER'
 			));
 		}
 		if ($this->getParameter('use_scope') == 'true' &&
-			 !$this->getTable()->hasColumn($this->getParameter('scope_column'))) {
-			$this->getTable()->addColumn(array(
+			 !$this->requireTable()->hasColumn($this->getParameter('scope_column'))) {
+			$this->requireTable()->addColumn(array(
 				'name' => $this->getParameter('scope_column'),
 				'type' => 'INTEGER'
 			));

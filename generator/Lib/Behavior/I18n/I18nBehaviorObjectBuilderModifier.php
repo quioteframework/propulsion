@@ -31,7 +31,7 @@ class I18nBehaviorObjectBuilderModifier
 	public function __construct(I18nBehavior $behavior)
 	{
 		$this->behavior = $behavior;
-		$this->table = $behavior->getTable();
+		$this->table = $behavior->requireTable();
 	}
 
 	public function postDelete(ObjectBuilder $builder): ?string
@@ -41,7 +41,7 @@ class I18nBehaviorObjectBuilderModifier
 			$i18nTable = $this->behavior->getI18nTable();
 			return $this->behavior->renderTemplate('objectPostDelete', array(
 				'i18nQueryName'    => $builder->getNewStubQueryBuilder($i18nTable)->getClassname(),
-				'objectClassname' => $builder->getNewStubObjectBuilder($this->behavior->getTable())->getClassname(),
+				'objectClassname' => $builder->getNewStubObjectBuilder($this->behavior->requireTable())->getClassname(),
 			));
 		}
 		return null;

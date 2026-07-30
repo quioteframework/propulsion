@@ -30,7 +30,7 @@ class NestedSetBehaviorObjectBuilderModifier
 	public function __construct(NestedSetBehavior $behavior)
 	{
 		$this->behavior = $behavior;
-		$this->table = $behavior->getTable();
+		$this->table = $behavior->requireTable();
 	}
 
 	protected function getParameter(string $key): string

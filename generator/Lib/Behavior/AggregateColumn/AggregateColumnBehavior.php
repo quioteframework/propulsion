@@ -39,7 +39,7 @@ class AggregateColumnBehavior extends Behavior
 	 */
 	public function modifyTable(): void
 	{
-		$table = $this->getTable();
+		$table = $this->requireTable();
 		if (!$columnName = $this->getParameter('name')) {
 			throw new \InvalidArgumentException(sprintf('You must define a \'name\' parameter for the \'aggregate_column\' behavior in the \'%s\' table', $table->getName()));
 		}
@@ -48,8 +48,8 @@ class AggregateColumnBehavior extends Behavior
 		}
 
 		// add the aggregate column if not present
-		if(!$this->getTable()->containsColumn($columnName)) {
-			$column = $this->getTable()->addColumn(array(
+		if(!$this->requireTable()->containsColumn($columnName)) {
+			$column = $this->requireTable()->addColumn(array(
 				'name'    => $columnName,
 				'type'    => 'INTEGER',
 			));
@@ -70,7 +70,7 @@ class AggregateColumnBehavior extends Behavior
 	public function objectMethods(ObjectBuilder $builder): string
 	{
 		if (!$foreignTableName = $this->getParameter('foreign_table')) {
-			throw new \InvalidArgumentException(sprintf('You must define a \'foreign_table\' parameter for the \'aggregate_column\' behavior in the \'%s\' table', $this->getTable()->getName()));
+			throw new \InvalidArgumentException(sprintf('You must define a \'foreign_table\' parameter for the \'aggregate_column\' behavior in the \'%s\' table', $this->requireTable()->getName()));
 		}
 		$script = '';
 		$script .= $this->addObjectCompute();
@@ -83,7 +83,7 @@ class AggregateColumnBehavior extends Behavior
 	{
 		$conditions = array();
 		$bindings = array();
-		$database = $this->getTable()->getDatabase();
+		$database = $this->requireTable()->getDatabase();
 		foreach ($this->getForeignKey()->getColumnObjectsMapping() as $index => $columnReference) {
 			$conditions[] = $columnReference['local']->getFullyQualifiedName() . ' = :p' . ($index + 1);
 			$bindings[$index + 1]   = $columnReference['foreign']->getPhpName();
@@ -114,7 +114,7 @@ class AggregateColumnBehavior extends Behavior
 
 	protected function getForeignTable(): ?Table
 	{
-		$database = $this->getTable()->getDatabase();
+		$database = $this->requireTable()->getDatabase();
 		$tableName = $database->getTablePrefix() . $this->getParameter('foreign_table');
 		if ($database->getPlatform()->supportsSchemas() && $this->getParameter('foreign_schema')) {
 			$tableName = $this->getParameter('foreign_schema'). '.' . $tableName;
@@ -126,9 +126,9 @@ class AggregateColumnBehavior extends Behavior
 	{
 		$foreignTable = $this->getForeignTable();
 		// let's infer the relation from the foreign table
-		$fks = $foreignTable->getForeignKeysReferencingTable($this->getTable()->getName());
+		$fks = $foreignTable->getForeignKeysReferencingTable($this->requireTable()->getName());
 		if (!$fks) {
-			throw new \InvalidArgumentException(sprintf('You must define a foreign key to the \'%s\' table in the \'%s\' table to enable the \'aggregate_column\' behavior', $this->getTable()->getName(), $foreignTable->getName()));
+			throw new \InvalidArgumentException(sprintf('You must define a foreign key to the \'%s\' table in the \'%s\' table to enable the \'aggregate_column\' behavior', $this->requireTable()->getName(), $foreignTable->getName()));
 		}
 		// FIXME doesn't work when more than one fk to the same table
 		return array_shift($fks);
@@ -136,7 +136,7 @@ class AggregateColumnBehavior extends Behavior
 
 	protected function getColumn(): ?Column
 	{
-		return $this->getTable()->getColumn($this->getParameter('name'));
+		return $this->requireTable()->getColumn($this->getParameter('name'));
 	}
 
 }

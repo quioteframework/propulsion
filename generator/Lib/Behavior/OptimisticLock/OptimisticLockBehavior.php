@@ -39,10 +39,7 @@ class OptimisticLockBehavior extends Behavior
 
 	public function modifyTable(): void
 	{
-		$table = $this->getTable();
-		if ($table === null) {
-			throw new EngineException('OptimisticLockBehavior can only be applied to a table.');
-		}
+		$table = $this->requireTable();
 		$versionColumnName = $this->getParameter('version_column');
 		if (!is_string($versionColumnName)) {
 			throw new EngineException('OptimisticLockBehavior: version_column parameter must be a string.');

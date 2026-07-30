@@ -24,7 +24,7 @@ class ArchivableBehaviorQueryBuilderModifier
 	public function __construct(ArchivableBehavior $behavior)
 	{
 		$this->behavior = $behavior;
-		$this->table = $behavior->getTable();
+		$this->table = $behavior->requireTable();
 	}
 
 	/**

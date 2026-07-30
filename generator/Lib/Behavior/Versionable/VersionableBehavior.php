@@ -52,7 +52,7 @@ class VersionableBehavior extends Behavior
 
   protected function addVersionColumn(): void
   {
-    $table = $this->getTable();
+    $table = $this->requireTable();
     // add the version column
     if (!$table->hasColumn($this->getParameter("version_column"))) {
       $table->addColumn([
@@ -65,7 +65,7 @@ class VersionableBehavior extends Behavior
 
   protected function addLogColumns(): void
   {
-    $table = $this->getTable();
+    $table = $this->requireTable();
     if (
       $this->getParameter("log_created_at") == "true" &&
       !$table->hasColumn($this->getParameter("version_created_at_column"))
@@ -99,8 +99,8 @@ class VersionableBehavior extends Behavior
 
   protected function addVersionTable(): void
   {
-    $table = $this->getTable();
-    $database = $table->getDatabase();
+    $table = $this->requireTable();
+    $database = $table->requireDatabase();
     $versionTableName = $this->getParameter("version_table")
       ? $this->getParameter("version_table")
       : $table->getName() . "_version";
@@ -161,7 +161,7 @@ class VersionableBehavior extends Behavior
 
   public function addForeignKeyVersionColumns(): void
   {
-    $table = $this->getTable();
+    $table = $this->requireTable();
     $versionTable = $this->versionTable;
     foreach ($this->getVersionableFks() as $fk) {
       $fkVersionColumnName = $fk->getLocalColumnName() . "_version";
@@ -199,14 +199,14 @@ class VersionableBehavior extends Behavior
 
   public function getVersionTablePhpName(): string
   {
-    return $this->getTable()->getPhpName() . "Version";
+    return $this->requireTable()->getPhpName() . "Version";
   }
 
   /** @return array<int, ForeignKey> */
   public function getVersionableFks(): array
   {
     $versionableFKs = [];
-    if ($fks = $this->getTable()->getForeignKeys()) {
+    if ($fks = $this->requireTable()->getForeignKeys()) {
       foreach ($fks as $fk) {
         if (
           $fk->getForeignTable()->hasBehavior("versionable") &&
@@ -223,7 +223,7 @@ class VersionableBehavior extends Behavior
   public function getVersionableReferrers(): array
   {
     $versionableReferrers = [];
-    if ($fks = $this->getTable()->getReferrers()) {
+    if ($fks = $this->requireTable()->getReferrers()) {
       foreach ($fks as $fk) {
         if (
           $fk->getTable()->hasBehavior("versionable") &&

@@ -112,7 +112,7 @@ class Index extends XMLElement
 
 	private function createName(): void
 	{
-		$table = $this->getTable();
+		$table = $this->requireTable();
 		$inputs = array();
 		$inputs[] = $table->getDatabase();
 		$inputs[] = $table->getCommonName();
@@ -286,8 +286,9 @@ class Index extends XMLElement
 				// still no name
 			}
 		}
-		if ($database = $this->getTable()->getDatabase()) {
-			return substr($this->indexName, 0, $database->getPlatform()->getMaxColumnNameLength());
+		$database = $this->requireTable()->getDatabase();
+		if ($database !== null && ($platform = $database->getPlatform()) !== null) {
+			return substr($this->indexName, 0, $platform->getMaxColumnNameLength());
 		} else {
 			return $this->indexName;
 		}
@@ -327,11 +328,25 @@ class Index extends XMLElement
 	}
 
 	/**
+	 * Get the parent Table of the index (also inherited by Unique), or throw
+	 * if it hasn't been added to one yet. Table::addIndex()/addUnique() always
+	 * call setTable() unconditionally, so every real (post-attach) call site
+	 * can assume this.
+	 */
+	public function requireTable(): Table
+	{
+		if ($this->parentTable === null) {
+			throw new EngineException(sprintf("Index '%s' has not been added to a Table yet.", $this->getName() ?? '(unnamed)'));
+		}
+		return $this->parentTable;
+	}
+
+	/**
 	 * Returns the Name of the table the index is in
 	 */
 	public function getTableName(): ?string
 	{
-		return $this->parentTable->getName();
+		return $this->requireTable()->getName();
 	}
 
 	/**
@@ -434,7 +449,11 @@ class Index extends XMLElement
 	 */
 	public function getColumnList(): string
 	{
-		return Column::makeList($this->getColumns(), $this->getTable()->getDatabase()->getPlatform());
+		$platform = $this->requireTable()->getDatabase()?->getPlatform();
+		if ($platform === null) {
+			throw new EngineException(sprintf("Index '%s' has no platform configured.", $this->getName() ?? '(unnamed)'));
+		}
+		return Column::makeList($this->getColumns(), $platform);
 	}
 
 	/**

@@ -26,7 +26,7 @@ class VersionableBehaviorObjectBuilderModifier
   public function __construct(VersionableBehavior $behavior)
   {
     $this->behavior = $behavior;
-    $this->table = $behavior->getTable();
+    $this->table = $behavior->requireTable();
   }
 
   protected function getParameter(string $key): mixed

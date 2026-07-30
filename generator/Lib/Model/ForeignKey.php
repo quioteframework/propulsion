@@ -18,6 +18,9 @@ namespace Propulsion\Generator\Model;
  * @author     Ulf Hermann <ulfhermann@kulturserver.de>
  * @version    $Revision$
  */
+
+use Propulsion\Generator\Exception\EngineException;
+use Propulsion\Generator\Platform\PropulsionPlatformInterface;
 class ForeignKey extends XMLElement
 {
 
@@ -67,11 +70,11 @@ class ForeignKey extends XMLElement
 	 */
 	protected function setupObject(): void
 	{
-		$this->foreignTableCommonName = $this->getTable()->getDatabase()->getTablePrefix() . $this->getAttribute("foreignTable");
+		$this->foreignTableCommonName = $this->requireTable()->requireDatabase()->getTablePrefix() . $this->getAttribute("foreignTable");
 		$this->foreignSchemaName = $this->getAttribute("foreignSchema");
 		if (!$this->foreignSchemaName) {
-			if ($this->getTable()->getSchema()) {
-				$this->foreignSchemaName = $this->getTable()->getSchema();
+			if ($this->requireTable()->getSchema()) {
+				$this->foreignSchemaName = $this->requireTable()->getSchema();
 			}
 		}
 		$this->name = $this->getAttribute("name");
@@ -224,7 +227,7 @@ class ForeignKey extends XMLElement
 	 */
 	public function getForeignTableName(): ?string
 	{
-		if ($this->foreignSchemaName && $this->getTable()->getDatabase()->getPlatform()->supportsSchemas()) {
+		if ($this->foreignSchemaName && $this->requireTable()->requireDatabase()->getPlatform()?->supportsSchemas()) {
 			return $this->foreignSchemaName . '.' . $this->foreignTableCommonName;
 		} else {
 			return $this->foreignTableCommonName;
@@ -254,7 +257,30 @@ class ForeignKey extends XMLElement
 	 */
 	public function getForeignTable()
 	{
-		return $this->getTable()->getDatabase()->getTable($this->getForeignTableName());
+		return $this->requireTable()->requireDatabase()->getTable($this->getForeignTableName());
+	}
+
+	/**
+	 * Gets the resolved foreign Table model object, or throws if the foreign
+	 * table name doesn't resolve to a real table in the database -- a
+	 * dangling foreign key reference, a genuine schema error worth a clear
+	 * message rather than a latent null-dereference wherever this is used
+	 * (which, by generation time, is every real call site: an unresolvable
+	 * FK target is not something DDL/OM generation can meaningfully proceed
+	 * past anyway).
+	 */
+	public function requireForeignTable(): Table
+	{
+		$foreignTable = $this->getForeignTable();
+		if ($foreignTable === null) {
+			throw new EngineException(sprintf(
+				"Foreign key '%s' on table '%s' references unknown table '%s'.",
+				$this->getName() ?? '(unnamed)',
+				$this->requireTable()->getName() ?? '(unnamed)',
+				$this->getForeignTableName() ?? '(unnamed)'
+			));
+		}
+		return $foreignTable;
 	}
 
 	/**
@@ -290,11 +316,26 @@ class ForeignKey extends XMLElement
 	}
 
 	/**
+	 * Get the parent Table of the foreign key, or throw if it hasn't been
+	 * added to one yet. Table::addForeignKey() always calls setTable()
+	 * unconditionally, so every real (post-attach) call site can assume
+	 * this -- unlike the bare-object window `getTable()` itself still needs
+	 * to tolerate.
+	 */
+	public function requireTable(): Table
+	{
+		if ($this->parentTable === null) {
+			throw new EngineException(sprintf("Foreign key '%s' has not been added to a Table yet.", $this->getName() ?? '(unnamed)'));
+		}
+		return $this->parentTable;
+	}
+
+	/**
 	 * Returns the Name of the table the foreign key is in
 	 */
 	public function getTableName(): ?string
 	{
-		return $this->parentTable->getName();
+		return $this->requireTable()->getName();
 	}
 
 	/**
@@ -302,7 +343,7 @@ class ForeignKey extends XMLElement
 	 */
 	public function getSchemaName(): ?string
 	{
-		return $this->parentTable->getSchema();
+		return $this->requireTable()->getSchema();
 	}
 
 	/**
@@ -342,7 +383,7 @@ class ForeignKey extends XMLElement
 	 */
 	public function getLocalColumnNames(): string
 	{
-		return Column::makeList($this->getLocalColumns(), $this->getTable()->getDatabase()->getPlatform());
+		return Column::makeList($this->getLocalColumns(), $this->requirePlatform());
 	}
 
 	/**
@@ -351,7 +392,22 @@ class ForeignKey extends XMLElement
 	 */
 	public function getForeignColumnNames(): string
 	{
-		return Column::makeList($this->getForeignColumns(), $this->getTable()->getDatabase()->getPlatform());
+		return Column::makeList($this->getForeignColumns(), $this->requirePlatform());
+	}
+
+	/**
+	 * Database::$platform is genuinely, permanently optional (see
+	 * Column::requirePlatform()'s own docblock for why) -- but the two
+	 * deprecated call sites above only ever run at DDL-generation time, once
+	 * a platform is configured.
+	 */
+	private function requirePlatform(): PropulsionPlatformInterface
+	{
+		$platform = $this->requireTable()->requireDatabase()->getPlatform();
+		if ($platform === null) {
+			throw new EngineException(sprintf("Foreign key '%s' has no platform configured.", $this->getName() ?? '(unnamed)'));
+		}
+		return $platform;
 	}
 
 	/**
@@ -370,9 +426,9 @@ class ForeignKey extends XMLElement
 	public function getLocalColumnObjects(): array
 	{
 		$columns = array();
-		$localTable = $this->getTable();
+		$localTable = $this->requireTable();
 		foreach ($this->localColumns as $columnName) {
-			$columns []= $localTable->getColumn($columnName);
+			$columns []= $this->requireColumn($localTable, $columnName);
 		}
 		return $columns;
 	}
@@ -392,7 +448,26 @@ class ForeignKey extends XMLElement
 	 */
 	public function getLocalColumn(int $index = 0)
 	{
-		return $this->getTable()->getColumn($this->getLocalColumnName($index));
+		return $this->requireColumn($this->requireTable(), $this->getLocalColumnName($index));
+	}
+
+	/**
+	 * A named local/foreign column that doesn't actually exist on the given table is a
+	 * genuine schema error (a typo'd column name in a `<reference>`), the same category
+	 * requireForeignTable() already covers for a dangling table reference.
+	 */
+	private function requireColumn(Table $table, string $columnName): Column
+	{
+		$column = $table->getColumn($columnName);
+		if ($column === null) {
+			throw new EngineException(sprintf(
+				"Foreign key '%s' references unknown column '%s' on table '%s'.",
+				$this->getName() ?? '(unnamed)',
+				$columnName,
+				$table->getName() ?? '(unnamed)'
+			));
+		}
+		return $column;
 	}
 
 	/**
@@ -434,8 +509,8 @@ class ForeignKey extends XMLElement
 	public function getColumnObjectsMapping(): array
 	{
 		$mapping = array();
-		$localTable = $this->getTable();
-		$foreignTable = $this->getForeignTable();
+		$localTable = $this->requireTable();
+		$foreignTable = $this->requireForeignTable();
 		for ($i=0, $size=count($this->localColumns); $i < $size; $i++) {
 			$mapping[]= array(
 				'local'   => $localTable->getColumn($this->localColumns[$i]),
@@ -487,9 +562,9 @@ class ForeignKey extends XMLElement
 	public function getForeignColumnObjects(): array
 	{
 		$columns = array();
-		$foreignTable = $this->getForeignTable();
+		$foreignTable = $this->requireForeignTable();
 		foreach ($this->foreignColumns as $columnName) {
-			$columns []= $foreignTable->getColumn($columnName);
+			$columns []= $this->requireColumn($foreignTable, $columnName);
 		}
 		return $columns;
 	}
@@ -509,7 +584,7 @@ class ForeignKey extends XMLElement
 	 */
 	public function getForeignColumn(int $index = 0)
 	{
-		return $this->getForeignTable()->getColumn($this->getForeignColumnName($index));
+		return $this->requireColumn($this->requireForeignTable(), $this->getForeignColumnName($index));
 	}
 
 	/**
@@ -519,8 +594,9 @@ class ForeignKey extends XMLElement
 	 */
 	public function isLocalColumnsRequired()
 	{
+		$table = $this->requireTable();
 		foreach ($this->getLocalColumns() as $columnName) {
-			if (!$this->getTable()->getColumn($columnName)->isNotNull()) {
+			if (!$this->requireColumn($table, $columnName)->isNotNull()) {
 				return false;
 			}
 		}
@@ -535,7 +611,7 @@ class ForeignKey extends XMLElement
 	public function isForeignPrimaryKey()
 	{
 		$lfmap = $this->getLocalForeignMapping();
-		$foreignTable = $this->getForeignTable();
+		$foreignTable = $this->requireForeignTable();
 
 		$foreignPKCols = array();
 		foreach ($foreignTable->getPrimaryKey() as $fPKCol) {
@@ -544,7 +620,7 @@ class ForeignKey extends XMLElement
 
 		$foreignCols = array ();
 		foreach ($this->getLocalColumns() as $colName) {
-			$foreignCols[] = $foreignTable->getColumn($lfmap[$colName])->getName();
+			$foreignCols[] = $this->requireColumn($foreignTable, $lfmap[$colName])->getName();
 		}
 
 		return ((count($foreignPKCols) === count($foreignCols)) &&
@@ -570,7 +646,7 @@ class ForeignKey extends XMLElement
 	{
 		$localCols = $this->getLocalColumns();
 
-		$localPKColumnObjs = $this->getTable()->getPrimaryKey();
+		$localPKColumnObjs = $this->requireTable()->getPrimaryKey();
 
 		$localPKCols = array();
 		foreach ($localPKColumnObjs as $lPKCol) {
@@ -618,7 +694,7 @@ class ForeignKey extends XMLElement
 	 */
 	public function getInverseFK(): ?ForeignKey
 	{
-		$foreignTable = $this->getForeignTable();
+		$foreignTable = $this->requireForeignTable();
 		$map = $this->getForeignLocalMapping();
 
 		foreach ($foreignTable->getForeignKeys() as $refFK) {
@@ -639,7 +715,7 @@ class ForeignKey extends XMLElement
 	public function getOtherFks()
 	{
 		$fks = array();
-		foreach ($this->getTable()->getForeignKeys() as $fk) {
+		foreach ($this->requireTable()->getForeignKeys() as $fk) {
 			if ($fk !== $this) {
 				$fks[]= $fk;
 			}

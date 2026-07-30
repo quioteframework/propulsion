@@ -54,9 +54,9 @@ class ArchivableBehavior extends Behavior
 
 	protected function addArchiveTable(): void
 	{
-		$table = $this->getTable();
-		$database = $table->getDatabase();
-		$archiveTableName = $this->getParameter('archive_table') ? $this->getParameter('archive_table') : ($this->getTable()->getName() . '_archive');
+		$table = $this->requireTable();
+		$database = $table->requireDatabase();
+		$archiveTableName = $this->getParameter('archive_table') ? $this->getParameter('archive_table') : ($this->requireTable()->getName() . '_archive');
 		if (!$database->hasTable($archiveTableName)) {
 			// create the version table
 			$archiveTable = $database->addTable(array(
@@ -138,7 +138,7 @@ class ArchivableBehavior extends Behavior
 	public function getArchivedAtColumn()
 	{
 		if ($this->getParameter('log_archived_at') == 'true') {
-			return $this->getTable()->getColumn($this->getParameter('archived_at_column'));
+			return $this->requireTable()->getColumn($this->getParameter('archived_at_column'));
 		}
 
 		return null;

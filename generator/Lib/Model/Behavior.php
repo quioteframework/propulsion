@@ -76,6 +76,23 @@ class Behavior extends XMLElement
 	}
 
 	/**
+	 * Returns the table this behavior is applied to, or throws if it's still
+	 * database-scoped (not yet cloned onto a specific table by modifyDatabase()).
+	 * `BehaviorTest` asserts `getTable()` is null on a bare `new Behavior()`, so that
+	 * getter stays nullable -- but every *BuilderModifier class unconditionally reads
+	 * `$behavior->getTable()` in its own constructor with no null-check, because by the
+	 * time a behavior reaches codegen it is always table-scoped (see
+	 * Database::getNextTableBehavior(), which only ever iterates `$table->getBehaviors()`).
+	 */
+	public function requireTable(): Table
+	{
+		if ($this->table === null) {
+			throw new EngineException(sprintf("Behavior '%s' has not been applied to a Table yet.", $this->getName() ?? '(unnamed)'));
+		}
+		return $this->table;
+	}
+
+	/**
 	 * Sets the database this behavior is applied to
 	 *
 	 * @param Database $database the database this behavior is applied to
@@ -92,6 +109,23 @@ class Behavior extends XMLElement
 	 */
 	public function getDatabase()
 	{
+		return $this->database;
+	}
+
+	/**
+	 * Returns the database this behavior is applied to, or throws if it's a
+	 * table-scoped behavior (one already cloned onto a specific table by
+	 * modifyDatabase() -- see requireTable()'s own docblock). Only
+	 * Database::addBehavior() calls setDatabase(); Table::addBehavior() never
+	 * does, so this and requireTable() are mutually exclusive in practice.
+	 * modifyDatabase() (and any override of it, e.g. AutoAddPkBehavior's)
+	 * always assumes this, unguarded, before it's ever cloned per table.
+	 */
+	public function requireDatabase(): Database
+	{
+		if ($this->database === null) {
+			throw new EngineException(sprintf("Behavior '%s' has not been applied to a Database yet.", $this->getName() ?? '(unnamed)'));
+		}
 		return $this->database;
 	}
 

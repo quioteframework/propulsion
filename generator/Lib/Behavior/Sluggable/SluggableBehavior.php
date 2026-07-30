@@ -38,17 +38,17 @@ class SluggableBehavior extends Behavior
 	 */
 	public function modifyTable(): void
 	{
-		if(!$this->getTable()->hasColumn($this->getParameter('slug_column'))) {
-			$this->getTable()->addColumn(array(
+		if(!$this->requireTable()->hasColumn($this->getParameter('slug_column'))) {
+			$this->requireTable()->addColumn(array(
 				'name' => $this->getParameter('slug_column'),
 				'type' => 'VARCHAR',
 				'size' => 255
 			));
 			// add a unique to column
 			$unique = new Unique($this->getColumnForParameter('slug_column'));
-			$unique->setName($this->getTable()->getCommonName() . '_slug');
-			$unique->addColumn($this->getTable()->getColumn($this->getParameter('slug_column')));
-			$this->getTable()->addUnique($unique);
+			$unique->setName($this->requireTable()->getCommonName() . '_slug');
+			$unique->addColumn($this->requireTable()->getColumn($this->getParameter('slug_column')));
+			$this->requireTable()->addUnique($unique);
 		}
 	}
 
@@ -122,7 +122,7 @@ if (\$this->isColumnModified($const) && \$this->{$this->getColumnGetter()}()) {
  * Wrap the setter for slug value
  *
  * @param   string
- * @return  " . $this->getTable()->getPhpName() . "
+ * @return  " . $this->requireTable()->getPhpName() . "
  */
 public function setSlug(\$v)
 {

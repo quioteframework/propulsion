@@ -30,7 +30,7 @@ class SortableBehaviorQueryBuilderModifier
 	public function __construct(SortableBehavior $behavior)
 	{
 		$this->behavior = $behavior;
-		$this->table = $behavior->getTable();
+		$this->table = $behavior->requireTable();
 	}
 
 	protected function getParameter(string $key): string

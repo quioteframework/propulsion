@@ -37,8 +37,8 @@ class DelegateBehavior extends Behavior
 	 */
 	public function modifyTable(): void
 	{
-		$table = $this->getTable();
-		$database = $table->getDatabase();
+		$table = $this->requireTable();
+		$database = $table->requireDatabase();
 		$delegates = explode(',', $this->parameters['to']);
 		foreach ($delegates as $delegate) {
 			$delegate = trim($delegate);
@@ -57,7 +57,7 @@ class DelegateBehavior extends Behavior
 				$delegateTable = $this->getDelegateTable($delegate);
 				if (in_array($table->getName(), $delegateTable->getForeignTableNames())) {
 					// existing one-to-one relationship
-					$fks = $delegateTable->getForeignKeysReferencingTable($this->getTable()->getName());
+					$fks = $delegateTable->getForeignKeysReferencingTable($this->requireTable()->getName());
 					$fk = $fks[0];
 					if (!$fk->isLocalPrimaryKey()) {
 						throw new \InvalidArgumentException(sprintf(
@@ -102,7 +102,7 @@ class DelegateBehavior extends Behavior
 	
 	protected function getDelegateTable(string $delegateTableName): ?Table
 	{
-		return $this->getTable()->getDatabase()->getTable($delegateTableName);
+		return $this->requireTable()->getDatabase()->getTable($delegateTableName);
 	}
 
 	public function objectCall(ObjectBuilder $builder): string
@@ -111,13 +111,13 @@ class DelegateBehavior extends Behavior
 		foreach ($this->delegates as $delegate => $type) {
 			$delegateTable = $this->getDelegateTable($delegate);
 			if ($type == self::ONE_TO_ONE) {
-				$fks = $delegateTable->getForeignKeysReferencingTable($this->getTable()->getName());
+				$fks = $delegateTable->getForeignKeysReferencingTable($this->requireTable()->getName());
 				$fk = $fks[0];
 				$ARClassName = $builder->getNewStubObjectBuilder($fk->getTable())->getClassname();
 				$ARFullClassName = $builder->getNewStubObjectBuilder($fk->getTable())->getFullyQualifiedClassname();
 				$relationName = $builder->getRefFKPhpNameAffix($fk, $plural = false);
 			} else {
-				$fks = $this->getTable()->getForeignKeysReferencingTable($delegate);
+				$fks = $this->requireTable()->getForeignKeysReferencingTable($delegate);
 				$fk = $fks[0];
 				$ARClassName = $builder->getNewStubObjectBuilder($delegateTable)->getClassname();
 				$ARFullClassName = $builder->getNewStubObjectBuilder($delegateTable)->getFullyQualifiedClassname();

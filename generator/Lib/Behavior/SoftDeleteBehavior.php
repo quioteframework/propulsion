@@ -39,8 +39,8 @@ class SoftDeleteBehavior extends Behavior
 	 */
 	public function modifyTable(): void
 	{
-		if(!$this->getTable()->hasColumn($this->getParameter('deleted_column'))) {
-			$this->getTable()->addColumn(array(
+		if(!$this->requireTable()->hasColumn($this->getParameter('deleted_column'))) {
+			$this->requireTable()->addColumn(array(
 				'name' => $this->getParameter('deleted_column'),
 				'type' => 'TIMESTAMP'
 			));
@@ -102,7 +102,7 @@ public function unDelete(?PropulsionPDO \$con = null)
 		$script = "if (!empty(\$ret) && {$builder->getStubQueryBuilder()->getClassname()}::isSoftDeleteEnabled()) {";
 
 		// prevent updated_at from changing when using a timestampable behavior
-		if ($this->getTable()->hasBehavior('timestampable')) {
+		if ($this->requireTable()->hasBehavior('timestampable')) {
 			$script .= "
 	\$this->keepUpdateDateUnchanged();";
 		}
@@ -371,7 +371,7 @@ public static function isSoftDeleteEnabled()
 public static function doSoftDelete(\$values, ?PropulsionPDO \$con = null)
 {
 	if (\$con === null) {
-		\$con = Propulsion::getConnection({$this->getTable()->getPhpName()}Peer::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
+		\$con = Propulsion::getConnection({$this->requireTable()->getPhpName()}Peer::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
 	}
 	if (\$values instanceof Criteria) {
 		// rename for clarity
@@ -382,7 +382,7 @@ public static function doSoftDelete(\$values, ?PropulsionPDO \$con = null)
 	} else {
 		// it must be the primary key
 		\$selectCriteria = new Criteria(self::DATABASE_NAME);";
-		$pks = $this->getTable()->getPrimaryKey();
+		$pks = $this->requireTable()->getPrimaryKey();
 		if (count($pks)>1) {
 			$i = 0;
 			foreach ($pks as $col) {
@@ -398,7 +398,7 @@ public static function doSoftDelete(\$values, ?PropulsionPDO \$con = null)
 		$script .= "
 	}
 	// Set the correct dbName
-	\$selectCriteria->setDbName({$this->getTable()->getPhpName()}Peer::DATABASE_NAME);
+	\$selectCriteria->setDbName({$this->requireTable()->getPhpName()}Peer::DATABASE_NAME);
 	\$updateCriteria = new Criteria(self::DATABASE_NAME);
     \$updateCriteria->add({$this->builder->getColumnConstant($this->getColumnForParameter('deleted_column'))}, time());
  	return {$this->builder->getBasePeerClassname()}::doUpdate(\$selectCriteria, \$updateCriteria, \$con);
@@ -433,7 +433,7 @@ public static function doDelete2(\$values, ?PropulsionPDO \$con = null)
 	{
 		$script .= "
 /**
- * Method to soft delete all rows from the {$this->getTable()->getName()} table.
+ * Method to soft delete all rows from the {$this->requireTable()->getName()} table.
  *
  * @param			 PropulsionPDO \$con the connection to use
  * @return		 int The number of affected rows (if supported by underlying database driver).

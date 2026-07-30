@@ -34,7 +34,7 @@ class ConcreteInheritanceParentBehavior extends Behavior
 	protected ?ObjectBuilder $builder = null;
 	public function modifyTable(): void
 	{
-		$table = $this->getTable();
+		$table = $this->requireTable();
 		if (!$table->hasColumn($this->getParameter('descendant_column'))) {
 			$table->addColumn(array(
 				'name' => $this->getParameter('descendant_column'),

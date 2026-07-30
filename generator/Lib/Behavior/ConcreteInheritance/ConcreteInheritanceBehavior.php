@@ -49,7 +49,7 @@ class ConcreteInheritanceBehavior extends Behavior
 
 	public function modifyTable(): void
 	{
-		$table = $this->getTable();
+		$table = $this->requireTable();
 		$parentTable = $this->getParentTable();
 
 		if ($this->isCopyData()) {
@@ -95,27 +95,27 @@ class ConcreteInheritanceBehavior extends Behavior
 			$copiedFk = clone $fk;
 			$copiedFk->setName('');
 			$copiedFk->setRefPhpName('');
-			$this->getTable()->addForeignKey($copiedFk);
+			$this->requireTable()->addForeignKey($copiedFk);
 		}
 
 		// add the validators of the parent table
 		foreach ($parentTable->getValidators() as $validator) {
 			$copiedValidator = clone $validator;
-			$this->getTable()->addValidator($copiedValidator);
+			$this->requireTable()->addValidator($copiedValidator);
 		}
 
 		// add the indices of the parent table
 		foreach ($parentTable->getIndices() as $index) {
 			$copiedIndex = clone $index;
 			$copiedIndex->setName('');
-			$this->getTable()->addIndex($copiedIndex);
+			$this->requireTable()->addIndex($copiedIndex);
 		}
 
 		// add the unique indices of the parent table
 		foreach ($parentTable->getUnices() as $unique) {
 			$copiedUnique = clone $unique;
 			$copiedUnique->setName('');
-			$this->getTable()->addUnique($copiedUnique);
+			$this->requireTable()->addUnique($copiedUnique);
 		}
 
 		// add the Behaviors of the parent table
@@ -125,14 +125,14 @@ class ConcreteInheritanceBehavior extends Behavior
 			}
 			$copiedBehavior = clone $behavior;
 			$copiedBehavior->setTableModified(false);
-			$this->getTable()->addBehavior($copiedBehavior);
+			$this->requireTable()->addBehavior($copiedBehavior);
 		}
 
 	}
 
 	protected function getParentTable(): ?Table
 	{
-		$database = $this->getTable()->getDatabase();
+		$database = $this->requireTable()->getDatabase();
 		$tableName = $database->getTablePrefix() . $this->getParameter('extends');
 		if ($database->getPlatform()->supportsSchemas() && $this->getParameter('schema')) {
 			$tableName = $this->getParameter('schema').'.'.$tableName;
