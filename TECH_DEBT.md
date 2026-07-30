@@ -1,6 +1,41 @@
 # Tech debt
 
-Every item ever tracked in this file is now resolved. Two batches landed:
+## Open: `Column.php`/`Table.php` not clean at PHPStan `--level 9`
+
+`generator/Lib/Model/Column.php` (115 findings) and `generator/Lib/Model/Table.php`
+(81 findings) are far from clean at `--level 9` (the project's real baseline,
+`phpstan.neon`, stays at `--level 6` and is unaffected). Unlike the
+`Platform` classes' own version of this problem (below), this isn't
+fixable file-locally with a couple of `require*()` guards -- the findings
+trace back to two structural issues in the model layer itself:
+
+1. **`XMLElement::getAttribute()` returns untyped `mixed`** (declared with no
+   param/return types at all, just a docblock) -- every `$this->getAttribute(...)`
+   call in `setupObject()` (which is most of `Column.php`'s and `Table.php`'s
+   own findings: `assign.propertyType`, `argument.type` into
+   `booleanValue()`/`strtolower()`/`ColumnDefaultValue`'s constructor/
+   `DOMElement::setAttribute()`, etc.) propagates `mixed` into a typed
+   property or a narrower parameter. A real fix needs typed accessor wrappers
+   on `XMLElement` (e.g. `getStringAttribute()`, `getBoolAttribute()`) used
+   consistently across every `Model` class's `setupObject()` -- a mechanical
+   but wide-reaching change, not scoped to either file alone.
+2. **`Column::$table`/`Table::$database`/`Column::$domain` are typed nullable**
+   but are, by construction, always set by the time any real DDL/schema code
+   runs on a fully-loaded model (same "always populated once loaded, but
+   typed nullable" shape the `Platform` classes' `require*()` guards below
+   already solve, but from the *producing* side here rather than the
+   *consuming* side) -- accounting for most of the `method.nonObject`
+   findings (`Cannot call method X() on Table|null`, etc.). Fixing this
+   properly likely means either a real two-phase construct-then-attach
+   invariant enforced by the type system (harder, more invasive), or pushing
+   the same `require*()`-guard pattern into `Column`/`Table`'s own getters
+   -- which just relocates the problem rather than removing it, since
+   *something* still has to assert the invariant PHPStan can't infer.
+
+Not attempted here: this is squarely "needs a generator-level decision", the
+same bar the `setByName()` known-open item below was already held to.
+
+Every other item ever tracked in this file is resolved. Two batches landed:
 
 **Batch 1** (§1-§6, one commit each): guard `PDO::prepare()` failures, verify
 `BasePeer::getValidator()`'s dynamic instantiation, make `ModelCriteria`'s

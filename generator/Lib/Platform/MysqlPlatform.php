@@ -109,10 +109,10 @@ class MysqlPlatform extends DefaultPlatform
 	public function setGeneratorConfig(GeneratorConfig $generatorConfig): void
 	{
 		if ($defaultTableEngine = $generatorConfig->getBuildProperty('mysqlTableType')) {
-			$this->defaultTableEngine = $defaultTableEngine;
+			$this->defaultTableEngine = $this->requireStringParam($defaultTableEngine, 'mysqlTableType build property');
 		}
 		if ($tableEngineKeyword = $generatorConfig->getBuildProperty('mysqlTableEngineKeyword')) {
-			$this->tableEngineKeyword = $tableEngineKeyword;
+			$this->tableEngineKeyword = $this->requireStringParam($tableEngineKeyword, 'mysqlTableEngineKeyword build property');
 		}
 	}
 
@@ -175,7 +175,7 @@ class MysqlPlatform extends DefaultPlatform
 	{
 		$ret = $this->getBeginDDL();
 		foreach ($database->getTablesForSql() as $table) {
-			$ret .= $this->getCommentBlockDDL($table->getName());
+			$ret .= $this->getCommentBlockDDL($this->requireString($table->getName(), 'Table name'));
 			$ret .= $this->getDropTableDDL($table);
 			$ret .= $this->getAddSequenceDDL($table);
 			$ret .= $this->getAddTableDDL($table);
@@ -290,9 +290,9 @@ SET FOREIGN_KEY_CHECKS = 1;
 
 		$vendorSpecific = $table->getVendorInfoForType('mysql');
 		if ($vendorSpecific->hasParameter('Type')) {
-			$mysqlTableType = $vendorSpecific->getParameter('Type');
+			$mysqlTableType = $this->requireStringParam($vendorSpecific->getParameter('Type'), 'Table type');
 		} elseif ($vendorSpecific->hasParameter('Engine')) {
-			$mysqlTableType = $vendorSpecific->getParameter('Engine');
+			$mysqlTableType = $this->requireStringParam($vendorSpecific->getParameter('Engine'), 'Table engine');
 		} else {
 			$mysqlTableType = $this->getDefaultTableEngine();
 		}
@@ -314,7 +314,7 @@ CREATE TABLE %s
 ) %s=%s%s;
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($table->getName()),
+			$this->quoteIdentifier($this->requireString($table->getName(), 'Table name')),
 			implode($sep, $lines),
 			$this->getTableEngineKeyword(),
 			$mysqlTableType,
@@ -327,7 +327,7 @@ CREATE TABLE %s
 	 */
 	protected function getTableOptions(Table $table): array
 	{
-		$dbVI = $table->getDatabase()->getVendorInfoForType('mysql');
+		$dbVI = $this->requireDatabase($table->getDatabase())->getVendorInfoForType('mysql');
 		$tableVI = $table->getVendorInfoForType('mysql');
 		$vi = $dbVI->getMergedVendorInfo($tableVI);
 		$tableOptions = array();
@@ -357,12 +357,12 @@ CREATE TABLE %s
 			if ($vi->hasParameter($name)) {
 				$tableOptions []= sprintf('%s=%s',
 					$sqlName,
-					$this->quote($vi->getParameter($name))
+					$this->quote($this->requireStringParam($vi->getParameter($name), "Table option '$name'"))
 				);
 			} elseif ($vi->hasParameter($sqlName)) {
 				$tableOptions []= sprintf('%s=%s',
 					$sqlName,
-					$this->quote($vi->getParameter($sqlName))
+					$this->quote($this->requireStringParam($vi->getParameter($sqlName), "Table option '$sqlName'"))
 				);
 			}
 		}
@@ -372,7 +372,7 @@ CREATE TABLE %s
 	public function getDropTableDDL(Table $table)
 	{
 		$ret = "
-DROP TABLE IF EXISTS " . $this->quoteIdentifier($table->getName()) . ";
+DROP TABLE IF EXISTS " . $this->quoteIdentifier($this->requireString($table->getName(), 'Table name')) . ";
 ";
 		$ret .= $this->getDropSequenceDDL($table);
 		return $ret;
@@ -390,6 +390,45 @@ DROP TABLE IF EXISTS " . $this->quoteIdentifier($table->getName()) . ";
 	{
 		if ($value === null) {
 			throw new EngineException("$description is required but was null.");
+		}
+		return $value;
+	}
+
+	private function requireTable(?Table $table): Table
+	{
+		if ($table === null) {
+			throw new EngineException('Expected a Table but got null.');
+		}
+		return $table;
+	}
+
+	private function requireDatabase(?Database $database): Database
+	{
+		if ($database === null) {
+			throw new EngineException('Expected a Database but got null.');
+		}
+		return $database;
+	}
+
+	private function requireColumn(?Column $column): Column
+	{
+		if ($column === null) {
+			throw new EngineException('Expected a Column but got null.');
+		}
+		return $column;
+	}
+
+	/**
+	 * VendorInfo::getParameter() is untyped (a generic bag for arbitrary
+	 * `<vendor><parameter>` XML attributes), but every MySQL-specific table
+	 * option this class reads back out of it (Type/Engine, Charset,
+	 * Collation, ...) is, by construction, a plain string XML attribute
+	 * value -- this makes that assumption an explicit, checked one.
+	 */
+	private function requireStringParam(mixed $value, string $description): string
+	{
+		if (!is_string($value)) {
+			throw new EngineException("$description is required but was not a string.");
 		}
 		return $value;
 	}
@@ -436,7 +475,7 @@ DROP TABLE IF EXISTS " . $this->quoteIdentifier($table->getName()) . ";
 		}
 
 		$domain = $col->getDomain();
-		$sqlType = $domain->getSqlType();
+		$sqlType = $this->requireString($domain->getSqlType(), 'Column SQL type');
 		$notNullString = $this->getNullString($col->isNotNull());
 		$defaultSetting = $this->getColumnDefaultValueDDL($col);
 
@@ -457,7 +496,7 @@ DROP TABLE IF EXISTS " . $this->quoteIdentifier($table->getName()) . ";
 			}
 		}
 
-		$ddl = array($this->quoteIdentifier($col->getName()));
+		$ddl = array($this->quoteIdentifier($this->requireString($col->getName(), 'Column name')));
 		if ($col->isEnumType() && $col->isNativeEnum()) {
 			// MySQL's own native ENUM(...) column type stores the label text
 			// directly -- no separate CHECK constraint or custom type needed,
@@ -493,12 +532,12 @@ DROP TABLE IF EXISTS " . $this->quoteIdentifier($table->getName()) . ";
 		}
 		$colinfo = $col->getVendorInfoForType($this->getDatabaseType());
 		if ($colinfo->hasParameter('Charset')) {
-			$ddl []= 'CHARACTER SET '. $this->quote($colinfo->getParameter('Charset'));
+			$ddl []= 'CHARACTER SET '. $this->quote($this->requireStringParam($colinfo->getParameter('Charset'), "Column vendor parameter 'Charset'"));
 		}
 		if ($colinfo->hasParameter('Collation')) {
-			$ddl []= 'COLLATE '. $this->quote($colinfo->getParameter('Collation'));
+			$ddl []= 'COLLATE '. $this->quote($this->requireStringParam($colinfo->getParameter('Collation'), "Column vendor parameter 'Collation'"));
 		} elseif ($colinfo->hasParameter('Collate')) {
-			$ddl []= 'COLLATE '. $this->quote($colinfo->getParameter('Collate'));
+			$ddl []= 'COLLATE '. $this->quote($this->requireStringParam($colinfo->getParameter('Collate'), "Column vendor parameter 'Collate'"));
 		}
 		if ($sqlType == 'TIMESTAMP') {
 			if ($notNullString == '') {
@@ -583,7 +622,7 @@ DROP TABLE IF EXISTS " . $this->quoteIdentifier($table->getName()) . ";
 ALTER TABLE %s DROP PRIMARY KEY;
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($table->getName())
+			$this->quoteIdentifier($this->requireString($table->getName(), 'Table name'))
 		);
 	}
 
@@ -600,8 +639,8 @@ CREATE %sINDEX %s ON %s (%s);
 ";
 		return sprintf($pattern,
 			$this->getIndexType($index),
-			$this->quoteIdentifier($index->getName()),
-			$this->quoteIdentifier($index->getTable()->getName()),
+			$this->quoteIdentifier($this->requireString($index->getName(), 'Index name')),
+			$this->quoteIdentifier($this->requireString($this->requireTable($index->getTable())->getName(), 'Table name')),
 			$this->getColumnListDDL($index->getColumns())
 		);
 	}
@@ -618,8 +657,8 @@ CREATE %sINDEX %s ON %s (%s);
 DROP INDEX %s ON %s;
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($index->getName()),
-			$this->quoteIdentifier($index->getTable()->getName())
+			$this->quoteIdentifier($this->requireString($index->getName(), 'Index name')),
+			$this->quoteIdentifier($this->requireString($this->requireTable($index->getTable())->getName(), 'Table name'))
 		);
 	}
 
@@ -631,7 +670,7 @@ DROP INDEX %s ON %s;
 	{
 		return sprintf('%sINDEX %s (%s)',
 			$this->getIndexType($index),
-			$this->quoteIdentifier($index->getName()),
+			$this->quoteIdentifier($this->requireString($index->getName(), 'Index name')),
 			$this->getIndexColumnListDDL($index)
 		);
 	}
@@ -655,7 +694,7 @@ DROP INDEX %s ON %s;
 		$type = '';
 		$vendorInfo = $index->getVendorInfoForType($this->getDatabaseType());
 		if ($vendorInfo->getParameter('Index_type')) {
-			$type = $vendorInfo->getParameter('Index_type') . ' ';
+			$type = $this->requireStringParam($vendorInfo->getParameter('Index_type'), "Index vendor parameter 'Index_type'") . ' ';
 		} elseif ($index->isUnique()) {
 			$type = 'UNIQUE ';
 		}
@@ -665,7 +704,7 @@ DROP INDEX %s ON %s;
 	public function getUniqueDDL(Unique $unique)
 	{
 		return sprintf('UNIQUE INDEX %s (%s)',
-			$this->quoteIdentifier($unique->getName()),
+			$this->quoteIdentifier($this->requireString($unique->getName(), 'Unique index name')),
 			$this->getIndexColumnListDDL($unique)
 		);
 	}
@@ -679,8 +718,8 @@ DROP INDEX %s ON %s;
 ALTER TABLE %s DROP FOREIGN KEY %s;
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($fk->getTable()->getName()),
-			$this->quoteIdentifier($fk->getName())
+			$this->quoteIdentifier($this->requireString($this->requireTable($fk->getTable())->getName(), 'Table name')),
+			$this->quoteIdentifier($this->requireString($fk->getName(), 'Foreign key name'))
 		);
 	}
 
@@ -751,8 +790,8 @@ RENAME TABLE %s TO %s;
 ALTER TABLE %s DROP %s;
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($column->getTable()->getName()),
-			$this->quoteIdentifier($column->getName())
+			$this->quoteIdentifier($this->requireString($this->requireTable($column->getTable())->getName(), 'Table name')),
+			$this->quoteIdentifier($this->requireString($column->getName(), 'Column name'))
 		);
 	}
 
@@ -772,7 +811,10 @@ ALTER TABLE %s DROP %s;
 	 */
 	public function getModifyColumnDDL(PropulsionColumnDiff $columnDiff)
 	{
-		return $this->getChangeColumnDDL($columnDiff->getFromColumn(), $columnDiff->getToColumn());
+		return $this->getChangeColumnDDL(
+			$this->requireColumn($columnDiff->getFromColumn()),
+			$this->requireColumn($columnDiff->getToColumn())
+		);
 	}
 
 	/**
@@ -785,8 +827,8 @@ ALTER TABLE %s DROP %s;
 ALTER TABLE %s CHANGE %s %s;
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($fromColumn->getTable()->getName()),
-			$this->quoteIdentifier($fromColumn->getName()),
+			$this->quoteIdentifier($this->requireString($this->requireTable($fromColumn->getTable())->getName(), 'Table name')),
+			$this->quoteIdentifier($this->requireString($fromColumn->getName(), 'Column name')),
 			$this->getColumnDDL($toColumn)
 		);
 	}
