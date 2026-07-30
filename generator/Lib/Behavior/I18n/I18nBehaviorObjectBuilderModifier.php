@@ -18,6 +18,7 @@ namespace Propulsion\Generator\Behavior\I18n;
  */
 
  use Propulsion\Generator\Model\Column;
+ use Propulsion\Generator\Model\ForeignKey;
  use Propulsion\Generator\Model\PropulsionTypes;
  use Propulsion\Generator\Model\Table;
  use Propulsion\Generator\Builder\OM\ObjectBuilder;
@@ -31,17 +32,48 @@ class I18nBehaviorObjectBuilderModifier
 	public function __construct(I18nBehavior $behavior)
 	{
 		$this->behavior = $behavior;
-		$this->table = $behavior->getTable();
+		$this->table = $behavior->requireTable();
+	}
+
+	/**
+	 * getI18nForeignKey() legitimately returns null when the i18n table
+	 * hasn't been (or can't be) related back to the main table yet, but
+	 * every call site here only runs once modifyTable() has already set
+	 * up that relationship, so treat a null result as a programming
+	 * error rather than propagating it further.
+	 */
+	private function requireI18nForeignKey(): ForeignKey
+	{
+		$fk = $this->behavior->getI18nForeignKey();
+		if ($fk === null) {
+			throw new EngineException('No foreign key was found relating the i18n table back to the main table');
+		}
+		return $fk;
+	}
+
+	/**
+	 * preg_replace()/str_replace() are typed to allow a null subject
+	 * (matching their string|null input), but here $subject is always a
+	 * string we built ourselves, so a null result would mean the
+	 * argument passed in was already null -- a sign something upstream
+	 * broke, not a case to silently paper over.
+	 */
+	private function requireString(?string $value, string $what): string
+	{
+		if ($value === null) {
+			throw new EngineException(sprintf('%s is unexpectedly null', $what));
+		}
+		return $value;
 	}
 
 	public function postDelete(ObjectBuilder $builder): ?string
 	{
 		$this->builder = $builder;
 		if (!$builder->getPlatform()->supportsNativeDeleteTrigger() && !$builder->getBuildProperty('emulateForeignKeyConstraints')) {
-			$i18nTable = $this->behavior->getI18nTable();
+			$i18nTable = $this->behavior->requireI18nTable();
 			return $this->behavior->renderTemplate('objectPostDelete', array(
 				'i18nQueryName'    => $builder->getNewStubQueryBuilder($i18nTable)->getClassname(),
-				'objectClassname' => $builder->getNewStubObjectBuilder($this->behavior->getTable())->getClassname(),
+				'objectClassname' => $builder->getNewStubObjectBuilder($this->behavior->requireTable())->getClassname(),
 			));
 		}
 		return null;
@@ -51,7 +83,7 @@ class I18nBehaviorObjectBuilderModifier
 	{
 		return $this->behavior->renderTemplate('objectAttributes', array(
 			'defaultLocale'   => $this->behavior->getDefaultLocale(),
-			'objectClassname' => $builder->getNewStubObjectBuilder($this->behavior->getI18nTable())->getClassname(),
+			'objectClassname' => $builder->getNewStubObjectBuilder($this->behavior->requireI18nTable())->getClassname(),
 		));
 	}
 
@@ -68,7 +100,8 @@ class I18nBehaviorObjectBuilderModifier
 		$script = '';
 		$script .= $this->addSetLocale();
 		$script .= $this->addGetLocale();
-		if ($alias = $this->behavior->getParameter('locale_alias')) {
+		$alias = $this->behavior->getParameter('locale_alias');
+		if (is_string($alias) && $alias !== '') {
 			$script .= $this->addGetLocaleAlias($alias);
 			$script .= $this->addSetLocaleAlias($alias);
 		}
@@ -114,8 +147,8 @@ class I18nBehaviorObjectBuilderModifier
 
 	protected function addGetTranslation(): string
 	{
-		$i18nTable = $this->behavior->getI18nTable();
-		$fk = $this->behavior->getI18nForeignKey();
+		$i18nTable = $this->behavior->requireI18nTable();
+		$fk = $this->requireI18nForeignKey();
 		return $this->behavior->renderTemplate('objectGetTranslation', array(
 			'i18nTablePhpName' => $this->builder->getNewStubObjectBuilder($i18nTable)->getClassname(),
 			'defaultLocale'    => $this->behavior->getDefaultLocale(),
@@ -128,8 +161,8 @@ class I18nBehaviorObjectBuilderModifier
 
 	protected function addRemoveTranslation(): string
 	{
-		$i18nTable = $this->behavior->getI18nTable();
-		$fk = $this->behavior->getI18nForeignKey();
+		$i18nTable = $this->behavior->requireI18nTable();
+		$fk = $this->requireI18nForeignKey();
 		return $this->behavior->renderTemplate('objectRemoveTranslation', array(
 			'objectClassname' => $this->builder->getStubObjectBuilder()->getClassname(),
 			'defaultLocale'    => $this->behavior->getDefaultLocale(),
@@ -142,7 +175,7 @@ class I18nBehaviorObjectBuilderModifier
 	protected function addGetCurrentTranslation(): string
 	{
 		return $this->behavior->renderTemplate('objectGetCurrentTranslation', array(
-			'i18nTablePhpName' => $this->builder->getNewStubObjectBuilder($this->behavior->getI18nTable())->getClassname(),
+			'i18nTablePhpName' => $this->builder->getNewStubObjectBuilder($this->behavior->requireI18nTable())->getClassname(),
 		));
 	}
 
@@ -150,7 +183,7 @@ class I18nBehaviorObjectBuilderModifier
 	// cannot be specified by the user
 	protected function addTranslatedColumnGetter(Column $column): string
 	{
-		$objectBuilder = $this->builder->getNewObjectBuilder($this->behavior->getI18nTable());
+		$objectBuilder = $this->builder->getNewObjectBuilder($this->behavior->requireI18nTable());
 		if (!$objectBuilder instanceof ObjectBuilder) {
 			throw new EngineException('The i18n behavior requires the i18n table to use the standard ObjectBuilder (a custom propulsion.builder.object.class is not supported).');
 		}
@@ -163,8 +196,8 @@ class I18nBehaviorObjectBuilderModifier
 			$objectBuilder->addDefaultAccessorComment($comment, $column);
 			$objectBuilder->addDefaultAccessorOpen($functionStatement, $column);
 		}
-		$comment = preg_replace('/^\t/m', '', $comment);
-		$functionStatement = preg_replace('/^\t/m', '', $functionStatement);
+		$comment = $this->requireString(preg_replace('/^\t/m', '', $comment), 'comment');
+		$functionStatement = $this->requireString(preg_replace('/^\t/m', '', $functionStatement), 'functionStatement');
 		preg_match_all('/\$[a-z]+/i', $functionStatement, $params);
 		return $this->behavior->renderTemplate('objectTranslatedColumnGetter', array(
 			'comment'           => $comment,
@@ -178,9 +211,9 @@ class I18nBehaviorObjectBuilderModifier
 	// cannot be specified by the user
 	protected function addTranslatedColumnSetter(Column $column): string
 	{
-		$i18nTablePhpName = $this->builder->getNewStubObjectBuilder($this->behavior->getI18nTable())->getClassname();
+		$i18nTablePhpName = $this->builder->getNewStubObjectBuilder($this->behavior->requireI18nTable())->getClassname();
 		$tablePhpName = $this->builder->getStubObjectBuilder()->getClassname();
-		$objectBuilder = $this->builder->getNewObjectBuilder($this->behavior->getI18nTable());
+		$objectBuilder = $this->builder->getNewObjectBuilder($this->behavior->requireI18nTable());
 		if (!$objectBuilder instanceof ObjectBuilder) {
 			throw new EngineException('The i18n behavior requires the i18n table to use the standard ObjectBuilder (a custom propulsion.builder.object.class is not supported).');
 		}
@@ -193,7 +226,7 @@ class I18nBehaviorObjectBuilderModifier
 			$objectBuilder->addMutatorComment($comment, $column);
 			$objectBuilder->addMutatorOpenOpen($functionStatement, $column);
 		}
-		$comment = preg_replace('/^\t/m', '', $comment);
+		$comment = $this->requireString(preg_replace('/^\t/m', '', $comment), 'comment');
 		// addMutatorComment()/addTemporalMutatorComment() were called on the i18n
 		// table's own ObjectBuilder (needed so getClassname() etc. reflect the i18n
 		// table's columns), so both the doc comment's "@return" line and (more
@@ -208,7 +241,7 @@ class I18nBehaviorObjectBuilderModifier
 		// TypeError ("Return value must be of type BaseFooI18n, Foo returned")
 		// now that addMutatorOpenOpen() emits a real ": $returnType" hint.
 		$comment = str_replace($i18nTablePhpName, $tablePhpName, $comment);
-		$functionStatement = preg_replace('/^\t/m', '', $functionStatement);
+		$functionStatement = $this->requireString(preg_replace('/^\t/m', '', $functionStatement), 'functionStatement');
 		$functionStatement = str_replace($i18nTablePhpName, $tablePhpName, $functionStatement);
 		preg_match_all('/\$[a-z]+/i', $functionStatement, $params);
 		return $this->behavior->renderTemplate('objectTranslatedColumnSetter', array(
@@ -221,7 +254,7 @@ class I18nBehaviorObjectBuilderModifier
 
 	public function objectFilter(string &$script, ObjectBuilder $builder): void
 	{
-		$i18nTable = $this->behavior->getI18nTable();
+		$i18nTable = $this->behavior->requireI18nTable();
 		$i18nTablePhpName = $this->builder->getNewStubObjectBuilder($i18nTable)->getClassname();
 		$localeColumnName = $this->behavior->getLocaleColumn()->getPhpName();
 		$pattern = '/public function add' . $i18nTablePhpName . '.*[\r\n]\s*\{/';
