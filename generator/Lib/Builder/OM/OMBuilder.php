@@ -78,6 +78,27 @@ abstract class OMBuilder extends DataModelBuilder
 	{
 		return $value ?? throw new EngineException("$context is not set.");
 	}
+
+	/**
+	 * getBuildProperty()/getGeneratorConfig()->getBuildProperty() are
+	 * untyped (build properties come from parsed .properties/XML config and
+	 * are read generically), but every call site in these builders treats
+	 * the result as a plain string to splice into generated source. Scalars
+	 * (string/int/float/bool) have an unambiguous string form; anything else
+	 * (unset, array, object) is a real configuration problem, not something
+	 * to paper over.
+	 */
+	protected function getStringBuildProperty(string $name): string
+	{
+		$value = $this->getBuildProperty($name);
+		if (is_string($value)) {
+			return $value;
+		}
+		if (is_scalar($value)) {
+			return (string) $value;
+		}
+		return '';
+	}
 	/**
 	 * Declared fully qualified classnames, to build the 'namespace' statements
    * according to this table's namespace.
@@ -107,6 +128,27 @@ abstract class OMBuilder extends DataModelBuilder
 	 * @return void
 	 */
 	abstract protected function addClassClose(string &$script);
+
+	/**
+	 * Creates the IntlDateFormatter used to render the "generated on <date>"
+	 * comment in class headers. datefmt_create()/IntlDateFormatter::create()
+	 * is declared as nullable because arbitrary caller-supplied locale/format
+	 * strings can fail to resolve, but the arguments used here are fixed and
+	 * valid, so failure would only indicate a broken intl environment --
+	 * a real (if unlikely) error worth surfacing rather than silently
+	 * swallowing it.
+	 */
+	protected function createGeneratedTimestampFormatter(): \IntlDateFormatter
+	{
+		return datefmt_create(
+			'en_US',
+			\IntlDateFormatter::FULL,
+			\IntlDateFormatter::FULL,
+			'Europe/Helsinki',
+			\IntlDateFormatter::GREGORIAN,
+			"yyyy-MM-dd HH:mm:ss"
+		) ?? throw new EngineException("Failed to create the IntlDateFormatter used for generated-code timestamps.");
+	}
 
 	/**
 	 * Builds the PHP source for current class and returns it as a string.

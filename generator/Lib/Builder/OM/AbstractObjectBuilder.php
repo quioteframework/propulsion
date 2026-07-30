@@ -60,10 +60,11 @@ abstract class AbstractObjectBuilder extends OMBuilder
 	/**
 	 * Gets the interface classname if specified for current table.
 	 * If not, will return 'Persistent' (i.e. \Propulsion\OM\Persistent,
-	 * brought into scope by the builder's own declareClass() call).
-	 * @return     string
+	 * brought into scope by the builder's own declareClass() call), unless
+	 * the table is read-only, in which case there is no interface at all.
+	 * @return     string|null
 	 */
-	protected function getInterface() {
+	protected function getInterface(): ?string {
 		$interface = $this->getTable()->getInterface();
 		if ($interface === null && !$this->getTable()->isReadOnly()) {
 			$interface = "Persistent";
