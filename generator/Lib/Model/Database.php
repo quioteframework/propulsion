@@ -32,9 +32,9 @@ class Database extends ScopedElement
 
 	private ?string $baseClass = null;
 	private ?string $basePeer = null;
-	private ?string $defaultIdMethod = null;
-	private ?string $defaultPhpNamingMethod = null;
-	private ?string $defaultTranslateMethod = null;
+	private string $defaultIdMethod = IDMethod::NATIVE;
+	private string $defaultPhpNamingMethod = NameGenerator::CONV_METHOD_UNDERSCORE;
+	private string $defaultTranslateMethod = Validator::TRANSLATE_NONE;
 	private ?AppData $dbParent = null;
 	/** @var array<string, Table> */
 	private $tablesByName = array();
@@ -51,7 +51,7 @@ class Database extends ScopedElement
 	 *
 	 * @var       string
 	 */
-	protected $defaultStringFormat;
+	protected string $defaultStringFormat = 'YAML';
 
 	/** @var array<string, Domain> */
 	private $domainMap = array();
@@ -80,15 +80,16 @@ class Database extends ScopedElement
 	protected function setupObject(): void
 	{
 		parent::setupObject();
-		$this->name = $this->getAttribute("name");
-		$this->baseClass = $this->getAttribute("baseClass");
-		$this->basePeer = $this->getAttribute("basePeer");
-		$this->defaultIdMethod = $this->getAttribute("defaultIdMethod", IDMethod::NATIVE);
-		$this->defaultPhpNamingMethod = $this->getAttribute("defaultPhpNamingMethod", NameGenerator::CONV_METHOD_UNDERSCORE);
-		$this->defaultTranslateMethod = $this->getAttribute("defaultTranslateMethod", Validator::TRANSLATE_NONE);
-		$this->heavyIndexing = $this->booleanValue($this->getAttribute("heavyIndexing"));
-		$this->tablePrefix = $this->getAttribute('tablePrefix', $this->getBuildProperty('tablePrefix')) ?? '';
-		$this->defaultStringFormat = $this->getAttribute('defaultStringFormat', 'YAML');
+		$this->name = $this->getStringAttribute("name");
+		$this->baseClass = $this->getStringAttribute("baseClass");
+		$this->basePeer = $this->getStringAttribute("basePeer");
+		$this->defaultIdMethod = $this->getStringAttribute("defaultIdMethod", IDMethod::NATIVE) ?? IDMethod::NATIVE;
+		$this->defaultPhpNamingMethod = $this->getStringAttribute("defaultPhpNamingMethod", NameGenerator::CONV_METHOD_UNDERSCORE) ?? NameGenerator::CONV_METHOD_UNDERSCORE;
+		$this->defaultTranslateMethod = $this->getStringAttribute("defaultTranslateMethod", Validator::TRANSLATE_NONE) ?? Validator::TRANSLATE_NONE;
+		$this->heavyIndexing = $this->getBooleanAttribute("heavyIndexing");
+		$buildTablePrefix = $this->getBuildProperty('tablePrefix');
+		$this->tablePrefix = $this->getStringAttribute('tablePrefix', is_string($buildTablePrefix) ? $buildTablePrefix : null) ?? '';
+		$this->defaultStringFormat = $this->getStringAttribute('defaultStringFormat', 'YAML') ?? 'YAML';
 	}
 
 	/**
@@ -388,9 +389,10 @@ class Database extends ScopedElement
 			$this->tableList[] = $tbl;
 			$this->tablesByName[$tblName] = $tbl;
 			$this->tablesByLowercaseName[strtolower($tblName)] = $tbl;
-			$this->tablesByPhpName[ $tbl->getPhpName() ] = $tbl;
-			if (strpos($tbl->getNamespace() ?? '', '\\') === 0) {
-				$tbl->setNamespace(substr($tbl->getNamespace(), 1));
+			$this->tablesByPhpName[ $tbl->getPhpName() ?? '' ] = $tbl;
+			$tblNamespace = $tbl->getNamespace();
+			if ($tblNamespace !== null && strpos($tblNamespace, '\\') === 0) {
+				$tbl->setNamespace(substr($tblNamespace, 1));
 			} elseif ($namespace = $this->getNamespace()) {
 				if ($tbl->getNamespace() === null) {
 					$tbl->setNamespace($namespace);
@@ -431,14 +433,18 @@ class Database extends ScopedElement
 
 	/**
 	 * Adds Domain object from <domain> tag.
-	 * @param      mixed $data XML attributes (array) or Domain object.
+	 * @param      array<string, mixed>|Domain $data XML attributes (array) or Domain object.
 	 */
 	public function addDomain($data): Domain {
 
 		if ($data instanceof Domain) {
 			$domain = $data; // alias
 			$domain->setDatabase($this);
-			$this->domainMap[ $domain->getName() ] = $domain;
+			$name = $domain->getName();
+			if ($name === null) {
+				throw new EngineException('Cannot add a Domain without a "name".');
+			}
+			$this->domainMap[$name] = $domain;
 			return $domain;
 		} else {
 			$domain = new Domain();
@@ -491,15 +497,23 @@ class Database extends ScopedElement
     if ($bdata instanceof Behavior) {
       $behavior = $bdata;
       $behavior->setDatabase($this);
-      $this->behaviors[$behavior->getName()] = $behavior;
+      $name = $behavior->getName();
+      if ($name === null) {
+        throw new EngineException('Cannot add a Behavior without a "name".');
+      }
+      $this->behaviors[$name] = $behavior;
       return $behavior;
     } else {
-      $class = $this->getConfiguredBehavior($bdata['name']);
+      $bname = $bdata['name'] ?? null;
+      if (!is_string($bname)) {
+        throw new EngineException('Cannot add a Behavior without a string "name" attribute.');
+      }
+      $class = $this->getConfiguredBehavior($bname);
       $behavior = new $class();
       if (!$behavior instanceof Behavior) {
         throw new EngineException(sprintf(
           "Configured '%s' behavior class (%s) does not extend %s.",
-          $bdata['name'],
+          $bname,
           get_class($behavior),
           Behavior::class
         ));
@@ -581,10 +595,10 @@ class Database extends ScopedElement
 		$this->setupTableReferrers();
 
 		// add default behaviors to database
-		if($defaultBehaviors = $this->getBuildProperty('behaviorDefault')) {
+		$defaultBehaviors = $this->getBuildProperty('behaviorDefault');
+		if (is_string($defaultBehaviors) && $defaultBehaviors !== '') {
 			// add generic behaviors from build.properties
-			$defaultBehaviors = explode(',', $defaultBehaviors);
-			foreach ($defaultBehaviors as $behavior) {
+			foreach (explode(',', $defaultBehaviors) as $behavior) {
 				$this->addBehavior(array('name' => trim($behavior)));
 			}
 		}
@@ -625,10 +639,13 @@ class Database extends ScopedElement
 	public function appendXml(\DOMNode $node): void
 	{
 		$doc = ($node instanceof \DOMDocument) ? $node : $node->ownerDocument;
+		if ($doc === null) {
+			throw new EngineException('Cannot append XML: given DOMNode has no owner document');
+		}
 
 		$dbNode = $node->appendChild($doc->createElement('database'));
 
-		$dbNode->setAttribute('name', $this->name);
+		$dbNode->setAttribute('name', $this->name ?? '');
 
 		if ($this->pkg) {
 			$dbNode->setAttribute('package', $this->pkg);
