@@ -9,6 +9,8 @@
  */
  namespace Propulsion\Generator\Model;
 
+use Propulsion\Generator\Exception\EngineException;
+
 /**
  * A Class for information regarding possible objects representing a table
  *
@@ -31,10 +33,10 @@ class Inheritance extends XMLElement
 	 */
 	protected function setupObject(): void
 	{
-		$this->key = $this->getAttribute("key");
-		$this->className = $this->getAttribute("class");
-		$this->pkg = $this->getAttribute("package");
-		$this->ancestor = $this->getAttribute("extends");
+		$this->key = $this->getStringAttribute("key");
+		$this->className = $this->getStringAttribute("class");
+		$this->pkg = $this->getStringAttribute("package");
+		$this->ancestor = $this->getStringAttribute("extends");
 	}
 
 	/**
@@ -75,7 +77,7 @@ class Inheritance extends XMLElement
 
 	/**
 	 * Get the value of className.
-	 * @return     string value of className.
+	 * @return     string|null value of className.
 	 */
 	public function getClassName()
 	{
@@ -84,7 +86,7 @@ class Inheritance extends XMLElement
 
 	/**
 	 * Set the value of className.
-	 * @param      string $v Value to assign to className.
+	 * @param      string|null $v Value to assign to className.
 	 */
 	public function setClassName($v): void
 	{
@@ -93,7 +95,7 @@ class Inheritance extends XMLElement
 
 	/**
 	 * Get the value of package.
-	 * @return     string Value of package.
+	 * @return     string|null Value of package.
 	 */
 	public function getPackage()
 	{
@@ -102,7 +104,7 @@ class Inheritance extends XMLElement
 
 	/**
 	 * Set the value of package.
-	 * @param      string $v Value to assign to package.
+	 * @param      string|null $v Value to assign to package.
 	 */
 	public function setPackage($v): void
 	{
@@ -111,7 +113,7 @@ class Inheritance extends XMLElement
 
 	/**
 	 * Get the value of ancestor.
-	 * @return     string Value of ancestor.
+	 * @return     string|null Value of ancestor.
 	 */
 	public function getAncestor()
 	{
@@ -120,7 +122,7 @@ class Inheritance extends XMLElement
 
 	/**
 	 * Set the value of ancestor.
-	 * @param      string $v Value to assign to ancestor.
+	 * @param      string|null $v Value to assign to ancestor.
 	 */
 	public function setAncestor($v): void
 	{
@@ -133,10 +135,13 @@ class Inheritance extends XMLElement
 	public function appendXml(\DOMNode $node): void
 	{
 		$doc = ($node instanceof \DOMDocument) ? $node : $node->ownerDocument;
+		if ($doc === null) {
+			throw new EngineException('Cannot append XML: given DOMNode has no owner document');
+		}
 
 		$inherNode = $node->appendChild($doc->createElement('inheritance'));
-		$inherNode->setAttribute('key', $this->key);
-		$inherNode->setAttribute('class', $this->className);
+		$inherNode->setAttribute('key', $this->key ?? '');
+		$inherNode->setAttribute('class', $this->className ?? '');
 
 		if ($this->ancestor !== null) {
 			$inherNode->setAttribute('extends', $this->ancestor);

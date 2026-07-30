@@ -9,6 +9,8 @@
  */
  namespace Propulsion\Generator\Model;
 
+use Propulsion\Generator\Exception\EngineException;
+
 /**
  * Data about a validation rule used in an application.
  *
@@ -20,8 +22,7 @@ class Rule extends XMLElement
 {
 
 	private ?string $name = null;
-	/** @var mixed */
-	private $value;
+	private ?string $value = null;
 	private ?string $message = null;
 	private ?Validator $validator = null;
 	private ?string $classname = null;
@@ -32,9 +33,9 @@ class Rule extends XMLElement
 	 */
 	protected function setupObject(): void
 	{
-		$this->name = $this->getAttribute("name");
-		$this->value = $this->getAttribute("value");
-		$this->classname = $this->getAttribute("class");
+		$this->name = $this->getStringAttribute("name");
+		$this->value = $this->getStringAttribute("value");
+		$this->classname = $this->getStringAttribute("class");
 
 		/*
 		* Set some default values if they are not specified.
@@ -47,15 +48,14 @@ class Rule extends XMLElement
 		*   (this default cannot be easily set at runtime w/o changing
 		*   design of class system in undesired ways)
 		*/
-		if ($this->value === null) {
-			switch($this->name) {
-				case 'maxLength':
-					$this->value = $this->validator->getColumn()->getSize();
-					break;
+		if ($this->value === null && $this->name === 'maxLength') {
+			$size = $this->requireValidator()->getColumn()?->getSize();
+			if (is_int($size) || is_string($size)) {
+				$this->value = (string) $size;
 			}
 		}
 
-		$this->message = $this->getAttribute("message");
+		$this->message = $this->getStringAttribute("message");
 	}
 
 	/**
@@ -70,7 +70,7 @@ class Rule extends XMLElement
 
 	/**
 	 * Gets the owning validator for this rule.
-	 * @return     Validator
+	 * @return     Validator|null
 	 */
 	public function getValidator()
 	{
@@ -78,10 +78,25 @@ class Rule extends XMLElement
 	}
 
 	/**
+	 * Gets the owning validator for this rule, or throw if it hasn't been set
+	 * yet. Validator::addRule() always calls setValidator() unconditionally
+	 * before loadFromXML(), so every real (post-attach) call site can assume this.
+	 *
+	 * @throws EngineException
+	 */
+	public function requireValidator(): Validator
+	{
+		if ($this->validator === null) {
+			throw new EngineException('This Rule has not been attached to a Validator.');
+		}
+		return $this->validator;
+	}
+
+	/**
 	 * Sets the dot-path name of class to use for rule.
 	 * If no class is specified in XML, then a classname will
 	 * be built based on the 'name' attrib.
-	 * @param      string $classname dot-path classname (e.g. myapp.propel.MyValidator)
+	 * @param      string|null $classname dot-path classname (e.g. myapp.propel.MyValidator)
 	 */
 	public function setClass($classname): void
 	{
@@ -92,7 +107,7 @@ class Rule extends XMLElement
 	 * Gets the dot-path name of class to use for rule.
 	 * If no class was specified, this method will build a default classname
 	 * based on the 'name' attribute.  E.g. 'maxLength' -> 'propel.validator.MaxLengthValidator'
-	 * @return     string dot-path classname (e.g. myapp.propel.MyValidator)
+	 * @return     string|null dot-path classname (e.g. myapp.propel.MyValidator)
 	 */
 	public function getClass()
 	{
@@ -105,7 +120,7 @@ class Rule extends XMLElement
 	/**
 	 * Sets the name of the validator for this rule.
 	 * This name is used to build the classname if none was specified.
-	 * @param      string $name Validator name for this rule (e.g. "maxLength", "required").
+	 * @param      string|null $name Validator name for this rule (e.g. "maxLength", "required").
 	 * @see        getClass()
 	 */
 	public function setName($name): void
@@ -115,7 +130,7 @@ class Rule extends XMLElement
 
 	/**
 	 * Gets the name of the validator for this rule.
-	 * @return     string Validator name for this rule (e.g. "maxLength", "required").
+	 * @return     string|null Validator name for this rule (e.g. "maxLength", "required").
 	 */
 	public function getName()
 	{
@@ -175,16 +190,19 @@ class Rule extends XMLElement
 	public function appendXml(\DOMNode $node): void
 	{
 		$doc = ($node instanceof \DOMDocument) ? $node : $node->ownerDocument;
+		if ($doc === null) {
+			throw new EngineException('Cannot append XML: given DOMNode has no owner document');
+		}
 
 		$ruleNode = $node->appendChild($doc->createElement('rule'));
-		$ruleNode->setAttribute('name', $this->getName());
+		$ruleNode->setAttribute('name', $this->getName() ?? '');
 
 		if (($value = $this->getValue()) !== null) {
 			$ruleNode->setAttribute('value', $value);
 		}
 
 		if ($this->classname !== null) {
-			$ruleNode->setAttribute('class', $this->getClass());
+			$ruleNode->setAttribute('class', $this->getClass() ?? '');
 		}
 
 		$ruleNode->setAttribute('message', $this->getMessage());

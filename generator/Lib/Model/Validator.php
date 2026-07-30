@@ -9,6 +9,8 @@
  */
 namespace Propulsion\Generator\Model;
 
+use Propulsion\Generator\Exception\EngineException;
+
 /**
  * Validator.
  *
@@ -24,7 +26,7 @@ class Validator extends XMLElement
 	/**
 	 * The column this validator applies to.
 	 *
-	 * @var        Column
+	 * @var        Column|null
 	 */
 	private $column;
 
@@ -38,14 +40,14 @@ class Validator extends XMLElement
 	/**
 	 * The translation mode.
 	 *
-	 * @var        string
+	 * @var        string|null
 	 */
 	private $translate;
 
 	/**
 	 * Parent table.
 	 *
-	 * @var        Table
+	 * @var        Table|null
 	 */
 	private $table;
 
@@ -55,8 +57,21 @@ class Validator extends XMLElement
 	 */
 	protected function setupObject(): void
 	{
-		$this->column = $this->getTable()->getColumn($this->getAttribute("column"));
-		$this->translate = $this->getAttribute("translate", $this->getTable()->getDatabase()->getDefaultTranslateMethod());;
+		$table = $this->requireTable();
+		$columnName = $this->getStringAttribute("column");
+		$column = $columnName !== null ? $table->getColumn($columnName) : null;
+		if ($column === null) {
+			throw new EngineException(sprintf(
+				"Failed adding validator to table '%s': column '%s' does not exist !",
+				$table->getName() ?? '(unnamed)',
+				$columnName ?? '(none)'
+			));
+		}
+		$this->column = $column;
+		$database = $table->getDatabase();
+		$this->translate = $this->getStringAttribute("translate")
+			?? $database?->getDefaultTranslateMethod()
+			?? self::TRANSLATE_NONE;
 	}
 
 	/**
@@ -64,7 +79,7 @@ class Validator extends XMLElement
 	 * Supports two signatures:
 	 * - addRule(Rule $rule)
 	 * - addRule(array $attribs)
-	 * @param      mixed $data Rule object or XML attribs (array) from <rule/> element.
+	 * @param      array<string, mixed>|Rule $data Rule object or XML attribs (array) from <rule/> element.
 	 * @return     Rule The added Rule.
 	 */
 	public function addRule($data)
@@ -94,11 +109,11 @@ class Validator extends XMLElement
 
 	/**
 	 * Gets the name of the column that this Validator applies to.
-	 * @return     string
+	 * @return     string|null
 	 */
 	public function getColumnName()
 	{
-		return $this->column->getName();
+		return $this->column?->getName();
 	}
 
 	/**
@@ -113,7 +128,7 @@ class Validator extends XMLElement
 
 	/**
 	 * Gets the Column object that this validator applies to.
-	 * @return     Column
+	 * @return     Column|null
 	 */
 	public function getColumn()
 	{
@@ -131,10 +146,25 @@ class Validator extends XMLElement
 
 	/**
 	 * Get the owning Table.
-	 * @return     Table
+	 * @return     Table|null
 	 */
 	public function getTable()
 	{
+		return $this->table;
+	}
+
+	/**
+	 * Get the owning Table, or throw if this Validator hasn't been attached
+	 * to one yet. Table::addValidator() always calls setTable() unconditionally
+	 * before loadFromXML(), so every real (post-attach) call site can assume this.
+	 *
+	 * @throws EngineException
+	 */
+	public function requireTable(): Table
+	{
+		if ($this->table === null) {
+			throw new EngineException('This Validator has not been attached to a Table.');
+		}
 		return $this->table;
 	}
 
@@ -151,7 +181,7 @@ class Validator extends XMLElement
 	/**
 	 * Get the translation mode to use for the message.
 	 * Currently only "gettext" and "none" are supported.  The default is "none".
-	 * @return     string Translation method ("gettext", "none").
+	 * @return     string|null Translation method ("gettext", "none").
 	 */
 	public function getTranslate()
 	{
@@ -164,9 +194,12 @@ class Validator extends XMLElement
 	public function appendXml(\DOMNode $node): void
 	{
 		$doc = ($node instanceof \DOMDocument) ? $node : $node->ownerDocument;
+		if ($doc === null) {
+			throw new EngineException('Cannot append XML: given DOMNode has no owner document');
+		}
 
 		$valNode = $node->appendChild($doc->createElement('validator'));
-		$valNode->setAttribute('column', $this->getColumnName());
+		$valNode->setAttribute('column', $this->getColumnName() ?? '');
 
 		if ($this->translate !== null) {
 			$valNode->setAttribute('translate', $this->translate);
