@@ -215,7 +215,7 @@ abstract class PropulsionFormatter
 	 * As there may be more than one object of the same class in the chain
 	 *
 	 * @param     int    $col    Offset of the object in the list of objects to hydrate
-	 * @param     class-string<BaseObject> $class  Propulsion model object class
+	 * @param     string $class  Propulsion model object class
 	 *
 	 * @return    BaseObject
 	 */
@@ -224,6 +224,14 @@ abstract class PropulsionFormatter
 		if(isset($this->currentObjects[$col])) {
 			$this->currentObjects[$col]->clear();
 		} else {
+			// $class is a plain string -- no shared interface constrains what schema
+			// authors name their generated model classes -- but this ORM's own generator
+			// only ever produces BaseObject subclasses for it. is_a(..., true) is a real
+			// runtime check, not just a docblock claim, so a genuinely wrong model class
+			// name fails loudly here instead of fatal-erroring on `new`.
+			if (!is_a($class, BaseObject::class, true)) {
+				throw new PropulsionException("Model class '$class' does not extend " . BaseObject::class . '.');
+			}
 			$this->currentObjects[$col] = new $class();
 		}
 		return $this->currentObjects[$col];
@@ -234,7 +242,7 @@ abstract class PropulsionFormatter
 	 *
 	 * @param     array<int, mixed>  $row associative array indexed by column number,
 	 *                   as returned by PDOStatement::fetch(PDO::FETCH_NUM)
-	 * @param     class-string<BaseObject> $class The classname of the object to create
+	 * @param     string $class The classname of the object to create
 	 * @param     int    $col The start column for the hydration (modified)
 	 *
 	 * @return    BaseObject

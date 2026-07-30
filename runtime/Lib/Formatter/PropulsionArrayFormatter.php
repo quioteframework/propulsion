@@ -127,7 +127,7 @@ class PropulsionArrayFormatter extends PropulsionFormatter
 		$mainKey = $this->peer::getPrimaryKeyHashFromRow($row);
 		// we hydrate the main object even in case of a one-to-many relationship
 		// in order to get the $col variable increased anyway
-		$obj = $this->getSingleObjectFromRow($row, $this->class, $col);
+		$obj = $this->getSingleObjectFromRow($row, $this->requireClass(), $col);
 		if (!isset($this->alreadyHydratedObjects[$this->class][$mainKey])) {
 			$this->alreadyHydratedObjects[$this->class][$mainKey] = $obj->toArray();
 			$mainObjectIsNew = true;
