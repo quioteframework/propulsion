@@ -23,6 +23,7 @@ use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Model\Column;
 use Propulsion\Generator\Model\ColumnDefaultValue;
 use Propulsion\Generator\Model\Index;
+use Propulsion\Generator\Exception\EngineException;
 use \PDO;
 class SqliteSchemaParser extends BaseSchemaParser
 {
@@ -78,12 +79,15 @@ class SqliteSchemaParser extends BaseSchemaParser
 
 	public function parse(Database $database, mixed $task = null)
 	{
-		$stmt = $this->dbh->query("SELECT name FROM sqlite_master WHERE type='table' UNION ALL SELECT name FROM sqlite_temp_master WHERE type='table' ORDER BY name;");
+		$stmt = $this->queryOrFail("SELECT name FROM sqlite_master WHERE type='table' UNION ALL SELECT name FROM sqlite_temp_master WHERE type='table' ORDER BY name;");
 
 		// First load the tables (important that this happen before filling out details of tables)
 		$tables = array();
-		while ($row = $stmt->fetch(PDO::FETCH_NUM)) {
-			$name = $row[0];
+		while (($row = $this->fetchNum($stmt)) !== null) {
+			$name = $row[0] ?? null;
+			if (!is_string($name)) {
+				continue;
+			}
 			if ($name == $this->getMigrationTable()) {
 				continue;
 			}
@@ -114,13 +118,13 @@ class SqliteSchemaParser extends BaseSchemaParser
 	 */
 	protected function addColumns(Table $table): void
 	{
-		$stmt = $this->dbh->query("PRAGMA table_info('" . $table->getName() . "')");
+		$stmt = $this->queryOrFail("PRAGMA table_info('" . $table->getName() . "')");
 
-		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+		while (($row = $this->fetchAssoc($stmt)) !== null) {
 
-			$name = $row['name'];
+			$name = self::rowValueToString($row['name'] ?? '');
 
-			$fulltype = $row['type'];
+			$fulltype = self::rowValueToString($row['type'] ?? '');
 			$size = null;
 			$precision = null;
 			$scale = null;
@@ -137,9 +141,12 @@ class SqliteSchemaParser extends BaseSchemaParser
 			}
 			// If column is primary key and of type INTEGER, it is auto increment
 			// See: http://sqlite.org/faq.html#q1
-			$autoincrement = ($row['pk'] == 1 && strtolower($type) == 'integer');
-			$not_null = $row['notnull'];
-			$default = $row['dflt_value'];
+			$autoincrement = (($row['pk'] ?? null) == 1 && strtolower($type) == 'integer');
+			$not_null = (bool) ($row['notnull'] ?? false);
+			$default = $row['dflt_value'] ?? null;
+			if ($default !== null) {
+				$default = self::rowValueToString($default);
+			}
 
 			$propelType = $this->getMappedPropulsionType(strtolower($type));
 			if (!$propelType) {
@@ -175,17 +182,21 @@ class SqliteSchemaParser extends BaseSchemaParser
 	 */
 	protected function addIndexes(Table $table): void
 	{
-		$stmt = $this->dbh->query("PRAGMA index_list('" . $table->getName() . "')");
+		$stmt = $this->queryOrFail("PRAGMA index_list('" . $table->getName() . "')");
 
-		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+		while (($row = $this->fetchAssoc($stmt)) !== null) {
 
-			$name = $row['name'];
+			$name = self::rowValueToString($row['name'] ?? '');
 			$index = new Index($name);
 
-			$stmt2 = $this->dbh->query("PRAGMA index_info('".$name."')");
-			while ($row2 = $stmt2->fetch(PDO::FETCH_ASSOC)) {
-				$colname = $row2['name'];
-				$index->addColumn($table->getColumn($colname));
+			$stmt2 = $this->queryOrFail("PRAGMA index_info('".$name."')");
+			while (($row2 = $this->fetchAssoc($stmt2)) !== null) {
+				$colname = self::rowValueToString($row2['name'] ?? '');
+				$column = $table->getColumn($colname);
+				if ($column === null) {
+					throw new EngineException("Index '$name' on table '" . $table->getName() . "' references unknown column '$colname'.");
+				}
+				$index->addColumn($column);
 			}
 
 			$table->addIndex($index);
