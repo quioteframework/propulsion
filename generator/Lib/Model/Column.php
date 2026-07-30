@@ -44,18 +44,18 @@ class Column extends XMLElement
 	/**
 	 * The name to use for the Peer constant that identifies this column.
 	 * (Will be converted to all-uppercase in the templates.)
-	 * @var				 string
+	 * @var				 string|null
 	 */
-	private $peerName;
+	private ?string $peerName = null;
 
 	/**
 	 * Native PHP type (scalar or class name)
-	 * @var				 string "string", "boolean", "int", "double"
+	 * @var				 string|null "string", "boolean", "int", "double"
 	 */
-	private $phpType;
+	private ?string $phpType = null;
 
 	/**
-	 * @var				 Table
+	 * @var				 Table|null
 	 */
 	private $parentTable;
 
@@ -244,7 +244,7 @@ class Column extends XMLElement
 		$list = array();
 		foreach ($columns as $col) {
 			if ($col instanceof Column) {
-				$col = $col->getName();
+				$col = $col->getName() ?? '';
 			}
 			$list[] = $platform->quoteIdentifier($col);
 		}
@@ -258,11 +258,15 @@ class Column extends XMLElement
 	protected function setupObject(): void
 	{
 		try {
-			$dom = $this->getAttribute("domain");
+			$dom = $this->getStringAttribute("domain");
 			if ($dom)	 {
-				$this->getDomain()->copy($this->requireTable()->requireDatabase()->getDomain($dom));
+				$referencedDomain = $this->requireTable()->requireDatabase()->getDomain($dom);
+				if ($referencedDomain === null) {
+					throw new EngineException(sprintf('Column "%s" references unknown domain "%s"', $this->getStringAttribute("name") ?? '(unnamed)', $dom));
+				}
+				$this->getDomain()->copy($referencedDomain);
 			} else {
-				$type = strtoupper($this->getAttribute("type") ?? '');
+				$type = strtoupper($this->getStringAttribute("type") ?? '');
 				if ($type) {
 					if ($platform = $this->getPlatform()) {
 						$this->getDomain()->copy($platform->getDomainForType($type));
@@ -280,51 +284,41 @@ class Column extends XMLElement
 				}
 			}
 
-			$this->name = $this->getAttribute("name");
-			$this->phpName = $this->getAttribute("phpName");
-			$this->phpType = $this->getAttribute("phpType");
+			$this->name = $this->getStringAttribute("name");
+			$this->phpName = $this->getStringAttribute("phpName");
+			$this->phpType = $this->getStringAttribute("phpType");
 
-			if ($this->getAttribute("prefix", null) !== null) {
-				$this->namePrefix = $this->getAttribute("prefix");
-			} elseif ($this->requireTable()->getAttribute('columnPrefix', null) !== null) {
-				$this->namePrefix = $this->requireTable()->getAttribute('columnPrefix');
-			} else {
-				$this->namePrefix = '';
-			}
+			$this->namePrefix = $this->getStringAttribute("prefix")
+				?? $this->requireTable()->getStringAttribute('columnPrefix')
+				?? '';
 
 			// Accessor visibility
-			if ($this->getAttribute('accessorVisibility', null) !== null) {
-				$this->setAccessorVisibility($this->getAttribute('accessorVisibility'));
-			} elseif ($this->requireTable()->getAttribute('defaultAccessorVisibility', null) !== null) {
-				$this->setAccessorVisibility($this->requireTable()->getAttribute('defaultAccessorVisibility'));
-			} elseif ($this->requireTable()->requireDatabase()->getAttribute('defaultAccessorVisibility', null) !== null) {
-				$this->setAccessorVisibility($this->requireTable()->requireDatabase()->getAttribute('defaultAccessorVisibility'));
-			} else {
-				$this->setAccessorVisibility(self::DEFAULT_VISIBILITY);
-			}
+			$this->setAccessorVisibility(
+				$this->getStringAttribute('accessorVisibility')
+				?? $this->requireTable()->getStringAttribute('defaultAccessorVisibility')
+				?? $this->requireTable()->requireDatabase()->getStringAttribute('defaultAccessorVisibility')
+				?? self::DEFAULT_VISIBILITY
+			);
 
 			// Mutator visibility
-			if ($this->getAttribute('mutatorVisibility', null) !== null) {
-				$this->setMutatorVisibility($this->getAttribute('mutatorVisibility'));
-			} elseif ($this->requireTable()->getAttribute('defaultMutatorVisibility', null) !== null) {
-				$this->setMutatorVisibility($this->requireTable()->getAttribute('defaultMutatorVisibility'));
-			} elseif ($this->requireTable()->requireDatabase()->getAttribute('defaultMutatorVisibility', null) !== null) {
-				$this->setMutatorVisibility($this->requireTable()->requireDatabase()->getAttribute('defaultMutatorVisibility'));
-			} else {
-				$this->setMutatorVisibility(self::DEFAULT_VISIBILITY);
-			}
+			$this->setMutatorVisibility(
+				$this->getStringAttribute('mutatorVisibility')
+				?? $this->requireTable()->getStringAttribute('defaultMutatorVisibility')
+				?? $this->requireTable()->requireDatabase()->getStringAttribute('defaultMutatorVisibility')
+				?? self::DEFAULT_VISIBILITY
+			);
 
-			$this->peerName = $this->getAttribute("peerName");
+			$this->peerName = $this->getStringAttribute("peerName");
 
 			// retrieves the method for converting from specified name to a PHP name, defaulting to parent tables default method
-			$this->phpNamingMethod = $this->getAttribute("phpNamingMethod", $this->requireTable()->requireDatabase()->getDefaultPhpNamingMethod());
+			$this->phpNamingMethod = $this->getStringAttribute("phpNamingMethod") ?? $this->requireTable()->requireDatabase()->getDefaultPhpNamingMethod();
 
 			$this->isPrimaryString = $this->booleanValue($this->getAttribute("primaryString"));
 
 			$this->isPrimaryKey = $this->booleanValue($this->getAttribute("primaryKey"));
 
 			$this->isNodeKey = $this->booleanValue($this->getAttribute("nodeKey"));
-			$this->nodeKeySep = $this->getAttribute("nodeKeySep", ".");
+			$this->nodeKeySep = $this->getStringAttribute("nodeKeySep", ".");
 
 			$this->isNestedSetLeftKey = $this->booleanValue($this->getAttribute("nestedSetLeftKey"));
 			$this->isNestedSetRightKey = $this->booleanValue($this->getAttribute("nestedSetRightKey"));
@@ -337,21 +331,24 @@ class Column extends XMLElement
 			$this->isLazyLoad = $this->booleanValue($this->getAttribute("lazyLoad"));
 
 			// Add type, size information to associated Domain object
-			$this->getDomain()->replaceSqlType($this->getAttribute("sqlType"));
+			$this->getDomain()->replaceSqlType($this->getStringAttribute("sqlType"));
 			$platform = $this->getPlatform();
 			if (!$this->getAttribute("size") && $this->getDomain()->getType() == 'VARCHAR' && $platform !== null && !$this->getAttribute("sqlType") && !$platform->supportsVarcharWithoutSize()) {
 				$size = 255;
 			} else {
-				$size = $this->getAttribute("size");
+				$size = $this->getIntOrStringAttribute("size");
 			}
 			$this->getDomain()->replaceSize($size);
-			$this->getDomain()->replaceScale($this->getAttribute("scale"));
+			$this->getDomain()->replaceScale($this->getIntOrStringAttribute("scale"));
 
-			$defval = $this->getAttribute("defaultValue", $this->getAttribute("default"));
+			$defval = $this->getStringAttribute("defaultValue") ?? $this->getStringAttribute("default");
 			if ($defval !== null && strtolower($defval) !== 'null') {
 				$this->getDomain()->setDefaultValue(new ColumnDefaultValue($defval, ColumnDefaultValue::TYPE_VALUE));
-			} elseif ($this->getAttribute("defaultExpr") !== null) {
-				$this->getDomain()->setDefaultValue(new ColumnDefaultValue($this->getAttribute("defaultExpr"), ColumnDefaultValue::TYPE_EXPR));
+			} else {
+				$defaultExpr = $this->getStringAttribute("defaultExpr");
+				if ($defaultExpr !== null) {
+					$this->getDomain()->setDefaultValue(new ColumnDefaultValue($defaultExpr, ColumnDefaultValue::TYPE_EXPR));
+				}
 			}
 
 			$enumClassAttr = $this->getAttribute('enumClass', null);
@@ -370,8 +367,8 @@ class Column extends XMLElement
 				// hand) means the generated code and the enum class can never disagree
 				// about what the legal labels are.
 				$this->valueSet = array_map(static fn ($case) => (string) $case->value, $enumClass::cases());
-			} elseif ($this->getAttribute('valueSet', null) !== null) {
-				$valueSet = explode(',', $this->getAttribute("valueSet"));
+			} elseif (($valueSetAttr = $this->getStringAttribute('valueSet')) !== null) {
+				$valueSet = explode(',', $valueSetAttr);
 				$valueSet = array_map('trim', $valueSet);
 				$this->valueSet = $valueSet;
 			}
@@ -380,15 +377,14 @@ class Column extends XMLElement
 			$this->isNativeArray = $this->booleanValue($this->getAttribute("nativeArray"));
 			$this->isNativeUuid = $this->booleanValue($this->getAttribute("nativeUuid"));
 
-			$tsvectorFromAttr = $this->getAttribute('tsvectorFrom', null);
+			$tsvectorFromAttr = $this->getStringAttribute('tsvectorFrom');
 			if ($tsvectorFromAttr !== null) {
-				$this->tsvectorFrom = array_map('trim', explode(',', (string) $tsvectorFromAttr));
+				$this->tsvectorFrom = array_map('trim', explode(',', $tsvectorFromAttr));
 			}
-			$this->tsvectorConfig = (string) $this->getAttribute('tsvectorConfig', 'english');
+			$this->tsvectorConfig = $this->getStringAttribute('tsvectorConfig', 'english') ?? 'english';
 
-			$generatedAsAttr = $this->getAttribute('generatedAs', null);
-			$this->generatedAs = $generatedAsAttr !== null ? (string) $generatedAsAttr : null;
-			$generatedTypeAttr = strtoupper((string) $this->getAttribute('generatedType', 'VIRTUAL'));
+			$this->generatedAs = $this->getStringAttribute('generatedAs');
+			$generatedTypeAttr = strtoupper($this->getStringAttribute('generatedType', 'VIRTUAL') ?? 'VIRTUAL');
 			if ($generatedTypeAttr !== 'VIRTUAL' && $generatedTypeAttr !== 'STORED') {
 				throw new EngineException(sprintf('generatedType attribute on column "%s" must be "VIRTUAL" or "STORED", got "%s"', $this->getName(), $generatedTypeAttr));
 			}
@@ -400,12 +396,12 @@ class Column extends XMLElement
 			$this->isPeriodRowStart = $this->booleanValue($this->getAttribute("periodRowStart"));
 			$this->isPeriodRowEnd = $this->booleanValue($this->getAttribute("periodRowEnd"));
 
-			$this->inheritanceType = $this->getAttribute("inheritance");
+			$this->inheritanceType = $this->getStringAttribute("inheritance");
 			$this->isInheritance = ($this->inheritanceType !== null
 			&& $this->inheritanceType !== "false"); // here we are only checking for 'false', so don't
 			// use boleanValue()
 
-			$this->description = $this->getAttribute("description");
+			$this->description = $this->getStringAttribute("description");
 		} catch (\Exception $e) {
 			throw new EngineException("Error setting up column " . var_export($this->getAttribute("name"), true) . ": " . $e->getMessage());
 		}
@@ -501,7 +497,7 @@ class Column extends XMLElement
 		if ($this->phpName === null) {
 			$this->setPhpName();
 		}
-		return $this->phpName;
+		return $this->phpName ?? '';
 	}
 
 	/**
@@ -698,7 +694,7 @@ class Column extends XMLElement
 	 */
 	public function getTableName(): string
 	{
-		return $this->requireTable()->getName();
+		return $this->requireTable()->getName() ?? '';
 	}
 
 	/**
@@ -775,7 +771,7 @@ class Column extends XMLElement
 	 */
 	public function getNotNullString()
 	{
-		return $this->requireTable()->requireDatabase()->getPlatform()->getNullString($this->isNotNull());
+		return $this->requirePlatform()->getNullString($this->isNotNull());
 	}
 
 	/**
@@ -946,7 +942,7 @@ class Column extends XMLElement
 	 */
 	public function getForeignKeys(): array
 	{
-		return $this->requireTable()->getColumnForeignKeys($this->name);
+		return $this->requireTable()->getColumnForeignKeys($this->name ?? '');
 	}
 
 	/**
@@ -979,7 +975,7 @@ class Column extends XMLElement
 
 	public function hasReferrer(ForeignKey $fk): bool
 	{
-		return $this->hasReferrers() && in_array($fk, $this->referrers, true);
+		return $this->referrers !== null && in_array($fk, $this->referrers, true);
 	}
 
 	public function clearReferrers(): void
@@ -1020,7 +1016,7 @@ class Column extends XMLElement
 	 */
 	public function getType()
 	{
-		return $this->getDomain()->getType();
+		return $this->getDomain()->getType() ?? '';
 	}
 
 	/**
@@ -1484,9 +1480,12 @@ class Column extends XMLElement
 	public function appendXml(\DOMNode $node): void
 	{
 		$doc = ($node instanceof \DOMDocument) ? $node : $node->ownerDocument;
+		if ($doc === null) {
+			throw new EngineException('Cannot append XML: given DOMNode has no owner document');
+		}
 
 		$colNode = $node->appendChild($doc->createElement('column'));
-		$colNode->setAttribute('name', $this->name);
+		$colNode->setAttribute('name', $this->name ?? '');
 
 		if ($this->phpName !== null) {
 			$colNode->setAttribute('phpName', $this->getPhpName());
@@ -1505,7 +1504,7 @@ class Column extends XMLElement
 		}
 
 		if ($this->hasPlatform() && !$this->isDefaultSqlType($this->getPlatform())) {
-			$colNode->setAttribute('sqlType', $domain->getSqlType());
+			$colNode->setAttribute('sqlType', $domain->getSqlType() ?? '');
 		}
 
 		if ($this->description !== null) {
@@ -1536,8 +1535,8 @@ class Column extends XMLElement
 		}
 
 		if ($this->isInheritance()) {
-			$colNode->setAttribute('inheritance', $this->inheritanceType);
-			foreach ($this->inheritanceList as $inheritance) {
+			$colNode->setAttribute('inheritance', $this->inheritanceType ?? '');
+			foreach ($this->inheritanceList ?? array() as $inheritance) {
 				$inheritance->appendXml($colNode);
 			}
 		}
@@ -1545,7 +1544,7 @@ class Column extends XMLElement
 		if ($this->isNodeKey()) {
 			$colNode->setAttribute('nodeKey', 'true');
 			if ($this->getNodeKeySep() !== null) {
-				$colNode->setAttribute('nodeKeySep', $this->nodeKeySep);
+				$colNode->setAttribute('nodeKeySep', $this->nodeKeySep ?? '');
 			}
 		}
 
@@ -1619,7 +1618,7 @@ class Column extends XMLElement
 		if ($defaultValue !== null) {
 			if ($this->isNumericType()) {
 				$dflt = (string) (float) $defaultValue->getValue();
-			} elseif ($this->isTextType() || $this->getDefaultValue()->isExpression()) {
+			} elseif ($this->isTextType() || $defaultValue->isExpression()) {
 				$dflt = "'" . str_replace("'", "\'", $defaultValue->getValue()) . "'";
 			} elseif (PropulsionTypes::isBooleanType($this->getType())) {
 				// Not just PropulsionTypes::BOOLEAN: Oracle has no native

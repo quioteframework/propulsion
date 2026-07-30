@@ -125,6 +125,22 @@ abstract class XMLElement
 	}
 
 	/**
+	 * Gets a particular attribute by [case-insensitive] name as an int or a
+	 * string (e.g. a Domain size/scale value, which may be either). Returns
+	 * null if the attribute is absent or isn't an int/string/numeric value.
+	 * @param      string $name The [case-insensitive] name of the attribute to lookup.
+	 * @return     int|string|null
+	 */
+	protected function getIntOrStringAttribute($name)
+	{
+		$value = $this->getAttribute($name);
+		if ($value === null || is_int($value) || is_string($value)) {
+			return $value;
+		}
+		return is_scalar($value) ? (string) $value : null;
+	}
+
+	/**
 	 * Gets a particular attribute by [case-insensitive] name, converted via
 	 * booleanValue(), defaulting to $default when the attribute is absent.
 	 * @param      string $name The [case-insensitive] name of the attribute to lookup.
