@@ -403,6 +403,9 @@ class BasePeer
 		}
 
 		if ($needsGeneratedId && $db->isGetIdBeforeInsert() && !$useInsertReturning) {
+			if (!$con instanceof \PDO) {
+				throw new PropulsionException("Unable to get sequence id: connection is not a PDO instance.");
+			}
 			try {
 				$id = $db->getId($con, $keyInfo);
 			} catch (Exception $e) {
@@ -499,6 +502,9 @@ class BasePeer
 
 		// If the primary key column is auto-incremented, get the id now.
 		if ($needsGeneratedId && $db->isGetIdAfterInsert() && !$useInsertReturning) {
+			if (!$con instanceof \PDO) {
+				throw new PropulsionException("Unable to get autoincrement id: connection is not a PDO instance.");
+			}
 			try {
 				$id = $db->getId($con, $keyInfo);
 			} catch (Exception $e) {

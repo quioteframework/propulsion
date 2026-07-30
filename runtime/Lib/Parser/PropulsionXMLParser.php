@@ -27,17 +27,18 @@ class PropulsionXMLParser extends PropulsionParser
 	 * @param  string  $charset Character set of the input data. Defaults to UTF-8.
 	 *
 	 * @return string Converted data, as an XML string
+	 * @throws PropulsionException if the document cannot be serialized to XML
 	 */
 	public function fromArray($array, $rootElementName = 'data', $charset = null)
 	{
 		$rootNode = $this->getRootNode($rootElementName);
 		$this->arrayToDOM($array, $rootNode, $charset, false);
 
-		$xmlstr = $rootNode->ownerDocument->saveXML();
-		if ($xmlstr === false) {
-			throw new PropulsionException('Failed to serialize XML document.');
+		$xml = $this->ownerDocumentOf($rootNode)->saveXML();
+		if ($xml === false) {
+			throw new PropulsionException('Unable to serialize document to XML');
 		}
-		return $xmlstr;
+		return $xml;
 	}
 
 	/**
@@ -52,7 +53,7 @@ class PropulsionXMLParser extends PropulsionParser
 		$rootNode = $this->getRootNode($rootElementName);
 		$this->arrayToDOM($array, $rootNode, $charset, true);
 
-		return $rootNode->ownerDocument->saveXML();
+		return $this->ownerDocumentOf($rootNode)->saveXML();
 	}
 
 	/**
@@ -61,19 +62,34 @@ class PropulsionXMLParser extends PropulsionParser
 	 * @param  string $rootElementName The Root Element Name
 	 *
 	 * @return \DOMElement The root DOMElement
+	 * @throws PropulsionException if the root element cannot be created
 	 */
-	protected function getRootNode($rootElementName = 'data')
+	protected function getRootNode($rootElementName = 'data'): \DOMElement
 	{
 		$xml = new \DOMDocument('1.0', 'UTF-8');
 		$xml->preserveWhiteSpace = false;
 		$xml->formatOutput = true;
 		$rootElement = $xml->createElement($rootElementName);
 		if ($rootElement === false) {
-			throw new PropulsionException("Invalid root element name '$rootElementName'.");
+			throw new PropulsionException('Unable to create root XML element: ' . $rootElementName);
 		}
 		$xml->appendChild($rootElement);
 
 		return $rootElement;
+	}
+
+	/**
+	 * Returns the ownerDocument of a DOMNode that is known to have been
+	 * attached to a document (e.g. via getRootNode()/arrayToDOM()).
+	 *
+	 * @throws PropulsionException if the node has no owner document
+	 */
+	private function ownerDocumentOf(\DOMNode $node): \DOMDocument
+	{
+		if ($node->ownerDocument === null) {
+			throw new PropulsionException('DOM node has no owner document');
+		}
+		return $node->ownerDocument;
 	}
 
 	/**
@@ -112,14 +128,18 @@ class PropulsionXMLParser extends PropulsionParser
 	 *
 	 * @return \DOMElement
 	 */
-	protected function arrayToDOM($array, $rootElement, $charset = null, $removeNumbersFromKeys = false)
+	protected function arrayToDOM($array, \DOMElement $rootElement, $charset = null, $removeNumbersFromKeys = false)
 	{
+		$ownerDocument = $this->ownerDocumentOf($rootElement);
 		foreach ($array as $key => $value) {
 			$key = (string) $key;
 			if ($removeNumbersFromKeys) {
 				$key = preg_replace('/[^a-z]/i', '', $key) ?? $key;
 			}
-			$element = $rootElement->ownerDocument->createElement($key);
+			$element = $ownerDocument->createElement($key);
+			if ($element === false) {
+				throw new PropulsionException('Unable to create XML element: ' . $key);
+			}
 			if (is_array($value)) {
 				if (!empty($value)) {
 					$element = $this->arrayToDOM($value, $element, $charset);
@@ -133,10 +153,11 @@ class PropulsionXMLParser extends PropulsionParser
 					}
 				}
 				$value = htmlspecialchars($value, ENT_COMPAT, 'UTF-8');
-				$child = $element->ownerDocument->createCDATASection($value);
+				$child = $ownerDocument->createCDATASection($value);
 				$element->appendChild($child);
 			} else {
-				$child = $element->ownerDocument->createTextNode((string) $value);
+				$stringValue = is_scalar($value) ? (string) $value : '';
+				$child = $ownerDocument->createTextNode($stringValue);
 				$element->appendChild($child);
 			}
 			$rootElement->appendChild($element);
@@ -150,12 +171,16 @@ class PropulsionXMLParser extends PropulsionParser
 	 *
 	 * @param  string $data Source data to convert, as an XML string
 	 * @return array<mixed> Converted data
+	 * @throws PropulsionException if the data cannot be parsed as XML
 	 */
 	public function toArray($data)
 	{
 		$doc = new \DomDocument('1.0', 'UTF-8');
 		$doc->loadXML($data);
 		$element = $doc->documentElement;
+		if ($element === null) {
+			throw new PropulsionException('Unable to parse XML data: no root element found');
+		}
 		return $this->convertDOMElementToArray($element);
 	}
 
@@ -197,10 +222,11 @@ class PropulsionXMLParser extends PropulsionParser
 				$index = $name;
 				$elementNames[$name] = 0;
 			}
+			$firstChild = $element->firstChild;
 			if ($element->hasChildNodes() && !$this->hasOnlyTextNodes($element)) {
 				$array[$index] = $this->convertDOMElementToArray($element);
-			} elseif ($element->hasChildNodes() && $element->firstChild->nodeType == XML_CDATA_SECTION_NODE) {
-				$array[$index] = htmlspecialchars_decode($element->firstChild->textContent);
+			} elseif ($firstChild !== null && $firstChild->nodeType == XML_CDATA_SECTION_NODE) {
+				$array[$index] = htmlspecialchars_decode($firstChild->textContent ?? '');
 			} elseif (!$element->hasChildNodes()) {
 				$array[$index] = null;
 			} else {

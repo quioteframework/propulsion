@@ -9,6 +9,8 @@
  */
 namespace Propulsion\Map;
 
+use Propulsion\Exception\PropulsionException;
+
 /**
  * RelationMap is used to model a database relationship.
  *
@@ -96,7 +98,7 @@ class RelationMap
   /**
    * Get the type
    *
-   * @return      integer the relation type
+   * @return      int|null the relation type
    */
   public function getType()
   {
@@ -116,7 +118,7 @@ class RelationMap
   /**
    * Get the local table
    *
-   * @return      TableMap The local table for this relationship
+   * @return      TableMap|null The local table for this relationship
    */
   public function getLocalTable()
   {
@@ -136,7 +138,7 @@ class RelationMap
   /**
    * Get the foreign table
    *
-   * @return    TableMap The foreign table for this relationship
+   * @return    TableMap|null The foreign table for this relationship
    */
   public function getForeignTable()
   {
@@ -146,7 +148,7 @@ class RelationMap
   /**
    * Get the left table of the relation
    *
-   * @return    TableMap The left table for this relationship
+   * @return    TableMap|null The left table for this relationship
    */
   public function getLeftTable()
   {
@@ -156,7 +158,7 @@ class RelationMap
   /**
    * Get the right table of the relation
    *
-   * @return    TableMap The right table for this relationship
+   * @return    TableMap|null The right table for this relationship
    */
   public function getRightTable()
   {
@@ -263,9 +265,9 @@ class RelationMap
   /**
    * Set the onUpdate behavior
    *
-   * @param      string $onUpdate
+   * @param      string|null $onUpdate
    */
-  public function setOnUpdate($onUpdate): void
+  public function setOnUpdate(?string $onUpdate): void
   {
     $this->onUpdate = $onUpdate;
   }
@@ -273,7 +275,7 @@ class RelationMap
   /**
    * Get the onUpdate behavior
    *
-   * @return      string the relation type
+   * @return      string|null the relation type
    */
   public function getOnUpdate()
   {
@@ -283,9 +285,9 @@ class RelationMap
   /**
    * Set the onDelete behavior
    *
-   * @param      string $onDelete
+   * @param      string|null $onDelete
    */
-  public function setOnDelete($onDelete): void
+  public function setOnDelete(?string $onDelete): void
   {
     $this->onDelete = $onDelete;
   }
@@ -293,7 +295,7 @@ class RelationMap
   /**
    * Get the onDelete behavior
    *
-   * @return      string the relation type
+   * @return      string|null the relation type
    */
   public function getOnDelete()
   {
@@ -308,7 +310,11 @@ class RelationMap
   public function getSymmetricalRelation(): mixed
   {
   	$localMapping = array($this->getLeftColumns(), $this->getRightColumns());
-  	foreach ($this->getRightTable()->getRelations() as $relation) {
+  	$rightTable = $this->getRightTable();
+  	if ($rightTable === null) {
+  		throw new PropulsionException("Cannot get symmetrical relation for relation with no right table set: " . $this->name);
+  	}
+  	foreach ($rightTable->getRelations() as $relation) {
   		if ($localMapping == array($relation->getRightColumns(), $relation->getLeftColumns())) {
   			return $relation;
   		}

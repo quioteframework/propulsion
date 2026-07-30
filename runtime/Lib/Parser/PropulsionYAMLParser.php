@@ -9,6 +9,7 @@
  */
 namespace Propulsion\Parser;
 
+use Propulsion\Exception\PropulsionException;
 use Symfony\Component\Yaml\Yaml;
 
 /**
@@ -51,10 +52,15 @@ class PropulsionYAMLParser extends PropulsionParser
 	 *
 	 * @param  string $data Source data to convert, as a YAML string
 	 * @return array<mixed> Converted data
+	 * @throws PropulsionException if the data does not decode to an array
 	 */
 	public function toArray($data)
 	{
-		return Yaml::parse($data);
+		$result = Yaml::parse($data);
+		if (!is_array($result)) {
+			throw new PropulsionException('Unable to decode YAML data to an array');
+		}
+		return $result;
 	}
 
 	/**

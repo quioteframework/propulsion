@@ -103,11 +103,15 @@ class DatabaseMap
         TableMap::class
       ));
     }
-    if(!$this->hasTable($table->getName())) {
+    $tableName = $table->getName();
+    if ($tableName === null) {
+      throw new PropulsionException("TableMap " . $tableMapClass . " has no name set");
+    }
+    if(!$this->hasTable($tableName)) {
       $this->addTableObject($table);
       return $table;
     } else {
-      return $this->getTable($table->getName());
+      return $this->getTable($tableName);
     }
   }
 

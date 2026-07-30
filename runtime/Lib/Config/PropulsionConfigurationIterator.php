@@ -58,12 +58,12 @@ class PropulsionConfigurationIterator extends \RecursiveIteratorIterator
 	 * Get current node type.
 	 *
 	 * @see       http://www.php.net/RecursiveIteratorIterator
-	 * @return    integer
+	 * @return    int|null
 	 *             - null (undefined)
 	 *             - self::NODE_PARENT
 	 *             - self::NODE_ITEM
 	 */
-	public function getNodeType()
+	public function getNodeType(): ?int
 	{
 		return $this->nodeType;
 	}
@@ -78,7 +78,14 @@ class PropulsionConfigurationIterator extends \RecursiveIteratorIterator
 	{
 		$current = parent::current();
 		if (is_array($current)) {
-			$this->namespaceStack[] = $this->key();
+			$key = $this->key();
+			if (is_int($key) || is_string($key)) {
+				$this->namespaceStack[] = $key;
+			} elseif (is_scalar($key)) {
+				$this->namespaceStack[] = (string) $key;
+			} else {
+				$this->namespaceStack[] = '';
+			}
 			$this->nodeType = self::NODE_PARENT;
 		}
 		else {

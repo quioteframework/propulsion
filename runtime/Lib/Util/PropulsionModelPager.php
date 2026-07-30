@@ -21,6 +21,7 @@ namespace Propulsion\Util;
  use Propulsion\Query\ModelCriteria;
  use Propulsion\Collection\PropulsionCollection;
  use Propulsion\Connection\PropulsionPDO;
+ use Propulsion\Exception\PropulsionException;
 /**
  * @implements \IteratorAggregate<array-key, mixed>
  */
@@ -60,10 +61,14 @@ class PropulsionModelPager implements \IteratorAggregate, \Countable
 	public function init(?PropulsionPDO $con = null): void
 	{
 		$this->con = $con;
+		$query = $this->getQuery();
+		if ($query === null) {
+			throw new PropulsionException('Cannot init a PropulsionModelPager with no query set');
+		}
 		$maxRecordLimit = $this->getMaxRecordLimit();
 		$hasMaxRecordLimit = is_int($maxRecordLimit);
 
-		$qForCount = clone $this->getQuery();
+		$qForCount = clone $query;
 		$count = $qForCount
 			->offset(0)
 			->limit(0)
@@ -71,7 +76,7 @@ class PropulsionModelPager implements \IteratorAggregate, \Countable
 
 		$this->setNbResults($hasMaxRecordLimit ? min($count, $maxRecordLimit) : $count);
 
-		$q = $this->getQuery()
+		$q = $query
 			->offset(0)
 			->limit(0);
 
@@ -104,8 +109,11 @@ class PropulsionModelPager implements \IteratorAggregate, \Countable
 	public function getResults()
 	{
 		if (null === $this->results) {
-			$this->results = $this->getQuery()
-				->find($this->con);
+			$query = $this->getQuery();
+			if ($query === null) {
+				throw new PropulsionException('Cannot get results from a PropulsionModelPager with no query set');
+			}
+			$this->results = $query->find($this->con);
 		}
 		return $this->results;
 	}

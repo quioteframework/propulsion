@@ -124,12 +124,24 @@ class ModelCriterion extends Criterion
 	 */
 	public function appendModelClauseToPs(&$sb, array &$params): void
 	{
+		$clause = $this->requireClause();
 		if ($this->value !== null) {
 			$params[] = array('table' => $this->realtable, 'column' => $this->column, 'value' => $this->value);
-			$sb .= str_replace('?', ':p'.count($params), $this->clause);
+			$sb .= str_replace('?', ':p'.count($params), $clause);
 		} else {
-			$sb .= $this->clause;
+			$sb .= $clause;
 		}
+	}
+
+	/**
+	 * @throws PropulsionException when called on a criterion with no clause set
+	 */
+	private function requireClause(): string
+	{
+		if ($this->clause === null) {
+			throw new PropulsionException('Cannot build Prepared Statement: no clause set on this ModelCriterion');
+		}
+		return $this->clause;
 	}
 
 	/**
@@ -146,7 +158,7 @@ class ModelCriterion extends Criterion
 		// LIKE is case insensitive in mySQL and SQLite, but not in PostGres
 		// If the column is case insensitive, use ILIKE / NOT ILIKE instead of LIKE / NOT LIKE
 		if ($this->ignoreStringCase && $this->getDb() instanceof DBPostgres) {
-			$this->clause = preg_replace('/LIKE \?$/i', 'ILIKE ?', $this->clause);
+			$this->clause = preg_replace('/LIKE \?$/i', 'ILIKE ?', $this->requireClause());
 		}
 		$this->appendModelClauseToPs($sb, $params);
 	}
@@ -161,7 +173,7 @@ class ModelCriterion extends Criterion
 	 */
 	public function appendModelClauseSeveralToPs(&$sb, array &$params): void
 	{
-		$clause = $this->clause;
+		$clause = $this->requireClause();
 		foreach ((array) $this->value as $value) {
 			if ($value === null) {
 				// FIXME we eventually need to translate a BETWEEN to
@@ -185,6 +197,7 @@ class ModelCriterion extends Criterion
 	 */
 	public function appendModelClauseArrayToPs(&$sb, array &$params): void
 	{
+		$clause = $this->requireClause();
 		$_bindParams = array(); // the param names used in query building
 		$_idxstart = count($params);
 		$valuesLength = 0;
@@ -194,9 +207,9 @@ class ModelCriterion extends Criterion
 			$_bindParams[] = ':p'.($_idxstart + $valuesLength);
 		}
 		if ($valuesLength !== 0) {
-			$sb .= str_replace('?', '(' . implode(',', $_bindParams) . ')', $this->clause);
+			$sb .= str_replace('?', '(' . implode(',', $_bindParams) . ')', $clause);
 		} else {
-			$sb .= (stripos($this->clause, ' NOT IN ') === false) ? "1<>1" : "1=1";
+			$sb .= (stripos($clause, ' NOT IN ') === false) ? "1<>1" : "1=1";
 		}
 		unset ( $value, $valuesLength );
 	}
@@ -251,7 +264,7 @@ class ModelCriterion extends Criterion
 	 */
 	public function hashCode()
 	{
-		$h = crc32(serialize($this->value)) ^ crc32($this->comparison) ^ crc32($this->clause);
+		$h = crc32(serialize($this->value)) ^ crc32($this->comparison) ^ crc32($this->clause ?? '');
 
 		if ($this->table !== null) {
 			$h ^= crc32($this->table);

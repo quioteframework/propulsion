@@ -83,7 +83,7 @@ class PropulsionDateTime extends DateTime
 			return null;
 		}
 		try {
-			if (self::isTimestamp($value)) { // if it's a unix timestamp
+			if ((is_int($value) || is_string($value)) && self::isTimestamp($value)) { // if it's a unix timestamp
 				$dateTimeObject = new $dateTimeClass('@' . $value, new DateTimeZone('UTC'));
 				if (!$dateTimeObject instanceof DateTime && !$dateTimeObject instanceof DateTimeImmutable) {
 					throw new PropulsionException("Class '$dateTimeClass' is not a DateTime or DateTimeImmutable.");

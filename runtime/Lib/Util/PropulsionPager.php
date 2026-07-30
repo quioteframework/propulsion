@@ -90,6 +90,7 @@ namespace Propulsion\Util;
  * @version    $Revision$
  * @copyright  Copyright (c) 2004 Rob Halff: LGPL - See LICENCE
  */
+use Propulsion\Exception\PropulsionException;
 use Propulsion\Query\Criteria;
 
 /**
@@ -106,7 +107,8 @@ class PropulsionPager implements \Countable, \Iterator
 	private Criteria $criteria;
 	private ?Criteria $countCriteria = null;
 	private int $page;
-	private mixed $rs = null;
+	/** @var array<int|string, mixed>|null */
+	private ?array $rs = null;
 
 	//Iterator vars
 	private int $currentKey = 0;
@@ -125,10 +127,16 @@ class PropulsionPager implements \Countable, \Iterator
 	 * @param      int $page The current page (1-based).
 	 * @param      int $rowsPerPage The number of rows that should be displayed per page.
 	 */
-	public function __construct($c = null, $peerClass = null, $peerSelectMethod = null, $page = 1, $rowsPerPage = 25)
+	public function __construct($c = null, ?string $peerClass = null, ?string $peerSelectMethod = null, $page = 1, $rowsPerPage = 25)
 	{
 		if (!isset($c)) {
 			$c = new Criteria();
+		}
+		if ($peerClass === null) {
+			throw new PropulsionException('PropulsionPager requires a peer class');
+		}
+		if ($peerSelectMethod === null) {
+			throw new PropulsionException('PropulsionPager requires a peer select method');
 		}
 		$this->setCriteria($c);
 		$this->setPeerClass($peerClass);
@@ -263,15 +271,15 @@ class PropulsionPager implements \Countable, \Iterator
 	/**
 	 * Get the paged resultset
 	 *
-	 * @return     mixed $rs
+	 * @return     array<int|string, mixed> $rs
 	 */
-	public function getResult()
+	public function getResult(): array
 	{
 		if (!isset($this->rs)) {
 			$this->doRs();
 		}
 
-		return $this->rs;
+		return $this->rs ?? array();
 	}
 
 	/**
@@ -286,8 +294,12 @@ class PropulsionPager implements \Countable, \Iterator
 		$this->criteria->setOffset($this->start);
 		$this->criteria->setLimit($this->max);
 		$peerClass = $this->getPeerClass();
-		$method = $this->getPeerSelectMethod();
-		$this->rs = $peerClass::$method($this->criteria);
+		$peerSelectMethod = $this->getPeerSelectMethod();
+		$rs = $peerClass::$peerSelectMethod($this->criteria);
+		if (!is_array($rs)) {
+			throw new PropulsionException($peerClass . '::' . $peerSelectMethod . '() must return an array for use with PropulsionPager');
+		}
+		$this->rs = $rs;
 	}
 
 	/**
@@ -509,8 +521,9 @@ class PropulsionPager implements \Countable, \Iterator
 						$this->countCriteria->setOffset(0);
 
 						$peerClass = $this->getPeerClass();
-						$method = $this->getPeerCountMethod();
-						$this->recordCount = $peerClass::$method($this->countCriteria);
+						$peerCountMethod = $this->getPeerCountMethod();
+						$count = $peerClass::$peerCountMethod($this->countCriteria);
+						$this->recordCount = is_int($count) ? $count : (int) $count;
 
 				}
 
@@ -555,7 +568,7 @@ class PropulsionPager implements \Countable, \Iterator
 		if (!isset($this->rs)) {
 			$this->doRs();
 		}
-		return $this->rs[$this->currentKey];
+		return $this->rs[$this->currentKey] ?? null;
 	}
 
 	/**
@@ -594,7 +607,7 @@ class PropulsionPager implements \Countable, \Iterator
 		if (!isset($this->rs)) {
 			$this->doRs();
 		}
-		return in_array($this->currentKey, array_keys($this->rs));
+		return in_array($this->currentKey, array_keys($this->rs ?? array()));
 	}
 
 }

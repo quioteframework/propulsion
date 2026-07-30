@@ -130,10 +130,9 @@ class Propulsion
 	private static $adapterMap = array();
 
 	/**
-	 * @var        array<string, array<string, mixed>> Cache of established connections (to eliminate overhead).
-	 *             Values are expected to be PDO|PropulsionPDO instances, but a
-	 *             misconfigured connection `classname` in the runtime config can
-	 *             put an arbitrary user-defined object here (see initConnection()).
+	 * @var        array<string, array<string, PDO|PropulsionPDO>> Cache of established connections (to eliminate overhead).
+	 *             initConnection() guarantees each value is a PDO|PropulsionPDO instance
+	 *             (it throws if the configured connection `classname` doesn't produce one).
 	 */
 	private static $connectionMap = array();
 
@@ -269,6 +268,9 @@ class Propulsion
 			}
 			$c = new PropulsionConfiguration($c);
 		}
+		if (!$c instanceof PropulsionConfiguration) {
+			throw new PropulsionException('Propulsion configuration must be an array or a PropulsionConfiguration instance');
+		}
 		self::$configuration = $c;
 	}
 
@@ -286,6 +288,46 @@ class Propulsion
 	public static function getConfiguration($type = PropulsionConfiguration::TYPE_ARRAY)
 	{
 		return self::$configuration->getParameters($type);
+	}
+
+	/**
+	 * Normalizes an arbitrary (mixed) config value into a string-keyed array,
+	 * or an empty array if it isn't array-like.
+	 *
+	 * @return     array<string, mixed>
+	 */
+	private static function asConfigArray(mixed $value): array
+	{
+		if (!is_array($value)) {
+			return array();
+		}
+		$result = array();
+		foreach ($value as $key => $item) {
+			$result[(string) $key] = $item;
+		}
+		return $result;
+	}
+
+	/**
+	 * Returns the 'datasources' section of the runtime configuration, or an empty
+	 * array if it is missing or malformed.
+	 *
+	 * @return     array<string, mixed>
+	 */
+	private static function getDatasourcesConfig(): array
+	{
+		return self::asConfigArray(self::$configuration['datasources'] ?? null);
+	}
+
+	/**
+	 * Returns the configuration for a single named datasource, or an empty array
+	 * if it is missing or malformed.
+	 *
+	 * @return     array<string, mixed>
+	 */
+	private static function getDatasourceConfig(string $name): array
+	{
+		return self::asConfigArray(self::getDatasourcesConfig()[$name] ?? null);
 	}
 
 	/**
@@ -642,7 +684,7 @@ class Propulsion
 	{
 		if (!isset(self::$connectionMap[$name]['master'])) {
 			// load connection parameter for master connection
-			$conparams = isset(self::$configuration['datasources'][$name]['connection']) ? self::$configuration['datasources'][$name]['connection'] : null;
+			$conparams = self::asConfigArray(self::getDatasourceConfig($name)['connection'] ?? null);
 			if (empty($conparams)) {
 				throw new PropulsionException('No connection information in your runtime configuration file for datasource ['.$name.']');
 			}
@@ -709,22 +751,26 @@ class Propulsion
 	{
 		if (!isset(self::$connectionMap[$name]['slave'])) {
 
-			$slaveconfigs = isset(self::$configuration['datasources'][$name]['slaves']) ? self::$configuration['datasources'][$name]['slaves'] : null;
+			$slaveconfigs = self::asConfigArray(self::getDatasourceConfig($name)['slaves'] ?? null);
 
 			if (empty($slaveconfigs)) {
 				// no slaves configured for this datasource
 				// fallback to the master connection
 				self::$connectionMap[$name]['slave'] = self::getMasterConnection($name);
 			} else {
+				$slaveConnections = self::asConfigArray($slaveconfigs['connection'] ?? null);
+				if (empty($slaveConnections)) {
+					throw new PropulsionException('No connection information in your runtime configuration file for SLAVEs to datasource ['.$name.']');
+				}
 				// Initialize a new slave
-				if (isset($slaveconfigs['connection']['dsn'])) {
+				if (isset($slaveConnections['dsn'])) {
 					// only one slave connection configured
-					$conparams = $slaveconfigs['connection'];
+					$conparams = $slaveConnections;
 				} else {
 					// more than one sleve connection configured
 					// pickup a random one
-					$randkey = array_rand($slaveconfigs['connection']);
-					$conparams = $slaveconfigs['connection'][$randkey];
+					$randkey = array_rand($slaveConnections);
+					$conparams = self::asConfigArray($slaveConnections[$randkey] ?? null);
 					if (empty($conparams)) {
 						throw new PropulsionException('No connection information in your runtime configuration file for SLAVE ['.$randkey.'] to datasource ['.$name.']');
 					}
@@ -771,8 +817,8 @@ class Propulsion
 
 		if (isset($conparams['classname']) && !empty($conparams['classname'])) {
 			$classname = $conparams['classname'];
-			if (!class_exists($classname)) {
-				throw new PropulsionException('Unable to load specified PDO subclass: ' . $classname);
+			if (!is_string($classname) || !class_exists($classname)) {
+				throw new PropulsionException('Unable to load specified PDO subclass: ' . var_export($classname, true));
 			}
 		} else {
 			$classname = $defaultClass ?? $adapter->getDefaultPdoClass();
@@ -832,7 +878,8 @@ class Propulsion
 	 *
 	 * Process the INI file flags to be passed to each connection.
 	 *
-	 * @param      array<int|string, array{value: mixed}> $source Where to find the list of constant flags and their new setting.
+	 * @param      array<int|string, mixed> $source Where to find the list of constant flags and their new setting.
+	 *                                      Each entry is expected to be an array with a 'value' key.
 	 * @param      array<int|string, mixed> $write_to Put the data into here
 	 *
 	 * @throws     PropulsionException If invalid options were specified.
@@ -851,7 +898,13 @@ class Propulsion
 				throw new PropulsionException("Invalid PDO option/attribute name specified: ".$key);
 			}
 			$key = constant($key);
+			if (!is_int($key) && !is_string($key)) {
+				throw new PropulsionException("Invalid PDO option/attribute name specified: " . var_export($key, true));
+			}
 
+			if (!is_array($optiondata) || !array_key_exists('value', $optiondata)) {
+				throw new PropulsionException("Invalid PDO option/attribute data specified for " . $key . ": expected an array with a 'value' key");
+			}
 			$value = $optiondata['value'];
 			if (is_string($value) && strpos($value, '::') !== false) {
 				if (!defined($value)) {
@@ -880,10 +933,11 @@ class Propulsion
 		}
 
 		if (!isset(self::$adapterMap[$name])) {
-			if (!isset(self::$configuration['datasources'][$name]['adapter'])) {
+			$driver = self::getDatasourceConfig($name)['adapter'] ?? null;
+			if (!is_string($driver) || $driver === '') {
 				throw new PropulsionException("Unable to find adapter for datasource [" . $name . "].");
 			}
-			$db = DBAdapter::factory(self::$configuration['datasources'][$name]['adapter']);
+			$db = DBAdapter::factory($driver);
 			// register the adapter for this name
 			self::$adapterMap[$name] = $db;
 		}
@@ -914,7 +968,8 @@ class Propulsion
 	{
 		if (self::$defaultDBName === null) {
 			// Determine default database name.
-			self::$defaultDBName = isset(self::$configuration['datasources']['default']) && is_string(self::$configuration['datasources']['default']) ? self::$configuration['datasources']['default'] : self::DEFAULT_NAME;
+			$default = self::getDatasourcesConfig()['default'] ?? null;
+			self::$defaultDBName = is_string($default) ? $default : self::DEFAULT_NAME;
 		}
 		return self::$defaultDBName;
 	}
