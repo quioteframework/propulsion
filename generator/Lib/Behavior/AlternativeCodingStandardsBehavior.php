@@ -37,6 +37,7 @@ namespace Propulsion\Generator\Behavior;
  * @version    $Revision$
  */
 
+ use Propulsion\Generator\Exception\EngineException;
  use Propulsion\Generator\Model\Behavior;
 class AlternativeCodingStandardsBehavior extends Behavior
 {
@@ -86,6 +87,25 @@ class AlternativeCodingStandardsBehavior extends Behavior
 	}
 
 	/**
+	 * getParameter() is typed to return mixed at the Behavior base class.
+	 * 'tab_size' defaults to the int 2 (see above), but when configured
+	 * through the behavior's XML <parameter> tag it arrives as a numeric
+	 * string instead (XML attribute values are always strings), so
+	 * accept either rather than requiring a strict int.
+	 */
+	private function getTabSize(): int
+	{
+		$tabSize = $this->getParameter('tab_size');
+		if (is_int($tabSize)) {
+			return $tabSize;
+		}
+		if (is_string($tabSize) && ctype_digit($tabSize)) {
+			return (int) $tabSize;
+		}
+		throw new EngineException("Parameter 'tab_size' is expected to be an int");
+	}
+
+	/**
 	 * Transform the coding standards of a PHP sourcecode string
 	 *
 	 * @param string $script A script string to be filtered, passed as reference
@@ -104,7 +124,7 @@ $1{";
 			$filter['#^(\t*)} //.*$#m'] = "$1}";
 		}
 		if ($this->getParameter('use_whitespace') == 'true') {
-			$filter['#\t#'] = str_repeat(' ', $this->getParameter('tab_size'));
+			$filter['#\t#'] = str_repeat(' ', $this->getTabSize());
 		}
 
 		$script = preg_replace(array_keys($filter), array_values($filter), $script) ?? $script;
