@@ -105,7 +105,12 @@ class XmlToAppData
 			return $this->app;
 		}
 
-		return $this->parseString(file_get_contents($xmlFile), $xmlFile);
+		$xmlString = file_get_contents($xmlFile);
+		if ($xmlString === false) {
+			throw new SchemaException(sprintf('Unable to read XML schema file "%s"', $xmlFile));
+		}
+
+		return $this->parseString($xmlString, $xmlFile);
 	}
 
 	/**
@@ -144,9 +149,9 @@ class XmlToAppData
 	/**
 	 * Handles opening elements of the xml file.
 	 *
-	 * @param      resource|\XMLParser $parser The XML parser resource/instance.
+	 * @param      \XMLParser $parser The XML parser instance.
 	 * @param      string $name The name of the element.
-	 * @param      array<string, mixed> $attributes The specified or defaulted attributes.
+	 * @param      array<string, string> $attributes The specified or defaulted attributes.
 	 */
 	public function startElement($parser, $name, $attributes): void
 	{
@@ -157,10 +162,7 @@ class XmlToAppData
 				switch($name) {
 					case "database":
 						if ($this->isExternalSchema()) {
-							$this->currentPackage = @$attributes["package"];
-							if ($this->currentPackage === null) {
-								$this->currentPackage = $this->defaultPackage;
-							}
+							$this->currentPackage = $attributes["package"] ?? $this->defaultPackage;
 						} else {
 							$this->currDB = $this->app->addDatabase($attributes);
 						}
@@ -175,43 +177,48 @@ class XmlToAppData
 			switch($name) {
 
 				case "external-schema":
-					$xmlFile = @$attributes["filename"];
+					$xmlFile = $attributes["filename"] ?? '';
+					if ($xmlFile === '') {
+						throw new SchemaException('Missing "filename" attribute on <external-schema> tag');
+					}
 
 					// "referenceOnly" attribute is valid in the main schema XML file only,
 					// and it's ignored in the nested external-schemas
 					if (!$this->isExternalSchema()) {
-						$isForRefOnly = @$attributes["referenceOnly"];
+						$isForRefOnly = $attributes["referenceOnly"] ?? null;
 						$this->isForReferenceOnly = ($isForRefOnly !== null ? (strtolower($isForRefOnly) === "true") : true); // defaults to TRUE
 					}
 
 					if ($xmlFile[0] != '/') {
-						$xmlFile = realpath(dirname($this->currentXmlFile) . DIRECTORY_SEPARATOR . $xmlFile);
-						if (!file_exists($xmlFile)) {
+						$currentXmlFile = $this->currentXmlFile ?? '';
+						$resolved = realpath(dirname($currentXmlFile) . DIRECTORY_SEPARATOR . $xmlFile);
+						if ($resolved === false || !file_exists($resolved)) {
 							throw new SchemaException(sprintf('Unknown include external "%s"', $xmlFile));
 						}
+						$xmlFile = $resolved;
 					}
 
 					$this->parseFile($xmlFile);
 				break;
 
   		  case "domain":
-				  $this->currDB->addDomain($attributes);
+				  $this->requireCurrDB()->addDomain($attributes);
 			  break;
 
 				case "table":
-					$this->currTable = $this->currDB->addTable($attributes);
+					$this->currTable = $this->requireCurrDB()->addTable($attributes);
 					if ($this->isExternalSchema()) {
-						$this->currTable->setForReferenceOnly($this->isForReferenceOnly);
+						$this->currTable->setForReferenceOnly($this->isForReferenceOnly ?? true);
 						$this->currTable->setPackage($this->currentPackage);
 					}
 				break;
 
 				case "vendor":
-					$this->currVendorObject = $this->currDB->addVendorInfo($attributes);
+					$this->currVendorObject = $this->requireCurrDB()->addVendorInfo($attributes);
 				break;
 
 				case "behavior":
-				  $this->currBehavior = $this->currDB->addBehavior($attributes);
+				  $this->currBehavior = $this->requireCurrDB()->addBehavior($attributes);
 				break;
 
 				default:
@@ -222,39 +229,39 @@ class XmlToAppData
 
 			switch($name) {
 				case "column":
-					$this->currColumn = $this->currTable->addColumn($attributes);
+					$this->currColumn = $this->requireCurrTable()->addColumn($attributes);
 				break;
 
 				case "foreign-key":
-					$this->currFK = $this->currTable->addForeignKey($attributes);
+					$this->currFK = $this->requireCurrTable()->addForeignKey($attributes);
 				break;
 
 				case "index":
-					$this->currIndex = $this->currTable->addIndex($attributes);
+					$this->currIndex = $this->requireCurrTable()->addIndex($attributes);
 				break;
 
 				case "unique":
-					$this->currUnique = $this->currTable->addUnique($attributes);
+					$this->currUnique = $this->requireCurrTable()->addUnique($attributes);
 				break;
 
 				case "exclusion":
-					$this->currExclusion = $this->currTable->addExclusion($attributes);
+					$this->currExclusion = $this->requireCurrTable()->addExclusion($attributes);
 				break;
 
 				case "vendor":
-					$this->currVendorObject = $this->currTable->addVendorInfo($attributes);
+					$this->currVendorObject = $this->requireCurrTable()->addVendorInfo($attributes);
 				break;
 
 	  		case "validator":
-				  $this->currValidator = $this->currTable->addValidator($attributes);
+				  $this->currValidator = $this->requireCurrTable()->addValidator($attributes);
 	  		break;
 
 	  		case "id-method-parameter":
-					$this->currTable->addIdMethodParameter($attributes);
+					$this->requireCurrTable()->addIdMethodParameter($attributes);
 				break;
 
 				case "behavior":
-				  $this->currBehavior = $this->currTable->addBehavior($attributes);
+				  $this->currBehavior = $this->requireCurrTable()->addBehavior($attributes);
 				break;
 
 				default:
@@ -265,11 +272,11 @@ class XmlToAppData
 
 			switch($name) {
 				case "inheritance":
-					$this->currColumn->addInheritance($attributes);
+					$this->requireCurrColumn()->addInheritance($attributes);
 				break;
 
 				case "vendor":
-					$this->currVendorObject = $this->currColumn->addVendorInfo($attributes);
+					$this->currVendorObject = $this->requireCurrColumn()->addVendorInfo($attributes);
 				break;
 
 				default:
@@ -280,11 +287,11 @@ class XmlToAppData
 
 			switch($name) {
 				case "reference":
-					$this->currFK->addReference($attributes);
+					$this->requireCurrFK()->addReference($attributes);
 				break;
 
 				case "vendor":
-					$this->currVendorObject = $this->currUnique->addVendorInfo($attributes);
+					$this->currVendorObject = $this->requireCurrFK()->addVendorInfo($attributes);
 				break;
 
 				default:
@@ -295,11 +302,11 @@ class XmlToAppData
 
 			switch($name) {
 				case "index-column":
-					$this->currIndex->addColumn($attributes);
+					$this->requireCurrIndex()->addColumn($attributes);
 				break;
 
 				case "vendor":
-					$this->currVendorObject = $this->currIndex->addVendorInfo($attributes);
+					$this->currVendorObject = $this->requireCurrIndex()->addVendorInfo($attributes);
 				break;
 
 				default:
@@ -310,11 +317,11 @@ class XmlToAppData
 
 			switch($name) {
 				case "unique-column":
-					$this->currUnique->addColumn($attributes);
+					$this->requireCurrUnique()->addColumn($attributes);
 				break;
 
 				case "vendor":
-					$this->currVendorObject = $this->currUnique->addVendorInfo($attributes);
+					$this->currVendorObject = $this->requireCurrUnique()->addVendorInfo($attributes);
 				break;
 
 				default:
@@ -324,11 +331,11 @@ class XmlToAppData
 
 			switch($name) {
 				case "exclusion-column":
-					$this->currExclusion->addColumn($attributes);
+					$this->requireCurrExclusion()->addColumn($attributes);
 				break;
 
 				case "vendor":
-					$this->currVendorObject = $this->currExclusion->addVendorInfo($attributes);
+					$this->currVendorObject = $this->requireCurrExclusion()->addVendorInfo($attributes);
 				break;
 
 				default:
@@ -338,7 +345,7 @@ class XmlToAppData
 
 			switch($name) {
 				case "parameter":
-					$this->currBehavior->addParameter($attributes);
+					$this->requireCurrBehavior()->addParameter($attributes);
 				break;
 
 				default:
@@ -347,7 +354,7 @@ class XmlToAppData
 		} elseif ($parentTag == "validator") {
 			switch($name) {
 				case "rule":
-					$this->currValidator->addRule($attributes);
+					$this->requireCurrValidator()->addRule($attributes);
 				break;
 				default:
 					$this->_throwInvalidTagException($parser, $name);
@@ -356,7 +363,7 @@ class XmlToAppData
 
 			switch($name) {
 				case "parameter":
-					$this->currVendorObject->addParameter($attributes);
+					$this->requireCurrVendorObject()->addParameter($attributes);
 				break;
 				default:
 					$this->_throwInvalidTagException($parser, $name);
@@ -370,8 +377,98 @@ class XmlToAppData
 		$this->pushCurrentSchemaTag($name);
 	}
 
+	private function requireCurrDB(): Database
+	{
+		if ($this->currDB === null) {
+			throw new SchemaException('No <database> element is currently open.');
+		}
+
+		return $this->currDB;
+	}
+
+	private function requireCurrTable(): Table
+	{
+		if ($this->currTable === null) {
+			throw new SchemaException('No <table> element is currently open.');
+		}
+
+		return $this->currTable;
+	}
+
+	private function requireCurrColumn(): Column
+	{
+		if ($this->currColumn === null) {
+			throw new SchemaException('No <column> element is currently open.');
+		}
+
+		return $this->currColumn;
+	}
+
+	private function requireCurrFK(): ForeignKey
+	{
+		if ($this->currFK === null) {
+			throw new SchemaException('No <foreign-key> element is currently open.');
+		}
+
+		return $this->currFK;
+	}
+
+	private function requireCurrIndex(): Index
+	{
+		if ($this->currIndex === null) {
+			throw new SchemaException('No <index> element is currently open.');
+		}
+
+		return $this->currIndex;
+	}
+
+	private function requireCurrUnique(): Unique
+	{
+		if ($this->currUnique === null) {
+			throw new SchemaException('No <unique> element is currently open.');
+		}
+
+		return $this->currUnique;
+	}
+
+	private function requireCurrExclusion(): Exclusion
+	{
+		if ($this->currExclusion === null) {
+			throw new SchemaException('No <exclusion> element is currently open.');
+		}
+
+		return $this->currExclusion;
+	}
+
+	private function requireCurrBehavior(): Behavior
+	{
+		if ($this->currBehavior === null) {
+			throw new SchemaException('No <behavior> element is currently open.');
+		}
+
+		return $this->currBehavior;
+	}
+
+	private function requireCurrValidator(): Validator
+	{
+		if ($this->currValidator === null) {
+			throw new SchemaException('No <validator> element is currently open.');
+		}
+
+		return $this->currValidator;
+	}
+
+	private function requireCurrVendorObject(): VendorInfo
+	{
+		if ($this->currVendorObject === null) {
+			throw new SchemaException('No <vendor> element is currently open.');
+		}
+
+		return $this->currVendorObject;
+	}
+
 	/**
-	 * @param      resource|\XMLParser $parser The XML parser resource/instance.
+	 * @param      \XMLParser $parser The XML parser instance.
 	 * @param      string $tag_name The name of the unexpected tag.
 	 */
 	function _throwInvalidTagException($parser, string $tag_name): never
@@ -390,7 +487,7 @@ class XmlToAppData
 	/**
 	 * Handles closing elements of the xml file.
 	 *
-	 * @param      resource|\XMLParser $parser The XML parser resource/instance.
+	 * @param      \XMLParser $parser The XML parser instance.
 	 * @param      string $name The name of the element.
 	 */
 	public function endElement($parser, $name): void
@@ -398,22 +495,33 @@ class XmlToAppData
 		$this->popCurrentSchemaTag();
 	}
 
+	/**
+	 * The path of the schema file whose tags are currently being tracked
+	 * (the most recently pushed entry in $schemasTagsStack).
+	 */
+	private function currentSchemaFile(): string
+	{
+		$file = array_key_last($this->schemasTagsStack);
+		if ($file === null) {
+			throw new SchemaException('No schema file is currently being parsed.');
+		}
+
+		return $file;
+	}
+
 	protected function peekCurrentSchemaTag(): string|false
 	{
-		$keys = array_keys($this->schemasTagsStack);
-		return end($this->schemasTagsStack[end($keys)]);
+		return end($this->schemasTagsStack[$this->currentSchemaFile()]);
 	}
 
 	protected function popCurrentSchemaTag(): void
 	{
-		$keys = array_keys($this->schemasTagsStack);
-		array_pop($this->schemasTagsStack[end($keys)]);
+		array_pop($this->schemasTagsStack[$this->currentSchemaFile()]);
 	}
 
 	protected function pushCurrentSchemaTag(string $tag): void
 	{
-		$keys = array_keys($this->schemasTagsStack);
-		$this->schemasTagsStack[end($keys)][] = $tag;
+		$this->schemasTagsStack[$this->currentSchemaFile()][] = $tag;
 	}
 
 	protected function isExternalSchema(): bool
