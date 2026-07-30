@@ -96,6 +96,117 @@ abstract class BaseSchemaParser implements SchemaParser
 	}
 
 	/**
+	 * Gets the database connection, failing loudly if none has been set.
+	 *
+	 * Reverse-engineering methods are only ever invoked (via parse()) once a
+	 * connection has been attached via the constructor or setConnection(); a
+	 * null connection at that point means the parser was used incorrectly
+	 * rather than a normal "not found" condition, hence the exception here.
+	 *
+	 * @return     \PDO
+	 */
+	protected function requireConnection(): \PDO
+	{
+		if ($this->dbh === null) {
+			throw new EngineException(sprintf(
+				'%s has no database connection; call setConnection() before parsing.',
+				static::class
+			));
+		}
+		return $this->dbh;
+	}
+
+	/**
+	 * Runs a query against the current connection, failing loudly instead of
+	 * returning the PDO::query() false sentinel on error (this project runs
+	 * with PDO::ERRMODE_EXCEPTION, so a false return here would itself
+	 * indicate a driver inconsistency worth surfacing clearly).
+	 */
+	protected function queryOrFail(string $sql): \PDOStatement
+	{
+		$stmt = $this->requireConnection()->query($sql);
+		if ($stmt === false) {
+			throw new EngineException(sprintf('Query failed: %s', $sql));
+		}
+		return $stmt;
+	}
+
+	/**
+	 * Optional verbose-logging hook for parse(): historically a Phing\Task
+	 * (behind an `if ($task) $task->log(...)` guard), passed through the
+	 * $task parameter, which is intentionally typed `mixed` since parse()'s
+	 * only real caller (SchemaReverseManager) always passes null. Narrows
+	 * with is_object()/method_exists() rather than an unconditional call so
+	 * static analysis at level 9 can verify the call is safe.
+	 */
+	protected function logTask(mixed $task, string $msg, int $level = 4): void
+	{
+		if (is_object($task) && method_exists($task, 'log')) {
+			$task->log($msg, $level);
+		}
+	}
+
+	/**
+	 * Safely stringifies a value read from a PDO result row (declared
+	 * `array<string, mixed>` since column values could in principle be any
+	 * scalar type, or null). Non-scalar values (should not occur for a
+	 * database row) fall back to the empty string rather than raising a
+	 * TypeError from an unguarded (string) cast.
+	 */
+	protected static function rowValueToString(mixed $value): string
+	{
+		return is_scalar($value) ? (string) $value : '';
+	}
+
+	/**
+	 * Fetches one row as a string-keyed array (PDO::FETCH_ASSOC), or null once
+	 * the result set is exhausted (or, defensively, if the driver ever
+	 * returned something else). PDOStatement::fetch()'s own return type is
+	 * `mixed` (its actual shape depends on the fetch-mode argument, which
+	 * PHPStan cannot resolve statically), so this validates the shape for
+	 * real -- keeping only genuinely string-keyed entries -- rather than
+	 * asserting the type away.
+	 *
+	 * @return     array<string, mixed>|null
+	 */
+	protected function fetchAssoc(\PDOStatement $stmt): ?array
+	{
+		$raw = $stmt->fetch(\PDO::FETCH_ASSOC);
+		if (!is_array($raw)) {
+			return null;
+		}
+		$row = [];
+		foreach ($raw as $key => $value) {
+			if (is_string($key)) {
+				$row[$key] = $value;
+			}
+		}
+		return $row;
+	}
+
+	/**
+	 * Fetches one row as a list (PDO::FETCH_NUM), or null once the result set
+	 * is exhausted. See fetchAssoc() for why this validates the shape rather
+	 * than asserting PDOStatement::fetch()'s `mixed` return type away.
+	 *
+	 * @return     array<int, mixed>|null
+	 */
+	protected function fetchNum(\PDOStatement $stmt): ?array
+	{
+		$raw = $stmt->fetch(\PDO::FETCH_NUM);
+		if (!is_array($raw)) {
+			return null;
+		}
+		$row = [];
+		foreach ($raw as $key => $value) {
+			if (is_int($key)) {
+				$row[$key] = $value;
+			}
+		}
+		return $row;
+	}
+
+	/**
 	 * Setter for the migrationTable property
 	 *
 	 * @param string $migrationTable
