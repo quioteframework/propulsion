@@ -29,6 +29,9 @@ class PropulsionQuery
 			throw new PropulsionException('Cannot find a query class for ' . $class);
 		}
 		$query = new $queryClass();
+		if (!$query instanceof ModelCriteria) {
+			throw new PropulsionException('Class ' . $queryClass . ' is not a ModelCriteria');
+		}
 		if ($alias !== null) {
 			$query->setModelAlias($alias);
 		}

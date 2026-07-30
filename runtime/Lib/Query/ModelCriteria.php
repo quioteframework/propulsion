@@ -827,7 +827,11 @@ class ModelCriteria extends Criteria
 
 		// add the ModelJoin to the current object
 		if($relationAlias !== null) {
-			$this->addAlias($relationAlias, $relationMap->getRightTable()->getName());
+			$rightTable = $relationMap->getRightTable();
+			if ($rightTable === null) {
+				throw new PropulsionException('Cannot alias relation ' . $relationName . ': it has no right table set');
+			}
+			$this->addAlias($relationAlias, $rightTable->getName());
 			$this->addJoinObject($join, $relationAlias);
 		} else {
 			$this->addJoinObject($join, $relationName);
@@ -1094,6 +1098,9 @@ class ModelCriteria extends Criteria
 		}
 		$className = $tableMap->getPhpName();
 		if (null === $secondaryCriteriaClass) {
+			if ($className === null) {
+				throw new PropulsionException('Join ' . $relationName . '\'s TableMap has no PHP name set');
+			}
 			$secondaryCriteria = PropulsionQuery::from($className);
 		} else {
 			$secondaryCriteria = new $secondaryCriteriaClass();
@@ -1644,20 +1651,40 @@ class ModelCriteria extends Criteria
 		if (!$ret = $criteria->findOne($con)) {
 			$class = $this->getModelName();
 			$obj = new $class();
+			if (!$obj instanceof BaseObject) {
+				throw new PropulsionException("{$class} does not extend BaseObject");
+			}
 			foreach ($this->keys() as $key) {
 				$value = $this->getValue($key);
 				$columnName = (false !== $dotPos = strrpos($key, '.')) ? substr($key, $dotPos + 1) : $key;
 				if ($this->getTableMap()->containsColumn($columnName)) {
 					$value = $this->unconvertValueForColumn($value, $this->getTableMap()->getColumn($columnName));
 				}
-				$obj->setByName($key, $value, BasePeer::TYPE_COLNAME);
-			}
-			if (!$obj instanceof BaseObject) {
-				throw new PropulsionException("{$class} does not extend BaseObject");
+				self::callSetByName($obj, $key, $value, BasePeer::TYPE_COLNAME);
 			}
 			$ret = $this->getFormatter()->formatRecord($obj);
 		}
 		return $ret;
+	}
+
+	/**
+	 * Calls setByName() on a hydrated model object.
+	 *
+	 * setByName() is generated onto every ObjectBuilder-produced model subclass (see
+	 * ObjectBuilder::addSetByName()), but is not declared on the common BaseObject
+	 * ancestor, so it can't be called directly on a BaseObject-typed value without
+	 * lying to the type system. Reflection is used here instead of a dynamic
+	 * `$obj->$method()` call so PHPStan isn't misled into thinking the call is
+	 * statically verified.
+	 *
+	 * @throws PropulsionException if $obj's class has no setByName() method
+	 */
+	private static function callSetByName(BaseObject $obj, string $key, mixed $value, string $type = BasePeer::TYPE_PHPNAME): void
+	{
+		if (!method_exists($obj, 'setByName')) {
+			throw new PropulsionException(get_class($obj) . ' has no setByName() method');
+		}
+		(new \ReflectionMethod($obj, 'setByName'))->invoke($obj, $key, $value, $type);
 	}
 
 	/**
@@ -2368,8 +2395,11 @@ class ModelCriteria extends Criteria
 				throw new PropulsionException('doUpdate() with $forceIndividualSaves expects a PropulsionObjectCollection');
 			}
 			foreach ($objects as $object) {
+				if (!$object instanceof BaseObject) {
+					throw new PropulsionException('doUpdate() with $forceIndividualSaves expects a PropulsionObjectCollection of BaseObject instances');
+				}
 				foreach ($values as $key => $value) {
-					$object->setByName($key, $value);
+					self::callSetByName($object, $key, $value);
 				}
 			}
 			$objects->save($con);
