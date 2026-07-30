@@ -11,6 +11,7 @@
 namespace Propulsion\Generator\Util;
 
 use Propulsion\Generator\Config\GeneratorConfigInterface;
+use Propulsion\Generator\Exception\EngineException;
 use \PDO;
 use PDOStatement;
 use Propulsion\Adapter\DBAdapter;
@@ -253,6 +254,13 @@ class PropulsionQuickBuilder
 		if ($table->hasAdditionalBuilders()) {
 			foreach ($table->getAdditionalBuilders() as $builderClass) {
 				$builder = new $builderClass($table);
+				if (!$builder instanceof OMBuilder) {
+					throw new EngineException(sprintf(
+						"Additional builder class (%s) does not extend %s.",
+						get_class($builder),
+						OMBuilder::class
+					));
+				}
 				$script .= $builder->build();
 			}
 		}

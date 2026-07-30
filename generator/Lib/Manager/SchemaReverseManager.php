@@ -177,6 +177,9 @@ class SchemaReverseManager implements LoggerAwareInterface
     {
         $doc = $this->reverse($databaseName, $validatorBits);
         $xmlstr = $doc->saveXML();
+        if ($xmlstr === false) {
+            throw new EngineException('Failed to serialize reverse-engineered XML document.');
+        }
 
         $dir = dirname($outputFile);
         if ($dir !== '' && !is_dir($dir) && !mkdir($dir, 0777, true) && !is_dir($dir)) {

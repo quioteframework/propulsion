@@ -11,6 +11,7 @@
 namespace Propulsion\Generator\Util;
 
 use PDO;
+use Propulsion\Generator\Exception\EngineException;
 
 /**
  * Service class for parsing a large SQL string into an array of SQL statements
@@ -157,7 +158,11 @@ class PropulsionSQLParser
 		if (!file_exists($file)) {
 			return array();
 		}
-		return self::parseString(file_get_contents($file));
+		$contents = file_get_contents($file);
+		if ($contents === false) {
+			throw new EngineException("Unable to read SQL file '$file'.");
+		}
+		return self::parseString($contents);
 	}
 
 	public function convertLineFeedsToUnixStyle(): void

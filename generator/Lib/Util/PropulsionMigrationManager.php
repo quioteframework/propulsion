@@ -150,14 +150,21 @@ class PropulsionMigrationManager
 		// that declare a namespace and older files that declare classes in the global space.
 		$namespaced = 'Propulsion\\Generator\\Platform\\' . $adapterClass;
 		if (class_exists($namespaced, false) || class_exists($namespaced)) {
-			return new $namespaced();
+			$platform = new $namespaced();
+		} elseif (class_exists($adapterClass, false) || class_exists($adapterClass)) {
+			$platform = new $adapterClass();
+		} else {
+			throw new \RuntimeException(sprintf('Platform class "%s" not found after requiring file', $adapterClass));
 		}
 
-		if (class_exists($adapterClass, false) || class_exists($adapterClass)) {
-			return new $adapterClass();
+		if (!$platform instanceof DefaultPlatform) {
+			throw new \RuntimeException(sprintf(
+				'Platform class "%s" does not extend %s.',
+				get_class($platform),
+				DefaultPlatform::class
+			));
 		}
-
-		throw new \RuntimeException(sprintf('Platform class "%s" not found after requiring file', $adapterClass));
+		return $platform;
 	}
 
 	/**
