@@ -157,7 +157,11 @@ class PropulsionSQLParser
 		if (!file_exists($file)) {
 			return array();
 		}
-		return self::parseString(file_get_contents($file));
+		$contents = file_get_contents($file);
+		if ($contents === false) {
+			throw new \RuntimeException(sprintf('Unable to read SQL file "%s"', $file));
+		}
+		return self::parseString($contents);
 	}
 
 	public function convertLineFeedsToUnixStyle(): void
@@ -167,10 +171,14 @@ class PropulsionSQLParser
 
 	public function stripSQLCommentLines(): void
 	{
-		$this->setSQL(preg_replace(array(
+		$stripped = preg_replace(array(
 			'#^\s*(//|--|\#).*(\n|$)#m',    // //, --, or # style comments
 			'#^\s*/\*.*?\*/#s'              // c-style comments
-		), '', $this->sql));
+		), '', $this->sql);
+		if ($stripped === null) {
+			throw new \RuntimeException('Failed to strip SQL comment lines: invalid regular expression or PCRE error.');
+		}
+		$this->setSQL($stripped);
 	}
 
 	/**

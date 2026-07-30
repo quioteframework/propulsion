@@ -23,6 +23,7 @@ use Propulsion\Generator\Builder\OM\QueryInheritanceBuilder;
 use Propulsion\Generator\Builder\Util\XmlToAppData;
 use Propulsion\Generator\Config\QuickGeneratorConfig;
 use Propulsion\Generator\Model\Database;
+use Propulsion\Generator\Model\Inheritance;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Platform\DefaultPlatform;
 use Propulsion\Generator\Platform\PropulsionPlatformInterface;
@@ -107,7 +108,7 @@ class PropulsionQuickBuilder
 		$con->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_WARNING);
 		$this->buildSQL($con);
 		$this->buildClasses();
-		$name = $this->getDatabase()->getName();
+		$name = $this->requireDatabase()->getName();
 		if (!Propulsion::isInit()) {
 			Propulsion::setConfiguration(array('datasources' => array('default' => $name)));
 		}
@@ -120,11 +121,28 @@ class PropulsionQuickBuilder
 	public function getDatabase(): ?Database
 	{
 		if (null === $this->database) {
+			if (null === $this->schema) {
+				return null;
+			}
 			$xtad = new XmlToAppData($this->getPlatform());
 			$appData = $xtad->parseString($this->schema);
 			$this->database = $appData->getDatabase(); // does final initialization
 		}
 		return $this->database;
+	}
+
+	/**
+	 * Same as getDatabase(), but throws instead of returning null -- for call
+	 * sites that only make sense once a schema has actually been parsed into
+	 * a Database (i.e. setSchema() was called before this method).
+	 */
+	private function requireDatabase(): Database
+	{
+		$database = $this->getDatabase();
+		if (null === $database) {
+			throw new \RuntimeException('No schema has been set on this PropulsionQuickBuilder; call setSchema() first.');
+		}
+		return $database;
 	}
 
 	public function buildSQL(PropulsionPDO $con): int
@@ -147,18 +165,14 @@ class PropulsionQuickBuilder
 	public function getSQL(): string
 	{
 		$platform = $this->getPlatform();
-		return $platform instanceof DefaultPlatform ? $platform->getAddTablesDDL($this->getDatabase()) : '';
+		return $platform instanceof DefaultPlatform ? $platform->getAddTablesDDL($this->requireDatabase()) : '';
 	}
 
 	/**
 	 * Builds the script for a configured builder, if it is a real OM builder
 	 * (i.e. actually has a build() method).
-	 *
-	 * @param mixed $table
-	 * @param string $target
-	 * @return string
 	 */
-	private function buildScriptFor($table, $target)
+	private function buildScriptFor(Table $table, string $target): string
 	{
 		$builder = $this->getConfig()->getConfiguredBuilder($table, $target);
 		return $builder instanceof OMBuilder ? $builder->build() : '';
@@ -167,13 +181,8 @@ class PropulsionQuickBuilder
 	/**
 	 * Same as buildScriptFor(), but also assigns the given inheritance child
 	 * to the builder before building, for builders that support it.
-	 *
-	 * @param mixed $table
-	 * @param string $target
-	 * @param mixed $child
-	 * @return string
 	 */
-	private function buildScriptForChild($table, $target, $child)
+	private function buildScriptForChild(Table $table, string $target, Inheritance $child): string
 	{
 		$builder = $this->getConfig()->getConfiguredBuilder($table, $target);
 		if ($builder instanceof QueryInheritanceBuilder
@@ -193,7 +202,7 @@ class PropulsionQuickBuilder
 	public function getClasses(): string
 	{
 		$script = '';
-		foreach ($this->getDatabase()->getTables() as $table) {
+		foreach ($this->requireDatabase()->getTables() as $table) {
 			$script .= $this->getClassesForTable($table);
 		}
 		return $script;
@@ -209,7 +218,7 @@ class PropulsionQuickBuilder
 
 		if ($col = $table->getChildrenColumn()) {
 			if ($col->isEnumeratedClasses()) {
-				foreach ($col->getChildren() as $child) {
+				foreach ($col->getChildren() ?? array() as $child) {
 					// The root inheritance entry (no "extends") describes the table's own
 					// base class, which the ordinary object/query/*stub targets above
 					// already build -- generating objectmultiextend/queryinheritancestub
@@ -253,7 +262,9 @@ class PropulsionQuickBuilder
 		if ($table->hasAdditionalBuilders()) {
 			foreach ($table->getAdditionalBuilders() as $builderClass) {
 				$builder = new $builderClass($table);
-				$script .= $builder->build();
+				if ($builder instanceof OMBuilder) {
+					$script .= $builder->build();
+				}
 			}
 		}
 
@@ -266,7 +277,7 @@ class PropulsionQuickBuilder
 	{
 		$builder = new self;
 		$builder->setSchema($schema);
-		foreach ($builder->getDatabase()->getTables() as $table) {
+		foreach ($builder->requireDatabase()->getTables() as $table) {
 			if ($table->getName() == $tableName) {
 				echo $builder->getClassesForTable($table);
 			}
