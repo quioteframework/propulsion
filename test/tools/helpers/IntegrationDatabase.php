@@ -606,6 +606,41 @@ class IntegrationDatabase
         file_put_contents(self::schemasConfFile(), "<?php\nreturn " . var_export($config, true) . ";\n");
     }
 
+    /**
+     * testcontainers-php's StartedGenericContainer::getBoundPorts() calls its own
+     * containerInspect() exactly once and caches the raw response forever -- see that
+     * method's own "TODO: find a better strategy... For the loop $this->inspect()
+     * shouldn't be cached" comment -- even when Docker's own API returns a response
+     * where the port-publishing info isn't populated yet. Observed in practice under
+     * GH Actions' resource contention: the MSSQL/Oracle readiness probe here is a
+     * WaitForLog on the application's own "ready" message, which only confirms the
+     * server process inside the container is listening, not that Docker has finished
+     * publishing the host-side port mapping for it -- a separate, slightly later step.
+     * If the very first getFirstMappedPort()/getHost() call on the container lands in
+     * that gap, the incomplete response gets cached, and it fails identically on every
+     * later call too (not just a transient blip) -- degrading the entire dependent test
+     * suite to markTestSkipped() while PHPUnit still reports a passing "OK, but some
+     * tests were skipped!" run, so CI stays green through it. Retrying
+     * getFirstMappedPort() itself can't help once that cache is poisoned; this instead
+     * polls the *uncached* Docker API directly (via the container's own public
+     * getClient()/getId()) until the port mapping genuinely exists, before this class
+     * ever calls a method on $container that would trigger (and cache) its own inspect.
+     */
+    private static function waitForPortsPublished(StartedGenericContainer $container): void
+    {
+        for ($attempt = 0; $attempt < 20; $attempt++) {
+            $response = $container->getClient()->containerInspect($container->getId());
+            if ($response instanceof \Docker\API\Model\ContainersIdJsonGetResponse200) {
+                $ports = $response->getNetworkSettings()?->getPorts();
+                if ($ports !== null && count((array) $ports) > 0) {
+                    return;
+                }
+            }
+            usleep(500_000);
+        }
+        throw new \RuntimeException("Docker never published container {$container->getId()}'s port mappings.");
+    }
+
     private static function ensureContainerStarted(): void
     {
         if (self::$container !== null) {
@@ -670,6 +705,7 @@ class IntegrationDatabase
                     ->withWait(new WaitForLog('SQL Server is now ready for client connections', timeout: 60000))
                     ->withLabels(self::CONTAINER_LABELS)
                     ->start();
+                self::waitForPortsPublished(self::$container);
             } catch (\Throwable $e) {
                 throw new \RuntimeException('Could not start the MSSQL (azure-sql-edge) testcontainer (is Docker running?): ' . $e->getMessage());
             }
@@ -690,6 +726,7 @@ class IntegrationDatabase
                     ->withWait(new WaitForLog('DATABASE IS READY TO USE', timeout: 180000))
                     ->withLabels(self::CONTAINER_LABELS)
                     ->start();
+                self::waitForPortsPublished(self::$container);
             } catch (\Throwable $e) {
                 throw new \RuntimeException('Could not start the Oracle (oracle-free) testcontainer (is Docker running?): ' . $e->getMessage());
             }
