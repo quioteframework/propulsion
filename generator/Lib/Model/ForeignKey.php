@@ -30,8 +30,8 @@ class ForeignKey extends XMLElement
 	protected ?string $phpName = null;
 	protected ?string $refPhpName = null;
 	protected ?string $defaultJoin = null;
-	protected ?string $onUpdate = '';
-	protected ?string $onDelete = '';
+	protected string $onUpdate = '';
+	protected string $onDelete = '';
 	protected ?Table $parentTable = null;
 	/** @var string[] */
 	protected array $localColumns = array();
@@ -70,20 +70,20 @@ class ForeignKey extends XMLElement
 	 */
 	protected function setupObject(): void
 	{
-		$this->foreignTableCommonName = $this->requireTable()->requireDatabase()->getTablePrefix() . $this->getAttribute("foreignTable");
-		$this->foreignSchemaName = $this->getAttribute("foreignSchema");
+		$this->foreignTableCommonName = $this->requireTable()->requireDatabase()->getTablePrefix() . ($this->getStringAttribute("foreignTable") ?? '');
+		$this->foreignSchemaName = $this->getStringAttribute("foreignSchema");
 		if (!$this->foreignSchemaName) {
 			if ($this->requireTable()->getSchema()) {
 				$this->foreignSchemaName = $this->requireTable()->getSchema();
 			}
 		}
-		$this->name = $this->getAttribute("name");
-		$this->phpName = $this->getAttribute("phpName");
-		$this->refPhpName = $this->getAttribute("refPhpName");
-		$this->defaultJoin = $this->getAttribute('defaultJoin');
-		$this->onUpdate = $this->normalizeFKey($this->getAttribute("onUpdate"));
-		$this->onDelete = $this->normalizeFKey($this->getAttribute("onDelete"));
-		$this->skipSql = $this->booleanValue($this->getAttribute("skipSql"));
+		$this->name = $this->getStringAttribute("name");
+		$this->phpName = $this->getStringAttribute("phpName");
+		$this->refPhpName = $this->getStringAttribute("refPhpName");
+		$this->defaultJoin = $this->getStringAttribute('defaultJoin');
+		$this->onUpdate = $this->normalizeFKey($this->getStringAttribute("onUpdate"));
+		$this->onDelete = $this->normalizeFKey($this->getStringAttribute("onDelete"));
+		$this->skipSql = $this->getBooleanAttribute("skipSql");
 	}
 
 	/**
@@ -257,7 +257,11 @@ class ForeignKey extends XMLElement
 	 */
 	public function getForeignTable()
 	{
-		return $this->requireTable()->requireDatabase()->getTable($this->getForeignTableName());
+		$foreignTableName = $this->getForeignTableName();
+		if ($foreignTableName === null) {
+			return null;
+		}
+		return $this->requireTable()->requireDatabase()->getTable($foreignTableName);
 	}
 
 	/**
@@ -355,13 +359,21 @@ class ForeignKey extends XMLElement
 	public function addReference($p1, $p2 = null): void
 	{
 		if (is_array($p1)) {
-			$this->addReference(@$p1["local"], @$p1["foreign"]);
+			$local = $p1["local"] ?? null;
+			$foreign = $p1["foreign"] ?? null;
+			$this->addReference(
+				($local instanceof Column || is_string($local)) ? $local : null,
+				($foreign instanceof Column || is_string($foreign)) ? $foreign : null
+			);
 		} else {
 			if ($p1 instanceof Column) {
 				$p1 = $p1->getName();
 			}
 			if ($p2 instanceof Column) {
 				$p2 = $p2->getName();
+			}
+			if (!is_string($p1) || !is_string($p2)) {
+				throw new EngineException('ForeignKey::addReference() requires both a local and a foreign column name.');
 			}
 			$this->localColumns[] = $p1;
 			$this->foreignColumns[] = $p2;
@@ -729,14 +741,17 @@ class ForeignKey extends XMLElement
 	public function appendXml(\DOMNode $node): void
 	{
 		$doc = ($node instanceof \DOMDocument) ? $node : $node->ownerDocument;
+		if ($doc === null) {
+			throw new EngineException('Cannot append XML: given DOMNode has no owner document');
+		}
 
 		$fkNode = $node->appendChild($doc->createElement('foreign-key'));
 
-		$fkNode->setAttribute('foreignTable', $this->getForeignTableCommonName());
+		$fkNode->setAttribute('foreignTable', $this->getForeignTableCommonName() ?? '');
 		if ($schema = $this->getForeignSchemaName()) {
 			$fkNode->setAttribute('foreignSchema', $schema);
 		}
-		$fkNode->setAttribute('name', $this->getName());
+		$fkNode->setAttribute('name', $this->getName() ?? '');
 
 		if ($this->getPhpName()) {
 			$fkNode->setAttribute('phpName', $this->getPhpName());
