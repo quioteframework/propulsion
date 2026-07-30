@@ -257,15 +257,22 @@ class PropulsionObjectCollection extends PropulsionCollection
 			throw new PropulsionException('populateRelation() needs instance pooling to be enabled prior to populating the collection');
 		}
 		$relationMap = $this->getFormatter()->getTableMap()->getRelation($relation);
+		$rightClassname = $relationMap->getRightTable()->getClassname();
+		if (!is_string($rightClassname)) {
+			throw new PropulsionException('The right table of relation ' . $relation . ' has no classname');
+		}
 		if ($this->isEmpty()) {
 			// save a useless query and return an empty collection
 			$coll = new PropulsionObjectCollection();
-			$coll->setModel($relationMap->getRightTable()->getClassname());
+			$coll->setModel($rightClassname);
 			return $coll;
 		}
 		$symRelationMap = $relationMap->getSymmetricalRelation();
+		if (!$symRelationMap instanceof RelationMap) {
+			throw new PropulsionException('Relation ' . $relation . ' has no symmetrical relation');
+		}
 
-		$query = PropulsionQuery::from($relationMap->getRightTable()->getClassname());
+		$query = PropulsionQuery::from($rightClassname);
 		if (null !== $criteria) {
 			$query->mergeWith($criteria);
 		}
@@ -278,6 +285,9 @@ class PropulsionObjectCollection extends PropulsionCollection
 			// initialize the embedded collections of the main objects
 			$relationName = $relationMap->getName();
 			foreach ($this as $mainObj) {
+				if (!$mainObj instanceof BaseObject) {
+					continue;
+				}
 				$mainObj->initRelation($relationName);
 			}
 			// associate the related objects to the main objects

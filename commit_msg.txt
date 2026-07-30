@@ -1,0 +1,15 @@
+runtime/Collection/PropulsionObjectCollection.php + OM/BaseObject.php: fix level 9 findings (12 -> 0)
+
+populateRelation(): validates getRightTable()->getClassname() and
+getSymmetricalRelation() aren't null before use, guards foreach members
+with instanceof BaseObject. Documents BaseObject::initRelation() via
+@method (same convention as toArray()/fromArray(): ObjectBuilder only
+generates it for one-to-many "local side" tables, so it can't be a real
+abstract method). BaseObject::importFrom()/exportTo() get the same
+PropulsionParser|string typing and array/string validation already
+applied to PropulsionCollection's counterparts, including a guard for
+toArray()'s RECURSION marker string return before passing to
+PropulsionParser::fromArray() (a genuine latent type mismatch, not just
+a phpstan nit).
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
