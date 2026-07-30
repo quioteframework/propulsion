@@ -18,7 +18,9 @@ namespace Propulsion\Generator\Behavior;
  */
 use Propulsion\Generator\Builder\OM\ObjectBuilder;
 use Propulsion\Generator\Builder\OM\QueryBuilder;
+use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\Behavior;
+use Propulsion\Generator\Model\Table;
 class TimestampableBehavior extends Behavior
 {
 	// default parameters value
@@ -29,19 +31,44 @@ class TimestampableBehavior extends Behavior
 	);
 
 	/**
+	 * modifyTable() is only ever invoked once this behavior is attached
+	 * to a table, but getTable() stays nullable to also cover the
+	 * not-yet-attached construction phase. Guard against the
+	 * (should-never-happen) unattached case with a clear error instead
+	 * of a null dereference.
+	 */
+	private function requireTable(): Table
+	{
+		$table = $this->getTable();
+		if ($table === null) {
+			throw new EngineException('TimestampableBehavior is not attached to a table');
+		}
+		return $table;
+	}
+
+	private function getStringParameter(string $name): string
+	{
+		$value = $this->getParameter($name);
+		return is_string($value) ? $value : '';
+	}
+
+	/**
 	 * Add the create_column and update_columns to the current table
 	 */
 	public function modifyTable(): void
 	{
-		if(!$this->getTable()->hasColumn($this->getParameter('create_column'))) {
-			$this->getTable()->addColumn(array(
-				'name' => $this->getParameter('create_column'),
+		$table = $this->requireTable();
+		$createColumn = $this->getStringParameter('create_column');
+		if(!$table->hasColumn($createColumn)) {
+			$table->addColumn(array(
+				'name' => $createColumn,
 				'type' => 'TIMESTAMP'
 			));
 		}
-		if(!$this->getTable()->hasColumn($this->getParameter('update_column'))) {
-			$this->getTable()->addColumn(array(
-				'name' => $this->getParameter('update_column'),
+		$updateColumn = $this->getStringParameter('update_column');
+		if(!$table->hasColumn($updateColumn)) {
+			$table->addColumn(array(
+				'name' => $updateColumn,
 				'type' => 'TIMESTAMP'
 			));
 		}
@@ -55,7 +82,11 @@ class TimestampableBehavior extends Behavior
 	 */
 	protected function getColumnSetter(string $column): string
 	{
-		return 'set' . $this->getColumnForParameter($column)->getPhpName();
+		$col = $this->getColumnForParameter($column);
+		if ($col === null) {
+			throw new EngineException(sprintf("Parameter '%s' does not reference an existing column", $column));
+		}
+		return 'set' . $col->getPhpName();
 	}
 
 	/**

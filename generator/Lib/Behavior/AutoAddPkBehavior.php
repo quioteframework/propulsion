@@ -15,7 +15,10 @@ namespace Propulsion\Generator\Behavior;
  * @author     François Zaninotto
  * @version    $Revision$
  */
+use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\Behavior;
+use Propulsion\Generator\Model\Database;
+use Propulsion\Generator\Model\Table;
 
 class AutoAddPkBehavior extends Behavior
 {
@@ -28,12 +31,37 @@ class AutoAddPkBehavior extends Behavior
 	);
 
 	/**
+	 * modifyDatabase()/modifyTable() are only ever invoked once this
+	 * behavior is attached to a database/table, but getDatabase()/
+	 * getTable() stay nullable to also cover the not-yet-attached
+	 * construction phase. Guard against the (should-never-happen)
+	 * unattached case with a clear error instead of a null dereference.
+	 */
+	private function requireDatabase(): Database
+	{
+		$database = $this->getDatabase();
+		if ($database === null) {
+			throw new EngineException('AutoAddPkBehavior is not attached to a database');
+		}
+		return $database;
+	}
+
+	private function requireTable(): Table
+	{
+		$table = $this->getTable();
+		if ($table === null) {
+			throw new EngineException('AutoAddPkBehavior is not attached to a table');
+		}
+		return $table;
+	}
+
+	/**
 	 * Copy the behavior to the database tables
 	 * Only for tables that have no Pk
 	 */
 	public function modifyDatabase()
 	{
-		foreach ($this->getDatabase()->getTables() as $table) {
+		foreach ($this->requireDatabase()->getTables() as $table) {
 			if(!$table->hasPrimaryKey()) {
 				$b = clone $this;
 				$table->addBehavior($b);
@@ -46,10 +74,10 @@ class AutoAddPkBehavior extends Behavior
 	 */
 	public function modifyTable()
 	{
-		$table = $this->getTable();
+		$table = $this->requireTable();
 		if (!$table->hasPrimaryKey() && !$table->hasBehavior('concrete_inheritance')) {
 			$columnAttributes = array_merge(array('primaryKey' => 'true'), $this->getParameters());
-			$this->getTable()->addColumn($columnAttributes);
+			$table->addColumn($columnAttributes);
 		}
 	}
 }
