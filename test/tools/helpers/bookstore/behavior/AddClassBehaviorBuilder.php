@@ -6,7 +6,7 @@ class AddClassBehaviorBuilder extends OMBuilder
 {
 	public $overwrite = true;
 
-	public function getPackage()
+	public function getPackage(): string
 	{
 		return parent::getPackage();
 	}

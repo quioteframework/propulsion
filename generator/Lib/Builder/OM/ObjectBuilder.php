@@ -38,7 +38,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 	 * Gets the package for the [base] object classes.
 	 * @return     string
 	 */
-	public function getPackage()
+	public function getPackage(): string
 	{
 		return parent::getPackage() . "." . $this->getOmPackageSegment();
 	}
@@ -46,7 +46,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 	public function getNamespace()
 	{
 		if ($namespace = parent::getNamespace()) {
-			if ($omns = $this->getGeneratorConfig()->getBuildProperty('namespaceOm')) {
+			if ($omns = $this->getStringBuildProperty('namespaceOm')) {
 				return $namespace . '\\' . $omns;
 			} else {
 				return $namespace;
@@ -61,7 +61,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 	 */
 	public function getUnprefixedClassname()
 	{
-		return $this->getBuildProperty('basePrefix') . $this->getStubObjectBuilder()->getUnprefixedClassname();
+		return $this->getStringBuildProperty('basePrefix') . $this->getStubObjectBuilder()->getUnprefixedClassname();
 	}
 
 	/**
@@ -111,17 +111,20 @@ class ObjectBuilder extends AbstractObjectBuilder
 	 * @param      Column $col
 	 * @return     string
 	 */
-	protected function getTemporalFormatter(Column $col)
+	protected function getTemporalFormatter(Column $col): string
 	{
-		$fmt = null;
-		if ($col->getType() === PropulsionTypes::DATE) {
-			$fmt = $this->getPlatform()->getDateFormatter();
-		} elseif ($col->getType() === PropulsionTypes::TIME) {
-			$fmt = $this->getPlatform()->getTimeFormatter();
-		} elseif ($col->getType() === PropulsionTypes::TIMESTAMP) {
-			$fmt = $this->getPlatform()->getTimestampFormatter();
-		}
-		return $fmt;
+		$platform = self::requireNotNull($this->getPlatform(), "Platform (needed to build temporal formatters at code-generation time)");
+		$fmt = match ($col->getType()) {
+			PropulsionTypes::DATE => $platform->getDateFormatter(),
+			PropulsionTypes::TIME => $platform->getTimeFormatter(),
+			PropulsionTypes::TIMESTAMP => $platform->getTimestampFormatter(),
+			default => throw new EngineException(sprintf(
+				"getTemporalFormatter() called on non-temporal column '%s' (type '%s').",
+				$col->getName() ?? '(unnamed)',
+				$col->getType()
+			)),
+		};
+		return self::requireNotNull($fmt, sprintf("Platform temporal formatter for column '%s'", $col->getName() ?? '(unnamed)'));
 	}
 
 	/**
@@ -140,6 +143,13 @@ class ObjectBuilder extends AbstractObjectBuilder
 		if ($val === null) {
 			return $defaultValue;
 		}
+		// Domain::getPhpDefaultValue() is untyped -- in practice it always yields a
+		// scalar (or array, for array-typed columns) parsed from the schema's
+		// defaultValue attribute, never an object. Verify that real invariant here,
+		// once, instead of unsafely casting a `mixed` value further down.
+		if (!is_scalar($val) && !is_array($val)) {
+			throw new EngineException(sprintf('Default value for column "%s" is neither scalar nor array.', $col->getFullyQualifiedName()));
+		}
 		if ($col->isTemporalType()) {
 			$fmt = $this->getTemporalFormatter($col);
 			try {
@@ -147,7 +157,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 				($val === '0000-00-00 00:00:00' || $val === '0000-00-00'))) {
 					// while technically this is not a default value of NULL,
 					// this seems to be closest in meaning.
-					$defDt = new \DateTime($val);
+					$defDt = new \DateTime(is_scalar($val) ? (string) $val : '');
 					$defaultValue = var_export($defDt->format($fmt), true);
 				}
 			} catch (\Exception $x) {
@@ -158,7 +168,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 		} elseif ($col->isEnumType()) {
 			$valueSet = $col->getValueSet();
 			if (!in_array($val, $valueSet)) {
-				throw new EngineException(sprintf('Default Value "%s" is not among the enumerated values', $val));
+				throw new EngineException(sprintf('Default Value "%s" is not among the enumerated values', is_scalar($val) ? $val : var_export($val, true)));
 			}
 			if ($col->hasEnumClass()) {
 				// The property holds the enum instance directly (see
@@ -186,7 +196,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 			} elseif ($col->getPhpType() === 'double' || $col->getPhpType() === 'float') {
 				$defaultValue = var_export((float) $val, true);
 			} elseif ($col->getPhpType() === 'string' || $col->isTextType()) {
-				$defaultValue = var_export((string) $val, true);
+				$defaultValue = var_export(is_scalar($val) ? (string) $val : var_export($val, true), true);
 			} elseif ($col->getPhpType() === 'array') {
 				$defaultValue = var_export((array) $val, true);
 			} else {
@@ -314,7 +324,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 	{
 		$script = '';
 		$declaredClasses = $this->declaredClasses;
-		unset($declaredClasses[$ignoredNamespace]);
+		unset($declaredClasses[$ignoredNamespace ?? '']);
 
 		$classMap = [];
 		$preferredNamespaces = [
@@ -374,7 +384,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 		$tableDesc = $table->getDescription();
 		$interface = $this->getInterface();
 		$parentClass = $this->getBehaviorContent('parentClass');
-		$parentClass = (null !== $parentClass) ? $parentClass : ClassTools::classname($this->getBaseClass());
+		$parentClass = is_string($parentClass) ? $parentClass : ClassTools::classname($this->getBaseClass());
 		$implementsList = array();
 		if ($interface == "Persistent") {
 			$implementsList[] = "Persistent";
@@ -593,7 +603,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		}
 
 		if ($col->isLazyLoad()) {
-			$clo = strtolower($col->getName());
+			$clo = strtolower(self::requireNotNull($col->getName(), sprintf("Column '%s' name", $col->getConstantName())));
 			$script .= "
 	protected bool \${$clo}_isLoaded = false;";
 		}
@@ -989,7 +999,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		return \$this->{$phpname}?->format(\$format);
 	}";
 		} else {
-			$clo = strtolower($col->getName());
+			$clo = strtolower(self::requireNotNull($col->getName(), sprintf("Column '%s' name", $col->getConstantName())));
 			// Lazy-loaded columns (e.g. BLOB/CLOB) aren't populated by hydrate() -- see
 			// addHydrate()'s isLazyLoad() skip -- so the getter has to trigger a
 			// dedicated one-column query the first time it's accessed. Ported from
@@ -1029,7 +1039,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$this->declareClass('\Exception');
 
 		$phpname = $col->getPhpName();
-		$clo = strtolower($col->getName());
+		$clo = strtolower(self::requireNotNull($col->getName(), sprintf("Column '%s' name", $col->getConstantName())));
 		$const = $this->getColumnConstant($col);
 
 		$script .= "
@@ -1217,7 +1227,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	protected function addColumnMutator(string &$script, Column $col): void
 	{
-		$colname = $col->getName();
+		$colname = self::requireNotNull($col->getName(), sprintf("Column '%s' name", $col->getConstantName()));
 		$phpname = $col->getPhpName();
 		$paramType = $this->getPhp85TypeHint($col);
 		$returnType = $this->getClassname();
@@ -1449,10 +1459,10 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			// already invalidated every implicated relation's cached object whenever its own
 			// local key no longer matches.
 			if ($col->isForeignKey()) {
-				$table = $this->getTable();
 				foreach ($col->getForeignKeys() as $fk) {
 					$tblFK = $fk->requireForeignTable();
-					$colFK = $tblFK->requireColumn($fk->getMappedForeignColumn($col->getName()));
+					$mappedForeignColumnName = self::requireNotNull($fk->getMappedForeignColumn($colname), sprintf("Foreign key '%s' mapped foreign column for '%s'", $fk->getName() ?? '(unnamed)', $colname));
+					$colFK = $tblFK->requireColumn($mappedForeignColumnName);
 					$varName = $this->getFKVarName($fk);
 					$script .= "
 		if (\$this->$varName !== null && \$this->{$varName}->get" . $colFK->getPhpName() . "() !== \$value) {
@@ -1717,14 +1727,14 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		
 		foreach ($fk->getLocalColumns() as $columnName) {
 			$lfmap = $fk->getLocalForeignMapping();
-			
+
 			$localColumn = $table->requireColumn($columnName);
 			$foreignColumn = $fk->requireForeignTable()->requireColumn($lfmap[$columnName]);
-			
+
 			$column = $table->requireColumn($columnName);
 			$cptype = $column->getPhpType();
 			$phpname = $column->getPhpName(); // Use PHP name instead of lowercase
-			$localColumns[$foreignColumn->getPosition()] = '$this->'.$phpname;
+			$localColumns[self::requireNotNull($foreignColumn->getPosition(), sprintf("Column '%s' position", $foreignColumn->getName() ?? '(unnamed)'))] = '$this->'.$phpname;
 			
 			if ($cptype == "integer" || $cptype == "float" || $cptype == "double") {
 				$conditional .= $and . "\$this->". $phpname ." != 0";
@@ -1782,7 +1792,6 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$this->declareClassFromBuilder($this->getStubObjectBuilder());
 
 		$table = $this->getTable();
-		$tblFK = $fk->requireTable();
 		$joinedTableObjectBuilder = $this->getNewObjectBuilder($fk->requireForeignTable());
 		$className = $joinedTableObjectBuilder->getObjectClassname();
 
@@ -1805,7 +1814,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			$lfmap = $fk->getLocalForeignMapping();
 			$localColumn = $table->requireColumn($columnName);
 			$foreignColumn = $fk->requireForeignTable()->requireColumn($lfmap[$columnName]);
-			
+
 			$phpname = $localColumn->getPhpName(); // Use PHP name instead of lowercase
 			$foreignPhpname = $foreignColumn->getPhpName();
 			
@@ -2015,9 +2024,11 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		foreach ($table->getColumns() as $col) {
 			if ($col->isForeignKey()) {
 				$phpname = $col->getPhpName();
+				$colname = self::requireNotNull($col->getName(), sprintf("Column '%s' name", $col->getConstantName()));
 				foreach ($col->getForeignKeys() as $fk) {
 					$tblFK = $fk->requireForeignTable();
-					$colFK = $tblFK->requireColumn($fk->getMappedForeignColumn($col->getName()));
+					$mappedForeignColumnName = self::requireNotNull($fk->getMappedForeignColumn($colname), sprintf("Foreign key '%s' mapped foreign column for '%s'", $fk->getName() ?? '(unnamed)', $colname));
+					$colFK = $tblFK->requireColumn($mappedForeignColumnName);
 					$varName = $this->getFKVarName($fk);
 					$script .= "
 		if (\$this->$varName !== null && \$this->$phpname !== \$this->{$varName}->get" . $colFK->getPhpName() . "()) {
@@ -2426,7 +2437,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 				if (is_resource(\$this->$phpname)) {
 					rewind(\$this->$phpname);";
 				if ($col->isLazyLoad()) {
-					$clo = strtolower($col->getName());
+					$clo = strtolower(self::requireNotNull($col->getName(), sprintf("Column '%s' name", $col->getConstantName())));
 					$script .= "
 				} else {
 					// Some drivers (MSSQL/dblib) fully close a LOB stream
@@ -2552,7 +2563,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$table = $this->getTable();
 		foreach ($table->getColumns() as $col) {
 			if ($col->isLazyLoad()) {
-				$clo = strtolower($col->getName());
+				$clo = strtolower(self::requireNotNull($col->getName(), sprintf("Column '%s' name", $col->getConstantName())));
 				$phpname = $col->getPhpName();
 				$script .= "
 		\$this->{$clo}_isLoaded = false;
@@ -3711,8 +3722,8 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$refTableBuilder = $this->getNewObjectBuilder($refFK->requireTable());
 		$refClassName = $refTableBuilder->getObjectClassname();
 
-		$crossObjectName = '$' . lcfirst($crossFK->requireForeignTable()->getPhpName());
-		$refObjectName = '$' . lcfirst($tblFK->getPhpName());
+		$crossObjectName = '$' . lcfirst(self::requireNotNull($crossFK->requireForeignTable()->getPhpName(), "Foreign table PHP name"));
+		$refObjectName = '$' . lcfirst(self::requireNotNull($tblFK->getPhpName(), "Foreign table PHP name"));
 		// NOTE: Use fully-qualified class name here (instead of short class) so that
 		// PropulsionObjectCollection::save() method_exists(<model>, 'save') succeeds --
 		// see addCrossFKInit()/init$relCol(), which this must stay consistent with.
@@ -3763,7 +3774,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			$script .= "
 		\$this->$phpname = null;";
 			if ($col->isLazyLoad()) {
-				$clo = strtolower($col->getName());
+				$clo = strtolower(self::requireNotNull($col->getName(), sprintf("Column '%s' name", $col->getConstantName())));
 				$script .= "
 		\$this->{$clo}_isLoaded = false;";
 			}
@@ -3922,7 +3933,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		
 		// Add behavior content for delegate behavior
 		$behaviorCallContent = $this->getBehaviorContent('objectCall');
-		if ($behaviorCallContent) {
+		if (is_string($behaviorCallContent) && $behaviorCallContent !== '') {
 			$script .= $behaviorCallContent;
 		}
 		
