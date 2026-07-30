@@ -62,6 +62,9 @@ class SqlManager extends AbstractSchemaManager
                 }
 
                 $name = $database->getName();
+                if ($name === null) {
+                    throw new EngineException('Unable to build SQL for a database with no name.');
+                }
                 $ddlByDatabase[$name] = ($ddlByDatabase[$name] ?? '') . $platform->getAddTablesDDL($database);
                 $platformByDatabase[$name] = $platform;
             }

@@ -10,6 +10,7 @@
 namespace Propulsion\Generator\Manager;
 
 use Propulsion\Generator\Config\GeneratorConfig;
+use Propulsion\Generator\Exception\EngineException;
 
 /**
  * Plain-PHP replacement for the Phing-based PropulsionDataDumpTask: connects
@@ -56,6 +57,9 @@ class DataDumpManager extends AbstractSchemaManager
         $doc->appendChild($dsNode);
 
         $platform = $this->generatorConfig->getConfiguredPlatform($pdo);
+        if ($platform === null) {
+            throw new EngineException('Cannot dump data: no platform is configured for this connection.');
+        }
         $rowCount = 0;
         $dumpedAnyTable = false;
 
@@ -67,14 +71,35 @@ class DataDumpManager extends AbstractSchemaManager
                 $dumpedAnyTable = true;
 
                 foreach ($database->getTables() as $table) {
-                    $this->logger->info('Dumping table {table}', ['table' => $table->getName()]);
-                    $stmt = $pdo->query('SELECT * FROM ' . $platform->quoteIdentifier($table->getName()));
-                    while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-                        $rowNode = $doc->createElement($table->getPhpName());
+                    $tableName = $table->getName();
+                    $tablePhpName = $table->getPhpName();
+                    if ($tableName === null || $tablePhpName === null) {
+                        throw new EngineException('Cannot dump a table with no name.');
+                    }
+
+                    $this->logger->info('Dumping table {table}', ['table' => $tableName]);
+                    $stmt = $pdo->query('SELECT * FROM ' . $platform->quoteIdentifier($tableName));
+                    if ($stmt === false) {
+                        throw new EngineException("Failed to query table \"$tableName\".");
+                    }
+                    while (is_array($row = $stmt->fetch(\PDO::FETCH_ASSOC))) {
+                        $rowNode = $doc->createElement($tablePhpName);
                         foreach ($table->getColumns() as $col) {
-                            $cval = $row[$col->getName()] ?? null;
+                            $colName = $col->getName();
+                            $colPhpName = $col->getPhpName();
+                            if ($colName === null) {
+                                continue;
+                            }
+                            $cval = $row[$colName] ?? null;
                             if ($cval !== null) {
-                                $rowNode->setAttribute($col->getPhpName(), iconv($this->dbEncoding, 'utf-8', (string) $cval));
+                                if (!is_scalar($cval)) {
+                                    throw new EngineException("Column \"$colName\" in table \"$tableName\" returned a non-scalar value that cannot be dumped.");
+                                }
+                                $encoded = iconv($this->dbEncoding, 'utf-8', (string) $cval);
+                                if ($encoded === false) {
+                                    throw new EngineException("Failed to convert value of column \"$colName\" in table \"$tableName\" from {$this->dbEncoding} to utf-8.");
+                                }
+                                $rowNode->setAttribute($colPhpName, $encoded);
                             }
                         }
                         $dsNode->appendChild($rowNode);
@@ -85,7 +110,7 @@ class DataDumpManager extends AbstractSchemaManager
         }
 
         if ($databaseName !== null && !$dumpedAnyTable) {
-            throw new \Propulsion\Generator\Exception\EngineException(sprintf('No database named "%s" found in the given schema file(s).', $databaseName));
+            throw new EngineException(sprintf('No database named "%s" found in the given schema file(s).', $databaseName));
         }
 
         $doc->save($outputFile);
