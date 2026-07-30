@@ -28,6 +28,7 @@ class PropulsionException extends \Exception
 			$previous = $message;
 			$message = '';
 		}
+		$message ??= '';
 		if ($previous !== null) {
 			$message .= " [wrapped: " . $previous->getMessage() ."]";
 			parent::__construct($message, 0, $previous);

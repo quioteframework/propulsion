@@ -145,6 +145,9 @@ class PropulsionConfiguration implements \ArrayAccess
 		$param = &$this->parameters;
 		$parts = explode('.', $name); //name.space.name
 		foreach ($parts as $part) {
+			if (!isset($param[$part]) || !is_array($param[$part])) {
+				$param[$part] = array();
+			}
 			$param = &$param[$part];
 		}
 		$param = $value;
@@ -193,6 +196,13 @@ class PropulsionConfiguration implements \ArrayAccess
 		$result = array();
 		$it = new PropulsionConfigurationIterator(new \RecursiveArrayIterator($this->parameters), \RecursiveIteratorIterator::SELF_FIRST);
 		foreach($it as $key => $value) {
+			if (is_int($key) || is_string($key)) {
+				$key = (string) $key;
+			} elseif (is_scalar($key)) {
+				$key = (string) $key;
+			} else {
+				$key = '';
+			}
 			$ns = $it->getDepth() ? $it->getNamespace() . '.'. $key : $key;
 			if ($it->getNodeType() == PropulsionConfigurationIterator::NODE_ITEM) {
 				$result[$ns] = $value;
