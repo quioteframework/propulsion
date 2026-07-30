@@ -16,7 +16,9 @@ namespace Propulsion\Generator\Behavior\Sortable;
  * @author      Massimiliano Arione
  * @version     $Revision$
  */
+use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\Behavior;
+use Propulsion\Generator\Model\Table;
 class SortableBehavior extends Behavior
 {
 	// default parameters value
@@ -32,20 +34,45 @@ class SortableBehavior extends Behavior
 	protected ?SortableBehaviorPeerBuilderModifier $peerBuilderModifier = null;
 
 	/**
+	 * modifyTable() is only ever invoked once this behavior is attached
+	 * to a table, but getTable() stays nullable to also cover the
+	 * not-yet-attached construction phase. Guard against the
+	 * (should-never-happen) unattached case with a clear error instead
+	 * of a null dereference.
+	 */
+	public function requireTable(): Table
+	{
+		$table = $this->getTable();
+		if ($table === null) {
+			throw new EngineException('SortableBehavior is not attached to a table');
+		}
+		return $table;
+	}
+
+	private function getStringParameter(string $name): string
+	{
+		$value = $this->getParameter($name);
+		return is_string($value) ? $value : '';
+	}
+
+	/**
 	 * Add the rank_column to the current table
 	 */
 	public function modifyTable(): void
 	{
-		if (!$this->getTable()->hasColumn($this->getParameter('rank_column'))) {
-			$this->getTable()->addColumn(array(
-				'name' => $this->getParameter('rank_column'),
+		$table = $this->requireTable();
+		$rankColumn = $this->getStringParameter('rank_column');
+		if (!$table->hasColumn($rankColumn)) {
+			$table->addColumn(array(
+				'name' => $rankColumn,
 				'type' => 'INTEGER'
 			));
 		}
-		if ($this->getParameter('use_scope') == 'true' &&
-			 !$this->getTable()->hasColumn($this->getParameter('scope_column'))) {
-			$this->getTable()->addColumn(array(
-				'name' => $this->getParameter('scope_column'),
+		$scopeColumn = $this->getStringParameter('scope_column');
+		if ($this->getStringParameter('use_scope') == 'true' &&
+			 !$table->hasColumn($scopeColumn)) {
+			$table->addColumn(array(
+				'name' => $scopeColumn,
 				'type' => 'INTEGER'
 			));
 		}
