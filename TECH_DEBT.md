@@ -93,3 +93,15 @@ something equivalent. Left as-is (the pre-existing, always-`mixed`-typed
 dynamic dispatch, matching every other case of this shape already documented
 via the PHPStan extension added in batch 1's §1) rather than force a
 narrower, breaking fix under this batch's scope.
+
+**Status as of the `--level 7` push**: the rest of the project (`generator/`,
+`runtime/`, `bin/`) went from 182 `--level 7` findings to a clean sweep except
+for this one -- every other finding was a real fix (mostly `false`/`null`
+result checks PHP's own stdlib functions return, and the same
+`instanceof $expectedType` guard pattern used throughout this file applied to
+every other `new $dynamicClass(...)` call site in the codebase). This is now
+the **only** `--level 7` finding project-wide; `phpstan.neon`'s `level: 6`
+is deliberately not bumped to 7 because of it (no `ignoreErrors`/baseline
+entry was added either, per this file's own established convention of not
+suppressing known-open findings). Bumping to 7 is one `WritableModelInterface`
+decision away.
