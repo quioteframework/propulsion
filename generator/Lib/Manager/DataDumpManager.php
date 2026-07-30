@@ -68,13 +68,23 @@ class DataDumpManager extends AbstractSchemaManager
 
                 foreach ($database->getTables() as $table) {
                     $this->logger->info('Dumping table {table}', ['table' => $table->getName()]);
-                    $stmt = $pdo->query('SELECT * FROM ' . $platform->quoteIdentifier($table->getName()));
+                    $sql = 'SELECT * FROM ' . $platform->quoteIdentifier($table->getName());
+                    $stmt = $pdo->query($sql);
+                    if ($stmt === false) {
+                        throw new \Propulsion\Generator\Exception\EngineException("Query failed: $sql");
+                    }
                     while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
                         $rowNode = $doc->createElement($table->getPhpName());
                         foreach ($table->getColumns() as $col) {
                             $cval = $row[$col->getName()] ?? null;
                             if ($cval !== null) {
-                                $rowNode->setAttribute($col->getPhpName(), iconv($this->dbEncoding, 'utf-8', (string) $cval));
+                                $encoded = iconv($this->dbEncoding, 'utf-8', (string) $cval);
+                                if ($encoded === false) {
+                                    throw new \Propulsion\Generator\Exception\EngineException(
+                                        "Unable to convert column '{$col->getName()}' of table '{$table->getName()}' from {$this->dbEncoding} to utf-8."
+                                    );
+                                }
+                                $rowNode->setAttribute($col->getPhpName(), $encoded);
                             }
                         }
                         $dsNode->appendChild($rowNode);

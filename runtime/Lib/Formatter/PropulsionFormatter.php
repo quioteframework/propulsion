@@ -199,7 +199,7 @@ abstract class PropulsionFormatter
 	 * As there may be more than one object of the same class in the chain
 	 *
 	 * @param     int    $col    Offset of the object in the list of objects to hydrate
-	 * @param     string $class  Propulsion model object class
+	 * @param     class-string<BaseObject> $class  Propulsion model object class
 	 *
 	 * @return    BaseObject
 	 */
@@ -218,7 +218,7 @@ abstract class PropulsionFormatter
 	 *
 	 * @param     array<int, mixed>  $row associative array indexed by column number,
 	 *                   as returned by PDOStatement::fetch(PDO::FETCH_NUM)
-	 * @param     string $class The classname of the object to create
+	 * @param     class-string<BaseObject> $class The classname of the object to create
 	 * @param     int    $col The start column for the hydration (modified)
 	 *
 	 * @return    BaseObject

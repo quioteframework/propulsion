@@ -80,7 +80,8 @@ class MssqlSchemaParser extends BaseSchemaParser
 
 	public function parse(Database $database, mixed $task = null)
 	{
-		$stmt = $this->dbh->query("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME <> 'dtproperties'");
+		$sql = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME <> 'dtproperties'";
+		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
 
 		// First load the tables (important that this happen before filling out details of tables)
 		$tables = array();
@@ -117,7 +118,8 @@ class MssqlSchemaParser extends BaseSchemaParser
 	 */
 	protected function addColumns(Table $table): void
 	{
-		$stmt = $this->dbh->query("sp_columns '" . $table->getName() . "'");
+		$sql = "sp_columns '" . $table->getName() . "'";
+		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
 
 		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 
@@ -163,13 +165,14 @@ class MssqlSchemaParser extends BaseSchemaParser
 	{
 		$database = $table->getDatabase();
 
-		$stmt = $this->dbh->query("SELECT ccu1.TABLE_NAME, ccu1.COLUMN_NAME, ccu2.TABLE_NAME AS FK_TABLE_NAME, ccu2.COLUMN_NAME AS FK_COLUMN_NAME
+		$sql = "SELECT ccu1.TABLE_NAME, ccu1.COLUMN_NAME, ccu2.TABLE_NAME AS FK_TABLE_NAME, ccu2.COLUMN_NAME AS FK_COLUMN_NAME
 									FROM INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE ccu1 INNER JOIN
 											INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc1 ON tc1.CONSTRAINT_NAME = ccu1.CONSTRAINT_NAME AND
 											CONSTRAINT_TYPE = 'Foreign Key' INNER JOIN
 											INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc1 ON rc1.CONSTRAINT_NAME = tc1.CONSTRAINT_NAME INNER JOIN
 											INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE ccu2 ON ccu2.CONSTRAINT_NAME = rc1.UNIQUE_CONSTRAINT_NAME
-									WHERE (ccu1.table_name = '".$table->getName()."')");
+									WHERE (ccu1.table_name = '".$table->getName()."')";
+		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
 
 		$foreignKeys = array(); // local store to avoid duplicates
 		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -201,7 +204,8 @@ class MssqlSchemaParser extends BaseSchemaParser
 	 */
 	protected function addIndexes(Table $table): void
 	{
-		$stmt = $this->dbh->query("sp_indexes_rowset '" . $table->getName() . "'");
+		$sql = "sp_indexes_rowset '" . $table->getName() . "'";
+		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
 
 		$indexes = array();
 		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -223,12 +227,13 @@ class MssqlSchemaParser extends BaseSchemaParser
 	 */
 	protected function addPrimaryKey(Table $table): void
 	{
-		$stmt = $this->dbh->query("SELECT COLUMN_NAME
+		$sql = "SELECT COLUMN_NAME
 						FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS
 								INNER JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE ON
 						INFORMATION_SCHEMA.TABLE_CONSTRAINTS.CONSTRAINT_NAME = INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE.constraint_name
 						WHERE     (INFORMATION_SCHEMA.TABLE_CONSTRAINTS.CONSTRAINT_TYPE = 'PRIMARY KEY') AND
-						(INFORMATION_SCHEMA.TABLE_CONSTRAINTS.TABLE_NAME = '".$table->getName()."')");
+						(INFORMATION_SCHEMA.TABLE_CONSTRAINTS.TABLE_NAME = '".$table->getName()."')";
+		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
 
 		// Loop through the returned results, grouping the same key_name together
 		// adding each column for that key.

@@ -22,10 +22,12 @@ namespace Propulsion\Formatter;
  use PDOStatement;
  use Propulsion\Exception\PropulsionException;
  use Propulsion\OM\BaseObject;
+ use Propulsion\Collection\PropulsionOnDemandCollection;
  use ReflectionClass;
- 
+
 class PropulsionOnDemandFormatter extends PropulsionObjectFormatter
 {
+	/** @var class-string<PropulsionOnDemandCollection> */
 	protected string $collectionName = 'Propulsion\\Collection\\PropulsionOnDemandCollection';
 	protected bool $isSingleTableInheritance = false;
 
@@ -52,8 +54,8 @@ class PropulsionOnDemandFormatter extends PropulsionObjectFormatter
 			$stmt->closeCursor();
 			throw new PropulsionException('PropulsionOnDemandFormatter cannot hydrate related objects using a one-to-many relationship. Try removing with() from your query.');
 		}
-		$class = $this->collectionName;
-		$collection = new $class();
+		$collectionClass = $this->collectionName;
+		$collection = new $collectionClass();
 		$collection->setModel($this->class);
 		$collection->initIterator($this, $stmt);
 
@@ -74,12 +76,14 @@ class PropulsionOnDemandFormatter extends PropulsionObjectFormatter
 	{
 		$col = 0;
 		// main object
-		$class = $this->isSingleTableInheritance ? call_user_func(array($this->peer, 'getOMClass'), $row, $col, false) : $this->class;
+		$peer = $this->peer;
+		$class = $this->isSingleTableInheritance ? $peer::getOMClass($row, $col, false) : $this->class;
 		$obj = $this->getSingleObjectFromRow($row, $class, $col);
 		// related objects using 'with'
 		foreach ($this->getWith() as $modelWith) {
 			if ($modelWith->isSingleTableInheritance()) {
-				$class = call_user_func(array($modelWith->getModelPeerName(), 'getOMClass'), $row, $col, false);
+				$modelWithPeer = $modelWith->getModelPeerName();
+				$class = $modelWithPeer::getOMClass($row, $col, false);
 				$refl = new ReflectionClass($class);
 				if ($refl->isAbstract()) {
 					$col += constant($class . 'Peer::NUM_COLUMNS');
@@ -100,7 +104,7 @@ class PropulsionOnDemandFormatter extends PropulsionObjectFormatter
 			// in which case it should not be related to the previous object
 			if ($endObject->isPrimaryKeyNull()) {
 				if ($modelWith->isAdd()) {
-					call_user_func(array($startObject, $modelWith->getInitMethod()), false);
+					$startObject->{$modelWith->getInitMethod()}(false);
 				}
 				continue;
 			}
@@ -109,7 +113,7 @@ class PropulsionOnDemandFormatter extends PropulsionObjectFormatter
 			} else {
 				$hydrationChain = array($modelWith->getRightPhpName() => $endObject);
 			}
-			call_user_func(array($startObject, $modelWith->getRelationMethod()), $endObject);
+			$startObject->{$modelWith->getRelationMethod()}($endObject);
 		}
 		foreach ($this->getAsColumns() as $alias => $clause) {
 			$obj->setVirtualColumn($alias, $row[$col]);

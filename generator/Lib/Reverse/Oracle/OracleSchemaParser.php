@@ -86,7 +86,8 @@ class OracleSchemaParser extends BaseSchemaParser
 	public function parse(Database $database, mixed $task = null)
 	{
 		$tables = array();
-		$stmt = $this->dbh->query("SELECT OBJECT_NAME FROM USER_OBJECTS WHERE OBJECT_TYPE = 'TABLE'");
+		$sql = "SELECT OBJECT_NAME FROM USER_OBJECTS WHERE OBJECT_TYPE = 'TABLE'";
+		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
 
 		$seqPattern = $this->getGeneratorConfig()->getBuildProperty(
 			'oracleAutoincrementSequencePattern'
@@ -116,7 +117,8 @@ class OracleSchemaParser extends BaseSchemaParser
 				$seqName = str_replace('${table}', $table->getName(), $seqPattern);
 				$seqName = strtoupper($seqName);
 
-				$stmt2 = $this->dbh->query("SELECT * FROM USER_SEQUENCES WHERE SEQUENCE_NAME = '" . $seqName . "'");
+				$sql2 = "SELECT * FROM USER_SEQUENCES WHERE SEQUENCE_NAME = '" . $seqName . "'";
+				$stmt2 = $this->requireStatement($this->dbh->query($sql2), $sql2);
 				$hasSeq = $stmt2->fetch(PDO::FETCH_ASSOC);
 
 				if ($hasSeq) {
@@ -147,8 +149,8 @@ class OracleSchemaParser extends BaseSchemaParser
 	 */
 	protected function addColumns(Table $table): void
 	{
-		$stmt = $this->dbh->query("SELECT COLUMN_NAME, DATA_TYPE, NULLABLE, DATA_LENGTH, DATA_PRECISION, DATA_SCALE, DATA_DEFAULT FROM USER_TAB_COLS WHERE TABLE_NAME = '" . $table->getName() . "'");
-		/* @var stmt PDOStatement */
+		$sql = "SELECT COLUMN_NAME, DATA_TYPE, NULLABLE, DATA_LENGTH, DATA_PRECISION, DATA_SCALE, DATA_DEFAULT FROM USER_TAB_COLS WHERE TABLE_NAME = '" . $table->getName() . "'";
+		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
 		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 			if (strpos($row['COLUMN_NAME'], '$') !== false) {
 				// this is an Oracle internal column - prune
@@ -168,8 +170,9 @@ class OracleSchemaParser extends BaseSchemaParser
 			if ($type == "FLOAT"&& $row["DATA_PRECISION"] == 126) {
 				$type = "DOUBLE";
 			}
-			if (strpos($type, 'TIMESTAMP(') !== false) {
-				$type = substr($type, 0, strpos($type, '('));
+			$parenPos = strpos($type, 'TIMESTAMP(') !== false ? strpos($type, '(') : false;
+			if ($parenPos !== false) {
+				$type = substr($type, 0, $parenPos);
 				$default = "0000-00-00 00:00:00";
 				$size = null;
 				$scale = null;
@@ -209,7 +212,8 @@ class OracleSchemaParser extends BaseSchemaParser
 	 */
 	protected function addIndexes(Table $table): void
 	{
-		$stmt = $this->dbh->query("SELECT COLUMN_NAME, INDEX_NAME FROM USER_IND_COLUMNS WHERE TABLE_NAME = '" . $table->getName() . "' ORDER BY COLUMN_NAME");
+		$sql = "SELECT COLUMN_NAME, INDEX_NAME FROM USER_IND_COLUMNS WHERE TABLE_NAME = '" . $table->getName() . "' ORDER BY COLUMN_NAME";
+		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
 		$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 		$indices = array();
@@ -243,16 +247,17 @@ class OracleSchemaParser extends BaseSchemaParser
 		// local store to avoid duplicates
 		$foreignKeys = array();
 
-		$stmt = $this->dbh->query("SELECT CONSTRAINT_NAME, DELETE_RULE, R_CONSTRAINT_NAME FROM USER_CONSTRAINTS WHERE CONSTRAINT_TYPE = 'R' AND TABLE_NAME = '" . $table->getName(). "'");
-		/* @var stmt PDOStatement */
+		$sql = "SELECT CONSTRAINT_NAME, DELETE_RULE, R_CONSTRAINT_NAME FROM USER_CONSTRAINTS WHERE CONSTRAINT_TYPE = 'R' AND TABLE_NAME = '" . $table->getName(). "'";
+		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
 		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 			// Local reference
-			$stmt2 = $this->dbh->query("SELECT COLUMN_NAME FROM USER_CONS_COLUMNS WHERE CONSTRAINT_NAME = '".$row['CONSTRAINT_NAME']."' AND TABLE_NAME = '" . $table->getName(). "'");
-			/* @var stmt2 PDOStatement */
+			$sql2 = "SELECT COLUMN_NAME FROM USER_CONS_COLUMNS WHERE CONSTRAINT_NAME = '".$row['CONSTRAINT_NAME']."' AND TABLE_NAME = '" . $table->getName(). "'";
+			$stmt2 = $this->requireStatement($this->dbh->query($sql2), $sql2);
 			$localReferenceInfo = $stmt2->fetch(PDO::FETCH_ASSOC);
 
 			// Foreign reference
-			$stmt2 = $this->dbh->query("SELECT TABLE_NAME, COLUMN_NAME FROM USER_CONS_COLUMNS WHERE CONSTRAINT_NAME = '".$row['R_CONSTRAINT_NAME']."'");
+			$sql2 = "SELECT TABLE_NAME, COLUMN_NAME FROM USER_CONS_COLUMNS WHERE CONSTRAINT_NAME = '".$row['R_CONSTRAINT_NAME']."'";
+			$stmt2 = $this->requireStatement($this->dbh->query($sql2), $sql2);
 			$foreignReferenceInfo = $stmt2->fetch(PDO::FETCH_ASSOC);
 
 			if (!isset($foreignKeys[$row["CONSTRAINT_NAME"]])) {
@@ -275,8 +280,8 @@ class OracleSchemaParser extends BaseSchemaParser
 	 */
 	protected function addPrimaryKey(Table $table): void
 	{
-		$stmt = $this->dbh->query("SELECT COLS.COLUMN_NAME FROM USER_CONSTRAINTS CONS, USER_CONS_COLUMNS COLS WHERE CONS.CONSTRAINT_NAME = COLS.CONSTRAINT_NAME AND CONS.TABLE_NAME = '".$table->getName()."' AND CONS.CONSTRAINT_TYPE = 'P'");
-		/* @var stmt PDOStatement */
+		$sql = "SELECT COLS.COLUMN_NAME FROM USER_CONSTRAINTS CONS, USER_CONS_COLUMNS COLS WHERE CONS.CONSTRAINT_NAME = COLS.CONSTRAINT_NAME AND CONS.TABLE_NAME = '".$table->getName()."' AND CONS.CONSTRAINT_TYPE = 'P'";
+		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
 		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 			// This fixes a strange behavior by PDO. Sometimes the
 			// row values are inside an index 0 of an array

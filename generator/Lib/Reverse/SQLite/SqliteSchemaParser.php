@@ -78,7 +78,8 @@ class SqliteSchemaParser extends BaseSchemaParser
 
 	public function parse(Database $database, mixed $task = null)
 	{
-		$stmt = $this->dbh->query("SELECT name FROM sqlite_master WHERE type='table' UNION ALL SELECT name FROM sqlite_temp_master WHERE type='table' ORDER BY name;");
+		$sql = "SELECT name FROM sqlite_master WHERE type='table' UNION ALL SELECT name FROM sqlite_temp_master WHERE type='table' ORDER BY name;";
+		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
 
 		// First load the tables (important that this happen before filling out details of tables)
 		$tables = array();
@@ -114,7 +115,8 @@ class SqliteSchemaParser extends BaseSchemaParser
 	 */
 	protected function addColumns(Table $table): void
 	{
-		$stmt = $this->dbh->query("PRAGMA table_info('" . $table->getName() . "')");
+		$sql = "PRAGMA table_info('" . $table->getName() . "')";
+		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
 
 		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 
@@ -175,14 +177,16 @@ class SqliteSchemaParser extends BaseSchemaParser
 	 */
 	protected function addIndexes(Table $table): void
 	{
-		$stmt = $this->dbh->query("PRAGMA index_list('" . $table->getName() . "')");
+		$sql = "PRAGMA index_list('" . $table->getName() . "')";
+		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
 
 		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 
 			$name = $row['name'];
 			$index = new Index($name);
 
-			$stmt2 = $this->dbh->query("PRAGMA index_info('".$name."')");
+			$sql2 = "PRAGMA index_info('".$name."')";
+			$stmt2 = $this->requireStatement($this->dbh->query($sql2), $sql2);
 			while ($row2 = $stmt2->fetch(PDO::FETCH_ASSOC)) {
 				$colname = $row2['name'];
 				$index->addColumn($table->getColumn($colname));

@@ -19,10 +19,12 @@ namespace Propulsion\Formatter;
 
  use Propulsion\Exception\PropulsionException;
  use Propulsion\OM\BaseObject;
+ use Propulsion\Collection\PropulsionCollection;
  use PDOStatement;
  use PDO;
 class PropulsionObjectFormatter extends PropulsionFormatter
 {
+	/** @var class-string<PropulsionCollection> */
 	protected string $collectionName = 'Propulsion\\Collection\\PropulsionObjectCollection';
 
 	public function format(PDOStatement $stmt): mixed
@@ -89,11 +91,12 @@ class PropulsionObjectFormatter extends PropulsionFormatter
 	public function getAllObjectsFromRow(array $row): BaseObject
 	{
 		// main object
-		list($obj, $col) = call_user_func(array($this->peer, 'populateObject'), $row);
+		list($obj, $col) = $this->peer::populateObject($row);
 
 		// related objects added using with()
 		foreach ($this->getWith() as $modelWith) {
-			list($endObject, $col) = call_user_func(array($modelWith->getModelPeerName(), 'populateObject'), $row, $col);
+			$modelWithPeer = $modelWith->getModelPeerName();
+			list($endObject, $col) = $modelWithPeer::populateObject($row, $col);
 
 			if (null !== $modelWith->getLeftPhpName() && !isset($hydrationChain[$modelWith->getLeftPhpName()])) {
 				continue;
@@ -110,7 +113,7 @@ class PropulsionObjectFormatter extends PropulsionFormatter
 			// in which case it should not be related to the previous object
 			if (null === $endObject || $endObject->isPrimaryKeyNull()) {
 				if ($modelWith->isAdd()) {
-					call_user_func(array($startObject, $modelWith->getInitMethod()), false);
+					$startObject->{$modelWith->getInitMethod()}(false);
 				}
 				continue;
 			}
@@ -120,7 +123,7 @@ class PropulsionObjectFormatter extends PropulsionFormatter
 				$hydrationChain = array($modelWith->getRightPhpName() => $endObject);
 			}
 
-			call_user_func(array($startObject, $modelWith->getRelationMethod()), $endObject);
+			$startObject->{$modelWith->getRelationMethod()}($endObject);
 		}
 
 		// columns added using withColumn()

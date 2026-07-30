@@ -21,8 +21,10 @@ namespace Propulsion\Formatter;
  use \PDOStatement;
  use Propulsion\Exception\PropulsionException;
  use Propulsion\OM\BaseObject;
+ use Propulsion\Collection\PropulsionCollection;
 class PropulsionArrayFormatter extends PropulsionFormatter
 {
+	/** @var class-string<PropulsionCollection> */
 	protected string $collectionName = 'Propulsion\\Collection\\PropulsionArrayCollection';
 
 	/** @var array<string, array<int|string, mixed>> */
@@ -90,7 +92,10 @@ class PropulsionArrayFormatter extends PropulsionFormatter
 	 *
 	 * @param BaseObject $record the object to format
 	 *
-	 * @return array<int|string, mixed> The original record turned into an array
+	 * @return array<int|string, mixed>|string The original record turned into an array
+	 *         (toArray()'s own return type also allows a string: the literal sentinel
+	 *         '*RECURSION*', returned instead of an array when $includeForeignObjects
+	 *         recursion revisits an object it's already dumping).
 	 */
 	public function formatRecord(?BaseObject $record = null): mixed
 	{
@@ -119,7 +124,7 @@ class PropulsionArrayFormatter extends PropulsionFormatter
 
 		// hydrate main object or take it from registry
 		$mainObjectIsNew = false;
-		$mainKey = call_user_func(array($this->peer, 'getPrimaryKeyHashFromRow'), $row);
+		$mainKey = $this->peer::getPrimaryKeyHashFromRow($row);
 		// we hydrate the main object even in case of a one-to-many relationship
 		// in order to get the $col variable increased anyway
 		$obj = $this->getSingleObjectFromRow($row, $this->class, $col);
@@ -135,7 +140,8 @@ class PropulsionArrayFormatter extends PropulsionFormatter
 
 			// determine class to use
 			if ($modelWith->isSingleTableInheritance()) {
-				$class = call_user_func(array($modelWith->getModelPeerName(), 'getOMClass'), $row, $col, false);
+				$modelWithPeer = $modelWith->getModelPeerName();
+				$class = $modelWithPeer::getOMClass($row, $col, false);
 				$refl = new \ReflectionClass($class);
 				if ($refl->isAbstract()) {
 					$col += constant($class . 'Peer::NUM_COLUMNS');
@@ -146,7 +152,8 @@ class PropulsionArrayFormatter extends PropulsionFormatter
 			}
 
 			// hydrate related object or take it from registry
-			$key = call_user_func(array($modelWith->getModelPeerName(), 'getPrimaryKeyHashFromRow'), $row, $col) ?? '';
+			$modelWithPeer = $modelWith->getModelPeerName();
+			$key = $modelWithPeer::getPrimaryKeyHashFromRow($row, $col) ?? '';
 			// we hydrate the main object even in case of a one-to-many relationship
 			// in order to get the $col variable increased anyway
 			$secondaryObject = $this->getSingleObjectFromRow($row, $class, $col);

@@ -21,6 +21,7 @@ use Propulsion\Generator\Config\GeneratorConfigInterface;
 use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\VendorInfo;
 use Propulsion\Generator\Platform\PropulsionPlatformInterface;
+use PDOStatement;
 
 abstract class BaseSchemaParser implements SchemaParser
 {
@@ -205,6 +206,21 @@ abstract class BaseSchemaParser implements SchemaParser
 			$this->reverseTypeMap = array_flip($this->getTypeMapping());
 		}
 		return isset($this->reverseTypeMap[$propelType]) ? $this->reverseTypeMap[$propelType] : null;
+	}
+
+	/**
+	 * `\PDO::query()`'s return type is `PDOStatement|false` -- `false` means the
+	 * query failed outright (a malformed catalog query is a real programming
+	 * error in a schema parser, not a recoverable condition), so every
+	 * `$this->dbh->query(...)` call site in a schema parser routes its result
+	 * through this guard instead of silently assuming success.
+	 */
+	protected function requireStatement(PDOStatement|false $stmt, string $query): PDOStatement
+	{
+		if ($stmt === false) {
+			throw new EngineException("Query failed: $query");
+		}
+		return $stmt;
 	}
 
 	/**

@@ -12,6 +12,7 @@ namespace Propulsion\Formatter;
 use PDOStatement;
 use PDO;
 use Propulsion\Exception\PropulsionException;
+use Propulsion\Collection\PropulsionCollection;
 /**
  * Array formatter for Propulsion select query
  * format() returns a PropulsionArrayCollection of associative arrays, a string,
@@ -21,6 +22,7 @@ use Propulsion\Exception\PropulsionException;
  * @version    $Revision$
  */
 class PropulsionSimpleArrayFormatter extends PropulsionFormatter {
+	/** @var class-string<PropulsionCollection> */
 	protected string $collectionName = 'Propulsion\\Collection\\PropulsionArrayCollection';
 
 	public function format(PDOStatement $stmt): mixed {

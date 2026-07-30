@@ -25,6 +25,7 @@ use Propulsion\Generator\Model\ColumnDefaultValue;
 use Propulsion\Generator\Model\ForeignKey;
 use Propulsion\Generator\Model\Index;
 use Propulsion\Generator\Model\Unique;
+use Propulsion\Generator\Exception\EngineException;
 use \PDO;
 class MysqlSchemaParser extends BaseSchemaParser
 {
@@ -98,7 +99,8 @@ class MysqlSchemaParser extends BaseSchemaParser
 	{
 		$this->addVendorInfo = $this->getGeneratorConfig()->getBuildProperty('addVendorInfo');
 
-		$stmt = $this->dbh->query("SHOW FULL TABLES");
+		$sql = "SHOW FULL TABLES";
+		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
 
 		// First load the tables (important that this happen before filling out details of tables)
 		$tables = array();
@@ -166,7 +168,8 @@ class MysqlSchemaParser extends BaseSchemaParser
 	 */
 	protected function addColumns(Table $table): void
 	{
-		$stmt = $this->dbh->query("SHOW COLUMNS FROM `" . $table->getName() . "`");
+		$sql = "SHOW COLUMNS FROM `" . $table->getName() . "`";
+		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
 
 		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 			$column = $this->getColumnFromRow($row, $table);
@@ -283,7 +286,8 @@ class MysqlSchemaParser extends BaseSchemaParser
 	{
 		$database = $table->getDatabase();
 
-		$stmt = $this->dbh->query("SHOW CREATE TABLE `" . $table->getName(). "`");
+		$sql = "SHOW CREATE TABLE `" . $table->getName(). "`";
+		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
 		$row = $stmt->fetch(PDO::FETCH_NUM);
 
 		$foreignKeys = array(); // local store to avoid duplicates
@@ -299,13 +303,21 @@ class MysqlSchemaParser extends BaseSchemaParser
 				$rawfcol = $matches[4][$curKey];
 				$fkey = $matches[5][$curKey];
 
+				$lcolPieces = preg_split('/`, `/', $rawlcol);
+				if ($lcolPieces === false) {
+					throw new EngineException("Unable to parse foreign key column list: $rawlcol");
+				}
 				$lcols = array();
-				foreach(preg_split('/`, `/', $rawlcol) as $piece) {
+				foreach ($lcolPieces as $piece) {
 					$lcols[] = trim($piece, '` ');
 				}
 
+				$fcolPieces = preg_split('/`, `/', $rawfcol);
+				if ($fcolPieces === false) {
+					throw new EngineException("Unable to parse foreign key column list: $rawfcol");
+				}
 				$fcols = array();
-				foreach(preg_split('/`, `/', $rawfcol) as $piece) {
+				foreach ($fcolPieces as $piece) {
 					$fcols[] = trim($piece, '` ');
 				}
 
@@ -370,7 +382,8 @@ class MysqlSchemaParser extends BaseSchemaParser
 	 */
 	protected function addIndexes(Table $table): void
 	{
-		$stmt = $this->dbh->query("SHOW INDEX FROM `" . $table->getName() . "`");
+		$sql = "SHOW INDEX FROM `" . $table->getName() . "`";
+		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
 
 		// Loop through the returned results, grouping the same key_name together
 		// adding each column for that key.
@@ -407,7 +420,8 @@ class MysqlSchemaParser extends BaseSchemaParser
 	 */
 	protected function addPrimaryKey(Table $table): void
 	{
-		$stmt = $this->dbh->query("SHOW KEYS FROM `" . $table->getName() . "`");
+		$sql = "SHOW KEYS FROM `" . $table->getName() . "`";
+		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
 
 		// Loop through the returned results, grouping the same key_name together
 		// adding each column for that key.
@@ -428,7 +442,8 @@ class MysqlSchemaParser extends BaseSchemaParser
 	 */
 	protected function addTableVendorInfo(Table $table): void
 	{
-		$stmt = $this->dbh->query("SHOW TABLE STATUS LIKE '" . $table->getName() . "'");
+		$sql = "SHOW TABLE STATUS LIKE '" . $table->getName() . "'";
+		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
 		$row = $stmt->fetch(PDO::FETCH_ASSOC);
 		$vi = $this->getNewVendorInfoObject($row);
 		$table->addVendorInfo($vi);

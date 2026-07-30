@@ -114,27 +114,26 @@ class PgsqlSchemaParser extends BaseSchemaParser
 
 	public function parse(Database $database, mixed $task = null)
 	{
-		$stmt = $this->dbh->query("SELECT version() as ver");
+		$sql = "SELECT version() as ver";
+		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
 		$nativeVersion = $stmt->fetchColumn();
 
-		if (!$nativeVersion) {
+		if (!is_string($nativeVersion)) {
 			throw new EngineException("Failed to get database version");
 		}
 
 		$arrVersion = sscanf ($nativeVersion, '%*s %d.%d');
 		$version = sprintf ("%d.%d", $arrVersion[0], $arrVersion[1]);
 
-		// Clean up
-		$stmt = null;
-
-		$stmt = $this->dbh->query("SELECT c.oid,
+		$sql = "SELECT c.oid,
 								    c.relname, n.nspname
 								    FROM pg_class c join pg_namespace n on (c.relnamespace=n.oid)
 								    WHERE c.relkind = 'r'
 								      AND n.nspname NOT IN ('information_schema','pg_catalog')
 								      AND n.nspname NOT LIKE 'pg_temp%'
 								      AND n.nspname NOT LIKE 'pg_toast%'
-								    ORDER BY relname");
+								    ORDER BY relname";
+		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
 
 		$tableWraps = array();
 
@@ -242,7 +241,7 @@ class PgsqlSchemaParser extends BaseSchemaParser
 				$precision = $size;
 				$scale = $arrDomain['scale'];
 				$boolHasDefault = (strlen (trim ($row['atthasdef'])) > 0) ? $row['atthasdef'] : $arrDomain['hasdefault'];
-				$default = (strlen (trim ($row['adsrc'])) > 0) ? $row['adsrc'] : $arrDomain['default'];
+				$default = (string) ((strlen (trim ($row['adsrc'])) > 0) ? $row['adsrc'] : $arrDomain['default']);
 				$is_nullable = (strlen (trim ($row['attnotnull'])) > 0) ? $row['attnotnull'] : $arrDomain['notnull'];
 				$is_nullable = (($is_nullable == 't') ? false : true);
 			} else {
@@ -252,7 +251,7 @@ class PgsqlSchemaParser extends BaseSchemaParser
 				$precision = $size;
 				$scale = $arrLengthPrecision['scale'];
 				$boolHasDefault = $row['atthasdef'];
-				$default = $row['adsrc'];
+				$default = (string) $row['adsrc'];
 				$is_nullable = (($row['attnotnull'] == 't') ? false : true);
 			} // else (strtolower ($row['typtype']) == 'd')
 
@@ -261,8 +260,14 @@ class PgsqlSchemaParser extends BaseSchemaParser
 			// if column has a default
 			if (($boolHasDefault == 't') && (strlen (trim ($default)) > 0)) {
 				if (!preg_match('/^nextval\(/', $default)) {
-					$strDefault= preg_replace('/::[\W\D]*/', '', $default);
-					$default = preg_replace('/(\'?)\'/', '${1}', $strDefault);
+					// $default is a plain string subject (never an array), so
+					// preg_replace() can only genuinely return null on a regex
+					// engine error (e.g. backtrack limit) -- falling back to the
+					// pre-replacement value in that case rather than propagating
+					// null keeps this the same "should never actually happen"
+					// edge case it always was, just handled instead of untyped.
+					$strDefault = preg_replace('/::[\W\D]*/', '', $default) ?? $default;
+					$default = preg_replace('/(\'?)\'/', '${1}', $strDefault) ?? $strDefault;
 				} else {
 					$autoincrement = true;
 					$default = null;
