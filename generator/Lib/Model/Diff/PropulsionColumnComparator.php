@@ -24,7 +24,7 @@ class PropulsionColumnComparator
 	 * @param Column $fromColumn
 	 * @param Column $toColumn
 	 *
-	 * @return PropulsionColumnDiff|boolean return false if the two columns are similar
+	 * @return PropulsionColumnDiff|false return false if the two columns are similar
 	 */
 	static public function computeDiff(Column $fromColumn, Column $toColumn)
 	{

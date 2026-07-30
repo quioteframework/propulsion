@@ -80,7 +80,7 @@ class PropulsionTableComparator
 	 * @param boolean $caseInsensitive Whether the comparison is case insensitive.
 	 *                                 False by default.
 	 *
-	 * @return PropulsionTableDiff|boolean return false if the two tables are similar
+	 * @return PropulsionTableDiff|false return false if the two tables are similar
 	 */
 	public static function computeDiff(Table $fromTable, Table $toTable, $caseInsensitive = false)
 	{

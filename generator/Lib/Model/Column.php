@@ -754,7 +754,7 @@ class Column extends XMLElement
 	/**
 	 * Return NOT NULL String for this column
 	 *
-	 * @return		 "NOT NULL" if null values are not allowed or an empty string.
+	 * @return		 string "NOT NULL" if null values are not allowed, or an empty string.
 	 */
 	public function getNotNullString()
 	{
@@ -1480,11 +1480,11 @@ class Column extends XMLElement
 		$domain = $this->getDomain();
 
 		if ($domain->getSize() !== null) {
-			$colNode->setAttribute('size', $domain->getSize());
+			$colNode->setAttribute('size', (string) $domain->getSize());
 		}
 
 		if ($domain->getScale() !== null) {
-			$colNode->setAttribute('scale', $domain->getScale());
+			$colNode->setAttribute('scale', (string) $domain->getScale());
 		}
 
 		if ($this->hasPlatform() && !$this->isDefaultSqlType($this->getPlatform())) {
@@ -1539,7 +1539,7 @@ class Column extends XMLElement
 
 	/**
 	 * Returns the size of the column
-	 * @return		 string
+	 * @return		 int|string|false|null
 	 */
 	public function getSize()
 	{
@@ -1557,7 +1557,7 @@ class Column extends XMLElement
 
 	/**
 	 * Returns the scale of the column
-	 * @return		 string
+	 * @return		 int|string|null
 	 */
 	public function getScale()
 	{
@@ -1601,7 +1601,7 @@ class Column extends XMLElement
 		$defaultValue = $this->getDefaultValue();
 		if ($defaultValue !== null) {
 			if ($this->isNumericType()) {
-				$dflt = (float) $defaultValue->getValue();
+				$dflt = (string) (float) $defaultValue->getValue();
 			} elseif ($this->isTextType() || $this->getDefaultValue()->isExpression()) {
 				$dflt = "'" . str_replace("'", "\'", $defaultValue->getValue()) . "'";
 			} elseif (PropulsionTypes::isBooleanType($this->getType())) {
@@ -1630,7 +1630,12 @@ class Column extends XMLElement
 	public function setDefaultValue($def): static
 	{
 		if (!$def instanceof ColumnDefaultValue) {
-			$def = new ColumnDefaultValue($def, ColumnDefaultValue::TYPE_VALUE);
+			// ColumnDefaultValue's own $value is documented (and used elsewhere) as a
+			// string -- a schema/DDL-level literal -- so a scalar non-string default
+			// (e.g. a numeric column's int/float default) is stringified here rather
+			// than widening ColumnDefaultValue's contract for every consumer of
+			// getValue() to also handle non-string scalars.
+			$def = new ColumnDefaultValue((string) $def, ColumnDefaultValue::TYPE_VALUE);
 		}
 		$this->domain->setDefaultValue($def);
 

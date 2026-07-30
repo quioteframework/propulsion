@@ -80,7 +80,7 @@ class PropulsionDatabaseComparator
 	 * @param  boolean $caseInsensitive Whether the comparison is case insensitive.
 	 *                                  False by default.
 	 *
-	 * @return PropulsionDatabaseDiff|boolean return false if the two databases are similar
+	 * @return PropulsionDatabaseDiff|false return false if the two databases are similar
 	 */
 	public static function computeDiff(Database $fromDatabase, Database $toDatabase, $caseInsensitive = false)
 	{

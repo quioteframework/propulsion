@@ -370,11 +370,11 @@ class Domain extends XMLElement
 		}
 
 		if ($this->size) {
-			$domainNode->setAttribute('size', $this->size);
+			$domainNode->setAttribute('size', (string) $this->size);
 		}
 
 		if ($this->scale) {
-			$domainNode->setAttribute('scale', $this->scale);
+			$domainNode->setAttribute('scale', (string) $this->scale);
 		}
 
 		if ($this->description) {
