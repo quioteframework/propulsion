@@ -17,6 +17,7 @@ namespace Propulsion\Formatter;
 
  use Propulsion\Query\ModelJoin;
  use Propulsion\Map\RelationMap;
+ use Propulsion\Exception\PropulsionException;
 class ModelWith
 {
 	protected string $modelName = '';
@@ -46,10 +47,20 @@ class ModelWith
 	public function init(ModelJoin $join): void
 	{
 		$tableMap = $join->getTableMap();
-		$this->modelName = $tableMap->getClassname();
+		if ($tableMap === null) {
+			throw new PropulsionException('The join has no table map');
+		}
+		$modelName = $tableMap->getClassname();
+		if ($modelName === null) {
+			throw new PropulsionException('The table map has no classname');
+		}
+		$this->modelName = $modelName;
 		$this->modelPeerName = $tableMap->getPeerClassname();
 		$this->isSingleTableInheritance = $tableMap->isSingleTableInheritance();
 		$relation = $join->getRelationMap();
+		if ($relation === null) {
+			throw new PropulsionException('The join has no relation map');
+		}
 		$relationName = $relation->getName();
 		if ($relation->getType() == RelationMap::ONE_TO_MANY) {
 			$this->isAdd = $this->isWithOneToMany = true;
@@ -62,7 +73,19 @@ class ModelWith
 		}
 		$this->rightPhpName = $join->hasRelationAlias() ? $join->getRelationAlias() : $relationName;
 		if (!$join->isPrimary()) {
-			$this->leftPhpName = $join->hasLeftTableAlias() ? $join->getLeftTableAlias() : $join->getPreviousJoin()->getRelationMap()->getName();
+			if ($join->hasLeftTableAlias()) {
+				$this->leftPhpName = $join->getLeftTableAlias();
+			} else {
+				$previousJoin = $join->getPreviousJoin();
+				if ($previousJoin === null) {
+					throw new PropulsionException('A non-primary join without a left table alias must have a previous join');
+				}
+				$previousRelation = $previousJoin->getRelationMap();
+				if ($previousRelation === null) {
+					throw new PropulsionException('The previous join has no relation map');
+				}
+				$this->leftPhpName = $previousRelation->getName();
+			}
 		}
 	}
 

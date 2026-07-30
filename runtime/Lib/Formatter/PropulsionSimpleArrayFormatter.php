@@ -11,6 +11,7 @@ namespace Propulsion\Formatter;
 
 use PDOStatement;
 use PDO;
+use Propulsion\Collection\PropulsionCollection;
 use Propulsion\Exception\PropulsionException;
 /**
  * Array formatter for Propulsion select query
@@ -26,16 +27,23 @@ class PropulsionSimpleArrayFormatter extends PropulsionFormatter {
 	public function format(PDOStatement $stmt): mixed {
 		$this->checkInit($stmt);
 		if ($class = $this->collectionName) {
-			$collection = new $class();
-			$collection->setModel ($this->class );
-			$collection->setFormatter ($this);
+			$collectionObj = new $class();
+			if (!$collectionObj instanceof PropulsionCollection) {
+				throw new PropulsionException($class . ' must be a subclass of ' . PropulsionCollection::class);
+			}
+			$collectionObj->setModel($this->class ?? '');
+			$collectionObj->setFormatter($this);
+			$collection = $collectionObj;
 		} else {
 			$collection = array();
 		}
 		if ($this->isWithOneToMany () && $this->hasLimit) {
 			throw new PropulsionException('Cannot use limit() in conjunction with with() on a one-to-many relationship. Please remove the with() call, or the limit() call.');
 		}
-		while ($row = $stmt->fetch (PDO::FETCH_NUM)) {
+		while (($row = $stmt->fetch (PDO::FETCH_NUM)) !== false) {
+			if (!is_array($row) || !array_is_list($row)) {
+				continue;
+			}
 			if ($rowArray = $this->getStructuredArrayFromRow ($row)) {
 				$collection[] = $rowArray;
 			}
@@ -47,7 +55,10 @@ class PropulsionSimpleArrayFormatter extends PropulsionFormatter {
 	public function formatOne(PDOStatement $stmt): mixed {
 		$this->checkInit($stmt);
 		$result = null;
-		while ($row = $stmt->fetch (PDO::FETCH_NUM)) {
+		while (($row = $stmt->fetch (PDO::FETCH_NUM)) !== false) {
+			if (!is_array($row) || !array_is_list($row)) {
+				continue;
+			}
 			if ($rowArray = $this->getStructuredArrayFromRow ($row)) {
 				$result = $rowArray;
 			}

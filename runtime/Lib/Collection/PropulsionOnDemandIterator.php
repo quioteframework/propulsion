@@ -35,8 +35,8 @@ class PropulsionOnDemandIterator implements Iterator
 	 */
 	protected $stmt;
 
-	/** @var mixed */
-	protected $currentRow;
+	/** @var array<int,mixed>|false */
+	protected $currentRow = false;
 
 	protected int $currentKey = -1;
 	protected ?bool $isValid = null;
@@ -81,6 +81,9 @@ class PropulsionOnDemandIterator implements Iterator
 	 */
 	public function current(): mixed
 	{
+		if (!is_array($this->currentRow)) {
+			throw new PropulsionException('current() called on an invalid iterator position');
+		}
 		return $this->formatter->getAllObjectsFromRow($this->currentRow);
 	}
 
@@ -100,7 +103,8 @@ class PropulsionOnDemandIterator implements Iterator
 	 */
 	public function next(): void
 	{
-		$this->currentRow = $this->stmt->fetch(PDO::FETCH_NUM);
+		$row = $this->stmt->fetch(PDO::FETCH_NUM);
+		$this->currentRow = (is_array($row) && array_is_list($row)) ? $row : false;
 		$this->currentKey++;
 		$this->isValid = (bool) $this->currentRow;
 		if (!$this->isValid) {
