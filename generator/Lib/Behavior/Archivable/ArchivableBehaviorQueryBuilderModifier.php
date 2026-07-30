@@ -14,6 +14,7 @@ namespace Propulsion\Generator\Behavior\Archivable;
  * @author     François Zaninotto
  */
 use Propulsion\Generator\Builder\OM\QueryBuilder;
+use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\Table;
 
 class ArchivableBehaviorQueryBuilderModifier
@@ -24,7 +25,11 @@ class ArchivableBehaviorQueryBuilderModifier
 	public function __construct(ArchivableBehavior $behavior)
 	{
 		$this->behavior = $behavior;
-		$this->table = $behavior->getTable();
+		$table = $behavior->getTable();
+		if ($table === null) {
+			throw new EngineException('ArchivableBehavior is not attached to a table');
+		}
+		$this->table = $table;
 	}
 
 	/**

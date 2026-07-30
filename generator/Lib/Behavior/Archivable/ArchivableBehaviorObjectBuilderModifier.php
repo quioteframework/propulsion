@@ -27,7 +27,11 @@ class ArchivableBehaviorObjectBuilderModifier
 	public function __construct(ArchivableBehavior $behavior)
 	{
 		$this->behavior = $behavior;
-		$this->table = $behavior->getTable();
+		$table = $behavior->getTable();
+		if ($table === null) {
+			throw new \Propulsion\Generator\Exception\EngineException('ArchivableBehavior is not attached to a table');
+		}
+		$this->table = $table;
 	}
 
 	/**
@@ -162,7 +166,7 @@ class ArchivableBehaviorObjectBuilderModifier
 	public function addRestoreFromArchive(ObjectBuilder $builder): string
 	{
 		return $this->behavior->renderTemplate('objectRestoreFromArchive', array(
-			'objectClassname' => $this->builder->getObjectClassname(),
+			'objectClassname' => $builder->getObjectClassname(),
 		));
 	}
 
@@ -178,7 +182,7 @@ class ArchivableBehaviorObjectBuilderModifier
 		return $this->behavior->renderTemplate('objectPopulateFromArchive', array(
 			'archiveTablePhpName' => $this->behavior->getArchiveTablePhpName($builder),
 			'usesAutoIncrement'   => $this->table->hasAutoIncrementPrimaryKey(),
-			'objectClassname'     => $this->builder->getObjectClassname(),
+			'objectClassname'     => $builder->getObjectClassname(),
 			'columns'             => $this->table->getColumns(),
 		));
 	}
@@ -189,7 +193,7 @@ class ArchivableBehaviorObjectBuilderModifier
 	public function addSaveWithoutArchive(ObjectBuilder $builder): string
 	{
 		return $this->behavior->renderTemplate('objectSaveWithoutArchive', array(
-			'objectClassname'   => $this->builder->getObjectClassname(),
+			'objectClassname'   => $builder->getObjectClassname(),
 			'isArchiveOnInsert' => $this->behavior->isArchiveOnInsert(),
 			'isArchiveOnUpdate' => $this->behavior->isArchiveOnUpdate(),
 		));
@@ -201,7 +205,7 @@ class ArchivableBehaviorObjectBuilderModifier
 	public function addDeleteWithoutArchive(ObjectBuilder $builder): string
 	{
 		return $this->behavior->renderTemplate('objectDeleteWithoutArchive', array(
-			'objectClassname' => $this->builder->getObjectClassname(),
+			'objectClassname' => $builder->getObjectClassname(),
 		));
 	}
 
