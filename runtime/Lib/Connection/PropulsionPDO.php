@@ -154,7 +154,28 @@ interface PropulsionPDO
 	 *
 	 * @return    \PDOStatement|false
 	 */
-	public function query($query, $fetchMode = null, mixed ...$args): \PDOStatement|false;
+	public function query(string $query, ?int $fetchMode = null, mixed ...$args): \PDOStatement|false;
+
+	/**
+	 * Quotes a string for use in a query, using the connection's real
+	 * (driver-specific) escaping rules.
+	 */
+	public function quote(string $string, int $type = \PDO::PARAM_STR): string|false;
+
+	/**
+	 * Fetches extended error information for the last operation on this
+	 * connection: [SQLSTATE code, driver-specific error code, driver-specific
+	 * error message], the latter two `null` when there was no error.
+	 *
+	 * @return    array<int, string|int|null>
+	 */
+	public function errorInfo(): array;
+
+	/**
+	 * Returns the ID of the last inserted row, or the last value from a
+	 * specified sequence.
+	 */
+	public function lastInsertId(?string $name = null): string|false;
 
 	/**
 	 * Clears any stored prepared statements for this connection.

@@ -295,13 +295,13 @@ class DBOracle extends DBAdapter
 	}
 
 	/**
-	 * @param     PDO     $con
+	 * @param     PropulsionPDO  $con
 	 * @param     string  $name
 	 *
 	 * @throws    PropulsionException
 	 * @return    integer
 	 */
-	public function getId(PDO $con, $name = null)
+	public function getId(PropulsionPDO $con, $name = null)
 	{
 		if ($name === null) {
 			throw new PropulsionException("Unable to fetch next sequence ID without sequence name.");

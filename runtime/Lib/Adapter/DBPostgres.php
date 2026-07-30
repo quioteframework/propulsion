@@ -127,12 +127,12 @@ class DBPostgres extends DBAdapter
 	/**
 	 * Gets ID for specified sequence name.
 	 *
-	 * @param     PDO     $con
+	 * @param     PropulsionPDO  $con
 	 * @param     string  $name
 	 *
 	 * @return    integer
 	 */
-	public function getId(PDO $con, $name = null)
+	public function getId(PropulsionPDO $con, $name = null)
 	{
 		if ($name === null) {
 			throw new PropulsionException("Unable to fetch next sequence ID without sequence name.");
@@ -288,17 +288,25 @@ class DBPostgres extends DBAdapter
 	 * Bulk-loads $rows via COPY FROM STDIN -- a PDO_PGSQL-specific operation, not part
 	 * of the base \PDO class, only present on an actual pgsql-driver connection.
 	 *
-	 * As of PHP 8.5, the old bolted-on-\PDO method (PDO::pgsqlCopyFromArray()) is
-	 * deprecated in favor of \Pdo\Pgsql::copyFromArray() -- reachable here because $con
-	 * is always a PgsqlPropulsionPDO, which extends \Pdo\Pgsql specifically so this stays
-	 * reachable (see PropulsionPDO's own docblock). Falls back to the deprecated method
-	 * for the (in-practice-unreachable-in-this-codebase) case of some custom `classname`
-	 * override that isn't a \Pdo\Pgsql instance.
+	 * `\Pdo\Pgsql::copyFromArray()` is the only working way to reach it: the old
+	 * bolted-on-\PDO method (`PDO::pgsqlCopyFromArray()`) this used to fall back to
+	 * doesn't exist anywhere in PHP 8.4+ (confirmed via Reflection against a live PHP
+	 * 8.5 build -- neither \PDO nor \Pdo\Pgsql declare it, deprecated-and-removed
+	 * rather than merely deprecated), so that fallback was dead code that would have
+	 * thrown a fatal "call to undefined method" if a non-\Pdo\Pgsql connection ever
+	 * actually reached it. $con is always a PgsqlPropulsionPDO (which extends
+	 * \Pdo\Pgsql) unless a schema's `classname` override replaces it with something
+	 * else -- that unsupported case now fails with a clear PropulsionException
+	 * instead of a fatal error.
 	 *
 	 * @see       DBAdapter::bulkLoad()
 	 */
 	public function bulkLoad(PropulsionPDO $con, string $tableName, array $columns, iterable $rows): int
 	{
+		if (!$con instanceof \Pdo\Pgsql) {
+			throw new PropulsionException('DBPostgres::bulkLoad() requires a \Pdo\Pgsql connection (e.g. PgsqlPropulsionPDO); got ' . get_class($con) . '.');
+		}
+
 		$lines = array();
 		foreach ($rows as $row) {
 			$fields = array();
@@ -320,11 +328,9 @@ class DBPostgres extends DBAdapter
 		// backslash, N), not the 2-character "\N" one might expect from the row data alone.
 		// Passing the "obvious" 2-character value here throws
 		// "invalid input syntax for type integer" on the first NULL in a non-text column.
-		$result = $con instanceof \Pdo\Pgsql
-			? $con->copyFromArray($tableName, $lines, "\t", '\\\\N', implode(',', $columns))
-			: $con->pgsqlCopyFromArray($tableName, $lines, "\t", '\\\\N', implode(',', $columns));
+		$result = $con->copyFromArray($tableName, $lines, "\t", '\\\\N', implode(',', $columns));
 		if ($result === false) {
-			throw new PropulsionException('DBPostgres::bulkLoad() failed: ' . implode('; ', $con->errorInfo()));
+			throw new PropulsionException('DBPostgres::bulkLoad() failed: ' . implode('; ', array_map(strval(...), $con->errorInfo())));
 		}
 
 		return $count;

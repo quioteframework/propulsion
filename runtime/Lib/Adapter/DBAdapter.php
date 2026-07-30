@@ -281,12 +281,12 @@ abstract class DBAdapter
 	/**
 	 * Gets the generated ID (either last ID for autoincrement or next sequence ID).
 
-	 * @param     PDO     $con
+	 * @param     PropulsionPDO  $con
 	 * @param     string  $name
 	 *
 	 * @return    mixed
 	 */
-	public function getId(PDO $con, $name = null)
+	public function getId(PropulsionPDO $con, $name = null)
 	{
 		return $con->lastInsertId($name);
 	}
