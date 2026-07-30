@@ -197,7 +197,7 @@ abstract class BaseSchemaParser implements SchemaParser
 	 * Give a best guess at the native type.
 	 *
 	 * @param      string $propelType
-	 * @return     string The native SQL type that best matches the specified Propulsion type.
+	 * @return     string|null The native SQL type that best matches the specified Propulsion type.
 	 */
 	protected function getMappedNativeType($propelType)
 	{
@@ -214,7 +214,11 @@ abstract class BaseSchemaParser implements SchemaParser
 	 */
 	protected function getNewVendorInfoObject(array $params): VendorInfo
 	{
-		$type = $this->getPlatform()->getDatabaseType();
+		$platform = $this->getPlatform();
+		if ($platform === null) {
+			throw new EngineException('Cannot build a VendorInfo object: no platform is configured for this schema parser.');
+		}
+		$type = $platform->getDatabaseType();
 		$vi = new VendorInfo($type);
 		$vi->setParameters($params);
 		return $vi;

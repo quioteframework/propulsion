@@ -12,7 +12,7 @@ namespace Propulsion\Generator\Manager;
 use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Util\PropulsionSQLParser;
 use Psr\Log\LoggerAwareInterface;
-use Psr\Log\LoggerAwareTrait;
+use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
 /**
@@ -31,7 +31,18 @@ use Psr\Log\NullLogger;
  */
 class SqlExecManager implements LoggerAwareInterface
 {
-    use LoggerAwareTrait;
+    /**
+     * Not using Psr\Log\LoggerAwareTrait here: its $logger property is
+     * declared nullable, but the constructor below always initializes it to
+     * a NullLogger, so it is never null for the lifetime of this object.
+     * Declaring our own non-nullable property lets PHPStan know that.
+     */
+    protected LoggerInterface $logger;
+
+    public function setLogger(LoggerInterface $logger): void
+    {
+        $this->logger = $logger;
+    }
 
     public function __construct(
         private readonly string $dsn,

@@ -96,7 +96,7 @@ class ModelManager extends AbstractSchemaManager
         // Single table inheritance: stub child Object/Query classes.
         if ($col = $table->getChildrenColumn()) {
             if ($col->isEnumeratedClasses()) {
-                foreach ($col->getChildren() as $child) {
+                foreach ($col->getChildren() ?? [] as $child) {
                     if ($child->getAncestor()) {
                         /** @var QueryInheritanceBuilder $builder */
                         $builder = $generatorConfig->getConfiguredBuilder($table, 'queryinheritance');
@@ -150,6 +150,13 @@ class ModelManager extends AbstractSchemaManager
         if ($table->hasAdditionalBuilders()) {
             foreach ($table->getAdditionalBuilders() as $builderClass) {
                 $builder = new $builderClass($table);
+                if (!$builder instanceof DataModelBuilder) {
+                    throw new EngineException(sprintf(
+                        'Additional builder class "%s" for table "%s" does not extend DataModelBuilder.',
+                        $builder::class,
+                        $table->getName()
+                    ));
+                }
                 $builder->setGeneratorConfig($generatorConfig);
                 $written += $this->writeBuilderOutput($builder, overwrite: $builder->overwrite ?? true);
             }
@@ -216,6 +223,8 @@ class ModelManager extends AbstractSchemaManager
      */
     private function stripTimestamp(string $content): string
     {
-        return preg_replace('/^\s*\*\s*\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\s*$/m', ' *', $content);
+        $stripped = preg_replace('/^\s*\*\s*\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\s*$/m', ' *', $content);
+
+        return $stripped ?? $content;
     }
 }

@@ -18,7 +18,7 @@ use Propulsion\Generator\Model\PropulsionTypes;
 use Propulsion\Generator\Model\Rule;
 use Propulsion\Generator\Model\Validator;
 use Psr\Log\LoggerAwareInterface;
-use Psr\Log\LoggerAwareTrait;
+use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
 /**
@@ -38,7 +38,18 @@ use Psr\Log\NullLogger;
  */
 class SchemaReverseManager implements LoggerAwareInterface
 {
-    use LoggerAwareTrait;
+    /**
+     * Not using Psr\Log\LoggerAwareTrait here: its $logger property is
+     * declared nullable, but the constructor below always initializes it to
+     * a NullLogger, so it is never null for the lifetime of this object.
+     * Declaring our own non-nullable property lets PHPStan know that.
+     */
+    protected LoggerInterface $logger;
+
+    public function setLogger(LoggerInterface $logger): void
+    {
+        $this->logger = $logger;
+    }
 
     /** Zero bit for no validators */
     public const VALIDATORS_NONE = 0;
@@ -177,6 +188,9 @@ class SchemaReverseManager implements LoggerAwareInterface
     {
         $doc = $this->reverse($databaseName, $validatorBits);
         $xmlstr = $doc->saveXML();
+        if ($xmlstr === false) {
+            throw new EngineException('Failed to serialize the generated schema to XML.');
+        }
 
         $dir = dirname($outputFile);
         if ($dir !== '' && !is_dir($dir) && !mkdir($dir, 0777, true) && !is_dir($dir)) {
@@ -283,6 +297,10 @@ class SchemaReverseManager implements LoggerAwareInterface
                 $colnames = $unique->getColumns();
                 if (count($colnames) === 1) { // currently 'unique' validator only works w/ single columns.
                     $col = $table->getColumn($colnames[0]);
+                    if ($col === null) {
+                        $this->logger->warning('Skipping unique validator: column {column} not found on table {table}.', ['column' => $colnames[0], 'table' => $table->getName()]);
+                        continue;
+                    }
                     $validator = $set->getValidator($col);
                     $validator->addRule($this->getValidatorRule($col, 'unique'));
                 }
@@ -299,30 +317,36 @@ class SchemaReverseManager implements LoggerAwareInterface
         return ($validatorBits & $type) === $type;
     }
 
-    private function getValidatorRule(Column $column, string $type, mixed $value = null): Rule
+    private function getValidatorRule(Column $column, string $type, int|string|null $value = null): Rule
     {
         $rule = new Rule();
         $rule->setName($type);
         if ($value !== null) {
-            $rule->setValue($value);
+            $rule->setValue((string) $value);
         }
         $rule->setMessage($this->getRuleMessage($column, $type, $value));
 
         return $rule;
     }
 
-    private function getRuleMessage(Column $column, string $type, mixed $value): string
+    private function getRuleMessage(Column $column, string $type, int|string|null $value): string
     {
         $colName = $column->getName();
-        $tableName = $column->getTable()->getName();
+        $table = $column->getTable();
+        if ($table === null) {
+            throw new EngineException("Column '{$colName}' is not attached to a table; cannot build a validator rule message for it.");
+        }
+        $tableName = $table->getName();
         $msg = self::$validatorMessages[strtolower($type)];
-        // array_values() strips the string keys compact() produces: passing those
-        // through to sprintf() via call_user_func_array() would otherwise be
-        // interpreted as (unsupported) named arguments on PHP 8.1+.
-        $args = array_values(compact($msg['var']));
-        array_unshift($args, $msg['msg']);
 
-        return call_user_func_array('sprintf', $args);
+        /** @var array<string, int|string|null> $vars */
+        $vars = ['colName' => $colName, 'value' => $value, 'tableName' => $tableName];
+        $args = [];
+        foreach ($msg['var'] as $varName) {
+            $args[] = $vars[$varName];
+        }
+
+        return vsprintf($msg['msg'], $args);
     }
 }
 
@@ -337,6 +361,9 @@ class SchemaReverseValidatorSet
     public function getValidator(Column $column): Validator
     {
         $key = $column->getName();
+        if ($key === null) {
+            throw new EngineException('Cannot build a validator for a column with no name.');
+        }
         if (!isset($this->validators[$key])) {
             $this->validators[$key] = new Validator();
             $this->validators[$key]->setColumn($column);
