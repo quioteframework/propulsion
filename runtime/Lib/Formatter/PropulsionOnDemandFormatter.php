@@ -18,6 +18,7 @@ namespace Propulsion\Formatter;
  * @version    $Revision$
  */
 
+ use Propulsion\Collection\PropulsionOnDemandCollection;
  use Propulsion\Query\ModelCriteria;
  use PDOStatement;
  use Propulsion\Exception\PropulsionException;
@@ -54,7 +55,10 @@ class PropulsionOnDemandFormatter extends PropulsionObjectFormatter
 		}
 		$class = $this->collectionName;
 		$collection = new $class();
-		$collection->setModel($this->class);
+		if (!$collection instanceof PropulsionOnDemandCollection) {
+			throw new PropulsionException($class . ' must be a subclass of ' . PropulsionOnDemandCollection::class);
+		}
+		$collection->setModel($this->class ?? '');
 		$collection->initIterator($this, $stmt);
 
 		return $collection;
@@ -73,26 +77,51 @@ class PropulsionOnDemandFormatter extends PropulsionObjectFormatter
 	public function getAllObjectsFromRow(array $row): BaseObject
 	{
 		$col = 0;
+		$peer = $this->peer;
+		$mainClass = $this->class;
+		if ($peer === null || $mainClass === null) {
+			throw new PropulsionException('You must initialize a formatter object before calling format() or formatOne()');
+		}
+
 		// main object
-		$class = $this->isSingleTableInheritance ? call_user_func(array($this->peer, 'getOMClass'), $row, $col, false) : $this->class;
-		$obj = $this->getSingleObjectFromRow($row, $class, $col);
+		if ($this->isSingleTableInheritance) {
+			$omClass = $peer::getOMClass($row, $col, false);
+			if (!is_string($omClass)) {
+				throw new PropulsionException($peer . '::getOMClass() must return a string');
+			}
+			$mainClass = $omClass;
+		}
+		$obj = $this->getSingleObjectFromRow($row, $mainClass, $col);
+
+		/** @var array<string, BaseObject> $hydrationChain */
+		$hydrationChain = array();
+
 		// related objects using 'with'
 		foreach ($this->getWith() as $modelWith) {
 			if ($modelWith->isSingleTableInheritance()) {
-				$class = call_user_func(array($modelWith->getModelPeerName(), 'getOMClass'), $row, $col, false);
+				$peerClass = $modelWith->getModelPeerName();
+				$class = $peerClass::getOMClass($row, $col, false);
+				if (!is_string($class) || !class_exists($class)) {
+					throw new PropulsionException($peerClass . '::getOMClass() must return a class name');
+				}
 				$refl = new ReflectionClass($class);
 				if ($refl->isAbstract()) {
-					$col += constant($class . 'Peer::NUM_COLUMNS');
+					$numColumns = constant($class . 'Peer::NUM_COLUMNS');
+					if (!is_int($numColumns)) {
+						throw new PropulsionException($class . 'Peer::NUM_COLUMNS must be an int');
+					}
+					$col += $numColumns;
 					continue;
 				}
 			} else {
 				$class = $modelWith->getModelName();
 			}
 			$endObject = $this->getSingleObjectFromRow($row, $class, $col);
+			$leftPhpName = $modelWith->getLeftPhpName();
 			if ($modelWith->isPrimary()) {
 				$startObject = $obj;
-			} elseif (isset($hydrationChain)) {
-				$startObject = $hydrationChain[$modelWith->getLeftPhpName()];
+			} elseif ($leftPhpName !== null && isset($hydrationChain[$leftPhpName])) {
+				$startObject = $hydrationChain[$leftPhpName];
 			} else {
 				continue;
 			}
@@ -100,16 +129,12 @@ class PropulsionOnDemandFormatter extends PropulsionObjectFormatter
 			// in which case it should not be related to the previous object
 			if ($endObject->isPrimaryKeyNull()) {
 				if ($modelWith->isAdd()) {
-					call_user_func(array($startObject, $modelWith->getInitMethod()), false);
+					$startObject->{$modelWith->getInitMethod()}(false);
 				}
 				continue;
 			}
-			if (isset($hydrationChain)) {
-				$hydrationChain[$modelWith->getRightPhpName()] = $endObject;
-			} else {
-				$hydrationChain = array($modelWith->getRightPhpName() => $endObject);
-			}
-			call_user_func(array($startObject, $modelWith->getRelationMethod()), $endObject);
+			$hydrationChain[$modelWith->getRightPhpName() ?? ''] = $endObject;
+			$startObject->{$modelWith->getRelationMethod()}($endObject);
 		}
 		foreach ($this->getAsColumns() as $alias => $clause) {
 			$obj->setVirtualColumn($alias, $row[$col]);
