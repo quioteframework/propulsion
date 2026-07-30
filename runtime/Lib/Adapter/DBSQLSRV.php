@@ -94,6 +94,9 @@ class DBSQLSRV extends DBMSSQL
 			// this is to workaround for a bug with pdo_sqlsrv inserting or updating blobs with null values
 			// http://social.msdn.microsoft.com/Forums/en-US/sqldriverforphp/thread/5a755bdd-41e9-45cb-9166-c9da4475bb94
 			if (null !== $tableName) {
+				if (!is_string($tableName) || !is_string($columnName)) {
+					throw new PropulsionException('DBSQLSRV::cleanupSQL() expected param table/column names to be strings');
+				}
 				$cMap = $dbMap->getTable($tableName)->getColumn($columnName);
 				if($value === null && $cMap->isLob()) {
 					$sql = str_replace(":p$i", "CONVERT(VARBINARY(MAX), :p$i)", $sql);
