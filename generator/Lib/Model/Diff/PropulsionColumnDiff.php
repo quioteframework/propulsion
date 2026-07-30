@@ -64,6 +64,20 @@ class PropulsionColumnDiff
 	}
 
 	/**
+	 * Getter for the fromColumn property, or throw if unset. A PropulsionColumnDiff only
+	 * ever gets constructed by PropulsionColumnComparator::computeDiff(), which always
+	 * calls setFromColumn()/setToColumn() together before handing the diff back to any
+	 * caller -- there's no real window where one is set and the other isn't.
+	 */
+	public function requireFromColumn(): Column
+	{
+		if ($this->fromColumn === null) {
+			throw new \Propulsion\Generator\Exception\EngineException('PropulsionColumnDiff has no fromColumn set.');
+		}
+		return $this->fromColumn;
+	}
+
+	/**
 	 * Setter for the toColumn property
 	 *
 	 * @param Column $toColumn
@@ -80,6 +94,18 @@ class PropulsionColumnDiff
 	 */
 	public function getToColumn()
 	{
+		return $this->toColumn;
+	}
+
+	/**
+	 * Getter for the toColumn property, or throw if unset -- see requireFromColumn()'s
+	 * own docblock for why this is always safe in practice.
+	 */
+	public function requireToColumn(): Column
+	{
+		if ($this->toColumn === null) {
+			throw new \Propulsion\Generator\Exception\EngineException('PropulsionColumnDiff has no toColumn set.');
+		}
 		return $this->toColumn;
 	}
 

@@ -562,7 +562,7 @@ CREATE %sINDEX %s ON %s (%s);
 		return sprintf($pattern,
 			$index->isUnique() ? 'UNIQUE ' : '',
 			$this->quoteIdentifier($index->getName()),
-			$this->quoteIdentifier($index->getTable()->getName()),
+			$this->quoteIdentifier($index->requireTable()->getName()),
 			$this->getColumnListDDL($index->getColumns())
 		);
 	}
@@ -660,7 +660,7 @@ DROP INDEX %s;
 ALTER TABLE %s ADD %s;
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($fk->getTable()->getName()),
+			$this->quoteIdentifier($fk->requireTable()->getName()),
 			$this->getForeignKeyDDL($fk)
 		);
 	}
@@ -680,7 +680,7 @@ ALTER TABLE %s ADD %s;
 ALTER TABLE %s DROP CONSTRAINT %s;
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($fk->getTable()->getName()),
+			$this->quoteIdentifier($fk->requireTable()->getName()),
 			$this->quoteIdentifier($fk->getName())
 		);
 	}
@@ -960,7 +960,7 @@ ALTER TABLE %s RENAME TO %s;
 ALTER TABLE %s DROP COLUMN %s;
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($column->getTable()->getName()),
+			$this->quoteIdentifier($column->requireTable()->getName()),
 			$this->quoteIdentifier($column->getName())
 		);
 	}
@@ -975,7 +975,7 @@ ALTER TABLE %s DROP COLUMN %s;
 ALTER TABLE %s RENAME COLUMN %s TO %s;
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($fromColumn->getTable()->getName()),
+			$this->quoteIdentifier($fromColumn->requireTable()->getName()),
 			$this->quoteIdentifier($fromColumn->getName()),
 			$this->quoteIdentifier($toColumn->getName())
 		);
@@ -988,12 +988,12 @@ ALTER TABLE %s RENAME COLUMN %s TO %s;
 	 */
 	public function getModifyColumnDDL(PropulsionColumnDiff $columnDiff)
 	{
-		$toColumn = $columnDiff->getToColumn();
+		$toColumn = $columnDiff->requireToColumn();
 		$pattern = "
 ALTER TABLE %s MODIFY %s;
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($toColumn->getTable()->getName()),
+			$this->quoteIdentifier($toColumn->requireTable()->getName()),
 			$this->getColumnDDL($toColumn)
 		);
 	}
@@ -1009,9 +1009,9 @@ ALTER TABLE %s MODIFY %s;
 		$lines = array();
 		$tableName = null;
 		foreach ($columnDiffs as $columnDiff) {
-			$toColumn = $columnDiff->getToColumn();
+			$toColumn = $columnDiff->requireToColumn();
 			if (null === $tableName) {
-				$tableName = $toColumn->getTable()->getName();
+				$tableName = $toColumn->requireTable()->getName();
 			}
 			$lines []= $this->getColumnDDL($toColumn);
 		}
@@ -1042,7 +1042,7 @@ ALTER TABLE %s MODIFY
 ALTER TABLE %s ADD %s;
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($column->getTable()->getName()),
+			$this->quoteIdentifier($column->requireTable()->getName()),
 			$this->getColumnDDL($column)
 		);
 	}
@@ -1059,7 +1059,7 @@ ALTER TABLE %s ADD %s;
 		$tableName = null;
 		foreach ($columns as $column) {
 			if (null === $tableName) {
-				$tableName = $column->getTable()->getName();
+				$tableName = $column->requireTable()->getName();
 			}
 			$lines []= $this->getColumnDDL($column);
 		}

@@ -544,7 +544,7 @@ COMMENT ON COLUMN %s.%s IS %s;
 		if ($description = $column->getDescription()) {
 			return sprintf(
 				$pattern,
-				$this->quoteIdentifier($column->getTable()->getName()),
+				$this->quoteIdentifier($column->requireTable()->getName()),
 				$this->quoteIdentifier($column->getName()),
 				$this->quote($description)
 			);
@@ -578,6 +578,11 @@ DROP TABLE IF EXISTS %s CASCADE;
 
 		$ddl = array($this->quoteIdentifier($col->getName()));
 		$sqlType = $domain->getSqlType();
+		// $col->getTable() is deliberately left nullable here (not requireTable()) --
+		// getColumnDDL() is called directly, on unattached test-constructed columns, by
+		// several platform DDL-shape tests (PgsqlPlatformTest, JsonColumnDDLTest,
+		// VectorColumnDDLTest); only the branches that genuinely need a table (native
+		// enum's type name) require one, right where they need it.
 		$table = $col->getTable();
 		$isIdentity = false;
 		if ($col->isAutoIncrement() && $table && $table->getIdMethodParameters() == null) {
@@ -589,13 +594,13 @@ DROP TABLE IF EXISTS %s CASCADE;
 			} else {
 				$sqlType = $col->getType() === PropulsionTypes::BIGINT ? 'bigserial' : 'serial';
 			}
-		} elseif ($col->isEnumType() && $col->isNativeEnum() && $table) {
+		} elseif ($col->isEnumType() && $col->isNativeEnum()) {
 			// The real `CREATE TYPE ... AS ENUM` this column's type name refers
 			// to is emitted separately, before the table -- see getAddTablesDDL()/
 			// getAddEnumTypesDDL(). Postgres stores the label text natively here
 			// (not the emulated integer index), enforced by the enum type itself
 			// rather than a CHECK constraint (contrast SQLite/Oracle).
-			$sqlType = $this->quoteIdentifier($this->getEnumTypeRawName($col, $table));
+			$sqlType = $this->quoteIdentifier($this->getEnumTypeRawName($col, $col->requireTable()));
 		} elseif ($col->getType() === PropulsionTypes::PHP_ARRAY && $col->isNativeArray()) {
 			// See Column::isNativeArray() -- no per-element PHP type is known
 			// for a generic PHP_ARRAY column, so this always emits a plain
@@ -694,7 +699,7 @@ CREATE %sINDEX %s%s ON %s%s (%s)%s%s%s;
 			$index->isUnique() ? 'UNIQUE ' : '',
 			$index->isConcurrent() ? 'CONCURRENTLY ' : '',
 			$this->quoteIdentifier($index->getName()),
-			$this->quoteIdentifier($index->getTable()->getName()),
+			$this->quoteIdentifier($index->requireTable()->getName()),
 			$index->getIndexType() ? ' USING ' . $index->getIndexType() : '',
 			$this->getIndexColumnListDDL($index),
 			$index->getIncludeColumns() ? ' INCLUDE (' . $this->getColumnListDDL($index->getIncludeColumns()) . ')' : '',
@@ -751,9 +756,9 @@ CREATE %sINDEX %s%s ON %s%s (%s)%s%s%s;
 		$ret = '';
 		$changedProperties = $columnDiff->getChangedProperties();
 
-		$toColumn = $columnDiff->getToColumn();
+		$toColumn = $columnDiff->requireToColumn();
 
-		$table = $toColumn->getTable();
+		$table = $toColumn->requireTable();
 
 		$colName = $this->quoteIdentifier($toColumn->getName());
 
@@ -768,7 +773,7 @@ ALTER TABLE %s ALTER COLUMN %s;
 				case 'type':
 				case 'scale':
 					$sqlType = $toColumn->getDomain()->getSqlType();
-					if ($toColumn->isAutoIncrement() && !$toColumn->isIdentity() && $table && $table->getIdMethodParameters() == null) {
+					if ($toColumn->isAutoIncrement() && !$toColumn->isIdentity() && $table->getIdMethodParameters() == null) {
 						$sqlType = $toColumn->getType() === PropulsionTypes::BIGINT ? 'bigserial' : 'serial';
 					} elseif ($toColumn->getType() === PropulsionTypes::PHP_ARRAY && $toColumn->isNativeArray()) {
 						$sqlType = 'TEXT[]';
@@ -850,7 +855,7 @@ ALTER TABLE %s ALTER COLUMN %s;
 	";
 			return sprintf(
 				$pattern,
-				$this->quoteIdentifier($index->getTable()->getName()),
+				$this->quoteIdentifier($index->requireTable()->getName()),
 				$this->quoteIdentifier($index->getName())
 			);
 		} else {
