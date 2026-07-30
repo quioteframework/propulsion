@@ -26,7 +26,7 @@ class VersionableBehaviorQueryBuilderModifier
   public function __construct(VersionableBehavior $behavior)
   {
     $this->behavior = $behavior;
-    $this->table = $behavior->getTable();
+    $this->table = $behavior->requireTable();
   }
 
   protected function getParameter(string $key): mixed
@@ -34,20 +34,31 @@ class VersionableBehaviorQueryBuilderModifier
     return $this->behavior->getParameter($key);
   }
 
+  private function requireColumnName(\Propulsion\Generator\Model\Column $column): string
+  {
+    $name = $column->getName();
+    if ($name === null) {
+      throw new \Propulsion\Generator\Exception\EngineException("Column has no name");
+    }
+    return $name;
+  }
+
   protected function getColumnAttribute(string $name = "version_column"): string
   {
-    return strtolower($this->behavior->getColumnForParameter($name)->getName());
+    return strtolower(
+      $this->requireColumnName($this->behavior->requireColumnForParameter($name)),
+    );
   }
 
   protected function getColumnPhpName(string $name = "version_column"): string
   {
-    return $this->behavior->getColumnForParameter($name)->getPhpName();
+    return $this->behavior->requireColumnForParameter($name)->getPhpName();
   }
 
   protected function getVersionQueryClassName(): string
   {
     return $this->builder
-      ->getNewStubQueryBuilder($this->behavior->getVersionTable())
+      ->getNewStubQueryBuilder($this->behavior->requireVersionTable())
       ->getClassname();
   }
 

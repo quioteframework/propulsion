@@ -22,7 +22,7 @@ class VersionableBehaviorPeerBuilderModifier
   public function __construct(VersionableBehavior $behavior)
   {
     $this->behavior = $behavior;
-    $this->table = $behavior->getTable();
+    $this->table = $behavior->requireTable();
   }
 
   public function staticAttributes(): string

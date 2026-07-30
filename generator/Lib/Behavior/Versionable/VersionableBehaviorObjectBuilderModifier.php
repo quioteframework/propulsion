@@ -9,6 +9,11 @@ namespace Propulsion\Generator\Behavior\Versionable;
  * @license    MIT License
  */
 
+use Propulsion\Generator\Exception\EngineException;
+use Propulsion\Generator\Model\Column;
+use Propulsion\Generator\Model\ForeignKey;
+use Propulsion\Generator\Model\Table;
+
 /**
  * Behavior to add versionable columns and abilities
  *
@@ -17,7 +22,7 @@ namespace Propulsion\Generator\Behavior\Versionable;
 class VersionableBehaviorObjectBuilderModifier
 {
   protected VersionableBehavior $behavior;
-  protected \Propulsion\Generator\Model\Table $table;
+  protected Table $table;
   protected \Propulsion\Generator\Builder\OM\ObjectBuilder $builder;
   protected string $objectClassname;
   protected string $peerClassname;
@@ -26,7 +31,7 @@ class VersionableBehaviorObjectBuilderModifier
   public function __construct(VersionableBehavior $behavior)
   {
     $this->behavior = $behavior;
-    $this->table = $behavior->getTable();
+    $this->table = $behavior->requireTable();
   }
 
   protected function getParameter(string $key): mixed
@@ -34,20 +39,73 @@ class VersionableBehaviorObjectBuilderModifier
     return $this->behavior->getParameter($key);
   }
 
+  private function getStringParameter(string $key): string
+  {
+    $value = $this->behavior->getParameter($key);
+    if (!is_string($value)) {
+      throw new EngineException(
+        sprintf("Parameter '%s' is expected to be a string", $key),
+      );
+    }
+    return $value;
+  }
+
+  private function requireTableName(Table $table): string
+  {
+    $name = $table->getName();
+    if ($name === null) {
+      throw new EngineException("Table has no name");
+    }
+    return $name;
+  }
+
+  private function requireColumnName(Column $column): string
+  {
+    $name = $column->getName();
+    if ($name === null) {
+      throw new EngineException("Column has no name");
+    }
+    return $name;
+  }
+
+  private function requireForeignTable(ForeignKey $fk): Table
+  {
+    $table = $fk->getForeignTable();
+    if ($table === null) {
+      throw new EngineException(
+        "ForeignKey is not attached to a resolvable foreign table",
+      );
+    }
+    return $table;
+  }
+
+  private function requireColumn(Table $table, string $name): Column
+  {
+    $column = $table->getColumn($name);
+    if ($column === null) {
+      throw new EngineException(
+        sprintf("Column '%s' was not found on table '%s'", $name, $table->getName()),
+      );
+    }
+    return $column;
+  }
+
   protected function getColumnAttribute(string $name = "version_column"): string
   {
-    return strtolower($this->behavior->getColumnForParameter($name)->getName());
+    return strtolower(
+      $this->requireColumnName($this->behavior->requireColumnForParameter($name)),
+    );
   }
 
   protected function getColumnPhpName(string $name = "version_column"): string
   {
-    return $this->behavior->getColumnForParameter($name)->getPhpName();
+    return $this->behavior->requireColumnForParameter($name)->getPhpName();
   }
 
   protected function getVersionQueryClassName(): string
   {
     return $this->builder
-      ->getNewStubQueryBuilder($this->behavior->getVersionTable())
+      ->getNewStubQueryBuilder($this->behavior->requireVersionTable())
       ->getClassname();
   }
 
@@ -89,9 +147,9 @@ class VersionableBehaviorObjectBuilderModifier
     $script = "if (\$this->isVersioningNecessary()) {
 	\$this->set{$this->getColumnPhpName()}(\$this->isNew() ? 1 : \$this->getLastVersionNumber(\$con) + 1);";
     if ($this->behavior->getParameter("log_created_at") == "true") {
-      $col = $this->behavior
-        ->getTable()
-        ->getColumn($this->getParameter("version_created_at_column"));
+      $col = $this->behavior->requireColumnForParameter(
+        "version_created_at_column",
+      );
       $script .= "
 	if (!\$this->isColumnModified({$this->builder->getColumnConstant($col)})) {
 		\$this->{$this->getColumnSetter("version_created_at_column")}(time());
@@ -258,7 +316,7 @@ public function isVersioningNecessary(\$con = null)
 
   protected function addAddVersion(string &$script): void
   {
-    $versionTable = $this->behavior->getVersionTable();
+    $versionTable = $this->behavior->requireVersionTable();
     $versionARClassname = $this->builder
       ->getNewStubObjectBuilder($versionTable)
       ->getClassname();
@@ -287,9 +345,10 @@ public function addVersion(\$con = null)
     foreach ($this->behavior->getVersionableFks() as $fk) {
       $fkGetter = $this->builder->getFKPhpNameAffix($fk, $plural = false);
       $fkVersionColumnName = $fk->getLocalColumnName() . "_version";
-      $fkVersionColumnPhpName = $versionTable
-        ->getColumn($fkVersionColumnName)
-        ->getPhpName();
+      $fkVersionColumnPhpName = $this->requireColumn(
+        $versionTable,
+        $fkVersionColumnName,
+      )->getPhpName();
       $script .= "
 	if ((\$related = \$this->get{$fkGetter}(\$con)) && \$related->getVersion()) {
 		\$version->set{$fkVersionColumnPhpName}(\$related->getVersion());
@@ -299,8 +358,9 @@ public function addVersion(\$con = null)
       $fkGetter = $this->builder->getRefFKPhpNameAffix($fk, $plural = true);
       $idsColumn = $this->behavior->getReferrerIdsColumn($fk);
       $versionsColumn = $this->behavior->getReferrerVersionsColumn($fk);
+      $foreignColumnPhpName = $fk->getForeignColumn()->getPhpName();
       $script .= "
-	if (\$relateds = \$this->get{$fkGetter}(new Criteria(), \$con)->toKeyValue('{$fk->getForeignColumn()->getPhpName()}', 'Version')) {
+	if (\$relateds = \$this->get{$fkGetter}(new Criteria(), \$con)->toKeyValue('{$foreignColumnPhpName}', 'Version')) {
 		\$version->set{$idsColumn->getPhpName()}(array_keys(\$relateds));
 		\$version->set{$versionsColumn->getPhpName()}(array_values(\$relateds));
 	}";
@@ -341,7 +401,7 @@ public function toVersion(\$versionNumber, \$con = null)
   protected function addPopulateFromVersion(string &$script): void
   {
     $ARclassName = $this->getActiveRecordClassName();
-    $versionTable = $this->behavior->getVersionTable();
+    $versionTable = $this->behavior->requireVersionTable();
     $versionARClassname = $this->builder
       ->getNewStubObjectBuilder($versionTable)
       ->getClassname();
@@ -366,16 +426,16 @@ public function populateFromVersion(\$version, \$con = null)
         "());";
     }
     foreach ($this->behavior->getVersionableFks() as $fk) {
-      $foreignTable = $fk->getForeignTable();
+      $foreignTable = $this->requireForeignTable($fk);
       $foreignBehavior = $foreignTable->getBehavior("versionable");
       if (!$foreignBehavior instanceof VersionableBehavior) {
-        throw new \Propulsion\Generator\Exception\EngineException(sprintf(
+        throw new EngineException(sprintf(
           "Table '%s' is related to '%s' via a foreign key but does not have the versionable behavior.",
           $foreignTable->getName(),
           $this->table->getName()
         ));
       }
-      $foreignVersionTable = $foreignBehavior->getVersionTable();
+      $foreignVersionTable = $foreignBehavior->requireVersionTable();
       $relatedClassname = $this->builder
         ->getNewStubObjectBuilder($foreignTable)
         ->getClassname();
@@ -384,16 +444,18 @@ public function populateFromVersion(\$version, \$con = null)
         ->getClassname();
       $fkColumnName = $fk->getLocalColumnName();
       $fkColumnPhpName = $fk->getLocalColumn()->getPhpName();
-      $fkVersionColumnPhpName = $versionTable
-        ->getColumn($fkColumnName . "_version")
-        ->getPhpName();
+      $fkVersionColumnPhpName = $this->requireColumn(
+        $versionTable,
+        $fkColumnName . "_version",
+      )->getPhpName();
       $fkPhpname = $this->builder->getFKPhpNameAffix($fk, $plural = false);
+      $foreignColumnPhpName = $fk->getForeignColumn()->getPhpName();
       // FIXME: breaks lazy-loading
       $script .= "
 	if (\$fkValue = \$version->get{$fkColumnPhpName}()) {
 		\$related = new {$relatedClassname}();
 		\$relatedVersion = {$relatedVersionQueryClassname}::create()
-			->filterBy{$fk->getForeignColumn()->getPhpName()}(\$fkValue)
+			->filterBy{$foreignColumnPhpName}(\$fkValue)
 			->filterByVersion(\$version->get{$fkVersionColumnPhpName}())
 			->findOne(\$con);
 		\$related->populateFromVersion(\$relatedVersion, \$con);
@@ -404,16 +466,16 @@ public function populateFromVersion(\$version, \$con = null)
     foreach ($this->behavior->getVersionableReferrers() as $fk) {
       $fkPhpNames = $this->builder->getRefFKPhpNameAffix($fk, $plural = true);
       $fkPhpName = $this->builder->getRefFKPhpNameAffix($fk, $plural = false);
-      $foreignTable = $fk->getTable();
+      $foreignTable = $this->behavior->requireForeignKeyTable($fk);
       $foreignBehavior = $foreignTable->getBehavior("versionable");
       if (!$foreignBehavior instanceof VersionableBehavior) {
-        throw new \Propulsion\Generator\Exception\EngineException(sprintf(
+        throw new EngineException(sprintf(
           "Table '%s' is related to '%s' via a foreign key but does not have the versionable behavior.",
           $foreignTable->getName(),
           $this->table->getName()
         ));
       }
-      $foreignVersionTable = $foreignBehavior->getVersionTable();
+      $foreignVersionTable = $foreignBehavior->requireVersionTable();
       $fkColumnIds = $this->behavior->getReferrerIdsColumn($fk);
       $fkColumnVersions = $this->behavior->getReferrerVersionsColumn($fk);
       $relatedVersionQueryClassname = $this->builder
@@ -495,7 +557,7 @@ public function isLastVersion(\$con = null)
   protected function addGetOneVersion(string &$script): void
   {
     $versionARClassname = $this->builder
-      ->getNewStubObjectBuilder($this->behavior->getVersionTable())
+      ->getNewStubObjectBuilder($this->behavior->requireVersionTable())
       ->getClassname();
     $script .= "
 /**
@@ -518,15 +580,15 @@ public function getOneVersion(\$versionNumber, \$con = null)
 
   protected function addGetAllVersions(string &$script): void
   {
-    $versionTable = $this->behavior->getVersionTable();
+    $versionTable = $this->behavior->requireVersionTable();
     $versionARClassname = $this->builder
       ->getNewStubObjectBuilder($versionTable)
       ->getClassname();
     $versionForeignColumn = $versionTable->getColumn(
-      $this->behavior->getParameter("version_column"),
+      $this->getStringParameter("version_column"),
     );
     $fks = $versionTable->getForeignKeysReferencingTable(
-      $this->table->getName(),
+      $this->requireTableName($this->table),
     );
     $relCol = $this->builder->getRefFKPhpNameAffix($fks[0], $plural = true);
     $script .= "
@@ -550,15 +612,15 @@ public function getAllVersions(\$con = null)
 
   protected function addCompareVersions(string &$script): void
   {
-    $versionTable = $this->behavior->getVersionTable();
+    $versionTable = $this->behavior->requireVersionTable();
     $versionARClassname = $this->builder
       ->getNewStubObjectBuilder($versionTable)
       ->getClassname();
     $versionForeignColumn = $versionTable->getColumn(
-      $this->behavior->getParameter("version_column"),
+      $this->getStringParameter("version_column"),
     );
     $fks = $versionTable->getForeignKeysReferencingTable(
-      $this->table->getName(),
+      $this->requireTableName($this->table),
     );
     $relCol = $this->builder->getRefFKPhpNameAffix($fks[0], $plural = true);
     $script .= "
