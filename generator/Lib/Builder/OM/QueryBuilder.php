@@ -25,18 +25,80 @@ use Propulsion\Generator\Model\PropulsionTypes;
 use Propulsion\Generator\Model\ForeignKey;
 use Propulsion\Generator\Model\Column;
 use Propulsion\Generator\Model\Table;
+use Propulsion\Generator\Model\Database;
+use Propulsion\Generator\Exception\EngineException;
 class QueryBuilder extends OMBuilder
 {
+
+    /**
+     * Returns the Database this builder's table is attached to, or throws if the
+     * table hasn't been attached to a Database yet (should not happen once the
+     * schema has finished loading).
+     */
+    private function requireDatabase(): Database
+    {
+        $database = $this->getTable()->getDatabase();
+        if ($database === null) {
+            throw new EngineException(sprintf('Table "%s" is not attached to a Database', $this->getTable()->getName() ?? '(unnamed)'));
+        }
+        return $database;
+    }
+
+    /**
+     * Resolves the foreign table of a ForeignKey, or throws if the FK's foreign
+     * table name doesn't resolve to an actual table (a genuinely broken schema).
+     */
+    private function requireForeignTable(ForeignKey $fk): Table
+    {
+        $foreignTable = $fk->getForeignTable();
+        if ($foreignTable === null) {
+            throw new EngineException(sprintf(
+                'Foreign key on table "%s" references unresolvable table "%s"',
+                $this->getTable()->getName() ?? '(unnamed)',
+                $fk->getForeignTableName()
+            ));
+        }
+        return $foreignTable;
+    }
+
+    /**
+     * Returns the table a ForeignKey is attached to, or throws if it hasn't been
+     * attached yet (construct-then-attach invariant; should not happen once the
+     * schema has finished loading).
+     */
+    private function requireFkOwningTable(ForeignKey $fk): Table
+    {
+        $table = $fk->getTable();
+        if ($table === null) {
+            throw new EngineException('Foreign key is not attached to a table');
+        }
+        return $table;
+    }
+
+    /**
+     * Resolves a column by name on a table, or throws if no such column exists
+     * (a genuinely broken schema reference).
+     */
+    private function requireColumn(Table $table, string $columnName): Column
+    {
+        $column = $table->getColumn($columnName);
+        if ($column === null) {
+            throw new EngineException(sprintf('No column named "%s" found in table "%s"', $columnName, $table->getName() ?? '(unnamed)'));
+        }
+        return $column;
+    }
 
     /**
      * Gets the package for the [base] object classes.
      * @return     string
      */
-    public function getPackage()
+    public function getPackage(): string
     {
-        $pkg = ($this->getTable()->getPackage() ? $this->getTable()->getPackage() : $this->getDatabase()->getPackage());
-        if (!$pkg) {
-            $pkg = $this->getBuildProperty('targetPackage');
+        $tablePkg = $this->getTable()->getPackage();
+        $pkg = is_string($tablePkg) && $tablePkg !== '' ? $tablePkg : $this->getDatabase()->getPackage();
+        if (!is_string($pkg) || $pkg === '') {
+            $buildPkg = $this->getBuildProperty('targetPackage');
+            $pkg = is_string($buildPkg) ? $buildPkg : '';
         }
         return $pkg . "." . $this->getOmPackageSegment();
     }
@@ -44,7 +106,8 @@ class QueryBuilder extends OMBuilder
     public function getNamespace()
     {
         if ($namespace = parent::getNamespace()) {
-            if ($omns = $this->getGeneratorConfig()->getBuildProperty('namespaceOm')) {
+            $omns = $this->getGeneratorConfig()->getBuildProperty('namespaceOm');
+            if (is_string($omns) && $omns !== '') {
                 return $namespace . '\\' . $omns;
             } else {
                 return $namespace;
@@ -59,7 +122,8 @@ class QueryBuilder extends OMBuilder
      */
     public function getUnprefixedClassname()
     {
-        return $this->getBuildProperty('basePrefix') . $this->getStubQueryBuilder()->getUnprefixedClassname();
+        $basePrefix = $this->getBuildProperty('basePrefix');
+        return (is_string($basePrefix) ? $basePrefix : '') . $this->getStubQueryBuilder()->getUnprefixedClassname();
     }
 
     /**
@@ -81,8 +145,8 @@ class QueryBuilder extends OMBuilder
         $tableDesc = $table->getDescription();
         $queryClass = $this->getStubQueryBuilder()->getClassname();
         $modelClass = $this->getStubObjectBuilder()->getClassname();
-        $parentClass = $this->getBehaviorContent('parentClass');
-        $parentClass = $parentClass ?? 'ModelCriteria';
+        $behaviorParentClass = $this->getBehaviorContent('parentClass');
+        $parentClass = is_string($behaviorParentClass) && $behaviorParentClass !== '' ? $behaviorParentClass : 'ModelCriteria';
 
         $script .= "
 /**
@@ -99,10 +163,12 @@ class QueryBuilder extends OMBuilder
                 \IntlDateFormatter::GREGORIAN,
                 "yyyy-MM-dd HH:mm:ss"
             );
+            $version = $this->getBuildProperty('version');
+            $formattedNow = $now !== null ? datefmt_format($now, time()) : false;
             $script .= "
- * This class was autogenerated by Propulsion " . $this->getBuildProperty('version') . " on:
+ * This class was autogenerated by Propulsion " . (is_string($version) ? $version : '') . " on:
  *
- * " . datefmt_format($now, time()) . "
+ * " . ($formattedNow !== false ? $formattedNow : '') . "
  *";
         }
 
@@ -198,14 +264,14 @@ class QueryBuilder extends OMBuilder
         // Add useQuery methods for foreign key relationships
         foreach ($this->getTable()->getForeignKeys() as $fk) {
             $relationName = $this->getFKPhpNameAffix($fk);
-            $relatedQueryClass = $this->getNewStubQueryBuilder($fk->getForeignTable())->getFullyQualifiedClassname();
+            $relatedQueryClass = $this->getNewStubQueryBuilder($this->requireForeignTable($fk))->getFullyQualifiedClassname();
             $script .= "
  * @method     \\$relatedQueryClass use" . $relationName . "Query(?string \$relationAlias = null) Use the " . $relationName . " relation query object";
         }
 
         foreach ($this->getTable()->getReferrers() as $refFK) {
             $relationName = $this->getRefFKPhpNameAffix($refFK);
-            $relatedQueryClass = $this->getNewStubQueryBuilder($refFK->getTable())->getFullyQualifiedClassname();
+            $relatedQueryClass = $this->getNewStubQueryBuilder($this->requireFkOwningTable($refFK))->getFullyQualifiedClassname();
             $script .= "
  * @method     \\$relatedQueryClass use" . $relationName . "Query(?string \$relationAlias = null) Use the " . $relationName . " relation query object";
         }
@@ -216,7 +282,7 @@ class QueryBuilder extends OMBuilder
  *";
         foreach ($this->getTable()->getForeignKeys() as $fk) {
             $relationName = $this->getFKPhpNameAffix($fk);
-            $relatedModelClass = $this->getNewStubObjectBuilder($fk->getForeignTable())->getFullyQualifiedClassname();
+            $relatedModelClass = $this->getNewStubObjectBuilder($this->requireForeignTable($fk))->getFullyQualifiedClassname();
             $script .= "
  * @method     ?$modelClass findOneBy" . $relationName . "(\\$relatedModelClass \$" . lcfirst($relationName) . ") Return the first $modelClass filtered by the " . $relationName . " relation
  * @method     array<$modelClass> findBy" . $relationName . "(\\$relatedModelClass \$" . lcfirst($relationName) . ") Return $modelClass objects filtered by the " . $relationName . " relation";
@@ -224,7 +290,7 @@ class QueryBuilder extends OMBuilder
 
         foreach ($this->getTable()->getReferrers() as $refFK) {
             $relationName = $this->getRefFKPhpNameAffix($refFK);
-            $relatedModelClass = $this->getNewStubObjectBuilder($refFK->getTable())->getFullyQualifiedClassname();
+            $relatedModelClass = $this->getNewStubObjectBuilder($this->requireFkOwningTable($refFK))->getFullyQualifiedClassname();
             $script .= "
  * @method     ?$modelClass findOneBy" . $relationName . "(\\$relatedModelClass \$" . lcfirst($relationName) . ") Return the first $modelClass filtered by the " . $relationName . " relation
  * @method     array<$modelClass> findBy" . $relationName . "(\\$relatedModelClass \$" . lcfirst($relationName) . ") Return $modelClass objects filtered by the " . $relationName . " relation";
@@ -318,7 +384,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
     {
         $script = '';
         $declaredClasses = $this->declaredClasses;
-        unset($declaredClasses[$ignoredNamespace]);
+        unset($declaredClasses[$ignoredNamespace ?? '']);
 
         // Build a map of class names to their preferred fully qualified names.
         // These Propulsion\* core classes are aliased into the *global* namespace by
@@ -482,7 +548,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * @param      ?string \$modelName The phpName of a model, e.g. 'Book'
      * @param      ?string \$modelAlias The alias for the model in this query, e.g. 'b'
      */
-    public function __construct(?string \$dbName = '" . $this->getTable()->getDatabase()->getName() . "', ?string \$modelName = '" . addslashes($this->getStubObjectBuilder()->getFullyQualifiedClassname()) . "', ?string \$modelAlias = null)
+    public function __construct(?string \$dbName = '" . ($this->requireDatabase()->getName() ?? '') . "', ?string \$modelName = '" . addslashes($this->getStubObjectBuilder()->getFullyQualifiedClassname()) . "', ?string \$modelAlias = null)
     {
         parent::__construct(\$dbName, \$modelName, \$modelAlias);
     }
@@ -514,7 +580,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
     {
         $table = $this->getTable();
         $script .= "
-    public function __construct(\$dbName = '" . $table->getDatabase()->getName() . "', \$modelName = '" . addslashes($this->getNewStubObjectBuilder($table)->getFullyQualifiedClassname()) . "', \$modelAlias = null)
+    public function __construct(\$dbName = '" . ($this->requireDatabase()->getName() ?? '') . "', \$modelName = '" . addslashes($this->getNewStubObjectBuilder($table)->getFullyQualifiedClassname()) . "', \$modelAlias = null)
     {";
     }
 
@@ -1215,7 +1281,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         $this->declareClasses('PropulsionObjectCollection', 'PropulsionException');
         $table = $this->getTable();
         $queryClass = $this->getStubQueryBuilder()->getClassname();
-        $fkTable = $fk->getForeignTable();
+        $fkTable = $this->requireForeignTable($fk);
         $fkStubObjectBuilder = $this->getNewStubObjectBuilder($fkTable);
         $this->declareClassFromBuilder($fkStubObjectBuilder);
         $fkPhpName = $fkStubObjectBuilder->getClassname();
@@ -1242,8 +1308,8 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         if ($objectName instanceof $fkPhpName) {
             return \$this";
         foreach ($fk->getLocalForeignMapping() as $localColumn => $foreignColumn) {
-            $localColumnObject = $table->getColumn($localColumn);
-            $foreignColumnObject = $fkTable->getColumn($foreignColumn);
+            $localColumnObject = $this->requireColumn($table, $localColumn);
+            $foreignColumnObject = $this->requireColumn($fkTable, $foreignColumn);
             $script .= "
                 ->addUsingAlias(" . $this->getColumnConstant($localColumnObject) . ", " . $objectName . "->get" . $foreignColumnObject->getPhpName() . "(), \$comparison)";
         }
@@ -1283,7 +1349,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         $this->declareClasses('PropulsionObjectCollection', 'PropulsionException');
         $table = $this->getTable();
         $queryClass = $this->getStubQueryBuilder()->getClassname();
-        $fkTable = $this->getTable()->getDatabase()->getTable($fk->getTableName());
+        $fkTable = $this->requireFkOwningTable($fk);
         $fkStubObjectBuilder = $this->getNewStubObjectBuilder($fkTable);
         $this->declareClassFromBuilder($fkStubObjectBuilder);
         $fkPhpName = $fkStubObjectBuilder->getClassname();
@@ -1310,8 +1376,8 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         if ($objectName instanceof $fkPhpName) {
             return \$this";
         foreach ($fk->getForeignLocalMapping() as $localColumn => $foreignColumn) {
-            $localColumnObject = $table->getColumn($localColumn);
-            $foreignColumnObject = $fkTable->getColumn($foreignColumn);
+            $localColumnObject = $this->requireColumn($table, $localColumn);
+            $foreignColumnObject = $this->requireColumn($fkTable, $foreignColumn);
             $script .= "
                 ->addUsingAlias(" . $this->getColumnConstant($localColumnObject) . ", " . $objectName . "->get" . $foreignColumnObject->getPhpName() . "(), \$comparison)";
         }
@@ -1346,7 +1412,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
     {
         $table = $this->getTable();
         $queryClass = $this->getStubQueryBuilder()->getClassname();
-        $fkTable = $fk->getForeignTable();
+        $fkTable = $this->requireForeignTable($fk);
         $relationName = $this->getFKPhpNameAffix($fk);
         $joinType = $this->getJoinType($fk);
         $this->addJoinRelated($script, $fkTable, $queryClass, $relationName, $joinType);
@@ -1360,7 +1426,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
     {
         $table = $this->getTable();
         $queryClass = $this->getStubQueryBuilder()->getClassname();
-        $fkTable = $this->getTable()->getDatabase()->getTable($fk->getTableName());
+        $fkTable = $this->requireFkOwningTable($fk);
         $relationName = $this->getRefFKPhpNameAffix($fk);
         $joinType = $this->getJoinType($fk);
         $this->addJoinRelated($script, $fkTable, $queryClass, $relationName, $joinType);
@@ -1417,7 +1483,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
     protected function addUseFkQuery(&$script, ForeignKey $fk): void
     {
         $table = $this->getTable();
-        $fkTable = $fk->getForeignTable();
+        $fkTable = $this->requireForeignTable($fk);
         $fkQueryBuilder = $this->getNewStubQueryBuilder($fkTable);
         $queryClass = $fkQueryBuilder->getClassname();
         if ($namespace = $fkQueryBuilder->getNamespace()) {
@@ -1441,7 +1507,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
     protected function addUseRefFkQuery(&$script, ForeignKey $fk): void
     {
         $table = $this->getTable();
-        $fkTable = $this->getTable()->getDatabase()->getTable($fk->getTableName());
+        $fkTable = $this->requireFkOwningTable($fk);
         $fkQueryBuilder = $this->getNewStubQueryBuilder($fkTable);
         $queryClass = $fkQueryBuilder->getClassname();
         if ($namespace = $fkQueryBuilder->getNamespace()) {
@@ -1519,8 +1585,8 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
     protected function addFilterByCrossFK(&$script, ForeignKey $refFK, ForeignKey $crossFK): void
     {
         $queryClass = $this->getStubQueryBuilder()->getClassname();
-        $crossRefTable = $crossFK->getTable();
-        $foreignTable = $crossFK->getForeignTable();
+        $crossRefTable = $this->requireFkOwningTable($crossFK);
+        $foreignTable = $this->requireForeignTable($crossFK);
         $fkPhpName = $foreignTable->getPhpName();
         $fkFQCN = '\\' . $this->getNewStubObjectBuilder($foreignTable)->getFullyQualifiedClassname();
         $crossTableName = $crossRefTable->getName();
