@@ -381,14 +381,14 @@ class Table extends ScopedElement implements IDMethod
 	public function setupObject(): void
 	{
 		parent::setupObject();
-		$this->commonName = $this->getDatabase()->getTablePrefix() . $this->getAttribute("name");
+		$this->commonName = $this->requireDatabase()->getTablePrefix() . $this->getAttribute("name");
 
 		// retrieves the method for converting from specified name to a PHP name.
-		$this->phpNamingMethod = $this->getAttribute("phpNamingMethod", $this->getDatabase()->getDefaultPhpNamingMethod());
+		$this->phpNamingMethod = $this->getAttribute("phpNamingMethod", $this->requireDatabase()->getDefaultPhpNamingMethod());
 
 		$this->phpName = $this->getAttribute("phpName", $this->buildPhpName($this->getStdSeparatedName()));
 
-		$this->idMethod = $this->getAttribute("idMethod", $this->getDatabase()->getDefaultIdMethod());
+		$this->idMethod = $this->getAttribute("idMethod", $this->requireDatabase()->getDefaultIdMethod());
 		$this->allowPkInsert = $this->booleanValue($this->getAttribute("allowPkInsert"));
 
 		$this->skipSql = $this->booleanValue($this->getAttribute("skipSql"));
@@ -407,7 +407,7 @@ class Table extends ScopedElement implements IDMethod
 
 		$this->heavyIndexing = ( $this->booleanValue($this->getAttribute("heavyIndexing"))
 		|| ("false" !== $this->getAttribute("heavyIndexing")
-		&& $this->getDatabase()->isHeavyIndexing() ) );
+		&& $this->requireDatabase()->isHeavyIndexing() ) );
 		$this->description = $this->getAttribute("description");
 		$this->enterface = $this->getAttribute("interface"); // sic ('interface' is reserved word)
 		$this->treeMode = $this->getAttribute("treeMode");
@@ -694,7 +694,7 @@ class Table extends ScopedElement implements IDMethod
 		if ($this->isAlias() && $this->baseClass === null) {
 			return $this->alias;
 		} elseif ($this->baseClass === null) {
-			return $this->getDatabase()->getBaseClass();
+			return $this->requireDatabase()->getBaseClass();
 		} else {
 			return $this->baseClass;
 		}
@@ -789,7 +789,7 @@ class Table extends ScopedElement implements IDMethod
 		if ($this->isAlias() && $this->basePeer === null) {
 			return $this->alias . "Peer";
 		} elseif ($this->basePeer === null) {
-			return $this->getDatabase()->getBasePeer();
+			return $this->requireDatabase()->getBasePeer();
 		} else {
 			return $this->basePeer;
 		}
@@ -845,11 +845,15 @@ class Table extends ScopedElement implements IDMethod
 	public function removeColumn($col): void
 	{
 		if (is_string($col)) {
+			$colName = $col;
 			$col = $this->getColumn($col);
+			if ($col === null) {
+				throw new EngineException(sprintf('No column named %s found in table %s', $colName, $this->getName() ?? '(unnamed)'));
+			}
 		}
 		$pos = array_search($col, $this->columnList);
 		if(false === $pos) {
-			throw new EngineException(sprintf('No column named %s found in table %s', $col->getName(), $col->getTable()->getName()));
+			throw new EngineException(sprintf('No column named %s found in table %s', $col->getName(), $this->getName() ?? '(unnamed)'));
 		}
 		unset($this->columnList[$pos]);
 		unset($this->columnsByName[$col->getName()]);
@@ -996,7 +1000,7 @@ class Table extends ScopedElement implements IDMethod
 		foreach ($this->getForeignKeys() as $foreignKey) {
 
 			// table referrers
-			$foreignTable = $this->getDatabase()->getTable($foreignKey->getForeignTableName());
+			$foreignTable = $this->requireDatabase()->getTable($foreignKey->getForeignTableName());
 			if ($foreignTable !== null) {
 				$referrers = $foreignTable->getReferrers();
 				if (!in_array($foreignKey, $referrers, true)) {
@@ -1053,7 +1057,7 @@ class Table extends ScopedElement implements IDMethod
 				}
 			}
 
-			if ($this->getDatabase()->getPlatform() instanceof \Propulsion\Generator\Platform\MysqlPlatform) {
+			if ($this->requireDatabase()->getPlatform() instanceof \Propulsion\Generator\Platform\MysqlPlatform) {
 				$this->addExtraIndices();
 			}
 		} // foreach foreign keys
@@ -1208,7 +1212,7 @@ class Table extends ScopedElement implements IDMethod
 	 */
 	public function getGeneratorConfig()
 	{
-		return $this->getDatabase()->getAppData()->getGeneratorConfig();
+		return $this->requireDatabase()->getAppData()->getGeneratorConfig();
 	}
 
 	/**
@@ -1811,6 +1815,23 @@ class Table extends ScopedElement implements IDMethod
 	}
 
 	/**
+	 * Get the database that contains this table, or throw if this table hasn't
+	 * been attached to one yet. Only a handful of call sites genuinely need to
+	 * tolerate an unattached table (a bare `new Table()`, as `TableTest` and
+	 * `ColumnTest` exercise directly) -- everywhere else already assumes
+	 * attachment (often several calls deep, with no null-check of its own), so
+	 * this makes that assumption an explicit, checked one instead of a latent
+	 * null-dereference risk.
+	 */
+	public function requireDatabase(): Database
+	{
+		if ($this->database === null) {
+			throw new EngineException(sprintf("Table '%s' has not been added to a Database yet.", $this->getName() ?? '(unnamed)'));
+		}
+		return $this->database;
+	}
+
+	/**
 	 * Flag to determine if code/sql gets created for this table.
 	 * Table will be skipped, if return true.
 	 * @return    boolean
@@ -2092,7 +2113,7 @@ class Table extends ScopedElement implements IDMethod
 		for ($i=0,$_i=count($list); $i < $_i; $i++) {
 			$col = $list[$i];
 			if ($col->isPrimaryKey()) {
-				$result .= ($comma++ ? ',' : '') . $this->getDatabase()->getPlatform()->quoteIdentifier($col->getName());
+				$result .= ($comma++ ? ',' : '') . $this->requireDatabase()->getPlatform()->quoteIdentifier($col->getName());
 			}
 		}
 		return $result;

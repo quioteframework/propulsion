@@ -45,9 +45,8 @@ abstract class DataModelBuilder
 
 	/**
 	 * The current table.
-	 * @var        Table
 	 */
-	private $table;
+	private Table $table;
 
 	/**
 	 * The generator config object holding build properties, etc.
@@ -584,9 +583,8 @@ abstract class DataModelBuilder
 
 	/**
 	 * Returns the current Table object.
-	 * @return     Table
 	 */
-	public function getTable()
+	public function getTable(): Table
 	{
 		return $this->table;
 	}

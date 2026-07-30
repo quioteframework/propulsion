@@ -260,19 +260,19 @@ class Column extends XMLElement
 		try {
 			$dom = $this->getAttribute("domain");
 			if ($dom)	 {
-				$this->getDomain()->copy($this->getTable()->getDatabase()->getDomain($dom));
+				$this->getDomain()->copy($this->requireTable()->requireDatabase()->getDomain($dom));
 			} else {
 				$type = strtoupper($this->getAttribute("type") ?? '');
 				if ($type) {
 					if ($platform = $this->getPlatform()) {
-						$this->getDomain()->copy($this->getPlatform()->getDomainForType($type));
+						$this->getDomain()->copy($platform->getDomainForType($type));
 					} else {
 						// no platform - probably during tests
 						$this->setDomain(new Domain($type));
 					}
 				} else {
 					if ($platform = $this->getPlatform()) {
-						$this->getDomain()->copy($this->getPlatform()->getDomainForType(self::DEFAULT_TYPE));
+						$this->getDomain()->copy($platform->getDomainForType(self::DEFAULT_TYPE));
 					} else {
 						// no platform - probably during tests
 						$this->setDomain(new Domain(self::DEFAULT_TYPE));
@@ -286,8 +286,8 @@ class Column extends XMLElement
 
 			if ($this->getAttribute("prefix", null) !== null) {
 				$this->namePrefix = $this->getAttribute("prefix");
-			} elseif ($this->getTable()->getAttribute('columnPrefix', null) !== null) {
-				$this->namePrefix = $this->getTable()->getAttribute('columnPrefix');
+			} elseif ($this->requireTable()->getAttribute('columnPrefix', null) !== null) {
+				$this->namePrefix = $this->requireTable()->getAttribute('columnPrefix');
 			} else {
 				$this->namePrefix = '';
 			}
@@ -295,10 +295,10 @@ class Column extends XMLElement
 			// Accessor visibility
 			if ($this->getAttribute('accessorVisibility', null) !== null) {
 				$this->setAccessorVisibility($this->getAttribute('accessorVisibility'));
-			} elseif ($this->getTable()->getAttribute('defaultAccessorVisibility', null) !== null) {
-				$this->setAccessorVisibility($this->getTable()->getAttribute('defaultAccessorVisibility'));
-			} elseif ($this->getTable()->getDatabase()->getAttribute('defaultAccessorVisibility', null) !== null) {
-				$this->setAccessorVisibility($this->getTable()->getDatabase()->getAttribute('defaultAccessorVisibility'));
+			} elseif ($this->requireTable()->getAttribute('defaultAccessorVisibility', null) !== null) {
+				$this->setAccessorVisibility($this->requireTable()->getAttribute('defaultAccessorVisibility'));
+			} elseif ($this->requireTable()->requireDatabase()->getAttribute('defaultAccessorVisibility', null) !== null) {
+				$this->setAccessorVisibility($this->requireTable()->requireDatabase()->getAttribute('defaultAccessorVisibility'));
 			} else {
 				$this->setAccessorVisibility(self::DEFAULT_VISIBILITY);
 			}
@@ -306,10 +306,10 @@ class Column extends XMLElement
 			// Mutator visibility
 			if ($this->getAttribute('mutatorVisibility', null) !== null) {
 				$this->setMutatorVisibility($this->getAttribute('mutatorVisibility'));
-			} elseif ($this->getTable()->getAttribute('defaultMutatorVisibility', null) !== null) {
-				$this->setMutatorVisibility($this->getTable()->getAttribute('defaultMutatorVisibility'));
-			} elseif ($this->getTable()->getDatabase()->getAttribute('defaultMutatorVisibility', null) !== null) {
-				$this->setMutatorVisibility($this->getTable()->getDatabase()->getAttribute('defaultMutatorVisibility'));
+			} elseif ($this->requireTable()->getAttribute('defaultMutatorVisibility', null) !== null) {
+				$this->setMutatorVisibility($this->requireTable()->getAttribute('defaultMutatorVisibility'));
+			} elseif ($this->requireTable()->requireDatabase()->getAttribute('defaultMutatorVisibility', null) !== null) {
+				$this->setMutatorVisibility($this->requireTable()->requireDatabase()->getAttribute('defaultMutatorVisibility'));
 			} else {
 				$this->setMutatorVisibility(self::DEFAULT_VISIBILITY);
 			}
@@ -317,7 +317,7 @@ class Column extends XMLElement
 			$this->peerName = $this->getAttribute("peerName");
 
 			// retrieves the method for converting from specified name to a PHP name, defaulting to parent tables default method
-			$this->phpNamingMethod = $this->getAttribute("phpNamingMethod", $this->parentTable->getDatabase()->getDefaultPhpNamingMethod());
+			$this->phpNamingMethod = $this->getAttribute("phpNamingMethod", $this->requireTable()->requireDatabase()->getDefaultPhpNamingMethod());
 
 			$this->isPrimaryString = $this->booleanValue($this->getAttribute("primaryString"));
 
@@ -338,7 +338,8 @@ class Column extends XMLElement
 
 			// Add type, size information to associated Domain object
 			$this->getDomain()->replaceSqlType($this->getAttribute("sqlType"));
-			if (!$this->getAttribute("size") && $this->getDomain()->getType() == 'VARCHAR' && $this->hasPlatform() && !$this->getAttribute("sqlType") && !$this->getPlatform()->supportsVarcharWithoutSize()) {
+			$platform = $this->getPlatform();
+			if (!$this->getAttribute("size") && $this->getDomain()->getType() == 'VARCHAR' && $platform !== null && !$this->getAttribute("sqlType") && !$platform->supportsVarcharWithoutSize()) {
 				$size = 255;
 			} else {
 				$size = $this->getAttribute("size");
@@ -436,7 +437,7 @@ class Column extends XMLElement
 	 */
 	public function getFullyQualifiedName(): string
 	{
-		return ($this->parentTable->getName() . '.' . strtoupper((string) $this->getName()));
+		return ($this->requireTable()->getName() . '.' . strtoupper((string) $this->getName()));
 	}
 
 	/**
@@ -594,7 +595,7 @@ class Column extends XMLElement
 	 */
 	public function getConstantName()
 	{
-		$classname = $this->getTable()->getPhpName() . 'Peer';
+		$classname = $this->requireTable()->getPhpName() . 'Peer';
 		$const = $this->getConstantColumnName();
 		return $classname.'::'.$const;
 	}
@@ -677,11 +678,27 @@ class Column extends XMLElement
 	}
 
 	/**
+	 * Get the parent Table of the column, or throw if this column hasn't been
+	 * added to a table yet. Only a handful of call sites genuinely need to
+	 * tolerate an unattached column (a bare `new Column()`, as `ColumnTest`
+	 * exercises directly via `hasPlatform()`) -- everywhere else already
+	 * assumes attachment, often unguarded, so this makes that assumption an
+	 * explicit, checked one.
+	 */
+	public function requireTable(): Table
+	{
+		if ($this->parentTable === null) {
+			throw new EngineException(sprintf("Column '%s' has not been added to a Table yet.", $this->name ?? '(unnamed)'));
+		}
+		return $this->parentTable;
+	}
+
+	/**
 	 * Returns the Name of the table the column is in
 	 */
 	public function getTableName(): string
 	{
-		return $this->parentTable->getName();
+		return $this->requireTable()->getName();
 	}
 
 	/**
@@ -758,7 +775,7 @@ class Column extends XMLElement
 	 */
 	public function getNotNullString()
 	{
-		return $this->getTable()->getDatabase()->getPlatform()->getNullString($this->isNotNull());
+		return $this->requireTable()->requireDatabase()->getPlatform()->getNullString($this->isNotNull());
 	}
 
 	/**
@@ -929,7 +946,7 @@ class Column extends XMLElement
 	 */
 	public function getForeignKeys(): array
 	{
-		return $this->parentTable->getColumnForeignKeys($this->name);
+		return $this->requireTable()->getColumnForeignKeys($this->name);
 	}
 
 	/**
@@ -980,7 +997,7 @@ class Column extends XMLElement
 	 */
 	public function setDomainForType(string $propelType): void
 	{
-		$this->getDomain()->copy($this->getPlatform()->getDomainForType($propelType));
+		$this->getDomain()->copy($this->requirePlatform()->getDomainForType($propelType));
 	}
 
 	/**
@@ -1552,7 +1569,7 @@ class Column extends XMLElement
 	 */
 	public function setSize($newSize): void
 	{
-		$this->domain->setSize($newSize);
+		$this->getDomain()->setSize($newSize);
 	}
 
 	/**
@@ -1561,7 +1578,7 @@ class Column extends XMLElement
 	 */
 	public function getScale()
 	{
-		return $this->domain->getScale();
+		return $this->getDomain()->getScale();
 	}
 
 	/**
@@ -1570,7 +1587,7 @@ class Column extends XMLElement
 	 */
 	public function setScale($newScale): void
 	{
-		$this->domain->setScale($newScale);
+		$this->getDomain()->setScale($newScale);
 	}
 
 	/**
@@ -1579,7 +1596,7 @@ class Column extends XMLElement
 	 */
 	public function printSize(): string
 	{
-		return $this->domain->printSize();
+		return $this->getDomain()->printSize();
 	}
 
 	/**
@@ -1589,7 +1606,7 @@ class Column extends XMLElement
 	 */
 	public function getDefaultSetting()
 	{
-		return $this->getPlatform()->getColumnDefaultValueDDL($this);
+		return $this->requirePlatform()->getColumnDefaultValueDDL($this);
 	}
 
 	/**
@@ -1637,7 +1654,7 @@ class Column extends XMLElement
 			// getValue() to also handle non-string scalars.
 			$def = new ColumnDefaultValue((string) $def, ColumnDefaultValue::TYPE_VALUE);
 		}
-		$this->domain->setDefaultValue($def);
+		$this->getDomain()->setDefaultValue($def);
 
 		return $this;
 	}
@@ -1649,7 +1666,7 @@ class Column extends XMLElement
 	 */
 	public function getDefaultValue()
 	{
-		return $this->domain->getDefaultValue();
+		return $this->getDomain()->getDefaultValue();
 	}
 
 	/**
@@ -1659,7 +1676,7 @@ class Column extends XMLElement
 	 */
 	public function getPhpDefaultValue()
 	{
-		return $this->domain->getPhpDefaultValue();
+		return $this->getDomain()->getPhpDefaultValue();
 	}
 
 	/**
@@ -1686,13 +1703,13 @@ class Column extends XMLElement
 	 */
 	public function getAutoIncrementString()
 	{
-		if ($this->isAutoIncrement() && IDMethod::NATIVE === $this->getTable()->getIdMethod()) {
-			return $this->getPlatform()->getAutoIncrement();
+		if ($this->isAutoIncrement() && IDMethod::NATIVE === $this->requireTable()->getIdMethod()) {
+			return $this->requirePlatform()->getAutoIncrement();
 		} elseif ($this->isAutoIncrement()) {
 			throw new EngineException(sprintf(
 				'You have specified autoIncrement for column "%s", but you have not specified idMethod="native" for table "%s".',
 				$this->name,
-				$this->getTable()->getName()
+				$this->requireTable()->getName()
 			));
 		}
 
@@ -1722,23 +1739,23 @@ class Column extends XMLElement
 		$this->setType($tn);
 
 		if ($size !== null) {
-			$this->domain->setSize($size);
+			$this->getDomain()->setSize($size);
 		}
 
 		if (strpos($tn, "CHAR") !== false) {
-			$this->domain->setType(PropulsionTypes::VARCHAR);
+			$this->getDomain()->setType(PropulsionTypes::VARCHAR);
 		} elseif (strpos($tn, "INT") !== false) {
-			$this->domain->setType(PropulsionTypes::INTEGER);
+			$this->getDomain()->setType(PropulsionTypes::INTEGER);
 		} elseif (strpos($tn, "FLOAT") !== false) {
-			$this->domain->setType(PropulsionTypes::FLOAT);
+			$this->getDomain()->setType(PropulsionTypes::FLOAT);
 		} elseif (strpos($tn, "DATE") !== false) {
-			$this->domain->setType(PropulsionTypes::DATE);
+			$this->getDomain()->setType(PropulsionTypes::DATE);
 		} elseif (strpos($tn, "TIME") !== false) {
-			$this->domain->setType(PropulsionTypes::TIMESTAMP);
+			$this->getDomain()->setType(PropulsionTypes::TIMESTAMP);
 		} else if (strpos($tn, "BINARY") !== false) {
-			$this->domain->setType(PropulsionTypes::LONGVARBINARY);
+			$this->getDomain()->setType(PropulsionTypes::LONGVARBINARY);
 		} else {
-			$this->domain->setType(PropulsionTypes::VARCHAR);
+			$this->getDomain()->setType(PropulsionTypes::VARCHAR);
 		}
 	}
 
@@ -1790,7 +1807,7 @@ class Column extends XMLElement
 	 */
 	public function getPlatform()
 	{
-		return $this->getTable()->getDatabase()->getPlatform();
+		return $this->requireTable()->requireDatabase()->getPlatform();
 	}
 
 	public function hasPlatform(): bool
@@ -1799,11 +1816,28 @@ class Column extends XMLElement
 	}
 
 	/**
+	 * Get the platform/adapter impl, or throw if none is configured. Database::$platform
+	 * is genuinely, permanently optional (set post-hoc by generator managers, not a
+	 * construct-then-attach invariant -- see `hasPlatform()`/`getPlatform()` above, both
+	 * of which correctly stay nullable), but the handful of DDL-generation-time callers
+	 * below only ever run once a platform is configured; this makes that assumption
+	 * explicit instead of a latent null-dereference.
+	 */
+	private function requirePlatform(): PropulsionPlatformInterface
+	{
+		$platform = $this->getPlatform();
+		if ($platform === null) {
+			throw new EngineException(sprintf("Column '%s' has no platform configured.", $this->name ?? '(unnamed)'));
+		}
+		return $platform;
+	}
+
+	/**
 	 * @return Validator|null
 	 */
 	public function getValidator()
 	{
-		foreach ($this->getTable()->getValidators() as $validator) {
+		foreach ($this->requireTable()->getValidators() as $validator) {
 			if ($validator->getColumn() == $this) {
 				return $validator;
 			}

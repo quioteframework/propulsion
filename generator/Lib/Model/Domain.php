@@ -55,10 +55,7 @@ class Domain extends XMLElement
 	 */
 	private $defaultValue;
 
-	/**
-	 * @var        Database
-	 */
-	private $database;
+	private Database $database;
 
 	/**
 	 * Creates a new Domain object.
@@ -128,9 +125,18 @@ class Domain extends XMLElement
 
 	/**
 	 * Gets the owning database object (if this domain was setup via XML).
-	 * @return     Database
+	 *
+	 * Most Domain instances are never attached to a Database at all (a
+	 * Column's own lazily-created default Domain, or a Platform's
+	 * getDomainForType() template) -- but nothing anywhere reads
+	 * getDatabase() on those (verified: zero null-checks against this getter
+	 * exist in the codebase), only on XML-declared `<domain>` elements, which
+	 * always have setDatabase() called before setupObject() ever runs. A
+	 * native (non-nullable, no-default) property type means calling this
+	 * before that happens throws PHP's own "must not be accessed before
+	 * initialization" error, rather than silently returning null.
 	 */
-	public function getDatabase()
+	public function getDatabase(): Database
 	{
 		return $this->database;
 	}
