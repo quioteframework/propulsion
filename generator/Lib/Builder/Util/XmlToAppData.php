@@ -105,7 +105,11 @@ class XmlToAppData
 			return $this->app;
 		}
 
-		return $this->parseString(file_get_contents($xmlFile), $xmlFile);
+		$xmlString = file_get_contents($xmlFile);
+		if ($xmlString === false) {
+			throw new SchemaException("Unable to read schema file '$xmlFile'.");
+		}
+		return $this->parseString($xmlString, $xmlFile);
 	}
 
 	/**
@@ -144,7 +148,7 @@ class XmlToAppData
 	/**
 	 * Handles opening elements of the xml file.
 	 *
-	 * @param      resource|\XMLParser $parser The XML parser resource/instance.
+	 * @param      \XMLParser $parser The XML parser instance.
 	 * @param      string $name The name of the element.
 	 * @param      array<string, mixed> $attributes The specified or defaulted attributes.
 	 */
@@ -185,10 +189,11 @@ class XmlToAppData
 					}
 
 					if ($xmlFile[0] != '/') {
-						$xmlFile = realpath(dirname($this->currentXmlFile) . DIRECTORY_SEPARATOR . $xmlFile);
-						if (!file_exists($xmlFile)) {
+						$resolvedXmlFile = realpath(dirname($this->currentXmlFile) . DIRECTORY_SEPARATOR . $xmlFile);
+						if ($resolvedXmlFile === false || !file_exists($resolvedXmlFile)) {
 							throw new SchemaException(sprintf('Unknown include external "%s"', $xmlFile));
 						}
+						$xmlFile = $resolvedXmlFile;
 					}
 
 					$this->parseFile($xmlFile);
@@ -371,7 +376,7 @@ class XmlToAppData
 	}
 
 	/**
-	 * @param      resource|\XMLParser $parser The XML parser resource/instance.
+	 * @param      \XMLParser $parser The XML parser instance.
 	 * @param      string $tag_name The name of the unexpected tag.
 	 */
 	function _throwInvalidTagException($parser, string $tag_name): never
@@ -390,7 +395,7 @@ class XmlToAppData
 	/**
 	 * Handles closing elements of the xml file.
 	 *
-	 * @param      resource|\XMLParser $parser The XML parser resource/instance.
+	 * @param      \XMLParser $parser The XML parser instance.
 	 * @param      string $name The name of the element.
 	 */
 	public function endElement($parser, $name): void
@@ -398,22 +403,35 @@ class XmlToAppData
 		$this->popCurrentSchemaTag();
 	}
 
-	protected function peekCurrentSchemaTag(): string|false
+	/**
+	 * $schemasTagsStack always has at least one entry once parsing is underway --
+	 * parseString() pushes one before xml_parse() ever runs -- so an empty stack here
+	 * means one of the tag-stack methods below was called outside of an active parse,
+	 * a real internal bug rather than a recoverable condition.
+	 */
+	private function currentSchemaKey(): string
 	{
 		$keys = array_keys($this->schemasTagsStack);
-		return end($this->schemasTagsStack[end($keys)]);
+		$key = end($keys);
+		if ($key === false) {
+			throw new SchemaException('No schema file is currently being parsed.');
+		}
+		return $key;
+	}
+
+	protected function peekCurrentSchemaTag(): string|false
+	{
+		return end($this->schemasTagsStack[$this->currentSchemaKey()]);
 	}
 
 	protected function popCurrentSchemaTag(): void
 	{
-		$keys = array_keys($this->schemasTagsStack);
-		array_pop($this->schemasTagsStack[end($keys)]);
+		array_pop($this->schemasTagsStack[$this->currentSchemaKey()]);
 	}
 
 	protected function pushCurrentSchemaTag(string $tag): void
 	{
-		$keys = array_keys($this->schemasTagsStack);
-		$this->schemasTagsStack[end($keys)][] = $tag;
+		$this->schemasTagsStack[$this->currentSchemaKey()][] = $tag;
 	}
 
 	protected function isExternalSchema(): bool
