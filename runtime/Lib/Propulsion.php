@@ -421,7 +421,15 @@ class Propulsion
 
 		if (!isset(self::$dbMaps[$name])) {
 			$clazz = self::$databaseMapClass;
-			self::$dbMaps[$name] = new $clazz($name);
+			$dbMap = new $clazz($name);
+			if (!$dbMap instanceof DatabaseMap) {
+				throw new PropulsionException(sprintf(
+					'Configured database map class (%s) does not extend %s.',
+					get_class($dbMap),
+					DatabaseMap::class
+				));
+			}
+			self::$dbMaps[$name] = $dbMap;
 		}
 
 		return self::$dbMaps[$name];
@@ -787,6 +795,9 @@ class Propulsion
 
 		try {
 			$con = new $classname($dsn, $user, $password, $driver_options);
+			if (!$con instanceof PDO) {
+				throw new PropulsionException(sprintf('Configured PDO subclass (%s) does not extend PDO.', get_class($con)));
+			}
 			$con->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 		} catch (PDOException $e) {
 			throw new PropulsionException("Unable to open PDO connection", $e);
@@ -803,6 +814,9 @@ class Propulsion
 				throw new PropulsionException('Error processing connection attributes for datasource ['.$name.']', $e);
 			}
 			foreach ($attributes as $key => $value) {
+				if (!is_int($key)) {
+					throw new PropulsionException("Invalid PDO attribute name specified: $key");
+				}
 				$con->setAttribute($key, $value);
 			}
 		}
@@ -900,7 +914,7 @@ class Propulsion
 	{
 		if (self::$defaultDBName === null) {
 			// Determine default database name.
-			self::$defaultDBName = isset(self::$configuration['datasources']['default']) && is_scalar(self::$configuration['datasources']['default']) ? self::$configuration['datasources']['default'] : self::DEFAULT_NAME;
+			self::$defaultDBName = isset(self::$configuration['datasources']['default']) && is_string(self::$configuration['datasources']['default']) ? self::$configuration['datasources']['default'] : self::DEFAULT_NAME;
 		}
 		return self::$defaultDBName;
 	}
