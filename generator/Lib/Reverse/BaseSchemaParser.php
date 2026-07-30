@@ -132,6 +132,19 @@ abstract class BaseSchemaParser implements SchemaParser
 	}
 
 	/**
+	 * Prepares a statement against the current connection, failing loudly
+	 * instead of returning the PDO::prepare() false sentinel on error.
+	 */
+	protected function prepareOrFail(string $sql): \PDOStatement
+	{
+		$stmt = $this->requireConnection()->prepare($sql);
+		if ($stmt === false) {
+			throw new EngineException(sprintf('Failed to prepare statement: %s', $sql));
+		}
+		return $stmt;
+	}
+
+	/**
 	 * Optional verbose-logging hook for parse(): historically a Phing\Task
 	 * (behind an `if ($task) $task->log(...)` guard), passed through the
 	 * $task parameter, which is intentionally typed `mixed` since parse()'s
@@ -156,6 +169,40 @@ abstract class BaseSchemaParser implements SchemaParser
 	protected static function rowValueToString(mixed $value): string
 	{
 		return is_scalar($value) ? (string) $value : '';
+	}
+
+	/**
+	 * Whether a row value is "present" in the sense used by fallback logic
+	 * like `strlen(trim($row['x'])) > 0 ? $row['x'] : $fallback` -- i.e. not
+	 * null and not an empty string once stringified.
+	 */
+	protected static function rowValueIsPresent(mixed $value): bool
+	{
+		return $value !== null && self::rowValueToString($value) !== '';
+	}
+
+	/**
+	 * Interprets a PDO row value as a Postgres-style boolean flag. Different
+	 * PDO drivers/configurations represent Postgres `boolean` columns
+	 * differently -- native PHP bool, or the wire-protocol 't'/'f' strings --
+	 * so this checks both rather than assuming one representation (a plain
+	 * `$value == 't'` happens to work for either representation because PHP
+	 * coerces a non-empty string to true when compared against a bool, but
+	 * that same coercion breaks once the value has already been stringified
+	 * -- rowValueToString(true) is "1", and "1" == 't' is false).
+	 */
+	protected static function rowValueIsPgTrue(mixed $value): bool
+	{
+		if (is_bool($value)) {
+			return $value;
+		}
+		if (is_int($value)) {
+			return $value !== 0;
+		}
+		if (is_string($value)) {
+			return $value === 't' || $value === 'true' || $value === '1';
+		}
+		return (bool) $value;
 	}
 
 	/**
