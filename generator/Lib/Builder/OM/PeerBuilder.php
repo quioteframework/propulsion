@@ -33,6 +33,54 @@ class PeerBuilder extends AbstractPeerBuilder
 {
 
 	/**
+	 * Returns the Table to which the given foreign key is attached, throwing if
+	 * it has not been attached to a table. This should never happen once the
+	 * schema has been fully parsed; a null here indicates a broken model.
+	 */
+	private function requireForeignKeyTable(ForeignKey $fk): Table
+	{
+		$fkTable = $fk->getTable();
+		if ($fkTable === null) {
+			throw new EngineException('Foreign key "' . $fk->getName() . '" is not attached to a table.');
+		}
+		return $fkTable;
+	}
+
+	/**
+	 * Looks up the table named $tableName in $table's database, throwing if
+	 * the table cannot be found (indicates a dangling foreign-key reference
+	 * in the schema) or if $table is not (yet) attached to a database.
+	 */
+	private function requireTableByName(Table $table, ?string $tableName): Table
+	{
+		if ($tableName === null) {
+			throw new EngineException('Table "' . $table->getName() . '" has a foreign key with no foreign table name.');
+		}
+		$database = $table->getDatabase();
+		if ($database === null) {
+			throw new EngineException('Table "' . $table->getName() . '" is not attached to a database.');
+		}
+		$foreignTable = $database->getTable($tableName);
+		if ($foreignTable === null) {
+			throw new EngineException('Table "' . $tableName . '" referenced from table "' . $table->getName() . '" could not be found in the database.');
+		}
+		return $foreignTable;
+	}
+
+	/**
+	 * Looks up a column by name on $table, throwing if it cannot be found
+	 * (indicates a foreign key referencing a column that does not exist).
+	 */
+	private function requireColumnByName(Table $table, string $columnName): Column
+	{
+		$column = $table->getColumn($columnName);
+		if ($column === null) {
+			throw new EngineException('Column "' . $columnName . '" could not be found on table "' . $table->getName() . '".');
+		}
+		return $column;
+	}
+
+	/**
 	 * Gets the package for the [base] object classes.
 	 * @return     string
 	 */
@@ -44,7 +92,9 @@ class PeerBuilder extends AbstractPeerBuilder
 	public function getNamespace(): string
 	{
 		if ($namespace = parent::getNamespace()) {
-			if ($omns = $this->getGeneratorConfig()->getBuildProperty('namespaceOm')) {
+			$omnsRaw = $this->getGeneratorConfig()->getBuildProperty('namespaceOm');
+			$omns = is_scalar($omnsRaw) ? (string) $omnsRaw : '';
+			if ($omns !== '') {
 				return $namespace . '\\' . $omns;
 			} else {
 				return $namespace;
@@ -59,7 +109,9 @@ class PeerBuilder extends AbstractPeerBuilder
 	 */
 	public function getUnprefixedClassname(): string
 	{
-		return $this->getBuildProperty('basePrefix') . $this->getStubPeerBuilder()->getUnprefixedClassname();
+		$basePrefixRaw = $this->getBuildProperty('basePrefix');
+		$basePrefix = is_scalar($basePrefixRaw) ? (string) $basePrefixRaw : '';
+		return $basePrefix . $this->getStubPeerBuilder()->getUnprefixedClassname();
 	}
 
 	/**
@@ -77,7 +129,7 @@ class PeerBuilder extends AbstractPeerBuilder
 			if ($col->getPeerName()) {
 				$colConstants[] = strtoupper($col->getPeerName());
 			} else {
-				$colConstants[] = strtoupper($col->getName());
+				$colConstants[] = strtoupper((string) $col->getName());
 			}
 		}
 
@@ -127,8 +179,8 @@ class PeerBuilder extends AbstractPeerBuilder
 		}
 		$extendingPeerClass = '';
 		$parentClass = $this->getBehaviorContent('parentClass');
-		if (null !== $parentClass) {
-			$extendingPeerClass = ' extends ' . $parentClass;
+		if (null !== $parentClass && is_scalar($parentClass)) {
+			$extendingPeerClass = ' extends ' . (string) $parentClass;
 		} elseif ($this->basePeerClassname && $this->basePeerClassname !== 'BasePeer') {
 			$extendingPeerClass = ' extends ' . $this->basePeerClassname;
 		}
@@ -165,7 +217,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	// Column constants with modern naming";
 		foreach ($table->getColumns() as $col) {
 			$script .= "
-	public const " . strtoupper($col->getName()) . " = '" . $table->getName() . "." . $col->getName() . "';";
+	public const " . strtoupper((string) $col->getName()) . " = '" . $table->getName() . "." . $col->getName() . "';";
 		}
 
 		// Add column types enum-style constants  
@@ -174,7 +226,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	// Column type constants";
 		foreach ($table->getColumns() as $col) {
 			$script .= "
-	public const " . strtoupper($col->getName()) . "_DATATYPE = '" . $col->getType() . "';";
+	public const " . strtoupper((string) $col->getName()) . "_DATATYPE = '" . $col->getType() . "';";
 		}
 	}
 
@@ -267,7 +319,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	{
 		$script = '';
 		$declaredClasses = $this->declaredClasses;
-		unset($declaredClasses[$ignoredNamespace]);
+		unset($declaredClasses[$ignoredNamespace ?? '']);
 
 		// Build a map of class names to their preferred fully qualified names.
 		// See QueryBuilder::getUseStatements() for the full rationale: these Propulsion\*
@@ -404,8 +456,8 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	{
 		foreach ($this->getTable()->getColumns() as $col) {
 			$script .= "
-	/** the column name for the " . strtoupper($col->getName()) ." field */
-	const ".$this->getColumnName($col) ." = '" . $this->getTable()->getName() . ".".strtoupper($col->getName())."';
+	/** the column name for the " . strtoupper((string) $col->getName()) ." field */
+	const ".$this->getColumnName($col) ." = '" . $this->getTable()->getName() . ".".strtoupper((string) $col->getName())."';
 ";
 		}
 	}
@@ -418,7 +470,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		foreach ($this->getTable()->getColumns() as $col) {
 			if ($col->isEnumType()) {
 				$script .= "
-	/** The enumerated values for the " . strtoupper($col->getName()) . " field */";
+	/** The enumerated values for the " . strtoupper((string) $col->getName()) . " field */";
 				foreach ($col->getValueSet() as $value) {
 					$script .= "
 	const " . $this->getColumnName($col) . '_' . $this->getEnumValueConstant($value) . " = '" . $value . "';";
@@ -431,7 +483,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 	protected function getEnumValueConstant(string $value): string
 	{
-		return strtoupper(preg_replace('/[^a-zA-Z0-9_\x7f-\xff]/', '_', $value));
+		return strtoupper(preg_replace('/[^a-zA-Z0-9_\x7f-\xff]/', '_', $value) ?? $value);
 	}
 
 	protected function addFieldNamesAttribute(string &$script): void
@@ -696,29 +748,29 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 */
 	public function addInheritanceColumnConstants(string &$script): void
 	{
-		if ($this->getTable()->getChildrenColumn()) {
-			$col = $this->getTable()->getChildrenColumn();
+		$col = $this->getTable()->getChildrenColumn();
+		if ($col !== null) {
 			$cfc = $col->getPhpName();
 
 			if ($col->isEnumeratedClasses()) {
-				foreach ($col->getChildren() as $child) {
+				foreach ($col->getChildren() ?? [] as $child) {
 					$childBuilder = $this->getMultiExtendObjectBuilder();
 					$childBuilder->setChild($child);
 					$script .= "
 	/** A key representing a particular subclass */
-	const CLASSKEY_".strtoupper($child->getKey())." = '" . $child->getKey() . "';
+	const CLASSKEY_".strtoupper((string) $child->getKey())." = '" . $child->getKey() . "';
 ";
 
-					if (strtoupper($child->getClassname()) != strtoupper($child->getKey())) {
+					if (strtoupper((string) $child->getClassname()) != strtoupper((string) $child->getKey())) {
 						$script .= "
 	/** A key representing a particular subclass */
-	const CLASSKEY_".strtoupper($child->getClassname())." = '" . $child->getKey() . "';
+	const CLASSKEY_".strtoupper((string) $child->getClassname())." = '" . $child->getKey() . "';
 ";
 					}
 
 					$script .= "
 	/** A class that can be returned by this peer. */
-	const CLASSNAME_".strtoupper($child->getKey())." = '". addslashes($childBuilder->getFullyQualifiedClassname()) . "';
+	const CLASSNAME_".strtoupper((string) $child->getKey())." = '". addslashes($childBuilder->getFullyQualifiedClassname()) . "';
 ";
 				}
 			}
@@ -1495,8 +1547,12 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 	/**
 	 * Helper method to get instance pool key snippet
+	 *
+	 * @param      string|array<int, string> $pkphp One or more generated-code variable-name
+	 *             expressions (e.g. '$pk' or ['$pk1', '$pk2']) to embed literally in the
+	 *             generated PHP source.
 	 */
-	public function getInstancePoolKeySnippet(mixed $pkphp): string
+	public function getInstancePoolKeySnippet(string|array $pkphp): string
 	{
 		$pkphp = (array) $pkphp; // make it an array if it is not.
 		$script = "";
@@ -1578,7 +1634,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		}
 
 		\$criteria = new Criteria(self::getDatabaseName());
-		\$criteria->add(self::" . strtoupper($pk->getName()) . ", \$pk);
+		\$criteria->add(self::" . strtoupper((string) $pk->getName()) . ", \$pk);
 
 		\$v = self::doSelect(\$criteria, \$con);
 
@@ -1625,7 +1681,11 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	protected function addRetrieveByPKs(string &$script): void
 	{
 		$firstPk = $this->getFirstPrimaryKeyColumn();
-		
+		if ($firstPk === null) {
+			// Table has no primary key column; there is nothing to retrieve by.
+			return;
+		}
+
 		$script .= "
 
 	/**
@@ -1649,7 +1709,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		}
 
 		\$criteria = new Criteria(self::getDatabaseName());
-		\$criteria->add(self::" . strtoupper($firstPk->getName()) . ", \$pks, Criteria::IN);
+		\$criteria->add(self::" . strtoupper((string) $firstPk->getName()) . ", \$pks, Criteria::IN);
 
 		return self::doSelect(\$criteria, \$con);
 	}";
@@ -1954,7 +2014,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	protected function hasClearRelatedInstancePoolEffect(): bool
 	{
 		foreach ($this->getTable()->getReferrers() as $fk) {
-			$tblFK = $fk->getTable();
+			$tblFK = $this->requireForeignKeyTable($fk);
 			if (!$tblFK->isForReferenceOnly()) {
 				if ($fk->getOnDelete() == ForeignKey::CASCADE || $fk->getOnDelete() == ForeignKey::SETNULL) {
 					return true;
@@ -1984,7 +2044,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 			// $fk is the foreign key in the other table, so localTableName will
 			// actually be the table name of other table
-			$tblFK = $fk->getTable();
+			$tblFK = $this->requireForeignKeyTable($fk);
 
 			$joinedTablePeerBuilder = $this->getNewStubPeerBuilder($tblFK);
 			$this->declareClassFromBuilder($joinedTablePeerBuilder);
@@ -2116,6 +2176,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	protected function addGetOMClass_Inheritance(string &$script): void
 	{
 		$col = $this->getTable()->getChildrenColumn();
+		if ($col === null) {
+			throw new EngineException('addGetOMClass_Inheritance() called for table "' . $this->getTable()->getName() . '" which has no inheritance column.');
+		}
 		$script .= "
 	/**
 	 * The returned Class will contain objects of the default type or
@@ -2142,10 +2205,10 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 			switch(\$classKey) {
 ";
-			foreach ($col->getChildren() as $child) {
+			foreach ($col->getChildren() ?? [] as $child) {
 				$script .= "
-				case self::CLASSKEY_".strtoupper($child->getKey()).":
-					\$omClass = self::CLASSNAME_".strtoupper($child->getKey()).";
+				case self::CLASSKEY_".strtoupper((string) $child->getKey()).":
+					\$omClass = self::CLASSNAME_".strtoupper((string) $child->getKey()).";
 					break;
 ";
 			} /* foreach */
@@ -2373,7 +2436,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Retrieve object using using composite pkey values.";
 		foreach ($table->getPrimaryKey() as $col) {
-			$clo = strtolower($col->getName());
+			$clo = strtolower((string) $col->getName());
 			$cptype = $col->getPhpType();
 			$script .= "
 	 * @param      $cptype $".$clo;
@@ -2387,7 +2450,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		$php = array();
 		$vars = array(); // For getInstancePoolKeySnippet()
 		foreach ($table->getPrimaryKey() as $col) {
-			$clo = strtolower($col->getName());
+			$clo = strtolower((string) $col->getName());
 			$cptype = $col->getPhpType();
 			$php[] = $cptype . ' $' . $clo;
 			$vars[] = '$' . $clo;
@@ -2410,7 +2473,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		}
 		\$criteria = new Criteria(".$this->getPeerClassname()."::DATABASE_NAME);";
 		foreach ($table->getPrimaryKey() as $col) {
-			$clo = strtolower($col->getName());
+			$clo = strtolower((string) $col->getName());
 			$script .= "
 		\$criteria->add(".$this->getColumnConstant($col).", $".$clo.");";
 		}
@@ -2456,7 +2519,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 			// $fk is the foreign key in the other table, so localTableName will
 			// actually be the table name of other table
-			$tblFK = $fk->getTable();
+			$tblFK = $this->requireForeignKeyTable($fk);
 
 			$joinedTablePeerBuilder = $this->getNewPeerBuilder($tblFK);
 			$tblFKPackage = $joinedTablePeerBuilder->getStubPeerBuilder()->getPackage();
@@ -2480,7 +2543,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			";
 					for ($x=0,$xlen=count($columnNamesF); $x < $xlen; $x++) {
 						$columnFK = $tblFK->getColumn($columnNamesF[$x]);
-						$columnL = $table->getColumn($columnNamesL[$x]);
+						$columnL = $this->requireColumnByName($table, $columnNamesL[$x]);
 
 						$script .= "
 			\$criteria->add(".$joinedTablePeerBuilder->getColumnConstant($columnFK) .", \$obj->get".$columnL->getPhpName()."());";
@@ -2537,7 +2600,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 			// $fk is the foreign key in the other table, so localTableName will
 			// actually be the table name of other table
-			$tblFK = $fk->getTable();
+			$tblFK = $this->requireForeignKeyTable($fk);
 			$refTablePeerBuilder = $this->getNewPeerBuilder($tblFK);
 
 			if (!$tblFK->isForReferenceOnly()) {
@@ -2558,7 +2621,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 					for ($x=0,$xlen=count($columnNamesF); $x < $xlen; $x++) {
 						$columnFK = $tblFK->getColumn($columnNamesF[$x]);
-						$columnL = $table->getColumn($columnNamesL[$x]);
+						$columnL = $this->requireColumnByName($table, $columnNamesL[$x]);
 						$script .= "
 			\$selectCriteria->add(".$refTablePeerBuilder->getColumnConstant($columnFK).", \$obj->get".$columnL->getPhpName()."());
 			\$updateValues->add(".$refTablePeerBuilder->getColumnConstant($columnFK).", null);
@@ -2608,7 +2671,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		$includeJoinAll = true;
 
 		foreach ($table->getForeignKeys() as $fk) {
-			$tblFK = $table->getDatabase()->getTable($fk->getForeignTableName());
+			$tblFK = $this->requireTableByName($table, $fk->getForeignTableName());
 			$this->declareClassFromBuilder($this->getNewStubPeerBuilder($tblFK));
 			if ($tblFK->isForReferenceOnly()) {
 				$includeJoinAll = false;
@@ -2684,7 +2747,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		}
 
 		foreach ($table->getForeignKeys() as $fk) {
-			$joinTable = $table->getDatabase()->getTable($fk->getForeignTableName());
+			$joinTable = $this->requireTableByName($table, $fk->getForeignTableName());
 
 			if ($joinTable->isForReferenceOnly()) {
 				continue;
@@ -2821,7 +2884,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		}
 
 		foreach ($table->getForeignKeys() as $fk) {
-			$joinTable = $table->getDatabase()->getTable($fk->getForeignTableName());
+			$joinTable = $this->requireTableByName($table, $fk->getForeignTableName());
 
 			if ($joinTable->isForReferenceOnly()) {
 				continue;
@@ -2925,7 +2988,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		$index = 2;
 		foreach ($table->getForeignKeys() as $fk) {
 			if ($fk->getForeignTableName() != $table->getName()) {
-				$joinTable = $table->getDatabase()->getTable($fk->getForeignTableName());
+				$joinTable = $this->requireTableByName($table, $fk->getForeignTableName());
 				$new_index = $index + 1;
 
 				$joinedTablePeerBuilder = $this->getNewPeerBuilder($joinTable);
@@ -2940,7 +3003,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 		foreach ($table->getForeignKeys() as $fk) {
 			if ($fk->getForeignTableName() != $table->getName()) {
-				$joinTable = $table->getDatabase()->getTable($fk->getForeignTableName());
+				$joinTable = $this->requireTableByName($table, $fk->getForeignTableName());
 				$joinedTablePeerBuilder = $this->getNewPeerBuilder($joinTable);
 				$script .= $this->addCriteriaJoin($fk, $table, $joinTable, $joinedTablePeerBuilder);
 			}
@@ -2987,7 +3050,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		$index = 1;
 		foreach ($table->getForeignKeys() as $fk) {
 			if ($fk->getForeignTableName() != $table->getName()) {
-				$joinTable = $table->getDatabase()->getTable($fk->getForeignTableName());
+				$joinTable = $this->requireTableByName($table, $fk->getForeignTableName());
 
 				$joinedTableObjectBuilder = $this->getNewObjectBuilder($joinTable);
 				$joinedTablePeerBuilder = $this->getNewPeerBuilder($joinTable);
@@ -3092,7 +3155,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 		foreach ($table->getForeignKeys() as $fk) {
 			if ($fk->getForeignTableName() != $table->getName()) {
-				$joinTable = $table->getDatabase()->getTable($fk->getForeignTableName());
+				$joinTable = $this->requireTableByName($table, $fk->getForeignTableName());
 				$joinedTablePeerBuilder = $this->getNewPeerBuilder($joinTable);
 				$script .= $this->addCriteriaJoin($fk, $table, $joinTable, $joinedTablePeerBuilder);
 			}
@@ -3123,7 +3186,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 		$fkeys = $table->getForeignKeys();
 		foreach ($fkeys as $fk) {
-			$excludedTable = $table->getDatabase()->getTable($fk->getForeignTableName());
+			$excludedTable = $this->requireTableByName($table, $fk->getForeignTableName());
 
 			$thisTableObjectBuilder = $this->getNewObjectBuilder($table);
 			$excludedTableObjectBuilder = $this->getNewObjectBuilder($excludedTable);
@@ -3156,7 +3219,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			$index = 2;
 			foreach ($table->getForeignKeys() as $subfk) {
 				if ($subfk->getForeignTableName() != $table->getName()) {
-					$joinTable = $table->getDatabase()->getTable($subfk->getForeignTableName());
+					$joinTable = $this->requireTableByName($table, $subfk->getForeignTableName());
 					$joinTablePeerBuilder = $this->getNewPeerBuilder($joinTable);
 					$joinClassName = $joinTablePeerBuilder->getObjectClassname();
 
@@ -3173,7 +3236,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 			foreach ($table->getForeignKeys() as $subfk) {
 				if ($subfk->getForeignTableName() != $table->getName()) {
-					$joinTable = $table->getDatabase()->getTable($subfk->getForeignTableName());
+					$joinTable = $this->requireTableByName($table, $subfk->getForeignTableName());
 					$joinedTablePeerBuilder = $this->getNewPeerBuilder($joinTable);
 					$joinClassName = $joinedTablePeerBuilder->getObjectClassname();
 
@@ -3224,7 +3287,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			$index = 1;
 			foreach ($table->getForeignKeys() as $subfk) {
 				if ($subfk->getForeignTableName() != $table->getName()) {
-					$joinTable = $table->getDatabase()->getTable($subfk->getForeignTableName());
+					$joinTable = $this->requireTableByName($table, $subfk->getForeignTableName());
 
 					$joinedTableObjectBuilder = $this->getNewObjectBuilder($joinTable);
 					$joinedTablePeerBuilder = $this->getNewPeerBuilder($joinTable);
@@ -3293,7 +3356,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 		$fkeys = $table->getForeignKeys();
 		foreach ($fkeys as $fk) {
-			$excludedTable = $table->getDatabase()->getTable($fk->getForeignTableName());
+			$excludedTable = $this->requireTableByName($table, $fk->getForeignTableName());
 
 			$thisTableObjectBuilder = $this->getNewObjectBuilder($table);
 			$excludedTableObjectBuilder = $this->getNewObjectBuilder($excludedTable);
@@ -3337,7 +3400,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 ";
 			foreach ($table->getForeignKeys() as $subfk) {
 				if ($subfk->getForeignTableName() != $table->getName()) {
-					$joinTable = $table->getDatabase()->getTable($subfk->getForeignTableName());
+					$joinTable = $this->requireTableByName($table, $subfk->getForeignTableName());
 					$joinedTablePeerBuilder = $this->getNewPeerBuilder($joinTable);
 					$joinClassName = $joinedTablePeerBuilder->getObjectClassname();
 

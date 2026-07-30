@@ -28,6 +28,7 @@ use Propulsion\Generator\Model\Column;
 use Propulsion\Generator\Model\PropulsionTypes;
 use Propulsion\Generator\Model\ForeignKey;
 use Propulsion\Generator\Model\IDMethod;
+use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Platform\MysqlPlatform;
 use Propulsion\Generator\Builder\OM\ColumnType\ColumnTypeHandlerRegistry;
 
@@ -35,10 +36,76 @@ class ObjectBuilder extends AbstractObjectBuilder
 {
 
 	/**
+	 * Returns the resolved foreign Table for the given foreign key, throwing if
+	 * it cannot be resolved (indicates a dangling foreign-key reference or an
+	 * unattached foreign key -- should not happen once the schema has been
+	 * fully parsed).
+	 */
+	private function requireForeignTable(ForeignKey $fk): Table
+	{
+		$foreignTable = $fk->getForeignTable();
+		if ($foreignTable === null) {
+			throw new EngineException('Foreign key "' . $fk->getName() . '" could not resolve its foreign table "' . $fk->getForeignTableName() . '".');
+		}
+		return $foreignTable;
+	}
+
+	/**
+	 * Returns the Table to which the given foreign key belongs, throwing if it
+	 * has not been attached to a table. This should never happen once the
+	 * schema has been fully parsed; a null here indicates a broken model.
+	 */
+	private function requireForeignKeyTable(ForeignKey $fk): Table
+	{
+		$fkTable = $fk->getTable();
+		if ($fkTable === null) {
+			throw new EngineException('Foreign key "' . $fk->getName() . '" is not attached to a table.');
+		}
+		return $fkTable;
+	}
+
+	/**
+	 * Looks up the table named $tableName in $table's database, throwing if
+	 * the table cannot be found (indicates a dangling foreign-key reference
+	 * in the schema) or if $table is not (yet) attached to a database.
+	 */
+	private function requireTableByName(Table $table, ?string $tableName): Table
+	{
+		if ($tableName === null) {
+			throw new EngineException('Table "' . $table->getName() . '" has a foreign key with no foreign table name.');
+		}
+		$database = $table->getDatabase();
+		if ($database === null) {
+			throw new EngineException('Table "' . $table->getName() . '" is not attached to a database.');
+		}
+		$foreignTable = $database->getTable($tableName);
+		if ($foreignTable === null) {
+			throw new EngineException('Table "' . $tableName . '" referenced from table "' . $table->getName() . '" could not be found in the database.');
+		}
+		return $foreignTable;
+	}
+
+	/**
+	 * Looks up a column by name on $table, throwing if it cannot be found
+	 * (indicates a foreign key referencing a column that does not exist).
+	 */
+	private function requireColumnByName(Table $table, ?string $columnName): Column
+	{
+		if ($columnName === null) {
+			throw new EngineException('Column name is null on table "' . $table->getName() . '".');
+		}
+		$column = $table->getColumn($columnName);
+		if ($column === null) {
+			throw new EngineException('Column "' . $columnName . '" could not be found on table "' . $table->getName() . '".');
+		}
+		return $column;
+	}
+
+	/**
 	 * Gets the package for the [base] object classes.
 	 * @return     string
 	 */
-	public function getPackage()
+	public function getPackage(): string
 	{
 		return parent::getPackage() . "." . $this->getOmPackageSegment();
 	}
@@ -46,7 +113,9 @@ class ObjectBuilder extends AbstractObjectBuilder
 	public function getNamespace()
 	{
 		if ($namespace = parent::getNamespace()) {
-			if ($omns = $this->getGeneratorConfig()->getBuildProperty('namespaceOm')) {
+			$omnsRaw = $this->getGeneratorConfig()->getBuildProperty('namespaceOm');
+			$omns = is_scalar($omnsRaw) ? (string) $omnsRaw : '';
+			if ($omns !== '') {
 				return $namespace . '\\' . $omns;
 			} else {
 				return $namespace;
@@ -61,7 +130,9 @@ class ObjectBuilder extends AbstractObjectBuilder
 	 */
 	public function getUnprefixedClassname()
 	{
-		return $this->getBuildProperty('basePrefix') . $this->getStubObjectBuilder()->getUnprefixedClassname();
+		$basePrefixRaw = $this->getBuildProperty('basePrefix');
+		$basePrefix = is_scalar($basePrefixRaw) ? (string) $basePrefixRaw : '';
+		return $basePrefix . $this->getStubObjectBuilder()->getUnprefixedClassname();
 	}
 
 	/**
@@ -108,20 +179,24 @@ class ObjectBuilder extends AbstractObjectBuilder
 
 	/**
 	 * Returns the appropriate formatter (from platform) for a date/time column.
+	 *
+	 * Note: BU_DATE/BU_TIMESTAMP are stored as plain strings but are still
+	 * reported as temporal by Column::isTemporalType(), so they must be
+	 * handled here too -- otherwise callers relying on isTemporalType() to
+	 * gate calls into this method (e.g. getDefaultValueString()) would get
+	 * a null formatter for those two types.
+	 *
 	 * @param      Column $col
-	 * @return     string
+	 * @return     string|null
 	 */
-	protected function getTemporalFormatter(Column $col)
+	protected function getTemporalFormatter(Column $col): ?string
 	{
-		$fmt = null;
-		if ($col->getType() === PropulsionTypes::DATE) {
-			$fmt = $this->getPlatform()->getDateFormatter();
-		} elseif ($col->getType() === PropulsionTypes::TIME) {
-			$fmt = $this->getPlatform()->getTimeFormatter();
-		} elseif ($col->getType() === PropulsionTypes::TIMESTAMP) {
-			$fmt = $this->getPlatform()->getTimestampFormatter();
-		}
-		return $fmt;
+		return match ($col->getType()) {
+			PropulsionTypes::DATE, PropulsionTypes::BU_DATE => $this->getPlatform()->getDateFormatter(),
+			PropulsionTypes::TIME => $this->getPlatform()->getTimeFormatter(),
+			PropulsionTypes::TIMESTAMP, PropulsionTypes::BU_TIMESTAMP => $this->getPlatform()->getTimestampFormatter(),
+			default => null,
+		};
 	}
 
 	/**
@@ -141,7 +216,13 @@ class ObjectBuilder extends AbstractObjectBuilder
 			return $defaultValue;
 		}
 		if ($col->isTemporalType()) {
+			if (!is_string($val)) {
+				throw new EngineException(sprintf('Expected a string default value for temporal column "%s", got %s', $col->getFullyQualifiedName(), get_debug_type($val)));
+			}
 			$fmt = $this->getTemporalFormatter($col);
+			if ($fmt === null) {
+				throw new EngineException('No temporal formatter available for column "' . $col->getFullyQualifiedName() . '" of type "' . $col->getType() . '".');
+			}
 			try {
 				if (!($this->getPlatform() instanceof MysqlPlatform &&
 				($val === '0000-00-00 00:00:00' || $val === '0000-00-00'))) {
@@ -158,7 +239,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 		} elseif ($col->isEnumType()) {
 			$valueSet = $col->getValueSet();
 			if (!in_array($val, $valueSet)) {
-				throw new EngineException(sprintf('Default Value "%s" is not among the enumerated values', $val));
+				throw new EngineException(sprintf('Default Value "%s" is not among the enumerated values', is_scalar($val) ? (string) $val : get_debug_type($val)));
 			}
 			if ($col->hasEnumClass()) {
 				// The property holds the enum instance directly (see
@@ -180,13 +261,13 @@ class ObjectBuilder extends AbstractObjectBuilder
 			$propelType = $col->getType();
 			if ($propelType === PropulsionTypes::BIGINT || $propelType === PropulsionTypes::INTEGER ||
 			    $propelType === PropulsionTypes::SMALLINT || $propelType === PropulsionTypes::TINYINT) {
-				$defaultValue = var_export((int) $val, true);
+				$defaultValue = var_export(is_scalar($val) ? (int) $val : 0, true);
 			} elseif ($col->isBooleanType()) {
 				$defaultValue = var_export((bool) $val, true);
 			} elseif ($col->getPhpType() === 'double' || $col->getPhpType() === 'float') {
-				$defaultValue = var_export((float) $val, true);
+				$defaultValue = var_export(is_scalar($val) ? (float) $val : 0.0, true);
 			} elseif ($col->getPhpType() === 'string' || $col->isTextType()) {
-				$defaultValue = var_export((string) $val, true);
+				$defaultValue = var_export(is_scalar($val) ? (string) $val : '', true);
 			} elseif ($col->getPhpType() === 'array') {
 				$defaultValue = var_export((array) $val, true);
 			} else {
@@ -314,7 +395,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 	{
 		$script = '';
 		$declaredClasses = $this->declaredClasses;
-		unset($declaredClasses[$ignoredNamespace]);
+		unset($declaredClasses[$ignoredNamespace ?? '']);
 
 		$classMap = [];
 		$preferredNamespaces = [
@@ -372,8 +453,8 @@ class ObjectBuilder extends AbstractObjectBuilder
 		$tableName = $table->getName();
 		$tableDesc = $table->getDescription();
 		$interface = $this->getInterface();
-		$parentClass = $this->getBehaviorContent('parentClass');
-		$parentClass = (null !== $parentClass) ? $parentClass : ClassTools::classname($this->getBaseClass());
+		$parentClassRaw = $this->getBehaviorContent('parentClass');
+		$parentClass = (null !== $parentClassRaw && is_scalar($parentClassRaw)) ? (string) $parentClassRaw : ClassTools::classname($this->getBaseClass());
 		$implements = $interface == "Persistent" ? " implements Persistent" : "";
 
 		$script .= "
@@ -517,7 +598,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	// Column properties with PHP 8.4 typed properties";
 
 		foreach ($table->getColumns() as $col) {
-			$colname = $col->getName();
+			$colname = (string) $col->getName();
 			$phpname = $col->getPhpName();
 			$type = $this->getPhp85PropertyType($col);
 			// Temporal (DateTimeInterface-typed) columns can have a non-null default, but
@@ -580,7 +661,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		}
 
 		if ($col->isLazyLoad()) {
-			$clo = strtolower($col->getName());
+			$clo = strtolower((string) $col->getName());
 			$script .= "
 	protected bool \${$clo}_isLoaded = false;";
 		}
@@ -589,7 +670,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		// Add foreign key object properties (single object references)
 		foreach ($table->getForeignKeys() as $fk) {
 			$varName = $this->getFKVarName($fk);
-			$foreignTable = $fk->getForeignTable();
+			$foreignTable = $this->requireForeignTable($fk);
 			$foreignClassName = $foreignTable->getPhpName();
 
 			// Declare the foreign class for proper type hinting
@@ -605,8 +686,8 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 
 		// Add referrer foreign key collection properties (arrays of objects)
 		foreach ($table->getReferrers() as $refFK) {
-			$refTableName = $refFK->getTable()->getPhpName();
-			$this->declareClassFromBuilder($this->getNewStubObjectBuilder($refFK->getTable()));
+			$refTableName = $this->requireForeignKeyTable($refFK)->getPhpName();
+			$this->declareClassFromBuilder($this->getNewStubObjectBuilder($this->requireForeignKeyTable($refFK)));
 
 			if ($refFK->isLocalPrimaryKey()) {
 				$varName = $this->getPKRefFKVarName($refFK);
@@ -631,8 +712,8 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		foreach ($table->getCrossFks() as $fkList) {
 			list($refFK, $crossFK) = $fkList;
 			$varName = $this->getCrossFKVarName($crossFK);
-			$crossTableName = $crossFK->getForeignTable()->getPhpName();
-			$this->declareClassFromBuilder($this->getNewStubObjectBuilder($crossFK->getForeignTable()));
+			$crossTableName = $this->requireForeignTable($crossFK)->getPhpName();
+			$this->declareClassFromBuilder($this->getNewStubObjectBuilder($this->requireForeignTable($crossFK)));
 			
 			$script .= "
 
@@ -889,7 +970,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	public function addTemporalAccessorComment(string &$script, Column $col): void
 	{
-		$colname = $col->getName();
+		$colname = (string) $col->getName();
 		$description = $col->getDescription() ? $col->getDescription() : "Get the value of [$colname] column.";
 		$script .= "
 
@@ -921,7 +1002,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	public function addDefaultAccessorComment(string &$script, Column $col): void
 	{
-		$colname = $col->getName();
+		$colname = (string) $col->getName();
 		$description = $col->getDescription() ? $col->getDescription() : "Get the value of [$colname] column.";
 		$returnType = $this->getPhp85TypeHint($col);
 		$script .= "
@@ -952,7 +1033,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	protected function addColumnAccessor(string &$script, Column $col): void
 	{
-		$colname = $col->getName();
+		$colname = (string) $col->getName();
 		$phpname = $col->getPhpName();
 
 		if ($col->isTemporalType()) {
@@ -976,7 +1057,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		return \$this->{$phpname}?->format(\$format);
 	}";
 		} else {
-			$clo = strtolower($col->getName());
+			$clo = strtolower((string) $col->getName());
 			// Lazy-loaded columns (e.g. BLOB/CLOB) aren't populated by hydrate() -- see
 			// addHydrate()'s isLazyLoad() skip -- so the getter has to trigger a
 			// dedicated one-column query the first time it's accessed. Ported from
@@ -1016,7 +1097,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$this->declareClass('\Exception');
 
 		$phpname = $col->getPhpName();
-		$clo = strtolower($col->getName());
+		$clo = strtolower((string) $col->getName());
 		$const = $this->getColumnConstant($col);
 
 		$script .= "
@@ -1139,7 +1220,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	public function addTemporalMutatorComment(string &$script, Column $col): void
 	{
-		$colname = $col->getName();
+		$colname = (string) $col->getName();
 		$returnType = $this->getClassname();
 		$description = $col->getDescription() ? $col->getDescription() : "Set the value of [$colname] column.";
 		$script .= "
@@ -1160,7 +1241,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	public function addMutatorComment(string &$script, Column $col): void
 	{
-		$colname = $col->getName();
+		$colname = (string) $col->getName();
 		$paramType = $this->getPhp85TypeHint($col);
 		$returnType = $this->getClassname();
 		$description = $col->getDescription() ? $col->getDescription() : "Set the value of [$colname] column.";
@@ -1204,7 +1285,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	protected function addColumnMutator(string &$script, Column $col): void
 	{
-		$colname = $col->getName();
+		$colname = (string) $col->getName();
 		$phpname = $col->getPhpName();
 		$paramType = $this->getPhp85TypeHint($col);
 		$returnType = $this->getClassname();
@@ -1438,8 +1519,8 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			if ($col->isForeignKey()) {
 				$table = $this->getTable();
 				foreach ($col->getForeignKeys() as $fk) {
-					$tblFK = $table->getDatabase()->getTable($fk->getForeignTableName());
-					$colFK = $tblFK->getColumn($fk->getMappedForeignColumn($col->getName()));
+					$tblFK = $this->requireTableByName($table, $fk->getForeignTableName());
+					$colFK = $this->requireColumnByName($tblFK, $fk->getMappedForeignColumn((string) $col->getName()));
 					$varName = $this->getFKVarName($fk);
 					$script .= "
 		if (\$this->$varName !== null && \$this->{$varName}->get" . $colFK->getPhpName() . "() !== \$value) {
@@ -1474,7 +1555,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	protected function addEnumAccessor(string &$script, Column $col): void
 	{
-		$colname = $col->getName();
+		$colname = (string) $col->getName();
 		$phpname = $col->getPhpName();
 		$description = $col->getDescription() ? $col->getDescription() : "Get the [$colname] column value.";
 
@@ -1527,7 +1608,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	protected function addEnumMutator(string &$script, Column $col): void
 	{
-		$colname = $col->getName();
+		$colname = (string) $col->getName();
 		$phpname = $col->getPhpName();
 
 		if ($col->hasEnumClass()) {
@@ -1674,8 +1755,8 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	protected function addFKMethods(string &$script): void
 	{
 		foreach ($this->getTable()->getForeignKeys() as $fk) {
-			$this->declareClassFromBuilder($this->getNewStubObjectBuilder($fk->getForeignTable()));
-			$this->declareClassFromBuilder($this->getNewStubQueryBuilder($fk->getForeignTable()));
+			$this->declareClassFromBuilder($this->getNewStubObjectBuilder($this->requireForeignTable($fk)));
+			$this->declareClassFromBuilder($this->getNewStubQueryBuilder($this->requireForeignTable($fk)));
 			$this->addFKMutator($script, $fk);
 			$this->addFKAccessor($script, $fk);
 		}
@@ -1689,8 +1770,8 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$table = $this->getTable();
 		$varName = $this->getFKVarName($fk);
 		
-		$fkQueryBuilder = $this->getNewStubQueryBuilder($fk->getForeignTable());
-		$fkObjectBuilder = $this->getNewObjectBuilder($fk->getForeignTable())->getStubObjectBuilder();
+		$fkQueryBuilder = $this->getNewStubQueryBuilder($this->requireForeignTable($fk));
+		$fkObjectBuilder = $this->getNewObjectBuilder($this->requireForeignTable($fk))->getStubObjectBuilder();
 		$className = $fkObjectBuilder->getClassname();
 
 		$and = "";
@@ -1705,13 +1786,16 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		foreach ($fk->getLocalColumns() as $columnName) {
 			$lfmap = $fk->getLocalForeignMapping();
 			
-			$localColumn = $table->getColumn($columnName);
-			$foreignColumn = $fk->getForeignTable()->getColumn($lfmap[$columnName]);
-			
-			$column = $table->getColumn($columnName);
+			$foreignColumn = $this->requireColumnByName($this->requireForeignTable($fk), $lfmap[$columnName] ?? null);
+
+			$column = $this->requireColumnByName($table, $columnName);
 			$cptype = $column->getPhpType();
 			$phpname = $column->getPhpName(); // Use PHP name instead of lowercase
-			$localColumns[$foreignColumn->getPosition()] = '$this->'.$phpname;
+			$foreignColumnPosition = $foreignColumn->getPosition();
+			if ($foreignColumnPosition === null) {
+				throw new EngineException('Column "' . $foreignColumn->getName() . '" has no position assigned.');
+			}
+			$localColumns[$foreignColumnPosition] = '$this->'.$phpname;
 			
 			if ($cptype == "integer" || $cptype == "float" || $cptype == "double") {
 				$conditional .= $and . "\$this->". $phpname ." != 0";
@@ -1769,8 +1853,8 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$this->declareClassFromBuilder($this->getStubObjectBuilder());
 
 		$table = $this->getTable();
-		$tblFK = $fk->getTable();
-		$joinedTableObjectBuilder = $this->getNewObjectBuilder($fk->getForeignTable());
+		$tblFK = $this->requireForeignKeyTable($fk);
+		$joinedTableObjectBuilder = $this->getNewObjectBuilder($this->requireForeignTable($fk));
 		$className = $joinedTableObjectBuilder->getObjectClassname();
 
 		$varName = $this->getFKVarName($fk);
@@ -1790,9 +1874,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		// Now create the code for the setter
 		foreach ($fk->getLocalColumns() as $columnName) {
 			$lfmap = $fk->getLocalForeignMapping();
-			$localColumn = $table->getColumn($columnName);
-			$foreignColumn = $fk->getForeignTable()->getColumn($lfmap[$columnName]);
-			
+			$localColumn = $this->requireColumnByName($table, $columnName);
+			$foreignColumn = $this->requireColumnByName($this->requireForeignTable($fk), $lfmap[$columnName] ?? null);
+
 			$phpname = $localColumn->getPhpName(); // Use PHP name instead of lowercase
 			$foreignPhpname = $foreignColumn->getPhpName();
 			
@@ -2003,8 +2087,8 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			if ($col->isForeignKey()) {
 				$phpname = $col->getPhpName();
 				foreach ($col->getForeignKeys() as $fk) {
-					$tblFK = $table->getDatabase()->getTable($fk->getForeignTableName());
-					$colFK = $tblFK->getColumn($fk->getMappedForeignColumn($col->getName()));
+					$tblFK = $this->requireTableByName($table, $fk->getForeignTableName());
+					$colFK = $this->requireColumnByName($tblFK, $fk->getMappedForeignColumn((string) $col->getName()));
 					$varName = $this->getFKVarName($fk);
 					$script .= "
 		if (\$this->$varName !== null && \$this->$phpname !== \$this->{$varName}->get" . $colFK->getPhpName() . "()) {
@@ -2413,7 +2497,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 				if (is_resource(\$this->$phpname)) {
 					rewind(\$this->$phpname);";
 				if ($col->isLazyLoad()) {
-					$clo = strtolower($col->getName());
+					$clo = strtolower((string) $col->getName());
 					$script .= "
 				} else {
 					// Some drivers (MSSQL/dblib) fully close a LOB stream
@@ -2539,7 +2623,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$table = $this->getTable();
 		foreach ($table->getColumns() as $col) {
 			if ($col->isLazyLoad()) {
-				$clo = strtolower($col->getName());
+				$clo = strtolower((string) $col->getName());
 				$phpname = $col->getPhpName();
 				$script .= "
 		\$this->{$clo}_isLoaded = false;
@@ -3049,7 +3133,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 				// current one, i.e. a self-referential FK (e.g. Employee -> Supervisor/Subordinates).
 				// For a referrer on a different table, $relObj can never be $this, so emitting
 				// the check there is dead code (and a type mismatch under static analysis).
-				$isSelfReferential = $refFK->getTable() === $table;
+				$isSelfReferential = $this->requireForeignKeyTable($refFK) === $table;
 				$script .= "
 			foreach (\$this->get$refFKPhpNameAffix() as \$relObj) {";
 				if ($isSelfReferential) {
@@ -3131,8 +3215,8 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		}
 		$this->addInitRelations($script, $referrers);
 		foreach ($referrers as $refFK) {
-			$this->declareClassFromBuilder($this->getNewStubObjectBuilder($refFK->getTable()));
-			$this->declareClassFromBuilder($this->getNewStubQueryBuilder($refFK->getTable()));
+			$this->declareClassFromBuilder($this->getNewStubObjectBuilder($this->requireForeignKeyTable($refFK)));
+			$this->declareClassFromBuilder($this->getNewStubQueryBuilder($this->requireForeignKeyTable($refFK)));
 			if ($refFK->isLocalPrimaryKey()) {
 				$this->addPKRefFKGet($script, $refFK);
 				$this->addPKRefFKSet($script, $refFK);
@@ -3215,7 +3299,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		// PropulsionObjectCollection::save() method_exists(<model>, 'save') succeeds.
 		// Short names caused runtime 'Cannot save objects on a read-only model' when
 		// the non-namespaced short class was not autoloadable.
-		$relatedObjectClassName = $this->getNewStubObjectBuilder($refFK->getTable())->getFullyQualifiedClassname();
+		$relatedObjectClassName = $this->getNewStubObjectBuilder($this->requireForeignKeyTable($refFK))->getFullyQualifiedClassname();
 
 		$script .= "
 
@@ -3242,7 +3326,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	protected function addRefFKGet(string &$script, ForeignKey $refFK): void
 	{
-		$relatedObjectClassName = $this->getNewStubObjectBuilder($refFK->getTable())->getClassname();
+		$relatedObjectClassName = $this->getNewStubObjectBuilder($this->requireForeignKeyTable($refFK))->getClassname();
 		$relCol = $this->getRefFKPhpNameAffix($refFK, true);
 		$collName = $this->getRefFKCollVarName($refFK);
 
@@ -3263,7 +3347,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 				// return empty collection
 				\$this->init$relCol();
 			} else {
-				\$query = " . $this->getNewStubQueryBuilder($refFK->getTable())->getClassname() . "::create(null, \$criteria);
+				\$query = " . $this->getNewStubQueryBuilder($this->requireForeignKeyTable($refFK))->getClassname() . "::create(null, \$criteria);
 
 				\${$collName} = \$query
 					->filterBy" . $this->getFKPhpNameAffix($refFK, false) . "(\$this)
@@ -3290,7 +3374,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	protected function addRefFKCount(string &$script, ForeignKey $refFK): void
 	{
-		$relatedObjectClassName = $this->getNewStubObjectBuilder($refFK->getTable())->getClassname();
+		$relatedObjectClassName = $this->getNewStubObjectBuilder($this->requireForeignKeyTable($refFK))->getClassname();
 		$relCol = $this->getRefFKPhpNameAffix($refFK, true);
 		$collName = $this->getRefFKCollVarName($refFK);
 
@@ -3318,7 +3402,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 				return 0;
 			}
 
-			\$query = " . $this->getNewStubQueryBuilder($refFK->getTable())->getClassname() . "::create(null, \$criteria);
+			\$query = " . $this->getNewStubQueryBuilder($this->requireForeignKeyTable($refFK))->getClassname() . "::create(null, \$criteria);
 			if (\$distinct) {
 				\$query->distinct();
 			}
@@ -3339,11 +3423,11 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	{
 		$this->declareClassFromBuilder($this->getStubObjectBuilder());
 
-		$relatedObjectClassName = $this->getNewStubObjectBuilder($refFK->getTable())->getClassname();
+		$relatedObjectClassName = $this->getNewStubObjectBuilder($this->requireForeignKeyTable($refFK))->getClassname();
 		// NOTE: Use fully-qualified class name here (instead of short class) so that
 		// PropulsionObjectCollection::save() method_exists(<model>, 'save') succeeds --
 		// see addRefFKInit()/init$relCol() above, which this must stay consistent with.
-		$relatedObjectFQCN = $this->getNewStubObjectBuilder($refFK->getTable())->getFullyQualifiedClassname();
+		$relatedObjectFQCN = $this->getNewStubObjectBuilder($this->requireForeignKeyTable($refFK))->getFullyQualifiedClassname();
 		$relCol = $this->getRefFKPhpNameAffix($refFK, true);
 		$collName = $this->getRefFKCollVarName($refFK);
 
@@ -3380,11 +3464,11 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	protected function addRefFKGetJoinMethods(string &$script, ForeignKey $refFK): void
 	{
 		$table = $this->getTable();
-		$tblFK = $refFK->getTable();
+		$tblFK = $this->requireForeignKeyTable($refFK);
 		$join_behavior = $this->getGeneratorConfig()->getBuildProperty('useLeftJoinsInDoJoinMethods') ? 'Criteria::LEFT_JOIN' : 'Criteria::INNER_JOIN';
 
 		$peerClassname = $this->getStubPeerBuilder()->getClassname();
-		$fkQueryClassname = $this->getNewStubQueryBuilder($refFK->getTable())->getClassname();
+		$fkQueryClassname = $this->getNewStubQueryBuilder($this->requireForeignKeyTable($refFK))->getClassname();
 		$relCol = $this->getRefFKPhpNameAffix($refFK, $plural=true);
 		$collName = $this->getRefFKCollVarName($refFK);
 
@@ -3394,7 +3478,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$lastTable = "";
 		foreach ($tblFK->getForeignKeys() as $fk2) {
 
-			$tblFK2 = $fk2->getForeignTable();
+			$tblFK2 = $this->requireForeignTable($fk2);
 			$doJoinGet = !$tblFK2->isForReferenceOnly();
 
 			// it doesn't make sense to join in rows from the curent table, since we are fetching
@@ -3445,7 +3529,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	protected function addPKRefFKGet(string &$script, ForeignKey $refFK): void
 	{
-		$relatedObjectClassName = $this->getNewStubObjectBuilder($refFK->getTable())->getClassname();
+		$relatedObjectClassName = $this->getNewStubObjectBuilder($this->requireForeignKeyTable($refFK))->getClassname();
 		$varName = $this->getPKRefFKVarName($refFK);
 		$relatedByName = $this->getRefFKPhpNameAffix($refFK, false);
 
@@ -3461,7 +3545,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	public function get$relatedByName(?PropulsionPDO \$con = null): ?$relatedObjectClassName
 	{
 		if (\$this->$varName === null && !\$this->isNew()) {
-			\$this->$varName = " . $this->getNewStubQueryBuilder($refFK->getTable())->getClassname() . "::create()->findPk(\$this->getPrimaryKey(), \$con);
+			\$this->$varName = " . $this->getNewStubQueryBuilder($this->requireForeignKeyTable($refFK))->getClassname() . "::create()->findPk(\$this->getPrimaryKey(), \$con);
 		}
 
 		return \$this->$varName;
@@ -3475,7 +3559,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	{
 		$this->declareClassFromBuilder($this->getStubObjectBuilder());
 
-		$relatedObjectClassName = $this->getNewStubObjectBuilder($refFK->getTable())->getClassname();
+		$relatedObjectClassName = $this->getNewStubObjectBuilder($this->requireForeignKeyTable($refFK))->getClassname();
 		$varName = $this->getPKRefFKVarName($refFK);
 		$relatedByName = $this->getRefFKPhpNameAffix($refFK, false);
 
@@ -3522,8 +3606,8 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	{
 		list($refFK, $crossFK) = $crossFKs;
 		
-		$this->declareClassFromBuilder($this->getNewStubObjectBuilder($crossFK->getForeignTable()));
-		$this->declareClassFromBuilder($this->getNewStubQueryBuilder($crossFK->getForeignTable()));
+		$this->declareClassFromBuilder($this->getNewStubObjectBuilder($this->requireForeignTable($crossFK)));
+		$this->declareClassFromBuilder($this->getNewStubQueryBuilder($this->requireForeignTable($crossFK)));
 
 		$this->addCrossFKClear($script, $crossFK);
 		$this->addCrossFKInit($script, $crossFK);
@@ -3565,7 +3649,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$collName = $this->getCrossFKVarName($crossFK);
 		// NOTE: Same rationale as addRefFKInit(): ensure collection model stores FQCN
 		// to keep subsequent method_exists(<FQCN>, 'save') checks valid.
-		$relatedObjectClassName = $this->getNewStubObjectBuilder($crossFK->getForeignTable())->getFullyQualifiedClassname();
+		$relatedObjectClassName = $this->getNewStubObjectBuilder($this->requireForeignTable($crossFK))->getFullyQualifiedClassname();
 
 		$script .= "
 	/**
@@ -3593,9 +3677,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	protected function addCrossFKGet(string &$script, ForeignKey $refFK, ForeignKey $crossFK): void
 	{
 		$relatedName = $this->getFKPhpNameAffix($crossFK, true);
-		$relatedObjectClassName = $this->getNewStubObjectBuilder($crossFK->getForeignTable())->getClassname();
+		$relatedObjectClassName = $this->getNewStubObjectBuilder($this->requireForeignTable($crossFK))->getClassname();
 		$selfRelationName = $this->getFKPhpNameAffix($refFK, false);
-		$relatedQueryClassName = $this->getNewStubQueryBuilder($crossFK->getForeignTable())->getClassname();
+		$relatedQueryClassName = $this->getNewStubQueryBuilder($this->requireForeignTable($crossFK))->getClassname();
 		$crossRefTableName = $crossFK->getTableName();
 		$collName = $this->getCrossFKVarName($crossFK);
 
@@ -3640,9 +3724,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	protected function addCrossFKCount(string &$script, ForeignKey $refFK, ForeignKey $crossFK): void
 	{
 		$relatedName = $this->getFKPhpNameAffix($crossFK, true);
-		$relatedObjectClassName = $this->getNewStubObjectBuilder($crossFK->getForeignTable())->getClassname();
+		$relatedObjectClassName = $this->getNewStubObjectBuilder($this->requireForeignTable($crossFK))->getClassname();
 		$selfRelationName = $this->getFKPhpNameAffix($refFK, false);
-		$relatedQueryClassName = $this->getNewStubQueryBuilder($crossFK->getForeignTable())->getClassname();
+		$relatedQueryClassName = $this->getNewStubQueryBuilder($this->requireForeignTable($crossFK))->getClassname();
 		$crossRefTableName = $refFK->getTableName();
 		$collName = $this->getCrossFKVarName($crossFK);
 
@@ -3692,18 +3776,18 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$relColSingular = $this->getFKPhpNameAffix($crossFK, false);
 		$collName = $this->getCrossFKVarName($crossFK);
 
-		$tblFK = $refFK->getTable();
-		$crossTableBuilder = $this->getNewObjectBuilder($crossFK->getForeignTable());
+		$tblFK = $this->requireForeignKeyTable($refFK);
+		$crossTableBuilder = $this->getNewObjectBuilder($this->requireForeignTable($crossFK));
 		$crossObjectClassName = $crossTableBuilder->getObjectClassname();
-		$refTableBuilder = $this->getNewObjectBuilder($refFK->getTable());
+		$refTableBuilder = $this->getNewObjectBuilder($this->requireForeignKeyTable($refFK));
 		$refClassName = $refTableBuilder->getObjectClassname();
 
-		$crossObjectName = '$' . lcfirst($crossFK->getForeignTable()->getPhpName());
-		$refObjectName = '$' . lcfirst($tblFK->getPhpName());
+		$crossObjectName = '$' . lcfirst((string) $this->requireForeignTable($crossFK)->getPhpName());
+		$refObjectName = '$' . lcfirst((string) $tblFK->getPhpName());
 		// NOTE: Use fully-qualified class name here (instead of short class) so that
 		// PropulsionObjectCollection::save() method_exists(<model>, 'save') succeeds --
 		// see addCrossFKInit()/init$relCol(), which this must stay consistent with.
-		$crossObjectFQCN = $this->getNewStubObjectBuilder($crossFK->getForeignTable())->getFullyQualifiedClassname();
+		$crossObjectFQCN = $this->getNewStubObjectBuilder($this->requireForeignTable($crossFK))->getFullyQualifiedClassname();
 
 		$script .= "
 	/**
@@ -3750,7 +3834,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			$script .= "
 		\$this->$phpname = null;";
 			if ($col->isLazyLoad()) {
-				$clo = strtolower($col->getName());
+				$clo = strtolower((string) $col->getName());
 				$script .= "
 		\$this->{$clo}_isLoaded = false;";
 			}
@@ -3909,8 +3993,8 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		
 		// Add behavior content for delegate behavior
 		$behaviorCallContent = $this->getBehaviorContent('objectCall');
-		if ($behaviorCallContent) {
-			$script .= $behaviorCallContent;
+		if (is_scalar($behaviorCallContent) && $behaviorCallContent) {
+			$script .= (string) $behaviorCallContent;
 		}
 		
 		$script .= "
