@@ -63,12 +63,8 @@ abstract class AbstractObjectBuilder extends OMBuilder
 	 * brought into scope by the builder's own declareClass() call).
 	 * @return     string
 	 */
-	protected function getInterface() {
-		$interface = $this->getTable()->getInterface();
-		if ($interface === null && !$this->getTable()->isReadOnly()) {
-			$interface = "Persistent";
-		}
-		return $interface;
+	protected function getInterface(): ?string {
+		return ClassTools::getInterface($this->getTable());
 	}
 
 	/**

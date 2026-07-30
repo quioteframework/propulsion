@@ -108,9 +108,9 @@ class ClassTools
 	 * Gets the interface classname if specified for table.
 	 * If not, will return 'Persistent' (i.e. \Propulsion\OM\Persistent,
 	 * brought into scope by the builder's own declareClass() call).
-	 * @return     string
+	 * @return     string|null
 	 */
-	public static function getInterface(Table $table) {
+	public static function getInterface(Table $table): ?string {
 		$interface = $table->getInterface();
 		if ($interface === null && !$table->isReadOnly()) {
 			$interface = "Persistent";

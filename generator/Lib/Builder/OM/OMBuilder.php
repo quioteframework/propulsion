@@ -20,6 +20,7 @@ namespace Propulsion\Generator\Builder\OM;
  */
 use Propulsion\Generator\Builder\DataModelBuilder;
 use \Exception;
+use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\Column;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Model\ForeignKey;
@@ -174,11 +175,12 @@ abstract class OMBuilder extends DataModelBuilder
 	 * This is overridden by child classes that have different packages.
 	 * @return     string
 	 */
-	public function getPackage()
+	public function getPackage(): string
 	{
 		$pkg = ($this->getTable()->getPackage() ? $this->getTable()->getPackage() : $this->getDatabase()->getPackage());
 		if (!$pkg) {
-			$pkg = $this->getBuildProperty('targetPackage');
+			$buildPkg = $this->getBuildProperty('targetPackage');
+			$pkg = is_string($buildPkg) ? $buildPkg : '';
 		}
 		return $pkg;
 	}
@@ -187,12 +189,13 @@ abstract class OMBuilder extends DataModelBuilder
 	 * Returns filesystem path for current package.
 	 * @return     string
 	 */
-	public function getPackagePath()
+	public function getPackagePath(): string
 	{
 		$pkg = $this->getPackage();
 
 		if (strpos($pkg, '/') !== false) {
-			return preg_replace('#\.(map|om)$#i', '/\1', $pkg);
+			$path = preg_replace('#\.(map|om)$#i', '/\1', $pkg);
+			return $path ?? $pkg;
 		}
 
 		return strtr($pkg, '.', '/');
@@ -203,8 +206,8 @@ abstract class OMBuilder extends DataModelBuilder
 	 */
 	protected function getOmPackageSegment(): string
 	{
-		$segment = (string) $this->getGeneratorConfig()->getBuildProperty('namespaceOm');
-		return $segment !== '' ? $segment : 'OM';
+		$segment = $this->getGeneratorConfig()->getBuildProperty('namespaceOm');
+		return is_string($segment) && $segment !== '' ? $segment : 'OM';
 	}
 
 	/**
@@ -212,8 +215,8 @@ abstract class OMBuilder extends DataModelBuilder
 	 */
 	protected function getMapPackageSegment(): string
 	{
-		$segment = (string) $this->getGeneratorConfig()->getBuildProperty('namespaceMap');
-		return $segment !== '' ? $segment : 'Map';
+		$segment = $this->getGeneratorConfig()->getBuildProperty('namespaceMap');
+		return is_string($segment) && $segment !== '' ? $segment : 'Map';
 	}
 
 	/**
@@ -260,7 +263,9 @@ abstract class OMBuilder extends DataModelBuilder
 	{
 		$args = func_get_args();
 		foreach ($args as $class) {
-			$this->declareClass($class);
+			if (is_string($class)) {
+				$this->declareClass($class);
+			}
 		}
 	}
 
@@ -291,7 +296,7 @@ abstract class OMBuilder extends DataModelBuilder
 	{
 		$script = '';
 		$declaredClasses = $this->declaredClasses;
-		unset($declaredClasses[$ignoredNamespace]);
+		unset($declaredClasses[$ignoredNamespace ?? '']);
 		ksort($declaredClasses);
 		foreach ($declaredClasses as $namespace => $classes) {
 			sort($classes);
@@ -352,13 +357,16 @@ abstract class OMBuilder extends DataModelBuilder
 			throw $e;
 		}
 		if ($classname === null) {
-			return $this->getBuildProperty('classPrefix') . $col->getConstantName();
+			$classPrefix = $this->getBuildProperty('classPrefix');
+			$classPrefix = is_string($classPrefix) ? $classPrefix : '';
+			return $classPrefix . $col->getConstantName();
 		}
 		// was it overridden in schema.xml ?
-		if ($col->getPeerName()) {
-			$const = strtoupper($col->getPeerName());
+		$peerName = $col->getPeerName();
+		if ($peerName) {
+			$const = strtoupper($peerName);
 		} else {
-			$const = strtoupper($col->getName());
+			$const = strtoupper((string) $col->getName());
 		}
 		return $classname.'::'.$const;
 	}
@@ -382,9 +390,81 @@ abstract class OMBuilder extends DataModelBuilder
 	 * @deprecated use ForeignKey::getForeignTable() instead
 	 * @return     Table
 	 */
-	protected function getForeignTable(ForeignKey $fk)
+	protected function getForeignTable(ForeignKey $fk): Table
 	{
-		return $this->getTable()->getDatabase()->getTable($fk->getForeignTableName());
+		return self::requireFkForeignTable($fk);
+	}
+
+	/**
+	 * Returns the parent Table of a ForeignKey, throwing if the FK is not attached to one.
+	 */
+	private static function requireFkTable(ForeignKey $fk): Table
+	{
+		$table = $fk->getTable();
+		if ($table === null) {
+			throw new EngineException('ForeignKey is not attached to a parent Table.');
+		}
+		return $table;
+	}
+
+	/**
+	 * Resolves the foreign Table referenced by a ForeignKey, throwing if it cannot be resolved.
+	 */
+	private static function requireFkForeignTable(ForeignKey $fk): Table
+	{
+		$table = $fk->getForeignTable();
+		if ($table === null) {
+			throw new EngineException(sprintf('Could not resolve foreign table "%s" for foreign key.', (string) $fk->getForeignTableName()));
+		}
+		return $table;
+	}
+
+	/**
+	 * Returns a Table's PHP name, throwing if it could not be resolved.
+	 */
+	private static function requireTablePhpName(Table $table): string
+	{
+		$phpName = $table->getPhpName();
+		if ($phpName === null) {
+			throw new EngineException(sprintf('Table "%s" does not have a resolvable PHP name.', (string) $table->getName()));
+		}
+		return $phpName;
+	}
+
+	/**
+	 * Returns a named Column from a Table, throwing if it does not exist.
+	 */
+	private static function requireTableColumn(Table $table, string $columnName): Column
+	{
+		$column = $table->getColumn($columnName);
+		if ($column === null) {
+			throw new Exception("Could not fetch column: $columnName in table " . (string) $table->getName());
+		}
+		return $column;
+	}
+
+	/**
+	 * Returns a ForeignKey's foreign table name, throwing if it is not set.
+	 */
+	private static function requireFkForeignTableName(ForeignKey $fk): string
+	{
+		$name = $fk->getForeignTableName();
+		if ($name === null) {
+			throw new EngineException('ForeignKey does not have a foreign table name.');
+		}
+		return $name;
+	}
+
+	/**
+	 * Returns a ForeignKey's own table name, throwing if it is not set.
+	 */
+	private static function requireFkTableName(ForeignKey $fk): string
+	{
+		$name = $fk->getTableName();
+		if ($name === null) {
+			throw new EngineException('ForeignKey is not attached to a parent Table.');
+		}
+		return $name;
 	}
 
 	/**
@@ -418,14 +498,15 @@ abstract class OMBuilder extends DataModelBuilder
 	 */
 	public function getFKPhpNameAffix(ForeignKey $fk, $plural = false)
 	{
-		if ($fk->getPhpName()) {
+		$phpName = $fk->getPhpName();
+		if ($phpName) {
 			if ($plural) {
-				return $this->getPluralizer()->getPluralForm($fk->getPhpName());
+				return $this->getPluralizer()->getPluralForm($phpName);
 			} else {
-				return $fk->getPhpName();
+				return $phpName;
 			}
 		} else {
-			$className = $fk->getForeignTable()->getPhpName();
+			$className = self::requireTablePhpName(self::requireFkForeignTable($fk));
 			if ($plural) {
 				$className = $this->getPluralizer()->getPluralForm($className);
 			}
@@ -446,13 +527,10 @@ abstract class OMBuilder extends DataModelBuilder
 	{
 		$relCol = '';
 		foreach ($fk->getLocalForeignMapping() as $localColumnName => $foreignColumnName) {
-			$localTable  = $fk->getTable();
-			$localColumn = $localTable->getColumn($localColumnName);
-			if (!$localColumn) {
-				throw new Exception("Could not fetch column: $localColumnName in table " . $localTable->getName());
-			}
-			if (count($localTable->getForeignKeysReferencingTable($fk->getForeignTableName())) > 1
-			 || count($fk->getForeignTable()->getForeignKeysReferencingTable($fk->getTableName())) > 0
+			$localTable  = self::requireFkTable($fk);
+			$localColumn = self::requireTableColumn($localTable, $localColumnName);
+			if (count($localTable->getForeignKeysReferencingTable(self::requireFkForeignTableName($fk))) > 1
+			 || count(self::requireFkForeignTable($fk)->getForeignKeysReferencingTable(self::requireFkTableName($fk))) > 0
 			 || $fk->getForeignTableName() == $fk->getTableName()) {
 				// self referential foreign key, or several foreign keys to the same table, or cross-reference fkey
 				$relCol .= $localColumn->getPhpName();
@@ -478,14 +556,15 @@ abstract class OMBuilder extends DataModelBuilder
 	 */
 	public function getRefFKPhpNameAffix(ForeignKey $fk, $plural = false)
 	{
-		if ($fk->getRefPhpName()) {
+		$refPhpName = $fk->getRefPhpName();
+		if ($refPhpName) {
 			if ($plural) {
-				return $this->getPluralizer()->getPluralForm($fk->getRefPhpName());
+				return $this->getPluralizer()->getPluralForm($refPhpName);
 			} else {
-				return $fk->getRefPhpName();
+				return $refPhpName;
 			}
 		} else {
-			$className = $fk->getTable()->getPhpName();
+			$className = self::requireTablePhpName(self::requireFkTable($fk));
 			if ($plural) {
 				$className = $this->getPluralizer()->getPluralForm($className);
 			}
@@ -497,20 +576,17 @@ abstract class OMBuilder extends DataModelBuilder
 	{
 		$relCol = '';
 		foreach ($fk->getLocalForeignMapping() as $localColumnName => $foreignColumnName) {
-			$localTable = $fk->getTable();
-			$localColumn = $localTable->getColumn($localColumnName);
-			if (!$localColumn) {
-				throw new Exception("Could not fetch column: $localColumnName in table " . $localTable->getName());
-			}
-			$foreignKeysToForeignTable = $localTable->getForeignKeysReferencingTable($fk->getForeignTableName());
+			$localTable = self::requireFkTable($fk);
+			$localColumn = self::requireTableColumn($localTable, $localColumnName);
+			$foreignKeysToForeignTable = $localTable->getForeignKeysReferencingTable(self::requireFkForeignTableName($fk));
 			if ($fk->getForeignTableName() == $fk->getTableName()) {
 				// self referential foreign key
-				$relCol .= $fk->getForeignTable()->getColumn($foreignColumnName)->getPhpName();
+				$relCol .= self::requireTableColumn(self::requireFkForeignTable($fk), $foreignColumnName)->getPhpName();
 				if (count($foreignKeysToForeignTable) > 1) {
 					// several self-referential foreign keys
-					$relCol .= array_search($fk, $foreignKeysToForeignTable);
+					$relCol .= array_search($fk, $foreignKeysToForeignTable, true);
 				}
-			} elseif (count($foreignKeysToForeignTable) > 1 || count($fk->getForeignTable()->getForeignKeysReferencingTable($fk->getTableName())) > 0) {
+			} elseif (count($foreignKeysToForeignTable) > 1 || count(self::requireFkForeignTable($fk)->getForeignKeysReferencingTable(self::requireFkTableName($fk))) > 0) {
 				// several foreign keys to the same table, or symmetrical foreign key in foreign table
 				$relCol .= $localColumn->getPhpName();
 			}
@@ -530,6 +606,37 @@ abstract class OMBuilder extends DataModelBuilder
 	protected function isAddIncludes(): bool
 	{
 		return (bool) $this->getBuildProperty('addIncludes');
+	}
+
+	/**
+	 * Narrows a (mixed-typed) build property value to a string, falling back to $default
+	 * for non-scalar values.
+	 */
+	protected function getBuildPropertyString(string $name, string $default = ''): string
+	{
+		$value = $this->getBuildProperty($name);
+		return is_scalar($value) ? (string) $value : $default;
+	}
+
+	/**
+	 * Formats the current date/time for use in "autogenerated on" comments, or returns
+	 * an empty string if the timestamp could not be formatted.
+	 */
+	protected function formatAutogeneratedTimestamp(): string
+	{
+		$now = datefmt_create(
+			'en_US',
+			\IntlDateFormatter::FULL,
+			\IntlDateFormatter::FULL,
+			'Europe/Helsinki',
+			\IntlDateFormatter::GREGORIAN,
+			"yyyy-MM-dd HH:mm:ss"
+		);
+		if ($now === null) {
+			return '';
+		}
+		$formatted = datefmt_format($now, 0);
+		return is_string($formatted) ? $formatted : '';
 	}
 
 	/**
