@@ -138,7 +138,11 @@ class Behavior extends XMLElement
 	public function addParameter($attribute): void
 	{
 		$attribute = array_change_key_case($attribute, CASE_LOWER);
-		$this->parameters[$attribute['name']] = $attribute['value'];
+		$name = $attribute['name'] ?? null;
+		if (!is_string($name)) {
+			throw new EngineException('Cannot add a behavior parameter without a string "name" attribute.');
+		}
+		$this->parameters[$name] = $attribute['value'];
 	}
 
 	/**
@@ -197,7 +201,7 @@ class Behavior extends XMLElement
 	 */
 	public function modifyDatabase()
 	{
-		foreach ($this->getDatabase()->getTables() as $table)
+		foreach ($this->requireDatabase()->getTables() as $table)
 		{
 			$b = clone $this;
 			$table->addBehavior($b);
@@ -281,7 +285,11 @@ class Behavior extends XMLElement
 	 */
 	public function getColumnForParameter($param)
 	{
-		return $this->getTable()->getColumn($this->getParameter($param));
+		$columnName = $this->getParameter($param);
+		if (!is_string($columnName)) {
+			return null;
+		}
+		return $this->requireTable()->getColumn($columnName);
 	}
 
 	/**
@@ -290,7 +298,7 @@ class Behavior extends XMLElement
 	 */
 	protected function setupObject(): void
 	{
-		$this->name = $this->getAttribute("name");
+		$this->name = $this->getStringAttribute("name");
 	}
 
 	/**
@@ -299,14 +307,17 @@ class Behavior extends XMLElement
 	public function appendXml(\DOMNode $node): void
 	{
 		$doc = ($node instanceof DOMDocument) ? $node : $node->ownerDocument;
+		if ($doc === null) {
+			throw new EngineException('Cannot append XML: given DOMNode has no owner document');
+		}
 
 		$bNode = $node->appendChild($doc->createElement('behavior'));
-		$bNode->setAttribute('name', $this->getName());
+		$bNode->setAttribute('name', $this->getName() ?? '');
 
 		foreach ($this->parameters as $name => $value) {
 			$parameterNode = $bNode->appendChild($doc->createElement('parameter'));
 			$parameterNode->setAttribute('name', $name);
-			$parameterNode->setAttribute('value', $value);
+			$parameterNode->setAttribute('value', is_scalar($value) ? (string) $value : '');
 		}
 	}
 
