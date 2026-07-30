@@ -38,7 +38,12 @@ class MultiExtendObjectBuilder extends AbstractObjectBuilder
 	 */
 	public function getUnprefixedClassname(): string
 	{
-		return $this->getChild()->getClassname();
+		$child = $this->getChild();
+		$className = $child->getClassName();
+		if ($className === null) {
+			throw new EngineException("The child Inheritance set via setChild() has no class name (missing 'class' attribute).");
+		}
+		return $className;
 	}
 
 	/**
