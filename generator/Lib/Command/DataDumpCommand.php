@@ -48,13 +48,14 @@ EOT
         $io->title('Propulsion Data Dump');
 
         $dsn = $input->getOption('dsn');
-        if (!$dsn) {
+        if (!is_string($dsn) || $dsn === '') {
             $io->error('The --dsn option is required, e.g. --dsn="pgsql:host=localhost;dbname=mydb"');
             return Command::FAILURE;
         }
 
         try {
-            $schemaPath = $input->getArgument('schema');
+            $schemaPathArg = $input->getArgument('schema');
+            $schemaPath = is_string($schemaPathArg) ? $schemaPathArg : './schema';
             $schemas = $this->findSchemaFiles($schemaPath);
 
             if (empty($schemas)) {
@@ -62,19 +63,28 @@ EOT
                 return Command::FAILURE;
             }
 
+            $outputOption = $input->getOption('output');
+            $output_file = is_string($outputOption) ? $outputOption : './dataset.xml';
+            $user = $input->getOption('user');
+            $user = is_string($user) ? $user : null;
+            $password = $input->getOption('password');
+            $password = is_string($password) ? $password : null;
+            $database = $input->getOption('database');
+            $database = is_string($database) ? $database : null;
+
             $config = $this->loadConfiguration($input);
             $manager = new DataDumpManager(
                 $config,
                 $dsn,
-                $input->getOption('user'),
-                $input->getOption('password'),
+                $user,
+                $password,
             );
             $manager->setLogger(new ConsoleLogger($output));
 
             $io->section('Dumping Data');
-            $rowCount = $manager->dump($schemas, $input->getOption('output'), $input->getOption('database'));
+            $rowCount = $manager->dump($schemas, $output_file, $database);
 
-            $io->success("Data dump complete. $rowCount rows written to " . $input->getOption('output'));
+            $io->success("Data dump complete. $rowCount rows written to $output_file");
 
             return Command::SUCCESS;
         } catch (\Throwable $e) {
@@ -90,9 +100,12 @@ EOT
     {
         $defaultPropertiesFile = dirname(__DIR__, 2) . '/default.php';
 
+        $configOption = $input->getOption('config');
+        $configFiles = is_array($configOption) ? array_values(array_filter($configOption, 'is_string')) : [];
+
         return GeneratorConfig::createFromPropertiesFile(
             $defaultPropertiesFile,
-            $input->getOption('config'),
+            $configFiles,
             []
         );
     }

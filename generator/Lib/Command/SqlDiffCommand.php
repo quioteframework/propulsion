@@ -63,7 +63,8 @@ EOT
         $io->title('Propulsion SQL Diff');
 
         try {
-            $schemaPath = $input->getArgument('schema');
+            $schemaPathArg = $input->getArgument('schema');
+            $schemaPath = is_string($schemaPathArg) ? $schemaPathArg : './schema';
             $schemas = $this->findSchemaFiles($schemaPath);
 
             if (empty($schemas)) {
@@ -74,10 +75,13 @@ EOT
             $io->section('Comparing Against Schema Files');
             $io->listing(array_map('basename', $schemas));
 
+            $migrationDirOption = $input->getOption('migration-dir');
+            $migrationDir = is_string($migrationDirOption) ? $migrationDirOption : './migrations';
+
             $config = $this->loadConfiguration($input);
             $manager = new SqlDiffManager(
                 $config,
-                $input->getOption('migration-dir'),
+                $migrationDir,
                 (bool) $input->getOption('case-insensitive'),
             );
             $manager->setLogger(new ConsoleLogger($output));
@@ -106,16 +110,21 @@ EOT
         $defaultPropertiesFile = dirname(__DIR__, 2) . '/default.php';
 
         $overrides = [];
-        if ($database = $input->getOption('database')) {
+        $database = $input->getOption('database');
+        if (is_string($database) && $database !== '') {
             $overrides['propulsion.database'] = $database;
         }
-        if ($buildtimeConf = $input->getOption('buildtime-conf')) {
+        $buildtimeConf = $input->getOption('buildtime-conf');
+        if (is_string($buildtimeConf) && $buildtimeConf !== '') {
             $overrides['propulsion.buildtimeConfFile'] = $buildtimeConf;
         }
 
+        $configOption = $input->getOption('config');
+        $configFiles = is_array($configOption) ? array_values(array_filter($configOption, 'is_string')) : [];
+
         return GeneratorConfig::createFromPropertiesFile(
             $defaultPropertiesFile,
-            $input->getOption('config'),
+            $configFiles,
             $overrides
         );
     }

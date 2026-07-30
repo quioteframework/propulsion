@@ -49,8 +49,9 @@ EOT
         try {
             $io->section('Checking Database Versions');
             foreach ($manager->getConnections() as $datasource => $params) {
+                $dsn = $params['dsn'] ?? null;
                 $output->writeln(
-                    sprintf('Connecting to database "%s" using DSN "%s"', $datasource, $params['dsn']),
+                    sprintf('Connecting to database "%s" using DSN "%s"', $datasource, is_scalar($dsn) ? (string) $dsn : '(unknown)'),
                     OutputInterface::VERBOSITY_VERBOSE
                 );
                 if (!$manager->migrationTableExists($datasource)) {

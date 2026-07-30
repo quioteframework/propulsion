@@ -50,7 +50,8 @@ EOT
         $io->title('Propulsion Model Builder');
 
         try {
-            $schemaPath = $input->getArgument('schema');
+            $schemaPathArg = $input->getArgument('schema');
+            $schemaPath = is_string($schemaPathArg) ? $schemaPathArg : './schema';
             $schemas = $this->findSchemaFiles($schemaPath);
 
             if (empty($schemas)) {
@@ -62,9 +63,12 @@ EOT
             $io->listing(array_map('basename', $schemas));
 
             $config = $this->loadConfiguration($input);
-            $outputDir = $input->getOption('output-dir');
+            $outputDirOption = $input->getOption('output-dir');
+            $outputDir = is_string($outputDirOption) ? $outputDirOption : './generated-classes';
+            $namespace = $input->getOption('namespace');
+            $namespace = is_string($namespace) ? $namespace : null;
 
-            $manager = new ModelManager($config, $outputDir, $input->getOption('namespace'));
+            $manager = new ModelManager($config, $outputDir, $namespace);
             $manager->setLogger(new ConsoleLogger($output));
 
             $io->section('Generating Models');
@@ -89,16 +93,21 @@ EOT
         $defaultPropertiesFile = dirname(__DIR__, 2) . '/default.php';
 
         $overrides = [];
-        if ($database = $input->getOption('database')) {
+        $database = $input->getOption('database');
+        if (is_string($database) && $database !== '') {
             $overrides['propulsion.database'] = $database;
         }
-        if ($targetPlatform = $input->getOption('target-platform')) {
+        $targetPlatform = $input->getOption('target-platform');
+        if (is_string($targetPlatform) && $targetPlatform !== '') {
             $overrides['propulsion.targetPlatform'] = $targetPlatform;
         }
 
+        $configOption = $input->getOption('config');
+        $configFiles = is_array($configOption) ? array_values(array_filter($configOption, 'is_string')) : [];
+
         return GeneratorConfig::createFromPropertiesFile(
             $defaultPropertiesFile,
-            $input->getOption('config'),
+            $configFiles,
             $overrides
         );
     }

@@ -6,6 +6,7 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Propulsion\Generator\Config\GeneratorConfig;
+use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Util\PropulsionMigrationManager;
 
 /**
@@ -38,8 +39,8 @@ abstract class AbstractMigrationCommand extends Command
         // GeneratorConfig::getBuildConnections() always normalizes to [] itself
         // when no buildtimeConfFile/array/string source is configured or found.
         $manager->setConnections($config->getBuildConnections());
-        $manager->setMigrationTable($input->getOption('migration-table'));
-        $manager->setMigrationDir($input->getOption('migration-dir'));
+        $manager->setMigrationTable($this->requireStringOption($input, 'migration-table'));
+        $manager->setMigrationDir($this->requireStringOption($input, 'migration-dir'));
 
         return $manager;
     }
@@ -49,17 +50,46 @@ abstract class AbstractMigrationCommand extends Command
         $defaultPropertiesFile = dirname(__DIR__, 2) . '/default.php';
 
         $overrides = [];
-        if ($database = $input->getOption('database')) {
+        $database = $input->getOption('database');
+        if (is_string($database) && $database !== '') {
             $overrides['propulsion.database'] = $database;
         }
-        if ($buildtimeConf = $input->getOption('buildtime-conf')) {
+        $buildtimeConf = $input->getOption('buildtime-conf');
+        if (is_string($buildtimeConf) && $buildtimeConf !== '') {
             $overrides['propulsion.buildtimeConfFile'] = $buildtimeConf;
         }
 
         return GeneratorConfig::createFromPropertiesFile(
             $defaultPropertiesFile,
-            $input->getOption('config'),
+            $this->configOptionFiles($input),
             $overrides
         );
+    }
+
+    /**
+     * Narrows a required, string-typed console option (one that was
+     * registered with InputOption::VALUE_REQUIRED and a string default) to
+     * a non-empty string.
+     *
+     * @throws EngineException if the option's value is missing or not a string.
+     */
+    private function requireStringOption(InputInterface $input, string $name): string
+    {
+        $value = $input->getOption($name);
+        if (!is_string($value) || $value === '') {
+            throw new EngineException("The --$name option must be a non-empty string.");
+        }
+
+        return $value;
+    }
+
+    /**
+     * @return array<string>
+     */
+    private function configOptionFiles(InputInterface $input): array
+    {
+        $config = $input->getOption('config');
+
+        return is_array($config) ? array_values(array_filter($config, 'is_string')) : [];
     }
 }
