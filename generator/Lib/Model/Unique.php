@@ -10,6 +10,7 @@
 namespace Propulsion\Generator\Model;
 
 use DOMDocument;
+use Propulsion\Generator\Exception\EngineException;
 
 /**
  * Information about unique columns of a table.  This class assumes
@@ -40,10 +41,12 @@ class Unique extends Index
 	public function appendXml(\DOMNode $node): void
 	{
 		$doc = ($node instanceof DOMDocument) ? $node : $node->ownerDocument;
+		if ($doc === null) {
+			throw new EngineException('Cannot append XML: given DOMNode has no owner document');
+		}
 
 		$uniqueNode = $node->appendChild($doc->createElement('unique'));
-		$uniqueNode->setAttribute('name', $this->getName());
-		$columns = $this->getColumns();
+		$uniqueNode->setAttribute('name', $this->getName() ?? '');
 		foreach ($this->getColumns() as $colname) {
 			$uniqueColNode = $uniqueNode->appendChild($doc->createElement('unique-column'));
 			$uniqueColNode->setAttribute('name', $colname);

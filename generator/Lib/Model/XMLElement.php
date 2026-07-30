@@ -173,7 +173,11 @@ abstract class XMLElement
 	{
 		if ($data instanceof VendorInfo) {
 			$vi = $data;
-			$this->vendorInfos[$vi->getType()] = $vi;
+			$type = $vi->getType();
+			if ($type === null) {
+				throw new \InvalidArgumentException('Cannot add a VendorInfo without a "type".');
+			}
+			$this->vendorInfos[$type] = $vi;
 			return $vi;
 		} else {
 			$vi = new VendorInfo();

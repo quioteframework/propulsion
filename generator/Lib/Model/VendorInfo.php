@@ -2,6 +2,8 @@
 
 namespace Propulsion\Generator\Model;
 
+use Propulsion\Generator\Exception\EngineException;
+
 /**
  * Object to hold vendor-specific info.
  *
@@ -12,11 +14,13 @@ class VendorInfo extends XMLElement
 {
 
 	/**
-	 * The vendor RDBMS type.
+	 * The vendor RDBMS type. Null until set explicitly via the constructor,
+	 * setType(), or a `type` XML attribute (required by the XSD, but not
+	 * enforced by this class itself).
 	 *
-	 * @var        string
+	 * @var        string|null
 	 */
-	private $type;
+	private ?string $type;
 
 	/**
 	 * Vendor parameters.
@@ -28,9 +32,9 @@ class VendorInfo extends XMLElement
 	/**
 	 * Creates a new VendorInfo instance.
 	 *
-	 * @param      string $type RDBMS type (optional)
+	 * @param      string|null $type RDBMS type (optional)
 	 */
-	public function __construct($type = null)
+	public function __construct(?string $type = null)
 	{
 		$this->type = $type;
 	}
@@ -41,13 +45,13 @@ class VendorInfo extends XMLElement
 	 */
 	protected function setupObject(): void
 	{
-		$this->type = $this->getAttribute("type");
+		$this->type = $this->getStringAttribute("type");
 	}
 
 	/**
 	 * Set RDBMS type for this vendor-specific info.
 	 *
-	 * @param      string $v
+	 * @param      string|null $v
 	 */
 	public function setType($v): void
 	{
@@ -57,7 +61,7 @@ class VendorInfo extends XMLElement
 	/**
 	 * Get RDBMS type for this vendor-specific info.
 	 *
-	 * @return     string
+	 * @return     string|null
 	 */
 	public function getType()
 	{
@@ -71,6 +75,9 @@ class VendorInfo extends XMLElement
 	public function addParameter($attrib): void
 	{
 		$name = $attrib["name"];
+		if (!is_string($name)) {
+			throw new EngineException('Cannot add a vendor parameter without a string "name" attribute.');
+		}
 		$this->parameters[$name] = $attrib["value"];
 	}
 
@@ -158,14 +165,17 @@ class VendorInfo extends XMLElement
 	public function appendXml(\DOMNode $node): void
 	{
 		$doc = ($node instanceof \DOMDocument) ? $node : $node->ownerDocument;
+		if ($doc === null) {
+			throw new EngineException('Cannot append XML: given DOMNode has no owner document');
+		}
 
 		$vendorNode = $node->appendChild($doc->createElement("vendor"));
-		$vendorNode->setAttribute("type", $this->getType());
+		$vendorNode->setAttribute("type", $this->getType() ?? '');
 
 		foreach ($this->parameters as $key => $value) {
 			$parameterNode = $doc->createElement("parameter");
 			$parameterNode->setAttribute("name", $key);
-			$parameterNode->setAttribute("value", $value);
+			$parameterNode->setAttribute("value", is_scalar($value) ? (string) $value : '');
 			$vendorNode->appendChild($parameterNode);
 		}
 	}

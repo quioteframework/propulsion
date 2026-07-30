@@ -9,6 +9,8 @@
  */
 namespace Propulsion\Generator\Model;
 
+use Propulsion\Generator\Exception\EngineException;
+
 /**
  * Information related to an ID method.
  *
@@ -30,8 +32,8 @@ class IdMethodParameter extends XMLElement
 	 */
 	protected function setupObject(): void
 	{
-		$this->name = $this->getAttribute("name");
-		$this->value = $this->getAttribute("value");
+		$this->name = $this->getStringAttribute("name");
+		$this->value = $this->getStringAttribute("value");
 	}
 
 	/**
@@ -83,11 +85,25 @@ class IdMethodParameter extends XMLElement
 	}
 
 	/**
+	 * Get the parent Table of the id method, or throw if this
+	 * IdMethodParameter hasn't been attached to one yet.
+	 *
+	 * @throws EngineException
+	 */
+	public function requireTable(): Table
+	{
+		if ($this->parentTable === null) {
+			throw new EngineException('This IdMethodParameter has not been attached to a Table.');
+		}
+		return $this->parentTable;
+	}
+
+	/**
 	 * Returns the Name of the table the id method is in
 	 */
 	public function getTableName(): ?string
 	{
-		return $this->parentTable->getName();
+		return $this->requireTable()->getName();
 	}
 
 	/**
@@ -96,11 +112,15 @@ class IdMethodParameter extends XMLElement
 	public function appendXml(\DOMNode $node): void
 	{
 		$doc = ($node instanceof \DOMDocument) ? $node : $node->ownerDocument;
+		if ($doc === null) {
+			throw new EngineException('Cannot append XML: given DOMNode has no owner document');
+		}
 
 		$paramNode = $node->appendChild($doc->createElement('id-method-parameter'));
-		if ($this->getName()) {
-			$paramNode->setAttribute('name', $this->getName());
+		$name = $this->getName();
+		if ($name) {
+			$paramNode->setAttribute('name', $name);
 		}
-		$paramNode->setAttribute('value', $this->getValue());
+		$paramNode->setAttribute('value', $this->getValue() ?? '');
 	}
 }

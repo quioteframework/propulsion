@@ -59,9 +59,9 @@ abstract class ScopedElement extends XMLElement
 	 */
 	protected function setupObject()
 	{
-		$this->setPackage($this->getAttribute("package", $this->pkg));
-		$this->setSchema($this->getAttribute("schema", $this->schema));
-		$this->setNamespace($this->getAttribute("namespace", $this->namespace));
+		$this->setPackage($this->getStringAttribute("package", $this->pkg));
+		$this->setSchema($this->getStringAttribute("schema", $this->schema));
+		$this->setNamespace($this->getStringAttribute("namespace", $this->namespace));
 	}
 
 	/**

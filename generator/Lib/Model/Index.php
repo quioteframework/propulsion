@@ -138,15 +138,15 @@ class Index extends XMLElement
 	 */
 	protected function setupObject(): void
 	{
-		$this->indexName = $this->getAttribute("name");
-		$this->indexType = $this->getAttribute("indexType", null);
-		$this->whereClause = $this->getAttribute("where", null);
-		$includeAttr = $this->getAttribute('include', null);
+		$this->indexName = $this->getStringAttribute("name");
+		$this->indexType = $this->getStringAttribute("indexType");
+		$this->whereClause = $this->getStringAttribute("where");
+		$includeAttr = $this->getStringAttribute('include');
 		if ($includeAttr !== null) {
-			$this->includeColumns = array_map('trim', explode(',', (string) $includeAttr));
+			$this->includeColumns = array_map('trim', explode(',', $includeAttr));
 		}
-		$this->storageParameters = $this->getAttribute('storageParameters', null);
-		$this->concurrent = $this->booleanValue($this->getAttribute('concurrently'));
+		$this->storageParameters = $this->getStringAttribute('storageParameters');
+		$this->concurrent = $this->getBooleanAttribute('concurrently');
 		$clusteredAttr = $this->getAttribute('clustered', null);
 		$this->clustered = $clusteredAttr !== null ? $this->booleanValue($clusteredAttr) : null;
 	}
@@ -287,7 +287,7 @@ class Index extends XMLElement
 			}
 		}
 		$database = $this->requireTable()->getDatabase();
-		if ($database !== null && ($platform = $database->getPlatform()) !== null) {
+		if ($this->indexName !== null && $database !== null && ($platform = $database->getPlatform()) !== null) {
 			return substr($this->indexName, 0, $platform->getMaxColumnNameLength());
 		} else {
 			return $this->indexName;
@@ -357,22 +357,31 @@ class Index extends XMLElement
 	{
 		if ($data instanceof Column) {
 			$column = $data;
-			$this->indexColumns[] = $column->getName();
+			$name = $column->getName();
+			if ($name === null) {
+				throw new EngineException('Cannot add an unnamed Column to an Index.');
+			}
+			$this->indexColumns[] = $name;
 			$this->columnIsExpression[] = false;
-			if ($column->getSize()) {
-				$this->indexColumnSizes[$column->getName()] = $column->getSize();
+			$size = $column->getSize();
+			if ($size) {
+				$this->indexColumnSizes[$name] = $size;
 			}
 		} else {
 			$attrib = $data;
-			if (isset($attrib['expression'])) {
+			if (isset($attrib['expression']) && is_string($attrib['expression'])) {
 				$this->indexColumns[] = $attrib['expression'];
 				$this->columnIsExpression[] = true;
 			} else {
 				$name = $attrib["name"];
+				if (!is_string($name)) {
+					throw new EngineException('Cannot add an index column without a "name" attribute.');
+				}
 				$this->indexColumns[] = $name;
 				$this->columnIsExpression[] = false;
-				if (isset($attrib["size"])) {
-					$this->indexColumnSizes[$name] = $attrib["size"];
+				$size = $attrib['size'] ?? null;
+				if (is_int($size) || is_string($size)) {
+					$this->indexColumnSizes[$name] = $size;
 				}
 			}
 		}
@@ -518,9 +527,12 @@ class Index extends XMLElement
 	public function appendXml(\DOMNode $node): void
 	{
 		$doc = ($node instanceof \DOMDocument) ? $node : $node->ownerDocument;
+		if ($doc === null) {
+			throw new EngineException('Cannot append XML: given DOMNode has no owner document');
+		}
 
 		$idxNode = $node->appendChild($doc->createElement('index'));
-		$idxNode->setAttribute('name', $this->getName());
+		$idxNode->setAttribute('name', $this->getName() ?? '');
 
 		foreach ($this->indexColumns as $colname) {
 			$idxColNode = $idxNode->appendChild($doc->createElement('index-column'));
