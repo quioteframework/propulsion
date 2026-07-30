@@ -91,6 +91,41 @@ class DefaultPlatform implements PropulsionPlatformInterface
 	}
 
 	/**
+	 * Table/Column/Index/ForeignKey/Domain's own getName()/getTable()/getType()
+	 * getters are typed nullable throughout this codebase's model classes
+	 * (schema-XML parsing leaves them unset until later in the load process),
+	 * but by the time DDL generation actually runs on a real, fully-loaded
+	 * schema they're always populated -- these helpers turn that implicit
+	 * assumption into an explicit, real failure instead of silently widening
+	 * this class's own types to tolerate null everywhere DDL string-building
+	 * actually requires a real value. (Mirrors the same convention already
+	 * used in OraclePlatform/MssqlPlatform.)
+	 */
+	private function requireString(?string $value, string $description): string
+	{
+		if ($value === null) {
+			throw new EngineException("$description is required but was null.");
+		}
+		return $value;
+	}
+
+	private function requireTable(?Table $table): Table
+	{
+		if ($table === null) {
+			throw new EngineException('Expected a Table but got null.');
+		}
+		return $table;
+	}
+
+	private function requireColumn(?Column $column): Column
+	{
+		if ($column === null) {
+			throw new EngineException('Expected a Column but got null.');
+		}
+		return $column;
+	}
+
+	/**
 	 * Gets a specific propel (renamed) property from the build.
 	 *
 	 * @param      string $name
@@ -127,7 +162,7 @@ class DefaultPlatform implements PropulsionPlatformInterface
 	 */
 	protected function setSchemaDomainMapping(Domain $domain): void
 	{
-		$this->schemaDomainMap[$domain->getType()] = $domain;
+		$this->schemaDomainMap[$this->requireString($domain->getType(), 'Domain type')] = $domain;
 	}
 
 	/**
@@ -139,7 +174,10 @@ class DefaultPlatform implements PropulsionPlatformInterface
 	{
 		$clazz = (new \ReflectionClass($this))->getShortName();
 		$pos = strpos($clazz, 'Platform');
-		return strtolower(substr($clazz, 0, $pos !== false ? $pos : strlen($clazz)));
+		if ($pos === false) {
+			throw new EngineException(sprintf('Platform class "%s" does not end in "Platform" as expected.', $clazz));
+		}
+		return strtolower(substr($clazz, 0, $pos));
 	}
 
 	/**
@@ -208,20 +246,21 @@ class DefaultPlatform implements PropulsionPlatformInterface
 		static $longNamesMap = array();
 		$result = null;
 		if ($table->getIdMethod() == IDMethod::NATIVE) {
+			$tableName = $this->requireString($table->getName(), 'Table name');
 			$idMethodParams = $table->getIdMethodParameters();
 			$maxIdentifierLength = $this->getMaxColumnNameLength();
 			if (empty($idMethodParams)) {
-				if (strlen($table->getName() . "_SEQ") > $maxIdentifierLength) {
-					if (!isset($longNamesMap[$table->getName()])) {
-						$longNamesMap[$table->getName()] = strval(count($longNamesMap) + 1);
+				if (strlen($tableName . "_SEQ") > $maxIdentifierLength) {
+					if (!isset($longNamesMap[$tableName])) {
+						$longNamesMap[$tableName] = strval(count($longNamesMap) + 1);
 					}
-					$result = substr($table->getName(), 0, $maxIdentifierLength - strlen("_SEQ_" . $longNamesMap[$table->getName()])) . "_SEQ_" . $longNamesMap[$table->getName()];
+					$result = substr($tableName, 0, $maxIdentifierLength - strlen("_SEQ_" . $longNamesMap[$tableName])) . "_SEQ_" . $longNamesMap[$tableName];
 				}
 				else {
-					$result = substr($table->getName(), 0, $maxIdentifierLength -4) . "_SEQ";
+					$result = substr($tableName, 0, $maxIdentifierLength -4) . "_SEQ";
 				}
 			} else {
-				$result = substr($idMethodParams[0]->getValue(), 0, $maxIdentifierLength);
+				$result = substr($this->requireString($idMethodParams[0]->getValue(), 'Id method parameter value'), 0, $maxIdentifierLength);
 			}
 		}
 		return $result;
@@ -237,7 +276,7 @@ class DefaultPlatform implements PropulsionPlatformInterface
 	{
 		$ret = $this->getBeginDDL();
 		foreach ($database->getTablesForSql() as $table) {
-			$ret .= $this->getCommentBlockDDL($table->getName());
+			$ret .= $this->getCommentBlockDDL($this->requireString($table->getName(), 'Table name'));
 			$ret .= $this->getDropTableDDL($table);
 			$ret .= $this->getAddTableDDL($table);
 			$ret .= $this->getAddIndicesDDL($table);
@@ -274,7 +313,7 @@ class DefaultPlatform implements PropulsionPlatformInterface
 	public function getDropTableDDL(Table $table)
 	{
 		return "
-DROP TABLE " . $this->quoteIdentifier($table->getName()) . ";
+DROP TABLE " . $this->quoteIdentifier($this->requireString($table->getName(), 'Table name')) . ";
 ";
 	}
 
@@ -286,7 +325,7 @@ DROP TABLE " . $this->quoteIdentifier($table->getName()) . ";
 	 */
 	public function getAddTableDDL(Table $table)
 	{
-		$tableDescription = $table->hasDescription() ? $this->getCommentLineDDL($table->getDescription()) : '';
+		$tableDescription = $table->hasDescription() ? $this->getCommentLineDDL($this->requireString($table->getDescription(), 'Table description')) : '';
 
 		$lines = array();
 
@@ -313,7 +352,7 @@ DROP TABLE " . $this->quoteIdentifier($table->getName()) . ";
 ";
 		return sprintf($pattern,
 			$tableDescription,
-			$this->quoteIdentifier($table->getName()),
+			$this->quoteIdentifier($this->requireString($table->getName(), 'Table name')),
 			implode($sep, $lines)
 		);
 	}
@@ -326,8 +365,8 @@ DROP TABLE " . $this->quoteIdentifier($table->getName()) . ";
 	{
 		$domain = $col->getDomain();
 
-		$ddl = array($this->quoteIdentifier($col->getName()));
-		$sqlType = $domain->getSqlType();
+		$ddl = array($this->quoteIdentifier($this->requireString($col->getName(), 'Column name')));
+		$sqlType = $this->requireString($domain->getSqlType(), 'Column SQL type');
 		if ($this->usesNativeEnumStorage($col)) {
 			// A native-storage ENUM column holds the label text directly (see
 			// getColumnDefaultValueDDL()/getEnumCheckConstraintDDL() below),
@@ -449,7 +488,7 @@ DROP TABLE " . $this->quoteIdentifier($table->getName()) . ";
 	protected function getEnumCheckConstraintDDL(Column $col)
 	{
 		$values = implode(', ', array_map(fn ($v) => $this->quote($v), $col->getValueSet()));
-		return sprintf('CHECK (%s IN (%s))', $this->quoteIdentifier($col->getName()), $values);
+		return sprintf('CHECK (%s IN (%s))', $this->quoteIdentifier($this->requireString($col->getName(), 'Column name')), $values);
 	}
 
 	/**
@@ -468,10 +507,10 @@ DROP TABLE " . $this->quoteIdentifier($table->getName()) . ";
 	{
 		$list = array();
 		foreach ($columns as $column) {
-			if ($column instanceof Column) {
-				$column = $column->getName();
-			}
-			$list[] = $this->quoteIdentifier($column);
+			$columnName = $column instanceof Column
+				? $this->requireString($column->getName(), 'Column name')
+				: $column;
+			$list[] = $this->quoteIdentifier($columnName);
 		}
 		return implode($delimiter, $list);
 	}
@@ -511,7 +550,7 @@ DROP TABLE " . $this->quoteIdentifier($table->getName()) . ";
 ALTER TABLE %s DROP CONSTRAINT %s;
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($table->getName()),
+			$this->quoteIdentifier($this->requireString($table->getName(), 'Table name')),
 			$this->quoteIdentifier($this->getPrimaryKeyName($table))
 		);
 	}
@@ -528,7 +567,7 @@ ALTER TABLE %s DROP CONSTRAINT %s;
 ALTER TABLE %s ADD %s;
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($table->getName()),
+			$this->quoteIdentifier($this->requireString($table->getName(), 'Table name')),
 			$this->getPrimaryKeyDDL($table)
 		);
 	}
@@ -561,8 +600,8 @@ CREATE %sINDEX %s ON %s (%s);
 ";
 		return sprintf($pattern,
 			$index->isUnique() ? 'UNIQUE ' : '',
-			$this->quoteIdentifier($index->getName()),
-			$this->quoteIdentifier($index->requireTable()->getName()),
+			$this->quoteIdentifier($this->requireString($index->getName(), 'Index name')),
+			$this->quoteIdentifier($this->requireString($this->requireTable($index->getTable())->getName(), 'Table name')),
 			$this->getColumnListDDL($index->getColumns())
 		);
 	}
@@ -600,7 +639,7 @@ CREATE %sINDEX %s ON %s (%s);
 DROP INDEX %s;
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($index->getName())
+			$this->quoteIdentifier($this->requireString($index->getName(), 'Index name'))
 		);
 	}
 
@@ -614,7 +653,7 @@ DROP INDEX %s;
 	{
 		return sprintf('%sINDEX %s (%s)',
 			$index->isUnique() ? 'UNIQUE ' : '',
-			$this->quoteIdentifier($index->getName()),
+			$this->quoteIdentifier($this->requireString($index->getName(), 'Index name')),
 			$this->getColumnListDDL($index->getColumns())
 		);
 	}
@@ -660,7 +699,7 @@ DROP INDEX %s;
 ALTER TABLE %s ADD %s;
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($fk->requireTable()->getName()),
+			$this->quoteIdentifier($this->requireString($this->requireTable($fk->getTable())->getName(), 'Table name')),
 			$this->getForeignKeyDDL($fk)
 		);
 	}
@@ -680,8 +719,8 @@ ALTER TABLE %s ADD %s;
 ALTER TABLE %s DROP CONSTRAINT %s;
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($fk->requireTable()->getName()),
-			$this->quoteIdentifier($fk->getName())
+			$this->quoteIdentifier($this->requireString($this->requireTable($fk->getTable())->getName(), 'Table name')),
+			$this->quoteIdentifier($this->requireString($fk->getName(), 'ForeignKey name'))
 		);
 	}
 
@@ -698,9 +737,9 @@ ALTER TABLE %s DROP CONSTRAINT %s;
 	FOREIGN KEY (%s)
 	REFERENCES %s (%s)";
 		$script = sprintf($pattern,
-			$this->quoteIdentifier($fk->getName()),
+			$this->quoteIdentifier($this->requireString($fk->getName(), 'ForeignKey name')),
 			$this->getColumnListDDL($fk->getLocalColumns()),
-			$this->quoteIdentifier($fk->getForeignTableName()),
+			$this->quoteIdentifier($this->requireString($fk->getForeignTableName(), 'Foreign table name')),
 			$this->getColumnListDDL($fk->getForeignColumns())
 		);
 		if ($fk->hasOnUpdate()) {
@@ -795,7 +834,7 @@ ALTER TABLE %s RENAME TO %s;
 
 		// drop indices, foreign keys
 		if ($tableDiff->hasModifiedPk()) {
-			$ret .= $this->getDropPrimaryKeyDDL($tableDiff->getFromTable());
+			$ret .= $this->getDropPrimaryKeyDDL($this->requireTable($tableDiff->getFromTable()));
 		}
 		foreach ($tableDiff->getRemovedFks() as $fk) {
 			$ret .= $this->getDropForeignKeyDDL($fk);
@@ -828,7 +867,7 @@ ALTER TABLE %s RENAME TO %s;
 
 		// add new indices and foreign keys
 		if ($tableDiff->hasModifiedPk()) {
-			$ret .= $this->getAddPrimaryKeyDDL($tableDiff->getToTable());
+			$ret .= $this->getAddPrimaryKeyDDL($this->requireTable($tableDiff->getToTable()));
 		}
 		foreach ($tableDiff->getModifiedIndices() as $indexName => $indexModification) {
 			list($fromIndex, $toIndex) = $indexModification;
@@ -888,8 +927,8 @@ ALTER TABLE %s RENAME TO %s;
 		$ret = '';
 
 		if ($tableDiff->hasModifiedPk()) {
-			$ret .= $this->getDropPrimaryKeyDDL($tableDiff->getFromTable());
-			$ret .= $this->getAddPrimaryKeyDDL($tableDiff->getToTable());
+			$ret .= $this->getDropPrimaryKeyDDL($this->requireTable($tableDiff->getFromTable()));
+			$ret .= $this->getAddPrimaryKeyDDL($this->requireTable($tableDiff->getToTable()));
 		}
 
 		return $ret;
@@ -960,8 +999,8 @@ ALTER TABLE %s RENAME TO %s;
 ALTER TABLE %s DROP COLUMN %s;
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($column->requireTable()->getName()),
-			$this->quoteIdentifier($column->getName())
+			$this->quoteIdentifier($this->requireString($this->requireTable($column->getTable())->getName(), 'Table name')),
+			$this->quoteIdentifier($this->requireString($column->getName(), 'Column name'))
 		);
 	}
 
@@ -975,9 +1014,9 @@ ALTER TABLE %s DROP COLUMN %s;
 ALTER TABLE %s RENAME COLUMN %s TO %s;
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($fromColumn->requireTable()->getName()),
-			$this->quoteIdentifier($fromColumn->getName()),
-			$this->quoteIdentifier($toColumn->getName())
+			$this->quoteIdentifier($this->requireString($this->requireTable($fromColumn->getTable())->getName(), 'Table name')),
+			$this->quoteIdentifier($this->requireString($fromColumn->getName(), 'Column name')),
+			$this->quoteIdentifier($this->requireString($toColumn->getName(), 'Column name'))
 		);
 	}
 
@@ -988,12 +1027,12 @@ ALTER TABLE %s RENAME COLUMN %s TO %s;
 	 */
 	public function getModifyColumnDDL(PropulsionColumnDiff $columnDiff)
 	{
-		$toColumn = $columnDiff->requireToColumn();
+		$toColumn = $this->requireColumn($columnDiff->getToColumn());
 		$pattern = "
 ALTER TABLE %s MODIFY %s;
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($toColumn->requireTable()->getName()),
+			$this->quoteIdentifier($this->requireString($this->requireTable($toColumn->getTable())->getName(), 'Table name')),
 			$this->getColumnDDL($toColumn)
 		);
 	}
@@ -1009,9 +1048,9 @@ ALTER TABLE %s MODIFY %s;
 		$lines = array();
 		$tableName = null;
 		foreach ($columnDiffs as $columnDiff) {
-			$toColumn = $columnDiff->requireToColumn();
+			$toColumn = $this->requireColumn($columnDiff->getToColumn());
 			if (null === $tableName) {
-				$tableName = $toColumn->requireTable()->getName();
+				$tableName = $this->requireString($this->requireTable($toColumn->getTable())->getName(), 'Table name');
 			}
 			$lines []= $this->getColumnDDL($toColumn);
 		}
@@ -1026,7 +1065,7 @@ ALTER TABLE %s MODIFY
 );
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($tableName),
+			$this->quoteIdentifier($this->requireString($tableName, 'Table name')),
 			implode($sep, $lines)
 		);
 	}
@@ -1042,7 +1081,7 @@ ALTER TABLE %s MODIFY
 ALTER TABLE %s ADD %s;
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($column->requireTable()->getName()),
+			$this->quoteIdentifier($this->requireString($this->requireTable($column->getTable())->getName(), 'Table name')),
 			$this->getColumnDDL($column)
 		);
 	}
@@ -1059,7 +1098,7 @@ ALTER TABLE %s ADD %s;
 		$tableName = null;
 		foreach ($columns as $column) {
 			if (null === $tableName) {
-				$tableName = $column->requireTable()->getName();
+				$tableName = $this->requireString($this->requireTable($column->getTable())->getName(), 'Table name');
 			}
 			$lines []= $this->getColumnDDL($column);
 		}
@@ -1074,7 +1113,7 @@ ALTER TABLE %s ADD
 );
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($tableName),
+			$this->quoteIdentifier($this->requireString($tableName, 'Table name')),
 			implode($sep, $lines)
 		);
 	}
@@ -1214,12 +1253,13 @@ ALTER TABLE %s ADD
 	 * SQL.
 	 *
 	 * @param      mixed $b A boolean or string representation of boolean ('y', 'true').
-	 * @return     mixed
+	 * @return     string
 	 */
-	public function getBooleanString($b)
+	public function getBooleanString($b): string
 	{
-		$b = ($b === true || strtolower($b) === 'true' || $b === 1 || $b === '1' || strtolower($b) === 'y' || strtolower($b) === 'yes');
-		return ($b ? '1' : '0');
+		$isTrue = $b === true || $b === 1 || $b === '1'
+			|| (is_string($b) && in_array(strtolower($b), array('true', 'y', 'yes'), true));
+		return ($isTrue ? '1' : '0');
 	}
 
 	/**

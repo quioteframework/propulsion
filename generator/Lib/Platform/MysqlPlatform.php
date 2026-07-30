@@ -30,6 +30,64 @@ use Propulsion\Generator\Model\Diff\PropulsionDatabaseDiff;
 use Propulsion\Generator\Model\Diff\PropulsionColumnDiff;
 class MysqlPlatform extends DefaultPlatform
 {
+	/**
+	 * Table/Column/Index/Unique/ForeignKey's own getName()/getTable()/
+	 * getDatabase() getters are typed nullable throughout this codebase's
+	 * model classes (schema-XML parsing leaves them unset until later in the
+	 * load process), but by the time DDL generation actually runs on a real,
+	 * fully-loaded schema they're always populated -- these helpers turn that
+	 * implicit assumption into an explicit, real failure instead of silently
+	 * widening this class's own types to tolerate null everywhere DDL
+	 * string-building actually requires a real value. (Mirrors the same
+	 * convention already used in DefaultPlatform/OraclePlatform/
+	 * MssqlPlatform/PgsqlPlatform.)
+	 */
+	private function requireString(?string $value, string $description): string
+	{
+		if ($value === null) {
+			throw new EngineException("$description is required but was null.");
+		}
+		return $value;
+	}
+
+	private function requireTable(?Table $table): Table
+	{
+		if ($table === null) {
+			throw new EngineException('Expected a Table but got null.');
+		}
+		return $table;
+	}
+
+	private function requireColumn(?Column $column): Column
+	{
+		if ($column === null) {
+			throw new EngineException('Expected a Column but got null.');
+		}
+		return $column;
+	}
+
+	private function requireDatabase(?Database $database): Database
+	{
+		if ($database === null) {
+			throw new EngineException('Expected a Database but got null.');
+		}
+		return $database;
+	}
+
+	/**
+	 * VendorInfo::getParameter()/GeneratorConfig::getBuildProperty() are both
+	 * untyped (generic bags for arbitrary `<vendor><parameter>` XML
+	 * attributes/build properties), but every one this class reads back out
+	 * is, by construction, a plain string value -- this makes that
+	 * assumption an explicit, checked one.
+	 */
+	private function requireStringParam(mixed $value, string $description): string
+	{
+		if (!is_string($value)) {
+			throw new EngineException("$description is required but was not a string.");
+		}
+		return $value;
+	}
 
 	protected string $tableEngineKeyword = 'ENGINE';  // overwritten in build.properties
 	// InnoDB has been MySQL's own default storage engine since 5.5 (2010) and is
@@ -290,9 +348,9 @@ SET FOREIGN_KEY_CHECKS = 1;
 
 		$vendorSpecific = $table->getVendorInfoForType('mysql');
 		if ($vendorSpecific->hasParameter('Type')) {
-			$mysqlTableType = $this->requireStringParam($vendorSpecific->getParameter('Type'), 'Table type');
+			$mysqlTableType = $this->requireStringParam($vendorSpecific->getParameter('Type'), 'mysql vendor "Type" parameter');
 		} elseif ($vendorSpecific->hasParameter('Engine')) {
-			$mysqlTableType = $this->requireStringParam($vendorSpecific->getParameter('Engine'), 'Table engine');
+			$mysqlTableType = $this->requireStringParam($vendorSpecific->getParameter('Engine'), 'mysql vendor "Engine" parameter');
 		} else {
 			$mysqlTableType = $this->getDefaultTableEngine();
 		}
@@ -300,7 +358,7 @@ SET FOREIGN_KEY_CHECKS = 1;
 		$tableOptions = $this->getTableOptions($table);
 
 		if ($table->getDescription()) {
-			$tableOptions []= 'COMMENT=' . $this->quote($table->getDescription());
+			$tableOptions []= 'COMMENT=' . $this->quote($this->requireString($table->getDescription(), 'Table description'));
 		}
 
 		$tableOptions = $tableOptions ? ' ' . implode(' ', $tableOptions) : '';
@@ -357,12 +415,12 @@ CREATE TABLE %s
 			if ($vi->hasParameter($name)) {
 				$tableOptions []= sprintf('%s=%s',
 					$sqlName,
-					$this->quote($this->requireStringParam($vi->getParameter($name), "Table option '$name'"))
+					$this->quote($this->requireStringParam($vi->getParameter($name), sprintf('mysql vendor "%s" parameter', $name)))
 				);
 			} elseif ($vi->hasParameter($sqlName)) {
 				$tableOptions []= sprintf('%s=%s',
 					$sqlName,
-					$this->quote($this->requireStringParam($vi->getParameter($sqlName), "Table option '$sqlName'"))
+					$this->quote($this->requireStringParam($vi->getParameter($sqlName), sprintf('mysql vendor "%s" parameter', $sqlName)))
 				);
 			}
 		}
@@ -376,61 +434,6 @@ DROP TABLE IF EXISTS " . $this->quoteIdentifier($this->requireString($table->get
 ";
 		$ret .= $this->getDropSequenceDDL($table);
 		return $ret;
-	}
-
-	/**
-	 * A `Column`'s name/domain SQL type are typed nullable in the model, but
-	 * by the time DDL generation actually runs on a real, fully-loaded schema
-	 * they're always populated -- this guard turns that implicit assumption
-	 * into an explicit, real failure instead of silently widening this
-	 * method's own types to tolerate null (same helper OraclePlatform/
-	 * MssqlPlatform already have).
-	 */
-	private function requireString(?string $value, string $description): string
-	{
-		if ($value === null) {
-			throw new EngineException("$description is required but was null.");
-		}
-		return $value;
-	}
-
-	private function requireTable(?Table $table): Table
-	{
-		if ($table === null) {
-			throw new EngineException('Expected a Table but got null.');
-		}
-		return $table;
-	}
-
-	private function requireDatabase(?Database $database): Database
-	{
-		if ($database === null) {
-			throw new EngineException('Expected a Database but got null.');
-		}
-		return $database;
-	}
-
-	private function requireColumn(?Column $column): Column
-	{
-		if ($column === null) {
-			throw new EngineException('Expected a Column but got null.');
-		}
-		return $column;
-	}
-
-	/**
-	 * VendorInfo::getParameter() is untyped (a generic bag for arbitrary
-	 * `<vendor><parameter>` XML attributes), but every MySQL-specific table
-	 * option this class reads back out of it (Type/Engine, Charset,
-	 * Collation, ...) is, by construction, a plain string XML attribute
-	 * value -- this makes that assumption an explicit, checked one.
-	 */
-	private function requireStringParam(mixed $value, string $description): string
-	{
-		if (!is_string($value)) {
-			throw new EngineException("$description is required but was not a string.");
-		}
-		return $value;
 	}
 
 	/**
@@ -532,12 +535,12 @@ DROP TABLE IF EXISTS " . $this->quoteIdentifier($this->requireString($table->get
 		}
 		$colinfo = $col->getVendorInfoForType($this->getDatabaseType());
 		if ($colinfo->hasParameter('Charset')) {
-			$ddl []= 'CHARACTER SET '. $this->quote($this->requireStringParam($colinfo->getParameter('Charset'), "Column vendor parameter 'Charset'"));
+			$ddl []= 'CHARACTER SET '. $this->quote($this->requireStringParam($colinfo->getParameter('Charset'), 'mysql vendor "Charset" parameter'));
 		}
 		if ($colinfo->hasParameter('Collation')) {
-			$ddl []= 'COLLATE '. $this->quote($this->requireStringParam($colinfo->getParameter('Collation'), "Column vendor parameter 'Collation'"));
+			$ddl []= 'COLLATE '. $this->quote($this->requireStringParam($colinfo->getParameter('Collation'), 'mysql vendor "Collation" parameter'));
 		} elseif ($colinfo->hasParameter('Collate')) {
-			$ddl []= 'COLLATE '. $this->quote($this->requireStringParam($colinfo->getParameter('Collate'), "Column vendor parameter 'Collate'"));
+			$ddl []= 'COLLATE '. $this->quote($this->requireStringParam($colinfo->getParameter('Collate'), 'mysql vendor "Collate" parameter'));
 		}
 		if ($sqlType == 'TIMESTAMP') {
 			if ($notNullString == '') {
@@ -694,7 +697,7 @@ DROP INDEX %s ON %s;
 		$type = '';
 		$vendorInfo = $index->getVendorInfoForType($this->getDatabaseType());
 		if ($vendorInfo->getParameter('Index_type')) {
-			$type = $this->requireStringParam($vendorInfo->getParameter('Index_type'), "Index vendor parameter 'Index_type'") . ' ';
+			$type = $this->requireStringParam($vendorInfo->getParameter('Index_type'), 'mysql vendor "Index_type" parameter') . ' ';
 		} elseif ($index->isUnique()) {
 			$type = 'UNIQUE ';
 		}
@@ -704,7 +707,7 @@ DROP INDEX %s ON %s;
 	public function getUniqueDDL(Unique $unique)
 	{
 		return sprintf('UNIQUE INDEX %s (%s)',
-			$this->quoteIdentifier($this->requireString($unique->getName(), 'Unique index name')),
+			$this->quoteIdentifier($this->requireString($unique->getName(), 'Unique constraint name')),
 			$this->getIndexColumnListDDL($unique)
 		);
 	}
