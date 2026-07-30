@@ -83,7 +83,11 @@ abstract class PropulsionFormatter
 	public function setClass(string $class): void
 	{
 		$this->class = $class;
-		$this->peer = constant($this->class . '::PEER');
+		$peer = constant($this->class . '::PEER');
+		if (!is_string($peer)) {
+			throw new PropulsionException('The PEER constant of ' . $class . ' must be a string');
+		}
+		$this->peer = $peer;
 	}
 
 	public function getClass(): ?string

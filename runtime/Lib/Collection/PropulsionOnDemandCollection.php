@@ -262,7 +262,7 @@ class PropulsionOnDemandCollection extends PropulsionCollection
 	/**
 	 * {@inheritdoc}
 	 */
-	public function exportTo($parser, $usePrefix = true, $includeLazyLoadColumns = true)
+	public function exportTo(\Propulsion\Parser\PropulsionParser|string $parser, bool $usePrefix = true, bool $includeLazyLoadColumns = true): string
 	{
 		throw new PropulsionException('A PropulsionOnDemandCollection cannot be exported.');
 	}

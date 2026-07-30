@@ -48,7 +48,7 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	protected $model = '';
 
 	/**
-	 * @var       Iterator|null
+	 * @var       Iterator<array-key,mixed>|null
 	 */
 	protected $iterator;
 
@@ -133,9 +133,10 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	 *
 	 * @return    integer
 	 */
-	public function getPosition()
+	public function getPosition(): int
 	{
-		return (int) $this->getInternalIterator()->key();
+		$key = $this->getInternalIterator()->key();
+		return is_numeric($key) ? (int) $key : 0;
 	}
 
 	/**
@@ -257,7 +258,7 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	 */
 	public function isOdd()
 	{
-		return (bool) ($this->getInternalIterator()->key() % 2);
+		return (bool) ($this->getPosition() % 2);
 	}
 
 	/**
@@ -274,10 +275,10 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	 * Get an element from its key
 	 * Alias for ArrayObject::offsetGet()
 	 *
-	 * @param     mixed  $key
+	 * @param     int|string  $key
 	 * @return    mixed  The element
 	 */
-	public function get($key)
+	public function get(int|string $key)
 	{
 		if (!$this->offsetExists($key)) {
 			throw new PropulsionException('Unknown key ' . $key);
@@ -297,7 +298,7 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 		}
 		$ret = $this->getLast();
 		$lastKey = $this->getInternalIterator()->key();
-		$this->offsetUnset((string) $lastKey);
+		$this->offsetUnset($lastKey);
 		return $ret;
 	}
 
@@ -338,10 +339,10 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	 * Add an element to the collection with the given key
 	 * Alias for ArrayObject::offsetSet()
 	 *
-	 * @param     mixed  $key
+	 * @param     int|string|null  $key
 	 * @param     mixed  $value
 	 */
-	public function set($key, $value): void
+	public function set(int|string|null $key, $value): void
 	{
 		$this->offsetSet($key, $value);
 	}
@@ -350,10 +351,10 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	 * Removes a specified collection element
 	 * Alias for ArrayObject::offsetUnset()
 	 *
-	 * @param     mixed  $key
+	 * @param     int|string  $key
 	 * @return    mixed  The removed element
 	 */
-	public function remove($key)
+	public function remove(int|string $key)
 	{
 		if (!$this->offsetExists($key)) {
 			throw new PropulsionException('Unknown key ' . $key);
@@ -415,6 +416,14 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	public function unserialize($data): void
 	{
 		$repr = unserialize($data);
+		if (
+			!is_array($repr)
+			|| !isset($repr['data'], $repr['model'])
+			|| !is_array($repr['data'])
+			|| !is_string($repr['model'])
+		) {
+			throw new PropulsionException('Unable to unserialize ' . static::class . ': unexpected data format');
+		}
 		$this->exchangeArray($repr['data']);
 		$this->model = $repr['model'];
 	}
@@ -425,7 +434,7 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	 * Overrides ArrayObject::getIterator() to save the iterator object
 	 * for internal use e.g. getNext(), isOdd(), etc.
 	 *
-	 * @return    Iterator
+	 * @return    Iterator<array-key,mixed>
 	 */
 	public function getIterator(): Iterator
 	{
@@ -440,7 +449,7 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	}
 
 	/**
-	 * @return    Iterator
+	 * @return    Iterator<array-key,mixed>
 	 */
 	public function getInternalIterator()
 	{
@@ -488,12 +497,16 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	 *
 	 * @return    string  Name of the Propulsion peer class stored in the collection
 	 */
-	public function getPeerClass()
+	public function getPeerClass(): string
 	{
 		if ($this->model == '') {
 			throw new PropulsionException('You must set the collection model before interacting with it');
 		}
-		return constant($this->getModel() . '::PEER');
+		$peerClass = constant($this->getModel() . '::PEER');
+		if (!is_string($peerClass)) {
+			throw new PropulsionException('The PEER constant of ' . $this->model . ' must be a string');
+		}
+		return $peerClass;
 	}
 
 	/**
@@ -521,6 +534,9 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	public function getConnection($type = Propulsion::CONNECTION_READ)
 	{
 		$databaseName = constant($this->getPeerClass() . '::DATABASE_NAME');
+		if (!is_string($databaseName)) {
+			throw new PropulsionException('The DATABASE_NAME constant of ' . $this->getPeerClass() . ' must be a string');
+		}
 
 		return Propulsion::getConnection($databaseName, $type);
 	}
@@ -533,12 +549,12 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	 * $coll->importFrom('JSON', '{{"Id":9012,"Title":"Don Juan","ISBN":"0140422161","Price":12.99,"PublisherId":1234,"AuthorId":5678}}');
 	 * </code>
 	 *
-	 * @param     mixed   $parser  A PropulsionParser instance, or a format name ('XML', 'YAML', 'JSON', 'CSV')
+	 * @param     PropulsionParser|string  $parser  A PropulsionParser instance, or a format name ('XML', 'YAML', 'JSON', 'CSV')
 	 * @param     string  $data    The source data to import from
 	 *
 	 * @return    $this  The current object, for fluid interface
 	 */
-	public function importFrom($parser, $data): mixed
+	public function importFrom(PropulsionParser|string $parser, string $data): mixed
 	{
 		if (!$parser instanceof PropulsionParser) {
 			$parser = PropulsionParser::getParser($parser);
@@ -558,7 +574,7 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	 *
 	 * A PropulsionOnDemandCollection cannot be exported. Any attempt will result in a PropulsionExecption being thrown.
 	 *
-	 * @param     mixed   $parser                 A PropulsionParser instance, or a format name ('XML', 'YAML', 'JSON', 'CSV')
+	 * @param     PropulsionParser|string $parser                 A PropulsionParser instance, or a format name ('XML', 'YAML', 'JSON', 'CSV')
 	 * @param     boolean $usePrefix              (optional) If true, the returned element keys will be prefixed with the
 	 *                                            model class name ('Article_0', 'Article_1', etc). Defaults to TRUE.
 	 *                                            Not supported by PropulsionArrayCollection, as PropulsionArrayFormatter has
@@ -568,12 +584,16 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	 *                                            already included lazy-load columns in the array used here.
 	 * @return    string                          The exported data
 	 */
-	public function exportTo($parser, $usePrefix = true, $includeLazyLoadColumns = true)
+	public function exportTo(PropulsionParser|string $parser, bool $usePrefix = true, bool $includeLazyLoadColumns = true): string
 	{
 		if (!$parser instanceof PropulsionParser) {
 			$parser = PropulsionParser::getParser($parser);
 		}
-		return $parser->listFromArray($this->toArray(null, $usePrefix, BasePeer::TYPE_PHPNAME, $includeLazyLoadColumns));
+		$result = $parser->listFromArray($this->toArray(null, $usePrefix, BasePeer::TYPE_PHPNAME, $includeLazyLoadColumns));
+		if (!is_string($result)) {
+			throw new PropulsionException(get_class($parser) . '::listFromArray() must return a string');
+		}
+		return $result;
 	}
 
 	/**
@@ -583,18 +603,22 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	 * Allows to define default __call() behavior if you use a custom BaseObject
 	 *
 	 * @param     string  $name
-	 * @param     mixed   $params
+	 * @param     array<array-key,mixed>  $params
 	 *
 	 * @return    $this|array<array-key,mixed>|string
 	 */
-	public function __call($name, $params)
+	public function __call($name, array $params)
 	{
 		if (preg_match('/^from(\w+)$/', $name, $matches)) {
-			return $this->importFrom($matches[1], reset($params));
+			$data = reset($params);
+			if (!is_string($data)) {
+				throw new PropulsionException($name . '() expects a string argument');
+			}
+			return $this->importFrom($matches[1], $data);
 		}
 		if (preg_match('/^to(\w+)$/', $name, $matches)) {
-			$usePrefix = isset($params[0]) ? $params[0] : true;
-			$includeLazyLoadColumns = isset($params[1]) ? $params[1] : true;
+			$usePrefix = isset($params[0]) ? (bool) $params[0] : true;
+			$includeLazyLoadColumns = isset($params[1]) ? (bool) $params[1] : true;
 
 			return $this->exportTo($matches[1], $usePrefix, $includeLazyLoadColumns);
 		}
@@ -608,8 +632,12 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	 *
 	 * @return    string
 	 */
-	public function __toString()
+	public function __toString(): string
 	{
-		return (string) $this->exportTo(constant($this->getPeerClass() . '::DEFAULT_STRING_FORMAT'));
+		$format = constant($this->getPeerClass() . '::DEFAULT_STRING_FORMAT');
+		if (!is_string($format)) {
+			throw new PropulsionException('The DEFAULT_STRING_FORMAT constant of ' . $this->getPeerClass() . ' must be a string');
+		}
+		return $this->exportTo($format);
 	}
 }

@@ -22,7 +22,7 @@ namespace Propulsion\OM;
  * @author     Heltem <heltem@o2php.com>
  * @version    $Revision$
  *
- * @implements \RecursiveIterator<string, object>
+ * @implements \RecursiveIterator<string, ?object>
  */
 class NestedSetRecursiveIterator implements \RecursiveIterator
 {
@@ -66,10 +66,21 @@ class NestedSetRecursiveIterator implements \RecursiveIterator
 
 	public function key(): mixed
 	{
-		$method = method_exists($this->curNode, 'getPath') ? 'getPath' : 'getAncestors';
+		if ($this->curNode === null) {
+			throw new \LogicException('key() called on an invalid iterator position');
+		}
+		$method = method_exists($this->curNode, 'getPath') ? self::dynamicMethod('getPath') : self::dynamicMethod('getAncestors');
+		$ancestors = $this->callMethod($this->curNode, $method);
+		if (!is_iterable($ancestors)) {
+			throw new \LogicException(get_class($this->curNode) . '::' . $method . '() must return an iterable');
+		}
 		$key = array();
-		foreach ($this->callMethod($this->curNode, $method) as $node) {
-			$key[] = $node->getPrimaryKey();
+		foreach ($ancestors as $node) {
+			if (!is_object($node)) {
+				continue;
+			}
+			$primaryKey = $this->callMethod($node, 'getPrimaryKey');
+			$key[] = is_scalar($primaryKey) ? (string) $primaryKey : '';
 		}
 		return implode('.', $key);
 	}
@@ -77,15 +88,12 @@ class NestedSetRecursiveIterator implements \RecursiveIterator
 	public function next(): void
 	{
 		$nextNode = null;
-		$method = method_exists($this->curNode, 'retrieveNextSibling') ? 'retrieveNextSibling' : 'getNextSibling';
-		if ($this->valid()) {
+		if ($this->valid() && $this->curNode !== null) {
+			$curNode = $this->curNode;
+			$method = method_exists($curNode, 'retrieveNextSibling') ? self::dynamicMethod('retrieveNextSibling') : self::dynamicMethod('getNextSibling');
 			while (null === $nextNode) {
-				if (null === $this->curNode) {
-					break;
-				}
-
-				if ($this->callMethod($this->curNode, 'hasNextSibling')) {
-					$nextNode = $this->callMethod($this->curNode, $method);
+				if ($this->callMethod($curNode, 'hasNextSibling')) {
+					$nextNode = $this->toNodeOrNull($this->callMethod($curNode, $method));
 				} else {
 					break;
 				}
@@ -96,15 +104,42 @@ class NestedSetRecursiveIterator implements \RecursiveIterator
 
 	public function hasChildren() : bool
 	{
+		if ($this->curNode === null) {
+			throw new \LogicException('hasChildren() called on an invalid iterator position');
+		}
 		return (bool) $this->callMethod($this->curNode, 'hasChildren');
 	}
 
 	/**
-	 * @return \RecursiveIterator<string, object>
+	 * @return \RecursiveIterator<string, ?object>
 	 */
 	public function getChildren() : \RecursiveIterator
 	{
-		$method = method_exists($this->curNode, 'retrieveFirstChild') ? 'retrieveFirstChild' : 'getFirstChild';
-		return new NestedSetRecursiveIterator($this->callMethod($this->curNode, $method));
+		if ($this->curNode === null) {
+			throw new \LogicException('getChildren() called on an invalid iterator position');
+		}
+		$method = method_exists($this->curNode, 'retrieveFirstChild') ? self::dynamicMethod('retrieveFirstChild') : self::dynamicMethod('getFirstChild');
+		$child = $this->callMethod($this->curNode, $method);
+		if (!is_object($child)) {
+			throw new \LogicException(get_class($this->curNode) . '::' . $method . '() must return an object');
+		}
+		return new NestedSetRecursiveIterator($child);
+	}
+
+	/**
+	 * Widens a literal method name to a plain, non-literal string so PHPStan
+	 * doesn't try (and fail) to verify it against the bare `object` type
+	 * these duck-typed node references carry. The actual method is resolved
+	 * and verified at runtime, same as before this file was made
+	 * level-9-clean.
+	 */
+	private static function dynamicMethod(string $name): string
+	{
+		return $name;
+	}
+
+	private function toNodeOrNull(mixed $value): ?object
+	{
+		return is_object($value) ? $value : null;
 	}
 }

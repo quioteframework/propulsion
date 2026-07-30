@@ -21,6 +21,7 @@ namespace Propulsion\Collection;
  use Propulsion\Query\Criteria;
  use Propulsion\Query\PropulsionQuery;
  use Propulsion\Map\RelationMap;
+use Propulsion\Map\TableMap;
 use Propulsion\OM\BaseObject;
 use Propulsion\Util\BasePeer;
 class PropulsionObjectCollection extends PropulsionCollection
@@ -257,15 +258,26 @@ class PropulsionObjectCollection extends PropulsionCollection
 			throw new PropulsionException('populateRelation() needs instance pooling to be enabled prior to populating the collection');
 		}
 		$relationMap = $this->getFormatter()->getTableMap()->getRelation($relation);
+		$rightTable = $relationMap->getRightTable();
+		if (!$rightTable instanceof TableMap) {
+			throw new PropulsionException('Relation ' . $relation . ' has no right table');
+		}
+		$rightClassname = $rightTable->getClassname();
+		if (!is_string($rightClassname)) {
+			throw new PropulsionException('The right table of relation ' . $relation . ' has no classname');
+		}
 		if ($this->isEmpty()) {
 			// save a useless query and return an empty collection
 			$coll = new PropulsionObjectCollection();
-			$coll->setModel($relationMap->getRightTable()->getClassname());
+			$coll->setModel($rightClassname);
 			return $coll;
 		}
 		$symRelationMap = $relationMap->getSymmetricalRelation();
+		if (!$symRelationMap instanceof RelationMap) {
+			throw new PropulsionException('Relation ' . $relation . ' has no symmetrical relation');
+		}
 
-		$query = PropulsionQuery::from($relationMap->getRightTable()->getClassname());
+		$query = PropulsionQuery::from($rightClassname);
 		if (null !== $criteria) {
 			$query->mergeWith($criteria);
 		}
@@ -278,6 +290,9 @@ class PropulsionObjectCollection extends PropulsionCollection
 			// initialize the embedded collections of the main objects
 			$relationName = $relationMap->getName();
 			foreach ($this as $mainObj) {
+				if (!$mainObj instanceof BaseObject) {
+					continue;
+				}
 				$mainObj->initRelation($relationName);
 			}
 			// associate the related objects to the main objects
