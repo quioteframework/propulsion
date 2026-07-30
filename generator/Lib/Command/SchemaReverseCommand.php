@@ -47,13 +47,13 @@ EOT
         $io->title('Propulsion Schema Reverse Engineering');
 
         $dsn = $input->getOption('dsn');
-        if (!$dsn) {
+        if (!is_string($dsn) || $dsn === '') {
             $io->error('The --dsn option is required, e.g. --dsn="pgsql:host=localhost;dbname=mydb"');
             return Command::FAILURE;
         }
 
         $databaseName = $input->getOption('database-name');
-        if (!$databaseName) {
+        if (!is_string($databaseName) || $databaseName === '') {
             $io->error('The --database-name option is required (used as the <database name=""> value in the generated schema.xml)');
             return Command::FAILURE;
         }
@@ -61,16 +61,23 @@ EOT
         try {
             $config = $this->loadConfiguration($input);
 
+            $user = $input->getOption('user');
+            $user = is_string($user) ? $user : null;
+            $password = $input->getOption('password');
+            $password = is_string($password) ? $password : null;
+
             $manager = new SchemaReverseManager(
                 $config,
                 $dsn,
-                $input->getOption('user'),
-                $input->getOption('password'),
+                $user,
+                $password,
             );
             $manager->setLogger(new ConsoleLogger($output));
 
-            $validatorBits = SchemaReverseManager::parseValidatorBits($input->getOption('add-validators'));
-            $outputFile = $input->getOption('output-file');
+            $addValidators = $input->getOption('add-validators');
+            $validatorBits = SchemaReverseManager::parseValidatorBits(is_string($addValidators) ? $addValidators : null);
+            $outputFileOption = $input->getOption('output-file');
+            $outputFile = is_string($outputFileOption) ? $outputFileOption : './schema.xml';
 
             $io->section('Reverse Engineering Database');
             $manager->generate($databaseName, $outputFile, $validatorBits);
@@ -92,13 +99,17 @@ EOT
         $defaultPropertiesFile = dirname(__DIR__, 2) . '/default.php';
 
         $overrides = [];
-        if ($database = $input->getOption('database')) {
+        $database = $input->getOption('database');
+        if (is_string($database) && $database !== '') {
             $overrides['propulsion.database'] = $database;
         }
 
+        $configOption = $input->getOption('config');
+        $configFiles = is_array($configOption) ? array_values(array_filter($configOption, 'is_string')) : [];
+
         return GeneratorConfig::createFromPropertiesFile(
             $defaultPropertiesFile,
-            $input->getOption('config'),
+            $configFiles,
             $overrides
         );
     }

@@ -43,20 +43,28 @@ EOT
         $io->title('Propulsion SQL Exec');
 
         $dsn = $input->getOption('dsn');
-        if (!$dsn) {
+        if (!is_string($dsn) || $dsn === '') {
             $io->error('The --dsn option is required, e.g. --dsn="pgsql:host=localhost;dbname=mydb"');
             return Command::FAILURE;
         }
 
-        $sqlFiles = $input->getArgument('sql-files');
+        $sqlFilesArg = $input->getArgument('sql-files');
+        $sqlFiles = is_array($sqlFilesArg) ? array_values(array_filter($sqlFilesArg, 'is_string')) : [];
 
         try {
+            $user = $input->getOption('user');
+            $user = is_string($user) ? $user : null;
+            $password = $input->getOption('password');
+            $password = is_string($password) ? $password : null;
+            $onErrorOption = $input->getOption('on-error');
+            $onError = is_string($onErrorOption) ? $onErrorOption : 'abort';
+
             $manager = new SqlExecManager(
                 $dsn,
-                $input->getOption('user'),
-                $input->getOption('password'),
+                $user,
+                $password,
                 (bool) $input->getOption('autocommit'),
-                $input->getOption('on-error'),
+                $onError,
             );
             $manager->setLogger(new ConsoleLogger($output));
 

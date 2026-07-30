@@ -172,10 +172,14 @@ class PropulsionSQLParser
 
 	public function stripSQLCommentLines(): void
 	{
-		$this->setSQL(preg_replace(array(
+		$stripped = preg_replace(array(
 			'#^\s*(//|--|\#).*(\n|$)#m',    // //, --, or # style comments
 			'#^\s*/\*.*?\*/#s'              // c-style comments
-		), '', $this->sql));
+		), '', $this->sql);
+		if ($stripped === null) {
+			throw new \RuntimeException('Failed to strip SQL comment lines: invalid regular expression or PCRE error.');
+		}
+		$this->setSQL($stripped);
 	}
 
 	/**

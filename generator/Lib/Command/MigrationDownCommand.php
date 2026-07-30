@@ -7,6 +7,7 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Util\PropulsionMigrationManager;
 use Propulsion\Generator\Util\MigrationExecutionException;
 
@@ -57,6 +58,14 @@ EOT
             $io->section(sprintf('Executing migration %s down', PropulsionMigrationManager::getMigrationClassName($nextMigrationTimestamp)));
 
             $migration = $manager->getMigrationObject($nextMigrationTimestamp);
+            if (
+                !is_object($migration)
+                || !method_exists($migration, 'preDown')
+                || !method_exists($migration, 'getDownSQL')
+                || !method_exists($migration, 'postDown')
+            ) {
+                throw new EngineException(sprintf('Migration class %s must implement preDown(), getDownSQL(), and postDown().', PropulsionMigrationManager::getMigrationClassName($nextMigrationTimestamp)));
+            }
             if (false === $migration->preDown($manager)) {
                 $io->error('preDown() returned false. Aborting migration.');
                 return Command::FAILURE;

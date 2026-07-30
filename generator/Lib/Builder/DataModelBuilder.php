@@ -33,7 +33,6 @@ use Propulsion\Generator\Builder\OM\QueryInheritanceBuilder;
 use Propulsion\Generator\Builder\OM\TableMapBuilder;
 use Propulsion\Generator\Builder\SQL\DataSQLBuilder;
 use Propulsion\Generator\Builder\Util\Pluralizer;
-use Propulsion\Generator\Config\GeneratorConfig;
 use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\Database;
 use Propulsion\Generator\Model\Inheritance;
@@ -414,19 +413,12 @@ abstract class DataModelBuilder
 	* Gets a new data model builder class for specified table and classname.
 	*
 	* @param      Table $table
-	* @param      string $classname The class of builder
+	* @param      class-string<DataModelBuilder> $classname The class of builder
 	* @return     DataModelBuilder
 	*/
 	public function getNewBuilder(Table $table, $classname)
 	{
 		$builder = new $classname($table);
-		if (!$builder instanceof DataModelBuilder) {
-			throw new EngineException(sprintf(
-				"Builder class (%s) does not extend %s.",
-				get_class($builder),
-				DataModelBuilder::class
-			));
-		}
 		$builder->setGeneratorConfig($this->getGeneratorConfig());
 		return $builder;
 	}
@@ -597,7 +589,14 @@ abstract class DataModelBuilder
 	{
 		if (null === $this->platform) {
 			// try to load the platform from the table
-			$this->setPlatform($this->getTable()->getDatabase()->getPlatform());
+			$platform = $this->getDatabase()->getPlatform();
+			if (null === $platform) {
+				throw new EngineException(sprintf(
+					'Database "%s" does not have a Platform configured.',
+					$this->getDatabase()->getName()
+				));
+			}
+			$this->setPlatform($platform);
 		}
 		return $this->platform;
 	}
@@ -618,7 +617,14 @@ abstract class DataModelBuilder
 	 */
 	public function getDatabase()
 	{
-		return $this->getTable()->getDatabase();
+		$database = $this->getTable()->getDatabase();
+		if (null === $database) {
+			throw new EngineException(sprintf(
+				'Table "%s" is not attached to a Database.',
+				$this->getTable()->getName()
+			));
+		}
+		return $database;
 	}
 
 	/**
@@ -664,7 +670,8 @@ abstract class DataModelBuilder
 	 */
 	public function prefixClassname(string $identifier): string
 	{
-		return $this->getBuildProperty('classPrefix') . $identifier;
+		$classPrefix = $this->getBuildProperty('classPrefix');
+		return (is_string($classPrefix) ? $classPrefix : '') . $identifier;
 	}
 
 }

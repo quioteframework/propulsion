@@ -74,9 +74,9 @@ class PropulsionPHPParser
 	 *
 	 * @param string $methodName The name of the method to find, e.g. 'getAuthor'
 	 *
-	 * @return mixed false if not found, or the method code string if found
+	 * @return string|false false if not found, or the method code string if found
 	 */
-	public function findMethod($methodName)
+	public function findMethod(string $methodName)
 	{
 		// Tokenize the source
 		$tokens = token_get_all($this->code);
@@ -151,9 +151,9 @@ class PropulsionPHPParser
 	 *
 	 * @param string $methodName The name of the method to find, e.g. 'getAuthor'
 	 *
-	 * @return mixed false if not found, or the method code string if found
+	 * @return string|false false if not found, or the method code string if found
 	 */
-	public function removeMethod($methodName)
+	public function removeMethod(string $methodName)
 	{
 		if ($methodCode = $this->findMethod($methodName)) {
 			$this->code = str_replace($methodCode, '', $this->code);
@@ -168,9 +168,9 @@ class PropulsionPHPParser
 	 * @param string $methodName The name of the method to find, e.g. 'getAuthor'
 	 * @param string $newCode    The code to use in place of the old method definition
 	 *
-	 * @return mixed false if not found, or the method code string if found
+	 * @return string|false false if not found, or the method code string if found
 	 */
-	public function replaceMethod($methodName, $newCode)
+	public function replaceMethod(string $methodName, string $newCode)
 	{
 		if ($methodCode = $this->findMethod($methodName)) {
 			$this->code = str_replace($methodCode, $newCode, $this->code);
@@ -185,9 +185,9 @@ class PropulsionPHPParser
 	 * @param string $methodName The name of the method to find, e.g. 'getAuthor'
 	 * @param string $newCode    The code to add to the class
 	 *
-	 * @return mixed false if not found, or the method code string if found
+	 * @return string|false false if not found, or the method code string if found
 	 */
-	public function addMethodAfter($methodName, $newCode)
+	public function addMethodAfter(string $methodName, string $newCode)
 	{
 		if ($methodCode = $this->findMethod($methodName)) {
 			$this->code = str_replace($methodCode, $methodCode. $newCode, $this->code);
@@ -202,9 +202,9 @@ class PropulsionPHPParser
 	 * @param string $methodName The name of the method to find, e.g. 'getAuthor'
 	 * @param string $newCode    The code to add to the class
 	 *
-	 * @return mixed false if not found, or the method code string if found
+	 * @return string|false false if not found, or the method code string if found
 	 */
-	public function addMethodBefore($methodName, $newCode)
+	public function addMethodBefore(string $methodName, string $newCode)
 	{
 		if ($methodCode = $this->findMethod($methodName)) {
 			$this->code = str_replace($methodCode, $newCode . $methodCode, $this->code);

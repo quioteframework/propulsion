@@ -704,15 +704,16 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 					$childBuilder = $this->getMultiExtendObjectBuilder();
 					$childBuilder->setChild($child);
 					$key = self::requireNotNull($child->getKey(), "Inheritance child's key");
+					$childClassName = self::requireNotNull($child->getClassName(), "Inheritance child's className");
 					$script .= "
 	/** A key representing a particular subclass */
 	const CLASSKEY_".strtoupper($key)." = '" . $key . "';
 ";
 
-					if (strtoupper($child->getClassname()) != strtoupper($key)) {
+					if (strtoupper($childClassName) != strtoupper($key)) {
 						$script .= "
 	/** A key representing a particular subclass */
-	const CLASSKEY_".strtoupper($child->getClassname())." = '" . $key . "';
+	const CLASSKEY_".strtoupper($childClassName)." = '" . $key . "';
 ";
 					}
 
@@ -1716,7 +1717,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		} else {
 ";
 		foreach ($table->getValidators() as $val) {
-			$col = $val->getColumn();
+			$col = self::requireNotNull($val->getColumn(), 'Validator has no associated column');
 			if (!$col->isAutoIncrement()) {
 				$script .= "
 		if (\$obj->isNew() || \$obj->isColumnModified(".$this->getColumnConstant($col)."))

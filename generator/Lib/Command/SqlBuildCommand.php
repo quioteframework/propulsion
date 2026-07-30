@@ -36,7 +36,8 @@ class SqlBuildCommand extends Command
         $io->title('Propulsion SQL Builder');
 
         try {
-            $schemaPath = $input->getArgument('schema');
+            $schemaPathArg = $input->getArgument('schema');
+            $schemaPath = is_string($schemaPathArg) ? $schemaPathArg : './schema';
             $schemas = $this->findSchemaFiles($schemaPath);
 
             if (empty($schemas)) {
@@ -47,8 +48,11 @@ class SqlBuildCommand extends Command
             $io->section('Found Schema Files');
             $io->listing(array_map('basename', $schemas));
 
+            $outputDirOption = $input->getOption('output-dir');
+            $outputDir = is_string($outputDirOption) ? $outputDirOption : './generated-sql';
+
             $config = $this->loadConfiguration($input);
-            $manager = new SqlManager($config, $input->getOption('output-dir'));
+            $manager = new SqlManager($config, $outputDir);
             $manager->setLogger(new ConsoleLogger($output));
 
             $io->section('Generating SQL');
@@ -73,13 +77,17 @@ class SqlBuildCommand extends Command
         $defaultPropertiesFile = dirname(__DIR__, 2) . '/default.php';
 
         $overrides = [];
-        if ($database = $input->getOption('database')) {
+        $database = $input->getOption('database');
+        if (is_string($database) && $database !== '') {
             $overrides['propulsion.database'] = $database;
         }
 
+        $configOption = $input->getOption('config');
+        $configFiles = is_array($configOption) ? array_values(array_filter($configOption, 'is_string')) : [];
+
         return GeneratorConfig::createFromPropertiesFile(
             $defaultPropertiesFile,
-            $input->getOption('config'),
+            $configFiles,
             $overrides
         );
     }

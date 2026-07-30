@@ -27,12 +27,18 @@ class MssqlDataSQLBuilder extends DataSQLBuilder
 	protected function getBlobSql($blob)
 	{
 		// they took magic __toString() out of PHP5.0.0; this sucks
-		if ($blob instanceof \Stringable) {
-			$blob = $blob->__toString();
+		if (is_object($blob)) {
+			if (!$blob instanceof \Stringable) {
+				throw new EngineException(sprintf('BLOB value object of type %s does not implement Stringable.', get_class($blob)));
+			}
+			$blob = (string) $blob;
+		}
+		if (!is_string($blob)) {
+			throw new EngineException(sprintf('BLOB value must be a string or Stringable object, got %s.', get_debug_type($blob)));
 		}
 		$data = unpack("H*hex", $blob);
-		if ($data === false) {
-			throw new EngineException('Unable to hex-encode BLOB value.');
+		if (false === $data || !isset($data['hex'])) {
+			throw new EngineException('Failed to unpack BLOB value into hex representation.');
 		}
 		return '0x'.$data['hex']; // no surrounding quotes!
 	}

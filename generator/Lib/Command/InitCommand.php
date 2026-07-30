@@ -31,19 +31,22 @@ class InitCommand extends Command
         $io->title('Propulsion Project Initializer');
         
         // Get project name
-        $projectName = $input->getArgument('name');
-        if (!$projectName) {
+        $projectNameArg = $input->getArgument('name');
+        $projectName = is_string($projectNameArg) ? $projectNameArg : '';
+        if ($projectName === '') {
             $question = new Question('Enter project name', 'my-propel-project');
-            $projectName = $io->askQuestion($question);
+            $answer = $io->askQuestion($question);
+            $projectName = is_string($answer) ? $answer : 'my-propel-project';
         }
-        
+
         // Ask for database platform
         $platformQuestion = new ChoiceQuestion(
             'Choose database platform',
             ['mysql', 'postgresql', 'sqlite', 'oracle', 'mssql'],
             'mysql'
         );
-        $platform = $io->askQuestion($platformQuestion);
+        $platformAnswer = $io->askQuestion($platformQuestion);
+        $platform = is_string($platformAnswer) ? $platformAnswer : 'mysql';
         
         // Create project structure
         $this->createProjectStructure($projectName, $platform, $io);

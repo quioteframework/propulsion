@@ -96,12 +96,12 @@ abstract class DataSQLBuilder extends DataModelBuilder
 		$platform = $this->getPlatform();
 		$table = $this->getTable();
 
-		$sql .= "INSERT INTO ".$this->quoteIdentifier($this->getTable()->getName())." (";
+		$sql .= "INSERT INTO ".$this->quoteIdentifier($this->getTable()->getName() ?? '(unnamed)')." (";
 
 		// add column names to SQL
 		$colNames = array();
 		foreach ($row->getColumnValues() as $colValue) {
-			$colNames[] = $this->quoteIdentifier($colValue->getColumn()->getName());
+			$colNames[] = $this->quoteIdentifier($colValue->getColumn()->getName() ?? '(unnamed)');
 		}
 
 		$sql .= implode(',', $colNames);
@@ -110,7 +110,15 @@ abstract class DataSQLBuilder extends DataModelBuilder
 
 		$colVals = array();
 		foreach ($row->getColumnValues() as $colValue) {
-			$colVals[] = $this->getColumnValueSql($colValue);
+			$colSql = $this->getColumnValueSql($colValue);
+			if (!is_scalar($colSql)) {
+				throw new EngineException(sprintf(
+					'Column value SQL for column "%s" must be a scalar, got %s.',
+					$colValue->getColumn()->getName() ?? '(unnamed)',
+					get_debug_type($colSql)
+				));
+			}
+			$colVals[] = (string) $colSql;
 		}
 
 		$sql .= implode(',', $colVals);
@@ -154,6 +162,9 @@ abstract class DataSQLBuilder extends DataModelBuilder
 		if ($blob instanceof \Stringable) {
 			return $this->getPlatform()->quote($blob->__toString());
 		} else {
+			if (!is_string($blob)) {
+				throw new EngineException(sprintf('BLOB value must be a string or Stringable object, got %s.', get_debug_type($blob)));
+			}
 			return $this->getPlatform()->quote($blob);
 		}
 	}
@@ -169,6 +180,9 @@ abstract class DataSQLBuilder extends DataModelBuilder
 		if ($clob instanceof \Stringable) {
 			return $this->getPlatform()->quote($clob->__toString());
 		} else {
+			if (!is_string($clob)) {
+				throw new EngineException(sprintf('CLOB value must be a string or Stringable object, got %s.', get_debug_type($clob)));
+			}
 			return $this->getPlatform()->quote($clob);
 		}
 	}
@@ -247,7 +261,7 @@ abstract class DataSQLBuilder extends DataModelBuilder
 	 * @param      string $value
 	 * @return     string
 	 */
-	protected function getTimeSql(mixed $paramIndex, $value)
+	protected function getTimeSql($value)
 	{
 		return "'" . date('H:i:s', $this->requireTimestamp($value)) . "'";
 	}

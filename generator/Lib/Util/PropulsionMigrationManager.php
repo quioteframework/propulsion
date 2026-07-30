@@ -70,6 +70,46 @@ class PropulsionMigrationManager
 		return $this->connections[$datasource];
 	}
 
+	/**
+	 * Reads a required string connection parameter out of a datasource's
+	 * connection settings array, throwing if it's missing, empty, or not a
+	 * string -- connection settings arrays come from build-time config files
+	 * and are typed as array<string, mixed>, so this is the one place that
+	 * narrows a given key down to the string type PDO/DSN-building code
+	 * actually needs.
+	 *
+	 * @param array<string, mixed> $config
+	 */
+	private static function requireConfigString(array $config, string $key, string $datasource): string
+	{
+		$value = $config[$key] ?? null;
+		if (!is_string($value) || $value === '') {
+			throw new \RuntimeException(sprintf('Datasource "%s" is missing a string "%s" connection parameter', $datasource, $key));
+		}
+		return $value;
+	}
+
+	/**
+	 * Same as requireConfigString(), but for a genuinely optional connection
+	 * parameter (e.g. "user"/"password", which may legitimately be absent or
+	 * an empty string): returns null instead of throwing when the key is
+	 * missing or empty, but still throws if the key is present with a
+	 * non-string value, since that indicates a malformed config rather than
+	 * "not set".
+	 *
+	 * @param array<string, mixed> $config
+	 */
+	private static function optionalConfigString(array $config, string $key, string $datasource): ?string
+	{
+		if (!isset($config[$key]) || $config[$key] === '') {
+			return null;
+		}
+		if (!is_string($config[$key])) {
+			throw new \RuntimeException(sprintf('Datasource "%s" connection parameter "%s" must be a string', $datasource, $key));
+		}
+		return $config[$key];
+	}
+
 	public function getPdoConnection(string $datasource): PDO
 	{
 		if (!isset($this->pdoConnections[$datasource])) {
@@ -97,11 +137,11 @@ class PropulsionMigrationManager
 	protected function createPdoConnection($datasource)
 	{
 		$buildConnection = $this->getConnection($datasource);
-		$dsn = str_replace("@DB@", $datasource, $buildConnection['dsn']);
+		$dsn = str_replace("@DB@", $datasource, self::requireConfigString($buildConnection, 'dsn', $datasource));
 
 		// Set user + password to null if they are empty strings or missing
-		$username = isset($buildConnection['user']) && $buildConnection['user'] ? $buildConnection['user'] : null;
-		$password = isset($buildConnection['password']) && $buildConnection['password'] ? $buildConnection['password'] : null;
+		$username = self::optionalConfigString($buildConnection, 'user', $datasource);
+		$password = self::optionalConfigString($buildConnection, 'password', $datasource);
 
 		$pdo = new PDO($dsn, $username, $password);
 		$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -137,7 +177,7 @@ class PropulsionMigrationManager
 	public function getPlatform(string $datasource): DefaultPlatform
 	{
 		$params = $this->getConnection($datasource);
-		$adapter = $params['adapter'];
+		$adapter = self::requireConfigString($params, 'adapter', $datasource);
 		$adapterClass = ucfirst($adapter) . 'Platform';
 		// Require the platform file from the bundled Platform directory
 		require_once sprintf('%s/../Platform/%s.php',
@@ -164,6 +204,7 @@ class PropulsionMigrationManager
 				DefaultPlatform::class
 			));
 		}
+
 		return $platform;
 	}
 
@@ -198,12 +239,26 @@ class PropulsionMigrationManager
 	}
 
 	/**
-	 * Get the path to the migration classes
+	 * Get the path to the migration classes, or null if none was set.
 	 *
-	 * @return string
+	 * @return string|null
 	 */
 	public function getMigrationDir()
 	{
+		return $this->migrationDir;
+	}
+
+	/**
+	 * Same as getMigrationDir(), but throws instead of returning null -- for
+	 * call sites that need an actual migration directory to do their work
+	 * (listing/loading migration files, building an error message that
+	 * references one).
+	 */
+	protected function requireMigrationDir(): string
+	{
+		if (null === $this->migrationDir) {
+			throw new \RuntimeException('No migration directory has been set; call setMigrationDir() first.');
+		}
 		return $this->migrationDir;
 	}
 
@@ -256,8 +311,8 @@ class PropulsionMigrationManager
 		// given timestamp win, while failed attempts are skipped entirely
 		// and never overwrite a prior successful state.
 		$lastSuccessfulDirectionByTimestamp = array();
-		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-			if (!self::toBool($row['success'])) {
+		foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+			if (!self::toBool($row['success'] ?? null)) {
 				continue;
 			}
 			$timestamp = (int) $row['migration_timestamp'];
@@ -299,27 +354,26 @@ class PropulsionMigrationManager
 		if (!$connections = $this->getConnections()) {
 			throw new Exception('You must define database connection settings in a build-time connection config file (a buildtime-conf.php returning [\'default\' => ..., \'datasources\' => [...]]) to use migrations');
 		}
-		$oldestMigrationTimestamp = null;
 		$migrationTimestamps = array();
+		$sawUninitializedDatasource = false;
 		foreach ($connections as $name => $params) {
 			try {
-				// Use !== false (not a truthy check) so a legitimate version of 0 --
-				// the documented "no migrations applied yet" baseline, and what a
-				// full "down" back to the start leaves behind -- isn't mistaken
-				// for "no row fetched", which would incorrectly return null here
-				// instead of 0.
 				$migrationTimestamps[$name] = $this->getCurrentVersion($name);
 			} catch (\PDOException $e) {
 				$this->createMigrationTable($name);
-				$oldestMigrationTimestamp = 0;
+				$sawUninitializedDatasource = true;
 			}
 		}
-		if ($oldestMigrationTimestamp === null && $migrationTimestamps) {
-			sort($migrationTimestamps);
-			$oldestMigrationTimestamp = array_shift($migrationTimestamps);
+		// A datasource whose migration table didn't exist yet is treated as
+		// "no migrations applied", i.e. the oldest possible version -- 0, the
+		// documented "no migrations applied yet" baseline, and what a full
+		// "down" back to the start leaves behind.
+		if ($sawUninitializedDatasource || !$migrationTimestamps) {
+			return 0;
 		}
+		sort($migrationTimestamps);
 
-		return $oldestMigrationTimestamp;
+		return array_shift($migrationTimestamps);
 	}
 
 	public function migrationTableExists(string $datasource): bool
@@ -531,7 +585,7 @@ class PropulsionMigrationManager
 			$logger(sprintf(
 				'Connecting to database "%s" using DSN "%s"',
 				$datasource,
-				$connection['dsn']
+				self::requireConfigString($connection, 'dsn', $datasource)
 			), true);
 
 			$platform = $this->getPlatform($datasource);
@@ -542,7 +596,7 @@ class PropulsionMigrationManager
 				$logger('No statement was executed. The version was not updated.', false);
 				$logger(sprintf(
 					'Please review the code in "%s"',
-					$this->getMigrationDir() . DIRECTORY_SEPARATOR . self::getMigrationClassName($timestamp)
+					$this->requireMigrationDir() . DIRECTORY_SEPARATOR . self::getMigrationClassName($timestamp)
 				), false);
 				throw new MigrationExecutionException(sprintf(
 					'Migration %s aborted: no SQL statements found for datasource "%s".',
@@ -614,7 +668,7 @@ class PropulsionMigrationManager
 	 */
 	public function getMigrationTimestamps(): array
 	{
-		$path = $this->getMigrationDir();
+		$path = $this->requireMigrationDir();
 		$migrationTimestamps = array();
 
 		if (is_dir($path)) {
@@ -699,6 +753,9 @@ class PropulsionMigrationManager
 		if ($value === null) {
 			return false;
 		}
+		if (!is_scalar($value)) {
+			return false;
+		}
 		$normalized = strtolower(trim((string) $value));
 
 		return in_array($normalized, array('1', 't', 'true', 'y', 'yes'), true);
@@ -708,7 +765,7 @@ class PropulsionMigrationManager
 	{
 		$className = $this->getMigrationClassName($timestamp);
 		require_once sprintf('%s/%s.php',
-			$this->getMigrationDir(),
+			$this->requireMigrationDir(),
 			$className
 		);
 		return new $className();

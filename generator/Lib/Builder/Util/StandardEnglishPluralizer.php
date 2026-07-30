@@ -10,6 +10,8 @@
 
 namespace Propulsion\Generator\Builder\Util;
 
+use Propulsion\Generator\Exception\EngineException;
+
 /**
  * Standard replacement English pluralizer class. Based on the links below
  *
@@ -127,7 +129,7 @@ class StandardEnglishPluralizer implements Pluralizer
 		foreach ($this->_irregular as $pattern => $result) {
 			$searchPattern = '/' . $pattern . '$/i';
 			if (preg_match($searchPattern, $root)) {
-				$replacement = preg_replace($searchPattern, $result, $root);
+				$replacement = $this->applyPattern($searchPattern, $result, $root);
 				// look at the first char and see if it's upper case
 				// I know it won't handle more than one upper case char here (but I'm OK with that)
 				if (preg_match('/^[A-Z]/', $root)) {
@@ -141,11 +143,25 @@ class StandardEnglishPluralizer implements Pluralizer
 		foreach ($this->_plural as $pattern => $result) {
 			$searchPattern = '/' . $pattern . '$/i';
 			if (preg_match($searchPattern, $root)) {
-				return preg_replace($searchPattern, $result, $root);
+				return $this->applyPattern($searchPattern, $result, $root);
 			}
 		}
 
 		// fallback to naive pluralization
 		return $root . 's';
+	}
+
+	/**
+	 * Applies a pluralization regex replacement, guarding against the
+	 * (practically unreachable, but type-wise possible) preg_replace()
+	 * failure case so callers always get a string back.
+	 */
+	private function applyPattern(string $searchPattern, string $result, string $root): string
+	{
+		$replacement = preg_replace($searchPattern, $result, $root);
+		if ($replacement === null) {
+			throw new EngineException(sprintf('Failed to pluralize "%s" using pattern "%s"', $root, $searchPattern));
+		}
+		return $replacement;
 	}
 }

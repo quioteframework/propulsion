@@ -28,6 +28,7 @@ use Propulsion\Generator\Model\Column;
 use Propulsion\Generator\Model\PropulsionTypes;
 use Propulsion\Generator\Model\ForeignKey;
 use Propulsion\Generator\Model\IDMethod;
+use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Platform\MysqlPlatform;
 use Propulsion\Generator\Builder\OM\ColumnType\ColumnTypeHandlerRegistry;
 
@@ -108,6 +109,13 @@ class ObjectBuilder extends AbstractObjectBuilder
 
 	/**
 	 * Returns the appropriate formatter (from platform) for a date/time column.
+	 *
+	 * Note: BU_DATE/BU_TIMESTAMP are stored as plain strings but are still
+	 * reported as temporal by Column::isTemporalType(), so they must be
+	 * handled here too -- otherwise callers relying on isTemporalType() to
+	 * gate calls into this method (e.g. getDefaultValueString()) would get
+	 * a null formatter for those two types.
+	 *
 	 * @param      Column $col
 	 * @return     string
 	 */
@@ -115,9 +123,9 @@ class ObjectBuilder extends AbstractObjectBuilder
 	{
 		$platform = self::requireNotNull($this->getPlatform(), "Platform (needed to build temporal formatters at code-generation time)");
 		$fmt = match ($col->getType()) {
-			PropulsionTypes::DATE => $platform->getDateFormatter(),
+			PropulsionTypes::DATE, PropulsionTypes::BU_DATE => $platform->getDateFormatter(),
 			PropulsionTypes::TIME => $platform->getTimeFormatter(),
-			PropulsionTypes::TIMESTAMP => $platform->getTimestampFormatter(),
+			PropulsionTypes::TIMESTAMP, PropulsionTypes::BU_TIMESTAMP => $platform->getTimestampFormatter(),
 			default => throw new EngineException(sprintf(
 				"getTemporalFormatter() called on non-temporal column '%s' (type '%s').",
 				$col->getName() ?? '(unnamed)',
@@ -151,13 +159,16 @@ class ObjectBuilder extends AbstractObjectBuilder
 			throw new EngineException(sprintf('Default value for column "%s" is neither scalar nor array.', $col->getFullyQualifiedName()));
 		}
 		if ($col->isTemporalType()) {
+			if (!is_string($val)) {
+				throw new EngineException(sprintf('Expected a string default value for temporal column "%s", got %s', $col->getFullyQualifiedName(), get_debug_type($val)));
+			}
 			$fmt = $this->getTemporalFormatter($col);
 			try {
 				if (!($this->getPlatform() instanceof MysqlPlatform &&
 				($val === '0000-00-00 00:00:00' || $val === '0000-00-00'))) {
 					// while technically this is not a default value of NULL,
 					// this seems to be closest in meaning.
-					$defDt = new \DateTime(is_scalar($val) ? (string) $val : '');
+					$defDt = new \DateTime($val);
 					$defaultValue = var_export($defDt->format($fmt), true);
 				}
 			} catch (\Exception $x) {
@@ -168,7 +179,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 		} elseif ($col->isEnumType()) {
 			$valueSet = $col->getValueSet();
 			if (!in_array($val, $valueSet)) {
-				throw new EngineException(sprintf('Default Value "%s" is not among the enumerated values', is_scalar($val) ? $val : var_export($val, true)));
+				throw new EngineException(sprintf('Default Value "%s" is not among the enumerated values', is_scalar($val) ? (string) $val : get_debug_type($val)));
 			}
 			if ($col->hasEnumClass()) {
 				// The property holds the enum instance directly (see
@@ -190,13 +201,13 @@ class ObjectBuilder extends AbstractObjectBuilder
 			$propelType = $col->getType();
 			if ($propelType === PropulsionTypes::BIGINT || $propelType === PropulsionTypes::INTEGER ||
 			    $propelType === PropulsionTypes::SMALLINT || $propelType === PropulsionTypes::TINYINT) {
-				$defaultValue = var_export((int) $val, true);
+				$defaultValue = var_export(is_scalar($val) ? (int) $val : 0, true);
 			} elseif ($col->isBooleanType()) {
 				$defaultValue = var_export((bool) $val, true);
 			} elseif ($col->getPhpType() === 'double' || $col->getPhpType() === 'float') {
-				$defaultValue = var_export((float) $val, true);
+				$defaultValue = var_export(is_scalar($val) ? (float) $val : 0.0, true);
 			} elseif ($col->getPhpType() === 'string' || $col->isTextType()) {
-				$defaultValue = var_export(is_scalar($val) ? (string) $val : var_export($val, true), true);
+				$defaultValue = var_export(is_scalar($val) ? (string) $val : '', true);
 			} elseif ($col->getPhpType() === 'array') {
 				$defaultValue = var_export((array) $val, true);
 			} else {
@@ -540,7 +551,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	// Column properties with PHP 8.4 typed properties";
 
 		foreach ($table->getColumns() as $col) {
-			$colname = $col->getName();
+			$colname = (string) $col->getName();
 			$phpname = $col->getPhpName();
 			$type = $this->getPhp85PropertyType($col);
 			// Temporal (DateTimeInterface-typed) columns can have a non-null default, but
@@ -912,7 +923,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	public function addTemporalAccessorComment(string &$script, Column $col): void
 	{
-		$colname = $col->getName();
+		$colname = (string) $col->getName();
 		$description = $col->getDescription() ? $col->getDescription() : "Get the value of [$colname] column.";
 		$script .= "
 
@@ -944,7 +955,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	public function addDefaultAccessorComment(string &$script, Column $col): void
 	{
-		$colname = $col->getName();
+		$colname = (string) $col->getName();
 		$description = $col->getDescription() ? $col->getDescription() : "Get the value of [$colname] column.";
 		$returnType = $this->getPhp85TypeHint($col);
 		$script .= "
@@ -975,7 +986,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	protected function addColumnAccessor(string &$script, Column $col): void
 	{
-		$colname = $col->getName();
+		$colname = (string) $col->getName();
 		$phpname = $col->getPhpName();
 
 		if ($col->isTemporalType()) {
@@ -1162,7 +1173,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	public function addTemporalMutatorComment(string &$script, Column $col): void
 	{
-		$colname = $col->getName();
+		$colname = (string) $col->getName();
 		$returnType = $this->getClassname();
 		$description = $col->getDescription() ? $col->getDescription() : "Set the value of [$colname] column.";
 		$script .= "
@@ -1183,7 +1194,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	public function addMutatorComment(string &$script, Column $col): void
 	{
-		$colname = $col->getName();
+		$colname = (string) $col->getName();
 		$paramType = $this->getPhp85TypeHint($col);
 		$returnType = $this->getClassname();
 		$description = $col->getDescription() ? $col->getDescription() : "Set the value of [$colname] column.";
@@ -1497,7 +1508,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	protected function addEnumAccessor(string &$script, Column $col): void
 	{
-		$colname = $col->getName();
+		$colname = (string) $col->getName();
 		$phpname = $col->getPhpName();
 		$description = $col->getDescription() ? $col->getDescription() : "Get the [$colname] column value.";
 
@@ -1550,7 +1561,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	protected function addEnumMutator(string &$script, Column $col): void
 	{
-		$colname = $col->getName();
+		$colname = (string) $col->getName();
 		$phpname = $col->getPhpName();
 
 		if ($col->hasEnumClass()) {
@@ -1728,7 +1739,6 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		foreach ($fk->getLocalColumns() as $columnName) {
 			$lfmap = $fk->getLocalForeignMapping();
 
-			$localColumn = $table->requireColumn($columnName);
 			$foreignColumn = $fk->requireForeignTable()->requireColumn($lfmap[$columnName]);
 
 			$column = $table->requireColumn($columnName);

@@ -7,6 +7,7 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Util\PropulsionMigrationManager;
 use Propulsion\Generator\Util\MigrationExecutionException;
 
@@ -63,6 +64,14 @@ EOT
             $io->section(sprintf('Executing migration %s up', PropulsionMigrationManager::getMigrationClassName($nextMigrationTimestamp)));
 
             $migration = $manager->getMigrationObject($nextMigrationTimestamp);
+            if (
+                !is_object($migration)
+                || !method_exists($migration, 'preUp')
+                || !method_exists($migration, 'getUpSQL')
+                || !method_exists($migration, 'postUp')
+            ) {
+                throw new EngineException(sprintf('Migration class %s must implement preUp(), getUpSQL(), and postUp().', PropulsionMigrationManager::getMigrationClassName($nextMigrationTimestamp)));
+            }
             if (false === $migration->preUp($manager)) {
                 $io->error('preUp() returned false. Aborting migration.');
                 return Command::FAILURE;

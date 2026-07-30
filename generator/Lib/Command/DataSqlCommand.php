@@ -12,6 +12,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Console\Logger\ConsoleLogger;
 use Propulsion\Generator\Manager\DataSqlManager;
 use Propulsion\Generator\Config\GeneratorConfig;
+use Propulsion\Generator\Exception\EngineException;
 
 #[AsCommand(
     name: 'data:sql',
@@ -45,13 +46,24 @@ EOT
         $io->title('Propulsion Data SQL');
 
         try {
-            $schemaPath = $input->getArgument('schema');
+            $schemaPathArg = $input->getArgument('schema');
+            $schemaPath = is_string($schemaPathArg) ? $schemaPathArg : './schema';
             $schemas = $this->findSchemaFiles($schemaPath);
 
             if (empty($schemas)) {
                 $io->error("No schema files found in: $schemaPath");
                 return Command::FAILURE;
             }
+
+            $datasetArg = $input->getArgument('dataset');
+            if (!is_string($datasetArg) || $datasetArg === '') {
+                throw new EngineException('The dataset argument must be a non-empty path to an XML dataset file.');
+            }
+
+            $outputOption = $input->getOption('output');
+            $output_file = is_string($outputOption) ? $outputOption : './dataset.sql';
+            $dataDatabase = $input->getOption('data-database');
+            $dataDatabase = is_string($dataDatabase) ? $dataDatabase : null;
 
             $config = $this->loadConfiguration($input);
             $manager = new DataSqlManager($config);
@@ -60,12 +72,12 @@ EOT
             $io->section('Converting Data XML to SQL');
             $rowCount = $manager->transform(
                 $schemas,
-                $input->getArgument('dataset'),
-                $input->getOption('output'),
-                $input->getOption('data-database')
+                $datasetArg,
+                $output_file,
+                $dataDatabase
             );
 
-            $io->success("Conversion complete. $rowCount rows converted to " . $input->getOption('output'));
+            $io->success("Conversion complete. $rowCount rows converted to $output_file");
 
             return Command::SUCCESS;
         } catch (\Throwable $e) {
@@ -82,13 +94,17 @@ EOT
         $defaultPropertiesFile = dirname(__DIR__, 2) . '/default.php';
 
         $overrides = [];
-        if ($database = $input->getOption('database')) {
+        $database = $input->getOption('database');
+        if (is_string($database) && $database !== '') {
             $overrides['propulsion.database'] = $database;
         }
 
+        $configOption = $input->getOption('config');
+        $configFiles = is_array($configOption) ? array_values(array_filter($configOption, 'is_string')) : [];
+
         return GeneratorConfig::createFromPropertiesFile(
             $defaultPropertiesFile,
-            $input->getOption('config'),
+            $configFiles,
             $overrides
         );
     }

@@ -22,6 +22,7 @@ use Propulsion\Generator\Model\Column;
 use Propulsion\Generator\Model\IDMethod;
 use Propulsion\Generator\Platform\PropulsionPlatformInterface;
 use Propulsion\Generator\Model\Validator;
+use Propulsion\Generator\Model\Table;
 
 class TableMapBuilder extends OMBuilder
 {

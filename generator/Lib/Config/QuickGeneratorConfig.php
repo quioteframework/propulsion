@@ -9,8 +9,8 @@
  */
 namespace Propulsion\Generator\Config;
 
- use Propulsion\Generator\Model\Table;
  use Propulsion\Generator\Exception\EngineException;
+ use Propulsion\Generator\Model\Table;
  use Propulsion\Generator\Builder\DataModelBuilder;
  use Propulsion\Generator\Builder\Util\Pluralizer;
  use Propulsion\Generator\Builder\Util\DefaultEnglishPluralizer;
@@ -40,7 +40,7 @@ class QuickGeneratorConfig implements GeneratorConfigInterface
 	// has its own separate builder registry). Since the PHP5 builders were removed
 	// entirely (see archaeology/php5-builders/, KNOWN_ISSUES.md), these now point at the
 	// same promoted builders default.php uses.
-	/** @var array<string,class-string> */
+	/** @var array<string,class-string<DataModelBuilder>> */
 	protected $builders = array(
 		'peer'					=> PeerBuilder::class,
 		'object'				=> ObjectBuilder::class,
@@ -66,7 +66,18 @@ class QuickGeneratorConfig implements GeneratorConfigInterface
 
 	public function __construct()
 	{
-		$this->setBuildProperties(require dirname(__FILE__) . '/../../default.php');
+		$props = require dirname(__FILE__) . '/../../default.php';
+		if (!is_array($props)) {
+			throw new EngineException('Expected default.php to return an array of properties.');
+		}
+		$stringKeyedProps = array();
+		foreach ($props as $key => $value) {
+			if (!is_string($key)) {
+				throw new EngineException('Expected default.php to return an array of properties keyed by string.');
+			}
+			$stringKeyedProps[$key] = $value;
+		}
+		$this->setBuildProperties($stringKeyedProps);
 	}
 
 	/**
@@ -78,16 +89,11 @@ class QuickGeneratorConfig implements GeneratorConfigInterface
 	 */
 	public function getConfiguredBuilder($table, $type)
 	{
+		if (!isset($this->builders[$type])) {
+			throw new EngineException("No builder registered for type '$type'.");
+		}
 		$class = $this->builders[$type];
 		$builder = new $class($table);
-		if (!$builder instanceof DataModelBuilder) {
-			throw new EngineException(sprintf(
-				"Configured '%s' builder class (%s) does not extend %s.",
-				$type,
-				get_class($builder),
-				DataModelBuilder::class
-			));
-		}
 		$builder->setGeneratorConfig($this);
 		return $builder;
 	}
@@ -108,9 +114,9 @@ class QuickGeneratorConfig implements GeneratorConfigInterface
 	 * Renames the propulsion.xxx properties to just xxx and renames any xxx.yyy properties
 	 * to xxxYyy as PHP doesn't like the xxx.yyy syntax.
 	 *
-	 * @param			 mixed $props Array or Iterator
+	 * @param			 iterable<string,mixed> $props Array or Iterator
 	 */
-	public function setBuildProperties($props): void
+	public function setBuildProperties(iterable $props): void
 	{
 		$this->buildProperties = array();
 

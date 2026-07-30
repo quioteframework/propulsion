@@ -74,7 +74,7 @@ class XmlToAppData
 	 * @param      string $defaultPackage the default PHP package used for the om
 	 * @param      string $encoding The database encoding.
 	 */
-	public function __construct(?PropulsionPlatformInterface $defaultPlatform = null, $defaultPackage = null, $encoding = 'iso-8859-1')
+	public function __construct(?PropulsionPlatformInterface $defaultPlatform = null, ?string $defaultPackage = null, string $encoding = 'iso-8859-1')
 	{
 		$this->app = new AppData($defaultPlatform);
 		$this->defaultPackage = $defaultPackage;
@@ -98,7 +98,7 @@ class XmlToAppData
 	 * @param      string $xmlFile The input file to parse.
 	 * @return     AppData populated by <code>xmlFile</code>.
 	 */
-	public function parseFile($xmlFile)
+	public function parseFile(string $xmlFile): AppData
 	{
 		// we don't want infinite recursion
 		if ($this->isAlreadyParsed($xmlFile)) {
@@ -121,7 +121,7 @@ class XmlToAppData
 	 * @param      string $xmlFile The input file name.
 	 * @return     AppData populated by <code>xmlFile</code>.
 	 */
-	public function parseString($xmlString, $xmlFile = null)
+	public function parseString(string $xmlString, ?string $xmlFile = null): AppData
 	{
 		$xmlFile ??= '';
 		// we don't want infinite recursion
@@ -190,8 +190,7 @@ class XmlToAppData
 					}
 
 					if ($xmlFile[0] != '/') {
-						$currentXmlFile = $this->currentXmlFile ?? '';
-						$resolved = realpath(dirname($currentXmlFile) . DIRECTORY_SEPARATOR . $xmlFile);
+						$resolved = realpath(dirname($this->requireCurrentXmlFile()) . DIRECTORY_SEPARATOR . $xmlFile);
 						if ($resolved === false || !file_exists($resolved)) {
 							throw new SchemaException(sprintf('Unknown include external "%s"', $xmlFile));
 						}
@@ -532,5 +531,13 @@ class XmlToAppData
 	protected function isAlreadyParsed(string $filePath): bool
 	{
 		return isset($this->schemasTagsStack[$filePath]);
+	}
+
+	private function requireCurrentXmlFile(): string
+	{
+		if ($this->currentXmlFile === null) {
+			throw new SchemaException('No current schema file is being parsed');
+		}
+		return $this->currentXmlFile;
 	}
 }
