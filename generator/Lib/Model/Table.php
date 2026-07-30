@@ -1739,6 +1739,21 @@ class Table extends ScopedElement implements IDMethod
 	}
 
 	/**
+	 * Return the column with the specified name, or throw if it doesn't exist.
+	 * A named column that doesn't actually exist (e.g. a foreign key referencing a typo'd
+	 * local/foreign column name) is a genuine schema error, the same category
+	 * ForeignKey::requireColumn() already covers for its own local/foreign column lookups.
+	 */
+	public function requireColumn(string $name, bool $caseInsensitive = false): Column
+	{
+		$column = $this->getColumn($name, $caseInsensitive);
+		if ($column === null) {
+			throw new EngineException(sprintf("Table '%s' has no column named '%s'.", $this->getName() ?? '(unnamed)', $name));
+		}
+		return $column;
+	}
+
+	/**
 	 * Returns a specified column.
 	 * @return    Column|null Return a Column object or null if it does not exist.
 	 */

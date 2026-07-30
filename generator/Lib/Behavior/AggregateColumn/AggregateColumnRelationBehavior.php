@@ -21,6 +21,7 @@ use Propulsion\Generator\Builder\OM\QueryBuilder;
 use Propulsion\Generator\Model\Behavior;
 use Propulsion\Generator\Model\ForeignKey;
 use Propulsion\Generator\Model\Table;
+use Propulsion\Generator\Exception\EngineException;
 
 class AggregateColumnRelationBehavior extends Behavior
 {
@@ -72,7 +73,7 @@ class AggregateColumnRelationBehavior extends Behavior
 	public function objectFilter(&$script, ObjectBuilder $builder): void
 	{
 		$relationName = $this->getRelationName($builder);
-		$relatedClass = $this->getForeignTable()->getPhpName();
+		$relatedClass = $this->requireForeignTable()->getPhpName();
 		// Match the FK relation setter's signature loosely (optional leading "?" on the
 		// parameter type, and any return type declaration) rather than the exact PHP5-era
 		// literal "public function setX(RelatedClass $v = null)\n\t{" this used to require --
@@ -143,10 +144,10 @@ class AggregateColumnRelationBehavior extends Behavior
 		$foreignKey = $this->getForeignKey();
 		$relationName = $this->getRelationName($builder);
 		return $this->renderTemplate('queryFindRelated', array(
-			'foreignTable'     => $this->getForeignTable(),
+			'foreignTable'     => $this->requireForeignTable(),
 			'relationName'     => $relationName,
 			'variableName'     => self::lcfirst($relationName),
-			'foreignQueryName' => $foreignKey->getForeignTable()->getPhpName() . 'Query',
+			'foreignQueryName' => $foreignKey->requireForeignTable()->getPhpName() . 'Query',
 			'refRelationName'  => $builder->getRefFKPhpNameAffix($foreignKey),
 		));
 	}
@@ -163,12 +164,30 @@ class AggregateColumnRelationBehavior extends Behavior
 
 	protected function getForeignTable(): ?Table
 	{
-		return $this->requireTable()->getDatabase()->getTable($this->getParameter('foreign_table'));
+		return $this->requireTable()->requireDatabase()->getTable($this->getParameter('foreign_table'));
+	}
+
+	/**
+	 * getForeignTable() is a genuine lookup (Database::getTable() by the schema-configured
+	 * `foreign_table` parameter name) that can legitimately return null for a misconfigured
+	 * `foreign_table` parameter -- a real schema error worth a clear message.
+	 */
+	protected function requireForeignTable(): Table
+	{
+		$foreignTable = $this->getForeignTable();
+		if ($foreignTable === null) {
+			throw new EngineException(sprintf(
+				"aggregate_column_relation behavior on table '%s' references unknown foreign_table '%s'.",
+				$this->requireTable()->getName() ?? '(unnamed)',
+				$this->getParameter('foreign_table')
+			));
+		}
+		return $foreignTable;
 	}
 
 	protected function getForeignKey(): ?ForeignKey
 	{
-		$foreignTable = $this->getForeignTable();
+		$foreignTable = $this->requireForeignTable();
 		// let's infer the relation from the foreign table
 		$fks = $this->requireTable()->getForeignKeysReferencingTable($foreignTable->getName());
 		// FIXME doesn't work when more than one fk to the same table

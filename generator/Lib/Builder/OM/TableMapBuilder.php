@@ -496,7 +496,7 @@ class ".$this->getClassname()." extends \Propulsion\Map\TableMap
         }
         foreach ($this->getTable()->getCrossFks() as $fkList) {
             list($refFK, $crossFK) = $fkList;
-            $relatedClasses[] = $this->getNewStubObjectBuilder($crossFK->getForeignTable())->getFullyQualifiedClassname();
+            $relatedClasses[] = $this->getNewStubObjectBuilder($crossFK->requireForeignTable())->getFullyQualifiedClassname();
         }
         
         // Add imports for all related classes
@@ -548,7 +548,7 @@ class ".$this->getClassname()." extends \Propulsion\Map\TableMap
             $pluralName = "'" . $this->getFKPhpNameAffix($crossFK, true) . "'";
             $onDelete = $crossFK->hasOnDelete() ? "'" . $crossFK->getOnDelete() . "'" : 'null';
             $onUpdate = $crossFK->hasOnUpdate() ? "'" . $crossFK->getOnUpdate() . "'" : 'null';
-            $relatedClassName = $this->getNewStubObjectBuilder($crossFK->getForeignTable())->getClassname();
+            $relatedClassName = $this->getNewStubObjectBuilder($crossFK->requireForeignTable())->getClassname();
             $script .= "
         \$this->addRelation('$relationName', $relatedClassName::class, RelationMap::MANY_TO_MANY, array(), $onDelete, $onUpdate, $pluralName);";
         }

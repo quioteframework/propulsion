@@ -19,6 +19,7 @@ namespace Propulsion\Generator\Behavior\AggregateColumn;
  use Propulsion\Generator\Model\Column;
  use Propulsion\Generator\Model\ForeignKey;
  use Propulsion\Generator\Model\Table;
+ use Propulsion\Generator\Exception\EngineException;
 
 class AggregateColumnBehavior extends Behavior
 {
@@ -56,7 +57,7 @@ class AggregateColumnBehavior extends Behavior
 		}
 
 		// add a behavior in the foreign table to autoupdate the aggregate column
-		$foreignTable = $this->getForeignTable();
+		$foreignTable = $this->requireForeignTable();
 		if (!$foreignTable->hasBehavior('concrete_inheritance_parent')) {
 			$relationBehavior = new AggregateColumnRelationBehavior();
 			$relationBehavior->setName('aggregate_column_relation');
@@ -114,17 +115,35 @@ class AggregateColumnBehavior extends Behavior
 
 	protected function getForeignTable(): ?Table
 	{
-		$database = $this->requireTable()->getDatabase();
+		$database = $this->requireTable()->requireDatabase();
 		$tableName = $database->getTablePrefix() . $this->getParameter('foreign_table');
-		if ($database->getPlatform()->supportsSchemas() && $this->getParameter('foreign_schema')) {
+		if ($database->getPlatform()?->supportsSchemas() && $this->getParameter('foreign_schema')) {
 			$tableName = $this->getParameter('foreign_schema'). '.' . $tableName;
 		}
 		return $database->getTable($tableName);
 	}
 
-	protected function getForeignKey(): ?ForeignKey
+	/**
+	 * getForeignTable() is a genuine lookup (Database::getTable() by the schema-configured
+	 * `foreign_table` parameter name) that can legitimately return null for a misconfigured
+	 * `foreign_table` parameter -- a real schema error worth a clear message.
+	 */
+	protected function requireForeignTable(): Table
 	{
 		$foreignTable = $this->getForeignTable();
+		if ($foreignTable === null) {
+			throw new EngineException(sprintf(
+				"aggregate_column behavior on table '%s' references unknown foreign_table '%s'.",
+				$this->requireTable()->getName() ?? '(unnamed)',
+				$this->getParameter('foreign_table')
+			));
+		}
+		return $foreignTable;
+	}
+
+	protected function getForeignKey(): ?ForeignKey
+	{
+		$foreignTable = $this->requireForeignTable();
 		// let's infer the relation from the foreign table
 		$fks = $foreignTable->getForeignKeysReferencingTable($this->requireTable()->getName());
 		if (!$fks) {

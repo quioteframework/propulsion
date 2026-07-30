@@ -198,14 +198,14 @@ class QueryBuilder extends OMBuilder
         // Add useQuery methods for foreign key relationships
         foreach ($this->getTable()->getForeignKeys() as $fk) {
             $relationName = $this->getFKPhpNameAffix($fk);
-            $relatedQueryClass = $this->getNewStubQueryBuilder($fk->getForeignTable())->getFullyQualifiedClassname();
+            $relatedQueryClass = $this->getNewStubQueryBuilder($fk->requireForeignTable())->getFullyQualifiedClassname();
             $script .= "
  * @method     \\$relatedQueryClass use" . $relationName . "Query(?string \$relationAlias = null) Use the " . $relationName . " relation query object";
         }
 
         foreach ($this->getTable()->getReferrers() as $refFK) {
             $relationName = $this->getRefFKPhpNameAffix($refFK);
-            $relatedQueryClass = $this->getNewStubQueryBuilder($refFK->getTable())->getFullyQualifiedClassname();
+            $relatedQueryClass = $this->getNewStubQueryBuilder($refFK->requireTable())->getFullyQualifiedClassname();
             $script .= "
  * @method     \\$relatedQueryClass use" . $relationName . "Query(?string \$relationAlias = null) Use the " . $relationName . " relation query object";
         }
@@ -216,7 +216,7 @@ class QueryBuilder extends OMBuilder
  *";
         foreach ($this->getTable()->getForeignKeys() as $fk) {
             $relationName = $this->getFKPhpNameAffix($fk);
-            $relatedModelClass = $this->getNewStubObjectBuilder($fk->getForeignTable())->getFullyQualifiedClassname();
+            $relatedModelClass = $this->getNewStubObjectBuilder($fk->requireForeignTable())->getFullyQualifiedClassname();
             $script .= "
  * @method     ?$modelClass findOneBy" . $relationName . "(\\$relatedModelClass \$" . lcfirst($relationName) . ") Return the first $modelClass filtered by the " . $relationName . " relation
  * @method     array<$modelClass> findBy" . $relationName . "(\\$relatedModelClass \$" . lcfirst($relationName) . ") Return $modelClass objects filtered by the " . $relationName . " relation";
@@ -224,7 +224,7 @@ class QueryBuilder extends OMBuilder
 
         foreach ($this->getTable()->getReferrers() as $refFK) {
             $relationName = $this->getRefFKPhpNameAffix($refFK);
-            $relatedModelClass = $this->getNewStubObjectBuilder($refFK->getTable())->getFullyQualifiedClassname();
+            $relatedModelClass = $this->getNewStubObjectBuilder($refFK->requireTable())->getFullyQualifiedClassname();
             $script .= "
  * @method     ?$modelClass findOneBy" . $relationName . "(\\$relatedModelClass \$" . lcfirst($relationName) . ") Return the first $modelClass filtered by the " . $relationName . " relation
  * @method     array<$modelClass> findBy" . $relationName . "(\\$relatedModelClass \$" . lcfirst($relationName) . ") Return $modelClass objects filtered by the " . $relationName . " relation";
@@ -1215,7 +1215,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         $this->declareClasses('PropulsionObjectCollection', 'PropulsionException');
         $table = $this->getTable();
         $queryClass = $this->getStubQueryBuilder()->getClassname();
-        $fkTable = $fk->getForeignTable();
+        $fkTable = $fk->requireForeignTable();
         $fkStubObjectBuilder = $this->getNewStubObjectBuilder($fkTable);
         $this->declareClassFromBuilder($fkStubObjectBuilder);
         $fkPhpName = $fkStubObjectBuilder->getClassname();
@@ -1346,7 +1346,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
     {
         $table = $this->getTable();
         $queryClass = $this->getStubQueryBuilder()->getClassname();
-        $fkTable = $fk->getForeignTable();
+        $fkTable = $fk->requireForeignTable();
         $relationName = $this->getFKPhpNameAffix($fk);
         $joinType = $this->getJoinType($fk);
         $this->addJoinRelated($script, $fkTable, $queryClass, $relationName, $joinType);
@@ -1417,7 +1417,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
     protected function addUseFkQuery(&$script, ForeignKey $fk): void
     {
         $table = $this->getTable();
-        $fkTable = $fk->getForeignTable();
+        $fkTable = $fk->requireForeignTable();
         $fkQueryBuilder = $this->getNewStubQueryBuilder($fkTable);
         $queryClass = $fkQueryBuilder->getClassname();
         if ($namespace = $fkQueryBuilder->getNamespace()) {
@@ -1520,7 +1520,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
     {
         $queryClass = $this->getStubQueryBuilder()->getClassname();
         $crossRefTable = $crossFK->getTable();
-        $foreignTable = $crossFK->getForeignTable();
+        $foreignTable = $crossFK->requireForeignTable();
         $fkPhpName = $foreignTable->getPhpName();
         $fkFQCN = '\\' . $this->getNewStubObjectBuilder($foreignTable)->getFullyQualifiedClassname();
         $crossTableName = $crossRefTable->getName();

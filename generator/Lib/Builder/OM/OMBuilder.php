@@ -425,7 +425,7 @@ abstract class OMBuilder extends DataModelBuilder
 				return $fk->getPhpName();
 			}
 		} else {
-			$className = $fk->getForeignTable()->getPhpName();
+			$className = $fk->requireForeignTable()->getPhpName();
 			if ($plural) {
 				$className = $this->getPluralizer()->getPluralForm($className);
 			}
@@ -446,13 +446,13 @@ abstract class OMBuilder extends DataModelBuilder
 	{
 		$relCol = '';
 		foreach ($fk->getLocalForeignMapping() as $localColumnName => $foreignColumnName) {
-			$localTable  = $fk->getTable();
+			$localTable  = $fk->requireTable();
 			$localColumn = $localTable->getColumn($localColumnName);
 			if (!$localColumn) {
 				throw new Exception("Could not fetch column: $localColumnName in table " . $localTable->getName());
 			}
 			if (count($localTable->getForeignKeysReferencingTable($fk->getForeignTableName())) > 1
-			 || count($fk->getForeignTable()->getForeignKeysReferencingTable($fk->getTableName())) > 0
+			 || count($fk->requireForeignTable()->getForeignKeysReferencingTable($fk->getTableName())) > 0
 			 || $fk->getForeignTableName() == $fk->getTableName()) {
 				// self referential foreign key, or several foreign keys to the same table, or cross-reference fkey
 				$relCol .= $localColumn->getPhpName();
@@ -485,7 +485,7 @@ abstract class OMBuilder extends DataModelBuilder
 				return $fk->getRefPhpName();
 			}
 		} else {
-			$className = $fk->getTable()->getPhpName();
+			$className = $fk->requireTable()->getPhpName();
 			if ($plural) {
 				$className = $this->getPluralizer()->getPluralForm($className);
 			}
@@ -497,7 +497,7 @@ abstract class OMBuilder extends DataModelBuilder
 	{
 		$relCol = '';
 		foreach ($fk->getLocalForeignMapping() as $localColumnName => $foreignColumnName) {
-			$localTable = $fk->getTable();
+			$localTable = $fk->requireTable();
 			$localColumn = $localTable->getColumn($localColumnName);
 			if (!$localColumn) {
 				throw new Exception("Could not fetch column: $localColumnName in table " . $localTable->getName());
@@ -505,12 +505,12 @@ abstract class OMBuilder extends DataModelBuilder
 			$foreignKeysToForeignTable = $localTable->getForeignKeysReferencingTable($fk->getForeignTableName());
 			if ($fk->getForeignTableName() == $fk->getTableName()) {
 				// self referential foreign key
-				$relCol .= $fk->getForeignTable()->getColumn($foreignColumnName)->getPhpName();
+				$relCol .= $fk->requireForeignTable()->getColumn($foreignColumnName)->getPhpName();
 				if (count($foreignKeysToForeignTable) > 1) {
 					// several self-referential foreign keys
 					$relCol .= array_search($fk, $foreignKeysToForeignTable);
 				}
-			} elseif (count($foreignKeysToForeignTable) > 1 || count($fk->getForeignTable()->getForeignKeysReferencingTable($fk->getTableName())) > 0) {
+			} elseif (count($foreignKeysToForeignTable) > 1 || count($fk->requireForeignTable()->getForeignKeysReferencingTable($fk->getTableName())) > 0) {
 				// several foreign keys to the same table, or symmetrical foreign key in foreign table
 				$relCol .= $localColumn->getPhpName();
 			}

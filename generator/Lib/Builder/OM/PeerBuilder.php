@@ -1954,7 +1954,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	protected function hasClearRelatedInstancePoolEffect(): bool
 	{
 		foreach ($this->getTable()->getReferrers() as $fk) {
-			$tblFK = $fk->getTable();
+			$tblFK = $fk->requireTable();
 			if (!$tblFK->isForReferenceOnly()) {
 				if ($fk->getOnDelete() == ForeignKey::CASCADE || $fk->getOnDelete() == ForeignKey::SETNULL) {
 					return true;
@@ -1984,7 +1984,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 			// $fk is the foreign key in the other table, so localTableName will
 			// actually be the table name of other table
-			$tblFK = $fk->getTable();
+			$tblFK = $fk->requireTable();
 
 			$joinedTablePeerBuilder = $this->getNewStubPeerBuilder($tblFK);
 			$this->declareClassFromBuilder($joinedTablePeerBuilder);
@@ -2456,7 +2456,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 			// $fk is the foreign key in the other table, so localTableName will
 			// actually be the table name of other table
-			$tblFK = $fk->getTable();
+			$tblFK = $fk->requireTable();
 
 			$joinedTablePeerBuilder = $this->getNewPeerBuilder($tblFK);
 			$tblFKPackage = $joinedTablePeerBuilder->getStubPeerBuilder()->getPackage();
@@ -2479,8 +2479,8 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			\$criteria = new Criteria(".$joinedTablePeerBuilder->getPeerClassname()."::DATABASE_NAME);
 			";
 					for ($x=0,$xlen=count($columnNamesF); $x < $xlen; $x++) {
-						$columnFK = $tblFK->getColumn($columnNamesF[$x]);
-						$columnL = $table->getColumn($columnNamesL[$x]);
+						$columnFK = $tblFK->requireColumn($columnNamesF[$x]);
+						$columnL = $table->requireColumn($columnNamesL[$x]);
 
 						$script .= "
 			\$criteria->add(".$joinedTablePeerBuilder->getColumnConstant($columnFK) .", \$obj->get".$columnL->getPhpName()."());";
@@ -2537,7 +2537,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 			// $fk is the foreign key in the other table, so localTableName will
 			// actually be the table name of other table
-			$tblFK = $fk->getTable();
+			$tblFK = $fk->requireTable();
 			$refTablePeerBuilder = $this->getNewPeerBuilder($tblFK);
 
 			if (!$tblFK->isForReferenceOnly()) {
@@ -2557,8 +2557,8 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			\$updateValues = new Criteria(".$this->getPeerClassname()."::DATABASE_NAME);";
 
 					for ($x=0,$xlen=count($columnNamesF); $x < $xlen; $x++) {
-						$columnFK = $tblFK->getColumn($columnNamesF[$x]);
-						$columnL = $table->getColumn($columnNamesL[$x]);
+						$columnFK = $tblFK->requireColumn($columnNamesF[$x]);
+						$columnL = $table->requireColumn($columnNamesL[$x]);
 						$script .= "
 			\$selectCriteria->add(".$refTablePeerBuilder->getColumnConstant($columnFK).", \$obj->get".$columnL->getPhpName()."());
 			\$updateValues->add(".$refTablePeerBuilder->getColumnConstant($columnFK).", null);
@@ -2608,7 +2608,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		$includeJoinAll = true;
 
 		foreach ($table->getForeignKeys() as $fk) {
-			$tblFK = $table->getDatabase()->getTable($fk->getForeignTableName());
+			$tblFK = $fk->requireForeignTable();
 			$this->declareClassFromBuilder($this->getNewStubPeerBuilder($tblFK));
 			if ($tblFK->isForReferenceOnly()) {
 				$includeJoinAll = false;
@@ -2650,8 +2650,8 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			$script .= sprintf("
 		\$criteria->addJoin(%s, %s, \$join_behavior);
 ",
-				$this->getColumnConstant($table->getColumn($lftCol)),
-				$joinedTablePeerBuilder->getColumnConstant($joinTable->getColumn($lfMap[$lftCol])));
+				$this->getColumnConstant($table->requireColumn($lftCol)),
+				$joinedTablePeerBuilder->getColumnConstant($joinTable->requireColumn($lfMap[$lftCol])));
 		} else {
 			// composite foreign key
 			$script .= "
@@ -2660,8 +2660,8 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			foreach ($lftCols as $columnName) {
 				$script .= sprintf("      array(%s, %s),
 ",
-					$this->getColumnConstant($table->getColumn($columnName)),
-					$joinedTablePeerBuilder->getColumnConstant($joinTable->getColumn($lfMap[$columnName]))
+					$this->getColumnConstant($table->requireColumn($columnName)),
+					$joinedTablePeerBuilder->getColumnConstant($joinTable->requireColumn($lfMap[$columnName]))
 				);
 			}
 			$script .= "    ), \$join_behavior);
@@ -2684,7 +2684,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		}
 
 		foreach ($table->getForeignKeys() as $fk) {
-			$joinTable = $table->getDatabase()->getTable($fk->getForeignTableName());
+			$joinTable = $fk->requireForeignTable();
 
 			if ($joinTable->isForReferenceOnly()) {
 				continue;
@@ -2821,7 +2821,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		}
 
 		foreach ($table->getForeignKeys() as $fk) {
-			$joinTable = $table->getDatabase()->getTable($fk->getForeignTableName());
+			$joinTable = $fk->requireForeignTable();
 
 			if ($joinTable->isForReferenceOnly()) {
 				continue;
@@ -2925,7 +2925,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		$index = 2;
 		foreach ($table->getForeignKeys() as $fk) {
 			if ($fk->getForeignTableName() != $table->getName()) {
-				$joinTable = $table->getDatabase()->getTable($fk->getForeignTableName());
+				$joinTable = $fk->requireForeignTable();
 				$new_index = $index + 1;
 
 				$joinedTablePeerBuilder = $this->getNewPeerBuilder($joinTable);
@@ -2940,7 +2940,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 		foreach ($table->getForeignKeys() as $fk) {
 			if ($fk->getForeignTableName() != $table->getName()) {
-				$joinTable = $table->getDatabase()->getTable($fk->getForeignTableName());
+				$joinTable = $fk->requireForeignTable();
 				$joinedTablePeerBuilder = $this->getNewPeerBuilder($joinTable);
 				$script .= $this->addCriteriaJoin($fk, $table, $joinTable, $joinedTablePeerBuilder);
 			}
@@ -2987,7 +2987,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		$index = 1;
 		foreach ($table->getForeignKeys() as $fk) {
 			if ($fk->getForeignTableName() != $table->getName()) {
-				$joinTable = $table->getDatabase()->getTable($fk->getForeignTableName());
+				$joinTable = $fk->requireForeignTable();
 
 				$joinedTableObjectBuilder = $this->getNewObjectBuilder($joinTable);
 				$joinedTablePeerBuilder = $this->getNewPeerBuilder($joinTable);
@@ -3092,7 +3092,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 		foreach ($table->getForeignKeys() as $fk) {
 			if ($fk->getForeignTableName() != $table->getName()) {
-				$joinTable = $table->getDatabase()->getTable($fk->getForeignTableName());
+				$joinTable = $fk->requireForeignTable();
 				$joinedTablePeerBuilder = $this->getNewPeerBuilder($joinTable);
 				$script .= $this->addCriteriaJoin($fk, $table, $joinTable, $joinedTablePeerBuilder);
 			}
@@ -3123,7 +3123,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 		$fkeys = $table->getForeignKeys();
 		foreach ($fkeys as $fk) {
-			$excludedTable = $table->getDatabase()->getTable($fk->getForeignTableName());
+			$excludedTable = $fk->requireForeignTable();
 
 			$thisTableObjectBuilder = $this->getNewObjectBuilder($table);
 			$excludedTableObjectBuilder = $this->getNewObjectBuilder($excludedTable);
@@ -3293,7 +3293,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 		$fkeys = $table->getForeignKeys();
 		foreach ($fkeys as $fk) {
-			$excludedTable = $table->getDatabase()->getTable($fk->getForeignTableName());
+			$excludedTable = $fk->requireForeignTable();
 
 			$thisTableObjectBuilder = $this->getNewObjectBuilder($table);
 			$excludedTableObjectBuilder = $this->getNewObjectBuilder($excludedTable);

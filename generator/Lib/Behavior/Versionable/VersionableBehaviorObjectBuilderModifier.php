@@ -366,7 +366,7 @@ public function populateFromVersion(\$version, \$con = null)
         "());";
     }
     foreach ($this->behavior->getVersionableFks() as $fk) {
-      $foreignTable = $fk->getForeignTable();
+      $foreignTable = $fk->requireForeignTable();
       $foreignBehavior = $foreignTable->getBehavior("versionable");
       if (!$foreignBehavior instanceof VersionableBehavior) {
         throw new \Propulsion\Generator\Exception\EngineException(sprintf(

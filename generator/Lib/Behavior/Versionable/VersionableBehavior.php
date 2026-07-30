@@ -209,7 +209,7 @@ class VersionableBehavior extends Behavior
     if ($fks = $this->requireTable()->getForeignKeys()) {
       foreach ($fks as $fk) {
         if (
-          $fk->getForeignTable()->hasBehavior("versionable") &&
+          $fk->requireForeignTable()->hasBehavior("versionable") &&
           !$fk->isComposite()
         ) {
           $versionableFKs[] = $fk;
