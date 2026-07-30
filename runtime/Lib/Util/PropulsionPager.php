@@ -99,7 +99,7 @@ class PropulsionPager implements \Countable, \Iterator
 {
 
 	private int $recordCount = 0;
-	private int|float $pages;
+	private int $pages;
 	private string $peerClass;
 	private string $peerSelectMethod;
 	private string $peerCountMethod;
@@ -285,7 +285,9 @@ class PropulsionPager implements \Countable, \Iterator
 	{
 		$this->criteria->setOffset($this->start);
 		$this->criteria->setLimit($this->max);
-		$this->rs = call_user_func(array($this->getPeerClass(), $this->getPeerSelectMethod()), $this->criteria);
+		$peerClass = $this->getPeerClass();
+		$method = $this->getPeerSelectMethod();
+		$this->rs = $peerClass::$method($this->criteria);
 	}
 
 	/**
@@ -345,7 +347,7 @@ class PropulsionPager implements \Countable, \Iterator
 		if (!isset($this->pages)) {
 			$recordCount = $this->getTotalRecordCount();
 			if ($this->max > 0) {
-					$this->pages = ceil($recordCount/$this->max);
+					$this->pages = (int) ceil($recordCount/$this->max);
 			} else {
 					$this->pages = 0;
 			}
@@ -506,13 +508,9 @@ class PropulsionPager implements \Countable, \Iterator
 						$this->countCriteria->setLimit(0);
 						$this->countCriteria->setOffset(0);
 
-						$this->recordCount = call_user_func(
-								        array(
-								                $this->getPeerClass(),
-												$this->getPeerCountMethod()
-								             ),
-								        $this->countCriteria
-								        );
+						$peerClass = $this->getPeerClass();
+						$method = $this->getPeerCountMethod();
+						$this->recordCount = $peerClass::$method($this->countCriteria);
 
 				}
 

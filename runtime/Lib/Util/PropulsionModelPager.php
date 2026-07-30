@@ -60,8 +60,8 @@ class PropulsionModelPager implements \IteratorAggregate, \Countable
 	public function init(?PropulsionPDO $con = null): void
 	{
 		$this->con = $con;
-		$hasMaxRecordLimit = ($this->getMaxRecordLimit() !== false);
 		$maxRecordLimit = $this->getMaxRecordLimit();
+		$hasMaxRecordLimit = is_int($maxRecordLimit);
 
 		$qForCount = clone $this->getQuery();
 		$count = $qForCount
