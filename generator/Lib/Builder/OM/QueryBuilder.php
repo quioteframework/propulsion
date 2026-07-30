@@ -32,13 +32,9 @@ class QueryBuilder extends OMBuilder
      * Gets the package for the [base] object classes.
      * @return     string
      */
-    public function getPackage()
+    public function getPackage(): string
     {
-        $pkg = ($this->getTable()->getPackage() ? $this->getTable()->getPackage() : $this->getDatabase()->getPackage());
-        if (!$pkg) {
-            $pkg = $this->getBuildProperty('targetPackage');
-        }
-        return $pkg . "." . $this->getOmPackageSegment();
+        return parent::getPackage() . "." . $this->getOmPackageSegment();
     }
 
     public function getNamespace()

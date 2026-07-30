@@ -38,7 +38,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 	 * Gets the package for the [base] object classes.
 	 * @return     string
 	 */
-	public function getPackage()
+	public function getPackage(): string
 	{
 		return parent::getPackage() . "." . $this->getOmPackageSegment();
 	}

@@ -29,13 +29,9 @@ class TableMapBuilder extends OMBuilder
 	 * Gets the package for the map builder classes.
 	 * @return     string
 	 */
-	public function getPackage()
+	public function getPackage(): string
 	{
-		$pkg = ($this->getTable()->getPackage() ? $this->getTable()->getPackage() : $this->getDatabase()->getPackage());
-		if (!$pkg) {
-			$pkg = $this->getBuildProperty('targetPackage');
-		}
-		return $pkg . "." . $this->getMapPackageSegment();
+		return parent::getPackage() . "." . $this->getMapPackageSegment();
     }
 
 	public function getNamespace()

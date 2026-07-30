@@ -42,9 +42,10 @@ class ExtensionQueryInheritanceBuilder extends OMBuilder
 	 * Gets the package for the [base] object classes.
 	 * @return     string
 	 */
-	public function getPackage()
+	public function getPackage(): string
 	{
-		return ($this->getChild()->getPackage() ? $this->getChild()->getPackage() : parent::getPackage());
+		$childPackage = $this->getChild()->getPackage();
+		return $childPackage ?: parent::getPackage();
 	}
 
 	/**

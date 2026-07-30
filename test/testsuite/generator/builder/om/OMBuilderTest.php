@@ -108,7 +108,7 @@ class OMBuilderMock extends OMBuilder
 		$this->pkg = $pkg;
 	}
 
-	public function getPackage()
+	public function getPackage(): string
 	{
 		return $this->pkg;
 	}
