@@ -189,6 +189,9 @@ abstract class XMLElement
 		$doc->formatOutput = true;
 		$this->appendXml($doc);
 		$xmlstr = $doc->saveXML();
+		if ($xmlstr === false) {
+			throw new \RuntimeException('Failed to serialize XML document.');
+		}
 		return trim(preg_replace('/<\?xml.*?\?>/', '', $xmlstr));
 	}
 

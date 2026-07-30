@@ -12,6 +12,7 @@ use DOMDocument;
 use InvalidArgumentException;
 use ReflectionObject;
 use Propulsion\Generator\Builder\Util\PropulsionTemplate;
+use Propulsion\Generator\Exception\EngineException;
 
 /**
  * Information about behaviors of a table.
@@ -228,7 +229,11 @@ class Behavior extends XMLElement
 	{
 		if (null === $this->dirname) {
 			$r = new ReflectionObject($this);
-			$this->dirname = dirname($r->getFileName());
+			$fileName = $r->getFileName();
+			if ($fileName === false) {
+				throw new EngineException(sprintf('Unable to determine the file name for behavior class %s.', get_class($this)));
+			}
+			$this->dirname = dirname($fileName);
 		}
 		return $this->dirname;
 	}

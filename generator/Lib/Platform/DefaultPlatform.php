@@ -139,7 +139,7 @@ class DefaultPlatform implements PropulsionPlatformInterface
 	{
 		$clazz = (new \ReflectionClass($this))->getShortName();
 		$pos = strpos($clazz, 'Platform');
-		return strtolower(substr($clazz,0,$pos));
+		return strtolower(substr($clazz, 0, $pos !== false ? $pos : strlen($clazz)));
 	}
 
 	/**

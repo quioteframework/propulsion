@@ -48,7 +48,15 @@ class NameFactory
 	protected static function getAlgorithm($name)
 	{
 		if (!isset(self::$algorithms[$name])) {
-			self::$algorithms[$name] = new $name();
+			$algorithm = new $name();
+			if (!$algorithm instanceof NameGenerator) {
+				throw new EngineException(sprintf(
+					"Name generator class (%s) does not implement %s.",
+					get_class($algorithm),
+					NameGenerator::class
+				));
+			}
+			self::$algorithms[$name] = $algorithm;
 		}
 		return self::$algorithms[$name];
 	}

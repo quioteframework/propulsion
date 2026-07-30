@@ -496,6 +496,14 @@ class Database extends ScopedElement
     } else {
       $class = $this->getConfiguredBehavior($bdata['name']);
       $behavior = new $class();
+      if (!$behavior instanceof Behavior) {
+        throw new EngineException(sprintf(
+          "Configured '%s' behavior class (%s) does not extend %s.",
+          $bdata['name'],
+          get_class($behavior),
+          Behavior::class
+        ));
+      }
       $behavior->loadFromXML($bdata);
       return $this->addBehavior($behavior);
     }

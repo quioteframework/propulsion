@@ -564,7 +564,8 @@ class Table extends ScopedElement implements IDMethod
 			if (!array_key_exists($localColumnsHash, $_indices)) {
 				// no matching index defined in the schema, so we have to create one. MySQL needs indices on any columns that serve as foreign keys. these are not auto-created prior to 4.1.2
 				$index = new Index();
-				$index->setName(substr_replace($foreignKey->getName(), 'FI_',  strrpos($foreignKey->getName(), 'FK_'), 3));
+				$fkNamePos = strrpos($foreignKey->getName(), 'FK_');
+				$index->setName(substr_replace($foreignKey->getName(), 'FI_', $fkNamePos !== false ? $fkNamePos : 0, 3));
 				$index->setColumns($localColumns);
 				$index->resetColumnSize();
 				$this->addIndex($index);
@@ -1226,6 +1227,14 @@ class Table extends ScopedElement implements IDMethod
 		} else {
 			$class = $this->getConfiguredBehavior($bdata['name']);
 			$behavior = new $class();
+			if (!$behavior instanceof Behavior) {
+				throw new EngineException(sprintf(
+					"Configured '%s' behavior class (%s) does not extend %s.",
+					$bdata['name'],
+					get_class($behavior),
+					Behavior::class
+				));
+			}
 			$behavior->loadFromXML($bdata);
 			return $this->addBehavior($behavior);
 		}
