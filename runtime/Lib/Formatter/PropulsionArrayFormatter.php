@@ -57,7 +57,7 @@ class PropulsionArrayFormatter extends PropulsionFormatter
 		}
 		if ($class = $this->collectionName) {
 			$collection = new $class();
-			$collection->setModel($this->class);
+			$collection->setModel($this->requireClass());
 			$collection->setFormatter($this);
 			foreach ($rows as $row) {
 				$collection[] = $row;

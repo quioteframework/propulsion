@@ -95,11 +95,11 @@ class PropulsionArrayCollection extends PropulsionCollection
 	 */
 	public function getPrimaryKeys($usePrefix = true): array
 	{
-		$callable = array($this->getPeerClass(), 'getPrimaryKeyFromRow');
+		$peerClass = $this->getPeerClass();
 		$ret = array();
 		foreach ($this as $key => $element) {
 			$key = $usePrefix ? ($this->getModel() . '_' . $key) : $key;
-			$ret[$key]= call_user_func($callable, array_values($element));
+			$ret[$key]= $peerClass::getPrimaryKeyFromRow(array_values($element));
 		}
 
 		return $ret;
@@ -215,6 +215,14 @@ class PropulsionArrayCollection extends PropulsionCollection
 				throw new PropulsionException('You must set the collection model before interacting with it');
 			}
 			$class = $this->getModel();
+			// setModel()/$model are a plain string -- no shared interface constrains what
+			// schema authors name their generated model classes -- but this ORM's own
+			// generator only ever produces BaseObject subclasses for it. is_a(..., true)
+			// is a real runtime check, not just a docblock claim, so a genuinely wrong
+			// model class name fails loudly here instead of fatal-erroring on `new`.
+			if (!is_a($class, BaseObject::class, true)) {
+				throw new PropulsionException("Model class '$class' does not extend " . BaseObject::class . '.');
+			}
 			$this->workerObject = new $class();
 		}
 

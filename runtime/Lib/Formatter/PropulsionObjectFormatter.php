@@ -32,7 +32,7 @@ class PropulsionObjectFormatter extends PropulsionFormatter
 		$this->checkInit($stmt);
 		if($class = $this->collectionName) {
 			$collection = new $class();
-			$collection->setModel($this->class);
+			$collection->setModel($this->requireClass());
 			$collection->setFormatter($this);
 		} else {
 			$collection = array();

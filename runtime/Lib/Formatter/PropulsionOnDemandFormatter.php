@@ -56,7 +56,7 @@ class PropulsionOnDemandFormatter extends PropulsionObjectFormatter
 		}
 		$collectionClass = $this->collectionName;
 		$collection = new $collectionClass();
-		$collection->setModel($this->class);
+		$collection->setModel($this->requireClass());
 		$collection->initIterator($this, $stmt);
 
 		return $collection;

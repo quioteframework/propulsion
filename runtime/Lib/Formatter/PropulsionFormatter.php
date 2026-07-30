@@ -91,6 +91,22 @@ abstract class PropulsionFormatter
 		return $this->class;
 	}
 
+	/**
+	 * `$this->class` is set (together with `$this->peer`) by setClass(), which init()
+	 * always calls -- but it's typed nullable since a freshly-constructed formatter with
+	 * no criteria has neither set yet. checkInit() already verifies a formatter was
+	 * initialized before format()/formatOne() run; this narrows that same guarantee to a
+	 * non-null string for callers (like setModel()) that need one, instead of repeating
+	 * the same null check ad hoc.
+	 */
+	protected function requireClass(): string
+	{
+		if ($this->class === null) {
+			throw new PropulsionException('You must initialize a formatter object before calling format() or formatOne()');
+		}
+		return $this->class;
+	}
+
 	/** @param string|null $peer */
 	public function setPeer($peer): void
 	{
