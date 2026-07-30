@@ -85,18 +85,59 @@ abstract class XMLElement
 	/**
 	 * Converts value specified in XML to a boolean value.
 	 * This is to support the default value when used w/ a boolean column.
-	 * @param string|int|null $val
+	 * @param mixed $val
 	 * @return bool
 	 */
 	protected function booleanValue($val)
 	{
-		if (is_null($val)) {
+		if ($val === null) {
 			return false; // null is false
-		}else if (is_numeric($val)) {
+		} elseif (is_bool($val)) {
+			return $val;
+		} elseif (is_numeric($val)) {
 			return (bool) $val;
-		} else {
+		} elseif (is_string($val)) {
 			return (in_array(strtolower($val), array('true', 't', 'y', 'yes'), true) ? true : false);
+		} else {
+			return (bool) $val;
 		}
+	}
+
+	/**
+	 * Gets a particular attribute by [case-insensitive] name as a string.
+	 * XML attribute values are always strings (or absent), so this narrows
+	 * getAttribute()'s mixed return for the common case of a typed string
+	 * property.
+	 * @param      string $name The [case-insensitive] name of the attribute to lookup.
+	 * @param      string|null $defaultValue The default value to use in case the attribute is not set.
+	 * @return     string|null
+	 */
+	protected function getStringAttribute($name, $defaultValue = null)
+	{
+		$value = $this->getAttribute($name, $defaultValue);
+		if ($value === null) {
+			return null;
+		}
+		if (is_string($value)) {
+			return $value;
+		}
+		return is_scalar($value) ? (string) $value : null;
+	}
+
+	/**
+	 * Gets a particular attribute by [case-insensitive] name, converted via
+	 * booleanValue(), defaulting to $default when the attribute is absent.
+	 * @param      string $name The [case-insensitive] name of the attribute to lookup.
+	 * @param      bool $default The default value to use in case the attribute is not set.
+	 * @return     bool
+	 */
+	protected function getBooleanAttribute($name, $default = false)
+	{
+		$value = $this->getAttribute($name);
+		if ($value === null) {
+			return $default;
+		}
+		return $this->booleanValue($value);
 	}
 
 	/**
@@ -109,7 +150,7 @@ abstract class XMLElement
 	/**
 	 * Sets an associated VendorInfo object.
 	 *
-	 * @param      mixed $data VendorInfo object or XML attrib data (array)
+	 * @param      array<string, mixed>|VendorInfo $data VendorInfo object or XML attrib data (array)
 	 * @return     VendorInfo
 	 */
 	public function addVendorInfo($data)
@@ -192,7 +233,7 @@ abstract class XMLElement
 		if ($xmlstr === false) {
 			throw new \RuntimeException('Failed to serialize XML document.');
 		}
-		return trim(preg_replace('/<\?xml.*?\?>/', '', $xmlstr));
+		return trim(preg_replace('/<\?xml.*?\?>/', '', $xmlstr) ?? '');
 	}
 
 	/**
