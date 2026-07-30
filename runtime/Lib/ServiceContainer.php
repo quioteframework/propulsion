@@ -57,6 +57,7 @@ class ServiceContainer
      * unconditionally via `Session::clearAllPools()`. Safe to call more than
      * once for the same class.
      */
+    /** @param class-string $peerClass */
     public function registerInstancePoolClass(string $peerClass): void
     {
         $this->instancePoolClasses[$peerClass] = true;
