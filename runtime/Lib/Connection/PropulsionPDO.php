@@ -154,7 +154,7 @@ interface PropulsionPDO
 	 *
 	 * @return    \PDOStatement|false
 	 */
-	public function query($query, $fetchMode = null, mixed ...$args): \PDOStatement|false;
+	public function query(string $query, ?int $fetchMode = null, mixed ...$args): \PDOStatement|false;
 
 	/**
 	 * Clears any stored prepared statements for this connection.

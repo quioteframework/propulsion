@@ -454,6 +454,9 @@ trait PropulsionPDOTrait
 	{
 		switch($attribute) {
 			case PropulsionPDO::PROPEL_ATTR_CACHE_PREPARES:
+				if (!is_bool($value)) {
+					throw new PropulsionException('PropulsionPDO::PROPEL_ATTR_CACHE_PREPARES expects a boolean value, got ' . get_debug_type($value));
+				}
 				$this->cachePreparedStatements = $value;
 				return true;
 			default:
@@ -567,7 +570,7 @@ trait PropulsionPDOTrait
 	 *
 	 * @return    \PDOStatement
 	 */
-	public function query($query, $fetchMode = null, mixed ...$args): \PDOStatement|false
+	public function query(string $query, ?int $fetchMode = null, mixed ...$args): \PDOStatement|false
 	{
 		if ($this->useDebug) {
 			$debug = $this->getDebugSnapshot();
@@ -748,17 +751,17 @@ trait PropulsionPDOTrait
 	 * @param     string   $msg  Message to log.
 	 * @param     string   $level  Log level to use; will use self::setLogLevel() specified level by default.
 	 * @param     string   $methodName  Name of the method whose execution is being logged.
-	 * @param     array<string, float|int>    $debugSnapshot  Previous return value from self::getDebugSnapshot().
+	 * @param     array{microtime: float, memory_get_usage: int, memory_get_peak_usage: int}|null    $debugSnapshot  Previous return value from self::getDebugSnapshot().
 	 */
 	public function log($msg, $level = null, $methodName = null, ?array $debugSnapshot = null): void
 	{
 		// If logging has been specifically disabled, this method won't do anything
-		if (!$this->getLoggingConfig('enabled', true)) {
+		if (!$this->getLoggingConfigBool('enabled', true)) {
 			return;
 		}
 
 		// If the method being logged isn't one of the ones to be logged, bail
-		if (!in_array($methodName, $this->getLoggingConfig('methods', self::$defaultLogMethods))) {
+		if (!in_array($methodName, $this->getLoggingConfigArray('methods', self::$defaultLogMethods))) {
 			return;
 		}
 
@@ -767,10 +770,12 @@ trait PropulsionPDOTrait
 			$level = $this->logLevel;
 		}
 
-		// Determine if this query is slow enough to warrant logging
-		if ($this->getLoggingConfig("onlyslow", PropulsionPDO::DEFAULT_ONLYSLOW_ENABLED)) {
+		// Determine if this query is slow enough to warrant logging. There's no
+		// baseline to compare against if no $debugSnapshot was given, so the
+		// slow-check is skipped (i.e. always logged) in that case.
+		if ($debugSnapshot !== null && $this->getLoggingConfigBool("onlyslow", PropulsionPDO::DEFAULT_ONLYSLOW_ENABLED)) {
 			$now = $this->getDebugSnapshot();
-			if ($now['microtime'] - $debugSnapshot['microtime'] < $this->getLoggingConfig("details.slow.threshold", PropulsionPDO::DEFAULT_SLOW_THRESHOLD)) return;
+			if ($now['microtime'] - $debugSnapshot['microtime'] < $this->getLoggingConfigFloat("details.slow.threshold", PropulsionPDO::DEFAULT_SLOW_THRESHOLD)) return;
 		}
 
 		// If the necessary additional parameters were given, get the debug log prefix for the log line
@@ -794,15 +799,16 @@ trait PropulsionPDOTrait
 	/**
 	 * Returns a snapshot of the current values of some functions useful in debugging.
 	 *
-	 * @return    array<string, float|int>
+	 * @return    array{microtime: float, memory_get_usage: int, memory_get_peak_usage: int}
 	 */
 	public function getDebugSnapshot()
 	{
 		if ($this->useDebug) {
+			$realMemoryUsage = $this->getLoggingConfigBool('realmemoryusage', false);
 			return array(
 				'microtime'             => microtime(true),
-				'memory_get_usage'      => memory_get_usage($this->getLoggingConfig('realmemoryusage', false)),
-				'memory_get_peak_usage' => memory_get_peak_usage($this->getLoggingConfig('realmemoryusage', false)),
+				'memory_get_usage'      => memory_get_usage($realMemoryUsage),
+				'memory_get_peak_usage' => memory_get_peak_usage($realMemoryUsage),
 				);
 		} else {
 			throw new PropulsionException('Should not get debug snapshot when not debugging');
@@ -825,6 +831,67 @@ trait PropulsionPDOTrait
 	}
 
 	/**
+	 * Typed wrapper around getLoggingConfig() for logging-config keys documented as
+	 * booleans (e.g. 'enabled', 'onlyslow', 'realmemoryusage'). The underlying
+	 * configuration container is a generic, untyped key/value store (see
+	 * PropulsionConfiguration::getParameter()), so a misconfigured value (e.g. a
+	 * typo'd config file passing a string where a bool is expected) falls back to
+	 * $defaultValue rather than being passed on as-is.
+	 */
+	protected function getLoggingConfigBool(string $key, bool $defaultValue): bool
+	{
+		$value = $this->getLoggingConfig($key, $defaultValue);
+		return is_bool($value) ? $value : $defaultValue;
+	}
+
+	/**
+	 * Typed wrapper around getLoggingConfig() for logging-config keys documented as
+	 * integers (pad widths, decimal precisions, ...). See getLoggingConfigBool() for
+	 * why a fallback to $defaultValue is used instead of passing through as-is.
+	 */
+	protected function getLoggingConfigInt(string $key, int $defaultValue): int
+	{
+		$value = $this->getLoggingConfig($key, $defaultValue);
+		return is_int($value) ? $value : $defaultValue;
+	}
+
+	/**
+	 * Typed wrapper around getLoggingConfig() for logging-config keys documented as
+	 * floats (the 'slow' threshold). See getLoggingConfigBool() for why a fallback
+	 * to $defaultValue is used instead of passing through as-is.
+	 */
+	protected function getLoggingConfigFloat(string $key, float $defaultValue): float
+	{
+		$value = $this->getLoggingConfig($key, $defaultValue);
+		return is_int($value) || is_float($value) ? (float) $value : $defaultValue;
+	}
+
+	/**
+	 * Typed wrapper around getLoggingConfig() for logging-config keys documented as
+	 * strings (the inner/outer glue strings). See getLoggingConfigBool() for why a
+	 * fallback to $defaultValue is used instead of passing through as-is.
+	 */
+	protected function getLoggingConfigString(string $key, string $defaultValue): string
+	{
+		$value = $this->getLoggingConfig($key, $defaultValue);
+		return is_string($value) ? $value : $defaultValue;
+	}
+
+	/**
+	 * Typed wrapper around getLoggingConfig() for logging-config keys documented as
+	 * arrays (the 'methods' allow-list). See getLoggingConfigBool() for why a
+	 * fallback to $defaultValue is used instead of passing through as-is.
+	 *
+	 * @param     array<int|string, mixed>  $defaultValue
+	 * @return    array<int|string, mixed>
+	 */
+	protected function getLoggingConfigArray(string $key, array $defaultValue): array
+	{
+		$value = $this->getLoggingConfig($key, $defaultValue);
+		return is_array($value) ? $value : $defaultValue;
+	}
+
+	/**
 	 * Returns a prefix that may be prepended to a log line, containing debug information according
 	 * to the current configuration.
 	 *
@@ -834,62 +901,67 @@ trait PropulsionPDOTrait
 	 * @see       self::getDebugSnapshot()
 	 *
 	 * @param     string  $methodName  Name of the method whose execution is being logged.
-	 * @param     array<string, float|int>   $debugSnapshot  A previous return value from self::getDebugSnapshot().
+	 * @param     array{microtime: float, memory_get_usage: int, memory_get_peak_usage: int}   $debugSnapshot  A previous return value from self::getDebugSnapshot().
 	 *
 	 * @return    string
 	 */
-	protected function getLogPrefix($methodName, $debugSnapshot)
+	protected function getLogPrefix($methodName, array $debugSnapshot)
 	{
 		$config = $this->getConfiguration()->getParameters();
-		if (!isset($config['debugpdo']['logging']['details'])) {
+		if (!is_array($config) || !isset($config['debugpdo']) || !is_array($config['debugpdo'])) {
+			return '';
+		}
+		$loggingConfig = $config['debugpdo']['logging'] ?? null;
+		if (!is_array($loggingConfig) || !isset($loggingConfig['details']) || !is_array($loggingConfig['details'])) {
 			return '';
 		}
 		$prefix     = '';
-		$logDetails = $config['debugpdo']['logging']['details'];
+		$logDetails = $loggingConfig['details'];
 		$now        = $this->getDebugSnapshot();
-		$innerGlue  = $this->getLoggingConfig('innerglue', ': ');
-		$outerGlue  = $this->getLoggingConfig('outerglue', ' | ');
+		$innerGlue  = $this->getLoggingConfigString('innerglue', ': ');
+		$outerGlue  = $this->getLoggingConfigString('outerglue', ' | ');
 
 		// Iterate through each detail that has been configured to be enabled
 		foreach ($logDetails as $detailName => $details) {
+			$detailName = (string) $detailName;
 
-			if (!$this->getLoggingConfig("details.$detailName.enabled", false)) {
+			if (!$this->getLoggingConfigBool("details.$detailName.enabled", false)) {
 				continue;
 			}
 
 			switch ($detailName) {
 
 				case 'slow':
-					$value = $now['microtime'] - $debugSnapshot['microtime'] >= $this->getLoggingConfig('details.slow.threshold', PropulsionPDO::DEFAULT_SLOW_THRESHOLD) ? 'YES' : ' NO';
+					$value = $now['microtime'] - $debugSnapshot['microtime'] >= $this->getLoggingConfigFloat('details.slow.threshold', PropulsionPDO::DEFAULT_SLOW_THRESHOLD) ? 'YES' : ' NO';
 					break;
 
 				case 'time':
-					$value = number_format($now['microtime'] - $debugSnapshot['microtime'], $this->getLoggingConfig('details.time.precision', 3)) . ' sec';
-					$value = str_pad($value, $this->getLoggingConfig('details.time.pad', 10), ' ', STR_PAD_LEFT);
+					$value = number_format($now['microtime'] - $debugSnapshot['microtime'], $this->getLoggingConfigInt('details.time.precision', 3)) . ' sec';
+					$value = str_pad($value, $this->getLoggingConfigInt('details.time.pad', 10), ' ', STR_PAD_LEFT);
 					break;
 
 				case 'mem':
-					$value = self::getReadableBytes($now['memory_get_usage'], $this->getLoggingConfig('details.mem.precision', 1));
-					$value = str_pad($value, $this->getLoggingConfig('details.mem.pad', 9), ' ', STR_PAD_LEFT);
+					$value = self::getReadableBytes($now['memory_get_usage'], $this->getLoggingConfigInt('details.mem.precision', 1));
+					$value = str_pad($value, $this->getLoggingConfigInt('details.mem.pad', 9), ' ', STR_PAD_LEFT);
 					break;
 
 				case 'memdelta':
 					$value = $now['memory_get_usage'] - $debugSnapshot['memory_get_usage'];
-					$value = ($value > 0 ? '+' : '') . self::getReadableBytes($value, $this->getLoggingConfig('details.memdelta.precision', 1));
-					$value = str_pad($value, $this->getLoggingConfig('details.memdelta.pad', 10), ' ', STR_PAD_LEFT);
+					$value = ($value > 0 ? '+' : '') . self::getReadableBytes($value, $this->getLoggingConfigInt('details.memdelta.precision', 1));
+					$value = str_pad($value, $this->getLoggingConfigInt('details.memdelta.pad', 10), ' ', STR_PAD_LEFT);
 					break;
 
 				case 'mempeak':
-					$value = self::getReadableBytes($now['memory_get_peak_usage'], $this->getLoggingConfig('details.mempeak.precision', 1));
-					$value = str_pad($value, $this->getLoggingConfig('details.mempeak.pad', 9), ' ', STR_PAD_LEFT);
+					$value = self::getReadableBytes($now['memory_get_peak_usage'], $this->getLoggingConfigInt('details.mempeak.precision', 1));
+					$value = str_pad($value, $this->getLoggingConfigInt('details.mempeak.pad', 9), ' ', STR_PAD_LEFT);
 					break;
 
 				case 'querycount':
-					$value = str_pad((string) $this->getQueryCount(), $this->getLoggingConfig('details.querycount.pad', 2), ' ', STR_PAD_LEFT);
+					$value = str_pad((string) $this->getQueryCount(), $this->getLoggingConfigInt('details.querycount.pad', 2), ' ', STR_PAD_LEFT);
 					break;
 
 				case 'method':
-					$value = str_pad($methodName, $this->getLoggingConfig('details.method.pad', 28), ' ', STR_PAD_RIGHT);
+					$value = str_pad($methodName, $this->getLoggingConfigInt('details.method.pad', 28), ' ', STR_PAD_RIGHT);
 					break;
 
 				default:

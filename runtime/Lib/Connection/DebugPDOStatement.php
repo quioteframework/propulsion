@@ -44,7 +44,10 @@ class DebugPDOStatement extends \PDOStatement
 	);
 
 	/**
-	 * @var       array<string,mixed>  The values that have been bound
+	 * @var       array<int|string,string>  The values that have been bound, as the
+	 *            human-readable string (var_export()'d, or a placeholder like
+	 *            '[LOB value]'/'[Large value]') set by bindValue()/bindParam() below --
+	 *            never the raw bound value itself.
 	 */
 	protected $boundValues = array();
 
@@ -164,7 +167,7 @@ class DebugPDOStatement extends \PDOStatement
 	 *
 	 * @return    boolean
 	 */
-	public function bindValue($pos, $value, $type = PDO::PARAM_STR) : bool
+	public function bindValue(string|int $pos, $value, $type = PDO::PARAM_STR) : bool
 	{
 		$debug    = $this->pdo->getDebugSnapshot();
 		$typestr  = isset(self::$typeMap[$type]) ? self::$typeMap[$type] : '(default)';
@@ -193,7 +196,7 @@ class DebugPDOStatement extends \PDOStatement
 	 *
 	 * @return    boolean
 	 */
-	public function bindParam($pos, &$value, $type = PDO::PARAM_STR, $length = 0, $driver_options = null) : bool
+	public function bindParam(string|int $pos, &$value, $type = PDO::PARAM_STR, $length = 0, $driver_options = null) : bool
 	{
 		$debug    = $this->pdo->getDebugSnapshot();
 		$typestr  = isset(self::$typeMap[$type]) ? self::$typeMap[$type] : '(default)';
