@@ -30,6 +30,64 @@ use Propulsion\Generator\Model\Diff\PropulsionDatabaseDiff;
 use Propulsion\Generator\Model\Diff\PropulsionColumnDiff;
 class MysqlPlatform extends DefaultPlatform
 {
+	/**
+	 * Table/Column/Index/Unique/ForeignKey's own getName()/getTable()/
+	 * getDatabase() getters are typed nullable throughout this codebase's
+	 * model classes (schema-XML parsing leaves them unset until later in the
+	 * load process), but by the time DDL generation actually runs on a real,
+	 * fully-loaded schema they're always populated -- these helpers turn that
+	 * implicit assumption into an explicit, real failure instead of silently
+	 * widening this class's own types to tolerate null everywhere DDL
+	 * string-building actually requires a real value. (Mirrors the same
+	 * convention already used in DefaultPlatform/OraclePlatform/
+	 * MssqlPlatform/PgsqlPlatform.)
+	 */
+	private function requireString(?string $value, string $description): string
+	{
+		if ($value === null) {
+			throw new EngineException("$description is required but was null.");
+		}
+		return $value;
+	}
+
+	private function requireTable(?Table $table): Table
+	{
+		if ($table === null) {
+			throw new EngineException('Expected a Table but got null.');
+		}
+		return $table;
+	}
+
+	private function requireColumn(?Column $column): Column
+	{
+		if ($column === null) {
+			throw new EngineException('Expected a Column but got null.');
+		}
+		return $column;
+	}
+
+	private function requireDatabase(?Database $database): Database
+	{
+		if ($database === null) {
+			throw new EngineException('Expected a Database but got null.');
+		}
+		return $database;
+	}
+
+	/**
+	 * VendorInfo::getParameter()/GeneratorConfig::getBuildProperty() are both
+	 * untyped (generic bags for arbitrary `<vendor><parameter>` XML
+	 * attributes/build properties), but every one this class reads back out
+	 * is, by construction, a plain string value -- this makes that
+	 * assumption an explicit, checked one.
+	 */
+	private function requireStringParam(mixed $value, string $description): string
+	{
+		if (!is_string($value)) {
+			throw new EngineException("$description is required but was not a string.");
+		}
+		return $value;
+	}
 
 	protected string $tableEngineKeyword = 'ENGINE';  // overwritten in build.properties
 	// InnoDB has been MySQL's own default storage engine since 5.5 (2010) and is
@@ -99,10 +157,10 @@ class MysqlPlatform extends DefaultPlatform
 	public function setGeneratorConfig(GeneratorConfig $generatorConfig): void
 	{
 		if ($defaultTableEngine = $generatorConfig->getBuildProperty('mysqlTableType')) {
-			$this->defaultTableEngine = $defaultTableEngine;
+			$this->defaultTableEngine = $this->requireStringParam($defaultTableEngine, 'mysqlTableType build property');
 		}
 		if ($tableEngineKeyword = $generatorConfig->getBuildProperty('mysqlTableEngineKeyword')) {
-			$this->tableEngineKeyword = $tableEngineKeyword;
+			$this->tableEngineKeyword = $this->requireStringParam($tableEngineKeyword, 'mysqlTableEngineKeyword build property');
 		}
 	}
 
@@ -165,7 +223,7 @@ class MysqlPlatform extends DefaultPlatform
 	{
 		$ret = $this->getBeginDDL();
 		foreach ($database->getTablesForSql() as $table) {
-			$ret .= $this->getCommentBlockDDL($table->getName());
+			$ret .= $this->getCommentBlockDDL($this->requireString($table->getName(), 'Table name'));
 			$ret .= $this->getDropTableDDL($table);
 			$ret .= $this->getAddTableDDL($table);
 		}
@@ -221,9 +279,9 @@ SET FOREIGN_KEY_CHECKS = 1;
 
 		$vendorSpecific = $table->getVendorInfoForType('mysql');
 		if ($vendorSpecific->hasParameter('Type')) {
-			$mysqlTableType = $vendorSpecific->getParameter('Type');
+			$mysqlTableType = $this->requireStringParam($vendorSpecific->getParameter('Type'), 'mysql vendor "Type" parameter');
 		} elseif ($vendorSpecific->hasParameter('Engine')) {
-			$mysqlTableType = $vendorSpecific->getParameter('Engine');
+			$mysqlTableType = $this->requireStringParam($vendorSpecific->getParameter('Engine'), 'mysql vendor "Engine" parameter');
 		} else {
 			$mysqlTableType = $this->getDefaultTableEngine();
 		}
@@ -231,7 +289,7 @@ SET FOREIGN_KEY_CHECKS = 1;
 		$tableOptions = $this->getTableOptions($table);
 
 		if ($table->getDescription()) {
-			$tableOptions []= 'COMMENT=' . $this->quote($table->getDescription());
+			$tableOptions []= 'COMMENT=' . $this->quote($this->requireString($table->getDescription(), 'Table description'));
 		}
 
 		$tableOptions = $tableOptions ? ' ' . implode(' ', $tableOptions) : '';
@@ -245,7 +303,7 @@ CREATE TABLE %s
 ) %s=%s%s;
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($table->getName()),
+			$this->quoteIdentifier($this->requireString($table->getName(), 'Table name')),
 			implode($sep, $lines),
 			$this->getTableEngineKeyword(),
 			$mysqlTableType,
@@ -258,7 +316,7 @@ CREATE TABLE %s
 	 */
 	protected function getTableOptions(Table $table): array
 	{
-		$dbVI = $table->getDatabase()->getVendorInfoForType('mysql');
+		$dbVI = $this->requireDatabase($table->getDatabase())->getVendorInfoForType('mysql');
 		$tableVI = $table->getVendorInfoForType('mysql');
 		$vi = $dbVI->getMergedVendorInfo($tableVI);
 		$tableOptions = array();
@@ -288,12 +346,12 @@ CREATE TABLE %s
 			if ($vi->hasParameter($name)) {
 				$tableOptions []= sprintf('%s=%s',
 					$sqlName,
-					$this->quote($vi->getParameter($name))
+					$this->quote($this->requireStringParam($vi->getParameter($name), sprintf('mysql vendor "%s" parameter', $name)))
 				);
 			} elseif ($vi->hasParameter($sqlName)) {
 				$tableOptions []= sprintf('%s=%s',
 					$sqlName,
-					$this->quote($vi->getParameter($sqlName))
+					$this->quote($this->requireStringParam($vi->getParameter($sqlName), sprintf('mysql vendor "%s" parameter', $sqlName)))
 				);
 			}
 		}
@@ -303,14 +361,14 @@ CREATE TABLE %s
 	public function getDropTableDDL(Table $table)
 	{
 		return "
-DROP TABLE IF EXISTS " . $this->quoteIdentifier($table->getName()) . ";
+DROP TABLE IF EXISTS " . $this->quoteIdentifier($this->requireString($table->getName(), 'Table name')) . ";
 ";
 	}
 
 	public function getColumnDDL(Column $col)
 	{
 		$domain = $col->getDomain();
-		$sqlType = $domain->getSqlType();
+		$sqlType = $this->requireString($domain->getSqlType(), 'Column SQL type');
 		$notNullString = $this->getNullString($col->isNotNull());
 		$defaultSetting = $this->getColumnDefaultValueDDL($col);
 
@@ -331,7 +389,7 @@ DROP TABLE IF EXISTS " . $this->quoteIdentifier($table->getName()) . ";
 			}
 		}
 
-		$ddl = array($this->quoteIdentifier($col->getName()));
+		$ddl = array($this->quoteIdentifier($this->requireString($col->getName(), 'Column name')));
 		if ($col->isEnumType() && $col->isNativeEnum()) {
 			// MySQL's own native ENUM(...) column type stores the label text
 			// directly -- no separate CHECK constraint or custom type needed,
@@ -360,12 +418,12 @@ DROP TABLE IF EXISTS " . $this->quoteIdentifier($table->getName()) . ";
 		}
 		$colinfo = $col->getVendorInfoForType($this->getDatabaseType());
 		if ($colinfo->hasParameter('Charset')) {
-			$ddl []= 'CHARACTER SET '. $this->quote($colinfo->getParameter('Charset'));
+			$ddl []= 'CHARACTER SET '. $this->quote($this->requireStringParam($colinfo->getParameter('Charset'), 'mysql vendor "Charset" parameter'));
 		}
 		if ($colinfo->hasParameter('Collation')) {
-			$ddl []= 'COLLATE '. $this->quote($colinfo->getParameter('Collation'));
+			$ddl []= 'COLLATE '. $this->quote($this->requireStringParam($colinfo->getParameter('Collation'), 'mysql vendor "Collation" parameter'));
 		} elseif ($colinfo->hasParameter('Collate')) {
-			$ddl []= 'COLLATE '. $this->quote($colinfo->getParameter('Collate'));
+			$ddl []= 'COLLATE '. $this->quote($this->requireStringParam($colinfo->getParameter('Collate'), 'mysql vendor "Collate" parameter'));
 		}
 		if ($sqlType == 'TIMESTAMP') {
 			if ($notNullString == '') {
@@ -450,7 +508,7 @@ DROP TABLE IF EXISTS " . $this->quoteIdentifier($table->getName()) . ";
 ALTER TABLE %s DROP PRIMARY KEY;
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($table->getName())
+			$this->quoteIdentifier($this->requireString($table->getName(), 'Table name'))
 		);
 	}
 
@@ -467,8 +525,8 @@ CREATE %sINDEX %s ON %s (%s);
 ";
 		return sprintf($pattern,
 			$this->getIndexType($index),
-			$this->quoteIdentifier($index->getName()),
-			$this->quoteIdentifier($index->getTable()->getName()),
+			$this->quoteIdentifier($this->requireString($index->getName(), 'Index name')),
+			$this->quoteIdentifier($this->requireString($this->requireTable($index->getTable())->getName(), 'Table name')),
 			$this->getColumnListDDL($index->getColumns())
 		);
 	}
@@ -485,8 +543,8 @@ CREATE %sINDEX %s ON %s (%s);
 DROP INDEX %s ON %s;
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($index->getName()),
-			$this->quoteIdentifier($index->getTable()->getName())
+			$this->quoteIdentifier($this->requireString($index->getName(), 'Index name')),
+			$this->quoteIdentifier($this->requireString($this->requireTable($index->getTable())->getName(), 'Table name'))
 		);
 	}
 
@@ -498,7 +556,7 @@ DROP INDEX %s ON %s;
 	{
 		return sprintf('%sINDEX %s (%s)',
 			$this->getIndexType($index),
-			$this->quoteIdentifier($index->getName()),
+			$this->quoteIdentifier($this->requireString($index->getName(), 'Index name')),
 			$this->getIndexColumnListDDL($index)
 		);
 	}
@@ -522,7 +580,7 @@ DROP INDEX %s ON %s;
 		$type = '';
 		$vendorInfo = $index->getVendorInfoForType($this->getDatabaseType());
 		if ($vendorInfo->getParameter('Index_type')) {
-			$type = $vendorInfo->getParameter('Index_type') . ' ';
+			$type = $this->requireStringParam($vendorInfo->getParameter('Index_type'), 'mysql vendor "Index_type" parameter') . ' ';
 		} elseif ($index->isUnique()) {
 			$type = 'UNIQUE ';
 		}
@@ -532,7 +590,7 @@ DROP INDEX %s ON %s;
 	public function getUniqueDDL(Unique $unique)
 	{
 		return sprintf('UNIQUE INDEX %s (%s)',
-			$this->quoteIdentifier($unique->getName()),
+			$this->quoteIdentifier($this->requireString($unique->getName(), 'Unique constraint name')),
 			$this->getIndexColumnListDDL($unique)
 		);
 	}
@@ -546,8 +604,8 @@ DROP INDEX %s ON %s;
 ALTER TABLE %s DROP FOREIGN KEY %s;
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($fk->getTable()->getName()),
-			$this->quoteIdentifier($fk->getName())
+			$this->quoteIdentifier($this->requireString($this->requireTable($fk->getTable())->getName(), 'Table name')),
+			$this->quoteIdentifier($this->requireString($fk->getName(), 'ForeignKey name'))
 		);
 	}
 
@@ -618,8 +676,8 @@ RENAME TABLE %s TO %s;
 ALTER TABLE %s DROP %s;
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($column->getTable()->getName()),
-			$this->quoteIdentifier($column->getName())
+			$this->quoteIdentifier($this->requireString($this->requireTable($column->getTable())->getName(), 'Table name')),
+			$this->quoteIdentifier($this->requireString($column->getName(), 'Column name'))
 		);
 	}
 
@@ -639,7 +697,10 @@ ALTER TABLE %s DROP %s;
 	 */
 	public function getModifyColumnDDL(PropulsionColumnDiff $columnDiff)
 	{
-		return $this->getChangeColumnDDL($columnDiff->getFromColumn(), $columnDiff->getToColumn());
+		return $this->getChangeColumnDDL(
+			$this->requireColumn($columnDiff->getFromColumn()),
+			$this->requireColumn($columnDiff->getToColumn())
+		);
 	}
 
 	/**
@@ -652,8 +713,8 @@ ALTER TABLE %s DROP %s;
 ALTER TABLE %s CHANGE %s %s;
 ";
 		return sprintf($pattern,
-			$this->quoteIdentifier($fromColumn->getTable()->getName()),
-			$this->quoteIdentifier($fromColumn->getName()),
+			$this->quoteIdentifier($this->requireString($this->requireTable($fromColumn->getTable())->getName(), 'Table name')),
+			$this->quoteIdentifier($this->requireString($fromColumn->getName(), 'Column name')),
 			$this->getColumnDDL($toColumn)
 		);
 	}
