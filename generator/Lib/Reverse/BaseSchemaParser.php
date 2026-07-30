@@ -159,6 +159,21 @@ abstract class BaseSchemaParser implements SchemaParser
 	}
 
 	/**
+	 * Narrows a value read from a PDO result row to the int|string|null shape
+	 * Domain::replaceSize()/replaceScale() expect, dropping anything else
+	 * (should not occur for a database row) to null.
+	 *
+	 * @return     int|string|null
+	 */
+	protected static function rowValueToIntStringOrNull(mixed $value): int|string|null
+	{
+		if ($value === null || is_int($value) || is_string($value)) {
+			return $value;
+		}
+		return is_scalar($value) ? (string) $value : null;
+	}
+
+	/**
 	 * Fetches one row as a string-keyed array (PDO::FETCH_ASSOC), or null once
 	 * the result set is exhausted (or, defensively, if the driver ever
 	 * returned something else). PDOStatement::fetch()'s own return type is

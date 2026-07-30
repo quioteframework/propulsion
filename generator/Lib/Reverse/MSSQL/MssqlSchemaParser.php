@@ -24,6 +24,7 @@ use Propulsion\Generator\Model\Column;
 use Propulsion\Generator\Model\ColumnDefaultValue;
 use Propulsion\Generator\Model\ForeignKey;
 use Propulsion\Generator\Model\Index;
+use Propulsion\Generator\Exception\EngineException;
 use \PDO;
 class MssqlSchemaParser extends BaseSchemaParser
 {
@@ -80,12 +81,15 @@ class MssqlSchemaParser extends BaseSchemaParser
 
 	public function parse(Database $database, mixed $task = null)
 	{
-		$stmt = $this->dbh->query("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME <> 'dtproperties'");
+		$stmt = $this->queryOrFail("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME <> 'dtproperties'");
 
 		// First load the tables (important that this happen before filling out details of tables)
 		$tables = array();
-		while ($row = $stmt->fetch(PDO::FETCH_NUM)) {
-			$name = $row[0];
+		while (($row = $this->fetchNum($stmt)) !== null) {
+			$name = $row[0] ?? null;
+			if (!is_string($name)) {
+				continue;
+			}
 			if ($name == $this->getMigrationTable()) {
 				continue;
 			}
@@ -117,17 +121,20 @@ class MssqlSchemaParser extends BaseSchemaParser
 	 */
 	protected function addColumns(Table $table): void
 	{
-		$stmt = $this->dbh->query("sp_columns '" . $table->getName() . "'");
+		$stmt = $this->queryOrFail("sp_columns '" . $table->getName() . "'");
 
-		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+		while (($row = $this->fetchAssoc($stmt)) !== null) {
 
-			$name = $row['COLUMN_NAME'];
-			$type = $row['TYPE_NAME'];
-			$size = $row['LENGTH'];
-			$is_nullable = $row['NULLABLE'];
-			$default = $row['COLUMN_DEF'];
-			$precision = $row['PRECISION'];
-			$scale = $row['SCALE'];
+			$name = self::rowValueToString($row['COLUMN_NAME'] ?? '');
+			$type = self::rowValueToString($row['TYPE_NAME'] ?? '');
+			$size = self::rowValueToIntStringOrNull($row['LENGTH'] ?? null);
+			$is_nullable = $row['NULLABLE'] ?? null;
+			$default = $row['COLUMN_DEF'] ?? null;
+			if ($default !== null) {
+				$default = self::rowValueToString($default);
+			}
+			$precision = $row['PRECISION'] ?? null;
+			$scale = self::rowValueToIntStringOrNull($row['SCALE'] ?? null);
 			$autoincrement = false;
 			if (strtolower($type) == "int identity") {
 				$autoincrement = true;
@@ -162,8 +169,11 @@ class MssqlSchemaParser extends BaseSchemaParser
 	protected function addForeignKeys(Table $table): void
 	{
 		$database = $table->getDatabase();
+		if ($database === null) {
+			throw new EngineException("Table '" . $table->getName() . "' is not attached to a database; cannot resolve its foreign keys.");
+		}
 
-		$stmt = $this->dbh->query("SELECT ccu1.TABLE_NAME, ccu1.COLUMN_NAME, ccu2.TABLE_NAME AS FK_TABLE_NAME, ccu2.COLUMN_NAME AS FK_COLUMN_NAME
+		$stmt = $this->queryOrFail("SELECT ccu1.TABLE_NAME, ccu1.COLUMN_NAME, ccu2.TABLE_NAME AS FK_TABLE_NAME, ccu2.COLUMN_NAME AS FK_COLUMN_NAME
 									FROM INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE ccu1 INNER JOIN
 											INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc1 ON tc1.CONSTRAINT_NAME = ccu1.CONSTRAINT_NAME AND
 											CONSTRAINT_TYPE = 'Foreign Key' INNER JOIN
@@ -172,15 +182,21 @@ class MssqlSchemaParser extends BaseSchemaParser
 									WHERE (ccu1.table_name = '".$table->getName()."')");
 
 		$foreignKeys = array(); // local store to avoid duplicates
-		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+		while (($row = $this->fetchAssoc($stmt)) !== null) {
 
-			$lcol = $row['COLUMN_NAME'];
-			$ftbl = $row['FK_TABLE_NAME'];
-			$fcol = $row['FK_COLUMN_NAME'];
+			$lcol = self::rowValueToString($row['COLUMN_NAME'] ?? '');
+			$ftbl = self::rowValueToString($row['FK_TABLE_NAME'] ?? '');
+			$fcol = self::rowValueToString($row['FK_COLUMN_NAME'] ?? '');
 
 			$foreignTable = $database->getTable($ftbl);
+			if ($foreignTable === null) {
+				throw new EngineException("Table '" . $table->getName() . "' has a foreign key referencing unknown table '$ftbl'.");
+			}
 			$foreignColumn = $foreignTable->getColumn($fcol);
 			$localColumn   = $table->getColumn($lcol);
+			if ($foreignColumn === null || $localColumn === null) {
+				throw new EngineException("Table '" . $table->getName() . "' has a foreign key referencing an unknown column ('$ftbl.$fcol' or '" . $table->getName() . ".$lcol').");
+			}
 
 			if (!isset($foreignKeys[$fcol])) {
 				$fk = new ForeignKey($fcol);
@@ -201,12 +217,12 @@ class MssqlSchemaParser extends BaseSchemaParser
 	 */
 	protected function addIndexes(Table $table): void
 	{
-		$stmt = $this->dbh->query("sp_indexes_rowset '" . $table->getName() . "'");
+		$stmt = $this->queryOrFail("sp_indexes_rowset '" . $table->getName() . "'");
 
 		$indexes = array();
-		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-			$colName = $row["COLUMN_NAME"];
-			$name = $row['INDEX_NAME'];
+		while (($row = $this->fetchAssoc($stmt)) !== null) {
+			$colName = self::rowValueToString($row["COLUMN_NAME"] ?? '');
+			$name = self::rowValueToString($row['INDEX_NAME'] ?? '');
 
 			// FIXME -- Add UNIQUE support
 			if (!isset($indexes[$name])) {
@@ -214,7 +230,11 @@ class MssqlSchemaParser extends BaseSchemaParser
 				$table->addIndex($indexes[$name]);
 			}
 
-			$indexes[$name]->addColumn($table->getColumn($colName));
+			$column = $table->getColumn($colName);
+			if ($column === null) {
+				throw new EngineException("Index '$name' on table '" . $table->getName() . "' references unknown column '$colName'.");
+			}
+			$indexes[$name]->addColumn($column);
 		}
 	}
 
@@ -223,7 +243,7 @@ class MssqlSchemaParser extends BaseSchemaParser
 	 */
 	protected function addPrimaryKey(Table $table): void
 	{
-		$stmt = $this->dbh->query("SELECT COLUMN_NAME
+		$stmt = $this->queryOrFail("SELECT COLUMN_NAME
 						FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS
 								INNER JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE ON
 						INFORMATION_SCHEMA.TABLE_CONSTRAINTS.CONSTRAINT_NAME = INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE.constraint_name
@@ -232,9 +252,13 @@ class MssqlSchemaParser extends BaseSchemaParser
 
 		// Loop through the returned results, grouping the same key_name together
 		// adding each column for that key.
-		while ($row = $stmt->fetch(PDO::FETCH_NUM)) {
-			$name = $row[0];
-			$table->getColumn($name)->setPrimaryKey(true);
+		while (($row = $this->fetchNum($stmt)) !== null) {
+			$name = self::rowValueToString($row[0] ?? '');
+			$column = $table->getColumn($name);
+			if ($column === null) {
+				throw new EngineException("Primary key on table '" . $table->getName() . "' references unknown column '$name'.");
+			}
+			$column->setPrimaryKey(true);
 		}
 	}
 
