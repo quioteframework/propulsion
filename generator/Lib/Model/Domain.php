@@ -21,12 +21,12 @@ class Domain extends XMLElement
 {
 
 	/**
-	 * @var        string The name of this domain
+	 * @var        string|null The name of this domain
 	 */
 	private $name;
 
 	/**
-	 * @var        string Description for this domain.
+	 * @var        string|null Description for this domain.
 	 */
 	private $description;
 
@@ -95,23 +95,28 @@ class Domain extends XMLElement
 	 */
 	protected function setupObject(): void
 	{
-		$schemaType = strtoupper((string) $this->getAttribute("type"));
-		$this->copy($this->getDatabase()->getPlatform()->getDomainForType($schemaType));
+		$schemaType = strtoupper($this->getStringAttribute("type") ?? '');
+		$platform = $this->getDatabase()->getPlatform();
+		if ($platform === null) {
+			throw new EngineException('Cannot set up a Domain: no platform is configured for this Database.');
+		}
+		$this->copy($platform->getDomainForType($schemaType));
 
 		//Name
-		$this->name = $this->getAttribute("name");
+		$this->name = $this->getStringAttribute("name");
 
 		// Default value
-		$defval = $this->getAttribute("defaultValue", $this->getAttribute("default"));
+		$defval = $this->getStringAttribute("defaultValue", $this->getStringAttribute("default"));
+		$defExpr = $this->getStringAttribute("defaultExpr");
 		if ($defval !== null) {
 			$this->setDefaultValue(new ColumnDefaultValue($defval, ColumnDefaultValue::TYPE_VALUE));
-		} elseif ($this->getAttribute("defaultExpr") !== null) {
-			$this->setDefaultValue(new ColumnDefaultValue($this->getAttribute("defaultExpr"), ColumnDefaultValue::TYPE_EXPR));
+		} elseif ($defExpr !== null) {
+			$this->setDefaultValue(new ColumnDefaultValue($defExpr, ColumnDefaultValue::TYPE_EXPR));
 		}
 
-		$this->size = $this->getAttribute("size");
-		$this->scale = $this->getAttribute("scale");
-		$this->description = $this->getAttribute("description");
+		$this->size = $this->getIntOrStringAttribute("size");
+		$this->scale = $this->getIntOrStringAttribute("scale");
+		$this->description = $this->getStringAttribute("description");
 	}
 
 	/**
@@ -142,7 +147,7 @@ class Domain extends XMLElement
 	}
 
 	/**
-	 * @return     string Returns the description.
+	 * @return     string|null Returns the description.
 	 */
 	public function getDescription()
 	{
@@ -150,7 +155,7 @@ class Domain extends XMLElement
 	}
 
 	/**
-	 * @param      string $description The description to set.
+	 * @param      string|null $description The description to set.
 	 */
 	public function setDescription($description): void
 	{
@@ -158,7 +163,7 @@ class Domain extends XMLElement
 	}
 
 	/**
-	 * @return     string Returns the name.
+	 * @return     string|null Returns the name.
 	 */
 	public function getName()
 	{
@@ -166,7 +171,7 @@ class Domain extends XMLElement
 	}
 
 	/**
-	 * @param      string $name The name to set.
+	 * @param      string|null $name The name to set.
 	 */
 	public function setName($name): void
 	{
@@ -357,13 +362,16 @@ class Domain extends XMLElement
 	public function appendXml(\DOMNode $node): void
 	{
 		$doc = ($node instanceof \DOMDocument) ? $node : $node->ownerDocument;
+		if ($doc === null) {
+			throw new EngineException('Cannot append XML: given DOMNode has no owner document');
+		}
 
 		$domainNode = $node->appendChild($doc->createElement('domain'));
-		$domainNode->setAttribute('type', $this->getType());
-		$domainNode->setAttribute('name', $this->getName());
+		$domainNode->setAttribute('type', $this->getType() ?? '');
+		$domainNode->setAttribute('name', $this->getName() ?? '');
 
 		if ($this->sqlType !== $this->getType()) {
-			$domainNode->setAttribute('sqlType', $this->sqlType);
+			$domainNode->setAttribute('sqlType', $this->sqlType ?? '');
 		}
 
 		$def = $this->getDefaultValue();
