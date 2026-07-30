@@ -14,6 +14,7 @@ namespace Propulsion\Generator\Behavior\NestedSet;
  *
  * @author     François Zaninotto
  */
+use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\Behavior;
 use Propulsion\Generator\Model\Table;
 class NestedSetBehavior extends Behavior
@@ -34,32 +35,59 @@ class NestedSetBehavior extends Behavior
 	protected ?NestedSetBehaviorPeerBuilderModifier $peerBuilderModifier = null;
 
 	/**
+	 * modifyTable() is only ever invoked once this behavior is attached
+	 * to a table, but getTable() stays nullable to also cover the
+	 * not-yet-attached construction phase. Guard against the
+	 * (should-never-happen) unattached case with a clear error instead
+	 * of a null dereference.
+	 */
+	public function requireTable(): Table
+	{
+		$table = $this->getTable();
+		if ($table === null) {
+			throw new EngineException('NestedSetBehavior is not attached to a table');
+		}
+		return $table;
+	}
+
+	private function getStringParameter(string $name): string
+	{
+		$value = $this->getParameter($name);
+		return is_string($value) ? $value : '';
+	}
+
+	/**
 	 * Add the left, right and scope to the current table
 	 */
 	public function modifyTable(): void
 	{
-		if(!$this->getTable()->hasColumn($this->getParameter('left_column'))) {
-			$this->getTable()->addColumn(array(
-				'name' => $this->getParameter('left_column'),
+		$table = $this->requireTable();
+		$leftColumn = $this->getStringParameter('left_column');
+		if(!$table->hasColumn($leftColumn)) {
+			$table->addColumn(array(
+				'name' => $leftColumn,
 				'type' => 'INTEGER'
 			));
 		}
-		if(!$this->getTable()->hasColumn($this->getParameter('right_column'))) {
-			$this->getTable()->addColumn(array(
-				'name' => $this->getParameter('right_column'),
+		$rightColumn = $this->getStringParameter('right_column');
+		if(!$table->hasColumn($rightColumn)) {
+			$table->addColumn(array(
+				'name' => $rightColumn,
 				'type' => 'INTEGER'
 			));
 		}
-		if(!$this->getTable()->hasColumn($this->getParameter('level_column'))) {
-			$this->getTable()->addColumn(array(
-				'name' => $this->getParameter('level_column'),
+		$levelColumn = $this->getStringParameter('level_column');
+		if(!$table->hasColumn($levelColumn)) {
+			$table->addColumn(array(
+				'name' => $levelColumn,
 				'type' => 'INTEGER'
 			));
 		}
-		if ($this->getParameter('use_scope') == 'true' &&
-			 !$this->getTable()->hasColumn($this->getParameter('scope_column'))) {
-			$this->getTable()->addColumn(array(
-				'name' => $this->getParameter('scope_column'),
+		$scopeColumn = $this->getStringParameter('scope_column');
+		if ($this->getStringParameter('use_scope') == 'true' &&
+			 !$table->hasColumn($scopeColumn)) {
+			$table->addColumn(array(
+				'name' => $scopeColumn,
 				'type' => 'INTEGER'
 			));
 		}

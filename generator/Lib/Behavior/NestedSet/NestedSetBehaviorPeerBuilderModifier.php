@@ -10,6 +10,7 @@
 namespace Propulsion\Generator\Behavior\NestedSet;
 
 use Propulsion\Generator\Builder\OM\PeerBuilder;
+use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\Column;
 use Propulsion\Generator\Model\Table;
 
@@ -30,17 +31,21 @@ class NestedSetBehaviorPeerBuilderModifier
 	public function __construct(NestedSetBehavior $behavior)
 	{
 		$this->behavior = $behavior;
-		$this->table = $behavior->getTable();
+		$this->table = $behavior->requireTable();
 	}
 
-	protected function getParameter(string $key): string
+	protected function getParameter(string $key): mixed
 	{
 		return $this->behavior->getParameter($key);
 	}
 
 	protected function getColumn(string $name): Column
 	{
-		return $this->behavior->getColumnForParameter($name);
+		$column = $this->behavior->getColumnForParameter($name);
+		if ($column === null) {
+			throw new EngineException(sprintf("Parameter '%s' does not reference an existing column", $name));
+		}
+		return $column;
 	}
 
 	protected function getColumnAttribute(string $name): string
@@ -52,7 +57,19 @@ class NestedSetBehaviorPeerBuilderModifier
 
 	protected function getColumnConstant(string $name): string
 	{
-		return strtoupper($this->getColumn($name)->getName());
+		$columnName = $this->getColumn($name)->getName();
+		if ($columnName === null) {
+			throw new EngineException(sprintf("Column for parameter '%s' has no name", $name));
+		}
+		return strtoupper($columnName);
+	}
+
+	private function requireBuilder(): PeerBuilder
+	{
+		if ($this->builder === null) {
+			throw new EngineException('No builder has been set yet; setBuilder() must run before this call');
+		}
+		return $this->builder;
 	}
 
 	protected function getColumnPhpName(string $name): string
@@ -310,7 +327,7 @@ public static function shiftRLValues(\$delta, \$first, \$last = null" . ($useSco
 	\$valuesCriteria = new Criteria($peerClassname::DATABASE_NAME);
 	\$valuesCriteria->add($peerClassname::LEFT_COL, array('raw' => $peerClassname::LEFT_COL . ' + ?', 'value' => \$delta), Criteria::CUSTOM_EQUAL);
 
-	{$this->builder->getBasePeerClassname()}::doUpdate(\$whereCriteria, \$valuesCriteria, \$con);
+	{$this->requireBuilder()->getBasePeerClassname()}::doUpdate(\$whereCriteria, \$valuesCriteria, \$con);
 
 	// Shift right column values
 	\$whereCriteria = new Criteria($peerClassname::DATABASE_NAME);
@@ -328,7 +345,7 @@ public static function shiftRLValues(\$delta, \$first, \$last = null" . ($useSco
 	\$valuesCriteria = new Criteria($peerClassname::DATABASE_NAME);
 	\$valuesCriteria->add($peerClassname::RIGHT_COL, array('raw' => $peerClassname::RIGHT_COL . ' + ?', 'value' => \$delta), Criteria::CUSTOM_EQUAL);
 
-	{$this->builder->getBasePeerClassname()}::doUpdate(\$whereCriteria, \$valuesCriteria, \$con);
+	{$this->requireBuilder()->getBasePeerClassname()}::doUpdate(\$whereCriteria, \$valuesCriteria, \$con);
 }
 ";
 	}
@@ -370,7 +387,7 @@ public static function shiftLevel(\$delta, \$first, \$last" . ($useScope ? ", \$
 	\$valuesCriteria = new Criteria($peerClassname::DATABASE_NAME);
 	\$valuesCriteria->add($peerClassname::LEVEL_COL, array('raw' => $peerClassname::LEVEL_COL . ' + ?', 'value' => \$delta), Criteria::CUSTOM_EQUAL);
 
-	{$this->builder->getBasePeerClassname()}::doUpdate(\$whereCriteria, \$valuesCriteria, \$con);
+	{$this->requireBuilder()->getBasePeerClassname()}::doUpdate(\$whereCriteria, \$valuesCriteria, \$con);
 }
 ";
 	}
@@ -404,11 +421,11 @@ public static function updateLoadedNodes(\$prune = null, ?PropulsionPDO \$con = 
 			$pkey = $this->table->getPrimaryKey();
 			$col = array_shift($pkey);
 			$script .= "
-			\$criteria->add(".$this->builder->getColumnConstant($col).", \$keys, Criteria::IN);";
+			\$criteria->add(".$this->requireBuilder()->getColumnConstant($col).", \$keys, Criteria::IN);";
 		} else {
 			$fields = array();
 			foreach ($this->table->getPrimaryKey() as $k => $col) {
-				$fields[] = $this->builder->getColumnConstant($col);
+				$fields[] = $this->requireBuilder()->getColumnConstant($col);
 			};
 			$script .= "
 
@@ -543,12 +560,12 @@ public static function fixLevels(" . ($useScope ? "\$scope, " : ""). "?Propulsio
 			// class must be set each time from the record row
 			\$cls = $peerClassname::getOMClass(\$row, 0);
 			\$cls = substr('.'.\$cls, strrpos('.'.\$cls, '.') + 1);
-			" . $this->builder->buildObjectInstanceCreationCode('$obj', '$cls') . "
+			" . $this->requireBuilder()->buildObjectInstanceCreationCode('$obj', '$cls') . "
 			\$obj->hydrate(\$row);
 			$peerClassname::addInstanceToPool(\$obj, \$key);";
 		} else {
 			$script .= "
-			" . $this->builder->buildObjectInstanceCreationCode('$obj', '$cls') . "
+			" . $this->requireBuilder()->buildObjectInstanceCreationCode('$obj', '$cls') . "
 			\$obj->hydrate(\$row);
 			$peerClassname::addInstanceToPool(\$obj, \$key);";
 		}
