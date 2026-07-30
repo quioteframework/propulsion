@@ -132,12 +132,12 @@ class PgsqlPlatform extends DefaultPlatform
 		return 63;
 	}
 
-	public function getBooleanString($b)
+	public function getBooleanString($b): string
 	{
 		// parent method does the checking for allowes tring
 		// representations & returns integer
 		$b = parent::getBooleanString($b);
-		return ($b ? "'t'" : "'f'");
+		return ($b === '0' ? "'f'" : "'t'");
 	}
 
 	public function supportsNativeDeleteTrigger()
