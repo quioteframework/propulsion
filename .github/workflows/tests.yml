@@ -186,6 +186,16 @@ jobs:
     # (unlike pdo_pgsql/pdo_mysql/pdo_dblib above) -- see IntegrationDatabase's own
     # docblock -- so it's built here from PECL against a downloaded Instant Client,
     # the same way local setup is documented there.
+    #
+    # Oracle retires old Instant Client download paths/filenames as patch releases
+    # ship (observed: 2326000/...-23.26.0.0.0dbru.zip 404ing once 23.26.3 shipped,
+    # replaced by 2326300/...-23.26.3.0.0.zip -- both the version directory and the
+    # filename's patch/suffix convention shifted). If this step 404s, check
+    # https://www.oracle.com/database/technologies/instant-client/linux-x86-64-downloads.html
+    # for the current Basic/SDK URLs and update both curl lines (and the cache key)
+    # below -- the extracted directory name (instantclient_23_26/) and therefore the
+    # --with-pdo-oci=instantclient,...,23.26 version argument in the next step are
+    # unaffected by patch-level bumps within the same 23.26.x line.
     steps:
       - uses: actions/checkout@v4
 
@@ -201,15 +211,15 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /opt/oracle/instantclient
-          key: instantclient-23.26-linux-x64
+          key: instantclient-23.26.3-linux-x64
 
       - name: Download Oracle Instant Client (Basic + SDK)
         if: steps.instantclient-cache.outputs.cache-hit != 'true'
         run: |
           sudo mkdir -p /opt/oracle/instantclient
           cd /opt/oracle/instantclient
-          curl -fsSL -o basic.zip https://download.oracle.com/otn_software/linux/instantclient/2326000/instantclient-basic-linux.x64-23.26.0.0.0dbru.zip
-          curl -fsSL -o sdk.zip https://download.oracle.com/otn_software/linux/instantclient/2326000/instantclient-sdk-linux.x64-23.26.0.0.0dbru.zip
+          curl -fsSL -o basic.zip https://download.oracle.com/otn_software/linux/instantclient/2326300/instantclient-basic-linux.x64-23.26.3.0.0.zip
+          curl -fsSL -o sdk.zip https://download.oracle.com/otn_software/linux/instantclient/2326300/instantclient-sdk-linux.x64-23.26.3.0.0.zip
           sudo unzip -q basic.zip
           sudo unzip -q sdk.zip
           sudo mv instantclient_23_26/* .
