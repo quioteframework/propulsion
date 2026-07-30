@@ -156,7 +156,7 @@ class TableMap
   /**
    * Get the PHP name of the Table.
    *
-   * @return     string A String with the name of the table.
+   * @return     string|null A String with the name of the table.
    */
   public function getPhpName()
   {
@@ -185,10 +185,18 @@ class TableMap
   /**
    * Get the Peer Classname of the Propulsion Class belonging to this table.
    * @return     string
+   * @throws     PropulsionException when no classname is set, or its PEER constant is not a string
    */
   public function getPeerClassname()
   {
-    return constant($this->classname . '::PEER');
+    if ($this->classname === null) {
+      throw new PropulsionException("Cannot get peer classname: no classname set for table " . ($this->tableName ?? '(unknown)'));
+    }
+    $peerClass = constant($this->classname . '::PEER');
+    if (!is_string($peerClass)) {
+      throw new PropulsionException("PEER constant of class " . $this->classname . " is not a string");
+    }
+    return $peerClass;
   }
 
   /**
@@ -203,7 +211,7 @@ class TableMap
 
   /**
    * Get the Package of the table.
-   * @return     string
+   * @return     string|null
    */
   public function getPackage()
   {
@@ -223,9 +231,9 @@ class TableMap
    * Whether to use Id generator for primary key.
    * @return     boolean
    */
-  public function isUseIdGenerator()
+  public function isUseIdGenerator(): bool
   {
-    return $this->useIdGenerator;
+    return $this->useIdGenerator ?? false;
   }
 
   /**
@@ -342,7 +350,7 @@ class TableMap
   /**
    * Does this table contain the specified column?
    *
-   * @param      mixed   $name name of the column or ColumnMap instance
+   * @param      ColumnMap|string $name name of the column or ColumnMap instance
    * @param      boolean $normalize Normalize the column name (if column name not like FIRST_NAME)
    * @return     boolean True if the table contains the column.
    */
@@ -378,10 +386,10 @@ class TableMap
   /**
    * Does this table contain the specified column?
    *
-   * @param      mixed   $phpName name of the column
+   * @param      string  $phpName name of the column
    * @return     boolean True if the table contains the column.
    */
-  public function hasColumnByPhpName($phpName)
+  public function hasColumnByPhpName(string $phpName)
   {
     return isset($this->columnsByPhpName[$phpName]);
   }
@@ -531,6 +539,10 @@ class TableMap
   {
     // note: using phpName for the second table allows the use of DatabaseMap::getTableByPhpName()
     // and this method autoloads the TableMap if the table isn't loaded yet
+    if ($this->dbMap === null) {
+      throw new PropulsionException("Cannot add relation '" . $name . "': table '" . ($this->tableName ?? '(unknown)') . "' has no DatabaseMap set");
+    }
+    $dbMap = $this->dbMap;
     $relation = new RelationMap($name);
     $relation->setType($type);
     $relation->setOnUpdate($onUpdate);
@@ -541,17 +553,22 @@ class TableMap
     // set tables
     if ($type == RelationMap::MANY_TO_ONE) {
       $relation->setLocalTable($this);
-      $relation->setForeignTable($this->dbMap->getTableByPhpName($tablePhpName));
+      $relation->setForeignTable($dbMap->getTableByPhpName($tablePhpName));
     } else {
-      $relation->setLocalTable($this->dbMap->getTableByPhpName($tablePhpName));
+      $relation->setLocalTable($dbMap->getTableByPhpName($tablePhpName));
       $relation->setForeignTable($this);
       $columnMapping  = array_flip($columnMapping);
     }
     // set columns
+    $localTable = $relation->getLocalTable();
+    $foreignTable = $relation->getForeignTable();
+    if ($localTable === null || $foreignTable === null) {
+      throw new PropulsionException("Cannot add relation '" . $name . "': local or foreign table is not set");
+    }
     foreach ($columnMapping as $local => $foreign) {
       $relation->addColumnMapping(
-        $relation->getLocalTable()->getColumn($local, false),
-        $relation->getForeignTable()->getColumn($foreign, false)
+        $localTable->getColumn($local, false),
+        $foreignTable->getColumn($foreign, false)
       );
     }
     $this->relations[$name] = $relation;
@@ -645,7 +662,7 @@ class TableMap
    * Does this table contain the specified column?
    *
    * @deprecated Use hasColumn instead
-   * @param      mixed   $name name of the column or ColumnMap instance
+   * @param      ColumnMap|string $name name of the column or ColumnMap instance
    * @param      boolean $normalize Normalize the column name (if column name not like FIRST_NAME)
    * @return     boolean True if the table contains the column.
    */
@@ -690,7 +707,7 @@ class TableMap
    * Get table prefix name.
    *
    * @deprecated Not used anywhere in Propulsion
-   * @return     string A String with the prefix.
+   * @return     string|null A String with the prefix.
    */
   public function getPrefix()
   {
@@ -731,7 +748,10 @@ class TableMap
    */
   protected function removePrefix($data)
   {
-    return $this->hasPrefix($data) ? substr($data, strlen($this->prefix)) : $data;
+    if ($this->prefix === null || $this->prefix === '' || strpos($data, $this->prefix) !== 0) {
+      return $data;
+    }
+    return substr($data, strlen($this->prefix));
   }
 
   /**

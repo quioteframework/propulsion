@@ -96,11 +96,18 @@ class DatabaseMap
   public function addTableFromMapClass($tableMapClass)
   {
     $table = new $tableMapClass();
-    if(!$this->hasTable($table->getName())) {
+    if (!$table instanceof TableMap) {
+      throw new PropulsionException("Class " . $tableMapClass . " is not a TableMap");
+    }
+    $tableName = $table->getName();
+    if ($tableName === null) {
+      throw new PropulsionException("TableMap " . $tableMapClass . " has no name set");
+    }
+    if(!$this->hasTable($tableName)) {
       $this->addTableObject($table);
       return $table;
     } else {
-      return $this->getTable($table->getName());
+      return $this->getTable($tableName);
     }
   }
 
@@ -195,7 +202,8 @@ class DatabaseMap
     }
     
     // Try with Map namespace insertion (note capital M)
-    if (class_exists($tmClass = substr_replace($phpName, '\\Map\\', strrpos($phpName, '\\'), 1) . 'TableMap')) {
+    $lastSlashPos = strrpos($phpName, '\\');
+    if ($lastSlashPos !== false && class_exists($tmClass = substr_replace($phpName, '\\Map\\', $lastSlashPos, 1) . 'TableMap')) {
       return $this->addTableFromMapClass($tmClass);
     }
     

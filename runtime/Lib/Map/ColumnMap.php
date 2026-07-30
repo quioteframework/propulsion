@@ -107,7 +107,7 @@ class ColumnMap
   /**
    * Get the name of the table this column is in.
    *
-   * @return     string A String with the table name.
+   * @return     string|null A String with the table name.
    */
   public function getTableName()
   {
@@ -138,7 +138,7 @@ class ColumnMap
   /**
    * Get the name of a column.
    *
-   * @return     string A String with the column name.
+   * @return     string|null A String with the column name.
    */
   public function getPhpName()
   {
@@ -159,7 +159,7 @@ class ColumnMap
   /**
    * Get the Propulsion type of this column.
    *
-   * @return     string A string representing the Propulsion type (e.g. PropulsionColumnTypes::DATE).
+   * @return     string|null A string representing the Propulsion type (e.g. PropulsionColumnTypes::DATE).
    */
   public function getType()
   {
@@ -170,6 +170,7 @@ class ColumnMap
    * Get the PDO type of this column.
    *
    * @return     int The PDO::PARMA_* value
+   * @throws     PropulsionException when called on a column with no type set
    */
   public function getPdoType()
   {
@@ -177,6 +178,9 @@ class ColumnMap
       // A native-storage enum column holds the label text itself, not the
       // emulated integer index PropulsionTypes::getPDOType(ENUM) assumes.
       return \PDO::PARAM_STR;
+    }
+    if ($this->type === null) {
+      throw new PropulsionException("Cannot determine PDO type for column with no type set: " . $this->columnName);
     }
     return PropulsionTypes::getPDOType($this->type);
   }
@@ -252,10 +256,10 @@ class ColumnMap
   /**
    * Set the size of this column.
    *
-   * @param      int $size An int specifying the size.
+   * @param      int|null $size An int specifying the size.
    * @return     void
    */
-  public function setSize($size)
+  public function setSize(?int $size)
   {
     $this->size = $size;
   }
@@ -263,7 +267,7 @@ class ColumnMap
   /**
    * Get the size of this column.
    *
-   * @return     int An int specifying the size.
+   * @return     int|null An int specifying the size.
    */
   public function getSize()
   {
@@ -375,7 +379,8 @@ class ColumnMap
     {
       if($relation->getType() == RelationMap::MANY_TO_ONE)
       {
-        if ($relation->getForeignTable()->getName() == $this->getRelatedTableName()
+        $foreignTable = $relation->getForeignTable();
+        if ($foreignTable !== null && $foreignTable->getName() == $this->getRelatedTableName()
          && array_key_exists($this->getFullyQualifiedName(), $relation->getColumnMappings()))
         {
           return $relation;
@@ -424,7 +429,11 @@ class ColumnMap
   public function getRelatedTable()
   {
     if ($this->relatedTableName) {
-      return $this->table->getDatabaseMap()->getTable($this->relatedTableName);
+      $dbMap = $this->table->getDatabaseMap();
+      if ($dbMap === null) {
+        throw new PropulsionException("Cannot fetch RelatedTable for column with no DatabaseMap set on its table: " . $this->columnName);
+      }
+      return $dbMap->getTable($this->relatedTableName);
     } else {
       throw new PropulsionException("Cannot fetch RelatedTable for column with no foreign key: " . $this->columnName);
     }
