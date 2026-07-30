@@ -150,6 +150,13 @@ class ModelManager extends AbstractSchemaManager
         if ($table->hasAdditionalBuilders()) {
             foreach ($table->getAdditionalBuilders() as $builderClass) {
                 $builder = new $builderClass($table);
+                if (!$builder instanceof DataModelBuilder) {
+                    throw new EngineException(sprintf(
+                        "Additional builder class (%s) does not extend %s.",
+                        get_class($builder),
+                        DataModelBuilder::class
+                    ));
+                }
                 $builder->setGeneratorConfig($generatorConfig);
                 $written += $this->writeBuilderOutput($builder, overwrite: $builder->overwrite ?? true);
             }

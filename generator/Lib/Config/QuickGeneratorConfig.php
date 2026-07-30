@@ -10,6 +10,7 @@
 namespace Propulsion\Generator\Config;
 
  use Propulsion\Generator\Model\Table;
+ use Propulsion\Generator\Exception\EngineException;
  use Propulsion\Generator\Builder\DataModelBuilder;
  use Propulsion\Generator\Builder\Util\Pluralizer;
  use Propulsion\Generator\Builder\Util\DefaultEnglishPluralizer;
@@ -79,6 +80,14 @@ class QuickGeneratorConfig implements GeneratorConfigInterface
 	{
 		$class = $this->builders[$type];
 		$builder = new $class($table);
+		if (!$builder instanceof DataModelBuilder) {
+			throw new EngineException(sprintf(
+				"Configured '%s' builder class (%s) does not extend %s.",
+				$type,
+				get_class($builder),
+				DataModelBuilder::class
+			));
+		}
 		$builder->setGeneratorConfig($this);
 		return $builder;
 	}

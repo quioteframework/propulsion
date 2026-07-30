@@ -421,7 +421,14 @@ abstract class DataModelBuilder
 	public function getNewBuilder(Table $table, $classname)
 	{
 		$builder = new $classname($table);
-		$builder->setGeneratorConfig($this);
+		if (!$builder instanceof DataModelBuilder) {
+			throw new EngineException(sprintf(
+				"Builder class (%s) does not extend %s.",
+				get_class($builder),
+				DataModelBuilder::class
+			));
+		}
+		$builder->setGeneratorConfig($this->getGeneratorConfig());
 		return $builder;
 	}
 
@@ -559,7 +566,7 @@ abstract class DataModelBuilder
 	/**
 	 * Sets the GeneratorConfig object.
 	 *
-	 * @param      GeneratorConfig $v
+	 * @param      GeneratorConfigInterface $v
 	 */
 	public function setGeneratorConfig(GeneratorConfigInterface $v): void
 	{

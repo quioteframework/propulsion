@@ -379,6 +379,14 @@ class GeneratorConfig implements GeneratorConfigInterface
 	{
 		$classname = $this->getBuilderClassname($type);
 		$builder = new $classname($table);
+		if (!$builder instanceof DataModelBuilder) {
+			throw new EngineException(sprintf(
+				"Configured '%s' builder class (%s) does not extend %s.",
+				$type,
+				get_class($builder),
+				DataModelBuilder::class
+			));
+		}
 		$builder->setGeneratorConfig($this);
 		return $builder;
 	}
@@ -392,6 +400,13 @@ class GeneratorConfig implements GeneratorConfigInterface
 	{
 		$classname = $this->getBuilderClassname('pluralizer');
 		$pluralizer = new $classname();
+		if (!$pluralizer instanceof Pluralizer) {
+			throw new EngineException(sprintf(
+				"Configured pluralizer class (%s) does not implement %s.",
+				get_class($pluralizer),
+				Pluralizer::class
+			));
+		}
 		return $pluralizer;
 	}
 
@@ -399,7 +414,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 	 * Gets a configured behavior class
 	 *
 	 * @param string $name a behavior name
-	 * @return string a behavior class name
+	 * @return string|false a behavior class name, or false if not configured
 	 */
 	public function getConfiguredBehavior($name)
 	{
