@@ -36,6 +36,19 @@ class NestedSetRecursiveIterator implements \RecursiveIterator
 		$this->curNode = $node;
 	}
 
+	/**
+	 * Calls a method by name on a duck-typed node object. Routing every call through
+	 * here (rather than `$obj->$method()` inline) keeps $method's type a plain
+	 * `string` at the call site instead of a literal-string union PHPStan would
+	 * otherwise try to check against the (deliberately unconstrained) `object` type
+	 * -- see this class's own docblock for why no shared interface exists to check
+	 * against instead.
+	 */
+	private function callMethod(object $obj, string $method, mixed ...$args): mixed
+	{
+		return $obj->$method(...$args);
+	}
+
 	public function rewind(): void
 	{
 		$this->curNode = $this->topNode;
@@ -55,7 +68,7 @@ class NestedSetRecursiveIterator implements \RecursiveIterator
 	{
 		$method = method_exists($this->curNode, 'getPath') ? 'getPath' : 'getAncestors';
 		$key = array();
-		foreach ($this->curNode->$method() as $node) {
+		foreach ($this->callMethod($this->curNode, $method) as $node) {
 			$key[] = $node->getPrimaryKey();
 		}
 		return implode('.', $key);
@@ -71,8 +84,8 @@ class NestedSetRecursiveIterator implements \RecursiveIterator
 					break;
 				}
 
-				if ($this->curNode->hasNextSibling()) {
-					$nextNode = $this->curNode->$method();
+				if ($this->callMethod($this->curNode, 'hasNextSibling')) {
+					$nextNode = $this->callMethod($this->curNode, $method);
 				} else {
 					break;
 				}
@@ -83,7 +96,7 @@ class NestedSetRecursiveIterator implements \RecursiveIterator
 
 	public function hasChildren() : bool
 	{
-		return $this->curNode->hasChildren();
+		return (bool) $this->callMethod($this->curNode, 'hasChildren');
 	}
 
 	/**
@@ -92,6 +105,6 @@ class NestedSetRecursiveIterator implements \RecursiveIterator
 	public function getChildren() : \RecursiveIterator
 	{
 		$method = method_exists($this->curNode, 'retrieveFirstChild') ? 'retrieveFirstChild' : 'getFirstChild';
-		return new NestedSetRecursiveIterator($this->curNode->$method());
+		return new NestedSetRecursiveIterator($this->callMethod($this->curNode, $method));
 	}
 }

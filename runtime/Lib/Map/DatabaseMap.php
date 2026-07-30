@@ -96,6 +96,13 @@ class DatabaseMap
   public function addTableFromMapClass($tableMapClass)
   {
     $table = new $tableMapClass();
+    if (!$table instanceof TableMap) {
+      throw new PropulsionException(sprintf(
+        "Table map class (%s) does not extend %s.",
+        get_class($table),
+        TableMap::class
+      ));
+    }
     if(!$this->hasTable($table->getName())) {
       $this->addTableObject($table);
       return $table;
@@ -195,7 +202,8 @@ class DatabaseMap
     }
     
     // Try with Map namespace insertion (note capital M)
-    if (class_exists($tmClass = substr_replace($phpName, '\\Map\\', strrpos($phpName, '\\'), 1) . 'TableMap')) {
+    $lastNsSepPos = strrpos($phpName, '\\');
+    if ($lastNsSepPos !== false && class_exists($tmClass = substr_replace($phpName, '\\Map\\', $lastNsSepPos, 1) . 'TableMap')) {
       return $this->addTableFromMapClass($tmClass);
     }
     
