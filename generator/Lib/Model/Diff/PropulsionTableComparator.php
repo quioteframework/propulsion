@@ -11,6 +11,9 @@ namespace Propulsion\Generator\Model\Diff;
 
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Model\Column;
+use Propulsion\Generator\Model\Index;
+use Propulsion\Generator\Model\ForeignKey;
+use Propulsion\Generator\Exception\EngineException;
 
 /**
  * Service class for comparing Table objects
@@ -47,9 +50,14 @@ class PropulsionTableComparator
 	 *
 	 * @return Table
 	 */
-	public function getFromTable()
+	public function getFromTable(): Table
 	{
-		return $this->tableDiff->getFromTable();
+		$fromTable = $this->tableDiff->getFromTable();
+		if ($fromTable === null) {
+			throw new EngineException('PropulsionTableComparator: fromTable has not been set.');
+		}
+
+		return $fromTable;
 	}
 
 	/**
@@ -67,9 +75,26 @@ class PropulsionTableComparator
 	 *
 	 * @return Table
 	 */
-	public function getToTable()
+	public function getToTable(): Table
 	{
-		return $this->tableDiff->getToTable();
+		$toTable = $this->tableDiff->getToTable();
+		if ($toTable === null) {
+			throw new EngineException('PropulsionTableComparator: toTable has not been set.');
+		}
+
+		return $toTable;
+	}
+
+	/**
+	 * Resolve the name of a Column, Index, or ForeignKey model object to a plain string.
+	 * These names are nullable at the model layer (e.g. a ForeignKey may not have been
+	 * named yet at comparison time), so fall back to an empty string rather than require
+	 * a name here, matching the existing `$fkName ?? ''` convention already used by
+	 * PropulsionTableDiff::addRemovedFk() for the same situation.
+	 */
+	private static function resolveName(Column|Index|ForeignKey $item): string
+	{
+		return $item->getName() ?? '';
 	}
 
 	/**
@@ -114,27 +139,35 @@ class PropulsionTableComparator
 
 		// check for new columns in $toTable
 		foreach ($toTableColumns as $column) {
-			if (!$this->getFromTable()->hasColumn($column->getName(), $caseInsensitive)) {
-				$this->tableDiff->addAddedColumn($column->getName(), $column);
+			$columnName = self::resolveName($column);
+			if (!$this->getFromTable()->hasColumn($columnName, $caseInsensitive)) {
+				$this->tableDiff->addAddedColumn($columnName, $column);
 				$columnDifferences++;
 			}
 		}
 
 		// check for removed columns in $toTable
 		foreach ($fromTableColumns as $column) {
-			if (!$this->getToTable()->hasColumn($column->getName(), $caseInsensitive)) {
-				$this->tableDiff->addRemovedColumn($column->getName(), $column);
+			$columnName = self::resolveName($column);
+			if (!$this->getToTable()->hasColumn($columnName, $caseInsensitive)) {
+				$this->tableDiff->addRemovedColumn($columnName, $column);
 				$columnDifferences++;
 			}
 		}
 
 		// check for column differences
 		foreach ($fromTableColumns as $fromColumn) {
-			if ($this->getToTable()->hasColumn($fromColumn->getName(), $caseInsensitive)) {
-				$toColumn = $this->getToTable()->getColumn($fromColumn->getName(), $caseInsensitive);
+			$fromColumnName = self::resolveName($fromColumn);
+			if ($this->getToTable()->hasColumn($fromColumnName, $caseInsensitive)) {
+				$toColumn = $this->getToTable()->getColumn($fromColumnName, $caseInsensitive);
+				if ($toColumn === null) {
+					// hasColumn() just confirmed this column exists; a null result here
+					// would mean the table changed underneath us, so there's nothing to diff.
+					continue;
+				}
 				$columnDiff = PropulsionColumnComparator::computeDiff($fromColumn, $toColumn);
-				if ($columnDiff) {
-					$this->tableDiff->addModifiedColumn($fromColumn->getName(), $columnDiff);
+				if ($columnDiff instanceof PropulsionColumnDiff) {
+					$this->tableDiff->addModifiedColumn($fromColumnName, $columnDiff);
 					$columnDifferences++;
 				}
 			}
@@ -174,18 +207,20 @@ class PropulsionTableComparator
 
 		// check for new pk columns in $toTable
 		foreach ($toTablePk as $column) {
-			if (!$this->getFromTable()->hasColumn($column->getName(), $caseInsensitive) ||
-					!$this->getFromTable()->getColumn($column->getName(), $caseInsensitive)->isPrimaryKey()) {
-				$this->tableDiff->addAddedPkColumn($column->getName(), $column);
+			$columnName = self::resolveName($column);
+			$fromColumn = $this->getFromTable()->getColumn($columnName, $caseInsensitive);
+			if ($fromColumn === null || !$fromColumn->isPrimaryKey()) {
+				$this->tableDiff->addAddedPkColumn($columnName, $column);
 				$pkDifferences++;
 			}
 		}
 
 		// check for removed pk columns in $toTable
 		foreach ($fromTablePk as $column) {
-			if (!$this->getToTable()->hasColumn($column->getName(), $caseInsensitive) ||
-					!$this->getToTable()->getColumn($column->getName(), $caseInsensitive)->isPrimaryKey()) {
-				$this->tableDiff->addRemovedPkColumn($column->getName(), $column);
+			$columnName = self::resolveName($column);
+			$toColumn = $this->getToTable()->getColumn($columnName, $caseInsensitive);
+			if ($toColumn === null || !$toColumn->isPrimaryKey()) {
+				$this->tableDiff->addRemovedPkColumn($columnName, $column);
 				$pkDifferences++;
 			}
 		}
@@ -228,12 +263,14 @@ class PropulsionTableComparator
 					unset($fromTableIndices[$fromTableIndexPos]);
 					unset($toTableIndices[$toTableIndexPos]);
 				} else {
+					$fromTableIndexName = self::resolveName($fromTableIndex);
+					$toTableIndexName = self::resolveName($toTableIndex);
 					$test = $caseInsensitive ?
-						strtolower($fromTableIndex->getName()) == strtolower($toTableIndex->getName()) :
-						$fromTableIndex->getName() == $toTableIndex->getName();
+						strtolower($fromTableIndexName) == strtolower($toTableIndexName) :
+						$fromTableIndexName == $toTableIndexName;
 					if ($test) {
 						// same name, but different columns
-						$this->tableDiff->addModifiedIndex($fromTableIndex->getName(), $fromTableIndex, $toTableIndex);
+						$this->tableDiff->addModifiedIndex($fromTableIndexName, $fromTableIndex, $toTableIndex);
 						unset($fromTableIndices[$fromTableIndexPos]);
 						unset($toTableIndices[$toTableIndexPos]);
 						$indexDifferences++;
@@ -243,12 +280,12 @@ class PropulsionTableComparator
 		}
 
 		foreach ($fromTableIndices as $fromTableIndexPos => $fromTableIndex) {
-			$this->tableDiff->addRemovedIndex($fromTableIndex->getName(), $fromTableIndex);
+			$this->tableDiff->addRemovedIndex(self::resolveName($fromTableIndex), $fromTableIndex);
 			$indexDifferences++;
 		}
 
 		foreach ($toTableIndices as $toTableIndexPos => $toTableIndex) {
-			$this->tableDiff->addAddedIndex($toTableIndex->getName(), $toTableIndex);
+			$this->tableDiff->addAddedIndex(self::resolveName($toTableIndex), $toTableIndex);
 			$indexDifferences++;
 		}
 
@@ -277,12 +314,14 @@ class PropulsionTableComparator
 					unset($fromTableFks[$fromTableFkPos]);
 					unset($toTableFks[$toTableFkPos]);
 				} else {
+					$fromTableFkName = self::resolveName($fromTableFk);
+					$toTableFkName = self::resolveName($toTableFk);
 					$test = $caseInsensitive ?
-						strtolower($fromTableFk->getName()) == strtolower($toTableFk->getName()) :
-						$fromTableFk->getName() == $toTableFk->getName();
+						strtolower($fromTableFkName) == strtolower($toTableFkName) :
+						$fromTableFkName == $toTableFkName;
 					if ($test) {
 						// same name, but different columns
-						$this->tableDiff->addModifiedFk($fromTableFk->getName(), $fromTableFk, $toTableFk);
+						$this->tableDiff->addModifiedFk($fromTableFkName, $fromTableFk, $toTableFk);
 						unset($fromTableFks[$fromTableFkPos]);
 						unset($toTableFks[$toTableFkPos]);
 						$fkDifferences++;
@@ -293,14 +332,14 @@ class PropulsionTableComparator
 
 		foreach ($fromTableFks as $fromTableFkPos => $fromTableFk) {
 			if (!$fromTableFk->isSkipSql() && !in_array($fromTableFk, $toTableFks)) {
-				$this->tableDiff->addRemovedFk($fromTableFk->getName(), $fromTableFk);
+				$this->tableDiff->addRemovedFk(self::resolveName($fromTableFk), $fromTableFk);
 				$fkDifferences++;
 			}
 		}
 
 		foreach ($toTableFks as $toTableFkPos => $toTableFk) {
 			if (!$toTableFk->isSkipSql() && !in_array($toTableFk, $fromTableFks)) {
-				$this->tableDiff->addAddedFk($toTableFk->getName(), $toTableFk);
+				$this->tableDiff->addAddedFk(self::resolveName($toTableFk), $toTableFk);
 				$fkDifferences++;
 			}
 		}
