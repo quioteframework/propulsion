@@ -21,8 +21,36 @@ use Propulsion\Generator\Model\Index;
 use Propulsion\Generator\Model\PropulsionTypes;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Model\ForeignKey;
+use Propulsion\Generator\Exception\EngineException;
 class SqlitePlatform extends DefaultPlatform
 {
+	/**
+	 * Table/Column/Index's own getName()/getTable() getters are typed
+	 * nullable throughout this codebase's model classes (schema-XML parsing
+	 * leaves them unset until later in the load process), but by the time
+	 * DDL generation actually runs on a real, fully-loaded schema they're
+	 * always populated -- these helpers turn that implicit assumption into
+	 * an explicit, real failure instead of silently widening this class's
+	 * own types to tolerate null everywhere DDL string-building actually
+	 * requires a real value. (Mirrors the same convention already used in
+	 * DefaultPlatform/OraclePlatform/MssqlPlatform/PgsqlPlatform/
+	 * MysqlPlatform.)
+	 */
+	private function requireString(?string $value, string $description): string
+	{
+		if ($value === null) {
+			throw new EngineException("$description is required but was null.");
+		}
+		return $value;
+	}
+
+	private function requireTable(?Table $table): Table
+	{
+		if ($table === null) {
+			throw new EngineException('Expected a Table but got null.');
+		}
+		return $table;
+	}
 
 	/**
 	 * Initializes db specific domain mapping.
@@ -91,7 +119,7 @@ class SqlitePlatform extends DefaultPlatform
 
 	public function getAddTableDDL(Table $table)
 	{
-		$tableDescription = $table->hasDescription() ? $this->getCommentLineDDL($table->getDescription()) : '';
+		$tableDescription = $table->hasDescription() ? $this->getCommentLineDDL($this->requireString($table->getDescription(), 'Table description')) : '';
 
 		$lines = array();
 
@@ -118,7 +146,7 @@ class SqlitePlatform extends DefaultPlatform
 ";
 		return sprintf($pattern,
 			$tableDescription,
-			$this->quoteIdentifier($table->getName()),
+			$this->quoteIdentifier($this->requireString($table->getName(), 'Table name')),
 			implode($sep, $lines)
 		);
 	}
@@ -178,8 +206,8 @@ class SqlitePlatform extends DefaultPlatform
 
 		$domain = $col->getDomain();
 
-		$ddl = array($this->quoteIdentifier($col->getName()));
-		$sqlType = $domain->getSqlType();
+		$ddl = array($this->quoteIdentifier($this->requireString($col->getName(), 'Column name')));
+		$sqlType = $this->requireString($domain->getSqlType(), 'Column SQL type');
 		if ($this->hasSize($sqlType) && $col->isDefaultSqlType($this)) {
 			$ddl []= $sqlType . $domain->printSize();
 		} else {
@@ -216,8 +244,8 @@ CREATE %sINDEX %s ON %s (%s)%s;
 		return sprintf(
 			$pattern,
 			$index->isUnique() ? 'UNIQUE ' : '',
-			$this->quoteIdentifier($index->getName()),
-			$this->quoteIdentifier($index->getTable()->getName()),
+			$this->quoteIdentifier($this->requireString($index->getName(), 'Index name')),
+			$this->quoteIdentifier($this->requireString($this->requireTable($index->getTable())->getName(), 'Table name')),
 			$this->getIndexColumnListDDL($index),
 			$index->getWhereClause() !== null ? ' WHERE (' . $index->getWhereClause() . ')' : ''
 		);
