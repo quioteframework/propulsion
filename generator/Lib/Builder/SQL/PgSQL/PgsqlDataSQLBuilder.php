@@ -95,7 +95,7 @@ class PgsqlDataSQLBuilder extends DataSQLBuilder
 	protected function getBlobSql($blob)
 	{
 		// they took magic __toString() out of PHP5.0.0; this sucks
-		if (is_object($blob)) {
+		if ($blob instanceof \Stringable) {
 			$blob = $blob->__toString();
 		}
 		return "'" . pg_escape_bytea($blob) . "'";

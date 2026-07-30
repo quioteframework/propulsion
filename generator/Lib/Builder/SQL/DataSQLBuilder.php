@@ -17,8 +17,23 @@ namespace Propulsion\Generator\Builder\SQL;
 use Propulsion\Generator\Builder\DataModelBuilder;
 use Propulsion\Generator\Builder\Util\DataRow;
 use Propulsion\Generator\Builder\Util\ColumnValue;
+use Propulsion\Generator\Exception\EngineException;
 abstract class DataSQLBuilder extends DataModelBuilder
 {
+
+	/**
+	 * strtotime() returns int|false on a malformed date string -- a real data-dump
+	 * value that fails to parse is a genuine error worth surfacing, not something to
+	 * silently coerce into "now" (the false-to-int-cast behavior date() itself has).
+	 */
+	private function requireTimestamp(string $value): int
+	{
+		$timestamp = strtotime($value);
+		if ($timestamp === false) {
+			throw new EngineException("Unable to parse date/time value: $value");
+		}
+		return $timestamp;
+	}
 
 	/**
 	 * Perform any reset between runs of this builder.
@@ -136,7 +151,7 @@ abstract class DataSQLBuilder extends DataModelBuilder
 	protected function getBlobSql($blob)
 	{
 		// they took magic __toString() out of PHP5.0.0; this sucks
-		if (is_object($blob)) {
+		if ($blob instanceof \Stringable) {
 			return $this->getPlatform()->quote($blob->__toString());
 		} else {
 			return $this->getPlatform()->quote($blob);
@@ -151,7 +166,7 @@ abstract class DataSQLBuilder extends DataModelBuilder
 	protected function getClobSql($clob)
 	{
 		// they took magic __toString() out of PHP5.0.0; this sucks
-		if (is_object($clob)) {
+		if ($clob instanceof \Stringable) {
 			return $this->getPlatform()->quote($clob->__toString());
 		} else {
 			return $this->getPlatform()->quote($clob);
@@ -165,7 +180,7 @@ abstract class DataSQLBuilder extends DataModelBuilder
 	 */
 	protected function getDateSql($value)
 	{
-		return "'" . date('Y-m-d', strtotime($value)) . "'";
+		return "'" . date('Y-m-d', $this->requireTimestamp($value)) . "'";
 	}
 
 	/**
@@ -234,7 +249,7 @@ abstract class DataSQLBuilder extends DataModelBuilder
 	 */
 	protected function getTimeSql(mixed $paramIndex, $value)
 	{
-		return "'" . date('H:i:s', strtotime($value)) . "'";
+		return "'" . date('H:i:s', $this->requireTimestamp($value)) . "'";
 	}
 
 	/**
@@ -244,7 +259,7 @@ abstract class DataSQLBuilder extends DataModelBuilder
 	 */
 	function getTimestampSql($value)
 	{
-		return "'" . date('Y-m-d H:i:s', strtotime($value)) . "'";
+		return "'" . date('Y-m-d H:i:s', $this->requireTimestamp($value)) . "'";
 	}
 
 }

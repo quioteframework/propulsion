@@ -15,6 +15,7 @@ namespace Propulsion\Generator\Builder\SQL\MSSQL;
  * @author     Hans Lellelid <hans@xmpl.org>
  */
 use Propulsion\Generator\Builder\SQL\DataSQLBuilder;
+use Propulsion\Generator\Exception\EngineException;
 class MssqlDataSQLBuilder extends DataSQLBuilder
 {
 
@@ -26,10 +27,13 @@ class MssqlDataSQLBuilder extends DataSQLBuilder
 	protected function getBlobSql($blob)
 	{
 		// they took magic __toString() out of PHP5.0.0; this sucks
-		if (is_object($blob)) {
+		if ($blob instanceof \Stringable) {
 			$blob = $blob->__toString();
 		}
 		$data = unpack("H*hex", $blob);
+		if ($data === false) {
+			throw new EngineException('Unable to hex-encode BLOB value.');
+		}
 		return '0x'.$data['hex']; // no surrounding quotes!
 	}
 
