@@ -17,6 +17,7 @@ namespace Propulsion\Formatter;
  * @version    $Revision$
  */
 
+ use Propulsion\Collection\PropulsionCollection;
  use Propulsion\Exception\PropulsionException;
  use Propulsion\OM\BaseObject;
  use PDOStatement;
@@ -29,9 +30,13 @@ class PropulsionObjectFormatter extends PropulsionFormatter
 	{
 		$this->checkInit($stmt);
 		if($class = $this->collectionName) {
-			$collection = new $class();
-			$collection->setModel($this->class);
-			$collection->setFormatter($this);
+			$collectionObj = new $class();
+			if (!$collectionObj instanceof PropulsionCollection) {
+				throw new PropulsionException($class . ' must be a subclass of ' . PropulsionCollection::class);
+			}
+			$collectionObj->setModel($this->class ?? '');
+			$collectionObj->setFormatter($this);
+			$collection = $collectionObj;
 		} else {
 			$collection = array();
 		}
@@ -40,7 +45,10 @@ class PropulsionObjectFormatter extends PropulsionFormatter
 				throw new PropulsionException('Cannot use limit() in conjunction with with() on a one-to-many relationship. Please remove the with() call, or the limit() call.');
 			}
 			$pks = array();
-			while ($row = $stmt->fetch(PDO::FETCH_NUM)) {
+			while (($row = $stmt->fetch(PDO::FETCH_NUM)) !== false) {
+				if (!is_array($row) || !array_is_list($row)) {
+					continue;
+				}
 				$object = $this->getAllObjectsFromRow($row);
 				$pk = $object->getPrimaryKey();
 				if (!in_array($pk, $pks)) {
@@ -50,7 +58,10 @@ class PropulsionObjectFormatter extends PropulsionFormatter
 			}
 		} else {
 			// only many-to-one relationships
-			while ($row = $stmt->fetch(PDO::FETCH_NUM)) {
+			while (($row = $stmt->fetch(PDO::FETCH_NUM)) !== false) {
+				if (!is_array($row) || !array_is_list($row)) {
+					continue;
+				}
 				$collection[] =  $this->getAllObjectsFromRow($row);
 			}
 		}
@@ -63,7 +74,10 @@ class PropulsionObjectFormatter extends PropulsionFormatter
 	{
 		$this->checkInit($stmt);
 		$result = null;
-		while ($row = $stmt->fetch(PDO::FETCH_NUM)) {
+		while (($row = $stmt->fetch(PDO::FETCH_NUM)) !== false) {
+			if (!is_array($row) || !array_is_list($row)) {
+				continue;
+			}
 			$result = $this->getAllObjectsFromRow($row);
 		}
 		$stmt->closeCursor();
@@ -74,6 +88,31 @@ class PropulsionObjectFormatter extends PropulsionFormatter
 	public function isObjectFormatter(): bool
 	{
 		return true;
+	}
+
+	/**
+	 * Calls the generated Peer::populateObject($row, $startCol) static method
+	 * dynamically. Its return type, `array{0: ?BaseObject, 1: int}`, can't be
+	 * confirmed by PHPStan since $peerClass isn't a literal class-string, so
+	 * this validates the shape at the one place it's produced instead of at
+	 * every call site.
+	 *
+	 * @param     array<int, mixed>  $row
+	 * @return    array{0: ?BaseObject, 1: int}
+	 */
+	private function callPopulateObject(string $peerClass, array $row, int $startCol = 0): array
+	{
+		$result = $peerClass::populateObject($row, $startCol);
+		if (
+			!is_array($result)
+			|| !array_key_exists(0, $result)
+			|| !array_key_exists(1, $result)
+			|| ($result[0] !== null && !$result[0] instanceof BaseObject)
+			|| !is_int($result[1])
+		) {
+			throw new PropulsionException($peerClass . '::populateObject() must return array{0: ?BaseObject, 1: int}');
+		}
+		return array($result[0], $result[1]);
 	}
 
 	/**
@@ -88,21 +127,34 @@ class PropulsionObjectFormatter extends PropulsionFormatter
 	 */
 	public function getAllObjectsFromRow(array $row): BaseObject
 	{
+		$peer = $this->peer;
+		if ($peer === null) {
+			throw new PropulsionException('You must initialize a formatter object before calling format() or formatOne()');
+		}
+
 		// main object
-		list($obj, $col) = call_user_func(array($this->peer, 'populateObject'), $row);
+		list($obj, $col) = $this->callPopulateObject($peer, $row);
+		if ($obj === null) {
+			throw new PropulsionException('The main object could not be hydrated from the current row');
+		}
+
+		/** @var array<string, BaseObject> $hydrationChain */
+		$hydrationChain = array();
 
 		// related objects added using with()
 		foreach ($this->getWith() as $modelWith) {
-			list($endObject, $col) = call_user_func(array($modelWith->getModelPeerName(), 'populateObject'), $row, $col);
+			$peerClass = $modelWith->getModelPeerName();
+			list($endObject, $col) = $this->callPopulateObject($peerClass, $row, $col);
 
-			if (null !== $modelWith->getLeftPhpName() && !isset($hydrationChain[$modelWith->getLeftPhpName()])) {
+			$leftPhpName = $modelWith->getLeftPhpName();
+			if (null !== $leftPhpName && !isset($hydrationChain[$leftPhpName])) {
 				continue;
 			}
 
 			if ($modelWith->isPrimary()) {
 				$startObject = $obj;
-			} elseif (isset($hydrationChain)) {
-				$startObject = $hydrationChain[$modelWith->getLeftPhpName()];
+			} elseif ($leftPhpName !== null) {
+				$startObject = $hydrationChain[$leftPhpName];
 			} else {
 				continue;
 			}
@@ -110,17 +162,13 @@ class PropulsionObjectFormatter extends PropulsionFormatter
 			// in which case it should not be related to the previous object
 			if (null === $endObject || $endObject->isPrimaryKeyNull()) {
 				if ($modelWith->isAdd()) {
-					call_user_func(array($startObject, $modelWith->getInitMethod()), false);
+					$startObject->{$modelWith->getInitMethod()}(false);
 				}
 				continue;
 			}
-			if (isset($hydrationChain)) {
-				$hydrationChain[$modelWith->getRightPhpName()] = $endObject;
-			} else {
-				$hydrationChain = array($modelWith->getRightPhpName() => $endObject);
-			}
+			$hydrationChain[$modelWith->getRightPhpName() ?? ''] = $endObject;
 
-			call_user_func(array($startObject, $modelWith->getRelationMethod()), $endObject);
+			$startObject->{$modelWith->getRelationMethod()}($endObject);
 		}
 
 		// columns added using withColumn()
