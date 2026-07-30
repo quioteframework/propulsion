@@ -908,7 +908,7 @@ trait PropulsionPDOTrait
 	/**
 	 * Returns a human-readable representation of the given byte count.
 	 *
-	 * @param     integer  $bytes  Byte count to convert.
+	 * @param     float|int  $bytes  Byte count to convert.
 	 * @param     integer  $precision  How many decimals to include.
 	 *
 	 * @return    string

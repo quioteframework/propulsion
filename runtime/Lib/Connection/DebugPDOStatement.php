@@ -44,7 +44,7 @@ class DebugPDOStatement extends \PDOStatement
 	);
 
 	/**
-	 * @var       array<string,mixed>  The values that have been bound
+	 * @var       array<int|string,mixed>  The values that have been bound
 	 */
 	protected $boundValues = array();
 
