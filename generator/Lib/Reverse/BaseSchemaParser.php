@@ -97,6 +97,179 @@ abstract class BaseSchemaParser implements SchemaParser
 	}
 
 	/**
+	 * Gets the database connection, failing loudly if none has been set.
+	 *
+	 * Reverse-engineering methods are only ever invoked (via parse()) once a
+	 * connection has been attached via the constructor or setConnection(); a
+	 * null connection at that point means the parser was used incorrectly
+	 * rather than a normal "not found" condition, hence the exception here.
+	 *
+	 * @return     \PDO
+	 */
+	protected function requireConnection(): \PDO
+	{
+		if ($this->dbh === null) {
+			throw new EngineException(sprintf(
+				'%s has no database connection; call setConnection() before parsing.',
+				static::class
+			));
+		}
+		return $this->dbh;
+	}
+
+	/**
+	 * Runs a query against the current connection, failing loudly instead of
+	 * returning the PDO::query() false sentinel on error (this project runs
+	 * with PDO::ERRMODE_EXCEPTION, so a false return here would itself
+	 * indicate a driver inconsistency worth surfacing clearly).
+	 */
+	protected function queryOrFail(string $sql): \PDOStatement
+	{
+		$stmt = $this->requireConnection()->query($sql);
+		if ($stmt === false) {
+			throw new EngineException(sprintf('Query failed: %s', $sql));
+		}
+		return $stmt;
+	}
+
+	/**
+	 * Prepares a statement against the current connection, failing loudly
+	 * instead of returning the PDO::prepare() false sentinel on error.
+	 */
+	protected function prepareOrFail(string $sql): \PDOStatement
+	{
+		$stmt = $this->requireConnection()->prepare($sql);
+		if ($stmt === false) {
+			throw new EngineException(sprintf('Failed to prepare statement: %s', $sql));
+		}
+		return $stmt;
+	}
+
+	/**
+	 * Optional verbose-logging hook for parse(): historically a Phing\Task
+	 * (behind an `if ($task) $task->log(...)` guard), passed through the
+	 * $task parameter, which is intentionally typed `mixed` since parse()'s
+	 * only real caller (SchemaReverseManager) always passes null. Narrows
+	 * with is_object()/method_exists() rather than an unconditional call so
+	 * static analysis at level 9 can verify the call is safe.
+	 */
+	protected function logTask(mixed $task, string $msg, int $level = 4): void
+	{
+		if (is_object($task) && method_exists($task, 'log')) {
+			$task->log($msg, $level);
+		}
+	}
+
+	/**
+	 * Safely stringifies a value read from a PDO result row (declared
+	 * `array<string, mixed>` since column values could in principle be any
+	 * scalar type, or null). Non-scalar values (should not occur for a
+	 * database row) fall back to the empty string rather than raising a
+	 * TypeError from an unguarded (string) cast.
+	 */
+	protected static function rowValueToString(mixed $value): string
+	{
+		return is_scalar($value) ? (string) $value : '';
+	}
+
+	/**
+	 * Whether a row value is "present" in the sense used by fallback logic
+	 * like `strlen(trim($row['x'])) > 0 ? $row['x'] : $fallback` -- i.e. not
+	 * null and not an empty string once stringified.
+	 */
+	protected static function rowValueIsPresent(mixed $value): bool
+	{
+		return $value !== null && self::rowValueToString($value) !== '';
+	}
+
+	/**
+	 * Interprets a PDO row value as a Postgres-style boolean flag. Different
+	 * PDO drivers/configurations represent Postgres `boolean` columns
+	 * differently -- native PHP bool, or the wire-protocol 't'/'f' strings --
+	 * so this checks both rather than assuming one representation (a plain
+	 * `$value == 't'` happens to work for either representation because PHP
+	 * coerces a non-empty string to true when compared against a bool, but
+	 * that same coercion breaks once the value has already been stringified
+	 * -- rowValueToString(true) is "1", and "1" == 't' is false).
+	 */
+	protected static function rowValueIsPgTrue(mixed $value): bool
+	{
+		if (is_bool($value)) {
+			return $value;
+		}
+		if (is_int($value)) {
+			return $value !== 0;
+		}
+		if (is_string($value)) {
+			return $value === 't' || $value === 'true' || $value === '1';
+		}
+		return (bool) $value;
+	}
+
+	/**
+	 * Narrows a value read from a PDO result row to the int|string|null shape
+	 * Domain::replaceSize()/replaceScale() expect, dropping anything else
+	 * (should not occur for a database row) to null.
+	 *
+	 * @return     int|string|null
+	 */
+	protected static function rowValueToIntStringOrNull(mixed $value): int|string|null
+	{
+		if ($value === null || is_int($value) || is_string($value)) {
+			return $value;
+		}
+		return is_scalar($value) ? (string) $value : null;
+	}
+
+	/**
+	 * Fetches one row as a string-keyed array (PDO::FETCH_ASSOC), or null once
+	 * the result set is exhausted (or, defensively, if the driver ever
+	 * returned something else). PDOStatement::fetch()'s own return type is
+	 * `mixed` (its actual shape depends on the fetch-mode argument, which
+	 * PHPStan cannot resolve statically), so this validates the shape for
+	 * real -- keeping only genuinely string-keyed entries -- rather than
+	 * asserting the type away.
+	 *
+	 * @return     array<string, mixed>|null
+	 */
+	protected function fetchAssoc(\PDOStatement $stmt): ?array
+	{
+		$raw = $stmt->fetch(\PDO::FETCH_ASSOC);
+		if (!is_array($raw)) {
+			return null;
+		}
+		$row = [];
+		foreach ($raw as $key => $value) {
+			if (is_string($key)) {
+				$row[$key] = $value;
+			}
+		}
+		return $row;
+	}
+
+	/**
+	 * Fetches one row as a list (PDO::FETCH_NUM), or null once the result set
+	 * is exhausted. See fetchAssoc() for why this validates the shape rather
+	 * than asserting PDOStatement::fetch()'s `mixed` return type away.
+	 *
+	 * @return     array<int, mixed>|null
+	 */
+	protected function fetchNum(\PDOStatement $stmt): ?array
+	{
+		$raw = $stmt->fetch(\PDO::FETCH_NUM);
+		if (!is_array($raw)) {
+			return null;
+		}
+		$row = [];
+		foreach ($raw as $key => $value) {
+			if (is_int($key)) {
+				$row[$key] = $value;
+			}
+		}
+		return $row;
+	}
+
+	/**
 	 * Setter for the migrationTable property
 	 *
 	 * @param string $migrationTable
@@ -198,7 +371,7 @@ abstract class BaseSchemaParser implements SchemaParser
 	 * Give a best guess at the native type.
 	 *
 	 * @param      string $propelType
-	 * @return     string The native SQL type that best matches the specified Propulsion type.
+	 * @return     string|null The native SQL type that best matches the specified Propulsion type.
 	 */
 	protected function getMappedNativeType($propelType)
 	{
@@ -230,7 +403,11 @@ abstract class BaseSchemaParser implements SchemaParser
 	 */
 	protected function getNewVendorInfoObject(array $params): VendorInfo
 	{
-		$type = $this->getPlatform()->getDatabaseType();
+		$platform = $this->getPlatform();
+		if ($platform === null) {
+			throw new EngineException('Cannot build a VendorInfo object: no platform is configured for this schema parser.');
+		}
+		$type = $platform->getDatabaseType();
 		$vi = new VendorInfo($type);
 		$vi->setParameters($params);
 		return $vi;

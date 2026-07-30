@@ -97,7 +97,17 @@ class DataSqlManager extends AbstractSchemaManager
                         $table->getName()
                     ));
                 }
-                $columnValues[] = new ColumnValue($col, iconv('utf-8', $this->dbEncoding, $attr->nodeValue));
+                $rawValue = $attr->nodeValue ?? '';
+                $encoded = iconv('utf-8', $this->dbEncoding, $rawValue);
+                if ($encoded === false) {
+                    throw new EngineException(sprintf(
+                        'Failed to convert value of column "%s" on table "%s" from utf-8 to %s.',
+                        $attr->nodeName,
+                        $table->getName(),
+                        $this->dbEncoding
+                    ));
+                }
+                $columnValues[] = new ColumnValue($col, $encoded);
             }
 
             $data = new DataRow($table, $columnValues);
@@ -117,6 +127,9 @@ class DataSqlManager extends AbstractSchemaManager
                 $sql .= $currentBuilder->getTableStartSql();
             }
 
+            if ($currentBuilder === null) {
+                throw new EngineException('Internal error: no DataSQLBuilder is active for the current row.');
+            }
             $sql .= $currentBuilder->buildRowSql($data);
             $rowCount++;
         }

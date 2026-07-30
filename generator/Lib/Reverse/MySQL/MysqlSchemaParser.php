@@ -97,29 +97,28 @@ class MysqlSchemaParser extends BaseSchemaParser
 
 	public function parse(Database $database, mixed $task = null)
 	{
-		$this->addVendorInfo = $this->getGeneratorConfig()->getBuildProperty('addVendorInfo');
+		$generatorConfig = $this->getGeneratorConfig();
+		$this->addVendorInfo = $generatorConfig !== null && (bool) $generatorConfig->getBuildProperty('addVendorInfo');
 
-		$sql = "SHOW FULL TABLES";
-		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
+		$stmt = $this->queryOrFail("SHOW FULL TABLES");
 
 		// First load the tables (important that this happen before filling out details of tables)
 		$tables = array();
 
-		if ($task) {
-			$task->log("Reverse Engineering Tables", self::MSG_VERBOSE);
-		}
+		$this->logTask($task, "Reverse Engineering Tables", self::MSG_VERBOSE);
 
-		while ($row = $stmt->fetch(PDO::FETCH_NUM)) {
-			$name = $row[0];
-			$type = $row[1];
+		while (($row = $this->fetchNum($stmt)) !== null) {
+			$name = $row[0] ?? null;
+			$type = $row[1] ?? null;
+			if (!is_string($name) || !is_string($type)) {
+				continue;
+			}
 
 			if ($name == $this->getMigrationTable() || $type != "BASE TABLE") {
 				continue;
 			}
 
-			if ($task) {
-				$task->log("  Adding table '" . $name . "'", self::MSG_VERBOSE);
-			}
+			$this->logTask($task, "  Adding table '" . $name . "'", self::MSG_VERBOSE);
 
 			$table = new Table($name);
 			$table->setIdMethod($database->getDefaultIdMethod());
@@ -128,26 +127,18 @@ class MysqlSchemaParser extends BaseSchemaParser
 		}
 
 		// Now populate only columns.
-		if ($task) {
-			$task->log("Reverse Engineering Columns", self::MSG_VERBOSE);
-		}
+		$this->logTask($task, "Reverse Engineering Columns", self::MSG_VERBOSE);
 
 		foreach ($tables as $table) {
-			if ($task) {
-				$task->log("  Adding columns for table '" . $table->getName() . "'", self::MSG_VERBOSE);
-			}
+			$this->logTask($task, "  Adding columns for table '" . $table->getName() . "'", self::MSG_VERBOSE);
 			$this->addColumns($table);
 		}
 
 		// Now add indices and constraints.
-		if ($task) {
-			$task->log("Reverse Engineering Indices And Constraints", self::MSG_VERBOSE);
-		}
+		$this->logTask($task, "Reverse Engineering Indices And Constraints", self::MSG_VERBOSE);
 
 		foreach ($tables as $table) {
-			if ($task) {
-				$task->log("  Adding indices and constraints for table '" . $table->getName() . "'", self::MSG_VERBOSE);
-			}
+			$this->logTask($task, "  Adding indices and constraints for table '" . $table->getName() . "'", self::MSG_VERBOSE);
 
 			$this->addForeignKeys($table);
 			$this->addIndexes($table);
@@ -168,10 +159,9 @@ class MysqlSchemaParser extends BaseSchemaParser
 	 */
 	protected function addColumns(Table $table): void
 	{
-		$sql = "SHOW COLUMNS FROM `" . $table->getName() . "`";
-		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
+		$stmt = $this->queryOrFail("SHOW COLUMNS FROM `" . $table->getName() . "`");
 
-		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+		while (($row = $this->fetchAssoc($stmt)) !== null) {
 			$column = $this->getColumnFromRow($row, $table);
 			$table->addColumn($column);
 		}
@@ -188,9 +178,10 @@ class MysqlSchemaParser extends BaseSchemaParser
 	 */
 	public function getColumnFromRow(array $row, Table $table): Column
 	{
-		$name = $row['Field'];
-		$is_nullable = ($row['Null'] == 'YES');
-		$autoincrement = (strpos($row['Extra'], 'auto_increment') !== false);
+		$name = self::rowValueToString($row['Field'] ?? '');
+		$rowType = self::rowValueToString($row['Type'] ?? '');
+		$is_nullable = (($row['Null'] ?? null) == 'YES');
+		$autoincrement = (strpos(self::rowValueToString($row['Extra'] ?? ''), 'auto_increment') !== false);
 		$size = null;
 		$precision = null;
 		$scale = null;
@@ -204,7 +195,7 @@ class MysqlSchemaParser extends BaseSchemaParser
 			?\s*         # whitespace
 			(\w*)        # extra description (UNSIGNED, CHARACTER SET, ...) [3]
 		$/x';
-		if (preg_match($regexp, $row['Type'], $matches)) {
+		if (preg_match($regexp, $rowType, $matches)) {
 			$nativeType = $matches[1];
 			if ($matches[2]) {
 				if (($cpos = strpos($matches[2], ',')) !== false) {
@@ -216,7 +207,7 @@ class MysqlSchemaParser extends BaseSchemaParser
 				}
 			}
 			if ($matches[3]) {
-				$sqlType = $row['Type'];
+				$sqlType = $rowType;
 			}
 			foreach (self::$defaultTypeSizes as $type => $defaultSize) {
 				if ($nativeType == $type && $size == $defaultSize) {
@@ -224,22 +215,23 @@ class MysqlSchemaParser extends BaseSchemaParser
 					continue;
 				}
 			}
-		} elseif (preg_match('/^(\w+)\(/', $row['Type'], $matches)) {
+		} elseif (preg_match('/^(\w+)\(/', $rowType, $matches)) {
 			$nativeType = $matches[1];
 			if ($nativeType == 'enum') {
-				$sqlType = $row['Type'];
+				$sqlType = $rowType;
 			}
 		} else {
-			$nativeType = $row['Type'];
+			$nativeType = $rowType;
 		}
 
 		//BLOBs can't have any default values in MySQL
-		$default = preg_match('~blob|text~', $nativeType) ? null : $row['Default'];
+		$rawDefault = preg_match('~blob|text~', $nativeType) ? null : ($row['Default'] ?? null);
+		$default = $rawDefault !== null ? self::rowValueToString($rawDefault) : null;
 
 		$propelType = $this->getMappedPropulsionType($nativeType);
 		if (!$propelType) {
 			$propelType = Column::DEFAULT_TYPE;
-			$sqlType = $row['Type'];
+			$sqlType = $rowType;
 			$this->warn("Column [" . $table->getName() . "." . $name. "] has a column type (".$nativeType.") that Propulsion does not support.");
 		}
 
@@ -285,16 +277,19 @@ class MysqlSchemaParser extends BaseSchemaParser
 	protected function addForeignKeys(Table $table): void
 	{
 		$database = $table->getDatabase();
+		if ($database === null) {
+			throw new EngineException("Table '" . $table->getName() . "' is not attached to a database; cannot resolve its foreign keys.");
+		}
 
-		$sql = "SHOW CREATE TABLE `" . $table->getName(). "`";
-		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
+		$stmt = $this->queryOrFail("SHOW CREATE TABLE `" . $table->getName(). "`");
 		$row = $stmt->fetch(PDO::FETCH_NUM);
+		$createTableSql = is_array($row) && isset($row[1]) && is_string($row[1]) ? $row[1] : '';
 
 		$foreignKeys = array(); // local store to avoid duplicates
 
 		// Get the information on all the foreign keys
 		$regEx = '/CONSTRAINT `([^`]+)` FOREIGN KEY \((.+)\) REFERENCES `([^`]*)` \((.+)\)(.*)/';
-		if (preg_match_all($regEx,$row[1],$matches)) {
+		if (preg_match_all($regEx, $createTableSql, $matches)) {
 			$tmpArray = array_keys($matches[0]);
 			foreach ($tmpArray as $curKey) {
 				$name = $matches[1][$curKey];
@@ -347,8 +342,10 @@ class MysqlSchemaParser extends BaseSchemaParser
 
 				$localColumns = array();
 				$foreignColumns = array();
-				;
 				$foreignTable = $database->getTable($ftbl, true);
+				if ($foreignTable === null) {
+					throw new EngineException("Table '" . $table->getName() . "' has a foreign key referencing unknown table '$ftbl'.");
+				}
 
 				foreach($fcols as $fcol) {
 					$foreignColumns[] = $foreignTable->getColumn($fcol);
@@ -382,23 +379,22 @@ class MysqlSchemaParser extends BaseSchemaParser
 	 */
 	protected function addIndexes(Table $table): void
 	{
-		$sql = "SHOW INDEX FROM `" . $table->getName() . "`";
-		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
+		$stmt = $this->queryOrFail("SHOW INDEX FROM `" . $table->getName() . "`");
 
 		// Loop through the returned results, grouping the same key_name together
 		// adding each column for that key.
 
 		$indexes = array();
-		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-			$colName = $row["Column_name"];
-			$name = $row["Key_name"];
+		while (($row = $this->fetchAssoc($stmt)) !== null) {
+			$colName = self::rowValueToString($row["Column_name"] ?? '');
+			$name = self::rowValueToString($row["Key_name"] ?? '');
 
-			if ($name == "PRIMARY") {
+			if ($name === "PRIMARY") {
 				continue;
 			}
 
 			if (!isset($indexes[$name])) {
-				$isUnique = ($row["Non_unique"] == 0);
+				$isUnique = (($row["Non_unique"] ?? null) == 0);
 				if ($isUnique) {
 					$indexes[$name] = new Unique($name);
 				} else {
@@ -411,7 +407,11 @@ class MysqlSchemaParser extends BaseSchemaParser
 				$table->addIndex($indexes[$name]);
 			}
 
-			$indexes[$name]->addColumn($table->getColumn($colName));
+			$column = $table->getColumn($colName);
+			if ($column === null) {
+				throw new EngineException("Index '$name' on table '" . $table->getName() . "' references unknown column '$colName'.");
+			}
+			$indexes[$name]->addColumn($column);
 		}
 	}
 
@@ -420,18 +420,21 @@ class MysqlSchemaParser extends BaseSchemaParser
 	 */
 	protected function addPrimaryKey(Table $table): void
 	{
-		$sql = "SHOW KEYS FROM `" . $table->getName() . "`";
-		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
+		$stmt = $this->queryOrFail("SHOW KEYS FROM `" . $table->getName() . "`");
 
 		// Loop through the returned results, grouping the same key_name together
 		// adding each column for that key.
-		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+		while (($row = $this->fetchAssoc($stmt)) !== null) {
 			// Skip any non-primary keys.
-			if ($row['Key_name'] !== 'PRIMARY') {
+			if (($row['Key_name'] ?? null) !== 'PRIMARY') {
 				continue;
 			}
-			$name = $row["Column_name"];
-			$table->getColumn($name)->setPrimaryKey(true);
+			$name = self::rowValueToString($row["Column_name"] ?? '');
+			$column = $table->getColumn($name);
+			if ($column === null) {
+				throw new EngineException("Primary key on table '" . $table->getName() . "' references unknown column '$name'.");
+			}
+			$column->setPrimaryKey(true);
 		}
 	}
 
@@ -442,9 +445,11 @@ class MysqlSchemaParser extends BaseSchemaParser
 	 */
 	protected function addTableVendorInfo(Table $table): void
 	{
-		$sql = "SHOW TABLE STATUS LIKE '" . $table->getName() . "'";
-		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
-		$row = $stmt->fetch(PDO::FETCH_ASSOC);
+		$stmt = $this->queryOrFail("SHOW TABLE STATUS LIKE '" . $table->getName() . "'");
+		$row = $this->fetchAssoc($stmt);
+		if ($row === null) {
+			throw new EngineException("No table status information returned for table '" . $table->getName() . "'.");
+		}
 		$vi = $this->getNewVendorInfoObject($row);
 		$table->addVendorInfo($vi);
 	}

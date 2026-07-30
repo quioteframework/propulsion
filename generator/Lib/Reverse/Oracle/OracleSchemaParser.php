@@ -26,6 +26,7 @@ use Propulsion\Generator\Model\ColumnDefaultValue;
 use Propulsion\Generator\Model\ForeignKey;
 use Propulsion\Generator\Model\Index;
 use Propulsion\Generator\Model\IdMethodParameter;
+use Propulsion\Generator\Exception\EngineException;
 use \PDO;
 class OracleSchemaParser extends BaseSchemaParser
 {
@@ -86,26 +87,26 @@ class OracleSchemaParser extends BaseSchemaParser
 	public function parse(Database $database, mixed $task = null)
 	{
 		$tables = array();
-		$sql = "SELECT OBJECT_NAME FROM USER_OBJECTS WHERE OBJECT_TYPE = 'TABLE'";
-		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
+		$stmt = $this->queryOrFail("SELECT OBJECT_NAME FROM USER_OBJECTS WHERE OBJECT_TYPE = 'TABLE'");
 
-		$seqPattern = $this->getGeneratorConfig()->getBuildProperty(
-			'oracleAutoincrementSequencePattern'
-		);
+		$generatorConfig = $this->getGeneratorConfig();
+		$seqPattern = $generatorConfig !== null ? $generatorConfig->getBuildProperty('oracleAutoincrementSequencePattern') : null;
+		$seqPattern = is_string($seqPattern) ? $seqPattern : null;
 
-		if ($task) $task->log("Reverse Engineering Table Structures", self::MSG_VERBOSE);
+		$this->logTask($task, "Reverse Engineering Table Structures", self::MSG_VERBOSE);
 		// First load the tables (important that this happen before filling out details of tables)
-		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-			if (strpos($row['OBJECT_NAME'], '$') !== false) {
+		while (($row = $this->fetchAssoc($stmt)) !== null) {
+			$objectName = self::rowValueToString($row['OBJECT_NAME'] ?? '');
+			if (strpos($objectName, '$') !== false) {
 				// this is an Oracle internal table or materialized view - prune
 				continue;
 			}
-			if (strtoupper($row['OBJECT_NAME']) == strtoupper($this->getMigrationTable())) {
+			if (strtoupper($objectName) == strtoupper($this->getMigrationTable())) {
 				continue;
 			}
-			$table = new Table($row['OBJECT_NAME']);
+			$table = new Table($objectName);
 			$table->setIdMethod($database->getDefaultIdMethod());
-			if ($task) $task->log("Adding table '" . $table->getName() . "'", self::MSG_VERBOSE);
+			$this->logTask($task, "Adding table '" . $table->getName() . "'", self::MSG_VERBOSE);
 			$database->addTable($table);
 			// Add columns, primary keys and indexes.
 			$this->addColumns($table);
@@ -114,14 +115,13 @@ class OracleSchemaParser extends BaseSchemaParser
 
 			$pkColumns = $table->getPrimaryKey();
 			if (count($pkColumns) == 1 && $seqPattern) {
-				$seqName = str_replace('${table}', $table->getName(), $seqPattern);
+				$seqName = str_replace('${table}', (string) $table->getName(), $seqPattern);
 				$seqName = strtoupper($seqName);
 
-				$sql2 = "SELECT * FROM USER_SEQUENCES WHERE SEQUENCE_NAME = '" . $seqName . "'";
-				$stmt2 = $this->requireStatement($this->dbh->query($sql2), $sql2);
-				$hasSeq = $stmt2->fetch(PDO::FETCH_ASSOC);
+				$stmt2 = $this->queryOrFail("SELECT * FROM USER_SEQUENCES WHERE SEQUENCE_NAME = '" . $seqName . "'");
+				$hasSeq = $this->fetchAssoc($stmt2);
 
-				if ($hasSeq) {
+				if ($hasSeq !== null) {
 					$pkColumns[0]->setAutoIncrement(true);
 					$idMethodParameter = new IdMethodParameter();
 					$idMethodParameter->setValue($seqName);
@@ -132,10 +132,10 @@ class OracleSchemaParser extends BaseSchemaParser
 			$tables[] = $table;
 		}
 
-		if ($task) $task->log("Reverse Engineering Foreign Keys", self::MSG_VERBOSE);
+		$this->logTask($task, "Reverse Engineering Foreign Keys", self::MSG_VERBOSE);
 
 		foreach ($tables as $table) {
-			if ($task) $task->log("Adding foreign keys for table '" . $table->getName() . "'", self::MSG_VERBOSE);
+			$this->logTask($task, "Adding foreign keys for table '" . $table->getName() . "'", self::MSG_VERBOSE);
 			$this->addForeignKeys($table);
 		}
 
@@ -149,30 +149,35 @@ class OracleSchemaParser extends BaseSchemaParser
 	 */
 	protected function addColumns(Table $table): void
 	{
-		$sql = "SELECT COLUMN_NAME, DATA_TYPE, NULLABLE, DATA_LENGTH, DATA_PRECISION, DATA_SCALE, DATA_DEFAULT FROM USER_TAB_COLS WHERE TABLE_NAME = '" . $table->getName() . "'";
-		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
-		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-			if (strpos($row['COLUMN_NAME'], '$') !== false) {
+		$stmt = $this->queryOrFail("SELECT COLUMN_NAME, DATA_TYPE, NULLABLE, DATA_LENGTH, DATA_PRECISION, DATA_SCALE, DATA_DEFAULT FROM USER_TAB_COLS WHERE TABLE_NAME = '" . $table->getName() . "'");
+		while (($row = $this->fetchAssoc($stmt)) !== null) {
+			$columnName = self::rowValueToString($row['COLUMN_NAME'] ?? '');
+			if (strpos($columnName, '$') !== false) {
 				// this is an Oracle internal column - prune
 				continue;
 			}
-			$size = $row["DATA_PRECISION"] ? $row["DATA_PRECISION"] : $row["DATA_LENGTH"];
-			$scale = $row["DATA_SCALE"];
-			$default = $row['DATA_DEFAULT'];
-			$type = $row["DATA_TYPE"];
-			$isNullable = ($row['NULLABLE'] == 'Y');
-			if ($type == "NUMBER" && $row["DATA_SCALE"] > 0) {
+			$dataPrecision = self::rowValueToIntStringOrNull($row["DATA_PRECISION"] ?? null);
+			$dataScale = self::rowValueToIntStringOrNull($row["DATA_SCALE"] ?? null);
+			$size = $dataPrecision ? $dataPrecision : self::rowValueToIntStringOrNull($row["DATA_LENGTH"] ?? null);
+			$scale = $dataScale;
+			$default = $row['DATA_DEFAULT'] ?? null;
+			if ($default !== null) {
+				$default = self::rowValueToString($default);
+			}
+			$type = self::rowValueToString($row["DATA_TYPE"] ?? '');
+			$isNullable = (($row['NULLABLE'] ?? null) == 'Y');
+			if ($type == "NUMBER" && is_numeric($dataScale) && (int) $dataScale > 0) {
 				$type = "DECIMAL";
 			}
-			if ($type == "NUMBER" && $size > 9) {
+			if ($type == "NUMBER" && is_numeric($size) && (int) $size > 9) {
 				$type = "BIGINT";
 			}
-			if ($type == "FLOAT"&& $row["DATA_PRECISION"] == 126) {
+			if ($type == "FLOAT" && is_numeric($dataPrecision) && (int) $dataPrecision == 126) {
 				$type = "DOUBLE";
 			}
-			$parenPos = strpos($type, 'TIMESTAMP(') !== false ? strpos($type, '(') : false;
-			if ($parenPos !== false) {
-				$type = substr($type, 0, $parenPos);
+			if (strpos($type, 'TIMESTAMP(') !== false) {
+				$parenPos = strpos($type, '(');
+				$type = $parenPos !== false ? substr($type, 0, $parenPos) : $type;
 				$default = "0000-00-00 00:00:00";
 				$size = null;
 				$scale = null;
@@ -186,10 +191,10 @@ class OracleSchemaParser extends BaseSchemaParser
 			$propelType = $this->getMappedPropulsionType($type);
 			if (!$propelType) {
 				$propelType = Column::DEFAULT_TYPE;
-				$this->warn("Column [" . $table->getName() . "." . $row['COLUMN_NAME']. "] has a column type (".$row["DATA_TYPE"].") that Propulsion does not support.");
+				$this->warn("Column [" . $table->getName() . "." . $columnName. "] has a column type (".$type.") that Propulsion does not support.");
 			}
 
-			$column = new Column($row['COLUMN_NAME']);
+			$column = new Column($columnName);
 			$column->setPhpName(); // Prevent problems with strange col names
 			$column->setTable($table);
 			$column->setDomainForType($propelType);
@@ -212,13 +217,14 @@ class OracleSchemaParser extends BaseSchemaParser
 	 */
 	protected function addIndexes(Table $table): void
 	{
-		$sql = "SELECT COLUMN_NAME, INDEX_NAME FROM USER_IND_COLUMNS WHERE TABLE_NAME = '" . $table->getName() . "' ORDER BY COLUMN_NAME";
-		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
-		$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+		$stmt = $this->queryOrFail("SELECT COLUMN_NAME, INDEX_NAME FROM USER_IND_COLUMNS WHERE TABLE_NAME = '" . $table->getName() . "' ORDER BY COLUMN_NAME");
 
+		/** @var array<string, list<string>> $indices */
 		$indices = array();
-		foreach ($rows as $row) {
-			$indices[$row['INDEX_NAME']][]= $row['COLUMN_NAME'];
+		while (($row = $this->fetchAssoc($stmt)) !== null) {
+			$indexName = self::rowValueToString($row['INDEX_NAME'] ?? '');
+			$columnName = self::rowValueToString($row['COLUMN_NAME'] ?? '');
+			$indices[$indexName][] = $columnName;
 		}
 
 		foreach ($indices as $indexName => $columnNames) {
@@ -226,8 +232,9 @@ class OracleSchemaParser extends BaseSchemaParser
 			foreach($columnNames AS $columnName) {
 				// Oracle deals with complex indices using an internal reference, so...
 				// let's ignore this kind of index
-				if ($table->hasColumn($columnName)) {
-					$index->addColumn($table->getColumn($columnName));
+				$column = $table->getColumn($columnName);
+				if ($column !== null) {
+					$index->addColumn($column);
 				}
 			}
 			// since some of the columns are pruned above, we must only add an index if it has columns
@@ -247,28 +254,36 @@ class OracleSchemaParser extends BaseSchemaParser
 		// local store to avoid duplicates
 		$foreignKeys = array();
 
-		$sql = "SELECT CONSTRAINT_NAME, DELETE_RULE, R_CONSTRAINT_NAME FROM USER_CONSTRAINTS WHERE CONSTRAINT_TYPE = 'R' AND TABLE_NAME = '" . $table->getName(). "'";
-		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
-		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+		$stmt = $this->queryOrFail("SELECT CONSTRAINT_NAME, DELETE_RULE, R_CONSTRAINT_NAME FROM USER_CONSTRAINTS WHERE CONSTRAINT_TYPE = 'R' AND TABLE_NAME = '" . $table->getName(). "'");
+		while (($row = $this->fetchAssoc($stmt)) !== null) {
+			$constraintName = self::rowValueToString($row['CONSTRAINT_NAME'] ?? '');
+			$rConstraintName = self::rowValueToString($row['R_CONSTRAINT_NAME'] ?? '');
+
 			// Local reference
-			$sql2 = "SELECT COLUMN_NAME FROM USER_CONS_COLUMNS WHERE CONSTRAINT_NAME = '".$row['CONSTRAINT_NAME']."' AND TABLE_NAME = '" . $table->getName(). "'";
-			$stmt2 = $this->requireStatement($this->dbh->query($sql2), $sql2);
-			$localReferenceInfo = $stmt2->fetch(PDO::FETCH_ASSOC);
+			$stmt2 = $this->queryOrFail("SELECT COLUMN_NAME FROM USER_CONS_COLUMNS WHERE CONSTRAINT_NAME = '".$constraintName."' AND TABLE_NAME = '" . $table->getName(). "'");
+			$localReferenceInfo = $this->fetchAssoc($stmt2);
 
 			// Foreign reference
-			$sql2 = "SELECT TABLE_NAME, COLUMN_NAME FROM USER_CONS_COLUMNS WHERE CONSTRAINT_NAME = '".$row['R_CONSTRAINT_NAME']."'";
-			$stmt2 = $this->requireStatement($this->dbh->query($sql2), $sql2);
-			$foreignReferenceInfo = $stmt2->fetch(PDO::FETCH_ASSOC);
+			$stmt2 = $this->queryOrFail("SELECT TABLE_NAME, COLUMN_NAME FROM USER_CONS_COLUMNS WHERE CONSTRAINT_NAME = '".$rConstraintName."'");
+			$foreignReferenceInfo = $this->fetchAssoc($stmt2);
 
-			if (!isset($foreignKeys[$row["CONSTRAINT_NAME"]])) {
-				$fk = new ForeignKey($row["CONSTRAINT_NAME"]);
-				$fk->setForeignTableCommonName($foreignReferenceInfo['TABLE_NAME']);
-				$onDelete = ($row["DELETE_RULE"] == 'NO ACTION') ? 'NONE' : $row["DELETE_RULE"];
+			if ($localReferenceInfo === null || $foreignReferenceInfo === null) {
+				throw new EngineException("Foreign key constraint '$constraintName' on table '" . $table->getName() . "' is missing its local or foreign column reference.");
+			}
+
+			if (!isset($foreignKeys[$constraintName])) {
+				$fk = new ForeignKey($constraintName);
+				$fk->setForeignTableCommonName(self::rowValueToString($foreignReferenceInfo['TABLE_NAME'] ?? ''));
+				$deleteRule = self::rowValueToString($row["DELETE_RULE"] ?? '');
+				$onDelete = ($deleteRule == 'NO ACTION') ? 'NONE' : $deleteRule;
 				$fk->setOnDelete($onDelete);
 				$fk->setOnUpdate($onDelete);
-				$fk->addReference(array("local" => $localReferenceInfo['COLUMN_NAME'], "foreign" => $foreignReferenceInfo['COLUMN_NAME']));
+				$fk->addReference(array(
+					"local" => self::rowValueToString($localReferenceInfo['COLUMN_NAME'] ?? ''),
+					"foreign" => self::rowValueToString($foreignReferenceInfo['COLUMN_NAME'] ?? ''),
+				));
 				$table->addForeignKey($fk);
-				$foreignKeys[$row["CONSTRAINT_NAME"]] = $fk;
+				$foreignKeys[$constraintName] = $fk;
 			}
 		}
 	}
@@ -280,15 +295,19 @@ class OracleSchemaParser extends BaseSchemaParser
 	 */
 	protected function addPrimaryKey(Table $table): void
 	{
-		$sql = "SELECT COLS.COLUMN_NAME FROM USER_CONSTRAINTS CONS, USER_CONS_COLUMNS COLS WHERE CONS.CONSTRAINT_NAME = COLS.CONSTRAINT_NAME AND CONS.TABLE_NAME = '".$table->getName()."' AND CONS.CONSTRAINT_TYPE = 'P'";
-		$stmt = $this->requireStatement($this->dbh->query($sql), $sql);
-		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+		$stmt = $this->queryOrFail("SELECT COLS.COLUMN_NAME FROM USER_CONSTRAINTS CONS, USER_CONS_COLUMNS COLS WHERE CONS.CONSTRAINT_NAME = COLS.CONSTRAINT_NAME AND CONS.TABLE_NAME = '".$table->getName()."' AND CONS.CONSTRAINT_TYPE = 'P'");
+		while (is_array($row = $stmt->fetch(PDO::FETCH_ASSOC))) {
 			// This fixes a strange behavior by PDO. Sometimes the
 			// row values are inside an index 0 of an array
-			if (array_key_exists(0, $row)) {
+			if (isset($row[0]) && is_array($row[0])) {
 				$row = $row[0];
 			}
-			$table->getColumn($row['COLUMN_NAME'])->setPrimaryKey(true);
+			$columnName = self::rowValueToString($row['COLUMN_NAME'] ?? '');
+			$column = $table->getColumn($columnName);
+			if ($column === null) {
+				throw new EngineException("Primary key on table '" . $table->getName() . "' references unknown column '$columnName'.");
+			}
+			$column->setPrimaryKey(true);
 		}
 	}
 

@@ -66,6 +66,9 @@ class SqlDiffManager extends AbstractSchemaManager
             $pdo = $this->generatorConfig->getBuildPDO($name);
             $database = new Database($name);
             $platform = $this->generatorConfig->getConfiguredPlatform($pdo);
+            if ($platform === null) {
+                throw new EngineException("Unable to determine the platform for database connection \"$name\".");
+            }
             if (!$platform->supportsMigrations()) {
                 $this->logger->info('Skipping database "{name}" since vendor "{type}" does not support migrations', ['name' => $name, 'type' => $platform->getDatabaseType()]);
                 continue;
@@ -84,20 +87,31 @@ class SqlDiffManager extends AbstractSchemaManager
 
         $dataModels = $this->loadDataModels($schemaFiles);
         $appDataFromXml = array_pop($dataModels);
+        if ($appDataFromXml === null) {
+            throw new EngineException('No schema.xml data model was loaded to compare against the live database(s).');
+        }
 
         $this->logger->info('Comparing models...');
         $migrationsUp = [];
         $migrationsDown = [];
         foreach ($liveAppData->getDatabases() as $database) {
             $name = $database->getName();
-            if (!$appDataFromXml->hasDatabase($name)) {
+            if ($name === null || !$appDataFromXml->hasDatabase($name)) {
                 // Tables present in the live database but not in the XML are
                 // out of scope, matching the original Task's FIXME comment.
                 continue;
             }
 
-            $databaseDiff = PropulsionDatabaseComparator::computeDiff($database, $appDataFromXml->getDatabase($name), $this->caseInsensitive);
-            if (!$databaseDiff) {
+            $xmlDatabase = $appDataFromXml->getDatabase($name);
+            if ($xmlDatabase === null) {
+                continue;
+            }
+
+            $databaseDiff = PropulsionDatabaseComparator::computeDiff($database, $xmlDatabase, $this->caseInsensitive);
+            // computeDiff()'s docblock return type is the imprecise "PropulsionDatabaseDiff|boolean"
+            // (the implementation only ever actually returns false or a PropulsionDatabaseDiff, never
+            // true), so narrow explicitly with instanceof rather than a truthiness check.
+            if (!$databaseDiff instanceof \Propulsion\Generator\Model\Diff\PropulsionDatabaseDiff) {
                 $this->logger->debug('Same XML and database structures for datasource "{name}" - no diff to generate', ['name' => $name]);
                 continue;
             }
@@ -107,6 +121,9 @@ class SqlDiffManager extends AbstractSchemaManager
                 'description' => $databaseDiff->getDescription(),
             ]);
             $diffPlatform = $this->generatorConfig->getConfiguredPlatform(null, $name);
+            if ($diffPlatform === null) {
+                throw new EngineException("Unable to determine the platform to build migration DDL for database \"$name\".");
+            }
             $migrationsUp[$name] = $diffPlatform->getModifyDatabaseDDL($databaseDiff);
             $migrationsDown[$name] = $diffPlatform->getModifyDatabaseDDL($databaseDiff->getReverseDiff());
         }
