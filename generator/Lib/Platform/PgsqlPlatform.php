@@ -28,9 +28,59 @@ use Propulsion\Generator\Model\Diff\PropulsionColumnDiff;
 use Propulsion\Generator\Model\Diff\PropulsionDatabaseDiff;
 use Propulsion\Generator\Model\Index;
 use Propulsion\Generator\Model\Exclusion;
+use Propulsion\Generator\Exception\EngineException;
 
 class PgsqlPlatform extends DefaultPlatform
 {
+	/**
+	 * Table/Column/Index/Unique/Exclusion's own getName()/getTable()/getSqlType()
+	 * getters are typed nullable throughout this codebase's model classes
+	 * (schema-XML parsing leaves them unset until later in the load process),
+	 * but by the time DDL generation actually runs on a real, fully-loaded
+	 * schema they're always populated -- these helpers turn that implicit
+	 * assumption into an explicit, real failure instead of silently widening
+	 * this class's own types to tolerate null everywhere DDL string-building
+	 * actually requires a real value. (Mirrors the same convention already
+	 * used in DefaultPlatform/OraclePlatform/MssqlPlatform.)
+	 */
+	private function requireString(?string $value, string $description): string
+	{
+		if ($value === null) {
+			throw new EngineException("$description is required but was null.");
+		}
+		return $value;
+	}
+
+	private function requireTable(?Table $table): Table
+	{
+		if ($table === null) {
+			throw new EngineException('Expected a Table but got null.');
+		}
+		return $table;
+	}
+
+	private function requireColumn(?Column $column): Column
+	{
+		if ($column === null) {
+			throw new EngineException('Expected a Column but got null.');
+		}
+		return $column;
+	}
+
+	/**
+	 * VendorInfo::getParameter() is untyped (a generic bag for arbitrary
+	 * `<vendor><parameter>` XML attributes), but every pgsql-specific vendor
+	 * parameter this class reads back out of it (currently just "schema") is,
+	 * by construction, a plain string XML attribute value -- this makes that
+	 * assumption an explicit, checked one.
+	 */
+	private function requireStringParam(mixed $value, string $description): string
+	{
+		if (!is_string($value)) {
+			throw new EngineException("$description is required but was not a string.");
+		}
+		return $value;
+	}
 
 	/**
 	 * Initializes db specific domain mapping.
@@ -187,7 +237,7 @@ CREATE SEQUENCE %s;
 ";
 			return sprintf(
 				$pattern,
-				$this->quoteIdentifier(strtolower($this->getSequenceName($table)))
+				$this->quoteIdentifier(strtolower($this->requireString($this->getSequenceName($table), 'Sequence name')))
 			);
 		}
 
@@ -205,7 +255,7 @@ DROP SEQUENCE IF EXISTS %s;
 ";
 			return sprintf(
 				$pattern,
-				$this->quoteIdentifier(strtolower($this->getSequenceName($table)))
+				$this->quoteIdentifier(strtolower($this->requireString($this->getSequenceName($table), 'Sequence name')))
 			);
 		}
 
@@ -243,9 +293,12 @@ DROP SEQUENCE IF EXISTS %s;
 				$ret .= $this->getCreateSchemaDDL($schemaName);
 			}
 			$vi = $table->getVendorInfoForType('pgsql');
-			if ($vi->hasParameter('schema') && !isset($schemas[$vi->getParameter('schema')])) {
-				$schemas[$vi->getParameter('schema')] = true;
-				$ret .= $this->getCreateSchemaDDL($vi->getParameter('schema'));
+			if ($vi->hasParameter('schema')) {
+				$vendorSchemaName = $this->requireStringParam($vi->getParameter('schema'), 'pgsql vendor "schema" parameter');
+				if (!isset($schemas[$vendorSchemaName])) {
+					$schemas[$vendorSchemaName] = true;
+					$ret .= $this->getCreateSchemaDDL($vendorSchemaName);
+				}
 			}
 		}
 		return $ret;
@@ -255,7 +308,7 @@ DROP SEQUENCE IF EXISTS %s;
 	{
 		$vi = $table->getVendorInfoForType('pgsql');
 		if ($vi->hasParameter('schema')) {
-			return $this->getCreateSchemaDDL($vi->getParameter('schema'));
+			return $this->getCreateSchemaDDL($this->requireStringParam($vi->getParameter('schema'), 'pgsql vendor "schema" parameter'));
 		};
 
 		return null;
@@ -296,9 +349,12 @@ CREATE SCHEMA %s%s;
 				$ret .= $this->getCreateSchemaDDL($schemaName, true);
 			}
 			$vi = $table->getVendorInfoForType('pgsql');
-			if ($vi->hasParameter('schema') && !isset($schemas[$vi->getParameter('schema')])) {
-				$schemas[$vi->getParameter('schema')] = true;
-				$ret .= $this->getCreateSchemaDDL($vi->getParameter('schema'), true);
+			if ($vi->hasParameter('schema')) {
+				$vendorSchemaName = $this->requireStringParam($vi->getParameter('schema'), 'pgsql vendor "schema" parameter');
+				if (!isset($schemas[$vendorSchemaName])) {
+					$schemas[$vendorSchemaName] = true;
+					$ret .= $this->getCreateSchemaDDL($vendorSchemaName, true);
+				}
 			}
 		}
 		return $ret;
@@ -351,7 +407,7 @@ CREATE SCHEMA %s%s;
 			$pattern = "
 SET search_path TO %s;
 ";
-			return sprintf($pattern, $this->quoteIdentifier($vi->getParameter('schema')));
+			return sprintf($pattern, $this->quoteIdentifier($this->requireStringParam($vi->getParameter('schema'), 'pgsql vendor "schema" parameter')));
 		}
 
 		return null;
@@ -375,7 +431,7 @@ SET search_path TO public;
 		$ret .= $this->getAddSchemasDDL($database);
 		foreach ($database->getTablesForSql() as $table) {
 			$ret .= $this->getAddExtensionsDDL($table);
-			$ret .= $this->getCommentBlockDDL($table->getName());
+			$ret .= $this->getCommentBlockDDL($this->requireString($table->getName(), 'Table name'));
 			$ret .= $this->getDropTableDDL($table);
 			// The enum type must be dropped after the table that depends on it
 			// (a table's column type can't be dropped out from under it) and
@@ -505,7 +561,7 @@ CREATE TABLE %s
 ";
 		$ret .= sprintf(
 			$pattern,
-			$this->quoteIdentifier($table->getName()),
+			$this->quoteIdentifier($this->requireString($table->getName(), 'Table name')),
 			implode($sep, $lines),
 			$table->getInheritsFrom() ? ' INHERITS (' . $this->quoteIdentifier($table->getInheritsFrom()) . ')' : ''
 		);
@@ -516,8 +572,8 @@ COMMENT ON TABLE %s IS %s;
 ";
 			$ret .= sprintf(
 				$pattern,
-				$this->quoteIdentifier($table->getName()),
-				$this->quote($table->getDescription())
+				$this->quoteIdentifier($this->requireString($table->getName(), 'Table name')),
+				$this->quote($this->requireString($table->getDescription(), 'Table description'))
 			);
 		}
 
@@ -544,8 +600,8 @@ COMMENT ON COLUMN %s.%s IS %s;
 		if ($description = $column->getDescription()) {
 			return sprintf(
 				$pattern,
-				$this->quoteIdentifier($column->getTable()->getName()),
-				$this->quoteIdentifier($column->getName()),
+				$this->quoteIdentifier($this->requireString($this->requireTable($column->getTable())->getName(), 'Table name')),
+				$this->quoteIdentifier($this->requireString($column->getName(), 'Column name')),
 				$this->quote($description)
 			);
 		}
@@ -560,7 +616,7 @@ COMMENT ON COLUMN %s.%s IS %s;
 		$pattern = "
 DROP TABLE IF EXISTS %s CASCADE;
 ";
-		$ret .= sprintf($pattern, $this->quoteIdentifier($table->getName()));
+		$ret .= sprintf($pattern, $this->quoteIdentifier($this->requireString($table->getName(), 'Table name')));
 		$ret .= $this->getDropSequenceDDL($table);
 		$ret .= $this->getResetSchemaDDL($table);
 		return $ret;
@@ -576,8 +632,8 @@ DROP TABLE IF EXISTS %s CASCADE;
 	{
 		$domain = $col->getDomain();
 
-		$ddl = array($this->quoteIdentifier($col->getName()));
-		$sqlType = $domain->getSqlType();
+		$ddl = array($this->quoteIdentifier($this->requireString($col->getName(), 'Column name')));
+		$sqlType = $this->requireString($domain->getSqlType(), 'Column SQL type');
 		$table = $col->getTable();
 		$isIdentity = false;
 		if ($col->isAutoIncrement() && $table && $table->getIdMethodParameters() == null) {
@@ -643,7 +699,7 @@ DROP TABLE IF EXISTS %s CASCADE;
 	{
 		return sprintf(
 			'CONSTRAINT %s UNIQUE (%s)',
-			$this->quoteIdentifier($unique->getName()),
+			$this->quoteIdentifier($this->requireString($unique->getName(), 'Unique constraint name')),
 			$this->getColumnListDDL($unique->getColumns())
 		);
 	}
@@ -663,7 +719,7 @@ DROP TABLE IF EXISTS %s CASCADE;
 		}
 		$ddl = sprintf(
 			'CONSTRAINT %s EXCLUDE USING %s (%s)',
-			$this->quoteIdentifier((string) $exclusion->getName()),
+			$this->quoteIdentifier($this->requireString($exclusion->getName(), 'Exclusion constraint name')),
 			$exclusion->getIndexType(),
 			implode(', ', $parts)
 		);
@@ -693,8 +749,8 @@ CREATE %sINDEX %s%s ON %s%s (%s)%s%s%s;
 			$pattern,
 			$index->isUnique() ? 'UNIQUE ' : '',
 			$index->isConcurrent() ? 'CONCURRENTLY ' : '',
-			$this->quoteIdentifier($index->getName()),
-			$this->quoteIdentifier($index->getTable()->getName()),
+			$this->quoteIdentifier($this->requireString($index->getName(), 'Index name')),
+			$this->quoteIdentifier($this->requireString($this->requireTable($index->getTable())->getName(), 'Table name')),
 			$index->getIndexType() ? ' USING ' . $index->getIndexType() : '',
 			$this->getIndexColumnListDDL($index),
 			$index->getIncludeColumns() ? ' INCLUDE (' . $this->getColumnListDDL($index->getIncludeColumns()) . ')' : '',
@@ -751,11 +807,11 @@ CREATE %sINDEX %s%s ON %s%s (%s)%s%s%s;
 		$ret = '';
 		$changedProperties = $columnDiff->getChangedProperties();
 
-		$toColumn = $columnDiff->getToColumn();
+		$toColumn = $this->requireColumn($columnDiff->getToColumn());
 
-		$table = $toColumn->getTable();
+		$table = $this->requireTable($toColumn->getTable());
 
-		$colName = $this->quoteIdentifier($toColumn->getName());
+		$colName = $this->quoteIdentifier($this->requireString($toColumn->getName(), 'Column name'));
 
 		$pattern = "
 ALTER TABLE %s ALTER COLUMN %s;
@@ -767,8 +823,8 @@ ALTER TABLE %s ALTER COLUMN %s;
 				case 'size':
 				case 'type':
 				case 'scale':
-					$sqlType = $toColumn->getDomain()->getSqlType();
-					if ($toColumn->isAutoIncrement() && !$toColumn->isIdentity() && $table && $table->getIdMethodParameters() == null) {
+					$sqlType = $this->requireString($toColumn->getDomain()->getSqlType(), 'Column SQL type');
+					if ($toColumn->isAutoIncrement() && !$toColumn->isIdentity() && $table->getIdMethodParameters() == null) {
 						$sqlType = $toColumn->getType() === PropulsionTypes::BIGINT ? 'bigserial' : 'serial';
 					} elseif ($toColumn->getType() === PropulsionTypes::PHP_ARRAY && $toColumn->isNativeArray()) {
 						$sqlType = 'TEXT[]';
@@ -776,13 +832,13 @@ ALTER TABLE %s ALTER COLUMN %s;
 					if ($this->hasSize($sqlType)) {
 						$sqlType .= $toColumn->getDomain()->printSize();
 					}
-					$ret .= sprintf($pattern, $this->quoteIdentifier($table->getName()), $colName . ' TYPE ' . $sqlType);
+					$ret .= sprintf($pattern, $this->quoteIdentifier($this->requireString($table->getName(), 'Table name')), $colName . ' TYPE ' . $sqlType);
 					break;
 				case 'defaultValueValue':
 					if ($property[0] !== null && $property[1] === null) {
-						$ret .= sprintf($pattern, $this->quoteIdentifier($table->getName()), $colName . ' DROP DEFAULT');
+						$ret .= sprintf($pattern, $this->quoteIdentifier($this->requireString($table->getName(), 'Table name')), $colName . ' DROP DEFAULT');
 					} else {
-						$ret .= sprintf($pattern, $this->quoteIdentifier($table->getName()), $colName . ' SET ' . $this->getColumnDefaultValueDDL($toColumn));
+						$ret .= sprintf($pattern, $this->quoteIdentifier($this->requireString($table->getName(), 'Table name')), $colName . ' SET ' . $this->getColumnDefaultValueDDL($toColumn));
 					}
 					break;
 				case 'notNull':
@@ -790,7 +846,7 @@ ALTER TABLE %s ALTER COLUMN %s;
 					if ($property[1]) {
 						$notNull = " SET NOT NULL";
 					}
-					$ret .= sprintf($pattern, $this->quoteIdentifier($table->getName()), $colName . $notNull);
+					$ret .= sprintf($pattern, $this->quoteIdentifier($this->requireString($table->getName(), 'Table name')), $colName . $notNull);
 					break;
 			}
 		}
@@ -850,8 +906,8 @@ ALTER TABLE %s ALTER COLUMN %s;
 	";
 			return sprintf(
 				$pattern,
-				$this->quoteIdentifier($index->getTable()->getName()),
-				$this->quoteIdentifier($index->getName())
+				$this->quoteIdentifier($this->requireString($this->requireTable($index->getTable())->getName(), 'Table name')),
+				$this->quoteIdentifier($this->requireString($index->getName(), 'Index name'))
 			);
 		} else {
 			return parent::getDropIndexDDL($index);
