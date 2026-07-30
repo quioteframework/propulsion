@@ -18,7 +18,9 @@ namespace Propulsion\Generator\Behavior\AggregateColumn;
 use Propulsion\Generator\Builder\OM\ObjectBuilder;
 use Propulsion\Generator\Builder\OM\OMBuilder;
 use Propulsion\Generator\Builder\OM\QueryBuilder;
+use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\Behavior;
+use Propulsion\Generator\Model\Database;
 use Propulsion\Generator\Model\ForeignKey;
 use Propulsion\Generator\Model\Table;
 
@@ -33,6 +35,73 @@ class AggregateColumnRelationBehavior extends Behavior
 		'foreign_table' => '',
 		'update_method' => '',
 	);
+
+	/**
+	 * The methods below are only ever invoked once this behavior is
+	 * attached to a table, but getTable() stays nullable to also cover
+	 * the not-yet-attached construction phase. Guard against the
+	 * (should-never-happen) unattached case with a clear error instead
+	 * of a null dereference.
+	 */
+	private function requireTable(): Table
+	{
+		$table = $this->getTable();
+		if ($table === null) {
+			throw new EngineException('AggregateColumnRelationBehavior is not attached to a table');
+		}
+		return $table;
+	}
+
+	private function requireDatabase(Table $table): Database
+	{
+		$database = $table->getDatabase();
+		if ($database === null) {
+			throw new EngineException(sprintf("Table '%s' is not attached to a database", $table->getName()));
+		}
+		return $database;
+	}
+
+	private function getStringParameter(string $name): string
+	{
+		$value = $this->getParameter($name);
+		return is_string($value) ? $value : '';
+	}
+
+	/**
+	 * getForeignTable() legitimately returns null when the
+	 * 'foreign_table' parameter doesn't resolve to a real table, but
+	 * every call site here requires a real foreign table to do
+	 * anything useful.
+	 */
+	private function requireForeignTable(): Table
+	{
+		$foreignTable = $this->getForeignTable();
+		if ($foreignTable === null) {
+			throw new \InvalidArgumentException(sprintf(
+				"AggregateColumnRelationBehavior on table '%s' could not resolve its foreign table (parameter 'foreign_table' = '%s')",
+				$this->requireTable()->getName(),
+				$this->getStringParameter('foreign_table'),
+			));
+		}
+		return $foreignTable;
+	}
+
+	/**
+	 * getForeignKey() legitimately returns null when no matching foreign
+	 * key can be found, but every call site here requires one to exist.
+	 */
+	private function requireForeignKey(): ForeignKey
+	{
+		$fk = $this->getForeignKey();
+		if ($fk === null) {
+			throw new \InvalidArgumentException(sprintf(
+				"No foreign key was found relating table '%s' to '%s'",
+				$this->requireTable()->getName(),
+				$this->requireForeignTable()->getName(),
+			));
+		}
+		return $fk;
+	}
 
 	public function postSave(ObjectBuilder $builder): string
 	{
@@ -71,8 +140,14 @@ class AggregateColumnRelationBehavior extends Behavior
 	 */
 	public function objectFilter(&$script, ObjectBuilder $builder): void
 	{
+		if ($script === null) {
+			return;
+		}
 		$relationName = $this->getRelationName($builder);
-		$relatedClass = $this->getForeignTable()->getPhpName();
+		$relatedClass = $this->requireForeignTable()->getPhpName();
+		if ($relatedClass === null) {
+			throw new EngineException('Foreign table has no PHP name');
+		}
 		// Match the FK relation setter's signature loosely (optional leading "?" on the
 		// parameter type, and any return type declaration) rather than the exact PHP5-era
 		// literal "public function setX(RelatedClass $v = null)\n\t{" this used to require --
@@ -140,13 +215,17 @@ class AggregateColumnRelationBehavior extends Behavior
 
 	protected function addQueryFindRelated(QueryBuilder $builder): string
 	{
-		$foreignKey = $this->getForeignKey();
+		$foreignKey = $this->requireForeignKey();
 		$relationName = $this->getRelationName($builder);
+		$foreignKeyForeignTable = $foreignKey->getForeignTable();
+		if ($foreignKeyForeignTable === null) {
+			throw new EngineException('ForeignKey is not attached to a resolvable foreign table');
+		}
 		return $this->renderTemplate('queryFindRelated', array(
-			'foreignTable'     => $this->getForeignTable(),
+			'foreignTable'     => $this->requireForeignTable(),
 			'relationName'     => $relationName,
 			'variableName'     => self::lcfirst($relationName),
-			'foreignQueryName' => $foreignKey->getForeignTable()->getPhpName() . 'Query',
+			'foreignQueryName' => $foreignKeyForeignTable->getPhpName() . 'Query',
 			'refRelationName'  => $builder->getRefFKPhpNameAffix($foreignKey),
 		));
 	}
@@ -163,21 +242,25 @@ class AggregateColumnRelationBehavior extends Behavior
 
 	protected function getForeignTable(): ?Table
 	{
-		return $this->getTable()->getDatabase()->getTable($this->getParameter('foreign_table'));
+		return $this->requireDatabase($this->requireTable())->getTable($this->getStringParameter('foreign_table'));
 	}
 
 	protected function getForeignKey(): ?ForeignKey
 	{
-		$foreignTable = $this->getForeignTable();
+		$foreignTable = $this->requireForeignTable();
+		$foreignTableName = $foreignTable->getName();
+		if ($foreignTableName === null) {
+			throw new EngineException('Foreign table has no name');
+		}
 		// let's infer the relation from the foreign table
-		$fks = $this->getTable()->getForeignKeysReferencingTable($foreignTable->getName());
+		$fks = $this->requireTable()->getForeignKeysReferencingTable($foreignTableName);
 		// FIXME doesn't work when more than one fk to the same table
 		return array_shift($fks);
 	}
 
 	protected function getRelationName(OMBuilder $builder): string
 	{
-		return $builder->getFKPhpNameAffix($this->getForeignKey());
+		return $builder->getFKPhpNameAffix($this->requireForeignKey());
 	}
 
 	protected static function lcfirst(string $input): string
