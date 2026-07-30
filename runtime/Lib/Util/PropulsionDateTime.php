@@ -50,7 +50,7 @@ class PropulsionDateTime extends DateTime
 			return false;
 		}
 
-		$stamp = strtotime($value);
+		$stamp = strtotime((string) $value);
 
 		if (false === $stamp) {
 			return true;
@@ -83,11 +83,14 @@ class PropulsionDateTime extends DateTime
 			return null;
 		}
 		try {
-			if (self::isTimestamp($value)) { // if it's a unix timestamp
+			if ((is_int($value) || is_string($value)) && self::isTimestamp($value)) { // if it's a unix timestamp
 				$dateTimeObject = new $dateTimeClass('@' . $value, new DateTimeZone('UTC'));
+				if (!$dateTimeObject instanceof DateTime && !$dateTimeObject instanceof DateTimeImmutable) {
+					throw new PropulsionException($dateTimeClass . ' is not a DateTime or DateTimeImmutable');
+				}
 				// timezone must be explicitly specified and then changed
 				// because of a DateTime bug: http://bugs.php.net/bug.php?id=43003
-				$dateTimeObject->setTimeZone(new DateTimeZone(date_default_timezone_get()));
+				$dateTimeObject = $dateTimeObject->setTimeZone(new DateTimeZone(date_default_timezone_get()));
 			} else {
 				if ($timeZone === null) {
 					// stupid DateTime constructor signature
