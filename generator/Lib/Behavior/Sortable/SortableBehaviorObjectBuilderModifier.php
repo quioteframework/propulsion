@@ -10,6 +10,8 @@
 namespace Propulsion\Generator\Behavior\Sortable;
 
 use Propulsion\Generator\Builder\OM\ObjectBuilder;
+use Propulsion\Generator\Exception\EngineException;
+use Propulsion\Generator\Model\Column;
 use Propulsion\Generator\Model\Table;
 
 /**
@@ -33,19 +35,32 @@ class SortableBehaviorObjectBuilderModifier
 		$this->table = $behavior->requireTable();
 	}
 
-	protected function getParameter(string $key): string
+	protected function getParameter(string $key): mixed
 	{
 		return $this->behavior->getParameter($key);
 	}
 
+	private function requireColumnForParameter(string $param): Column
+	{
+		$column = $this->behavior->getColumnForParameter($param);
+		if ($column === null) {
+			throw new EngineException(sprintf("Parameter '%s' does not reference an existing column", $param));
+		}
+		return $column;
+	}
+
 	protected function getColumnAttribute(string $name): string
 	{
-		return strtolower($this->behavior->getColumnForParameter($name)->getName());
+		$columnName = $this->requireColumnForParameter($name)->getName();
+		if ($columnName === null) {
+			throw new EngineException(sprintf("Column for parameter '%s' has no name", $name));
+		}
+		return strtolower($columnName);
 	}
 
 	protected function getColumnPhpName(string $name): string
 	{
-		return $this->behavior->getColumnForParameter($name)->getPhpName();
+		return $this->requireColumnForParameter($name)->getPhpName();
 	}
 
 	protected function setBuilder(ObjectBuilder $builder): void
@@ -63,7 +78,7 @@ class SortableBehaviorObjectBuilderModifier
 	 */
 	protected function getColumnGetter(string $columnName = 'rank_column'): string
 	{
-		return 'get' . $this->behavior->getColumnForParameter($columnName)->getPhpName();
+		return 'get' . $this->requireColumnForParameter($columnName)->getPhpName();
 	}
 
 	/**
@@ -73,7 +88,7 @@ class SortableBehaviorObjectBuilderModifier
 	 */
 	protected function getColumnSetter(string $columnName = 'rank_column'): string
 	{
-		return 'set' . $this->behavior->getColumnForParameter($columnName)->getPhpName();
+		return 'set' . $this->requireColumnForParameter($columnName)->getPhpName();
 	}
 
 	public function preSave(ObjectBuilder $builder): string

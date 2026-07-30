@@ -21,6 +21,7 @@
  * @version    $Revision$
  */
 
+use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\Behavior;
 use Propulsion\Generator\Model\ForeignKey;
 use Propulsion\Generator\Model\Table;
@@ -47,10 +48,47 @@ class ConcreteInheritanceBehavior extends Behavior
 
 	protected ?bool $isParentChild = null;
 
+	/**
+	 * getParentTable() legitimately returns null when the 'extends'
+	 * parameter doesn't resolve to a real table (e.g. a typo in the
+	 * schema.xml), but every call site here requires a real parent
+	 * table to do anything useful, so surface that misconfiguration as
+	 * a clear error instead of a null dereference.
+	 */
+	private function requireParentTable(): Table
+	{
+		$parentTable = $this->getParentTable();
+		if ($parentTable === null) {
+			throw new EngineException(sprintf(
+				"ConcreteInheritanceBehavior on table '%s' could not resolve its parent table (parameter 'extends' = '%s')",
+				$this->requireTable()->getName(),
+				$this->getStringParameter('extends'),
+			));
+		}
+		return $parentTable;
+	}
+
+	private function requireBuilder(): ObjectBuilder
+	{
+		if ($this->builder === null) {
+			throw new EngineException('No builder has been set yet; objectMethods() must run before this call');
+		}
+		return $this->builder;
+	}
+
+	private function requireColumn(Table $table, string $name): \Propulsion\Generator\Model\Column
+	{
+		$column = $table->getColumn($name);
+		if ($column === null) {
+			throw new EngineException(sprintf("Column '%s' was not found on table '%s'", $name, $table->getName()));
+		}
+		return $column;
+	}
+
 	public function modifyTable(): void
 	{
 		$table = $this->requireTable();
-		$parentTable = $this->getParentTable();
+		$parentTable = $this->requireParentTable();
 
 		if ($this->isCopyData()) {
 			// tell the parent table that it has a descendant
@@ -67,10 +105,14 @@ class ConcreteInheritanceBehavior extends Behavior
 
 		// Add the columns of the parent table
 		foreach ($parentTable->getColumns() as $column) {
-			if ($column->getName() == $this->getParameter('descendant_column')) {
+			$columnName = $column->getName();
+			if ($columnName === null) {
+				throw new EngineException(sprintf("A column of table '%s' has no name", $parentTable->getName()));
+			}
+			if ($columnName == $this->getStringParameter('descendant_column')) {
 				continue;
 			}
-			if ($table->hasColumn($column->getName())) {
+			if ($table->hasColumn($columnName)) {
 				continue;
 			}
 			$copiedColumn = clone $column;
@@ -80,8 +122,8 @@ class ConcreteInheritanceBehavior extends Behavior
 			$table->addColumn($copiedColumn);
 			if ($column->isPrimaryKey() && $this->isCopyData()) {
 				$fk = new ForeignKey();
-				$fk->setForeignTableCommonName($column->getTable()->getCommonName());
-				$fk->setForeignSchemaName($column->getTable()->getSchema());
+				$fk->setForeignTableCommonName($parentTable->getCommonName());
+				$fk->setForeignSchemaName($parentTable->getSchema());
 				$fk->setOnDelete('CASCADE');
 				$fk->setOnUpdate(null);
 				$fk->addReference($copiedColumn, $column);
@@ -95,27 +137,27 @@ class ConcreteInheritanceBehavior extends Behavior
 			$copiedFk = clone $fk;
 			$copiedFk->setName('');
 			$copiedFk->setRefPhpName('');
-			$this->requireTable()->addForeignKey($copiedFk);
+			$table->addForeignKey($copiedFk);
 		}
 
 		// add the validators of the parent table
 		foreach ($parentTable->getValidators() as $validator) {
 			$copiedValidator = clone $validator;
-			$this->requireTable()->addValidator($copiedValidator);
+			$table->addValidator($copiedValidator);
 		}
 
 		// add the indices of the parent table
 		foreach ($parentTable->getIndices() as $index) {
 			$copiedIndex = clone $index;
 			$copiedIndex->setName('');
-			$this->requireTable()->addIndex($copiedIndex);
+			$table->addIndex($copiedIndex);
 		}
 
 		// add the unique indices of the parent table
 		foreach ($parentTable->getUnices() as $unique) {
 			$copiedUnique = clone $unique;
 			$copiedUnique->setName('');
-			$this->requireTable()->addUnique($copiedUnique);
+			$table->addUnique($copiedUnique);
 		}
 
 		// add the Behaviors of the parent table
@@ -125,19 +167,36 @@ class ConcreteInheritanceBehavior extends Behavior
 			}
 			$copiedBehavior = clone $behavior;
 			$copiedBehavior->setTableModified(false);
-			$this->requireTable()->addBehavior($copiedBehavior);
+			$table->addBehavior($copiedBehavior);
 		}
 
 	}
 
 	protected function getParentTable(): ?Table
 	{
-		$database = $this->requireTable()->getDatabase();
-		$tableName = $database->getTablePrefix() . $this->getParameter('extends');
-		if ($database->getPlatform()->supportsSchemas() && $this->getParameter('schema')) {
-			$tableName = $this->getParameter('schema').'.'.$tableName;
+		$database = $this->requireTable()->requireDatabase();
+		$tableName = $database->getTablePrefix() . $this->getStringParameter('extends');
+		$platform = $database->getPlatform();
+		$schema = $this->getStringParameter('schema');
+		if ($platform !== null && $platform->supportsSchemas() && $schema !== '') {
+			$tableName = $schema . '.' . $tableName;
 		}
 		return $database->getTable($tableName);
+	}
+
+	/**
+	 * getParameter() is typed to return mixed at the Behavior base class,
+	 * but this behavior's own $parameters map only ever holds strings, so
+	 * centralize the cast-with-check here rather than sprinkling it at
+	 * each call site.
+	 */
+	private function getStringParameter(string $name): string
+	{
+		$value = $this->getParameter($name);
+		if (!is_string($value)) {
+			throw new EngineException(sprintf("Parameter '%s' is expected to be a string", $name));
+		}
+		return $value;
 	}
 
 	protected function isCopyData(): bool
@@ -147,7 +206,7 @@ class ConcreteInheritanceBehavior extends Behavior
 
 	public function parentClass(OMBuilder $builder): ?string
 	{
-		$parentTable = $this->getParentTable();
+		$parentTable = $this->requireParentTable();
 		// Match against the builder base classes (via instanceof) rather than
 		// get_class(), since the concrete builder class name may be a bare
 		// (test bootstrap-aliased) or fully-qualified name depending on the
@@ -207,8 +266,8 @@ class ConcreteInheritanceBehavior extends Behavior
 
 	protected function addObjectGetParentOrCreate(string &$script): void
 	{
-		$parentTable = $this->getParentTable();
-		$parentClass = $this->builder->getNewStubObjectBuilder($parentTable)->getClassname();
+		$parentTable = $this->requireParentTable();
+		$parentClass = $this->requireBuilder()->getNewStubObjectBuilder($parentTable)->getClassname();
 		$script .= "
 /**
  * Get or Create the parent " . $parentClass . " object of the current object
@@ -219,10 +278,10 @@ public function getParentOrCreate(\$con = null)
 {
 	if (\$this->isNew() && \$this->isPrimaryKeyNull()) {
 		\$parent = new " . $parentClass . "();
-		\$parent->set" . $this->getParentTable()->getColumn($this->getParameter('descendant_column'))->getPhpName() . "('" . $this->builder->getStubObjectBuilder()->getClassname() . "');
+		\$parent->set" . $this->requireColumn($this->requireParentTable(), $this->getStringParameter('descendant_column'))->getPhpName() . "('" . $this->requireBuilder()->getStubObjectBuilder()->getClassname() . "');
 		return \$parent;
 	} else {
-		return " . $this->builder->getNewStubQueryBuilder($parentTable)->getClassname() . "::create()->findPk(\$this->getPrimaryKey(), \$con);
+		return " . $this->requireBuilder()->getNewStubQueryBuilder($parentTable)->getClassname() . "::create()->findPk(\$this->getPrimaryKey(), \$con);
 	}
 }
 ";
@@ -230,7 +289,7 @@ public function getParentOrCreate(\$con = null)
 
 	protected function addObjectGetSyncParent(string &$script): void
 	{
-		$parentTable = $this->getParentTable();
+		$parentTable = $this->requireParentTable();
 		$pkeys = $parentTable->getPrimaryKey();
 		$cptype = $pkeys[0]->getPhpType();
 		$script .= "
@@ -244,7 +303,7 @@ public function getSyncParent(\$con = null)
 {
 	\$parent = \$this->getParentOrCreate(\$con);";
 		foreach ($parentTable->getColumns() as $column) {
-			if ($column->isPrimaryKey() || $column->getName() == $this->getParameter('descendant_column')) {
+			if ($column->isPrimaryKey() || $column->getName() == $this->getStringParameter('descendant_column')) {
 				continue;
 			}
 			$phpName = $column->getPhpName();
@@ -255,7 +314,7 @@ public function getSyncParent(\$con = null)
 			if (isset($fk->isParentChild) && $fk->isParentChild) {
 				continue;
 			}
-			$refPhpName = $this->builder->getFKPhpNameAffix($fk, $plural = false);
+			$refPhpName = $this->requireBuilder()->getFKPhpNameAffix($fk, $plural = false);
 			$script .= "
 	if (\$this->get" . $refPhpName . "() && \$this->get" . $refPhpName . "()->isNew()) {
 		\$parent->set" . $refPhpName . "(\$this->get" . $refPhpName . "());

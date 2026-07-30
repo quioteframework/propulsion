@@ -10,6 +10,7 @@
 namespace Propulsion\Generator\Behavior\NestedSet;
 
 use Propulsion\Generator\Builder\OM\QueryBuilder;
+use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\Column;
 use Propulsion\Generator\Model\Table;
 
@@ -33,14 +34,18 @@ class NestedSetBehaviorQueryBuilderModifier
 		$this->table = $behavior->requireTable();
 	}
 
-	protected function getParameter(string $key): string
+	protected function getParameter(string $key): mixed
 	{
 		return $this->behavior->getParameter($key);
 	}
 
 	protected function getColumn(string $name): Column
 	{
-		return $this->behavior->getColumnForParameter($name);
+		$column = $this->behavior->getColumnForParameter($name);
+		if ($column === null) {
+			throw new EngineException(sprintf("Parameter '%s' does not reference an existing column", $name));
+		}
+		return $column;
 	}
 
 	protected function setBuilder(QueryBuilder $builder): void

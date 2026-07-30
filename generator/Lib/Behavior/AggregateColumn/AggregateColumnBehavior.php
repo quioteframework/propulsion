@@ -15,11 +15,11 @@ namespace Propulsion\Generator\Behavior\AggregateColumn;
  * @version    $Revision$
  */
  use Propulsion\Generator\Builder\OM\ObjectBuilder;
+ use Propulsion\Generator\Exception\EngineException;
  use Propulsion\Generator\Model\Behavior;
  use Propulsion\Generator\Model\Column;
  use Propulsion\Generator\Model\ForeignKey;
  use Propulsion\Generator\Model\Table;
- use Propulsion\Generator\Exception\EngineException;
 
 class AggregateColumnBehavior extends Behavior
 {
@@ -35,22 +35,46 @@ class AggregateColumnBehavior extends Behavior
 		'foreign_schema' => null,
 	);
 
+	private function requireTableName(Table $table): string
+	{
+		$name = $table->getName();
+		if ($name === null) {
+			throw new EngineException('Table has no name');
+		}
+		return $name;
+	}
+
+	/**
+	 * The 'name', 'foreign_table', 'foreign_schema' and 'expression'
+	 * parameters default to null until configured via the behavior's XML
+	 * parameters. 'foreign_schema' and 'expression' stay genuinely
+	 * optional (empty string is a valid "not set" for them); 'name' and
+	 * 'foreign_table' are required for the behavior to make sense, which
+	 * modifyTable()/objectMethods() already enforce explicitly.
+	 */
+	private function getStringParameter(string $name): string
+	{
+		$value = $this->getParameter($name);
+		return is_string($value) ? $value : '';
+	}
+
 	/**
 	 * Add the aggregate key to the current table
 	 */
 	public function modifyTable(): void
 	{
 		$table = $this->requireTable();
-		if (!$columnName = $this->getParameter('name')) {
+		$columnName = $this->getStringParameter('name');
+		if ($columnName === '') {
 			throw new \InvalidArgumentException(sprintf('You must define a \'name\' parameter for the \'aggregate_column\' behavior in the \'%s\' table', $table->getName()));
 		}
-		if (!$this->getParameter('foreign_table')) {
+		if ($this->getStringParameter('foreign_table') === '') {
 			throw new \InvalidArgumentException(sprintf('You must define a \'foreign_table\' parameter for the \'aggregate_column\' behavior in the \'%s\' table', $table->getName()));
 		}
 
 		// add the aggregate column if not present
-		if(!$this->requireTable()->containsColumn($columnName)) {
-			$column = $this->requireTable()->addColumn(array(
+		if(!$table->containsColumn($columnName)) {
+			$column = $table->addColumn(array(
 				'name'    => $columnName,
 				'type'    => 'INTEGER',
 			));
@@ -61,16 +85,16 @@ class AggregateColumnBehavior extends Behavior
 		if (!$foreignTable->hasBehavior('concrete_inheritance_parent')) {
 			$relationBehavior = new AggregateColumnRelationBehavior();
 			$relationBehavior->setName('aggregate_column_relation');
-			$foreignKey = $this->getForeignKey();
+			$foreignKey = $this->requireForeignKey();
 			$relationBehavior->addParameter(array('name' => 'foreign_table', 'value' => $table->getName()));
-			$relationBehavior->addParameter(array('name' => 'update_method', 'value' => 'update' . $this->getColumn()->getPhpName()));
+			$relationBehavior->addParameter(array('name' => 'update_method', 'value' => 'update' . $this->requireColumn()->getPhpName()));
 			$foreignTable->addBehavior($relationBehavior);
 		}
 	}
 
 	public function objectMethods(ObjectBuilder $builder): string
 	{
-		if (!$foreignTableName = $this->getParameter('foreign_table')) {
+		if ($this->getStringParameter('foreign_table') === '') {
 			throw new \InvalidArgumentException(sprintf('You must define a \'foreign_table\' parameter for the \'aggregate_column\' behavior in the \'%s\' table', $this->requireTable()->getName()));
 		}
 		$script = '';
@@ -84,23 +108,30 @@ class AggregateColumnBehavior extends Behavior
 	{
 		$conditions = array();
 		$bindings = array();
-		$database = $this->requireTable()->getDatabase();
-		foreach ($this->getForeignKey()->getColumnObjectsMapping() as $index => $columnReference) {
-			$conditions[] = $columnReference['local']->getFullyQualifiedName() . ' = :p' . ($index + 1);
-			$bindings[$index + 1]   = $columnReference['foreign']->getPhpName();
+		$database = $this->requireTable()->requireDatabase();
+		foreach ($this->requireForeignKey()->getColumnObjectsMapping() as $index => $columnReference) {
+			$localColumn = $columnReference['local'];
+			$foreignColumn = $columnReference['foreign'];
+			if ($localColumn === null || $foreignColumn === null) {
+				throw new EngineException('A foreign key column mapping resolved to a nonexistent column');
+			}
+			$conditions[] = $localColumn->getFullyQualifiedName() . ' = :p' . ($index + 1);
+			$bindings[$index + 1]   = $foreignColumn->getPhpName();
 		}
-		$tableName = $database->getTablePrefix() . $this->getParameter('foreign_table');
-		if ($database->getPlatform()->supportsSchemas() && $this->getParameter('foreign_schema')) {
-			$tableName = $this->getParameter('foreign_schema').'.'.$tableName;
+		$tableName = $database->getTablePrefix() . $this->getStringParameter('foreign_table');
+		$platform = $database->getPlatform();
+		$foreignSchema = $this->getStringParameter('foreign_schema');
+		if ($platform !== null && $platform->supportsSchemas() && $foreignSchema !== '') {
+			$tableName = $foreignSchema . '.' . $tableName;
 		}
 		$sql = sprintf('SELECT %s FROM %s WHERE %s',
-			$this->getParameter('expression'),
-			$database->getPlatform()->quoteIdentifier($tableName),
+			$this->getStringParameter('expression'),
+			$platform === null ? $tableName : $platform->quoteIdentifier($tableName),
 			implode(' AND ', $conditions)
 		);
 
 		return $this->renderTemplate('objectCompute', array(
-			'column'   => $this->getColumn(),
+			'column'   => $this->requireColumn(),
 			'sql'      => $sql,
 			'bindings' => $bindings,
 		));
@@ -109,16 +140,18 @@ class AggregateColumnBehavior extends Behavior
 	protected function addObjectUpdate(): string
 	{
 		return $this->renderTemplate('objectUpdate', array(
-			'column'  => $this->getColumn(),
+			'column'  => $this->requireColumn(),
 		));
 	}
 
 	protected function getForeignTable(): ?Table
 	{
 		$database = $this->requireTable()->requireDatabase();
-		$tableName = $database->getTablePrefix() . $this->getParameter('foreign_table');
-		if ($database->getPlatform()?->supportsSchemas() && $this->getParameter('foreign_schema')) {
-			$tableName = $this->getParameter('foreign_schema'). '.' . $tableName;
+		$tableName = $database->getTablePrefix() . $this->getStringParameter('foreign_table');
+		$platform = $database->getPlatform();
+		$foreignSchema = $this->getStringParameter('foreign_schema');
+		if ($platform !== null && $platform->supportsSchemas() && $foreignSchema !== '') {
+			$tableName = $foreignSchema . '.' . $tableName;
 		}
 		return $database->getTable($tableName);
 	}
@@ -135,7 +168,7 @@ class AggregateColumnBehavior extends Behavior
 			throw new EngineException(sprintf(
 				"aggregate_column behavior on table '%s' references unknown foreign_table '%s'.",
 				$this->requireTable()->getName() ?? '(unnamed)',
-				$this->getParameter('foreign_table')
+				$this->getStringParameter('foreign_table')
 			));
 		}
 		return $foreignTable;
@@ -145,7 +178,7 @@ class AggregateColumnBehavior extends Behavior
 	{
 		$foreignTable = $this->requireForeignTable();
 		// let's infer the relation from the foreign table
-		$fks = $foreignTable->getForeignKeysReferencingTable($this->requireTable()->getName());
+		$fks = $foreignTable->getForeignKeysReferencingTable($this->requireTableName($this->requireTable()));
 		if (!$fks) {
 			throw new \InvalidArgumentException(sprintf('You must define a foreign key to the \'%s\' table in the \'%s\' table to enable the \'aggregate_column\' behavior', $this->requireTable()->getName(), $foreignTable->getName()));
 		}
@@ -153,9 +186,27 @@ class AggregateColumnBehavior extends Behavior
 		return array_shift($fks);
 	}
 
+	private function requireForeignKey(): ForeignKey
+	{
+		$fk = $this->getForeignKey();
+		if ($fk === null) {
+			throw new EngineException('getForeignKey() unexpectedly returned null after already validating the foreign key exists');
+		}
+		return $fk;
+	}
+
 	protected function getColumn(): ?Column
 	{
-		return $this->requireTable()->getColumn($this->getParameter('name'));
+		return $this->requireTable()->getColumn($this->getStringParameter('name'));
+	}
+
+	private function requireColumn(): Column
+	{
+		$column = $this->getColumn();
+		if ($column === null) {
+			throw new EngineException(sprintf("Column '%s' was not found on table '%s'", $this->getStringParameter('name'), $this->requireTable()->getName()));
+		}
+		return $column;
 	}
 
 }

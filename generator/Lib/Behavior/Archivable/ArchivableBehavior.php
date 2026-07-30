@@ -17,6 +17,7 @@ namespace Propulsion\Generator\Behavior\Archivable;
  */
 
 use Propulsion\Generator\Builder\DataModelBuilder;
+use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\Behavior;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Model\Column;
@@ -42,12 +43,18 @@ class ArchivableBehavior extends Behavior
 	protected ?ArchivableBehaviorObjectBuilderModifier $objectBuilderModifier = null;
 	protected ?ArchivableBehaviorQueryBuilderModifier $queryBuilderModifier = null;
 
+	private function getStringParameter(string $name): string
+	{
+		$value = $this->getParameter($name);
+		return is_string($value) ? $value : '';
+	}
+
 	public function modifyTable(): void
 	{
-		if ($this->getParameter('archive_class') && $this->getParameter('archive_table')) {
+		if ($this->getStringParameter('archive_class') !== '' && $this->getStringParameter('archive_table') !== '') {
 			throw new InvalidArgumentException('Please set only one of the two parameters "archive_class" and "archive_table".');
 		}
-		if (!$this->getParameter('archive_class')) {
+		if ($this->getStringParameter('archive_class') === '') {
 			$this->addArchiveTable();
 		}
 	}
@@ -56,7 +63,8 @@ class ArchivableBehavior extends Behavior
 	{
 		$table = $this->requireTable();
 		$database = $table->requireDatabase();
-		$archiveTableName = $this->getParameter('archive_table') ? $this->getParameter('archive_table') : ($this->requireTable()->getName() . '_archive');
+		$archiveTableParam = $this->getStringParameter('archive_table');
+		$archiveTableName = $archiveTableParam !== '' ? $archiveTableParam : ($table->getName() . '_archive');
 		if (!$database->hasTable($archiveTableName)) {
 			// create the version table
 			$archiveTable = $database->addTable(array(
@@ -77,9 +85,9 @@ class ArchivableBehavior extends Behavior
 				$archiveTable->addColumn($columnInArchiveTable);
 			}
 			// add archived_at column
-			if ($this->getParameter('log_archived_at') == 'true') {
+			if ($this->getStringParameter('log_archived_at') == 'true') {
 				$archiveTable->addColumn(array(
-					'name' => $this->getParameter('archived_at_column'),
+					'name' => $this->getStringParameter('archived_at_column'),
 					'type' => 'TIMESTAMP'
 				));
 			}
@@ -106,39 +114,49 @@ class ArchivableBehavior extends Behavior
 		}
 	}
 
-	/**
-	 * @return Table
-	 */
-	public function getArchiveTable()
+	public function getArchiveTable(): ?Table
 	{
 		return $this->archiveTable;
 	}
 
+	/**
+	 * getArchiveTable() legitimately returns null when addArchiveTable()
+	 * hasn't run yet (or when the behavior is configured to use
+	 * 'archive_class' instead of a real archive table), but every call
+	 * site here only runs once modifyTable() has already set it up, so
+	 * treat a null result as a programming error.
+	 */
+	private function requireArchiveTable(): Table
+	{
+		$archiveTable = $this->getArchiveTable();
+		if ($archiveTable === null) {
+			throw new EngineException('Archive table has not been created yet; addArchiveTable() must run before this call');
+		}
+		return $archiveTable;
+	}
+
 	public function getArchiveTablePhpName(DataModelBuilder $builder): string
 	{
-		if ($this->getParameter('archive_class') == '') {
-			return $builder->getNewStubObjectBuilder($this->getArchiveTable())->getClassname();
+		if ($this->getStringParameter('archive_class') === '') {
+			return $builder->getNewStubObjectBuilder($this->requireArchiveTable())->getClassname();
 		} else {
-			return $this->getParameter('archive_class');
+			return $this->getStringParameter('archive_class');
 		}
 	}
 
 	public function getArchiveTableQueryName(DataModelBuilder $builder): string
 	{
-		if ($this->getParameter('archive_class') == '') {
-			return $builder->getNewStubQueryBuilder($this->getArchiveTable())->getClassname();
+		if ($this->getStringParameter('archive_class') === '') {
+			return $builder->getNewStubQueryBuilder($this->requireArchiveTable())->getClassname();
 		} else {
-			return $this->getParameter('archive_class') . 'Query';
+			return $this->getStringParameter('archive_class') . 'Query';
 		}
 	}
 
-	/**
-	 * @return ?Column
-	 */
-	public function getArchivedAtColumn()
+	public function getArchivedAtColumn(): ?Column
 	{
-		if ($this->getParameter('log_archived_at') == 'true') {
-			return $this->requireTable()->getColumn($this->getParameter('archived_at_column'));
+		if ($this->getStringParameter('log_archived_at') == 'true') {
+			return $this->requireTable()->getColumn($this->getStringParameter('archived_at_column'));
 		}
 
 		return null;

@@ -15,7 +15,6 @@ namespace Propulsion\Generator\Behavior\NestedSet;
  * @author     François Zaninotto
  */
 use Propulsion\Generator\Model\Behavior;
-use Propulsion\Generator\Model\Table;
 class NestedSetBehavior extends Behavior
 {
 	// default parameters value
@@ -33,33 +32,44 @@ class NestedSetBehavior extends Behavior
 	protected ?NestedSetBehaviorQueryBuilderModifier $queryBuilderModifier = null;
 	protected ?NestedSetBehaviorPeerBuilderModifier $peerBuilderModifier = null;
 
+	private function getStringParameter(string $name): string
+	{
+		$value = $this->getParameter($name);
+		return is_string($value) ? $value : '';
+	}
+
 	/**
 	 * Add the left, right and scope to the current table
 	 */
 	public function modifyTable(): void
 	{
-		if(!$this->requireTable()->hasColumn($this->getParameter('left_column'))) {
-			$this->requireTable()->addColumn(array(
-				'name' => $this->getParameter('left_column'),
+		$table = $this->requireTable();
+		$leftColumn = $this->getStringParameter('left_column');
+		if(!$table->hasColumn($leftColumn)) {
+			$table->addColumn(array(
+				'name' => $leftColumn,
 				'type' => 'INTEGER'
 			));
 		}
-		if(!$this->requireTable()->hasColumn($this->getParameter('right_column'))) {
-			$this->requireTable()->addColumn(array(
-				'name' => $this->getParameter('right_column'),
+		$rightColumn = $this->getStringParameter('right_column');
+		if(!$table->hasColumn($rightColumn)) {
+			$table->addColumn(array(
+				'name' => $rightColumn,
 				'type' => 'INTEGER'
 			));
 		}
-		if(!$this->requireTable()->hasColumn($this->getParameter('level_column'))) {
-			$this->requireTable()->addColumn(array(
-				'name' => $this->getParameter('level_column'),
+		$levelColumn = $this->getStringParameter('level_column');
+		if(!$table->hasColumn($levelColumn)) {
+			$table->addColumn(array(
+				'name' => $levelColumn,
 				'type' => 'INTEGER'
 			));
 		}
-		if ($this->getParameter('use_scope') == 'true' &&
-			 !$this->requireTable()->hasColumn($this->getParameter('scope_column'))) {
-			$this->requireTable()->addColumn(array(
-				'name' => $this->getParameter('scope_column'),
+		$scopeColumn = $this->getStringParameter('scope_column');
+		if ($this->getStringParameter('use_scope') == 'true' &&
+			 !$table->hasColumn($scopeColumn)) {
+			$table->addColumn(array(
+				'name' => $scopeColumn,
 				'type' => 'INTEGER'
 			));
 		}

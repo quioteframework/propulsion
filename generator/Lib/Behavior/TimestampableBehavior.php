@@ -18,6 +18,7 @@ namespace Propulsion\Generator\Behavior;
  */
 use Propulsion\Generator\Builder\OM\ObjectBuilder;
 use Propulsion\Generator\Builder\OM\QueryBuilder;
+use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\Behavior;
 class TimestampableBehavior extends Behavior
 {
@@ -28,20 +29,29 @@ class TimestampableBehavior extends Behavior
 		'update_column' => 'updated_at'
 	);
 
+	private function getStringParameter(string $name): string
+	{
+		$value = $this->getParameter($name);
+		return is_string($value) ? $value : '';
+	}
+
 	/**
 	 * Add the create_column and update_columns to the current table
 	 */
 	public function modifyTable(): void
 	{
-		if(!$this->requireTable()->hasColumn($this->getParameter('create_column'))) {
-			$this->requireTable()->addColumn(array(
-				'name' => $this->getParameter('create_column'),
+		$table = $this->requireTable();
+		$createColumn = $this->getStringParameter('create_column');
+		if(!$table->hasColumn($createColumn)) {
+			$table->addColumn(array(
+				'name' => $createColumn,
 				'type' => 'TIMESTAMP'
 			));
 		}
-		if(!$this->requireTable()->hasColumn($this->getParameter('update_column'))) {
-			$this->requireTable()->addColumn(array(
-				'name' => $this->getParameter('update_column'),
+		$updateColumn = $this->getStringParameter('update_column');
+		if(!$table->hasColumn($updateColumn)) {
+			$table->addColumn(array(
+				'name' => $updateColumn,
 				'type' => 'TIMESTAMP'
 			));
 		}
@@ -55,7 +65,11 @@ class TimestampableBehavior extends Behavior
 	 */
 	protected function getColumnSetter(string $column): string
 	{
-		return 'set' . $this->getColumnForParameter($column)->getPhpName();
+		$col = $this->getColumnForParameter($column);
+		if ($col === null) {
+			throw new EngineException(sprintf("Parameter '%s' does not reference an existing column", $column));
+		}
+		return 'set' . $col->getPhpName();
 	}
 
 	/**

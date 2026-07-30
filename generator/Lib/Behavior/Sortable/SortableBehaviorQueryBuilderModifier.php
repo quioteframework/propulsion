@@ -10,6 +10,7 @@
 namespace Propulsion\Generator\Behavior\Sortable;
 
 use Propulsion\Generator\Builder\OM\QueryBuilder;
+use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\Column;
 use Propulsion\Generator\Model\Table;
 
@@ -33,14 +34,26 @@ class SortableBehaviorQueryBuilderModifier
 		$this->table = $behavior->requireTable();
 	}
 
-	protected function getParameter(string $key): string
+	protected function getParameter(string $key): mixed
 	{
 		return $this->behavior->getParameter($key);
 	}
 
 	protected function getColumn(string $name): Column
 	{
-		return $this->behavior->getColumnForParameter($name);
+		$column = $this->behavior->getColumnForParameter($name);
+		if ($column === null) {
+			throw new EngineException(sprintf("Parameter '%s' does not reference an existing column", $name));
+		}
+		return $column;
+	}
+
+	private function requireBuilder(): QueryBuilder
+	{
+		if ($this->builder === null) {
+			throw new EngineException('No builder has been set yet; setBuilder() must run before this call');
+		}
+		return $this->builder;
 	}
 
 	protected function setBuilder(QueryBuilder $builder): void
@@ -212,7 +225,7 @@ public function findList(" . ($useScope ? "\$scope = null, " : "") . "\$con = nu
 
 	protected function addGetMaxRank(string &$script): void
 	{
-		$this->builder->declareClasses('Propulsion');
+		$this->requireBuilder()->declareClasses('Propulsion');
 		$useScope = $this->behavior->useScope();
 		$script .= "
 /**
@@ -257,10 +270,10 @@ public function getMaxRank(" . ($useScope ? "\$scope = null, " : "") . "?Propuls
 
 	protected function addReorder(string &$script): void
 	{
-		$this->builder->declareClasses('Propulsion');
+		$this->requireBuilder()->declareClasses('Propulsion');
 		$peerClassname = $this->peerClassname;
-		$columnGetter = 'get' . $this->behavior->getColumnForParameter('rank_column')->getPhpName();
-		$columnSetter = 'set' . $this->behavior->getColumnForParameter('rank_column')->getPhpName();
+		$columnGetter = 'get' . $this->getColumn('rank_column')->getPhpName();
+		$columnSetter = 'set' . $this->getColumn('rank_column')->getPhpName();
 		$script .= "
 /**
  * Reorder a set of sortable objects based on a list of id/position

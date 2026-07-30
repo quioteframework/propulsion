@@ -31,21 +31,30 @@ class SortableBehavior extends Behavior
 	protected ?SortableBehaviorQueryBuilderModifier $queryBuilderModifier = null;
 	protected ?SortableBehaviorPeerBuilderModifier $peerBuilderModifier = null;
 
+	private function getStringParameter(string $name): string
+	{
+		$value = $this->getParameter($name);
+		return is_string($value) ? $value : '';
+	}
+
 	/**
 	 * Add the rank_column to the current table
 	 */
 	public function modifyTable(): void
 	{
-		if (!$this->requireTable()->hasColumn($this->getParameter('rank_column'))) {
-			$this->requireTable()->addColumn(array(
-				'name' => $this->getParameter('rank_column'),
+		$table = $this->requireTable();
+		$rankColumn = $this->getStringParameter('rank_column');
+		if (!$table->hasColumn($rankColumn)) {
+			$table->addColumn(array(
+				'name' => $rankColumn,
 				'type' => 'INTEGER'
 			));
 		}
-		if ($this->getParameter('use_scope') == 'true' &&
-			 !$this->requireTable()->hasColumn($this->getParameter('scope_column'))) {
-			$this->requireTable()->addColumn(array(
-				'name' => $this->getParameter('scope_column'),
+		$scopeColumn = $this->getStringParameter('scope_column');
+		if ($this->getStringParameter('use_scope') == 'true' &&
+			 !$table->hasColumn($scopeColumn)) {
+			$table->addColumn(array(
+				'name' => $scopeColumn,
 				'type' => 'INTEGER'
 			));
 		}

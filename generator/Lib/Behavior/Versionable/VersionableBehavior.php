@@ -15,7 +15,9 @@ namespace Propulsion\Generator\Behavior\Versionable;
  * @author    Francois Zaninotto
  * @version		$Revision$
  */
+use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\Behavior;
+use Propulsion\Generator\Model\Column;
 use Propulsion\Generator\Model\ForeignKey;
 use Propulsion\Generator\Model\Table;
 
@@ -42,6 +44,39 @@ class VersionableBehavior extends Behavior
   /** @var int */
   protected $tableModificationOrder = 80;
 
+  /**
+   * The version table is only known once addVersionTable() has run as
+   * part of modifyTable(); calling this before that point (or before
+   * modifyTable() at all) is a programming error.
+   */
+  public function requireVersionTable(): Table
+  {
+    if ($this->versionTable === null) {
+      throw new EngineException(
+        "Version table has not been created yet; addVersionTable() must run before this call",
+      );
+    }
+    return $this->versionTable;
+  }
+
+  /**
+   * getParameter() is typed to return mixed at the Behavior base class,
+   * but this behavior's own $parameters map is declared
+   * array<string, string>, so every value obtained through it is
+   * actually a string. Centralize that cast here rather than sprinkling
+   * (string) casts at each call site.
+   */
+  private function getStringParameter(string $name): string
+  {
+    $value = $this->getParameter($name);
+    if (!is_string($value)) {
+      throw new EngineException(
+        sprintf("Parameter '%s' is expected to be a string", $name),
+      );
+    }
+    return $value;
+  }
+
   public function modifyTable(): void
   {
     $this->addVersionColumn();
@@ -54,9 +89,9 @@ class VersionableBehavior extends Behavior
   {
     $table = $this->requireTable();
     // add the version column
-    if (!$table->hasColumn($this->getParameter("version_column"))) {
+    if (!$table->hasColumn($this->getStringParameter("version_column"))) {
       $table->addColumn([
-        "name" => $this->getParameter("version_column"),
+        "name" => $this->getStringParameter("version_column"),
         "type" => "INTEGER",
         "default" => 0,
       ]);
@@ -67,30 +102,30 @@ class VersionableBehavior extends Behavior
   {
     $table = $this->requireTable();
     if (
-      $this->getParameter("log_created_at") == "true" &&
-      !$table->hasColumn($this->getParameter("version_created_at_column"))
+      $this->getStringParameter("log_created_at") == "true" &&
+      !$table->hasColumn($this->getStringParameter("version_created_at_column"))
     ) {
       $table->addColumn([
-        "name" => $this->getParameter("version_created_at_column"),
+        "name" => $this->getStringParameter("version_created_at_column"),
         "type" => "TIMESTAMP",
       ]);
     }
     if (
-      $this->getParameter("log_created_by") == "true" &&
-      !$table->hasColumn($this->getParameter("version_created_by_column"))
+      $this->getStringParameter("log_created_by") == "true" &&
+      !$table->hasColumn($this->getStringParameter("version_created_by_column"))
     ) {
       $table->addColumn([
-        "name" => $this->getParameter("version_created_by_column"),
+        "name" => $this->getStringParameter("version_created_by_column"),
         "type" => "VARCHAR",
         "size" => 100,
       ]);
     }
     if (
-      $this->getParameter("log_comment") == "true" &&
-      !$table->hasColumn($this->getParameter("version_comment_column"))
+      $this->getStringParameter("log_comment") == "true" &&
+      !$table->hasColumn($this->getStringParameter("version_comment_column"))
     ) {
       $table->addColumn([
-        "name" => $this->getParameter("version_comment_column"),
+        "name" => $this->getStringParameter("version_comment_column"),
         "type" => "VARCHAR",
         "size" => 255,
       ]);
@@ -101,8 +136,8 @@ class VersionableBehavior extends Behavior
   {
     $table = $this->requireTable();
     $database = $table->requireDatabase();
-    $versionTableName = $this->getParameter("version_table")
-      ? $this->getParameter("version_table")
+    $versionTableName = $this->getStringParameter("version_table")
+      ? $this->getStringParameter("version_table")
       : $table->getName() . "_version";
     if (!$database->hasTable($versionTableName)) {
       $versionTableName = str_replace(
@@ -148,9 +183,17 @@ class VersionableBehavior extends Behavior
       $versionTable->addForeignKey($fk);
 
       // add the version column to the primary key
-      $versionColumn = $versionTable->getColumn(
-        $this->getParameter("version_column"),
-      );
+      $versionColumnName = $this->getStringParameter("version_column");
+      $versionColumn = $versionTable->getColumn($versionColumnName);
+      if ($versionColumn === null) {
+        throw new EngineException(
+          sprintf(
+            "Version column '%s' was not found on table '%s' right after being added",
+            $versionColumnName,
+            $versionTable->getName(),
+          ),
+        );
+      }
       $versionColumn->setNotNull(true);
       $versionColumn->setPrimaryKey(true);
       $this->versionTable = $versionTable;
@@ -161,8 +204,7 @@ class VersionableBehavior extends Behavior
 
   public function addForeignKeyVersionColumns(): void
   {
-    $table = $this->requireTable();
-    $versionTable = $this->versionTable;
+    $versionTable = $this->requireVersionTable();
     foreach ($this->getVersionableFks() as $fk) {
       $fkVersionColumnName = $fk->getLocalColumnName() . "_version";
       if (!$versionTable->containsColumn($fkVersionColumnName)) {
@@ -174,7 +216,7 @@ class VersionableBehavior extends Behavior
       }
     }
     foreach ($this->getVersionableReferrers() as $fk) {
-      $fkTableName = $fk->getTable()->getName();
+      $fkTableName = $fk->requireTable()->getName();
       $fkIdsColumnName = $fkTableName . "_ids";
       if (!$versionTable->containsColumn($fkIdsColumnName)) {
         $versionTable->addColumn([
@@ -206,14 +248,12 @@ class VersionableBehavior extends Behavior
   public function getVersionableFks(): array
   {
     $versionableFKs = [];
-    if ($fks = $this->requireTable()->getForeignKeys()) {
-      foreach ($fks as $fk) {
-        if (
-          $fk->requireForeignTable()->hasBehavior("versionable") &&
-          !$fk->isComposite()
-        ) {
-          $versionableFKs[] = $fk;
-        }
+    foreach ($this->requireTable()->getForeignKeys() as $fk) {
+      if (
+        $fk->requireForeignTable()->hasBehavior("versionable") &&
+        !$fk->isComposite()
+      ) {
+        $versionableFKs[] = $fk;
       }
     }
     return $versionableFKs;
@@ -223,31 +263,60 @@ class VersionableBehavior extends Behavior
   public function getVersionableReferrers(): array
   {
     $versionableReferrers = [];
-    if ($fks = $this->requireTable()->getReferrers()) {
-      foreach ($fks as $fk) {
-        if (
-          $fk->getTable()->hasBehavior("versionable") &&
-          !$fk->isComposite()
-        ) {
-          $versionableReferrers[] = $fk;
-        }
+    foreach ($this->requireTable()->getReferrers() as $fk) {
+      if (
+        $fk->requireTable()->hasBehavior("versionable") &&
+        !$fk->isComposite()
+      ) {
+        $versionableReferrers[] = $fk;
       }
     }
     return $versionableReferrers;
   }
 
-  public function getReferrerIdsColumn(ForeignKey $fk): \Propulsion\Generator\Model\Column
+  public function getReferrerIdsColumn(ForeignKey $fk): Column
   {
-    $fkTableName = $fk->getTable()->getName();
+    $fkTableName = $fk->requireTable()->getName();
     $fkIdsColumnName = $fkTableName . "_ids";
-    return $this->versionTable->getColumn($fkIdsColumnName);
+    return $this->requireVersionTableColumn($fkIdsColumnName);
   }
 
-  public function getReferrerVersionsColumn(ForeignKey $fk): \Propulsion\Generator\Model\Column
+  public function getReferrerVersionsColumn(ForeignKey $fk): Column
   {
-    $fkTableName = $fk->getTable()->getName();
+    $fkTableName = $fk->requireTable()->getName();
     $fkIdsColumnName = $fkTableName . "_versions";
-    return $this->versionTable->getColumn($fkIdsColumnName);
+    return $this->requireVersionTableColumn($fkIdsColumnName);
+  }
+
+  private function requireVersionTableColumn(string $name): Column
+  {
+    $column = $this->requireVersionTable()->getColumn($name);
+    if ($column === null) {
+      throw new EngineException(
+        sprintf("Column '%s' was not found on the version table", $name),
+      );
+    }
+    return $column;
+  }
+
+  /**
+   * Non-nullable wrapper around getColumnForParameter(), for callers
+   * (e.g. the builder modifiers) that only ever call this once the
+   * behavior is fully attached and its parameters resolved to real
+   * columns on the table.
+   */
+  public function requireColumnForParameter(string $param): Column
+  {
+    $column = $this->getColumnForParameter($param);
+    if ($column === null) {
+      throw new EngineException(
+        sprintf(
+          "Parameter '%s' does not reference an existing column",
+          $param,
+        ),
+      );
+    }
+    return $column;
   }
 
   public function getObjectBuilderModifier(): VersionableBehaviorObjectBuilderModifier

@@ -10,6 +10,8 @@
 namespace Propulsion\Generator\Behavior\NestedSet;
 
 use Propulsion\Generator\Builder\OM\ObjectBuilder;
+use Propulsion\Generator\Exception\EngineException;
+use Propulsion\Generator\Model\Column;
 use Propulsion\Generator\Model\Table;
 
 /**
@@ -33,9 +35,26 @@ class NestedSetBehaviorObjectBuilderModifier
 		$this->table = $behavior->requireTable();
 	}
 
-	protected function getParameter(string $key): string
+	protected function getParameter(string $key): mixed
 	{
 		return $this->behavior->getParameter($key);
+	}
+
+	private function requireColumnForParameter(string $param): Column
+	{
+		$column = $this->behavior->getColumnForParameter($param);
+		if ($column === null) {
+			throw new EngineException(sprintf("Parameter '%s' does not reference an existing column", $param));
+		}
+		return $column;
+	}
+
+	private function requireBuilder(): ObjectBuilder
+	{
+		if ($this->builder === null) {
+			throw new EngineException('No builder has been set yet; setBuilder() must run before this call');
+		}
+		return $this->builder;
 	}
 
 	protected function getColumnAttribute(string $name): string
@@ -46,12 +65,12 @@ class NestedSetBehaviorObjectBuilderModifier
 		// (archaeology/php5-builders/PHP5ObjectBuilder.php's `$clo =
 		// strtolower($col->getName())` convention). Match whatever the
 		// current builder actually generates so `$this->{...}` resolves.
-		return $this->behavior->getColumnForParameter($name)->getPhpName();
+		return $this->requireColumnForParameter($name)->getPhpName();
 	}
 
 	protected function getColumnPhpName(string $name): string
 	{
-		return $this->behavior->getColumnForParameter($name)->getPhpName();
+		return $this->requireColumnForParameter($name)->getPhpName();
 	}
 
 	protected function setBuilder(ObjectBuilder $builder): void
@@ -698,7 +717,7 @@ public function clearNestedSetChildren()
 public function initNestedSetChildren()
 {
 	\$this->collNestedSetChildren = new PropulsionObjectCollection();
-	\$this->collNestedSetChildren->setModel('" . $this->builder->getNewStubObjectBuilder($this->table)->getClassname() . "');
+	\$this->collNestedSetChildren->setModel('" . $this->requireBuilder()->getNewStubObjectBuilder($this->table)->getClassname() . "');
 }
 ";
 	}
@@ -1020,11 +1039,19 @@ public function addChild($objectClassname \$child)
 
 	protected function getPeerClassNameWithNamespace(): string
 	{
-		$peerClassname = $this->peerClassname;
-		if ($namespace = $this->builder->getStubPeerBuilder()->getNamespace()) {
+		$peerClassname = $this->requirePeerClassname();
+		if ($namespace = $this->requireBuilder()->getStubPeerBuilder()->getNamespace()) {
 			$peerClassname = '\\\\' . $namespace . '\\\\' . $peerClassname;
 		}
 		return $peerClassname;
+	}
+
+	private function requirePeerClassname(): string
+	{
+		if ($this->peerClassname === null) {
+			throw new EngineException('No builder has been set yet; setBuilder() must run before this call');
+		}
+		return $this->peerClassname;
 	}
 
 	protected function addInsertAsFirstChildOf(string &$script): void

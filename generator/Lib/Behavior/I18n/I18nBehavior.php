@@ -17,8 +17,11 @@ namespace Propulsion\Generator\Behavior\I18n;
  */
 use Propulsion\Generator\Model\Behavior;
 use Propulsion\Generator\Exception\EngineException;
+use Propulsion\Generator\Model\Column;
+use Propulsion\Generator\Model\Database;
 use Propulsion\Generator\Model\ForeignKey;
 use Propulsion\Generator\Model\PropulsionTypes;
+use Propulsion\Generator\Model\Table;
 
 class I18nBehavior extends Behavior
 {
@@ -41,7 +44,29 @@ class I18nBehavior extends Behavior
 	protected ?I18nBehaviorObjectBuilderModifier $objectBuilderModifier = null;
 	protected ?I18nBehaviorQueryBuilderModifier $queryBuilderModifier = null;
 	protected ?I18nBehaviorPeerBuilderModifier $peerBuilderModifier = null;
-	protected ?\Propulsion\Generator\Model\Table $i18nTable = null;
+	protected ?Table $i18nTable = null;
+
+	/**
+	 * The i18n table is only known once addI18nTable() has run as part
+	 * of modifyTable(); calling this before that point is a programming
+	 * error.
+	 */
+	public function requireI18nTable(): Table
+	{
+		if ($this->i18nTable === null) {
+			throw new EngineException('I18n table has not been created yet; addI18nTable() must run before this call');
+		}
+		return $this->i18nTable;
+	}
+
+	public function requireColumn(Table $table, string $name): Column
+	{
+		$column = $table->getColumn($name);
+		if ($column === null) {
+			throw new EngineException(sprintf("Column '%s' was not found on table '%s'", $name, $table->getName()));
+		}
+		return $column;
+	}
 
 	public function modifyDatabase(): void
 	{
@@ -88,13 +113,17 @@ class I18nBehavior extends Behavior
 	protected function relateI18nTableToMainTable(): void
 	{
 		$table = $this->requireTable();
-		$i18nTable = $this->i18nTable;
-		$pks = $this->requireTable()->getPrimaryKey();
+		$i18nTable = $this->requireI18nTable();
+		$pks = $table->getPrimaryKey();
 		if (count($pks) > 1) {
 			throw new EngineException('The i18n behavior does not support tables with composite primary keys');
 		}
 		foreach ($pks as $column) {
-			if (!$i18nTable->hasColumn($column->getName())) {
+			$columnName = $column->getName();
+			if ($columnName === null) {
+				throw new EngineException(sprintf("A primary key column of table '%s' has no name", $table->getName()));
+			}
+			if (!$i18nTable->hasColumn($columnName)) {
 				$column = clone $column;
 				$column->setAutoIncrement(false);
 				$i18nTable->addColumn($column);
@@ -118,8 +147,9 @@ class I18nBehavior extends Behavior
 	protected function addLocaleColumnToI18n(): void
 	{
 		$localeColumnName = $this->getLocaleColumnName();
-		if (!$this->i18nTable->hasColumn($localeColumnName)) {
-			$this->i18nTable->addColumn(array(
+		$i18nTable = $this->requireI18nTable();
+		if (!$i18nTable->hasColumn($localeColumnName)) {
+			$i18nTable->addColumn(array(
 				'name'       => $localeColumnName,
 				'type'       => PropulsionTypes::VARCHAR,
 				'size'       => 5,
@@ -135,13 +165,13 @@ class I18nBehavior extends Behavior
 	protected function moveI18nColumns(): void
 	{
 		$table = $this->requireTable();
-		$i18nTable = $this->i18nTable;
+		$i18nTable = $this->requireI18nTable();
 		foreach ($this->getI18nColumnNamesFromConfig() as $columnName) {
 			if (!$i18nTable->hasColumn($columnName)) {
 				if (!$table->hasColumn($columnName)) {
 					throw new EngineException(sprintf('No column named %s found in table %s', $columnName, $table->getName()));
 				}
-				$column = $table->getColumn($columnName);
+				$column = $this->requireColumn($table, $columnName);
 				// add the column
 				$i18nColumn = $i18nTable->addColumn(clone $column);
 				// add related validators
@@ -157,25 +187,41 @@ class I18nBehavior extends Behavior
 		}
 	}
 
+	/**
+	 * getParameter() is typed to return mixed at the Behavior base class,
+	 * but the parameters used here ('i18n_table', 'i18n_phpname',
+	 * 'locale_column', 'i18n_columns') always default to (and are only
+	 * ever configured as) strings, so centralize the cast-with-check
+	 * here rather than sprinkling it at each call site.
+	 */
+	private function getStringParameter(string $name): string
+	{
+		$value = $this->getParameter($name);
+		if (!is_string($value)) {
+			throw new EngineException(sprintf("Parameter '%s' is expected to be a string", $name));
+		}
+		return $value;
+	}
+
 	protected function getI18nTableName(): string
 	{
-		return $this->replaceTokens($this->getParameter('i18n_table'));
+		return $this->replaceTokens($this->getStringParameter('i18n_table'));
 	}
 
 	protected function getI18nTablePhpName(): string
 	{
-		return $this->replaceTokens($this->getParameter('i18n_phpname'));
+		return $this->replaceTokens($this->getStringParameter('i18n_phpname'));
 	}
 
 	protected function getLocaleColumnName(): string
 	{
-		return $this->replaceTokens($this->getParameter('locale_column'));
+		return $this->replaceTokens($this->getStringParameter('locale_column'));
 	}
 
 	/** @return array<int, string> */
 	protected function getI18nColumnNamesFromConfig(): array
 	{
-		$columnNames = explode(',', $this->getParameter('i18n_columns'));
+		$columnNames = explode(',', $this->getStringParameter('i18n_columns'));
 		foreach ($columnNames as $key => $columnName) {
 			if ($columnName = trim($columnName)) {
 				$columnNames[$key] = $columnName;
@@ -188,7 +234,11 @@ class I18nBehavior extends Behavior
 
 	public function getDefaultLocale(): string
 	{
-		if (!$defaultLocale = $this->getParameter('default_locale')) {
+		// 'default_locale' is genuinely optional (defaults to null until
+		// configured via the behavior's XML parameters), so fall back to
+		// the class default whenever it isn't set to a non-empty string.
+		$defaultLocale = $this->getParameter('default_locale');
+		if (!is_string($defaultLocale) || $defaultLocale === '') {
 			$defaultLocale = self::DEFAULT_LOCALE;
 		}
 		return $defaultLocale;
@@ -201,28 +251,29 @@ class I18nBehavior extends Behavior
 
 	public function getI18nForeignKey(): ?ForeignKey
 	{
-		foreach ($this->i18nTable->getForeignKeys() as $fk) {
-			if ($fk->getForeignTableName() == $this->table->getName()) {
+		$table = $this->requireTable();
+		foreach ($this->requireI18nTable()->getForeignKeys() as $fk) {
+			if ($fk->getForeignTableName() == $table->getName()) {
 				return $fk;
 			}
 		}
 		return null;
 	}
 
-	public function getLocaleColumn(): \Propulsion\Generator\Model\Column
+	public function getLocaleColumn(): Column
 	{
-		return $this->getI18nTable()->getColumn($this->getLocaleColumnName());
+		return $this->requireColumn($this->requireI18nTable(), $this->getLocaleColumnName());
 	}
 
-	/** @return array<int, \Propulsion\Generator\Model\Column> */
+	/** @return array<int, Column> */
 	public function getI18nColumns(): array
 	{
 		$columns = array();
-		$i18nTable = $this->getI18nTable();
+		$i18nTable = $this->requireI18nTable();
 		if ($columnNames = $this->getI18nColumnNamesFromConfig()) {
 			// Strategy 1: use the i18n_columns parameter
 			foreach ($columnNames as $columnName) {
-				$columns []= $i18nTable->getColumn($columnName);
+				$columns []= $this->requireColumn($i18nTable, $columnName);
 			}
 		} else {
 			// strategy 2: use the columns of the i18n table

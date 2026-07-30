@@ -9,6 +9,8 @@
  */
 namespace Propulsion\Generator\Behavior\I18n;
 
+use Propulsion\Generator\Exception\EngineException;
+use Propulsion\Generator\Model\ForeignKey;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Builder\OM\QueryBuilder;
 
@@ -31,6 +33,21 @@ class I18nBehaviorQueryBuilderModifier
 		$this->table = $behavior->requireTable();
 	}
 
+	/**
+	 * getI18nForeignKey() legitimately returns null when the i18n table
+	 * hasn't been related back to the main table yet, but every call
+	 * site here only runs once modifyTable() has already set up that
+	 * relationship, so treat a null result as a programming error.
+	 */
+	private function requireI18nForeignKey(): ForeignKey
+	{
+		$fk = $this->behavior->getI18nForeignKey();
+		if ($fk === null) {
+			throw new EngineException('No foreign key was found relating the i18n table back to the main table');
+		}
+		return $fk;
+	}
+
 	public function queryMethods(QueryBuilder $builder): string
 	{
 		$this->builder = $builder;
@@ -44,7 +61,7 @@ class I18nBehaviorQueryBuilderModifier
 
 	protected function addJoinI18n(): string
 	{
-		$fk = $this->behavior->getI18nForeignKey();
+		$fk = $this->requireI18nForeignKey();
 		return $this->behavior->renderTemplate('queryJoinI18n', array(
 			'queryClass'       => $this->builder->getStubQueryBuilder()->getClassname(),
 			'defaultLocale'    => $this->behavior->getDefaultLocale(),
@@ -55,7 +72,7 @@ class I18nBehaviorQueryBuilderModifier
 
 	protected function addJoinWithI18n(): string
 	{
-		$fk = $this->behavior->getI18nForeignKey();
+		$fk = $this->requireI18nForeignKey();
 		return $this->behavior->renderTemplate('queryJoinWithI18n', array(
 			'queryClass'       => $this->builder->getStubQueryBuilder()->getClassname(),
 			'defaultLocale'    => $this->behavior->getDefaultLocale(),
@@ -65,8 +82,8 @@ class I18nBehaviorQueryBuilderModifier
 
 	protected function addUseI18nQuery(): string
 	{
-		$i18nTable = $this->behavior->getI18nTable();
-		$fk = $this->behavior->getI18nForeignKey();
+		$i18nTable = $this->behavior->requireI18nTable();
+		$fk = $this->requireI18nForeignKey();
 		return $this->behavior->renderTemplate('queryUseI18nQuery', array(
 			'queryClass'           => $this->builder->getNewStubQueryBuilder($i18nTable)->getClassname(),
 			'namespacedQueryClass' => $this->builder->getNewStubQueryBuilder($i18nTable)->getFullyQualifiedClassname(),

@@ -18,10 +18,10 @@ namespace Propulsion\Generator\Behavior\AggregateColumn;
 use Propulsion\Generator\Builder\OM\ObjectBuilder;
 use Propulsion\Generator\Builder\OM\OMBuilder;
 use Propulsion\Generator\Builder\OM\QueryBuilder;
+use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\Behavior;
 use Propulsion\Generator\Model\ForeignKey;
 use Propulsion\Generator\Model\Table;
-use Propulsion\Generator\Exception\EngineException;
 
 class AggregateColumnRelationBehavior extends Behavior
 {
@@ -34,6 +34,29 @@ class AggregateColumnRelationBehavior extends Behavior
 		'foreign_table' => '',
 		'update_method' => '',
 	);
+
+	private function getStringParameter(string $name): string
+	{
+		$value = $this->getParameter($name);
+		return is_string($value) ? $value : '';
+	}
+
+	/**
+	 * getForeignKey() legitimately returns null when no matching foreign
+	 * key can be found, but every call site here requires one to exist.
+	 */
+	private function requireForeignKey(): ForeignKey
+	{
+		$fk = $this->getForeignKey();
+		if ($fk === null) {
+			throw new \InvalidArgumentException(sprintf(
+				"No foreign key was found relating table '%s' to '%s'",
+				$this->requireTable()->getName(),
+				$this->requireForeignTable()->getName(),
+			));
+		}
+		return $fk;
+	}
 
 	public function postSave(ObjectBuilder $builder): string
 	{
@@ -72,8 +95,14 @@ class AggregateColumnRelationBehavior extends Behavior
 	 */
 	public function objectFilter(&$script, ObjectBuilder $builder): void
 	{
+		if ($script === null) {
+			return;
+		}
 		$relationName = $this->getRelationName($builder);
 		$relatedClass = $this->requireForeignTable()->getPhpName();
+		if ($relatedClass === null) {
+			throw new EngineException('Foreign table has no PHP name');
+		}
 		// Match the FK relation setter's signature loosely (optional leading "?" on the
 		// parameter type, and any return type declaration) rather than the exact PHP5-era
 		// literal "public function setX(RelatedClass $v = null)\n\t{" this used to require --
@@ -141,7 +170,7 @@ class AggregateColumnRelationBehavior extends Behavior
 
 	protected function addQueryFindRelated(QueryBuilder $builder): string
 	{
-		$foreignKey = $this->getForeignKey();
+		$foreignKey = $this->requireForeignKey();
 		$relationName = $this->getRelationName($builder);
 		return $this->renderTemplate('queryFindRelated', array(
 			'foreignTable'     => $this->requireForeignTable(),
@@ -164,7 +193,7 @@ class AggregateColumnRelationBehavior extends Behavior
 
 	protected function getForeignTable(): ?Table
 	{
-		return $this->requireTable()->requireDatabase()->getTable($this->getParameter('foreign_table'));
+		return $this->requireTable()->requireDatabase()->getTable($this->getStringParameter('foreign_table'));
 	}
 
 	/**
@@ -179,7 +208,7 @@ class AggregateColumnRelationBehavior extends Behavior
 			throw new EngineException(sprintf(
 				"aggregate_column_relation behavior on table '%s' references unknown foreign_table '%s'.",
 				$this->requireTable()->getName() ?? '(unnamed)',
-				$this->getParameter('foreign_table')
+				$this->getStringParameter('foreign_table')
 			));
 		}
 		return $foreignTable;
@@ -188,15 +217,19 @@ class AggregateColumnRelationBehavior extends Behavior
 	protected function getForeignKey(): ?ForeignKey
 	{
 		$foreignTable = $this->requireForeignTable();
+		$foreignTableName = $foreignTable->getName();
+		if ($foreignTableName === null) {
+			throw new EngineException('Foreign table has no name');
+		}
 		// let's infer the relation from the foreign table
-		$fks = $this->requireTable()->getForeignKeysReferencingTable($foreignTable->getName());
+		$fks = $this->requireTable()->getForeignKeysReferencingTable($foreignTableName);
 		// FIXME doesn't work when more than one fk to the same table
 		return array_shift($fks);
 	}
 
 	protected function getRelationName(OMBuilder $builder): string
 	{
-		return $builder->getFKPhpNameAffix($this->getForeignKey());
+		return $builder->getFKPhpNameAffix($this->requireForeignKey());
 	}
 
 	protected static function lcfirst(string $input): string

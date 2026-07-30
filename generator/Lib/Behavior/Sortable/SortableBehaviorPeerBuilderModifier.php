@@ -10,6 +10,8 @@
 namespace Propulsion\Generator\Behavior\Sortable;
 
 use Propulsion\Generator\Builder\OM\PeerBuilder;
+use Propulsion\Generator\Exception\EngineException;
+use Propulsion\Generator\Model\Column;
 use Propulsion\Generator\Model\Table;
 
 /**
@@ -32,24 +34,49 @@ class SortableBehaviorPeerBuilderModifier
 		$this->table = $behavior->requireTable();
 	}
 
-	protected function getParameter(string $key): string
+	protected function getParameter(string $key): mixed
 	{
 		return $this->behavior->getParameter($key);
 	}
 
+	private function requireColumnForParameter(string $param): Column
+	{
+		$column = $this->behavior->getColumnForParameter($param);
+		if ($column === null) {
+			throw new EngineException(sprintf("Parameter '%s' does not reference an existing column", $param));
+		}
+		return $column;
+	}
+
+	private function requireBuilder(): PeerBuilder
+	{
+		if ($this->builder === null) {
+			throw new EngineException('No builder has been set yet; setBuilder() must run before this call');
+		}
+		return $this->builder;
+	}
+
 	protected function getColumnAttribute(string $name): string
 	{
-		return strtolower($this->behavior->getColumnForParameter($name)->getName());
+		$columnName = $this->requireColumnForParameter($name)->getName();
+		if ($columnName === null) {
+			throw new EngineException(sprintf("Column for parameter '%s' has no name", $name));
+		}
+		return strtolower($columnName);
 	}
 
 		protected function getColumnConstant(string $name): string
 	{
-		return strtoupper($this->behavior->getColumnForParameter($name)->getName());
+		$columnName = $this->requireColumnForParameter($name)->getName();
+		if ($columnName === null) {
+			throw new EngineException(sprintf("Column for parameter '%s' has no name", $name));
+		}
+		return strtoupper($columnName);
 	}
 
 	protected function getColumnPhpName(string $name): string
 	{
-		return $this->behavior->getColumnForParameter($name)->getPhpName();
+		return $this->requireColumnForParameter($name)->getPhpName();
 	}
 
 	protected function setBuilder(PeerBuilder $builder): void
@@ -195,8 +222,8 @@ public static function retrieveByRank(\$rank, " . ($useScope ? "\$scope = null, 
 	protected function addReorder(string &$script): void
 	{
 		$peerClassname = $this->peerClassname;
-		$columnGetter = 'get' . $this->behavior->getColumnForParameter('rank_column')->getPhpName();
-		$columnSetter = 'set' . $this->behavior->getColumnForParameter('rank_column')->getPhpName();
+		$columnGetter = 'get' . $this->requireColumnForParameter('rank_column')->getPhpName();
+		$columnSetter = 'set' . $this->requireColumnForParameter('rank_column')->getPhpName();
 		$script .= "
 /**
  * Reorder a set of sortable objects based on a list of id/position
@@ -380,7 +407,7 @@ public static function shiftRank(\$delta, \$first, \$last = null, " . ($useScope
 	\$valuesCriteria = new Criteria($peerClassname::DATABASE_NAME);
 	\$valuesCriteria->add($peerClassname::RANK_COL, array('raw' => $peerClassname::RANK_COL . ' + ?', 'value' => \$delta), Criteria::CUSTOM_EQUAL);
 
-	{$this->builder->getPeerBuilder()->getBasePeerClassname()}::doUpdate(\$whereCriteria, \$valuesCriteria, \$con);
+	{$this->requireBuilder()->getPeerBuilder()->getBasePeerClassname()}::doUpdate(\$whereCriteria, \$valuesCriteria, \$con);
 	$peerClassname::clearInstancePool();
 }
 ";
