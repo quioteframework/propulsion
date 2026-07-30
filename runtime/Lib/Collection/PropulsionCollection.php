@@ -48,7 +48,7 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	protected $model = '';
 
 	/**
-	 * @var       Iterator|null
+	 * @var       Iterator<array-key,mixed>|null
 	 */
 	protected $iterator;
 
@@ -298,9 +298,7 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 		}
 		$ret = $this->getLast();
 		$lastKey = $this->getInternalIterator()->key();
-		if (is_int($lastKey) || is_string($lastKey)) {
-			$this->offsetUnset($lastKey);
-		}
+		$this->offsetUnset($lastKey);
 		return $ret;
 	}
 
@@ -436,7 +434,7 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	 * Overrides ArrayObject::getIterator() to save the iterator object
 	 * for internal use e.g. getNext(), isOdd(), etc.
 	 *
-	 * @return    Iterator
+	 * @return    Iterator<array-key,mixed>
 	 */
 	public function getIterator(): Iterator
 	{
@@ -451,7 +449,7 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	}
 
 	/**
-	 * @return    Iterator
+	 * @return    Iterator<array-key,mixed>
 	 */
 	public function getInternalIterator()
 	{

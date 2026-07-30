@@ -26,6 +26,25 @@ class PropulsionArrayCollection extends PropulsionCollection
 	protected $workerObject;
 
 	/**
+	 * Normalizes a hydrated row (whose keys are always column names in
+	 * practice, but which PHPStan only sees as array<array-key,mixed> once
+	 * pulled out of an ArrayObject-backed collection) into the
+	 * array<string,mixed> shape BaseObject::fromArray() requires.
+	 *
+	 * @param     array<array-key,mixed> $arr
+	 * @return    array<string,mixed>
+	 */
+	private static function toStringKeyedArray(array $arr): array
+	{
+		$result = array();
+		foreach ($arr as $key => $value) {
+			$result[(string) $key] = $value;
+		}
+
+		return $result;
+	}
+
+	/**
 	 * Save all the elements in the collection
 	 *
 	 * @param     PropulsionPDO  $con
@@ -45,8 +64,11 @@ class PropulsionArrayCollection extends PropulsionCollection
 		try {
 			$obj = $this->getWorkerObject();
 			foreach ($this as $element) {
+				if (!is_array($element)) {
+					continue;
+				}
 				$obj->clear();
-				$obj->fromArray($element);
+				$obj->fromArray(self::toStringKeyedArray($element));
 				$obj->setNew($obj->isPrimaryKeyNull());
 				$obj->save($con);
 			}
@@ -75,9 +97,12 @@ class PropulsionArrayCollection extends PropulsionCollection
 		$con->beginTransaction();
 		try {
 			foreach ($this as $element) {
+				if (!is_array($element)) {
+					continue;
+				}
 				$obj = $this->getWorkerObject();
 				$obj->setDeleted(false);
-				$obj->fromArray($element);
+				$obj->fromArray(self::toStringKeyedArray($element));
 				$obj->delete($con);
 			}
 			$con->commit();
@@ -95,11 +120,14 @@ class PropulsionArrayCollection extends PropulsionCollection
 	 */
 	public function getPrimaryKeys($usePrefix = true): array
 	{
-		$callable = array($this->getPeerClass(), 'getPrimaryKeyFromRow');
+		$peerClass = $this->getPeerClass();
 		$ret = array();
 		foreach ($this as $key => $element) {
+			if (!is_array($element)) {
+				continue;
+			}
 			$key = $usePrefix ? ($this->getModel() . '_' . $key) : $key;
-			$ret[$key]= call_user_func($callable, array_values($element));
+			$ret[$key] = $peerClass::getPrimaryKeyFromRow(array_values($element));
 		}
 
 		return $ret;
@@ -156,7 +184,15 @@ class PropulsionArrayCollection extends PropulsionCollection
 	{
 		$ret = array();
 		foreach ($this as $key => $element) {
-			$key = null === $keyColumn ? $key : $element[$keyColumn];
+			if (null !== $keyColumn) {
+				if (!is_array($element) || !array_key_exists($keyColumn, $element)) {
+					continue;
+				}
+				$key = $element[$keyColumn];
+			}
+			if (!is_int($key) && !is_string($key)) {
+				$key = is_scalar($key) ? (string) $key : '';
+			}
 			$key = $usePrefix ? ($this->getModel() . '_' . $key) : $key;
 			$ret[$key] = $element;
 		}
@@ -198,7 +234,14 @@ class PropulsionArrayCollection extends PropulsionCollection
 	{
 		$ret = array();
 		foreach ($this as $obj) {
-			$ret[$obj[$keyColumn]] = $obj[$valueColumn];
+			if (!is_array($obj)) {
+				continue;
+			}
+			$key = $obj[$keyColumn] ?? null;
+			if (!is_int($key) && !is_string($key)) {
+				$key = is_scalar($key) ? (string) $key : '';
+			}
+			$ret[$key] = $obj[$valueColumn] ?? null;
 		}
 
 		return $ret;
@@ -215,7 +258,11 @@ class PropulsionArrayCollection extends PropulsionCollection
 				throw new PropulsionException('You must set the collection model before interacting with it');
 			}
 			$class = $this->getModel();
-			$this->workerObject = new $class();
+			$workerObject = new $class();
+			if (!$workerObject instanceof BaseObject) {
+				throw new PropulsionException($class . ' must be a subclass of ' . BaseObject::class);
+			}
+			$this->workerObject = $workerObject;
 		}
 
 		return $this->workerObject;
