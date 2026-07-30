@@ -120,7 +120,7 @@ class AppData
 	/**
 	 * Get the name of the database.
 	 *
-	 * @return     String name
+	 * @return     string|null name
 	 */
 	public function getName()
 	{
@@ -130,10 +130,13 @@ class AppData
 	/**
 	 * Get the short name of the database (without the '-schema' postfix).
 	 *
-	 * @return     String name
+	 * @return     string|null name
 	 */
 	public function getShortName()
 	{
+		if ($this->name === null) {
+			return null;
+		}
 		return str_replace("-schema", "", $this->name);
 	}
 
@@ -255,21 +258,26 @@ class AppData
 		foreach ($ads as $appData) {
 			foreach ($appData->getDatabases(false) as $addDb) {
 				$addDbName = $addDb->getName();
-				if ($this->hasDatabase($addDbName)) {
+				if ($addDbName !== null && $this->hasDatabase($addDbName)) {
 					$db = $this->getDatabase($addDbName, false);
+					if ($db === null) {
+						continue;
+					}
 					// temporarily reset database namespace to avoid double namespace decoration (see ticket #1355)
 					$namespace = $db->getNamespace();
 					$db->setNamespace(null);
 					// join tables
 					foreach ($addDb->getTables() as $addTable) {
-						if ($db->getTable($addTable->getName())) {
-							throw new \Exception(sprintf('Duplicate table found: %s.', $addTable->getName()));
+						$addTableName = $addTable->getName();
+						if ($addTableName !== null && $db->getTable($addTableName)) {
+							throw new \Exception(sprintf('Duplicate table found: %s.', $addTableName));
 						}
 						$db->addTable($addTable);
 					}
 					// join database behaviors
 					foreach ($addDb->getBehaviors() as $addBehavior) {
-						if (!$db->hasBehavior($addBehavior->getName())) {
+						$addBehaviorName = $addBehavior->getName();
+						if ($addBehaviorName !== null && !$db->hasBehavior($addBehaviorName)) {
 							$db->addBehavior($addBehavior);
 						}
 					}
