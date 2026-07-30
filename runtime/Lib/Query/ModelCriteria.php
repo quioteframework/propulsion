@@ -34,6 +34,7 @@ namespace Propulsion\Query;
  use Propulsion\Event\PreBulkUpdateEvent;
  use Propulsion\Map\TableMap;
  use Propulsion\OM\BaseObject;
+ use Propulsion\OM\WritableModelInterface;
  use Propulsion\Formatter\PropulsionFormatter;
  use Propulsion\Exception\PropulsionException;
  use Propulsion\Util\BasePeer;
@@ -1644,6 +1645,9 @@ class ModelCriteria extends Criteria
 		if (!$ret = $criteria->findOne($con)) {
 			$class = $this->getModelName();
 			$obj = new $class();
+			if (!$obj instanceof WritableModelInterface) {
+				throw new PropulsionException("{$class} does not implement WritableModelInterface (is it a read-only, VIEW-backed model, or does its schema opt out of addGenericMutators?)");
+			}
 			foreach ($this->keys() as $key) {
 				$value = $this->getValue($key);
 				$columnName = (false !== $dotPos = strrpos($key, '.')) ? substr($key, $dotPos + 1) : $key;

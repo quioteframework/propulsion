@@ -125,4 +125,5 @@ return [
     'ValidValuesValidator' => 'Propulsion\\Validator\\ValidValuesValidator',
     'ValidationFailed' => 'Propulsion\\Validator\\ValidationFailed',
     'ValidatorMap' => 'Propulsion\\Map\\ValidatorMap',
+    'WritableModelInterface' => 'Propulsion\\OM\\WritableModelInterface',
 ];

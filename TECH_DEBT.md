@@ -33,7 +33,8 @@ trace back to two structural issues in the model layer itself:
    *something* still has to assert the invariant PHPStan can't infer.
 
 Not attempted here: this is squarely "needs a generator-level decision", the
-same bar the `setByName()` known-open item below was already held to.
+same bar the `setByName()` dynamic-dispatch item (resolved via
+`WritableModelInterface`, see below) was held to before it got one.
 
 Every other item ever tracked in this file is resolved. Two batches landed:
 
@@ -64,44 +65,50 @@ vendor/bin/phpstan analyse runtime/Lib/Query/ModelCriteria.php --level 9
 vendor/bin/phpstan analyse runtime/Lib/Util/BasePeer.php --level 9
 ```
 
-## Known-open: `setByName()`'s dynamic dispatch on generated model objects
+## Resolved: `setByName()`'s dynamic dispatch on generated model objects
 
-`ModelCriteria::findOneOrCreate()` (~line 1656) and `doUpdate()`'s
+`ModelCriteria::findOneOrCreate()` (~line 1646) and `doUpdate()`'s
 `$forceIndividualSaves` branch (~line 2372) both do `new $class()` (a
 dynamically-instantiated generated model, e.g. `Book`) and then call
 `$obj->setByName($key, $value, ...)` on it -- a real method every *writable*
-generated model class emits, but not part of any shared, PHPStan-visible
-contract.
+generated model class emits, but that wasn't part of any shared,
+PHPStan-visible contract.
 
-Tried and rejected: narrowing `$obj` to `BaseObject` before the call (via
-`instanceof`) actually made things *worse* -- it upgrades the finding from
-level-9-only (`Call to an undefined method object::setByName()`, silent at
-the project's real `--level 6` baseline) to visible at `--level 6` too
-(`Call to an undefined method Propulsion\OM\BaseObject::setByName()`), since
-PHPStan checks method existence against a known concrete class stricter than
-against the generic `object` type. Declaring `setByName()` abstract on
-`BaseObject` itself would fix the type-checking but break real code: verified
-`BaseContestView` (a read-only, database-VIEW-backed generated model) extends
-`BaseObject` and genuinely has no `setByName()` -- it's a real distinction,
-not an oversight.
+Narrowing `$obj` to `BaseObject` before the call (via `instanceof`) doesn't
+work: it upgrades the finding from level-9-only (`Call to an undefined method
+object::setByName()`, silent at the project's real `--level 6` baseline) to
+visible at `--level 6` too, since PHPStan checks method existence against a
+known concrete class stricter than against the generic `object` type.
+Declaring `setByName()` abstract on `BaseObject` itself would fix the
+type-checking but break real code: `BaseContestView` (a read-only,
+database-VIEW-backed generated model) extends `BaseObject` and genuinely has
+no `setByName()` -- a real distinction, not an oversight.
 
-A real fix needs a generator-level decision: either a marker interface
-(`WritableModelInterface` or similar) that only non-view generated model
-classes implement, with `setByName()` declared on it, and `findOneOrCreate()`
-etc. checking `instanceof` that interface instead of `BaseObject` -- or
-something equivalent. Left as-is (the pre-existing, always-`mixed`-typed
-dynamic dispatch, matching every other case of this shape already documented
-via the PHPStan extension added in batch 1's §1) rather than force a
-narrower, breaking fix under this batch's scope.
+**Fix**: a new marker interface, `Propulsion\OM\WritableModelInterface`
+(`runtime/Lib/OM/WritableModelInterface.php`), declaring `setByName()`,
+`setByPosition()`, and `fromArray()` -- the three methods
+`ObjectBuilder::addClassBody()` only ever emits together, all gated by the
+identical `AbstractObjectBuilder::isAddGenericMutators()` condition (false
+for read-only/VIEW-backed tables, alias tables, or a schema that opts out via
+the `propulsion.addGenericMutators` build property). `ObjectBuilder::addClassOpen()`
+now has every generated model class implement it exactly when
+`isAddGenericMutators()` is true -- in lockstep with whether those methods
+actually exist, by construction, rather than by inferring it from
+`isReadOnly()` alone (which would have missed the alias/build-property
+opt-out cases). `ModelCriteria::findOneOrCreate()` checks
+`instanceof WritableModelInterface` before its `setByName()` calls (the
+existing `instanceof BaseObject` check stays too, further down, for the
+`formatRecord(?BaseObject $record)` call -- `WritableModelInterface` doesn't
+extend `BaseObject`, so both checks are needed for their own reasons). The
+`doUpdate()` call site needed no change: its `$object` comes from iterating a
+`PropulsionObjectCollection` (an untyped `\ArrayObject`), so PHPStan already
+saw it as `mixed`, not `object` -- never actually flagged.
 
-**Status as of the `--level 7` push**: the rest of the project (`generator/`,
-`runtime/`, `bin/`) went from 182 `--level 7` findings to a clean sweep except
-for this one -- every other finding was a real fix (mostly `false`/`null`
-result checks PHP's own stdlib functions return, and the same
-`instanceof $expectedType` guard pattern used throughout this file applied to
-every other `new $dynamicClass(...)` call site in the codebase). This is now
-the **only** `--level 7` finding project-wide; `phpstan.neon`'s `level: 6`
-is deliberately not bumped to 7 because of it (no `ignoreErrors`/baseline
-entry was added either, per this file's own established convention of not
-suppressing known-open findings). Bumping to 7 is one `WritableModelInterface`
-decision away.
+Bare (unnamespaced) generated fixture/legacy code references runtime classes
+by their bare global name (see `runtime/Lib/legacy-class-map.php`'s own
+docblock) -- `WritableModelInterface` needed an entry there too, alongside
+`Persistent`'s, or `class_exists('WritableModelInterface')` fails for
+non-namespaced generated classes.
+
+This was the last `--level 7` finding project-wide (182 -> 0 over the course
+of the `--level 7` push); `phpstan.neon` is now at `level: 7`.

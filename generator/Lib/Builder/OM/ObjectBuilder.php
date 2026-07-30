@@ -328,7 +328,8 @@ class ObjectBuilder extends AbstractObjectBuilder
 			'PropulsionObjectCollection' => 'Propulsion\\Collection\\PropulsionObjectCollection',
 			'Propulsion' => 'Propulsion\\Propulsion',
 			'BaseObject' => 'Propulsion\\OM\\BaseObject',
-			'Persistent' => 'Propulsion\\OM\\Persistent'
+			'Persistent' => 'Propulsion\\OM\\Persistent',
+			'WritableModelInterface' => 'Propulsion\\OM\\WritableModelInterface'
 		];
 		$isFlat = !$this->getNamespace();
 
@@ -374,7 +375,18 @@ class ObjectBuilder extends AbstractObjectBuilder
 		$interface = $this->getInterface();
 		$parentClass = $this->getBehaviorContent('parentClass');
 		$parentClass = (null !== $parentClass) ? $parentClass : ClassTools::classname($this->getBaseClass());
-		$implements = $interface == "Persistent" ? " implements Persistent" : "";
+		$implementsList = array();
+		if ($interface == "Persistent") {
+			$implementsList[] = "Persistent";
+		}
+		// setByName()/setByPosition()/fromArray() (addSetByName()/addSetByPosition()/
+		// addFromArray() below) are only emitted under this same isAddGenericMutators()
+		// condition -- WritableModelInterface only ever needs to be implemented in lockstep
+		// with whether those methods actually exist on this class.
+		if ($this->isAddGenericMutators()) {
+			$implementsList[] = "WritableModelInterface";
+		}
+		$implements = $implementsList ? " implements " . implode(", ", $implementsList) : "";
 
 		$script .= "
 /**
@@ -426,6 +438,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		// Declare essential classes for Base object classes
 		$this->declareClass('Propulsion\\OM\\BaseObject');
 		$this->declareClass('Propulsion\\OM\\Persistent');
+		$this->declareClass('Propulsion\\OM\\WritableModelInterface');
 		$this->declareClass('Propulsion\\Exception\\PropulsionException');
 		$this->declareClass('Propulsion\\Util\\BasePeer');
 		$this->declareClass('\\DateTime');
