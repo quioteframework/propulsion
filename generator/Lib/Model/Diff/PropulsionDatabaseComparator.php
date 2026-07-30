@@ -15,6 +15,7 @@ namespace Propulsion\Generator\Model\Diff;
  * (see http://github.com/doctrine/dbal/tree/master/lib/Doctrine/DBAL/Schema/)
  *
  */
+use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\Database;
 class PropulsionDatabaseComparator
 {
@@ -53,6 +54,19 @@ class PropulsionDatabaseComparator
 	}
 
 	/**
+	 * Getter for the fromDatabase property, or throw if unset. computeDiff()
+	 * always calls setFromDatabase()/setToDatabase() together before ever
+	 * calling compareTables(), so every real call site can assume this.
+	 */
+	public function requireFromDatabase(): Database
+	{
+		if ($this->fromDatabase === null) {
+			throw new EngineException('PropulsionDatabaseComparator has no fromDatabase set.');
+		}
+		return $this->fromDatabase;
+	}
+
+	/**
 	 * Setter for the toDatabase property
 	 *
 	 * @param Database $toDatabase
@@ -69,6 +83,18 @@ class PropulsionDatabaseComparator
 	 */
 	public function getToDatabase()
 	{
+		return $this->toDatabase;
+	}
+
+	/**
+	 * Getter for the toDatabase property, or throw if unset -- see
+	 * requireFromDatabase()'s own docblock for why this is always safe in practice.
+	 */
+	public function requireToDatabase(): Database
+	{
+		if ($this->toDatabase === null) {
+			throw new EngineException('PropulsionDatabaseComparator has no toDatabase set.');
+		}
 		return $this->toDatabase;
 	}
 
@@ -105,33 +131,41 @@ class PropulsionDatabaseComparator
 	 */
 	public function compareTables($caseInsensitive = false)
 	{
-		$fromDatabaseTables = $this->fromDatabase->getTables();
-		$toDatabaseTables = $this->toDatabase->getTables();
+		$fromDatabase = $this->requireFromDatabase();
+		$toDatabase = $this->requireToDatabase();
+		$fromDatabaseTables = $fromDatabase->getTables();
+		$toDatabaseTables = $toDatabase->getTables();
 		$databaseDifferences = 0;
 
 		// check for new tables in $toDatabase
 		foreach ($toDatabaseTables as $table) {
-			if (!$this->fromDatabase->hasTable($table->getName(), $caseInsensitive) && !$table->isSkipSql()) {
-				$this->databaseDiff->addAddedTable($table->getName(), $table);
+			$tableName = $table->getName() ?? '';
+			if (!$fromDatabase->hasTable($tableName, $caseInsensitive) && !$table->isSkipSql()) {
+				$this->databaseDiff->addAddedTable($tableName, $table);
 				$databaseDifferences++;
 			}
 		}
 
 		// check for removed tables in $toDatabase
 		foreach ($fromDatabaseTables as $table) {
-			if (!$this->toDatabase->hasTable($table->getName(), $caseInsensitive) && !$table->isSkipSql()) {
-				$this->databaseDiff->addRemovedTable($table->getName(), $table);
+			$tableName = $table->getName() ?? '';
+			if (!$toDatabase->hasTable($tableName, $caseInsensitive) && !$table->isSkipSql()) {
+				$this->databaseDiff->addRemovedTable($tableName, $table);
 				$databaseDifferences++;
 			}
 		}
 
 		// check for table differences
 		foreach ($fromDatabaseTables as $fromTable) {
-			if ($this->toDatabase->hasTable($fromTable->getName(), $caseInsensitive)) {
-				$toTable = $this->toDatabase->getTable($fromTable->getName(), $caseInsensitive);
+			$fromTableName = $fromTable->getName() ?? '';
+			if ($toDatabase->hasTable($fromTableName, $caseInsensitive)) {
+				$toTable = $toDatabase->getTable($fromTableName, $caseInsensitive);
+				if ($toTable === null) {
+					continue;
+				}
 				$databaseDiff = PropulsionTableComparator::computeDiff($fromTable, $toTable, $caseInsensitive);
 				if ($databaseDiff) {
-					$this->databaseDiff->addModifiedTable($fromTable->getName(), $databaseDiff);
+					$this->databaseDiff->addModifiedTable($fromTableName, $databaseDiff);
 					$databaseDifferences++;
 				}
 			}

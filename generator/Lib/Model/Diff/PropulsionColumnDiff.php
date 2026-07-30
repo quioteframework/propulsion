@@ -119,8 +119,8 @@ class PropulsionColumnDiff
 		$diff = new self();
 
 		// columns
-		$diff->setFromColumn($this->getToColumn());
-		$diff->setToColumn($this->getFromColumn());
+		$diff->setFromColumn($this->requireToColumn());
+		$diff->setToColumn($this->requireFromColumn());
 
 		// properties
 		$changedProperties = array();
@@ -135,7 +135,7 @@ class PropulsionColumnDiff
 	public function __toString()
 	{
 		$ret = '';
-		$ret .= sprintf("      %s:\n", $this->getFromColumn()->getFullyQualifiedName());
+		$ret .= sprintf("      %s:\n", $this->requireFromColumn()->getFullyQualifiedName());
 		$ret .= "        modifiedProperties:\n";
 		foreach ($this->getChangedProperties() as $key => $value) {
 			$ret .= sprintf("          %s: %s\n", $key, json_encode($value));

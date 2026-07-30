@@ -899,10 +899,11 @@ class Table extends ScopedElement implements IDMethod
 	{
 		if ($data instanceof Validator) {
 			$validator = $data;
-			$col = $this->getColumn($validator->getColumnName());
+			$columnName = $validator->getColumnName();
+			$col = $columnName !== null ? $this->getColumn($columnName) : null;
 			if ($col == null) {
 				throw new EngineException("Failed adding validator to table '" . $this->getName() .
-				"': column '" . $validator->getColumnName() . "' does not exist !");
+				"': column '" . ($columnName ?? '(none)') . "' does not exist !");
 			}
 			$validator->setColumn($col);
 			$validator->setTable($this);

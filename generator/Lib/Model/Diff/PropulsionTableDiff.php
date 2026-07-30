@@ -15,6 +15,7 @@ namespace Propulsion\Generator\Model\Diff;
  * (see http://github.com/doctrine/dbal/tree/master/lib/Doctrine/DBAL/Schema/)
  *
  */
+use Propulsion\Generator\Exception\EngineException;
 use Propulsion\Generator\Model\Table;
 use Propulsion\Generator\Model\Column;
 use Propulsion\Generator\Model\Index;
@@ -77,6 +78,21 @@ class PropulsionTableDiff
 	}
 
 	/**
+	 * Getter for the fromTable property, or throw if unset. A PropulsionTableDiff
+	 * only ever gets constructed by PropulsionTableComparator::computeDiff(), which
+	 * always calls setFromTable()/setToTable() together before handing the diff
+	 * back to any caller -- there's no real window where one is set and the other
+	 * isn't.
+	 */
+	public function requireFromTable(): Table
+	{
+		if ($this->fromTable === null) {
+			throw new EngineException('PropulsionTableDiff has no fromTable set.');
+		}
+		return $this->fromTable;
+	}
+
+	/**
 	 * Setter for the toTable property
 	 *
 	 * @param Table $toTable
@@ -93,6 +109,18 @@ class PropulsionTableDiff
 	 */
 	public function getToTable()
 	{
+		return $this->toTable;
+	}
+
+	/**
+	 * Getter for the toTable property, or throw if unset -- see
+	 * requireFromTable()'s own docblock for why this is always safe in practice.
+	 */
+	public function requireToTable(): Table
+	{
+		if ($this->toTable === null) {
+			throw new EngineException('PropulsionTableDiff has no toTable set.');
+		}
 		return $this->toTable;
 	}
 
@@ -605,8 +633,8 @@ class PropulsionTableDiff
 		$diff = new self();
 
 		// tables
-		$diff->setFromTable($this->getToTable());
-		$diff->setToTable($this->getFromTable());
+		$diff->setFromTable($this->requireToTable());
+		$diff->setToTable($this->requireFromTable());
 
 		// columns
 		$diff->setAddedColumns($this->getRemovedColumns());
@@ -655,7 +683,7 @@ class PropulsionTableDiff
 	public function __toString()
 	{
 		$ret = '';
-		$ret .= sprintf("  %s:\n", $this->getFromTable()->getName());
+		$ret .= sprintf("  %s:\n", $this->requireFromTable()->getName());
 		if ($addedColumns = $this->getAddedColumns()) {
 			$ret .= "    addedColumns:\n";
 			foreach ($addedColumns as $colname => $column) {
