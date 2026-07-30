@@ -677,6 +677,21 @@
 				</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
+		<xs:attribute name="nativeUuid" type="xs:boolean" use="optional" default="false">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					 For a UUID column, whether to use MariaDB 10.7+'s real native
+					 `UUID` column type instead of the default CHAR(36) emulation.
+					 Only honored by MysqlPlatform. Opt-in: plain MySQL has no native
+					 UUID type at any version, and there is no live database
+					 connection at schema-generation time to detect which server a
+					 build actually targets, so setting this on a schema meant for
+					 real MySQL (not MariaDB) will fail at DDL-execution time -- the
+					 schema author's responsibility to only set when the real target
+					 is MariaDB 10.7+.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
 		<xs:attribute name="tsvectorFrom" type="xs:string" use="optional">
 			<xs:annotation>
 				<xs:documentation xml:lang="en">
@@ -1092,6 +1107,21 @@
 					table's one clustered index/constraint slot for a `<unique
 					clustered="true">`/`<index clustered="true">` elsewhere. Only
 					honored by MssqlPlatform.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="nativeSequence" type="xs:boolean" use="optional" default="false">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					Whether to emit a real MariaDB 10.3+ `CREATE SEQUENCE` object for
+					this table's named `&lt;id-method-parameter&gt;` sequence. Only
+					honored by MysqlPlatform, and only meaningful alongside a named
+					id-method-parameter -- plain MySQL has no sequence object at any
+					version and will reject `CREATE SEQUENCE` outright, and there is
+					no live database connection at schema-generation time to detect
+					which server a build actually targets, so this is the schema
+					author's responsibility to only set when the real target is
+					MariaDB 10.3+.
 				</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>

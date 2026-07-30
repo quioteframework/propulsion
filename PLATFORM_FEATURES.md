@@ -399,27 +399,39 @@ These are gaps in the shared query builder — confirmed absent by grep across
 - [x] **Vector types** — DDL + hydration only, as scoped: `vector(n)` native
   on Postgres (pgvector; `CREATE EXTENSION IF NOT EXISTS vector` emitted the
   same way `citext`'s extension is, generalized into a single
-  `getAddExtensionsDDL()` covering both) and native `VECTOR(n)` on
-  MySQL/MariaDB (both MariaDB 11.7+ and MySQL 9.0+ support the same
-  `VECTOR(n)` syntax, and this generator doesn't distinguish MySQL from
-  MariaDB for DDL purposes anywhere else either — see the "MariaDB
-  divergences" bullet below), emulated as unbounded text (not a sized
-  `VARCHAR` — an embedding vector's JSON-encoded text can be long) on
-  SQLite/MSSQL/Oracle. Dimension reuses the existing `size` column attribute
-  (`size="1536"`) rather than a new one, flowing through the same
-  `printSize()`/`hasSize()` machinery `VARCHAR(n)` already does — no
-  VECTOR-specific size handling needed in `getColumnDDL()` at all. Hydrates
-  to/from a plain `array<float>`; a vector's wire format (pgvector's own
-  output, and this codebase's text/JSON emulation elsewhere) is a bracketed
-  comma-separated number list, which is already valid JSON, so
-  `ObjectBuilder`'s `isVectorType()` branches reuse
-  `BaseObject::decodeJsonColumn()`/`encodeJsonColumn()` rather than
-  `PHP_ARRAY`'s `" | "`-delimited format or a new helper. Not live-verified
-  against a real pgvector/MariaDB-VECTOR instance (no Docker in this
-  environment) — flagging per this doc's convention for unverified items.
-  `<=>`/`<->` distance operators and HNSW/IVFFlat index support are
-  explicitly out of scope here (section 1 query-layer work, as this bullet
-  originally noted) — this item is DDL + hydration only.
+  `getAddExtensionsDDL()` covering both), emulated as unbounded text (not a
+  sized `VARCHAR` — an embedding vector's JSON-encoded text can be long) on
+  every other platform, **including MySQL/MariaDB despite both having a real
+  native `VECTOR(n)` type** (MariaDB 11.7+/MySQL 9.0+) — live-verified against
+  a real MariaDB 11.8 server that its native `VECTOR` column rejects a plain
+  bound/literal bracket-JSON string outright ("Incorrect vector value"): both
+  engines require `VEC_FromText()`/`VEC_ToText()` (MariaDB) or
+  `STRING_TO_VECTOR()`/`VECTOR_TO_STRING()` (MySQL) wrapped around the value
+  at the SQL level, the same "needs query-layer SQL-rewriting a plain bind
+  can't do" problem GEOMETRY's own comment already flags — this codebase has
+  no hook anywhere to wrap a column's SQL like that yet (see BasePeer/
+  Criteria). The originally-shipped `VECTOR(n)`-native MySQL/MariaDB mapping
+  was accordingly **downgraded to the same text emulation** every other
+  non-Postgres platform already uses (`MysqlPlatform::initialize()`'s VECTOR
+  domain mapping, `hasSize()` updated alongside it so the emulated TEXT column
+  doesn't pick up a spurious size suffix) — a real bug caught by this live
+  verification pass, not a design change; see `MariaDB divergences` below for
+  what MySQL-family VECTOR support would need to go native for real.
+  Dimension reuses the existing `size` column attribute (`size="1536"`)
+  rather than a new one, flowing through the same `printSize()`/`hasSize()`
+  machinery `VARCHAR(n)` already does. Hydrates to/from a plain
+  `array<float>`; a vector's wire format (pgvector's own output, and this
+  codebase's text/JSON emulation elsewhere) is a bracketed comma-separated
+  number list, which is already valid JSON, so `ObjectBuilder`'s
+  `isVectorType()` branches reuse `BaseObject::decodeJsonColumn()`/
+  `encodeJsonColumn()` rather than `PHP_ARRAY`'s `" | "`-delimited format or a
+  new helper. Postgres's own pgvector mapping (confirmed live: round-trip,
+  `<->` distance operator) has no such problem — pgvector accepts/returns
+  plain bracket-JSON text through an ordinary parameterized bind, unlike
+  MariaDB/MySQL's own native type. `<=>`/`<->` distance operators and
+  HNSW/IVFFlat index support are explicitly out of scope here (section 1
+  query-layer work, as this bullet originally noted) — this item is DDL +
+  hydration only.
 - [x] **Pg range types** (`tstzrange` et al.) — `int4range`/`int8range`/
   `numrange`/`daterange`/`tsrange`/`tstzrange`, native on Postgres, emulated
   as a `VARCHAR(64)` storing the range literal text (`"[1,10)"`) elsewhere —
@@ -464,10 +476,10 @@ These are gaps in the shared query builder — confirmed absent by grep across
   `NLS_DATE_FORMAT` setup), making the wire format identical across every
   platform and letting `ObjectBuilder`'s generated code stay a single
   `new DateInterval($v)` (hydrate) / `$this->prop->format('P%yY%mM%dDT%hH%iM%sS')`
-  (buildCriteria) pair with no platform branching at all. Not live-verified
-  against Postgres (no Docker in this environment during implementation) --
-  the `SET intervalstyle` fix itself is standard, well-documented Postgres
-  behavior, but flagging per this doc's own convention for unverified items.
+  (buildCriteria) pair with no platform branching at all. Live-verified
+  against a real Postgres 17 server: `SHOW intervalstyle` reads back
+  `iso_8601` after `DBPostgres::initConnection()` runs, and an
+  `INTERVAL` column round-trips through `new DateInterval($v)` correctly.
   Property declarations default to `NULL` and the real default is applied
   via `applyDefaultValues()` as `new DateInterval(...)`, the same
   can't-be-a-property-declaration-default story as `DateTime`/`BcMath\Number`
@@ -645,13 +657,13 @@ These are gaps in the shared query builder — confirmed absent by grep across
     USING gin (col);`); every other platform is untouched (null `indexType`
     -- the default -- reproduces the exact prior DDL unchanged, verified by
     a regression test asserting the unset case).
-  - Not live-verified against a real Postgres instance in this environment
-    (no Docker available) -- flagged per this doc's own convention for
-    unverified items. DDL shape and schema-attribute parsing are covered by
+  - Live-verified against a real Postgres 17 server: a `tsvectorFrom`-generated
+    column actually computes real lexeme data (`@@ to_tsquery(...)` matched
+    correctly), and `EXPLAIN` confirmed the `USING gin` index is genuinely
+    selected by the planner over a sequential scan, not just accepted as DDL.
+    DDL shape and schema-attribute parsing are additionally covered by
     unit/string-shape tests (`PgsqlPlatformTest`, `ColumnTest`,
-    `PgsqlFullTextSearchDDLTest`) that need no live connection, the same
-    verification level several other unverified items in this document
-    (`vector`, `INTERVAL`) already shipped at.
+    `PgsqlFullTextSearchDDLTest`) that need no live connection.
 - [x] **Partial and expression indexes** — `Index` gained a `where="..."`
   attribute (`getWhereClause()`/`setWhereClause()`) for `CREATE INDEX ...
   WHERE ...`, and `<index-column>` now accepts `expression="..."` as an
@@ -749,7 +761,23 @@ These are gaps in the shared query builder — confirmed absent by grep across
   `array<string>`; plural-named SET columns get the same
   has/add/remove-element convenience methods `PHP_ARRAY` columns with a
   plural name already do.
-- [ ] **Generated/virtual columns** (`GENERATED ALWAYS AS (...) VIRTUAL|STORED`).
+- [x] **Generated/virtual columns** (`GENERATED ALWAYS AS (...) VIRTUAL|STORED`)
+  — reuses the same platform-generic `generatedAs`/`generatedType` `Column`
+  attributes SqlitePlatform's own generated-column support introduced (and
+  MssqlPlatform's computed columns already reuse), via a new
+  `MysqlPlatform::getGeneratedColumnDDL()`. MySQL's grammar turned out closer
+  to SQLite's than MSSQL's: `GENERATED ALWAYS AS (expr) VIRTUAL|STORED` is
+  spelled out in full either way (unlike MSSQL's bare `AS (expr)` with
+  `PERSISTED` only for the stored case), and `NOT NULL` is legal on both
+  `VIRTUAL` and `STORED` generated columns (unlike MSSQL, which only allows it
+  alongside `PERSISTED`) — confirmed live against a real MariaDB 11.8 server:
+  a `VIRTUAL` column computed correctly on read, a `STORED` one persisted and
+  was queryable, `information_schema.columns.EXTRA` reported the correct
+  `VIRTUAL GENERATED`/`STORED GENERATED`, and a plain `INSERT` naming the
+  generated column directly was genuinely rejected by the server (proving it
+  really is generated, not just a convenience default). Covered by new
+  `MysqlPlatformTest` DDL-shape assertions (virtual, stored, and `NOT NULL`
+  on a virtual column).
 - [x] **Unsigned integer types** — new `unsigned="true"`/`zerofill="true"`
   column attributes (`Column::isUnsigned()`/`isZerofill()`), only honored by
   MysqlPlatform and only for a numeric column there (silently ignored
@@ -790,15 +818,53 @@ These are gaps in the shared query builder — confirmed absent by grep across
   anyone who still needs it. Updated the dozen `MysqlPlatformTest`/
   `MysqlPlatformMigrationTest` DDL-string assertions that had `ENGINE=MyISAM`
   hardcoded.
-- [ ] **MariaDB divergences.** MariaDB is still served by `MysqlPlatform`
-  (generator) / `DBMySQL` (runtime) as though it were MySQL — no separate
-  `MariadbPlatform`/`DBMariadb` — but a runtime server-version probe now
-  exists (`DBMySQL::isMariaDb()`, gating `INSERT`/`UPDATE`/`DELETE
-  ... RETURNING`; see the query-layer section's "Fold ID retrieval into
-  INSERT" item) and a `PROPULSION_TEST_DB=mariadb` testcontainer path exists
-  to test against it (`test/tools/helpers/IntegrationDatabase.php`, not run
-  in CI). Still open: real `CREATE SEQUENCE`, native `UUID` type (10.7+),
-  and `VECTOR` (11.7+) — none of those are gated on `isMariaDb()` yet.
+- [x] **MariaDB divergences: `CREATE SEQUENCE` and native `UUID`.** MariaDB is
+  still served by `MysqlPlatform` (generator) / `DBMySQL` (runtime) as though
+  it were MySQL — no separate `MariadbPlatform`/`DBMariadb` — and, unlike the
+  runtime-only `RETURNING` gate (`DBMySQL::isMariaDb()`, which probes a live
+  connection's version string), these two are build-time/DDL-generation
+  concerns with no live connection available to auto-detect the real target
+  server at all. Both are therefore opt-in `Column`/`Table` attributes (the
+  same "schema author's responsibility" convention `identity`/`nativeArray`/
+  `rowVersion` already use), defaulting to the current MySQL-safe behavior
+  unchanged, rather than gated on any runtime probe:
+  - **`nativeSequence="true"` `Table` attribute** — a real MariaDB 10.3+
+    `CREATE SEQUENCE %s START WITH 1 INCREMENT BY 1;` for a table's named
+    `<id-method-parameter>`, mirroring `MssqlPlatform::getAddSequenceDDL()`
+    exactly (same `getSequenceName()` override to look past
+    `Table::finalize()`'s NATIVE-downgrade rule) except for the opt-in gate
+    itself (MSSQL needs none — every supported SQL Server version has
+    sequences; plain MySQL has none at any version) and the value a column
+    pulls its next id from, MariaDB's own `NEXTVAL(seq)` function-call syntax
+    via the existing `defaultExpr` raw-expression column default (unlike
+    Postgres's `nextval('seq')` or MSSQL's `NEXT VALUE FOR seq`). A named
+    `<id-method-parameter>` with no `nativeSequence="true"` stays today's
+    silent no-op (unchanged, since MySQL itself understands neither).
+    `MysqlPlatform::getDropTableDDL()` drops the sequence alongside the table.
+  - **`nativeUuid="true"` `Column` attribute** (on a `UUID` column) — MariaDB
+    10.7+'s real native `UUID` column type in place of the default CHAR(36)
+    emulation every platform (including plain MySQL, which has no native UUID
+    type at any version) otherwise uses.
+  - Both live-verified end-to-end against a real MariaDB 11.8 server:
+    `CREATE SEQUENCE`/`DROP SEQUENCE` objects actually exist and disappear
+    correctly, `NEXTVAL(...)` populates a PK on insert with distinct values,
+    and a native `UUID` column round-trips a standard hyphenated string via a
+    plain parameterized bind with no wrapping needed (confirmed
+    `information_schema.columns.DATA_TYPE` reports `uuid`, not `char`) --
+    unlike `VECTOR`'s own native type (see that item above), UUID has no
+    "needs SQL-level wrapping" problem on MariaDB. Covered by new
+    `MysqlPlatformTest` assertions (no-implicit-sequence, named-sequence-
+    without-opt-in-stays-a-no-op, native sequence DDL, native UUID DDL,
+    emulated-CHAR(36)-by-default).
+  - **`VECTOR` gating**, originally scoped here too, turned out moot: live
+    verification found MariaDB's (and MySQL's) real `VECTOR` type unusable via
+    a plain bind regardless of version, so it was never made native for
+    either engine in the first place (see the `Vector types` item above) --
+    there is no MySQL/MariaDB divergence left to gate on `isMariaDb()`.
+  - A `PROPULSION_TEST_DB=mariadb` testcontainer path still exists for the
+    main integration suite (`test/tools/helpers/IntegrationDatabase.php`, not
+    run in CI) — unrelated to the two build-time features above, which don't
+    need a live connection to generate DDL for at all.
 
 ### SQLite
 
@@ -1055,10 +1121,19 @@ above uses for temporal tables' own higher sub-floor.
   on a column that already has it (ORA-30675), so an `ALTER TABLE ... MODIFY`
   doesn't attempt to change a column's identity-ness itself, the same
   "not attempted here" limitation PgsqlPlatform's own identity/serial
-  migration path already has. Covered by `OraclePlatformTest`; not
-  live-verified against a real Oracle instance in this environment (no
-  Docker/Oracle available here), flagged per this doc's own convention for
-  unverified items.
+  migration path already has. Covered by `OraclePlatformTest`. Live-verified
+  against a real `gvenzl/oracle-free:23-slim` container -- which caught a
+  real bug this environment's earlier lack of Docker had let ship: the
+  originally-emitted clause order, `NOT NULL GENERATED BY DEFAULT AS
+  IDENTITY`, is rejected outright by real Oracle (ORA-03076 "unexpected item
+  GENERATED in a column definition or inline constraint") -- `NOT NULL` must
+  come *after* the identity clause, not before. Fixed in
+  `OraclePlatform::getColumnDDL()` (now emits `GENERATED BY DEFAULT AS
+  IDENTITY NOT NULL`, matching the order `PgsqlPlatform`'s own identity
+  support already used correctly), with `OraclePlatformTest`'s two affected
+  assertions corrected to match. Confirmed live afterward: the identity
+  column auto-populates on insert with no app-level value, and no redundant
+  legacy sequence/trigger exists alongside it.
 - [x] **Auto-increment trigger generation** —
   `OraclePlatform::getAddAutoIncrementTriggerDDL()`, wired into
   `getAddTableDDL()`, emits a `BEFORE INSERT ... WHEN (new.<pk> IS NULL)`
@@ -1075,9 +1150,11 @@ above uses for temporal tables' own higher sub-floor.
   `DBOracle`: a JSON column was never routed through the `CLOB_EMU`-specific
   LOB bind branch to begin with (just a bare `"CLOB"` sqlType), so it's
   bound/fetched as a plain string exactly as before, just against a
-  differently-typed column. Covered by `OraclePlatformTest`; not
-  live-verified against a real Oracle instance (see the identity item above
-  for why).
+  differently-typed column. Covered by `OraclePlatformTest`. Live-verified
+  against a real Oracle 23ai (`gvenzl/oracle-free:23-slim`) container:
+  well-formed JSON round-trips correctly, and inserting a malformed JSON
+  string is genuinely rejected by the column type itself (an `ORA-`
+  error), not silently accepted the way a plain CLOB would.
 - [x] **Modernize `DBOracle::applyLimit()`** — the double-nested
   `ROWNUM`-based subquery rewrite (which required deriving an explicit outer
   column list to dodge a synthetic `PROPEL_ROWNUM` column leaking through a
@@ -1123,8 +1200,10 @@ above uses for temporal tables' own higher sub-floor.
   (a distinct Propulsion type from `REAL`/`DOUBLE`) is untouched -- it
   already had its own native Oracle `FLOAT` mapping via `DefaultPlatform`'s
   generic same-named-type fallback, not part of this item. Covered by
-  `OraclePlatformTest`; not live-verified against a real Oracle instance
-  (see the identity item above for why).
+  `OraclePlatformTest`. Live-verified against a real Oracle 23ai container:
+  `user_tab_columns` confirms the columns are really `BINARY_FLOAT`/
+  `BINARY_DOUBLE`, and values with no exact binary representation (e.g.
+  `0.1`, `1/3`) round-trip within float precision as expected.
 
 ## 4. Cross-ORM ideas (not platform-specific)
 

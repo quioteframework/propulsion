@@ -212,6 +212,22 @@ class Table extends ScopedElement implements IDMethod
 	private ?string $inheritsFrom = null;
 
 	/**
+	 * Whether this table is declared `nativeSequence="true"`: emits a real
+	 * MariaDB 10.3+ `CREATE SEQUENCE` object (mirroring MssqlPlatform's own
+	 * unconditional sequence support -- see MysqlPlatform::getAddSequenceDDL())
+	 * for its named `<id-method-parameter>` sequence, instead of the current
+	 * no-op (plain MySQL has no sequence object at any version, so
+	 * `<id-method-parameter>` alone is silently ignored by MysqlPlatform).
+	 * Only honored by MysqlPlatform, and only meaningful alongside a named
+	 * `<id-method-parameter>`. Opt-in for the same reason `Column::isNativeUuid()`
+	 * is: no live connection at schema-generation time to auto-detect whether
+	 * the real target is MySQL (which would reject `CREATE SEQUENCE` outright)
+	 * or MariaDB -- the schema author's responsibility to only set this when
+	 * targeting MariaDB 10.3+.
+	 */
+	private bool $isNativeSequence = false;
+
+	/**
 	 * Whether this table's `PRIMARY KEY` constraint is physically `CLUSTERED`
 	 * (true, the default -- SQL Server's own implicit default when a table has
 	 * no other clustered index/constraint) or `NONCLUSTERED` (false,
@@ -385,6 +401,7 @@ class Table extends ScopedElement implements IDMethod
 		$this->inheritsFrom = $this->getAttribute("inheritsFrom");
 		$primaryKeyClusteredAttr = $this->getAttribute("primaryKeyClustered", null);
 		$this->primaryKeyClustered = $primaryKeyClusteredAttr !== null ? $this->booleanValue($primaryKeyClusteredAttr) : true;
+		$this->isNativeSequence = $this->booleanValue($this->getAttribute("nativeSequence"));
 		$this->isTemporal = $this->booleanValue($this->getAttribute("temporal"));
 		$this->historyTable = $this->getAttribute("historyTable", null);
 
@@ -703,6 +720,20 @@ class Table extends ScopedElement implements IDMethod
 	public function setInheritsFrom(?string $inheritsFrom): void
 	{
 		$this->inheritsFrom = $inheritsFrom;
+	}
+
+	/**
+	 * Whether this table is declared `nativeSequence="true"` -- see the
+	 * property docblock for what that changes.
+	 */
+	public function isNativeSequence(): bool
+	{
+		return $this->isNativeSequence;
+	}
+
+	public function setNativeSequence(bool $isNativeSequence): void
+	{
+		$this->isNativeSequence = $isNativeSequence;
 	}
 
 	/**
@@ -1889,6 +1920,9 @@ class Table extends ScopedElement implements IDMethod
 		}
 		if (!$this->primaryKeyClustered) {
 			$tableNode->setAttribute('primaryKeyClustered', 'false');
+		}
+		if ($this->isNativeSequence) {
+			$tableNode->setAttribute('nativeSequence', 'true');
 		}
 		if ($this->isTemporal) {
 			$tableNode->setAttribute('temporal', 'true');

@@ -84,10 +84,20 @@ class MysqlPlatform extends DefaultPlatform
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::DATERANGE, "VARCHAR", 64));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::TSRANGE, "VARCHAR", 64));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::TSTZRANGE, "VARCHAR", 64));
-		// Native on MariaDB 11.7+ and MySQL 9.0+ -- dimension comes from the
-		// column's `size` attribute the same way it does for Postgres's pgvector
-		// mapping above.
-		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::VECTOR, "VECTOR"));
+		// NOT mapped to MariaDB 11.7+/MySQL 9.0+'s real native `VECTOR` type,
+		// despite one existing -- confirmed live against a real MariaDB 11.8
+		// server that it rejects a plain bound/literal bracket-JSON string
+		// outright ("Incorrect vector value"), the same problem GEOMETRY's own
+		// comment below already flags for MySQL's real `GEOMETRY` type:
+		// reading/writing the real column needs VEC_FromText()/VEC_ToText()
+		// wrapped around the value at the SQL level (MariaDB; MySQL's own
+		// equivalents are STRING_TO_VECTOR()/VECTOR_TO_STRING()), which is
+		// query-layer SQL-rewriting this codebase has nowhere to hook for any
+		// column type yet (see BasePeer/Criteria) -- not something a plain
+		// parameterized bind can do. Emulated as plain text (the same
+		// bracketed JSON VectorHandler already produces) until that wrapping
+		// exists, the same deferral GEOMETRY made for the same reason.
+		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::VECTOR, "TEXT"));
 		// Emulated as plain text (WKT), not MySQL's own real `GEOMETRY` type --
 		// see PropulsionTypes::GEOMETRY_NATIVE_TYPE for why.
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::GEOMETRY, "TEXT"));
@@ -167,10 +177,69 @@ class MysqlPlatform extends DefaultPlatform
 		foreach ($database->getTablesForSql() as $table) {
 			$ret .= $this->getCommentBlockDDL($table->getName());
 			$ret .= $this->getDropTableDDL($table);
+			$ret .= $this->getAddSequenceDDL($table);
 			$ret .= $this->getAddTableDDL($table);
 		}
 		$ret .= $this->getEndDDL();
 		return $ret;
+	}
+
+	/**
+	 * Overridden only to look past `Table::finalize()`'s "idMethod=native but
+	 * no autoIncrement column on the table -> silently downgrade to
+	 * NO_ID_METHOD" rule (see Table.php) -- the same override
+	 * MssqlPlatform::getSequenceName() already needs and explains in more
+	 * detail: a table using an explicit `nativeSequence`-backed sequence has
+	 * no reason to also declare an autoIncrement column (its column instead
+	 * uses `defaultExpr="NEXTVAL(<sequence>)"`), so it never stays NATIVE
+	 * post-finalize() the way Postgres's own usage of this same
+	 * `<id-method-parameter>` mechanism does. Falls through to the inherited
+	 * NATIVE-gated behavior whenever no id-method-parameter is declared.
+	 */
+	public function getSequenceName(Table $table): ?string
+	{
+		$idMethodParams = $table->getIdMethodParameters();
+		if (empty($idMethodParams)) {
+			return parent::getSequenceName($table);
+		}
+		return $idMethodParams[0]->getValue();
+	}
+
+	/**
+	 * A real MariaDB 10.3+ `CREATE SEQUENCE` object for a table declared both
+	 * `nativeSequence="true"` and a named `<id-method-parameter value="...">`
+	 * -- see Table::isNativeSequence()'s own docblock for why both are
+	 * required (plain MySQL supports neither concept). Mirrors
+	 * MssqlPlatform::getAddSequenceDDL() exactly except for the opt-in gate
+	 * (MSSQL needs none: every supported SQL Server version has sequences) and
+	 * the value a column pulls its next id from -- MariaDB's own `NEXTVAL(seq)`
+	 * function-call syntax, unlike Postgres's `nextval('seq')` or MSSQL's
+	 * `NEXT VALUE FOR seq` -- which a column declares via the existing
+	 * `defaultExpr="NEXTVAL(<sequence>)"` raw-expression column default, the
+	 * same mechanism MSSQL's identical feature already uses.
+	 */
+	protected function getAddSequenceDDL(Table $table): ?string
+	{
+		if (!$table->isNativeSequence() || empty($table->getIdMethodParameters())) {
+			return null;
+		}
+		$sequenceName = $this->requireString($this->getSequenceName($table), 'Sequence name');
+		$pattern = "
+CREATE SEQUENCE %s START WITH 1 INCREMENT BY 1;
+";
+		return sprintf($pattern, $this->quoteIdentifier($sequenceName));
+	}
+
+	protected function getDropSequenceDDL(Table $table): ?string
+	{
+		if (!$table->isNativeSequence() || empty($table->getIdMethodParameters())) {
+			return null;
+		}
+		$sequenceName = $this->requireString($this->getSequenceName($table), 'Sequence name');
+		$pattern = "
+DROP SEQUENCE IF EXISTS %s;
+";
+		return sprintf($pattern, $this->quoteIdentifier($sequenceName));
 	}
 
 	public function getBeginDDL()
@@ -302,13 +371,70 @@ CREATE TABLE %s
 
 	public function getDropTableDDL(Table $table)
 	{
-		return "
+		$ret = "
 DROP TABLE IF EXISTS " . $this->quoteIdentifier($table->getName()) . ";
 ";
+		$ret .= $this->getDropSequenceDDL($table);
+		return $ret;
+	}
+
+	/**
+	 * A `Column`'s name/domain SQL type are typed nullable in the model, but
+	 * by the time DDL generation actually runs on a real, fully-loaded schema
+	 * they're always populated -- this guard turns that implicit assumption
+	 * into an explicit, real failure instead of silently widening this
+	 * method's own types to tolerate null (same helper OraclePlatform/
+	 * MssqlPlatform already have).
+	 */
+	private function requireString(?string $value, string $description): string
+	{
+		if ($value === null) {
+			throw new EngineException("$description is required but was null.");
+		}
+		return $value;
+	}
+
+	/**
+	 * Generated/virtual columns (`generatedAs="expr"`/`generatedType="virtual"|
+	 * "stored"` -- the same platform-generic `Column` attributes
+	 * SqlitePlatform's own generated-column support introduced, and
+	 * MssqlPlatform's computed columns reuse). MySQL's grammar is closer to
+	 * SQLite's than MSSQL's here: `GENERATED ALWAYS AS (expr) VIRTUAL|STORED`
+	 * is spelled out in full either way (unlike MSSQL's bare `AS (expr)` with
+	 * `PERSISTED` only for the stored case), and `NOT NULL` is legal on both
+	 * VIRTUAL and STORED generated columns (unlike MSSQL, which only allows it
+	 * alongside `PERSISTED`) -- confirmed against a live MariaDB 11.8 server.
+	 * A generated column can't also carry a `DEFAULT` or `AUTO_INCREMENT`, the
+	 * same mutual exclusivity SqlitePlatform's own version already has.
+	 */
+	private function getGeneratedColumnDDL(Column $col): string
+	{
+		$domain = $col->getDomain();
+		$sqlType = $this->requireString($domain->getSqlType(), 'Column SQL type');
+
+		$ddl = array($this->quoteIdentifier($this->requireString($col->getName(), 'Column name')));
+		if ($this->hasSize($sqlType) && $col->isDefaultSqlType($this)) {
+			$ddl []= $sqlType . $domain->printSize();
+		} else {
+			$ddl []= $sqlType;
+		}
+		$ddl []= sprintf('GENERATED ALWAYS AS (%s) %s', $col->getGeneratedExpr(), $col->getGeneratedType());
+		if ($notNull = $this->getNullString($col->isNotNull())) {
+			$ddl []= $notNull;
+		}
+		if ($col->getDescription()) {
+			$ddl []= 'COMMENT ' . $this->quote($col->getDescription());
+		}
+
+		return implode(' ', $ddl);
 	}
 
 	public function getColumnDDL(Column $col)
 	{
+		if ($col->isGenerated()) {
+			return $this->getGeneratedColumnDDL($col);
+		}
+
 		$domain = $col->getDomain();
 		$sqlType = $domain->getSqlType();
 		$notNullString = $this->getNullString($col->isNotNull());
@@ -344,6 +470,13 @@ DROP TABLE IF EXISTS " . $this->quoteIdentifier($table->getName()) . ";
 			// wire format already is, so this is unconditional: no opt-in flag
 			// needed, MySQL always gets the real SET(...) column type.
 			$ddl []= $this->getSetSqlType($col);
+		} elseif ($col->isUuidType() && $col->isNativeUuid()) {
+			// MariaDB 10.7+'s real native UUID column type -- opt-in (see
+			// Column::isNativeUuid()'s own docblock for why: plain MySQL has
+			// no equivalent at any version, and there's no live connection at
+			// generator time to auto-detect which server this schema targets).
+			// No size parameter, unlike the CHAR(36) emulation it replaces.
+			$ddl []= 'UUID';
 		} elseif ($this->hasSize($sqlType) && $col->isDefaultSqlType($this)) {
 			$ddl []= $sqlType . $domain->printSize();
 		} else {
@@ -685,7 +818,18 @@ ALTER TABLE %s CHANGE %s %s;
 
 	public function hasSize($sqlType)
 	{
-		return !("MEDIUMTEXT" == $sqlType || "LONGTEXT" == $sqlType
+		// "TEXT" is excluded alongside its MEDIUMTEXT/LONGTEXT siblings even
+		// though MySQL/MariaDB happen to accept TEXT(n) syntactically (picks
+		// the smallest TEXT variant that fits n characters, confirmed live
+		// against MariaDB 11.8) -- this codebase's own emulated-as-unbounded-
+		// text columns (GEOMETRY, TSVECTOR, and now VECTOR, all mapped to
+		// plain "TEXT" above) still carry their schema `size` attribute
+		// (e.g. VECTOR's dimension) on the Domain regardless of platform, and
+		// printing that as a TEXT(n) size annotation would misleadingly imply
+		// a real length constraint where none exists -- matching
+		// SqlitePlatform/MssqlPlatform's own hasSize() already excluding their
+		// equivalent unbounded-text mappings for the same reason.
+		return !("TEXT" == $sqlType || "MEDIUMTEXT" == $sqlType || "LONGTEXT" == $sqlType
 				|| "BLOB" == $sqlType || "MEDIUMBLOB" == $sqlType
 				|| "LONGBLOB" == $sqlType);
 	}

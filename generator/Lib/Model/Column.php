@@ -129,6 +129,21 @@ class Column extends XMLElement
 	protected bool $isNativeArray = false;
 
 	/**
+	 * Whether a UUID column is declared `nativeUuid="true"`: emits MariaDB
+	 * 10.7+'s real native `UUID` column type instead of the CHAR(36)
+	 * emulation every platform (including plain MySQL, which has no native
+	 * UUID type at any version) otherwise uses. Only honored by
+	 * MysqlPlatform. Opt-in rather than the default: MysqlPlatform serves
+	 * both MySQL and MariaDB with no build-time way to tell which server a
+	 * generated schema will actually run against (unlike the runtime-only
+	 * DBMySQL::isMariaDb() version probe, which needs a live connection this
+	 * schema-generation step doesn't have) -- the schema author is
+	 * responsible for only setting this when the target is actually
+	 * MariaDB 10.7+.
+	 */
+	protected bool $isNativeUuid = false;
+
+	/**
 	 * For a TSVECTOR column, the sibling column names (`tsvectorFrom="title,
 	 * body"`) this column's value is derived from -- see
 	 * PgsqlPlatform::getColumnDDL()'s `GENERATED ALWAYS AS (to_tsvector(...))
@@ -362,6 +377,7 @@ class Column extends XMLElement
 			$this->isNativeEnum = $this->booleanValue($this->getAttribute("nativeEnum"));
 			$this->isIdentity = $this->booleanValue($this->getAttribute("identity"));
 			$this->isNativeArray = $this->booleanValue($this->getAttribute("nativeArray"));
+			$this->isNativeUuid = $this->booleanValue($this->getAttribute("nativeUuid"));
 
 			$tsvectorFromAttr = $this->getAttribute('tsvectorFrom', null);
 			if ($tsvectorFromAttr !== null) {
@@ -1154,6 +1170,23 @@ class Column extends XMLElement
 	public function setNativeArray(bool $isNativeArray): void
 	{
 		$this->isNativeArray = $isNativeArray;
+	}
+
+	/**
+	 * Whether this UUID column is declared `nativeUuid="true"` -- see the
+	 * property docblock for what that changes.
+	 */
+	public function isNativeUuid(): bool
+	{
+		return $this->isNativeUuid;
+	}
+
+	/**
+	 * Sets whether this UUID column is `nativeUuid="true"`.
+	 */
+	public function setNativeUuid(bool $isNativeUuid): void
+	{
+		$this->isNativeUuid = $isNativeUuid;
 	}
 
 	/**

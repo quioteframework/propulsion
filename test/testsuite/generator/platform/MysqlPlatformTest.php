@@ -812,4 +812,149 @@ ALTER TABLE `foo` DROP FOREIGN KEY `foo_bar_FK`;
 		$this->assertEquals($expected, $this->getPLatform()->getCommentBlockDDL('foo bar'));
 	}
 
+	public function testGetColumnDDLGeneratedVirtual()
+	{
+		$table = new Table('foo');
+		$column = new Column('title_upper');
+		$column->setTable($table);
+		$column->getDomain()->copy(new Domain('VARCHAR'));
+		$column->getDomain()->replaceSize(255);
+		$column->setGeneratedExpr('upper(title)');
+		$table->addColumn($column);
+
+		$expected = '`title_upper` VARCHAR(255) GENERATED ALWAYS AS (upper(title)) VIRTUAL';
+		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($column));
+	}
+
+	public function testGetColumnDDLGeneratedStored()
+	{
+		$table = new Table('foo');
+		$column = new Column('title_upper');
+		$column->setTable($table);
+		$column->getDomain()->copy(new Domain('VARCHAR'));
+		$column->getDomain()->replaceSize(255);
+		$column->setGeneratedExpr('upper(title)');
+		$column->setGeneratedType('stored');
+		$table->addColumn($column);
+
+		$expected = '`title_upper` VARCHAR(255) GENERATED ALWAYS AS (upper(title)) STORED';
+		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($column));
+	}
+
+	/**
+	 * A NATIVE-id-method table with no explicit id-method-parameter must NOT
+	 * get a real CREATE SEQUENCE, even with `nativeSequence="true"` set --
+	 * plain AUTO_INCREMENT (this platform's implicit default id method) has
+	 * no backing sequence object, the same "no implicit sequence" story
+	 * MssqlPlatform's own equivalent test documents for IDENTITY.
+	 */
+	public function testGetAddTablesDDLNoImplicitSequenceEvenWithNativeSequenceFlag()
+	{
+		$schema = <<<EOF
+<database name="test">
+	<table name="foo" nativeSequence="true">
+		<column name="id" primaryKey="true" type="INTEGER" autoIncrement="true" />
+	</table>
+</database>
+EOF;
+		$database = $this->getDatabaseFromSchema($schema);
+		$this->assertStringNotContainsString('CREATE SEQUENCE', $this->getPlatform()->getAddTablesDDL($database));
+	}
+
+	/**
+	 * A named `<id-method-parameter>` alone, without `nativeSequence="true"`,
+	 * must NOT get a real CREATE SEQUENCE either -- plain MySQL has no
+	 * sequence object at any version, so this stays the existing silent
+	 * no-op unless the schema author explicitly opts in.
+	 */
+	public function testGetAddTablesDDLNamedSequenceWithoutOptInIsNoop()
+	{
+		$schema = <<<EOF
+<database name="test">
+	<table name="foo">
+		<column name="id" primaryKey="true" type="INTEGER" defaultExpr="NEXTVAL(my_custom_sequence)" />
+		<id-method-parameter value="my_custom_sequence"/>
+	</table>
+</database>
+EOF;
+		$database = $this->getDatabaseFromSchema($schema);
+		$this->assertStringNotContainsString('CREATE SEQUENCE', $this->getPlatform()->getAddTablesDDL($database));
+	}
+
+	public function testGetAddTablesDDLNativeSequence()
+	{
+		$schema = <<<EOF
+<database name="test">
+	<table name="foo" nativeSequence="true">
+		<column name="id" primaryKey="true" type="INTEGER" defaultExpr="NEXTVAL(my_custom_sequence)" />
+		<id-method-parameter value="my_custom_sequence"/>
+	</table>
+</database>
+EOF;
+		$database = $this->getDatabaseFromSchema($schema);
+		$ddl = $this->getPlatform()->getAddTablesDDL($database);
+		$this->assertStringContainsString("\nCREATE SEQUENCE `my_custom_sequence` START WITH 1 INCREMENT BY 1;\n", $ddl);
+		$this->assertStringContainsString('`id` INTEGER DEFAULT NEXTVAL(my_custom_sequence) NOT NULL', $ddl);
+	}
+
+	public function testGetDropTableDDLNativeSequence()
+	{
+		$schema = <<<EOF
+<database name="test">
+	<table name="foo" nativeSequence="true">
+		<column name="id" primaryKey="true" type="INTEGER" defaultExpr="NEXTVAL(my_custom_sequence)" />
+		<id-method-parameter value="my_custom_sequence"/>
+	</table>
+</database>
+EOF;
+		$table = $this->getTableFromSchema($schema);
+		$ddl = $this->getPlatform()->getDropTableDDL($table);
+		$this->assertStringContainsString("\nDROP SEQUENCE IF EXISTS `my_custom_sequence`;\n", $ddl);
+	}
+
+	public function testGetColumnDDLNativeUuid()
+	{
+		$table = new Table('foo');
+		$column = new Column('external_id');
+		$column->setTable($table);
+		$column->getDomain()->copy((new MysqlPlatform())->getDomainForType(PropulsionTypes::UUID));
+		$column->setType(PropulsionTypes::UUID);
+		$column->setNativeUuid(true);
+		$table->addColumn($column);
+
+		$expected = '`external_id` UUID';
+		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($column));
+	}
+
+	public function testGetColumnDDLUuidEmulatedByDefault()
+	{
+		$table = new Table('foo');
+		$column = new Column('external_id');
+		$column->setTable($table);
+		$column->getDomain()->copy((new MysqlPlatform())->getDomainForType(PropulsionTypes::UUID));
+		$column->setType(PropulsionTypes::UUID);
+		$table->addColumn($column);
+
+		$expected = '`external_id` CHAR(36)';
+		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($column));
+	}
+
+	public function testGetColumnDDLGeneratedNotNull()
+	{
+		// Unlike MSSQL, MySQL allows NOT NULL on a VIRTUAL generated column,
+		// not just a STORED one -- confirmed against a live MariaDB 11.8
+		// server (see MysqlPlatform::getGeneratedColumnDDL()'s own docblock).
+		$table = new Table('foo');
+		$column = new Column('title_upper');
+		$column->setTable($table);
+		$column->getDomain()->copy(new Domain('VARCHAR'));
+		$column->getDomain()->replaceSize(255);
+		$column->setGeneratedExpr('upper(title)');
+		$column->setNotNull(true);
+		$table->addColumn($column);
+
+		$expected = '`title_upper` VARCHAR(255) GENERATED ALWAYS AS (upper(title)) VIRTUAL NOT NULL';
+		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($column));
+	}
+
 }

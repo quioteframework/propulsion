@@ -10,9 +10,15 @@ use PHPUnit\Framework\TestCase;
  */
 
 /**
- * Tests the per-platform DDL generated for VECTOR columns: native
- * `vector(n)` on Postgres (pgvector, plus a `CREATE EXTENSION` for it) and
- * native `VECTOR(n)` on MySQL/MariaDB, emulated as unbounded text elsewhere.
+ * Tests the per-platform DDL generated for VECTOR columns: native `vector(n)`
+ * on Postgres (pgvector, plus a `CREATE EXTENSION` for it); emulated as
+ * unbounded text everywhere else, including MySQL/MariaDB -- confirmed live
+ * against a real MariaDB 11.8 server that its own native `VECTOR` type
+ * rejects a plain bound/literal bracket-JSON string outright ("Incorrect
+ * vector value"), the same "needs SQL-level wrapping a plain bind can't
+ * provide" problem this codebase's own GEOMETRY type already avoids by
+ * staying text-only (see MysqlPlatform::initialize()'s own comment on the
+ * VECTOR domain mapping for detail).
  */
 class VectorColumnDDLTest extends TestCase
 {
@@ -41,10 +47,10 @@ class VectorColumnDDLTest extends TestCase
 		$this->assertStringContainsString('CREATE EXTENSION IF NOT EXISTS vector;', $platform->getAddExtensionsDDL($table));
 	}
 
-	public function testMysqlEmitsNativeVectorWithDimension()
+	public function testMysqlEmulatesAsUnboundedText()
 	{
 		$platform = new MysqlPlatform();
-		$this->assertSame('`embedding` VECTOR(1536)', $this->columnDDLFor($platform, 1536));
+		$this->assertSame('`embedding` TEXT', $this->columnDDLFor($platform, 1536));
 	}
 
 	public function testSqliteEmulatesAsUnboundedText()

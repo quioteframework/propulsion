@@ -7,6 +7,6 @@
 	root /app/test/worker/public
 
 	php_server {
-		worker /app/test/worker/public/index.php 1
+		worker /app/test/worker/public/index.php {$WORKER_THREAD_COUNT:1}
 	}
 }

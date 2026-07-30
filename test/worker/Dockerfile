@@ -9,10 +9,12 @@
 #
 # dunglas/frankenphp is the standard FrankenPHP image; php8.5 matches this
 # package's composer.json `"php": ">=8.5.0"` requirement. It ships pdo_sqlite
-# out of the box (no pdo_pgsql), which is why this harness exercises a real
-# SQLite-backed PropulsionPDO connection instead of Postgres -- see
-# test/worker/public/index.php's docblock for the reasoning.
+# out of the box but not pdo_pgsql, so the Postgres leg of the worker-safety
+# matrix (see test/worker/driver.php) needs it installed explicitly, via the
+# install-php-extensions helper this image already bundles.
 FROM dunglas/frankenphp:php8.5
+
+RUN install-php-extensions pdo_pgsql
 
 WORKDIR /app
 COPY . /app

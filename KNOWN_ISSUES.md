@@ -17,12 +17,17 @@ rm -rf fixtures/bookstore/build fixtures/schemas/build fixtures/namespaced/build
   MSSQL needs `pdo_dblib`; Oracle needs `pdo_oci` built against an Instant
   Client (see `IntegrationDatabase`'s docblock for setup).
 - `composer test:worker` — FrankenPHP worker-mode harness (`test/worker/`).
+  Runs the same request-boundary-safety matrix against SQLite and Postgres
+  (single worker thread each), plus a cross-thread matrix
+  (`WORKER_THREAD_COUNT=4`). Empirically, `Propulsion::$session` and every
+  connection it holds are one instance shared by *every* FrankenPHP worker
+  thread in a process, not one per thread -- so request-boundary isolation
+  (`Session::reset()`) is what makes concurrent requests safe, not any
+  per-thread separation the runtime provides for you.
 - `composer test:cleanup-containers` — remove any testcontainers leaked by a killed run.
 
 ## Open issues
 
-- **Worker-safety harness (`test/worker/`)** only covers SQLite on a single
-  FrankenPHP worker thread, not Postgres or cross-thread behavior.
 - **Query result cache (`Criteria::setQueryCache()`) is request-scoped only.**
   No process-scoped (cross-request) tier, so it only helps repeated identical
   queries within one request/script run. A cache hit is also invisible to
