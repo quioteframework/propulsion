@@ -9,6 +9,8 @@
  */
 namespace Propulsion\Parser;
 
+use Propulsion\Exception\PropulsionException;
+
 /**
  * JSON parser. Converts data between associative array and JSON formats
  *
@@ -25,7 +27,11 @@ class PropulsionJSONParser extends PropulsionParser
 	 */
 	public function fromArray($array)
 	{
-		return json_encode($array);
+		$json = json_encode($array);
+		if ($json === false) {
+			throw new PropulsionException('Unable to encode data as JSON: ' . json_last_error_msg());
+		}
+		return $json;
 	}
 
 	/**

@@ -571,7 +571,14 @@ abstract class BaseObject
 		// classes for tables with foreign keys/referrers (see the @method doc on this class);
 		// PHP silently ignores the trailing `true` argument on the 3-parameter classes, so this
 		// unconditional 4-argument call is safe either way.
-		return $parser->fromArray($this->toArray(BasePeer::TYPE_PHPNAME, $includeLazyLoadColumns, array(), true));
+		$data = $this->toArray(BasePeer::TYPE_PHPNAME, $includeLazyLoadColumns, array(), true);
+		// toArray()'s string return (the '*RECURSION*' sentinel) can only happen when
+		// $alreadyDumpedObjects already contains this object -- impossible here since it's
+		// always passed a fresh, empty array at this top-level call.
+		if (!is_array($data)) {
+			throw new PropulsionException('Unexpected non-array result from toArray().');
+		}
+		return $parser->fromArray($data);
 	}
 
 	/**

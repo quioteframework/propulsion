@@ -9,6 +9,8 @@
  */
 namespace Propulsion\Parser;
 
+use Propulsion\Exception\PropulsionException;
+
 /**
  * XML parser. Converts data between associative array and XML formats
  *
@@ -31,7 +33,11 @@ class PropulsionXMLParser extends PropulsionParser
 		$rootNode = $this->getRootNode($rootElementName);
 		$this->arrayToDOM($array, $rootNode, $charset, false);
 
-		return $rootNode->ownerDocument->saveXML();
+		$xmlstr = $rootNode->ownerDocument->saveXML();
+		if ($xmlstr === false) {
+			throw new PropulsionException('Failed to serialize XML document.');
+		}
+		return $xmlstr;
 	}
 
 	/**
@@ -54,7 +60,7 @@ class PropulsionXMLParser extends PropulsionParser
 	 *
 	 * @param  string $rootElementName The Root Element Name
 	 *
-	 * @return bool|\DOMElement The root DOMElement
+	 * @return \DOMElement The root DOMElement
 	 */
 	protected function getRootNode($rootElementName = 'data')
 	{
@@ -62,6 +68,9 @@ class PropulsionXMLParser extends PropulsionParser
 		$xml->preserveWhiteSpace = false;
 		$xml->formatOutput = true;
 		$rootElement = $xml->createElement($rootElementName);
+		if ($rootElement === false) {
+			throw new PropulsionException("Invalid root element name '$rootElementName'.");
+		}
 		$xml->appendChild($rootElement);
 
 		return $rootElement;
@@ -106,8 +115,9 @@ class PropulsionXMLParser extends PropulsionParser
 	protected function arrayToDOM($array, $rootElement, $charset = null, $removeNumbersFromKeys = false)
 	{
 		foreach ($array as $key => $value) {
+			$key = (string) $key;
 			if ($removeNumbersFromKeys) {
-				$key = preg_replace('/[^a-z]/i', '', $key);
+				$key = preg_replace('/[^a-z]/i', '', $key) ?? $key;
 			}
 			$element = $rootElement->ownerDocument->createElement($key);
 			if (is_array($value)) {
@@ -117,7 +127,10 @@ class PropulsionXMLParser extends PropulsionParser
 			} elseif (is_string($value)) {
 				$charset = $charset ? $charset : 'utf-8';
 				if (function_exists('iconv') && strcasecmp($charset, 'utf-8') !== 0 && strcasecmp($charset, 'utf8') !== 0) {
-					$value = iconv($charset, 'UTF-8', $value);
+					$converted = iconv($charset, 'UTF-8', $value);
+					if ($converted !== false) {
+						$value = $converted;
+					}
 				}
 				$value = htmlspecialchars($value, ENT_COMPAT, 'UTF-8');
 				$child = $element->ownerDocument->createCDATASection($value);

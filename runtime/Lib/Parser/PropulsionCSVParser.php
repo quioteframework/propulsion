@@ -9,6 +9,8 @@
  */
 namespace Propulsion\Parser;
 
+use Propulsion\Exception\PropulsionException;
+
 /**
  * CSV parser. Converts data between associative array and CSV formats.
  * CSV parsing code borrowed from php-csv-utils by Luke Visinoni
@@ -81,6 +83,7 @@ class PropulsionCSVParser extends PropulsionParser
 			if (!is_scalar($column)) {
 				$column = $this->serialize($column);
 			}
+			$column = (string) $column;
 			switch ($this->quoting) {
 				case self::QUOTE_NONE:
 					// do nothing... no quoting is happening here
@@ -185,6 +188,9 @@ class PropulsionCSVParser extends PropulsionParser
 	 */
 	public function toArray($data, $isList = false, $includeHeading = true)
 	{
+		if ($this->lineTerminator === '' || $this->delimiter === '') {
+			throw new PropulsionException('PropulsionCSVParser::$lineTerminator and $delimiter must not be empty.');
+		}
 		$rows = explode($this->lineTerminator, $data);
 		if ($includeHeading) {
 			$heading = array_shift($rows);
