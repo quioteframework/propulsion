@@ -20,6 +20,7 @@ namespace Propulsion\Formatter;
  use Propulsion\Collection\PropulsionCollection;
  use Propulsion\Exception\PropulsionException;
  use Propulsion\OM\BaseObject;
+ use Propulsion\Util\StatementRows;
  use PDOStatement;
  use PDO;
 class PropulsionObjectFormatter extends PropulsionFormatter
@@ -30,6 +31,51 @@ class PropulsionObjectFormatter extends PropulsionFormatter
 	public function format(PDOStatement $stmt): mixed
 	{
 		$this->checkInit($stmt);
+
+		return $this->formatRows(StatementRows::iterate($stmt));
+	}
+
+	/**
+	 * @param     iterable<int, array<int, mixed>> $rows
+	 */
+	public function formatFromRows(iterable $rows): mixed
+	{
+		$this->checkInit();
+
+		return $this->formatRows($rows);
+	}
+
+	public function formatOne(PDOStatement $stmt): ?BaseObject
+	{
+		$this->checkInit($stmt);
+
+		return $this->formatOneRow(StatementRows::iterate($stmt));
+	}
+
+	/**
+	 * @param     iterable<int, array<int, mixed>> $rows
+	 */
+	public function formatOneFromRows(iterable $rows): mixed
+	{
+		$this->checkInit();
+
+		return $this->formatOneRow($rows);
+	}
+
+	public function supportsRowCaching(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * The single per-row body behind both {@see format()} and
+	 * {@see formatFromRows()}; the row source (a live statement or a cached
+	 * array) is the only difference between them.
+	 *
+	 * @param     iterable<int, array<int, mixed>> $rows
+	 */
+	protected function formatRows(iterable $rows): mixed
+	{
 		if($class = $this->collectionName) {
 			$collectionObj = new $class();
 			$collectionObj->setModel($this->requireClass());
@@ -43,10 +89,7 @@ class PropulsionObjectFormatter extends PropulsionFormatter
 				throw new PropulsionException('Cannot use limit() in conjunction with with() on a one-to-many relationship. Please remove the with() call, or the limit() call.');
 			}
 			$pks = array();
-			while (($row = $stmt->fetch(PDO::FETCH_NUM)) !== false) {
-				if (!is_array($row) || !array_is_list($row)) {
-					continue;
-				}
+			foreach ($rows as $row) {
 				$object = $this->getAllObjectsFromRow($row);
 				$pk = $object->getPrimaryKey();
 				if (!in_array($pk, $pks)) {
@@ -56,29 +99,23 @@ class PropulsionObjectFormatter extends PropulsionFormatter
 			}
 		} else {
 			// only many-to-one relationships
-			while (($row = $stmt->fetch(PDO::FETCH_NUM)) !== false) {
-				if (!is_array($row) || !array_is_list($row)) {
-					continue;
-				}
+			foreach ($rows as $row) {
 				$collection[] =  $this->getAllObjectsFromRow($row);
 			}
 		}
-		$stmt->closeCursor();
 
 		return $collection;
 	}
 
-	public function formatOne(PDOStatement $stmt): ?BaseObject
+	/**
+	 * @param     iterable<int, array<int, mixed>> $rows
+	 */
+	protected function formatOneRow(iterable $rows): ?BaseObject
 	{
-		$this->checkInit($stmt);
 		$result = null;
-		while (($row = $stmt->fetch(PDO::FETCH_NUM)) !== false) {
-			if (!is_array($row) || !array_is_list($row)) {
-				continue;
-			}
+		foreach ($rows as $row) {
 			$result = $this->getAllObjectsFromRow($row);
 		}
-		$stmt->closeCursor();
 
 		return $result;
 	}

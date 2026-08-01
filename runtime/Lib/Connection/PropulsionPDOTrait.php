@@ -312,6 +312,12 @@ trait PropulsionPDOTrait
 					if ($this->useDebug) {
 						$this->log('Commit transaction', null, PropulsionPDO::class . '::' . __FUNCTION__);
 					}
+					// Only now may the shared query cache learn that the tables
+					// written in this transaction changed. Publishing earlier
+					// would let another process cache our uncommitted rows
+					// under an already-current version token, and nothing would
+					// bump again to dislodge it.
+					$this->publishQueryCacheInvalidations();
 				}
 			} elseif ($this->supportsSavepoints()) {
 				$return = !$this->supportsReleaseSavepoint()
@@ -350,6 +356,7 @@ trait PropulsionPDOTrait
 				if ($this->useDebug) {
 					$this->log('Rollback transaction', null, PropulsionPDO::class . '::' . __FUNCTION__);
 				}
+				$this->discardQueryCacheInvalidations();
 			} elseif ($this->supportsSavepoints()) {
 				$return = parent::exec('ROLLBACK TO SAVEPOINT ' . $this->getSavepointName($opcount)) !== false;
 			} else {
@@ -437,9 +444,58 @@ trait PropulsionPDOTrait
 			if ($this->useDebug) {
 				$this->log('Rollback transaction', null, PropulsionPDO::class . '::' . __FUNCTION__);
 			}
+
+			$this->discardQueryCacheInvalidations();
 		}
 
 		return $return;
+	}
+
+	/**
+	 * Publish the shared-query-cache table version bumps that writes in the
+	 * just-committed transaction buffered up.
+	 *
+	 * Best-effort by design: a cache that cannot record an invalidation must
+	 * not turn a successful commit into a failure. The consequence of failing
+	 * here is bounded -- other processes keep serving the pre-write entry until
+	 * its TTL lapses -- and it is the trade the whole cache is built on.
+	 */
+	private function publishQueryCacheInvalidations(): void
+	{
+		if (!$this instanceof PropulsionPDO) {
+			return;
+		}
+
+		try {
+			Propulsion::getSession()->getQueryCache()->onCommit($this);
+		} catch (\Throwable $e) {
+			Propulsion::log(
+				'Failed to publish query cache invalidations after commit: ' . $e->getMessage(),
+				Propulsion::LOG_WARNING
+			);
+		}
+	}
+
+	/**
+	 * Drop the buffered version bumps for a rolled-back transaction. Nothing
+	 * was ever published, so there is nothing to undo -- this only stops the
+	 * rest of the request from needlessly bypassing the shared tier for tables
+	 * whose writes were discarded.
+	 */
+	private function discardQueryCacheInvalidations(): void
+	{
+		if (!$this instanceof PropulsionPDO) {
+			return;
+		}
+
+		try {
+			Propulsion::getSession()->getQueryCache()->onRollBack($this);
+		} catch (\Throwable $e) {
+			Propulsion::log(
+				'Failed to discard query cache invalidations after rollback: ' . $e->getMessage(),
+				Propulsion::LOG_WARNING
+			);
+		}
 	}
 
 	/**

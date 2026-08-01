@@ -13,6 +13,7 @@ use PDOStatement;
 use PDO;
 use Propulsion\Collection\PropulsionCollection;
 use Propulsion\Exception\PropulsionException;
+use Propulsion\Util\StatementRows;
 /**
  * Array formatter for Propulsion select query
  * format() returns a PropulsionArrayCollection of associative arrays, a string,
@@ -27,6 +28,30 @@ class PropulsionSimpleArrayFormatter extends PropulsionFormatter {
 
 	public function format(PDOStatement $stmt): mixed {
 		$this->checkInit($stmt);
+
+		return $this->formatRows(StatementRows::iterate($stmt));
+	}
+
+	/**
+	 * @param     iterable<int, array<int, mixed>> $rows
+	 */
+	public function formatFromRows(iterable $rows): mixed {
+		$this->checkInit();
+
+		return $this->formatRows($rows);
+	}
+
+	public function supportsRowCaching(): bool {
+		return true;
+	}
+
+	/**
+	 * The single per-row body behind both {@see format()} and
+	 * {@see formatFromRows()}.
+	 *
+	 * @param     iterable<int, array<int, mixed>> $rows
+	 */
+	protected function formatRows(iterable $rows): mixed {
 		if ($class = $this->collectionName) {
 			$collectionObj = new $class();
 			$collectionObj->setModel($this->requireClass());
@@ -38,30 +63,39 @@ class PropulsionSimpleArrayFormatter extends PropulsionFormatter {
 		if ($this->isWithOneToMany () && $this->hasLimit) {
 			throw new PropulsionException('Cannot use limit() in conjunction with with() on a one-to-many relationship. Please remove the with() call, or the limit() call.');
 		}
-		while (($row = $stmt->fetch (PDO::FETCH_NUM)) !== false) {
-			if (!is_array($row) || !array_is_list($row)) {
-				continue;
-			}
+		foreach ($rows as $row) {
 			if ($rowArray = $this->getStructuredArrayFromRow ($row)) {
 				$collection[] = $rowArray;
 			}
 		}
-		$stmt->closeCursor ();
 		return $collection;
 	}
 
 	public function formatOne(PDOStatement $stmt): mixed {
 		$this->checkInit($stmt);
+
+		return $this->formatOneRow(StatementRows::iterate($stmt));
+	}
+
+	/**
+	 * @param     iterable<int, array<int, mixed>> $rows
+	 */
+	public function formatOneFromRows(iterable $rows): mixed {
+		$this->checkInit();
+
+		return $this->formatOneRow($rows);
+	}
+
+	/**
+	 * @param     iterable<int, array<int, mixed>> $rows
+	 */
+	protected function formatOneRow(iterable $rows): mixed {
 		$result = null;
-		while (($row = $stmt->fetch (PDO::FETCH_NUM)) !== false) {
-			if (!is_array($row) || !array_is_list($row)) {
-				continue;
-			}
+		foreach ($rows as $row) {
 			if ($rowArray = $this->getStructuredArrayFromRow ($row)) {
 				$result = $rowArray;
 			}
 		}
-		$stmt->closeCursor ();
 		return $result;
 	}
 

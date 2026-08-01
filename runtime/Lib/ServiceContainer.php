@@ -9,6 +9,11 @@
  */
 namespace Propulsion;
 
+use Propulsion\Cache\CacheDriverFactory;
+use Propulsion\Cache\Driver\NullCache;
+use Propulsion\Cache\QueryCacheConfig;
+use Psr\SimpleCache\CacheInterface;
+
 /**
  * Process-scoped service registry (Propulsion worker-safety rework, phase 4a --
  * see PROPULSION_WORKER_REWORK.md / KNOWN_ISSUES.md "Phase 4").
@@ -82,5 +87,113 @@ class ServiceContainer
     public function clearInstancePools(): void
     {
         Propulsion::getSession()->clearAllPools();
+    }
+
+    /**
+     * The PSR-16 pool backing the global (L2) query result cache, once one has
+     * been registered or lazily built. Null means "not resolved yet", which is
+     * not the same as "none configured" -- see {@see queryCachePool()}.
+     */
+    private ?CacheInterface $queryCachePool = null;
+
+    /** Parsed `cache.query` configuration, resolved lazily and then memoised. */
+    private ?QueryCacheConfig $queryCacheConfig = null;
+
+    /**
+     * Register the PSR-16 pool to back the global query result cache.
+     *
+     * Propulsion ships no Redis or Memcached client of its own: hand it any
+     * third-party PSR-16 implementation instead, e.g. symfony/cache's
+     * `new Psr16Cache(new RedisAdapter($redis))`. The first-party drivers under
+     * `Propulsion\Cache\Driver` are also ordinary PSR-16 implementations and
+     * can be passed here directly.
+     *
+     * A pool registered this way always wins over `cache.query.driver`.
+     *
+     * Unlike the PSR-3 logger and PSR-14 dispatcher facades this mirrors, an
+     * unregistered cache is not simply inert: it can still build itself from
+     * the runtime configuration, because a cache backend is deployment
+     * configuration rather than application wiring.
+     */
+    public function setQueryCachePool(CacheInterface $pool): void
+    {
+        $this->queryCachePool = $pool;
+    }
+
+    /**
+     * True once a pool has been resolved -- either registered explicitly or
+     * built from configuration by a previous {@see queryCachePool()} call.
+     */
+    public function hasQueryCachePool(): bool
+    {
+        return $this->queryCachePool !== null;
+    }
+
+    /**
+     * The pool backing the global query result cache.
+     *
+     * Resolution order: a pool registered via {@see setQueryCachePool()};
+     * otherwise one built by {@see CacheDriverFactory} from `cache.query`;
+     * otherwise a {@see NullCache}. Never returns null -- "no cache
+     * configured" is modelled as the null object, the same way
+     * {@see \Propulsion\Adapter\DBNone} models "no adapter".
+     *
+     * The result is memoised for the life of the process, so a `file` driver
+     * only creates its directory tree once.
+     */
+    public function queryCachePool(): CacheInterface
+    {
+        if ($this->queryCachePool !== null) {
+            return $this->queryCachePool;
+        }
+
+        $config = $this->getQueryCacheConfig();
+        if (!$config->isActive() || $config->driver === QueryCacheConfig::DRIVER_USER_SUPPLIED) {
+            // driver=psr16 with nothing registered is a misconfiguration, but
+            // failing every query over it would be a poor trade: the shared
+            // tier simply stays inert, and CacheDriverFactory carries the
+            // explanatory message for anyone who asks it to build one.
+            return $this->queryCachePool = new NullCache();
+        }
+
+        return $this->queryCachePool = CacheDriverFactory::factory(
+            $config->driver,
+            $config->driverOptions,
+            $config->ttl
+        );
+    }
+
+    /**
+     * The parsed `cache.query` section, read from the runtime configuration on
+     * first use and memoised thereafter.
+     */
+    public function getQueryCacheConfig(): QueryCacheConfig
+    {
+        return $this->queryCacheConfig ??= QueryCacheConfig::fromConfigArray(
+            Propulsion::getConfigurationArray()
+        );
+    }
+
+    /**
+     * Override the cache configuration, bypassing the runtime configuration
+     * file. Also drops any pool already built from the previous config.
+     */
+    public function setQueryCacheConfig(QueryCacheConfig $config): void
+    {
+        $this->queryCacheConfig = $config;
+        $this->queryCachePool = null;
+    }
+
+    /**
+     * Forget the registered/memoised pool and configuration, so the next
+     * {@see queryCachePool()} call resolves them again.
+     *
+     * Called by {@see Propulsion::setConfiguration()} -- a new configuration
+     * may name a different driver -- and useful in tests for isolation.
+     */
+    public function clearQueryCachePool(): void
+    {
+        $this->queryCachePool = null;
+        $this->queryCacheConfig = null;
     }
 }

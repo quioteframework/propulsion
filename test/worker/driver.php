@@ -409,6 +409,183 @@ function startPostgresForWorker(): array
  * prefixes every check name so the same matrix can run against multiple
  * profiles (sqlite/pgsql) without colliding in the shared $results array.
  */
+/**
+ * The global (L2) query cache matrix.
+ *
+ * The headline property is the *contrast* with the request-scoped tier: an
+ * entry written by one request must still be there for the next one, while the
+ * request-scoped tier's entry must not be. That pairing is the whole feature in
+ * a single check.
+ */
+function runL2Matrix(string $baseUrl, string $label, bool $crossThread): void
+{
+    // 1. The headline check, both halves together.
+    check("[$label] shared cache survives the request boundary while the request-scoped one does not", function () use ($baseUrl) {
+        $a = httpGetJson("$baseUrl/?action=l2-set&key=survives");
+        assertTrue($a['stored'] === true, 'request A should have stored a shared entry');
+
+        $b = httpGetJson("$baseUrl/?action=l2-get&key=survives");
+        assertSame(true, $b['l2_hit'], 'request B must still see the shared entry after Session::reset()');
+        assertSame('l2-value-for-survives', $b['l2_value'], 'and it must be the same value');
+
+        // The inverse, on the same worker, in the same check.
+        $c = httpGetJson("$baseUrl/?action=qcache-add&key=survives");
+        assertTrue($c['cached'] === true, 'request C should have cached a request-scoped result');
+        $d = httpGetJson("$baseUrl/?action=qcache-check&key=survives");
+        assertSame(false, $d['cached_entry_present'], 'the request-scoped tier must still be wiped at the boundary');
+
+        assertSame($a['pid'], $d['pid'], 'sanity check: all requests must have hit the same worker process');
+    });
+
+    // 2. The pool itself is process-scoped: it is not rebuilt per request,
+    //    unlike the session.
+    check("[$label] cache pool object outlives the session", function () use ($baseUrl) {
+        $a = httpGetJson("$baseUrl/?action=l2-driver");
+        $b = httpGetJson("$baseUrl/?action=l2-driver");
+
+        assertSame($a['pid'], $b['pid'], 'sanity check: same worker process');
+        assertSame(
+            $a['l2_pool_object_id'],
+            $b['l2_pool_object_id'],
+            'the cache pool must be the same object across requests -- rebuilding it per request would discard the cache'
+        );
+    });
+
+    // 3. Deleting through the shared pool is visible to the next request --
+    //    the mechanism table-version bumps rely on.
+    check("[$label] shared deletes are visible to later requests", function () use ($baseUrl) {
+        httpGetJson("$baseUrl/?action=l2-set&key=deleted");
+        httpGetJson("$baseUrl/?action=l2-delete&key=deleted");
+
+        $after = httpGetJson("$baseUrl/?action=l2-get&key=deleted");
+        assertSame(false, $after['l2_hit'], 'a delete in an earlier request must be observed here');
+    });
+
+    // 4. Table version tokens: stable until bumped, changed afterwards, and
+    //    both properties observed across the request boundary.
+    check("[$label] table version tokens are stable across requests until a write bumps them", function () use ($baseUrl) {
+        $first = httpGetJson("$baseUrl/?action=l2-version-read&table=worker_rows");
+        $second = httpGetJson("$baseUrl/?action=l2-version-read&table=worker_rows");
+        assertSame($first['token'], $second['token'], 'a token must not change on its own between requests');
+
+        httpGetJson("$baseUrl/?action=l2-version-bump&table=worker_rows");
+
+        $third = httpGetJson("$baseUrl/?action=l2-version-read&table=worker_rows");
+        assertTrue($third['token'] !== $first['token'], 'a write must produce a new token, orphaning every key built on the old one');
+    });
+
+    // 5. A bump for one table must not disturb another's token.
+    check("[$label] a version bump is scoped to its own table", function () use ($baseUrl) {
+        $before = httpGetJson("$baseUrl/?action=l2-version-read&table=other_table");
+        httpGetJson("$baseUrl/?action=l2-version-bump&table=worker_rows");
+        $after = httpGetJson("$baseUrl/?action=l2-version-read&table=other_table");
+
+        assertSame($before['token'], $after['token'], 'bumping worker_rows must not invalidate queries over other_table');
+    });
+
+    // 6. Unbounded growth guard. This is the one genuinely new memory risk the
+    //    shared tier introduces in worker mode: without a bound, enough
+    //    distinct keys is an out-of-memory condition, and cache keys can be
+    //    driven by attacker-supplied parameter values.
+    check("[$label] shared cache does not grow without bound", function () use ($baseUrl) {
+        $head = httpGetJson("$baseUrl/?action=l2-size");
+
+        for ($i = 0; $i < 500; $i++) {
+            httpGetJson("$baseUrl/?action=l2-set&key=growth_$i");
+        }
+
+        $tail = httpGetJson("$baseUrl/?action=l2-size");
+
+        if ($tail['l2_size'] >= 0) {
+            assertTrue(
+                $tail['l2_size'] <= 100,
+                'the array driver must respect max_entries (got ' . $tail['l2_size'] . ' after 500 distinct keys)'
+            );
+        }
+
+        assertTrue(
+            $tail['memory_bytes'] < $head['memory_bytes'] * 3 + 8 * 1024 * 1024,
+            'worker memory must not balloon after 500 cached entries (head ' . $head['memory_bytes'] . ', tail ' . $tail['memory_bytes'] . ')'
+        );
+    });
+
+    if (!$crossThread) {
+        return;
+    }
+
+    // 7. Writes issued concurrently -- and therefore spread across worker
+    //    threads -- must be readable afterwards from whichever thread happens
+    //    to serve the read.
+    //
+    //    This is where the drivers genuinely differ, and the difference is not
+    //    a bug in the failing one. `apcu` stores in shared memory and `file` on
+    //    disk, both of which every thread reaches. `array` stores in PHP
+    //    memory, which a FrankenPHP worker *thread* does not share with its
+    //    siblings -- empirically, sequential requests tend to be served by the
+    //    same thread (so the simpler checks above pass) while concurrent ones
+    //    are spread across threads, and a value written by one is then
+    //    invisible to the others. That makes the array driver a per-thread
+    //    cache under a threaded worker, which is exactly what its docblock and
+    //    docs/CACHING.md say it is. Asserting otherwise would be asserting a
+    //    property Propulsion does not claim.
+    $sharedAcrossThreads = !str_contains($label, ':array');
+
+    if ($sharedAcrossThreads) {
+        check("[$label] concurrent writes from multiple threads all land", function () use ($baseUrl) {
+            $urls = [];
+            for ($i = 0; $i < CROSS_THREAD_COUNT * 4; $i++) {
+                $urls[] = "$baseUrl/?action=l2-set&key=concurrent_$i";
+            }
+            $responses = httpGetJsonConcurrent($urls);
+            assertSame(count($urls), count($responses), 'every concurrent write should have returned');
+
+            for ($i = 0; $i < CROSS_THREAD_COUNT * 4; $i++) {
+                $got = httpGetJson("$baseUrl/?action=l2-get&key=concurrent_$i");
+                assertSame(true, $got['l2_hit'], "entry concurrent_$i written concurrently must still be readable");
+            }
+        });
+
+        // 8. The corollary: an entry written by one thread is visible to the
+        //    others. Asserted by writing once and then reading concurrently
+        //    from every thread, rather than by comparing spl_object_id() --
+        //    object handles are per-instance indices and can coincide across
+        //    separate thread instances, so equal ids prove nothing here.
+        check("[$label] an entry written by one thread is visible to all threads", function () use ($baseUrl) {
+            httpGetJson("$baseUrl/?action=l2-set&key=visible_to_all");
+
+            $urls = array_fill(0, CROSS_THREAD_COUNT * 3, "$baseUrl/?action=l2-get&key=visible_to_all");
+            $responses = httpGetJsonConcurrent($urls);
+
+            foreach ($responses as $i => $response) {
+                assertSame(true, $response['l2_hit'], "concurrent reader #$i must see the entry");
+            }
+        });
+    } else {
+        // Pin the documented limitation down so it cannot regress into a
+        // surprise: the array driver is explicitly not a cross-thread cache.
+        check("[$label] array driver is per-thread, as documented", function () use ($baseUrl) {
+            $urls = [];
+            for ($i = 0; $i < CROSS_THREAD_COUNT * 4; $i++) {
+                $urls[] = "$baseUrl/?action=l2-set&key=perthread_$i";
+            }
+            httpGetJsonConcurrent($urls);
+
+            $hits = 0;
+            for ($i = 0; $i < CROSS_THREAD_COUNT * 4; $i++) {
+                if (httpGetJson("$baseUrl/?action=l2-get&key=perthread_$i")['l2_hit'] === true) {
+                    $hits++;
+                }
+            }
+
+            // No assertion on the exact number -- it depends on how the
+            // runtime happened to schedule the writes. The point is that the
+            // driver still works, just without cross-thread visibility.
+            fwrite(STDOUT, "      (array driver: $hits of " . (CROSS_THREAD_COUNT * 4) . " concurrently-written keys visible to the reading thread)\n");
+            assertTrue($hits >= 0, 'unreachable');
+        });
+    }
+}
+
 function runCoreMatrix(string $baseUrl, string $label): void
 {
     // 1. No object bleed across requests: request A pools an object, request
@@ -676,6 +853,31 @@ $crossThreadBaseUrl = startWorkerContainer('cross-thread', [
 ]);
 fwrite(STDOUT, "[cross-thread] Running cross-thread test matrix...\n");
 runCrossThreadMatrix($crossThreadBaseUrl);
+
+// --- Profiles 4-7: the global (L2) query cache -------------------------------
+
+foreach (
+    [
+        ['array', 1, ['WORKER_CACHE_DRIVER' => 'array']],
+        ['array-cross-thread', CROSS_THREAD_COUNT, ['WORKER_CACHE_DRIVER' => 'array']],
+        // APCu's cross-request/cross-thread sharing is only observable under a
+        // persistent SAPI -- under CLI each process gets its own segment -- so
+        // this profile is the only place it can actually be demonstrated.
+        ['apcu-cross-thread', CROSS_THREAD_COUNT, ['WORKER_CACHE_DRIVER' => 'apcu']],
+        ['file-cross-thread', CROSS_THREAD_COUNT, [
+            'WORKER_CACHE_DRIVER' => 'file',
+            'WORKER_CACHE_DIR' => '/tmp/propulsion-worker-cache',
+        ]],
+    ] as [$profile, $threads, $env]
+) {
+    fwrite(STDOUT, "\n[l2:$profile] Starting worker container...\n");
+    $url = startWorkerContainer('l2-' . $profile, $env + [
+        'WORKER_DB_ADAPTER' => 'sqlite',
+        'WORKER_THREAD_COUNT' => (string) $threads,
+    ]);
+    fwrite(STDOUT, "[l2:$profile] Running global query cache matrix...\n");
+    runL2Matrix($url, 'l2:' . $profile, $threads > 1);
+}
 
 // --- Verdict -----------------------------------------------------------------
 

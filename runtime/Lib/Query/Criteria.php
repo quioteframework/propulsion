@@ -177,6 +177,18 @@ class Criteria implements \IteratorAggregate
 	protected bool $queryCacheEnabled = false;
 
 	/**
+	 * Per-query TTL override in seconds for the shared cache tier, or null to
+	 * use the configured default. See {@see setQueryCache()}.
+	 */
+	protected ?int $queryCacheTtl = null;
+
+	/**
+	 * Whether this query's result may reach the process-shared cache tier.
+	 * See {@see isQueryCacheShared()} for when to turn it off.
+	 */
+	protected bool $queryCacheShared = true;
+
+	/**
 	 * Shape key for the current request's {@see \Propulsion\Cache\CompiledQueryCache},
 	 * or null (the default) if compiled-query caching is off for this Criteria.
 	 * Unlike $queryCacheEnabled this is a caller-supplied string, not a bool --
@@ -1476,10 +1488,44 @@ class Criteria implements \IteratorAggregate
 	 * @param      boolean $b Set to TRUE to allow this query to be served from/stored into the query result cache.
 	 * @return     Criteria Modified Criteria object (for fluent API)
 	 */
-	public function setQueryCache(bool $b = true)
+	public function setQueryCache(bool $b = true, ?int $ttl = null, bool $shared = true)
 	{
 		$this->queryCacheEnabled = $b;
+		$this->queryCacheTtl = $ttl;
+		$this->queryCacheShared = $shared;
 		return $this;
+	}
+
+	/**
+	 * This query's cache TTL override in seconds, or null to use the
+	 * configured `cache.query.ttl`. Only meaningful for the shared tier; the
+	 * request-scoped tier is bounded by the request itself.
+	 */
+	public function getQueryCacheTtl(): ?int
+	{
+		return $this->queryCacheTtl;
+	}
+
+	/**
+	 * Whether this query's result may be published to the *shared* cache tier.
+	 *
+	 * The escape hatch for queries whose SQL text is stable but whose correct
+	 * result is not -- anything built on NOW(), CURRENT_DATE, RANDOM(), or a
+	 * LIMIT over an unstable ORDER BY. Such a query has an identical cache key
+	 * every time, so its first result would be frozen for the whole TTL, and
+	 * across every process sharing the backend rather than merely for the rest
+	 * of one request. Set `shared: false` to keep it in the request-scoped tier
+	 * only.
+	 *
+	 * Propulsion deliberately does not try to detect these by inspecting the
+	 * SQL: a scan for volatile function names gives false positives on ordinary
+	 * column names like `now_at` and false negatives on user-defined functions
+	 * and on volatility reached through a view, and a detector that is
+	 * confidently wrong is worse than no detector.
+	 */
+	public function isQueryCacheShared(): bool
+	{
+		return $this->queryCacheShared;
 	}
 
 	/**

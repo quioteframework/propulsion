@@ -215,7 +215,7 @@ class BasePeer
 				throw new PropulsionException(sprintf('Unable to execute DELETE statement [%s]', $sql), $e);
 			}
 
-			Propulsion::getSession()->getQueryResultCache()->invalidateTable($tableName);
+			Propulsion::getSession()->getQueryCache()->invalidateTable($tableName, $con, $criteria->getDbName());
 
 		} // for each table
 
@@ -263,7 +263,7 @@ class BasePeer
 			throw new PropulsionException(sprintf('Unable to execute DELETE ALL statement [%s]', $sql), $e);
 		}
 
-		Propulsion::getSession()->getQueryResultCache()->invalidateTable($originalTableName);
+		Propulsion::getSession()->getQueryCache()->invalidateTable($originalTableName, $con, $databaseName);
 
 		return $affectedRows;
 	}
@@ -295,7 +295,7 @@ class BasePeer
 
 		$count = $db->bulkLoad($con, $tableName, $columns, $rows);
 
-		Propulsion::getSession()->getQueryResultCache()->invalidateTable($tableName);
+		Propulsion::getSession()->getQueryCache()->invalidateTable($tableName, $con, $dbName);
 
 		return $count;
 	}
@@ -498,7 +498,7 @@ class BasePeer
 			throw new PropulsionException(sprintf('Unable to execute INSERT statement [%s]', $sql), $e);
 		}
 
-		Propulsion::getSession()->getQueryResultCache()->invalidateTable($originalTableName);
+		Propulsion::getSession()->getQueryCache()->invalidateTable($originalTableName, $con, $criteria->getDbName());
 
 		// If the primary key column is auto-incremented, get the id now.
 		if ($needsGeneratedId && $db->isGetIdAfterInsert() && !$useInsertReturning) {
@@ -646,7 +646,7 @@ class BasePeer
 				throw new PropulsionException(sprintf('Unable to execute UPDATE statement [%s]', $sql), $e);
 			}
 
-			Propulsion::getSession()->getQueryResultCache()->invalidateTable((string) $tableName);
+			Propulsion::getSession()->getQueryCache()->invalidateTable((string) $tableName, $con, $selectCriteria->getDbName());
 
 		} // foreach table in the criteria
 
@@ -788,7 +788,7 @@ class BasePeer
 			throw new PropulsionException(sprintf('Unable to execute UPSERT statement [%s]', $sql), $e);
 		}
 
-		Propulsion::getSession()->getQueryResultCache()->invalidateTable($originalTableName);
+		Propulsion::getSession()->getQueryCache()->invalidateTable($originalTableName, $con, $criteria->getDbName());
 
 		return $affectedRows;
 	}

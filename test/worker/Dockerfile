@@ -14,7 +14,7 @@
 # install-php-extensions helper this image already bundles.
 FROM dunglas/frankenphp:php8.5
 
-RUN install-php-extensions pdo_pgsql
+RUN install-php-extensions pdo_pgsql apcu
 
 WORKDIR /app
 COPY . /app

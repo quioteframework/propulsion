@@ -1223,6 +1223,110 @@ change-tracker steal list, which is deliberately not repeated here.
   generated-Peer architecture; that assessment is worth revisiting — the
   hydration side already handles collections and `findPks()` is the fetch
   primitive, so the pieces exist.
+- [x] **Global (cross-process) query result cache.** The result cache added in
+  87e43c4 is request-scoped: it dies with `Session::reset()`, so it only pays
+  off for a query repeated within one request -- precisely the wrong shape for
+  the worker-mode deployments this ORM targets. This adds a second tier behind
+  it, holding the same *raw pre-hydration rows* rather than formatted results.
+  That choice is load-bearing in three ways: a serialized `PropulsionCollection`
+  would carry a live object graph across a request boundary (the one failure
+  mode this feature could not survive); re-hydrating on the way out runs the
+  normal generated `populateObject()` path, instance pool included, so an L2 hit
+  is indistinguishable from a fresh read; and because rows are
+  formatter-independent, an `ARRAY`-formatted and an object-formatted query with
+  identical SQL correctly share one entry. Hydration costs ~0.8-1µs/row, cheap
+  against any real round trip.
+  **Backend is PSR-16** (`psr/simple-cache ^3.0`) rather than PSR-6 or a bespoke
+  interface: `get`/`set`/`getMultiple` is exactly the shape a query cache needs,
+  and PSR-6's `CacheItemInterface` round trip buys nothing here. Four thin
+  first-party drivers -- `Propulsion\Cache\Driver\{NullCache,ArrayCache,ApcuCache,FileCache}`,
+  selected by `Propulsion\Cache\CacheDriverFactory::factory()`, whose
+  `'' => NullCache` null-object entry mirrors `DBAdapter`'s `'' => DBNone` so
+  "no cache configured" is an ordinary code path rather than a null check at
+  every call site -- and **deliberately no Redis or Memcached driver**: both
+  protocols have several mature PSR-16 implementations, and owning reconnect,
+  cluster/sentinel, TLS and RESP3 to duplicate them is maintenance with no
+  upside. `driver: 'psr16'` plus `Propulsion::setQueryCachePool()` takes any of
+  them. The pool lives on `ServiceContainer` (process-scoped, exactly its
+  documented charter) with logger-shaped `setQueryCachePool()`/
+  `hasQueryCachePool()`/`queryCachePool()` delegators on `Propulsion` matching
+  the PSR-3 and PSR-14 facades; deliberately *not* a new static on `Propulsion`,
+  which phase 4c would only have had to move.
+  **Invalidation is by table version token**, not by the L1 tier's key index: a
+  shared pool has no cheap or atomic way to enumerate "every key touching table
+  X", but folding each read table's token into the cache key means one write
+  makes every derived key unreachable, with no scan and no coordination. Tokens
+  are *random values, not counters* -- PSR-16 has no atomic increment, so
+  read-add-write races (two writers both reading v=7 both write v=8, and a
+  result cached in between stays stale for its whole TTL), whereas a blind
+  random write has no read step. The decisive property is that losing a token
+  then fails toward a **miss**, never toward staleness: an evicted token is
+  reseeded to a never-used value, while a counter reseeded to 1 resurrects
+  orphaned entries. Bumps are buffered until the outermost commit
+  (`PropulsionPDOTrait::commit()`), and **no query inside a transaction is
+  published at all** -- such a SELECT can see uncommitted rows, and publishing
+  those to a shared cache would leak them.
+  **Two overload defences, for two distinct failure modes that are easily
+  conflated.** *Cache pollution*: a query whose parameters never repeat produces
+  a distinct key every time, so every request misses and -- if every miss also
+  wrote -- the cache grows without bound while never serving a hit; stampede
+  protection is irrelevant, since nothing contends on a single key. So an entry
+  is admitted only on its second sighting within a window, tracked by a tiny
+  marker key batched into the round trip that already fetches version tokens; a
+  never-repeating key never stores anything. *Stampede*: probabilistic early
+  recomputation (XFetch) on every backend, plus strict single-flight via a new
+  optional `Propulsion\Cache\AtomicCache::add()` capability that all three real
+  first-party drivers implement (`apcu_add`, `O_EXCL`, array) -- PSR-16 cannot
+  express atomic create-if-absent, so a third-party pool is detected with
+  `instanceof` and gets the probabilistic defence alone rather than a lock that
+  does not lock.
+  Also **`Propulsion::rawQuery()`**, giving hand-written SQL the same stack
+  (`->dependsOn(...)->cache()->hydrate(FooPeer::class)`), since the coordinator
+  is generic over (dbName, SQL, params, tables, execute, format) and
+  `ModelCriteria` merely derives those from a `Criteria`. Tables are declared,
+  never inferred -- the same reasoning that rules out sniffing SQL for `NOW()`.
+  **Scope-downs**, in the register this document already uses: no coherence with
+  writes that bypass the ORM (TTL, default 300s, is the only backstop, which is
+  why "never expire" is not the default);
+  `getQueryCacheTouchedTables()` still does not descend into subqueries or CTEs;
+  no automatic GC for the `file` driver beyond lazy unlink-on-expired-read,
+  since probabilistic in-request GC turns one unlucky request into a full-tree
+  stat walk (a non-PSR `prune()` is provided for cron instead); and no
+  `var_export`/opcache file driver -- Symfony's `PhpFilesAdapter` trick would
+  work on this payload and is the only way a file cache approaches APCu, but
+  `opcache.validate_timestamps=0` makes a mishandled overwrite serve stale data
+  *forever*, the worst failure a cache can have, for microseconds.
+  **On speed, measured rather than assumed** (`bench/global_query_cache_bench.php`,
+  numbers in `bench/RESULTS.md`): the three drivers land within ~20% of each
+  other on the hit path, so driver choice is about *sharing semantics*, not
+  throughput. The `file` driver is **not** APCu-equivalent -- 3-10× slower on
+  reads (3-4 syscalls plus stream overhead against a probe in already-mapped
+  shared memory) and ~8× on writes (atomic temp-file-plus-rename) -- but its
+  niche is zero infrastructure, surviving php-fpm restarts, and being the only
+  driver a CLI process shares with the web tier at all, since `apc.enable_cli`
+  gives each CLI process its own segment; for an application with CLI writers it
+  is *more correct*, not merely slower. The benchmark's headline 1.7-2.0× also
+  understates the real win, and the write-up says so: its baseline is in-memory
+  SQLite, where the round trip an L2 hit skips is only ~89µs, so it is largely
+  measuring hydration against a free database; against a networked Postgres the
+  same hit avoids 0.5-2ms.
+  Fixed two pre-existing bugs in the request-scoped tier while here: the cache
+  key ignored the formatter (so two same-SQL queries with different formatters
+  collided), and `FORMAT_STATEMENT`/`FORMAT_ON_DEMAND` results were cached
+  despite being tied to a live statement, handing the next caller an exhausted
+  cursor -- both formatters now bypass caching entirely via
+  `PropulsionFormatter::supportsRowCaching()`, with `PropulsionOnDemandFormatter`
+  needing an explicit `false` override because it extends the cacheable object
+  formatter. Covered by a shared `Psr16DriverTestCase` conformance suite every
+  driver passes identically, a real two-OS-process test
+  (`FileCacheCrossProcessTest`, `proc_open`, no Docker), unit suites for the
+  shared tier and the version registry (including a 2000-key pollution flood
+  asserting nothing is stored), end-to-end `GlobalQueryResultCacheTest` and
+  `RawQueryCacheTest` against a real database, and four new `test/worker/`
+  profiles proving an entry written by request N is visible to request N+1 --
+  and that the request-scoped tier correctly is not -- across FrankenPHP worker
+  threads on the `array`, `apcu` and `file` drivers. Full user documentation in
+  `docs/CACHING.md`.
 - [x] **Compiled-query / SQL-string cache.** The opt-in cache added in
   87e43c4 caches *result rows*; new `Propulsion\Cache\CompiledQueryCache`
   (mirroring that class's own shape, owned by `Session` the same way, cleared

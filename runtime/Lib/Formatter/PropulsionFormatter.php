@@ -176,6 +176,51 @@ abstract class PropulsionFormatter
 	abstract public function isObjectFormatter(): bool;
 
 	/**
+	 * The row-array counterpart of {@see format()}, used when the rows came
+	 * from the global query result cache rather than from a live statement
+	 * (see {@see \Propulsion\Cache\SharedQueryCache}).
+	 *
+	 * Deliberately concrete rather than abstract: this pair of methods and
+	 * {@see supportsRowCaching()} were added after the formatter hierarchy was
+	 * public, and making them abstract would break every third-party formatter
+	 * on upgrade. The default throws, and the capability flag below defaults to
+	 * false, so a formatter that does not opt in is simply never asked.
+	 *
+	 * @param     iterable<int, array<int, mixed>> $rows rows as PDO::FETCH_NUM produces them
+	 * @return    mixed
+	 */
+	public function formatFromRows(iterable $rows): mixed
+	{
+		throw new PropulsionException(static::class . ' does not support formatting from a row array');
+	}
+
+	/**
+	 * The row-array counterpart of {@see formatOne()}.
+	 *
+	 * @param     iterable<int, array<int, mixed>> $rows rows as PDO::FETCH_NUM produces them
+	 * @return    mixed
+	 */
+	public function formatOneFromRows(iterable $rows): mixed
+	{
+		throw new PropulsionException(static::class . ' does not support formatting from a row array');
+	}
+
+	/**
+	 * Whether this formatter's result can be reconstructed from a plain row
+	 * array -- i.e. whether a query using it may be cached at all.
+	 *
+	 * False for the two formatters whose results are inherently tied to a live
+	 * statement: {@see PropulsionOnDemandFormatter} streams rather than
+	 * materialising, and {@see PropulsionStatementFormatter} returns the
+	 * statement itself. Caching either of those hands the next caller an
+	 * exhausted cursor, so both cache tiers skip them entirely.
+	 */
+	public function supportsRowCaching(): bool
+	{
+		return false;
+	}
+
+	/**
 	 * @param     ?PDOStatement $stmt The statement format()/formatOne() was just
 	 *            handed, already executed by the caller before either of them
 	 *            ever runs -- closed here before throwing (if given) since

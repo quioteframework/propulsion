@@ -74,6 +74,7 @@ $platformTestHelperFiles = [
     __DIR__ . '/testsuite/generator/platform/PlatformTestBase.php',
     __DIR__ . '/testsuite/generator/platform/PlatformTestProvider.php',
     __DIR__ . '/testsuite/generator/platform/PlatformMigrationTestProvider.php',
+    __DIR__ . '/testsuite/runtime/cache/Psr16DriverTestCase.php',
 ];
 
 foreach ($platformTestHelperFiles as $file) {

@@ -10,7 +10,12 @@
 namespace Propulsion;
 
 use Propulsion\Cache\CompiledQueryCache;
+use Propulsion\Cache\Driver\NullCache;
 use Propulsion\Cache\QueryResultCache;
+use Propulsion\Cache\SharedQueryCache;
+use Propulsion\Cache\SharedQueryCacheConfig;
+use Propulsion\Cache\TableVersionRegistry;
+use Propulsion\Cache\TieredQueryCache;
 use Propulsion\Connection\PropulsionPDO;
 
 /**
@@ -88,6 +93,15 @@ class Session
      */
     private CompiledQueryCache $compiledQueryCache;
 
+    /**
+     * Coordinates the request-scoped cache above with the process-shared tier.
+     * Built lazily rather than in the constructor so that every existing
+     * `new Session()` -- in tests, and in worker hosts that construct one per
+     * request -- keeps working untouched, and so that a session which never
+     * runs a cached query never resolves a cache backend at all.
+     */
+    private ?TieredQueryCache $tieredCache = null;
+
     public function __construct()
     {
         $this->queryCache = new QueryResultCache();
@@ -97,10 +111,47 @@ class Session
     /**
      * The current request's query result cache. Opted into per query via
      * {@see \Propulsion\Query\Criteria::setQueryCache()}.
+     *
+     * This is the L1 tier alone. Read paths should generally go through
+     * {@see getQueryCache()}, which layers the shared tier on top.
      */
     public function getQueryResultCache(): QueryResultCache
     {
         return $this->queryCache;
+    }
+
+    /**
+     * The tiered query cache: this request's {@see QueryResultCache} plus,
+     * where configured, the process-shared tier.
+     */
+    public function getQueryCache(): TieredQueryCache
+    {
+        return $this->tieredCache ??= new TieredQueryCache($this->queryCache, $this->buildSharedCache());
+    }
+
+    /**
+     * The shared tier, or null when none is configured -- in which case the
+     * tiered cache behaves exactly as the request-scoped cache always has.
+     *
+     * The registry is built here, per session, so its per-request token memo
+     * and its unpublished-transaction buffer die at the request boundary; the
+     * PSR-16 pool underneath it is process-scoped and outlives them.
+     */
+    private function buildSharedCache(): ?SharedQueryCache
+    {
+        $config = Propulsion::getQueryCacheConfig();
+        if (!$config->isActive()) {
+            return null;
+        }
+
+        $pool = Propulsion::queryCachePool();
+        if ($pool instanceof NullCache) {
+            return null;
+        }
+
+        $sharedConfig = SharedQueryCacheConfig::fromQueryCacheConfig($config);
+
+        return new SharedQueryCache($pool, $sharedConfig, new TableVersionRegistry($pool, $sharedConfig));
     }
 
     /**
@@ -233,6 +284,10 @@ class Session
         $this->clearAllPools();
         $this->forceMasterConnection = false;
         $this->queryCache->clear();
+        // Request-scoped cache bookkeeping only. This must never reach the
+        // shared PSR-16 backend: clearing that here would flush every other
+        // process's cache at the end of every request.
+        $this->tieredCache?->reset();
         $this->compiledQueryCache->clear();
     }
 

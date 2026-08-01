@@ -67,6 +67,30 @@ globally-registered one for just that connection:
 $con->setLogger($logger);
 ```
 
+## Caching
+
+Propulsion caches query results in two tiers: a request-scoped one, and an
+optional global tier shared across requests, processes and hosts — which is what
+makes caching pay off in a worker-mode deployment, where the process outlives
+the request.
+
+Both are off by default and opt-in per query:
+
+```php
+// config: 'cache' => ['query' => ['enabled' => true, 'driver' => 'apcu']]
+$books = BookQuery::create()->filterByPublished(true)->setQueryCache(true)->find();
+```
+
+The global tier is backed by any [PSR-16](https://www.php-fig.org/psr/psr-16/)
+pool — Propulsion ships thin `array`, `apcu` and `file` drivers and no Redis or
+Memcached client of its own, so bring one via
+`Propulsion::setQueryCachePool()`. Invalidation is automatic for writes made
+through the ORM. Hand-written SQL can join in via `Propulsion::rawQuery()`.
+
+See **[docs/CACHING.md](docs/CACHING.md)** for driver trade-offs (they differ far
+more in what they share than in how fast they are), invalidation, overload
+protection, and the correctness caveats worth reading before switching it on.
+
 ## Migrating `useQuery()`/`endUse()` to `withQuery()` with Rector
 
 `useQuery()`/`endUse()` (and the generated `use<Relation>Query()` wrappers) are

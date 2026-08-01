@@ -84,6 +84,28 @@ if ($dbAdapter === 'pgsql') {
 // that must survive across every request this worker process ever handles.
 Propulsion::initialize();
 
+// Register the global (L2) query cache pool at boot, exactly as a real
+// deployment would. The pool is process-scoped, so proving it survives
+// Session::reset() -- while the request-scoped tier does not -- is the whole
+// point of the l2-* actions below.
+$cacheDriver = getenv('WORKER_CACHE_DRIVER') ?: '';
+if ($cacheDriver !== '') {
+    $cacheOptions = [];
+    if ($cacheDriver === 'file') {
+        $cacheOptions['directory'] = getenv('WORKER_CACHE_DIR') ?: '/tmp/propulsion-worker-cache';
+    }
+    if ($cacheDriver === 'array') {
+        // Deliberately small: the driver's bounded-growth guard is one of the
+        // things the matrix asserts, and an unbounded array in a process that
+        // never exits is an out-of-memory condition waiting to happen.
+        $cacheOptions['max_entries'] = (int) (getenv('WORKER_CACHE_MAX_ENTRIES') ?: '100');
+    }
+
+    Propulsion::setQueryCachePool(
+        \Propulsion\Cache\CacheDriverFactory::factory($cacheDriver, $cacheOptions, 300)
+    );
+}
+
 // Create the table used by the transaction-cleanup test, and reset it to a
 // known state. With WORKER_THREAD_COUNT > 1, this bootstrap runs once per
 // worker *thread*, all racing against the same underlying database at
@@ -103,6 +125,21 @@ $bootstrapCon->exec('DELETE FROM worker_rows');
  */
 final class WorkerTestPeer
 {
+}
+
+/**
+ * A TableVersionRegistry over the process's cache pool.
+ *
+ * Built fresh per call rather than memoised, so each request observes the
+ * tokens as actually published to the shared backend rather than through a
+ * per-request memo -- which is what makes the cross-request and cross-thread
+ * assertions in driver.php meaningful.
+ */
+function workerVersionRegistry(): \Propulsion\Cache\TableVersionRegistry
+{
+    $config = new \Propulsion\Cache\SharedQueryCacheConfig(namespace: 'worker', ttl: 300);
+
+    return new \Propulsion\Cache\TableVersionRegistry(Propulsion::queryCachePool(), $config);
 }
 
 /**
@@ -161,6 +198,10 @@ $handleOneRequest = static function (): array {
         'action' => $action,
         'memory_bytes' => memory_get_usage(),
         'session_object_id' => spl_object_id(Propulsion::getSession()),
+        // Carried on every response so the contrast with session_object_id is
+        // visible everywhere: the session is replaced/reset per request, the
+        // cache pool is not.
+        'l2_pool_object_id' => spl_object_id(Propulsion::queryCachePool()),
     ];
 
     switch ($action) {
@@ -204,6 +245,48 @@ $handleOneRequest = static function (): array {
 
         case 'qcache-size':
             return $common + ['qcache_size' => Propulsion::getSession()->getQueryResultCache()->count()];
+
+        case 'l2-set':
+            // The global tier's counterpart to qcache-add. Unlike that one,
+            // this entry must still be there after the request boundary.
+            $key = queryParam('key', '1');
+            Propulsion::queryCachePool()->set($key, 'l2-value-for-' . $key, 300);
+            return $common + ['stored' => true, 'key' => $key];
+
+        case 'l2-get':
+            $key = queryParam('key', '1');
+            $value = Propulsion::queryCachePool()->get($key, null);
+            return $common + ['l2_hit' => $value !== null, 'l2_value' => $value];
+
+        case 'l2-delete':
+            Propulsion::queryCachePool()->delete(queryParam('key', '1'));
+            return $common + ['deleted' => true];
+
+        case 'l2-driver':
+            $pool = Propulsion::queryCachePool();
+            return $common + [
+                'driver' => getenv('WORKER_CACHE_DRIVER') ?: '',
+                'pool_class' => $pool::class,
+            ];
+
+        case 'l2-size':
+            // Only the array driver can report a live count; the bounded-growth
+            // guard in the matrix relies on it.
+            $pool = Propulsion::queryCachePool();
+            return $common + [
+                'l2_size' => $pool instanceof \Propulsion\Cache\Driver\ArrayCache ? $pool->count() : -1,
+            ];
+
+        case 'l2-version-read':
+            // Drives the table-version-token protocol by hand: this harness has
+            // no generated Peers to invalidate through.
+            $registry = workerVersionRegistry();
+            return $common + ['token' => $registry->tokensFor('workertest', [queryParam('table', 'worker_rows')])[0]];
+
+        case 'l2-version-bump':
+            $table = queryParam('table', 'worker_rows');
+            workerVersionRegistry()->publish('workertest', [$table]);
+            return $common + ['bumped' => $table];
 
         case 'txn-open-dangling':
             // Simulates a bug/timeout in application code: opens a

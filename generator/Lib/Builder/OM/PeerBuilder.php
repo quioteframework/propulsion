@@ -937,19 +937,25 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		}
 
 		[\$sql, \$params, \$criteria] = ".$this->getPeerClassname()."::prepareSelectSql(\$criteria, \$con);
-		\$cache = Propulsion::getSession()->getQueryResultCache();
-		\$cacheKey = \$criteria->getQueryCacheKey(\$sql, \$params);
-		if (\$cache->has(\$cacheKey)) {
-			\$cached = \$cache->get(\$cacheKey);
-			if (!is_array(\$cached)) {
-				throw new PropulsionException('Query result cache entry for a doSelect() query was not an array');
-			}
-			return \$cached;
-		}
 
-		\$stmt = ".$this->basePeerClassname."::executeSelectSql(\$criteria, \$con, \$sql, \$params);
-		\$result = ".$this->getPeerClassname()."::populateObjects(\$stmt);
-		\$cache->set(\$cacheKey, \$result, \$criteria->getQueryCacheTouchedTables());
+		\$result = Propulsion::getSession()->getQueryCache()->remember(
+			\$criteria->getDbName(),
+			\$sql,
+			\$params,
+			\$criteria->getQueryCacheTouchedTables(),
+			'peer.doSelect:' . static::class,
+			static fn (): \\PDOStatement => ".$this->basePeerClassname."::executeSelectSql(\$criteria, \$con, \$sql, \$params),
+			static fn (\\PDOStatement \$stmt): array => ".$this->getPeerClassname()."::populateObjects(\$stmt),
+			static fn (iterable \$rows): array => ".$this->getPeerClassname()."::populateObjectsFromRows(\$rows),
+			true,
+			\$criteria->isQueryCacheShared(),
+			\$con,
+			\$criteria->getQueryCacheTtl()
+		);
+
+		if (!is_array(\$result)) {
+			throw new PropulsionException('Query result cache entry for a doSelect() query was not an array');
+		}
 
 		return \$result;
 	}";
@@ -1119,33 +1125,49 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 		\$params = array();
 		\$sql = ".$this->basePeerClassname."::createCountSql(\$criteria, \$params);
-		\$cache = Propulsion::getSession()->getQueryResultCache();
-		\$cacheKey = \$criteria->getQueryCacheKey(\$sql, \$params);
-		if (\$cache->has(\$cacheKey)) {
-			\$cached = \$cache->get(\$cacheKey);
-			if (!is_int(\$cached)) {
-				throw new PropulsionException('Query result cache entry for a doCount() query was not an int');
-			}
-			return \$cached;
-		}
 
-		\$stmt = ".$this->basePeerClassname."::executeSelectSql(\$criteria, \$con, \$sql, \$params);
-		\$count = ".$this->getPeerClassname()."::fetchCount(\$stmt);
-		\$cache->set(\$cacheKey, \$count, \$criteria->getQueryCacheTouchedTables());
+		\$count = Propulsion::getSession()->getQueryCache()->remember(
+			\$criteria->getDbName(),
+			\$sql,
+			\$params,
+			\$criteria->getQueryCacheTouchedTables(),
+			'peer.doCount:' . static::class,
+			static fn (): \\PDOStatement => ".$this->basePeerClassname."::executeSelectSql(\$criteria, \$con, \$sql, \$params),
+			static fn (\\PDOStatement \$stmt): int => ".$this->getPeerClassname()."::fetchCount(\$stmt),
+			static fn (iterable \$rows): int => ".$this->getPeerClassname()."::countFromRows(\$rows),
+			true,
+			\$criteria->isQueryCacheShared(),
+			\$con,
+			\$criteria->getQueryCacheTtl()
+		);
+
+		if (!is_int(\$count)) {
+			throw new PropulsionException('Query result cache entry for a doCount() query was not an int');
+		}
 
 		return \$count;
 	}
 
 	private static function fetchCount(\\PDOStatement \$stmt): int
 	{
-		if (is_array(\$row = \$stmt->fetch(PDO::FETCH_NUM)) && is_numeric(\$row[0] ?? null)) {
-			\$count = (int) \$row[0];
-		} else {
-			\$count = 0; // no rows returned; we infer that means 0 matches.
-		}
-		\$stmt->closeCursor();
+		return self::countFromRows(\\Propulsion\\Util\\StatementRows::iterate(\$stmt));
+	}
 
-		return \$count;
+	/**
+	 * The row-array counterpart of fetchCount(), for a count served from the
+	 * query result cache.
+	 *
+	 * @param iterable<int, array<int, mixed>> \$rows
+	 */
+	private static function countFromRows(iterable \$rows): int
+	{
+		foreach (\$rows as \$row) {
+			if (is_numeric(\$row[0] ?? null)) {
+				return (int) \$row[0];
+			}
+		}
+
+		return 0; // no rows returned; we infer that means 0 matches.
 	}";
 	}
 
@@ -1167,6 +1189,31 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 */
 	public static function populateObjects(\\PDOStatement \$stmt): array
 	{
+		return self::populateObjectRows(\\Propulsion\\Util\\StatementRows::iterate(\$stmt));
+	}
+
+	/**
+	 * The row-array counterpart of populateObjects(), used when the rows came
+	 * from the query result cache rather than from a live statement, and by
+	 * Propulsion::rawQuery()->hydrate().
+	 *
+	 * @param iterable<int, array<int, mixed>> \$rows
+	 * @return array<int, ".$this->getObjectClassname().">
+	 */
+	public static function populateObjectsFromRows(iterable \$rows): array
+	{
+		return self::populateObjectRows(\$rows);
+	}
+
+	/**
+	 * The single per-row hydration body behind both of the above; the row
+	 * source is the only thing that differs between them.
+	 *
+	 * @param iterable<int, array<int, mixed>> \$rows
+	 * @return array<int, ".$this->getObjectClassname().">
+	 */
+	private static function populateObjectRows(iterable \$rows): array
+	{
 		\$results = array();";
 
 		if (!$table->getChildrenColumn()) {
@@ -1185,10 +1232,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		\$poolEnabled = Propulsion::isInstancePoolingEnabled();
 		\$session = \$poolEnabled ? Propulsion::getSession() : null;
 		// populate the object(s)
-		while (\$row = \$stmt->fetch(PDO::FETCH_NUM)) {
-			if (!is_array(\$row)) {
-				continue;
-			}
+		foreach (\$rows as \$row) {
 			\$key = self::getPrimaryKeyHashFromRow(\$row, 0);
 			if (\$poolEnabled && \$key !== null && (\$obj = \$session->getPooledInstance(self::class, \$key)) instanceof \\" . $objectClass . ") {
 				// We no longer rehydrate the object, since this can cause data loss.
@@ -1221,7 +1265,6 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		$script .= "
 			} // if key exists
 		}
-		\$stmt->closeCursor();
 		return \$results;
 	}";
 	}

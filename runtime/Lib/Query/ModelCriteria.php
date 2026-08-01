@@ -38,6 +38,7 @@ namespace Propulsion\Query;
  use Propulsion\Formatter\PropulsionFormatter;
  use Propulsion\Exception\PropulsionException;
  use Propulsion\Util\BasePeer;
+ use Propulsion\Util\StatementRows;
  use Propulsion\Formatter\ModelWith;
  use Propulsion\Map\RelationMap;
  use Propulsion\Map\ColumnMap;
@@ -1575,22 +1576,26 @@ class ModelCriteria extends Criteria
 
 		$con = $criteria->resolveConnection($con);
 		[$sql, $params] = $criteria->prepareSelectSql($con);
-		$cache = Propulsion::getSession()->getQueryResultCache();
-		$cacheKey = $criteria->getQueryCacheKey($sql, $params);
-		if ($cache->has($cacheKey)) {
-			$cached = $cache->get($cacheKey);
-			if (!$cached instanceof PropulsionCollection) {
-				throw new PropulsionException('Query result cache entry for a find() query was not a PropulsionCollection');
-			}
-			return $cached;
-		}
+		$formatter = $criteria->getFormatter()->init($criteria);
 
-		$stmt = $criteria->executeSelectSql($con, $sql, $params);
-		$result = $criteria->getFormatter()->init($criteria)->format($stmt);
+		$result = Propulsion::getSession()->getQueryCache()->remember(
+			dbName: $criteria->getDbName(),
+			sql: $sql,
+			params: $params,
+			touchedTables: $criteria->getQueryCacheTouchedTables(),
+			variant: $formatter::class,
+			execute: static fn (): \PDOStatement => $criteria->executeSelectSql($con, $sql, $params),
+			formatStatement: static fn (\PDOStatement $stmt): mixed => $formatter->format($stmt),
+			formatRows: static fn (iterable $rows): mixed => $formatter->formatFromRows($rows),
+			cacheable: $formatter->supportsRowCaching(),
+			shared: $criteria->isQueryCacheShared(),
+			con: $con,
+			ttl: $criteria->getQueryCacheTtl(),
+		);
+
 		if (!$result instanceof PropulsionCollection) {
 			throw new PropulsionException('find() formatter did not return a PropulsionCollection');
 		}
-		$cache->set($cacheKey, $result, $criteria->getQueryCacheTouchedTables());
 
 		return $result;
 	}
@@ -1621,17 +1626,24 @@ class ModelCriteria extends Criteria
 
 		$con = $criteria->resolveConnection($con);
 		[$sql, $params] = $criteria->prepareSelectSql($con);
-		$cache = Propulsion::getSession()->getQueryResultCache();
-		$cacheKey = $criteria->getQueryCacheKey($sql, $params);
-		if ($cache->has($cacheKey)) {
-			return $cache->get($cacheKey);
-		}
+		$formatter = $criteria->getFormatter()->init($criteria);
 
-		$stmt = $criteria->executeSelectSql($con, $sql, $params);
-		$result = $criteria->getFormatter()->init($criteria)->formatOne($stmt);
-		$cache->set($cacheKey, $result, $criteria->getQueryCacheTouchedTables());
-
-		return $result;
+		// A findOne() that legitimately returns null is cached as a hit, not
+		// re-run every time; both tiers distinguish a stored null from a miss.
+		return Propulsion::getSession()->getQueryCache()->remember(
+			dbName: $criteria->getDbName(),
+			sql: $sql,
+			params: $params,
+			touchedTables: $criteria->getQueryCacheTouchedTables(),
+			variant: $formatter::class . '#one',
+			execute: static fn (): \PDOStatement => $criteria->executeSelectSql($con, $sql, $params),
+			formatStatement: static fn (\PDOStatement $stmt): mixed => $formatter->formatOne($stmt),
+			formatRows: static fn (iterable $rows): mixed => $formatter->formatOneFromRows($rows),
+			cacheable: $formatter->supportsRowCaching(),
+			shared: $criteria->isQueryCacheShared(),
+			con: $con,
+			ttl: $criteria->getQueryCacheTtl(),
+		);
 	}
 
 	/**
@@ -2002,34 +2014,52 @@ class ModelCriteria extends Criteria
 		}
 
 		[$sql, $params] = $criteria->prepareCountSql($con);
-		$cache = Propulsion::getSession()->getQueryResultCache();
-		$cacheKey = $criteria->getQueryCacheKey($sql, $params);
-		if ($cache->has($cacheKey)) {
-			$cached = $cache->get($cacheKey);
-			if (!is_int($cached)) {
-				throw new PropulsionException('Query result cache entry for a count() query was not an int');
-			}
-			return $cached;
-		}
 
-		$stmt = $criteria->executeSelectSql($con, $sql, $params);
-		$count = $criteria->fetchCount($stmt);
-		$cache->set($cacheKey, $count, $criteria->getQueryCacheTouchedTables());
+		$count = Propulsion::getSession()->getQueryCache()->remember(
+			dbName: $criteria->getDbName(),
+			sql: $sql,
+			params: $params,
+			touchedTables: $criteria->getQueryCacheTouchedTables(),
+			variant: 'count',
+			execute: static fn (): \PDOStatement => $criteria->executeSelectSql($con, $sql, $params),
+			formatStatement: static fn (\PDOStatement $stmt): int => self::countFromRows(StatementRows::iterate($stmt)),
+			formatRows: static fn (iterable $rows): int => self::countFromRows($rows),
+			cacheable: true,
+			shared: $criteria->isQueryCacheShared(),
+			con: $con,
+			ttl: $criteria->getQueryCacheTtl(),
+		);
+
+		if (!is_int($count)) {
+			throw new PropulsionException('Query result cache entry for a count() query was not an int');
+		}
 
 		return $count;
 	}
 
 	private function fetchCount(\PDOStatement $stmt): int
 	{
-		$row = $stmt->fetch(PDO::FETCH_NUM);
-		if (is_array($row) && isset($row[0]) && is_scalar($row[0])) {
-			$count = (int) $row[0];
-		} else {
-			$count = 0; // no rows returned; we infer that means 0 matches.
-		}
-		$stmt->closeCursor();
+		return self::countFromRows(StatementRows::iterate($stmt));
+	}
 
-		return $count;
+	/**
+	 * Read the scalar a COUNT query produces out of its single row.
+	 *
+	 * Row-driven rather than statement-driven so the cached and uncached paths
+	 * share one implementation -- a count is the one cached payload small
+	 * enough that materialising it costs nothing.
+	 *
+	 * @param     iterable<int, array<int, mixed>> $rows
+	 */
+	private static function countFromRows(iterable $rows): int
+	{
+		foreach ($rows as $row) {
+			if (isset($row[0]) && is_scalar($row[0])) {
+				return (int) $row[0];
+			}
+		}
+
+		return 0;
 	}
 
 	/**

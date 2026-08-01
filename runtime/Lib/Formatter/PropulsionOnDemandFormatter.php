@@ -31,6 +31,19 @@ class PropulsionOnDemandFormatter extends PropulsionObjectFormatter
 	protected string $collectionName = 'Propulsion\\Collection\\PropulsionOnDemandCollection';
 	protected bool $isSingleTableInheritance = false;
 
+	/**
+	 * Never row-cacheable, and this override is load-bearing: this class
+	 * extends {@see PropulsionObjectFormatter}, which returns true, so without
+	 * it an on-demand query would silently inherit cacheability. The whole
+	 * point of this formatter is to stream rather than materialise -- caching
+	 * would defeat that, and a cached PropulsionOnDemandCollection would hand
+	 * the next caller an already-consumed iterator over a closed cursor.
+	 */
+	public function supportsRowCaching(): bool
+	{
+		return false;
+	}
+
 	public function init(ModelCriteria $criteria): static
 	{
 		parent::init($criteria);

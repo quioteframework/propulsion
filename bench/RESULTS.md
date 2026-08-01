@@ -93,3 +93,81 @@ work the real query does (`count()`'s single-row fetch benefits far less than
 disappears entirely for a workload that never repeats a query -- this cache
 does not help a request that issues N distinct queries once each, only
 in-request or in-process repetition of the same one.
+
+## Global (L2) query result cache
+
+`global_query_cache_bench.php` measures the *process-shared* tier (the
+`cache.query` config section, `Propulsion\Cache\Driver\*`) against the
+request-scoped tier and against no cache at all. Every L2 row calls
+`Session::reset()` before each iteration -- what a worker host does at a request
+boundary -- so these are genuine cross-request hits, not L1 hits in disguise. A
+`reset()`-only control column is reported so L2 can be read net of it.
+
+Reproduce:
+
+```
+php -dpcov.enabled=0 -dopcache.enable_cli=1 -dopcache.jit=tracing \
+    -dopcache.jit_buffer_size=64M -dapc.enable_cli=1 \
+    bench/global_query_cache_bench.php 2000 100
+```
+
+Results (2000 rows, 50-row result set, 100 repeats, PHP 8.5.8, JIT on;
+median ns/op, lower is better):
+
+| Scenario | ns/op | net of reset() | vs uncached |
+|----------|------:|---------------:|------------:|
+| U  uncached `find()` | 88,883 | — | 1.0× |
+| L1 request-scoped hit | 6,185 | — | **14.4×** |
+| C  `Session::reset()` control | 798 | — | — |
+
+| Per driver | ns/op | net of C | vs uncached |
+|------------|------:|---------:|------------:|
+| L2 hit, `array` | 45,489 | 44,691 | **2.0×** |
+| L2 hit, `apcu` | 48,375 | 47,577 | **1.9×** |
+| L2 hit, `file` | 54,359 | 53,561 | **1.7×** |
+| L2 hit, joined (3 version tokens), `array` | 56,154 | 55,356 | — |
+| L2 hit, joined, `apcu` | 54,658 | 53,860 | — |
+| L2 hit, joined, `file` | 69,520 | 68,722 | — |
+| L2 miss + store, `array` | 80,890 | 80,092 | — |
+| L2 miss + store, `apcu` | 82,685 | 81,887 | — |
+| L2 miss + store, `file` | 769,028 | 768,230 | — |
+| INV table version bump, `array` | 1,895 | — | — |
+| INV table version bump, `apcu` | 1,496 | — | — |
+| INV table version bump, `file` | 97,599 | — | — |
+
+### Reading these numbers honestly
+
+**The 1.7–2.0× figures badly understate the real-world win, and the reason
+matters.** The baseline here is in-memory SQLite, where the whole "database
+round trip" is ~89µs. An L2 hit skips that round trip but still pays full
+hydration of all 50 rows, which at roughly 0.8-1µs/row is most of the ~45µs it
+costs. So this benchmark is essentially measuring *hydration against a
+free database*.
+
+Against a real networked database the arithmetic changes completely: a Postgres
+round trip for the same query is typically 0.5-2ms, none of which an L2 hit
+pays, while the hydration cost stays at ~45µs. That is a 10-40× win, not 2×.
+Conversely, if your database is genuinely as fast as in-memory SQLite, the
+shared tier is not worth configuring.
+
+The three drivers land within ~20% of each other on the hit path, so **driver
+choice should be made on sharing semantics, not speed** (see `docs/CACHING.md`):
+`array` is per-process and, under a threaded worker, per-*thread*; `apcu` is
+per-host and invisible to CLI; `file` is the only one a cron job shares with the
+web tier. The file driver's disadvantage shows up not on reads but on **writes**
+-- 769µs to store an entry and 98µs to bump a table version, roughly 8× and 65×
+the in-memory drivers, because each is an atomic temp-file-plus-rename. A
+write-heavy workload feels that; a read-heavy one does not.
+
+**L1 remains ~7× faster than L2** (6.2µs vs 45µs) because it returns the
+already-formatted collection and skips hydration entirely. The tiers are
+complementary, not alternatives: L1 catches repetition within a request, L2
+catches it across requests and processes.
+
+The joined-query rows exist to show version-token read amplification: an N-table
+query costs 1 + N backend reads per hit. It is visible on `file` (+15µs for two
+extra tables) and in the noise on the in-memory drivers.
+
+As with the request-scoped tier, all of this disappears for a workload that
+never repeats a query -- and with admission control on by default, a query seen
+only once is never even stored.

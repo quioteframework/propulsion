@@ -33,9 +33,12 @@ use Propulsion\Connection\PropulsionPDO;
 use PDO;
 use PDOException;
 use Propulsion\Adapter\DBAdapter;
+use Propulsion\Cache\QueryCacheConfig;
+use Propulsion\Query\RawQuery;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
+use Psr\SimpleCache\CacheInterface;
 
 class Propulsion
 {
@@ -137,9 +140,11 @@ class Propulsion
 	private static $connectionMap = array();
 
 	/**
-	 * @var        PropulsionConfiguration Propulsion-specific configuration.
+	 * Propulsion-specific configuration, or null until {@see setConfiguration()}
+	 * has been called (which {@see initialize()} already checks for, and which
+	 * generator commands and unit tests routinely never do).
 	 */
-	private static $configuration;
+	private static ?PropulsionConfiguration $configuration = null;
 
 	/**
 	 * @var        bool flag to set to true once this class has been initialized
@@ -272,6 +277,14 @@ class Propulsion
 			throw new PropulsionException('Propulsion configuration must be an array or a PropulsionConfiguration instance');
 		}
 		self::$configuration = $c;
+
+		// A new configuration may name a different cache driver, so drop any
+		// pool already built from the old one. Note this only *invalidates* --
+		// it deliberately does not build the replacement, since constructing a
+		// file-backed driver creates directories and setConfiguration() is
+		// called from tests and generator commands that will never cache
+		// anything. The pool is rebuilt lazily on first use.
+		self::$serviceContainer?->clearQueryCachePool();
 	}
 
 	/**
@@ -284,10 +297,39 @@ class Propulsion
 	 *                     ($config['name.space.item'])
 	 *                   - PropulsionConfiguration::TYPE_OBJECT: return the configuration as a PropulsionConfiguration instance
 	 * @return     mixed The Configuration (array or PropulsionConfiguration)
+	 * @throws     PropulsionException if no configuration has been set yet.
 	 */
 	public static function getConfiguration($type = PropulsionConfiguration::TYPE_ARRAY)
 	{
+		if (self::$configuration === null) {
+			// Previously this was an unhelpful "call to a member function on
+			// null" fatal; the same message initialize() uses is clearer about
+			// what the caller actually forgot to do.
+			throw new PropulsionException('Propulsion cannot be used without a configuration; call Propulsion::setConfiguration() or Propulsion::init() first.');
+		}
+
 		return self::$configuration->getParameters($type);
+	}
+
+	/**
+	 * The whole runtime configuration as a plain array, or an empty array if
+	 * none has been set yet.
+	 *
+	 * Unlike {@see getConfiguration()}, this is safe to call before
+	 * {@see setConfiguration()} -- which matters because the query cache
+	 * resolves its configuration lazily, and may well be asked about it by code
+	 * running in a process that never configured Propulsion at all (a
+	 * generator command, a unit test).
+	 *
+	 * @return     array<string, mixed>
+	 */
+	public static function getConfigurationArray(): array
+	{
+		if (self::$configuration === null) {
+			return array();
+		}
+
+		return self::asConfigArray(self::$configuration->getParameters(PropulsionConfiguration::TYPE_ARRAY));
 	}
 
 	/**
@@ -316,6 +358,10 @@ class Propulsion
 	 */
 	private static function getDatasourcesConfig(): array
 	{
+		if (self::$configuration === null) {
+			return array();
+		}
+
 		return self::asConfigArray(self::$configuration['datasources'] ?? null);
 	}
 
@@ -441,6 +487,103 @@ class Propulsion
 	public static function dispatch(object $event): object
 	{
 		return self::$eventDispatcher?->dispatch($event) ?? $event;
+	}
+
+	/**
+	 * Registers the PSR-16 pool backing the global (cross-process) query result
+	 * cache.
+	 *
+	 * Propulsion ships no Redis or Memcached client -- both protocols already
+	 * have several mature PSR-16 implementations, and reimplementing
+	 * reconnection, cluster topologies and TLS to duplicate them would be pure
+	 * maintenance cost. Pass any third-party pool instead:
+	 *
+	 *     Propulsion::setQueryCachePool(new Psr16Cache(new RedisAdapter($redis)));
+	 *
+	 * The first-party drivers under `Propulsion\Cache\Driver` (array, apcu,
+	 * file, null) are ordinary PSR-16 implementations and work here too, though
+	 * they are more usually selected by name in the `cache.query` section of
+	 * the runtime configuration.
+	 *
+	 * A pool registered here always takes precedence over that configuration.
+	 * State lives on {@see ServiceContainer} (this cache is process-scoped, not
+	 * request-scoped); this is a convenience delegator, named to match
+	 * {@see setLogger()} and {@see setEventDispatcher()}.
+	 *
+	 * @param      CacheInterface $pool Any PSR-16 implementation.
+	 */
+	public static function setQueryCachePool(CacheInterface $pool): void
+	{
+		self::getServiceContainer()->setQueryCachePool($pool);
+	}
+
+	/**
+	 * Returns true if a query cache pool has been registered or already built
+	 * from configuration.
+	 */
+	public static function hasQueryCachePool(): bool
+	{
+		return self::getServiceContainer()->hasQueryCachePool();
+	}
+
+	/**
+	 * The PSR-16 pool backing the global query result cache. Never null: an
+	 * unconfigured deployment gets a {@see \Propulsion\Cache\Driver\NullCache},
+	 * so callers need no null checks.
+	 */
+	public static function queryCachePool(): CacheInterface
+	{
+		return self::getServiceContainer()->queryCachePool();
+	}
+
+	/**
+	 * The parsed `cache.query` section of the runtime configuration.
+	 */
+	public static function getQueryCacheConfig(): QueryCacheConfig
+	{
+		return self::getServiceContainer()->getQueryCacheConfig();
+	}
+
+	/**
+	 * Run hand-written SQL through Propulsion's query result cache.
+	 *
+	 * For the complicated queries that are easier to write by hand than to
+	 * express as a Criteria -- which tend to be the expensive ones, and so the
+	 * ones most worth caching:
+	 *
+	 *     $books = Propulsion::rawQuery($sql, [$authorId])
+	 *         ->dependsOn('book', 'author')
+	 *         ->cache(ttl: 300)
+	 *         ->hydrate(BookPeer::class);
+	 *
+	 * See {@see RawQuery} for the terminal methods and for why the tables have
+	 * to be declared rather than inferred.
+	 *
+	 * @param      string             $sql    SQL with `?` placeholders
+	 * @param      array<int, mixed>  $params positional bound values
+	 * @param      string|null        $dbName datasource, defaulting to the default one
+	 */
+	public static function rawQuery(string $sql, array $params = array(), ?string $dbName = null): RawQuery
+	{
+		return new RawQuery($sql, $params, $dbName);
+	}
+
+	/**
+	 * Invalidate every cached query that reads any of the given tables.
+	 *
+	 * The escape hatch for writes Propulsion cannot see: raw SQL, another
+	 * application sharing the database, a migration, a DBA at a console. The
+	 * ORM's own write paths call this for you; anything that bypasses them has
+	 * to say so, or the affected entries stay served until their TTL lapses.
+	 *
+	 * @param      list<string> $tableNames
+	 */
+	public static function invalidateQueryCacheForTables(array $tableNames, ?string $dbName = null): void
+	{
+		$cache = self::getSession()->getQueryCache();
+		foreach ($tableNames as $tableName) {
+			$cache->invalidateTable($tableName, null, $dbName);
+		}
 	}
 
 	/**

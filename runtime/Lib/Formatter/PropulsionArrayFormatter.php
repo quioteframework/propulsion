@@ -22,6 +22,7 @@ namespace Propulsion\Formatter;
  use Propulsion\Collection\PropulsionCollection;
  use Propulsion\Exception\PropulsionException;
  use Propulsion\OM\BaseObject;
+ use Propulsion\Util\StatementRows;
 class PropulsionArrayFormatter extends PropulsionFormatter
 {
 	/** @var class-string<PropulsionCollection> */
@@ -35,6 +36,33 @@ class PropulsionArrayFormatter extends PropulsionFormatter
 	public function format(PDOStatement $stmt): mixed
 	{
 		$this->checkInit($stmt);
+
+		return $this->formatRows(StatementRows::iterate($stmt));
+	}
+
+	/**
+	 * @param     iterable<int, array<int, mixed>> $sourceRows
+	 */
+	public function formatFromRows(iterable $sourceRows): mixed
+	{
+		$this->checkInit();
+
+		return $this->formatRows($sourceRows);
+	}
+
+	public function supportsRowCaching(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * The single per-row body behind both {@see format()} and
+	 * {@see formatFromRows()}.
+	 *
+	 * @param     iterable<int, array<int, mixed>> $sourceRows
+	 */
+	protected function formatRows(iterable $sourceRows): mixed
+	{
 		if ($this->isWithOneToMany() && $this->hasLimit) {
 			throw new PropulsionException('Cannot use limit() in conjunction with with() on a one-to-many relationship. Please remove the with() call, or the limit() call.');
 		}
@@ -49,10 +77,7 @@ class PropulsionArrayFormatter extends PropulsionFormatter
 		// (PropulsionObjectFormatter) doesn't have this problem since PHP objects are
 		// always handle/reference types; a plain PHP array is not.
 		$rows = array();
-		while (($row = $stmt->fetch(PDO::FETCH_NUM)) !== false) {
-			if (!is_array($row) || !array_is_list($row)) {
-				continue;
-			}
+		foreach ($sourceRows as $row) {
 			if ($object = &$this->getStructuredArrayFromRow($row)) {
 				$rows[] = &$object;
 			}
@@ -71,7 +96,6 @@ class PropulsionArrayFormatter extends PropulsionFormatter
 		}
 		$this->currentObjects = array();
 		$this->alreadyHydratedObjects = array();
-		$stmt->closeCursor();
 
 		return $collection;
 	}
@@ -79,18 +103,34 @@ class PropulsionArrayFormatter extends PropulsionFormatter
 	public function formatOne(PDOStatement $stmt): mixed
 	{
 		$this->checkInit($stmt);
+
+		return $this->formatOneRow(StatementRows::iterate($stmt));
+	}
+
+	/**
+	 * @param     iterable<int, array<int, mixed>> $sourceRows
+	 */
+	public function formatOneFromRows(iterable $sourceRows): mixed
+	{
+		$this->checkInit();
+
+		return $this->formatOneRow($sourceRows);
+	}
+
+	/**
+	 * @param     iterable<int, array<int, mixed>> $sourceRows
+	 */
+	protected function formatOneRow(iterable $sourceRows): mixed
+	{
 		$result = null;
-		while (($row = $stmt->fetch(PDO::FETCH_NUM)) !== false) {
-			if (!is_array($row) || !array_is_list($row)) {
-				continue;
-			}
+		foreach ($sourceRows as $row) {
 			if ($object = &$this->getStructuredArrayFromRow($row)) {
 				$result = &$object;
 			}
 		}
 		$this->currentObjects = array();
 		$this->alreadyHydratedObjects = array();
-		$stmt->closeCursor();
+
 		return $result;
 	}
 
