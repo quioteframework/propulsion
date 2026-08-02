@@ -2370,7 +2370,7 @@ class ModelCriteria extends Criteria
 	public function update(array $values, ?PropulsionPDO $con = null, bool $forceIndividualSaves = false)
 	{
 		if (count($this->getJoins())) {
-			throw new PropulsionException('set() does not support multitable updates, please do not use join()');
+			throw new PropulsionException('update() does not support multitable updates, please do not use join()');
 		}
 
 		if ($con === null) {

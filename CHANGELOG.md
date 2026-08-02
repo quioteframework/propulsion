@@ -89,6 +89,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a connection that had never run with debugging on returned null from a
   non-nullable return type. Now initialised to `''`. (Untyped property plus a
   `@var string` docblock is why static analysis never caught it.)
+- **Compiled-query cache entries are now scoped to the datasource.** The cache
+  was keyed purely on the caller-supplied shape key, and `Session` holds one
+  cache per request, so two datasources running the same generated method with
+  the documented `__METHOD__` key served each other's SQL — including across
+  adapters, where the dialect genuinely differs (`LIMIT 3, 5` vs
+  `LIMIT 5 OFFSET 3`). The `paramCount` guard could not catch it: the shapes
+  match, only the dialect differs.
+- **`Criteria::__clone()` now deep-copies nested queries.** Subqueries
+  (`addSelectQuery()`), set-operation branches (`union()` and friends) and CTE
+  queries (`withCte()`) were shallow-copied, so a clone shared them with the
+  original — and `isKeepQuery()` defaults to true, meaning every
+  `find()`/`count()`/`update()` clones precisely to avoid mutating the caller's
+  object.
+- **`Criteria::clear()` now resets everything it claims to.**
+  `primaryTableName`, the query comment, the `setQueryCache()` TTL/shared flags,
+  and the pending `_or()` combine operator all survived a `clear()`, so a reused
+  Criteria could carry a stale primary table or OR its first new condition onto
+  nothing.
+- **`QueryResultCache`'s table index no longer accumulates evicted keys.**
+  Invalidating one table dropped only that table's key list, leaving the evicted
+  keys listed under every other table they depended on; re-caching then appended
+  them again, growing the index without bound across an
+  invalidate-and-re-cache loop.
+- **`FileCache::prune()` now collects orphaned `.tmp` files.** `set()` writes a
+  temp file then renames it, so a process killed in between left one behind
+  forever: nothing reads it, `clear()` only sweeps the root, and the entry walk
+  only matched `*.pcache`. Only files older than an hour are collected, so an
+  in-flight write is never disturbed.
+- **A raw `ColumnExpression` update with more than one `?` now throws** instead
+  of allocating placeholders nothing binds to and silently shifting every
+  subsequent `:pN` onto the wrong value. Only one bound value can be supplied
+  per column.
+- **One-to-many `with()` hydration dedupes primary keys strictly.** Loose
+  `in_array()` compares composite (array) keys element-wise loosely, so `['1']`
+  and `[1]` — or `[0]` and `[null]` — collapsed into one row.
 
 ## [2.0.0] — 2026-07-30
 

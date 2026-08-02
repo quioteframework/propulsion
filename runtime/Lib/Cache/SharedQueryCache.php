@@ -20,8 +20,15 @@ use Psr\SimpleCache\CacheInterface;
  * graph across a request boundary; a row array is inert data, and re-hydrating
  * it on the way out runs the normal generated `populateObject()` path, instance
  * pool and all -- so an L2 hit is indistinguishable from a fresh database read.
- * It also means an ARRAY-formatted and an OBJECT-formatted query with identical
- * SQL correctly share one entry.
+ *
+ * Note that an ARRAY-formatted and an OBJECT-formatted query with identical SQL
+ * do *not* currently share one entry, despite rows being formatter-agnostic:
+ * {@see buildKey()} folds in the same `$variant` discriminator the L1 key needs
+ * (see {@see TieredQueryCache::localKey()} -- L1 stores the *formatted* result,
+ * so there the discriminator prevents a genuine wrong-type collision). Sharing
+ * them here would be a real improvement and costs only the key change; it is
+ * called out rather than done because it needs its own coverage proving the two
+ * formatters really can consume one another's stored rows.
  *
  * Nothing in this class may throw on a backend problem. A dead Redis or an
  * unwritable cache directory has to degrade to a miss, never to a failed query.

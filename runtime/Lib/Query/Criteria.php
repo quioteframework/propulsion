@@ -381,7 +381,18 @@ class Criteria implements \IteratorAggregate
 		$this->ignoreCase = false;
 		$this->singleRecord = false;
 		$this->queryCacheEnabled = false;
+		// Reset alongside queryCacheEnabled: setQueryCache() sets all three
+		// together, so leaving the TTL/shared flags behind would silently apply
+		// them to whatever the reused object is opted into next.
+		$this->queryCacheTtl = null;
+		$this->queryCacheShared = true;
 		$this->compiledQueryCacheKey = null;
+		$this->primaryTableName = null;
+		$this->queryComment = null;
+		// _or() flips this and it is only cleared once the next condition
+		// consumes it, so a Criteria cleared mid-expression would have OR'ed
+		// its first new condition onto nothing.
+		$this->defaultCombineOperator = Criteria::LOGICAL_AND;
 		$this->selectModifiers = array();
 		$this->selectColumns = array();
 		$this->orderByColumns = array();
@@ -2394,6 +2405,26 @@ class Criteria implements \IteratorAggregate
 		}
 		if (null !== $this->having) {
 			$this->having = clone $this->having;
+		}
+		// The three nested-Criteria collections were shallow-copied, so a clone
+		// shared its subqueries/CTEs/set-operation branches with the original
+		// and mutating one through the other was possible. That matters more
+		// than it looks: isKeepQuery() defaults to true, so *every*
+		// find()/count()/update() clones the query specifically to avoid
+		// mutating the caller's object -- and count() in particular rewrites
+		// select columns (clearSelectColumns()/turnSelectColumnsToAliases()).
+		// Today those rewrites only reach the outer Criteria, so nothing
+		// observably breaks; the invariant is restored here rather than left
+		// resting on that.
+		foreach ($this->selectQueries as $alias => $subQuery) {
+			$this->selectQueries[$alias] = clone $subQuery;
+		}
+		foreach ($this->setOperations as $index => $setOperation) {
+			$this->setOperations[$index] = array($setOperation[0], clone $setOperation[1]);
+		}
+		foreach ($this->commonTableExpressions as $index => $cte) {
+			$cte['query'] = clone $cte['query'];
+			$this->commonTableExpressions[$index] = $cte;
 		}
 	}
 

@@ -51,6 +51,14 @@ final class FileCache extends AbstractCacheDriver implements ConfigurableCacheDr
     /** Zero-padded unix timestamp plus "\n". 0 means "never expires". */
     private const HEADER_BYTES = 11;
 
+    /**
+     * How old a leftover `.tmp` must be before {@see prune()} treats it as
+     * orphaned rather than possibly mid-write. An hour is far beyond any
+     * plausible single file_put_contents(), and being wrong in this direction
+     * only costs one extra prune cycle.
+     */
+    private const TEMP_FILE_GRACE_SECONDS = 3600;
+
     public const DEFAULT_LEVELS = 2;
     public const DEFAULT_DIR_MODE = 0o770;
     public const DEFAULT_FILE_MODE = 0o660;
@@ -311,6 +319,23 @@ final class FileCache extends AbstractCacheDriver implements ConfigurableCacheDr
         $live = [];
         $liveBytes = 0;
 
+        // set() writes to a temp file in the target directory and renames it,
+        // so a process killed between those two steps leaves the temp file
+        // behind for good: nothing reads it, clear() only sweeps the root, and
+        // allEntryFiles() only matches *.pcache. Left alone they accumulate
+        // forever in the shard tree, which for a cache advertised as
+        // "survives restarts" is exactly the long-lived case. Anything still
+        // sitting there is orphaned by definition -- a live rename is atomic
+        // and never observable as a lingering .tmp -- but they are only
+        // removed once they are comfortably older than any plausible in-flight
+        // write, so a temp file being written right now is never yanked out
+        // from under its own writer.
+        foreach ($this->orphanedTempFiles($now) as $tmp) {
+            if (@unlink($tmp)) {
+                $removed++;
+            }
+        }
+
         foreach ($this->allEntryFiles() as $file) {
             $expiry = $this->readExpiry($file);
             if ($expiry === null) {
@@ -511,6 +536,34 @@ final class FileCache extends AbstractCacheDriver implements ConfigurableCacheDr
             $path = $dir . DIRECTORY_SEPARATOR . $entry;
             if (is_file($path)) {
                 $files[] = $path;
+            }
+        }
+
+        return $files;
+    }
+
+    /**
+     * Temp files left behind by a set() that died between file_put_contents()
+     * and rename(), old enough that no in-flight write could still own them.
+     *
+     * @param  int $now
+     * @return list<string>
+     */
+    private function orphanedTempFiles(int $now): array
+    {
+        $cutoff = $now - self::TEMP_FILE_GRACE_SECONDS;
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($this->root, \FilesystemIterator::SKIP_DOTS)
+        );
+
+        $files = [];
+        foreach ($iterator as $file) {
+            if (!$file instanceof \SplFileInfo || !$file->isFile() || $file->getExtension() !== 'tmp') {
+                continue;
+            }
+            $mtime = @filemtime($file->getPathname());
+            if ($mtime !== false && $mtime <= $cutoff) {
+                $files[] = $file->getPathname();
             }
         }
 

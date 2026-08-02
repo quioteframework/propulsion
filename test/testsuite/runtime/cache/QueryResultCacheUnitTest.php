@@ -92,4 +92,56 @@ class QueryResultCacheUnitTest extends TestCase
         $this->assertFalse($cache->has('a'));
         $this->assertFalse($cache->has('b'));
     }
+
+    public function testInvalidatingOneTableDoesNotLeaveTheKeyListedUnderTheOthers()
+    {
+        // An entry from a join depends on several tables. Evicting via one of
+        // them used to drop only that table's list, leaving the dead key listed
+        // under every other table it touched -- so re-running and re-caching
+        // the same query appended it again, and a request that invalidated and
+        // re-cached in a loop grew the index without bound.
+        $cache = new QueryResultCache();
+        $cache->set('join-query', 'rows', ['book', 'author']);
+
+        $cache->invalidateTable('book');
+        $this->assertFalse($cache->has('join-query'));
+
+        // Re-cache the same key, then invalidate via the *other* table: if the
+        // stale entry were still listed under 'author', it would appear twice.
+        $cache->set('join-query', 'rows again', ['book', 'author']);
+        $cache->invalidateTable('author');
+
+        $this->assertFalse($cache->has('join-query'));
+        $this->assertSame(0, $cache->count());
+        $this->assertSame([], $this->tableIndexOf($cache), 'no table should still list an evicted key');
+    }
+
+    public function testInvalidatingATableLeavesUnrelatedEntriesIndexed()
+    {
+        $cache = new QueryResultCache();
+        $cache->set('join-query', 'rows', ['book', 'author']);
+        $cache->set('author-only', 'rows', ['author']);
+
+        $cache->invalidateTable('book');
+
+        $this->assertFalse($cache->has('join-query'));
+        $this->assertTrue($cache->has('author-only'), 'an entry that does not depend on the written table survives');
+
+        // ...and is still reachable through its own table's index afterwards.
+        $cache->invalidateTable('author');
+        $this->assertFalse($cache->has('author-only'));
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    private function tableIndexOf(QueryResultCache $cache): array
+    {
+        $prop = new ReflectionProperty(QueryResultCache::class, 'tableIndex');
+
+        /** @var array<string, list<string>> $value */
+        $value = $prop->getValue($cache);
+
+        return $value;
+    }
 }

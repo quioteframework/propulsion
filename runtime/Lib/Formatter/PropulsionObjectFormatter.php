@@ -92,7 +92,11 @@ class PropulsionObjectFormatter extends PropulsionFormatter
 			foreach ($rows as $row) {
 				$object = $this->getAllObjectsFromRow($row);
 				$pk = $object->getPrimaryKey();
-				if (!in_array($pk, $pks)) {
+				// Strict: a primary key is compared against keys already seen,
+				// and loose comparison of composite (array) keys compares their
+				// elements loosely too, so e.g. ['1'] and [1] -- or [0] and
+				// [null] -- would collapse into one row.
+				if (!in_array($pk, $pks, true)) {
 					$collection[] = $object;
 					$pks[] = $pk;
 				}

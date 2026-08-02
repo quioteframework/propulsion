@@ -65,6 +65,15 @@ class QueryResultCache
 
     /**
      * Evict every cache entry whose result depends on the given table.
+     *
+     * An entry usually depends on more than one table (any join does), so
+     * dropping only this table's list would leave the evicted keys listed under
+     * every *other* table they touch. Those stale keys are harmless to read
+     * past -- the entry is gone from $entries either way -- but they accumulate:
+     * re-running and re-caching the same query appends the key again under each
+     * of its tables, so a request that invalidates and re-caches in a loop grows
+     * the index without bound. The keys are therefore removed from every list
+     * they appear in, not just this one.
      */
     public function invalidateTable(string $tableName): void
     {
@@ -72,11 +81,22 @@ class QueryResultCache
             return;
         }
 
+        $evicted = [];
         foreach ($this->tableIndex[$tableName] as $key) {
             unset($this->entries[$key]);
+            $evicted[$key] = true;
         }
 
         unset($this->tableIndex[$tableName]);
+
+        foreach ($this->tableIndex as $otherTable => $keys) {
+            $remaining = array_values(array_filter($keys, static fn (string $key): bool => !isset($evicted[$key])));
+            if ($remaining === []) {
+                unset($this->tableIndex[$otherTable]);
+            } else {
+                $this->tableIndex[$otherTable] = $remaining;
+            }
+        }
     }
 
     public function clear(): void

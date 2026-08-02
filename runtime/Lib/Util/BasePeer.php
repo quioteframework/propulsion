@@ -1073,6 +1073,18 @@ class BasePeer
 		}
 		$cache = Propulsion::getSession()->getCompiledQueryCache();
 
+		// The datasource is part of the entry's identity even though the caller
+		// never supplies it. Two datasources can use different adapters, and the
+		// adapter decides identifier quoting and how LIMIT/OFFSET is written, so
+		// the same Criteria shape compiles to genuinely different SQL on each --
+		// while the documented, recommended key (the calling method's own
+		// __METHOD__) is identical for both. The paramCount guard would not
+		// catch that: the shapes match, only the dialect differs. Namespacing
+		// here rather than asking callers to remember keeps the caller's
+		// contract "identify the query shape", which is the part they actually
+		// know.
+		$key = $criteria->getDbName() . '|' . $key;
+
 		$cached = $cache->get($key);
 		if ($cached !== null) {
 			self::collectSelectParams($criteria, $params);
@@ -1324,10 +1336,16 @@ class BasePeer
 			}
 		}
 
-		// from / join tables quoted if it is necessary
+		// from tables quoted if it is necessary. Join clauses are not quoted
+		// here: each Join quotes its own right-hand table inside
+		// Join::getClause(), using the adapter it was handed by setDB() above.
+		// (This line used to also carry
+		// `$joinClause = $joinClause ? $joinClause : array_map(...)`, inherited
+		// from Propel 1 -- a no-op by construction, since the map only ever ran
+		// on an already-empty array. It quoted nothing and was purely
+		// misleading about where join quoting happens.)
 		if ($db->useQuoteIdentifier()) {
 			$fromClause = array_map(array($db, 'quoteIdentifierTable'), $fromClause);
-			$joinClause = $joinClause ? $joinClause : array_map(array($db, 'quoteIdentifierTable'), $joinClause);
 		}
 
 		// let the adapter splice in any per-table locking hints (e.g. MSSQL's
@@ -1495,6 +1513,20 @@ class BasePeer
 						$raw = $param['raw'];
 						if (!is_string($raw)) {
 							throw new PropulsionException("Raw update expression for column '$col' must be a string.");
+						}
+						// Exactly one bound value is available for this column
+						// ($param['value']), so more than one "?" would
+						// allocate placeholders nothing binds to and silently
+						// shift every :pN after it onto the wrong value. Caught
+						// here rather than left to produce a mis-bound
+						// statement or an opaque driver error.
+						$placeholderCount = substr_count($raw, '?');
+						if ($placeholderCount > 1) {
+							throw new PropulsionException(
+								"Raw update expression for column '$col' has $placeholderCount \"?\" placeholders, "
+								. 'but only one bound value can be supplied for a column. Inline the other values into '
+								. 'the expression, or split them across separate columns.'
+							);
 						}
 						$rawcvt = '';
 						// parse the $params['raw'] for ? chars

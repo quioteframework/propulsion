@@ -256,8 +256,9 @@ class FileCacheTest extends Psr16DriverTestCase
 
         // Write a serialized object straight into the entry file, the way a
         // hostile writer with directory access would.
-        $path = $this->entryPathFor($cache, 'seed');
-        $this->assertIsString($path);
+        $files = $this->entryFiles();
+        $this->assertCount(1, $files);
+        $path = $files[0];
         $header = str_pad((string) (time() + 3600), 10, '0', STR_PAD_LEFT) . "\n";
         file_put_contents($path, $header . serialize(new ArrayObject(['pwned'])));
 
@@ -284,23 +285,42 @@ class FileCacheTest extends Psr16DriverTestCase
         $this->assertSame(2, $cache->get('sightings'));
     }
 
-    /**
-     * The on-disk path FileCache uses for $key -- it shards by sha1, which is
-     * private, so this locates the one entry file that exists instead of
-     * recomputing the layout.
-     */
-    private function entryPathFor(FileCache $cache, string $key): ?string
+    public function testPruneRemovesOrphanedTempFiles()
     {
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($cache->getRoot(), FilesystemIterator::SKIP_DOTS)
-        );
-        foreach ($iterator as $file) {
-            if ($file instanceof SplFileInfo && $file->isFile() && $file->getExtension() === 'pcache') {
-                return $file->getPathname();
-            }
-        }
+        // set() writes a temp file in the target directory then renames it, so
+        // a process killed in between leaves one behind for good: nothing reads
+        // it, clear() only sweeps the root, and the entry walk only matches
+        // *.pcache. They used to accumulate forever in the shard tree.
+        $cache = new FileCache($this->dir, 1);
+        $cache->set('live', 'value', 3600);
 
-        return null;
+        $shard = dirname($this->entryFiles()[0]);
+        $orphan = $shard . DIRECTORY_SEPARATOR . '.deadbeef.tmp';
+        file_put_contents($orphan, 'half-written payload');
+        touch($orphan, time() - 7200);
+        $this->assertFileExists($orphan);
+
+        $removed = $cache->prune();
+
+        $this->assertFileDoesNotExist($orphan);
+        $this->assertGreaterThanOrEqual(1, $removed);
+        $this->assertSame('value', $cache->get('live'), 'the live entry is untouched');
+    }
+
+    public function testPruneLeavesARecentTempFileAlone()
+    {
+        // A temp file being written right now must never be yanked out from
+        // under its own writer, so only comfortably-old ones are collected.
+        $cache = new FileCache($this->dir, 1);
+        $cache->set('live', 'value', 3600);
+
+        $shard = dirname($this->entryFiles()[0]);
+        $inFlight = $shard . DIRECTORY_SEPARATOR . '.beefcafe.tmp';
+        file_put_contents($inFlight, 'being written right now');
+
+        $cache->prune();
+
+        $this->assertFileExists($inFlight);
     }
 
     public function testFromConfigRequiresADirectory()

@@ -971,6 +971,106 @@ class CriteriaTest extends \PHPUnit\Framework\TestCase
 		$this->assertEquals(1, $nbCrit, 'cloning a Criteria clones its Criterions');
 	}
 
+	public function testCompiledQueryCacheKeyIsScopedToTheDatasource()
+	{
+		// The compiled-query cache stores SQL *text*, and the adapter decides
+		// what that text looks like -- MySQL writes "LIMIT offset, limit" where
+		// SQLite writes "LIMIT limit OFFSET offset". The caller-supplied key
+		// identifies the query *shape* and, per the documented recommendation,
+		// is usually just __METHOD__, which is identical for both datasources.
+		// Without the datasource in the internal key, the second datasource is
+		// served the first one's dialect, and the paramCount guard cannot see
+		// it: the shapes match, only the dialect differs.
+		Propulsion::setDB('cqc_sqlite_ds', new DBSQLite());
+		Propulsion::setDB('cqc_mysql_ds', new DBMySQL());
+		Propulsion::getSession()->getCompiledQueryCache()->clear();
+
+		$sharedKey = 'same-shape-key';
+
+		$sqliteCriteria = new Criteria('cqc_sqlite_ds');
+		$sqliteCriteria->addSelectColumn('book.TITLE');
+		$sqliteCriteria->setLimit(5);
+		$sqliteCriteria->setOffset(3);
+		$sqliteCriteria->setCompiledQueryCache($sharedKey);
+		$params = array();
+		$sqliteSql = BasePeer::createSelectSql($sqliteCriteria, $params);
+
+		$mysqlCriteria = new Criteria('cqc_mysql_ds');
+		$mysqlCriteria->addSelectColumn('book.TITLE');
+		$mysqlCriteria->setLimit(5);
+		$mysqlCriteria->setOffset(3);
+		$mysqlCriteria->setCompiledQueryCache($sharedKey);
+		$params = array();
+		$mysqlSql = BasePeer::createSelectSql($mysqlCriteria, $params);
+
+		$this->assertStringContainsString('LIMIT 5 OFFSET 3', $sqliteSql, 'sanity: SQLite dialect');
+		$this->assertStringContainsString('LIMIT 3, 5', $mysqlSql, 'the MySQL datasource must not be served the SQLite dialect from cache');
+		$this->assertNotSame($sqliteSql, $mysqlSql);
+
+		Propulsion::getSession()->getCompiledQueryCache()->clear();
+	}
+
+	public function testCloneDeepCopiesNestedSubqueriesSetOperationsAndCtes()
+	{
+		// isKeepQuery() defaults to true, so every find()/count()/update()
+		// clones the query specifically so the caller's object is not mutated.
+		// These three collections were shallow-copied, leaving a clone sharing
+		// its nested Criteria with the original.
+		$sub = new Criteria();
+		$sub->add('sub.COL', 'a');
+		$branch = new Criteria();
+		$branch->add('branch.COL', 'b');
+		$cte = new Criteria();
+		$cte->add('cte.COL', 'c');
+
+		$c1 = new Criteria();
+		$c1->addSelectQuery($sub, 'sq');
+		$c1->union($branch);
+		$c1->withCte('recent', $cte);
+
+		$c2 = clone $c1;
+
+		$this->assertNotSame($sub, $c2->getSelectQuery('sq'), 'a FROM-clause subquery is cloned');
+
+		$c2Operations = $c2->getSetOperations();
+		$this->assertNotSame($branch, $c2Operations[0][1], 'a set-operation branch is cloned');
+		$this->assertSame(Criteria::UNION, $c2Operations[0][0], 'the operator is preserved');
+
+		$c2Ctes = $c2->getCommonTableExpressions();
+		$this->assertNotSame($cte, $c2Ctes[0]['query'], 'a CTE query is cloned');
+		$this->assertSame('recent', $c2Ctes[0]['name'], 'the CTE name is preserved');
+
+		// And the copies really are independent, not just distinct objects.
+		$c2->getSelectQuery('sq')->add('sub.COL', 'changed');
+		$this->assertSame('a', $sub->getValue('sub.COL'), 'mutating the clone must not reach the original');
+	}
+
+	public function testClearResetsPrimaryTableNameCommentCacheOptionsAndCombineOperator()
+	{
+		$c = new Criteria();
+		$c->setPrimaryTableName('book');
+		$c->setComment('a comment');
+		$c->setQueryCache(true, 120, false);
+		$c->_or();
+
+		$c->clear();
+
+		$this->assertNull($c->getPrimaryTableName(), 'primaryTableName is reset');
+		$this->assertNull($c->getComment(), 'the query comment is reset');
+		$this->assertFalse($c->isQueryCacheEnabled(), 'query caching is reset');
+		$this->assertNull($c->getQueryCacheTtl(), 'the per-query TTL override is reset');
+		$this->assertTrue($c->isQueryCacheShared(), 'the shared-tier opt-out is reset');
+
+		// _or() flips the pending combine operator and it is only consumed by
+		// the next condition, so a Criteria cleared mid-expression would
+		// otherwise OR its first new condition onto nothing.
+		$c->add('tbl.A', 1);
+		$c->add('tbl.B', 2);
+		$params = array();
+		$sql = BasePeer::createSelectSql($c, $params);
+		$this->assertStringContainsString('AND', $sql, 'the pending OR from before clear() must not survive');
+	}
+
 	public function testComment()
 	{
 		$c = new Criteria();
