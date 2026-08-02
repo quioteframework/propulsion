@@ -326,6 +326,60 @@ class UnitOfWorkTest extends BookstoreTestBase
 		}
 	}
 
+	public function testFlushRollsBackWhenAListenerThrowsANonPropulsionException(): void
+	{
+		// flush() used to catch only PropulsionException, so anything else --
+		// a PSR-14 listener's own exception, a TypeError, a raw PDOException
+		// escaping commit() -- propagated out with the transaction flush()
+		// opened still open. On Postgres that poisons the connection for
+		// whatever reuses it next ("current transaction is aborted" until an
+		// explicit ROLLBACK), and the only thing that eventually cleans it up
+		// is Session::reset()'s dangling-transaction sweep at the *next
+		// request boundary* -- long after the damage.
+		//
+		// Asserted via the nesting depth rather than isInTransaction(),
+		// because BookstoreTestBase::setUp() already holds an outer
+		// per-test transaction: the point is that flush()'s own nesting
+		// level was unwound, not that the connection left transactions
+		// altogether.
+		Propulsion::setEventDispatcher(new class implements EventDispatcherInterface {
+			public function dispatch(object $event): object
+			{
+				if ($event instanceof \Propulsion\Event\PreSaveEvent) {
+					throw new RuntimeException('listener says no');
+				}
+				return $event;
+			}
+		});
+
+		$depthBefore = $this->con->getNestedTransactionCount();
+
+		$author = new Author();
+		$author->setFirstName('UnitOfWorkThrowableRollbackTest');
+		$author->setLastName('ShouldNotPersist');
+
+		$uow = new UnitOfWork($this->con);
+		$uow->track($author);
+
+		try {
+			$uow->flush();
+			$this->fail('expected the listener RuntimeException to propagate out of flush()');
+		} catch (RuntimeException $e) {
+			$this->assertSame('listener says no', $e->getMessage(), 'the original throwable is rethrown unwrapped');
+		}
+
+		$this->assertSame(
+			$depthBefore,
+			$this->con->getNestedTransactionCount(),
+			'flush() must roll back its own transaction before letting a non-PropulsionException escape'
+		);
+
+		// Tracked entities are deliberately left tracked on failure, so a
+		// caller can inspect and retry -- same contract as the
+		// PropulsionException path.
+		$this->assertSame(array($author), $uow->getTrackedEntities());
+	}
+
 	public function testGetTrackedEntities(): void
 	{
 		$author = new Author();

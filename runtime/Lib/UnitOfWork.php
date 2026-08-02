@@ -136,11 +136,13 @@ class UnitOfWork
 	 * aborts the whole flush, returning 0 with nothing persisted) and
 	 * PostFlushEvent after a successful commit.
 	 *
-	 * On any PropulsionException from an entity's own save()/delete() --
-	 * including a ConcurrencyException from an OptimisticLockBehavior-guarded
-	 * update -- the whole batch is rolled back and the exception rethrown;
-	 * tracked entities are left tracked (nothing is cleared) so a caller can
-	 * inspect what failed and retry.
+	 * On any throwable from an entity's own save()/delete() -- a
+	 * PropulsionException such as a ConcurrencyException from an
+	 * OptimisticLockBehavior-guarded update, but equally a raw PDOException, a
+	 * TypeError, or anything a PSR-14 listener chose to throw -- the whole
+	 * batch is rolled back and the throwable rethrown; tracked entities are
+	 * left tracked (nothing is cleared) so a caller can inspect what failed and
+	 * retry.
 	 *
 	 * @return     int Total affected rows across every entity's own
 	 *             save()/delete() call.
@@ -182,7 +184,15 @@ class UnitOfWork
 				$affectedRows++;
 			}
 			$this->con->commit();
-		} catch (PropulsionException $e) {
+		} catch (\Throwable $e) {
+			// Deliberately \Throwable, not PropulsionException: a listener
+			// exception, a TypeError, or a raw PDOException escaping commit()
+			// would otherwise leave this transaction open past the end of
+			// flush(). On Postgres that poisons the connection for everything
+			// that reuses it ("current transaction is aborted" until an
+			// explicit ROLLBACK) -- the exact failure
+			// Session::rollBackDanglingTransactions() exists to mop up at a
+			// request boundary, which is far too late to be useful here.
 			$this->con->rollBack();
 			throw $e;
 		} finally {

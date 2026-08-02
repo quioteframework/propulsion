@@ -1270,21 +1270,51 @@ class Criteria implements \IteratorAggregate
 	 * so a write to any of these tables (see `BasePeer::doInsert()`/doUpdate()/
 	 * doDelete()/doDeleteAll()) can evict it.
 	 *
+	 * Names are always the *real* table names, never aliases: the write paths
+	 * that call `TieredQueryCache::invalidateTable()` only ever know a table by
+	 * its real name, so a dependency recorded under an alias (which is what the
+	 * criterion-map keys carry for an aliased query -- `b.TITLE`, not
+	 * `book.TITLE`) would be indexed under a key nothing ever bumps, and the
+	 * entry would stay served for the rest of the request/TTL after a write that
+	 * should have evicted it.
+	 *
+	 * Both sides of every join are included. The right side alone is not enough:
+	 * a query whose only condition is on the joined table (or which has no
+	 * WHERE clause at all) contributes nothing for the left table via
+	 * getTablesColumns(), and setPrimaryTableName() is only called on some
+	 * construction paths -- so `BookQuery::create()->join('Book.Author')` used
+	 * to depend on `author` but not on `book`.
+	 *
 	 * @return list<string>
 	 */
 	public function getQueryCacheTouchedTables(): array
 	{
-		$tables = array_keys($this->getTablesColumns());
+		$tables = array();
+		foreach (array_keys($this->getTablesColumns()) as $tableAliasOrName) {
+			$tables[] = $this->resolveTableAlias($tableAliasOrName);
+		}
 		if ($primaryTable = $this->getPrimaryTableName()) {
-			$tables[] = $primaryTable;
+			$tables[] = $this->resolveTableAlias($primaryTable);
 		}
 		foreach ($this->getJoins() as $join) {
-			if ($joinTableName = $join->getRightTableName()) {
-				$tables[] = $joinTableName;
+			foreach (array($join->getLeftTableName(), $join->getRightTableName()) as $joinTableName) {
+				if ($joinTableName !== null && $joinTableName !== '') {
+					$tables[] = $this->resolveTableAlias($joinTableName);
+				}
 			}
 		}
 
-		return array_values(array_unique($tables));
+		return array_values(array_unique(array_filter($tables, static fn (string $table): bool => $table !== '')));
+	}
+
+	/**
+	 * The real table name behind $tableAliasOrName, or $tableAliasOrName itself
+	 * when it isn't a registered alias (a real table name, or a CTE/subquery
+	 * name, both of which are already their own canonical form here).
+	 */
+	public function resolveTableAlias(string $tableAliasOrName): string
+	{
+		return $this->aliases[$tableAliasOrName] ?? $tableAliasOrName;
 	}
 
 	/**

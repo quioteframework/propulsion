@@ -5,6 +5,44 @@ All notable changes to Propulsion are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Query result cache: aliased and joined queries were indexed under names no
+  write ever invalidates.** `Criteria::getQueryCacheTouchedTables()` derived its
+  table list from the criterion-map keys, which carry the *alias* for an aliased
+  query (`b.TITLE`, not `book.TITLE`) — so a cached
+  `setModelAlias('b', true)` query depended on `"b"` while every write path
+  bumps `"book"`, and the entry survived a write that should have evicted it
+  (for the rest of the request in the L1 tier, or until the TTL lapsed in the
+  shared tier). Separately, only the *right* side of each join contributed, so
+  `BookQuery::create()->join('Book.Author')` depended on `author` but not on
+  `book` at all, since a query with no WHERE clause contributes no criterion
+  keys and the find() path never calls `setPrimaryTableName()`. Both sides of
+  every join are now included, and every name is resolved through the alias map
+  before being recorded. `BasePeer::doDelete()` was the one write path
+  invalidating under the alias rather than the real table name (it resolved the
+  alias for its SQL but not for the invalidation call), so it now agrees with
+  `doInsert()`/`doUpdate()`/`doDeleteAll()`/`doUpsert()`.
+- **`count()` left its statement's cursor open.** `StatementRows::iterate()`
+  closed the cursor after its loop, which only runs when the generator is driven
+  to exhaustion. `ModelCriteria::countFromRows()` returns from inside its
+  `foreach` as soon as it has the scalar, leaving the generator suspended and
+  the cursor never closed — the exact FreeTDS/pdo_dblib "results pending"
+  hazard the class exists to centralise. The close moved into a `finally`, which
+  also covers a consumer that `break`s out or throws.
+- **A transaction could be left open when a non-`PropulsionException` escaped.**
+  `UnitOfWork::flush()` and `ModelCriteria::delete()`/`deleteAll()`/`update()`
+  each opened a transaction but caught only `PropulsionException` for the
+  rollback. A PSR-14 listener's own exception, a `TypeError`, or a raw
+  `PDOException` from `commit()` propagated out with the transaction still open;
+  on PostgreSQL that poisons the connection for whatever reuses it next
+  ("current transaction is aborted" until an explicit `ROLLBACK`), with nothing
+  cleaning it up before `Session::reset()`'s dangling-transaction sweep at the
+  next request boundary. All four now catch `\Throwable`, roll back, and rethrow
+  the original throwable unchanged.
+
 ## [2.0.0] — 2026-07-30
 
 180 commits since v1.0.0 (2026-07-07); 411 files changed. This release adds a

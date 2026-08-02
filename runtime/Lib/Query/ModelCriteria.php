@@ -2215,8 +2215,13 @@ class ModelCriteria extends Criteria
 			$criteria->basePostDelete($affectedRows, $con);
 			Propulsion::dispatch(new PostBulkDeleteEvent($criteria, $con, $affectedRows));
 			$con->commit();
-		} catch (PropulsionException $e) {
-			$con->rollback();
+		} catch (\Throwable $e) {
+			// \Throwable, not PropulsionException -- see the note in
+			// UnitOfWork::flush() on why anything narrower leaves the
+			// transaction open (a PSR-14 listener on PostBulkDeleteEvent is
+			// under no obligation to throw a PropulsionException, and commit()
+			// itself raises a raw PDOException).
+			$con->rollBack();
 			throw $e;
 		}
 
@@ -2274,7 +2279,8 @@ class ModelCriteria extends Criteria
 			Propulsion::dispatch(new PostBulkDeleteEvent($this, $con, $affectedRows));
 			$con->commit();
 			return $affectedRows;
-		} catch (PropulsionException $e) {
+		} catch (\Throwable $e) {
+			// See delete()/UnitOfWork::flush() on why this is \Throwable.
 			$con->rollBack();
 			throw $e;
 		}
@@ -2395,7 +2401,8 @@ class ModelCriteria extends Criteria
 			Propulsion::dispatch(new PostBulkUpdateEvent($criteria, $con, $affectedRows, $values));
 
 			$con->commit();
-		} catch (PropulsionException $e) {
+		} catch (\Throwable $e) {
+			// See delete()/UnitOfWork::flush() on why this is \Throwable.
 			$con->rollBack();
 			throw $e;
 		}

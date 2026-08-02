@@ -243,12 +243,22 @@ class ModelCriteriaBulkEventDispatchTest extends BookstoreTestBase
 
 	/**
 	 * A listener that throws while dispatching the PostBulkDeleteEvent runs
-	 * inside delete()'s try block, before commit() -- like the per-object
-	 * postSave() case (see EventDispatchIntegrationTest), only
-	 * PropulsionException is caught there, so a plain RuntimeException
-	 * propagates out with the transaction left open.
+	 * inside delete()'s try block, before commit(). The exception still
+	 * propagates -- delete() does not swallow it -- but delete() rolls its own
+	 * transaction back on the way out first.
+	 *
+	 * This used to assert the opposite: delete() caught only
+	 * PropulsionException, so a plain RuntimeException escaped with the
+	 * transaction still open, and this test had to forceRollBack() and
+	 * re-begin by hand just to leave the connection usable for teardown. That
+	 * was a bug being characterised rather than a behaviour worth keeping --
+	 * a PSR-14 listener is under no obligation to throw PropulsionException,
+	 * and on Postgres a transaction left open past the call poisons the
+	 * connection for whatever reuses it next. delete()/deleteAll()/update()
+	 * (and UnitOfWork::flush()) now all catch \Throwable for the rollback and
+	 * rethrow unchanged.
 	 */
-	public function testThrowingListenerOnPostEventPropagatesAndLeavesTransactionOpen(): void
+	public function testThrowingListenerOnPostEventPropagatesAndRollsBack(): void
 	{
 		Propulsion::setEventDispatcher(new ThrowingOnPostBulkEventDispatcher());
 
@@ -260,11 +270,18 @@ class ModelCriteriaBulkEventDispatchTest extends BookstoreTestBase
 			$c->delete($this->con);
 			$this->fail('Expected the listener exception to propagate out of delete()');
 		} catch (RuntimeException $e) {
-			$this->assertSame('listener boom', $e->getMessage());
+			$this->assertSame('listener boom', $e->getMessage(), 'the original throwable is rethrown unwrapped, not wrapped in a PropulsionException');
 		}
-		$this->assertSame($nestedCountBefore + 1, $this->con->getNestedTransactionCount());
-		$this->con->forceRollBack();
-		$this->con->beginTransaction();
+
+		$this->assertSame(
+			$nestedCountBefore,
+			$this->con->getNestedTransactionCount(),
+			"delete()'s own transaction was rolled back before the exception escaped"
+		);
+		// No forceRollBack()/beginTransaction() dance needed any more: the
+		// connection is left exactly as delete() found it, which is the whole
+		// point.
+		$this->assertTrue($this->con->isCommitable(), 'the surrounding per-test transaction is still usable');
 	}
 }
 

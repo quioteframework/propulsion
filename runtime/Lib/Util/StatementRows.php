@@ -44,18 +44,26 @@ final class StatementRows
      */
     public static function iterate(PDOStatement $stmt): \Generator
     {
-        while (($row = $stmt->fetch(PDO::FETCH_NUM)) !== false) {
-            if (!is_array($row) || !array_is_list($row)) {
-                continue;
+        // Closing in a finally rather than after the loop keeps the
+        // FreeTDS/pdo_dblib "results pending" hazard handled in exactly one
+        // place *and* handles the consumer that stops early. A plain
+        // post-loop close only runs when the generator is driven to
+        // exhaustion; a consumer that `return`s or `break`s out mid-iteration
+        // -- ModelCriteria::countFromRows() returns from inside its foreach as
+        // soon as it has the scalar -- leaves the generator suspended forever,
+        // so that statement's result set would never be released. PHP runs a
+        // suspended generator's finally blocks when it is destroyed, so this
+        // covers both paths.
+        try {
+            while (($row = $stmt->fetch(PDO::FETCH_NUM)) !== false) {
+                if (!is_array($row) || !array_is_list($row)) {
+                    continue;
+                }
+                yield $row;
             }
-            yield $row;
+        } finally {
+            $stmt->closeCursor();
         }
-
-        // Closing here rather than in each formatter keeps the FreeTDS/pdo_dblib
-        // "results pending" hazard handled in exactly one place: on a
-        // connection without MARS, an abandoned open result set can fail a
-        // later, unrelated statement before PHP's GC destructs it.
-        $stmt->closeCursor();
     }
 
     /**

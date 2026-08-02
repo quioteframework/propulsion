@@ -215,7 +215,18 @@ class BasePeer
 				throw new PropulsionException(sprintf('Unable to execute DELETE statement [%s]', $sql), $e);
 			}
 
-			Propulsion::getSession()->getQueryCache()->invalidateTable($tableName, $con, $criteria->getDbName());
+			// The loop key is whatever the criterion map carried -- a table alias
+			// for an aliased Criteria. Every other write path here invalidates
+			// under the real table name (doUpdate() resolves the alias for its
+			// own SQL and reuses the resolved name; doInsert()/doDeleteAll()/
+			// doUpsert() never see an alias at all), and so does
+			// Criteria::getQueryCacheTouchedTables() on the read side, so
+			// resolve it here too rather than bumping a key nothing else uses.
+			Propulsion::getSession()->getQueryCache()->invalidateTable(
+				$criteria->resolveTableAlias((string) $tableName),
+				$con,
+				$criteria->getDbName()
+			);
 
 		} // for each table
 
