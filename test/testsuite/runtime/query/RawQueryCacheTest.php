@@ -8,7 +8,6 @@
  * @license    MIT License
  */
 
-use PHPUnit\Framework\TestCase;
 use Propulsion\Cache\Driver\ArrayCache;
 use Propulsion\Cache\QueryCacheConfig;
 use Propulsion\Exception\PropulsionException;
@@ -23,29 +22,11 @@ use Propulsion\Session;
  * Runs in autocommit for the same reason GlobalQueryResultCacheTest does: the
  * shared tier is deliberately inert inside a transaction.
  */
-class RawQueryCacheTest extends TestCase
+class RawQueryCacheTest extends BookstoreAutocommitTestBase
 {
-    /** @var mixed */
-    private $con;
-
     protected function setUp(): void
     {
         parent::setUp();
-
-        try {
-            IntegrationDatabase::ensureReady();
-        } catch (\RuntimeException $e) {
-            $this->markTestSkipped($e->getMessage());
-        }
-
-        if (!Propulsion::isInit()) {
-            set_include_path(get_include_path() . PATH_SEPARATOR . realpath(IntegrationDatabase::classesDir()));
-            Propulsion::init(IntegrationDatabase::confFile());
-        }
-
-        $this->con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
-        BookstoreDataPopulator::depopulate();
-        BookstoreDataPopulator::populate();
 
         $container = new ServiceContainer();
         $container->setQueryCacheConfig(new QueryCacheConfig(
@@ -59,17 +40,6 @@ class RawQueryCacheTest extends TestCase
         $container->setQueryCachePool(new ArrayCache(10000));
         Propulsion::setServiceContainer($container);
         Propulsion::setSession(new Session());
-    }
-
-    protected function tearDown(): void
-    {
-        if ($this->con !== null && $this->con->isInTransaction()) {
-            $this->con->forceRollBack();
-        }
-        BookstoreDataPopulator::depopulate();
-        Propulsion::setServiceContainer(new ServiceContainer());
-        Propulsion::setSession(new Session());
-        parent::tearDown();
     }
 
     private const SQL = 'SELECT COUNT(*) FROM book';

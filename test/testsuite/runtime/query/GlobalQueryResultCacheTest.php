@@ -8,7 +8,6 @@
  * @license    MIT License
  */
 
-use PHPUnit\Framework\TestCase;
 use Propulsion\Cache\Driver\ArrayCache;
 use Propulsion\Cache\QueryCacheConfig;
 use Propulsion\Propulsion;
@@ -29,42 +28,23 @@ use Propulsion\Session;
  * way. Genuine cross-*process* behaviour is covered by
  * FileCacheCrossProcessTest and by the FrankenPHP harness in test/worker/.
  *
- * Note this deliberately does **not** extend BookstoreTestBase, which wraps
- * every test in a transaction. The shared tier is intentionally inert inside a
- * transaction -- a SELECT there can see uncommitted rows, and publishing those
- * to a cache other processes read would leak them -- so a transaction-wrapped
- * test could never exercise it. This class runs in autocommit and cleans up
- * after itself instead; the two transaction-specific cases below open their own
- * transactions explicitly, which is the honest way to test that rule.
+ * Extends {@see BookstoreAutocommitTestBase} rather than BookstoreTestBase,
+ * which wraps every test in a transaction: the shared tier is intentionally
+ * inert inside one -- a SELECT there can see uncommitted rows, and publishing
+ * those to a cache other processes read would leak them -- so a
+ * transaction-wrapped test could never exercise it. The two
+ * transaction-specific cases below open their own transactions explicitly,
+ * which is the honest way to test that rule.
  *
  * @see QueryResultCacheTest for the request-scoped tier.
  */
-class GlobalQueryResultCacheTest extends TestCase
+class GlobalQueryResultCacheTest extends BookstoreAutocommitTestBase
 {
     private ArrayCache $pool;
-
-    /** @var mixed */
-    protected $con;
 
     protected function setUp(): void
     {
         parent::setUp();
-
-        try {
-            IntegrationDatabase::ensureReady();
-        } catch (\RuntimeException $e) {
-            $this->markTestSkipped($e->getMessage());
-        }
-
-        if (!Propulsion::isInit()) {
-            set_include_path(get_include_path() . PATH_SEPARATOR . realpath(IntegrationDatabase::classesDir()));
-            Propulsion::init(IntegrationDatabase::confFile());
-        }
-
-        $this->con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
-
-        BookstoreDataPopulator::depopulate();
-        BookstoreDataPopulator::populate();
 
         $this->pool = new ArrayCache(10000);
         $container = new ServiceContainer();
@@ -73,40 +53,15 @@ class GlobalQueryResultCacheTest extends TestCase
             driver: 'array',
             ttl: 300,
             namespace: 'test',
-            // Admission control is exercised on its own below; most tests here
-            // want the straightforward cache-on-first-miss behaviour.
+            // Admission control is exercised in SharedQueryCacheUnitTest; these
+            // tests want the straightforward cache-on-first-miss behaviour.
             minSightings: 1,
             // Deterministic: no probabilistic early recomputation.
             beta: 0.0,
         ));
         $container->setQueryCachePool($this->pool);
         Propulsion::setServiceContainer($container);
-
-        // A fresh Session, not just a reset one: the tiered cache memoises the
-        // shared tier it was built with, and earlier tests in this process will
-        // have built one with no shared tier at all.
         Propulsion::setSession(new Session());
-    }
-
-    protected function tearDown(): void
-    {
-        if ($this->con !== null && $this->con->isInTransaction()) {
-            $this->con->forceRollBack();
-        }
-        BookstoreDataPopulator::depopulate();
-
-        Propulsion::setServiceContainer(new ServiceContainer());
-        Propulsion::setSession(new Session());
-        parent::tearDown();
-    }
-
-    /**
-     * A fresh request: everything request-scoped is gone, the shared pool is not.
-     */
-    private function newRequest(): void
-    {
-        // Exactly what a worker host does at a request boundary.
-        Propulsion::getSession()->reset();
     }
 
     private function cachedCount(): int

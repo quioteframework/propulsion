@@ -58,6 +58,7 @@ $testBaseFiles = [
     __DIR__ . '/tools/helpers/bookstore/BookstoreEmptyTestBase.php',
     __DIR__ . '/tools/helpers/schemas/SchemasTestBase.php',
     __DIR__ . '/tools/helpers/cms/CmsTestBase.php',
+    __DIR__ . '/tools/helpers/bookstore/BookstoreAutocommitTestBase.php',
 ];
 
 foreach ($testBaseFiles as $file) {

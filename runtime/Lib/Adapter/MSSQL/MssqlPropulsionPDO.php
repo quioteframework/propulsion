@@ -103,6 +103,12 @@ class MssqlPropulsionPDO extends \Pdo\Dblib implements PropulsionPDO
 						$this->log('Commit transaction', null, PropulsionPDO::class . '::commit');
 					}
 
+					// This class replaces the trait's commit() outright, so the
+					// trait's own call to this never runs -- without it, every
+					// shared-query-cache version bump buffered during the
+					// transaction is dropped and ORM writes stop invalidating
+					// the cache on MSSQL alone.
+					$this->publishQueryCacheInvalidations();
 				}
 			}
 			$this->nestedTransactionCount--;
@@ -137,6 +143,9 @@ class MssqlPropulsionPDO extends \Pdo\Dblib implements PropulsionPDO
 					// __METHOD__.
 					$this->log('Rollback transaction', null, PropulsionPDO::class . '::rollBack');
 				}
+
+				// As in commit(): the trait's rollBack() never runs here.
+				$this->discardQueryCacheInvalidations();
 			} else {
 				// See beginTransaction()'s own comment on \PDO::exec() vs
 				// self::exec()/parent::exec() here.
@@ -174,6 +183,11 @@ class MssqlPropulsionPDO extends \Pdo\Dblib implements PropulsionPDO
 				// __METHOD__.
 				$this->log('Rollback transaction', null, PropulsionPDO::class . '::forceRollBack');
 			}
+
+			// As in commit(): the trait's forceRollBack() never runs here, and
+			// Session::reset() reaches this method for a dangling transaction
+			// at a request boundary.
+			$this->discardQueryCacheInvalidations();
 		}
 		return $return;
 	}

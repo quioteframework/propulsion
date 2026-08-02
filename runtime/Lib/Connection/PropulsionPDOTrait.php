@@ -459,8 +459,16 @@ trait PropulsionPDOTrait
 	 * not turn a successful commit into a failure. The consequence of failing
 	 * here is bounded -- other processes keep serving the pre-write entry until
 	 * its TTL lapses -- and it is the trade the whole cache is built on.
+	 *
+	 * **Protected, not private, because a driver that overrides commit() must
+	 * call this itself.** MssqlPropulsionPDO replaces commit()/rollBack()/
+	 * forceRollBack() wholesale (dblib has no real transactions), so it never
+	 * reaches the trait's versions; without an explicit call there, every
+	 * version bump buffered during a transaction is silently dropped and an ORM
+	 * write stops invalidating the shared cache at all. Any future driver that
+	 * overrides these has the same obligation.
 	 */
-	private function publishQueryCacheInvalidations(): void
+	protected function publishQueryCacheInvalidations(): void
 	{
 		if (!$this instanceof PropulsionPDO) {
 			return;
@@ -482,7 +490,7 @@ trait PropulsionPDOTrait
 	 * rest of the request from needlessly bypassing the shared tier for tables
 	 * whose writes were discarded.
 	 */
-	private function discardQueryCacheInvalidations(): void
+	protected function discardQueryCacheInvalidations(): void
 	{
 		if (!$this instanceof PropulsionPDO) {
 			return;
