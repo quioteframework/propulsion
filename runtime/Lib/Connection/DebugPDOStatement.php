@@ -97,26 +97,22 @@ class DebugPDOStatement extends \PDOStatement
 		try {
 			$return = parent::execute($input_parameters);
 		} catch (\Throwable $e) {
-			// Transparent reconnect on dropped connections
-			if ($e instanceof \PDOException && \Propulsion\Propulsion::isConnectionDropped($e)) {
-				error_log('[DebugPDOStatement::execute] connection dropped, reconnecting and retrying');
-				\Propulsion\Propulsion::forceReconnect();
-				try {
-					$return = parent::execute($input_parameters);
-				} catch (\Throwable $retryE) {
-					if ($forced) {
-						$sqlErr = $this->getExecutedQueryString();
-						$this->forcedLogChunked('PROPEL_SQL_FORCE execute RETRY EXCEPTION: '.get_class($retryE).': '.$retryE->getMessage().' SQL=', $sqlErr);
-					}
-					throw $retryE;
-				}
-			} else {
-				if ($forced) {
-					$sqlErr = $this->getExecutedQueryString();
-					$this->forcedLogChunked('PROPEL_SQL_FORCE execute EXCEPTION: '.get_class($e).': '.$e->getMessage().' SQL=', $sqlErr);
-				}
-				throw $e;
+			if ($forced) {
+				$sqlErr = $this->getExecutedQueryString();
+				$this->forcedLogChunked('PROPEL_SQL_FORCE execute EXCEPTION: '.get_class($e).': '.$e->getMessage().' SQL=', $sqlErr);
 			}
+			// A dropped connection can't be retried here: this statement handle
+			// belongs to the dead connection, so re-running parent::execute()
+			// on it (which is what this used to do, after a
+			// Propulsion::forceReconnect() that couldn't affect $this either)
+			// only fails again. Hand it to the connection so it can evict
+			// itself from the pool and reset its transaction bookkeeping, then
+			// let the caller deal with it -- see
+			// PropulsionPDOTrait::handleDroppedConnection().
+			if ($e instanceof \PDOException && \Propulsion\Propulsion::isConnectionDropped($e)) {
+				$this->pdo->handleDroppedConnection($e, __METHOD__);
+			}
+			throw $e;
 		}
 
 		$elapsedMs = (microtime(true) - $start) * 1000.0;

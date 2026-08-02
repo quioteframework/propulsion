@@ -388,10 +388,28 @@ final class FileCache extends AbstractCacheDriver implements ConfigurableCacheDr
      * the test suite runs with `failOnWarning="true"`, so it is suppressed and
      * validated rather than trusted. A corrupt entry is treated as a miss and
      * removed.
+     *
+     * **`allowed_classes` is false**, so a payload naming a class comes back as
+     * `__PHP_Incomplete_Class` instead of instantiating anything. This driver's
+     * whole selling point is being shared across processes and SAPIs (see the
+     * class docblock), which is exactly what makes its contents untrusted
+     * input: the cache directory is writable by every process that uses it, and
+     * possibly by another application sharing it. Deserializing arbitrary
+     * classes there hands an attacker who can drop one file into that directory
+     * a gadget-chain foothold in every reader, via __wakeup()/__destruct().
+     *
+     * Nothing Propulsion stores through this driver is an object -- the shared
+     * query cache stores arrays of scalar row values, the version registry
+     * stores strings, and the admission/lock markers store ints -- so this
+     * costs nothing here, and a `__PHP_Incomplete_Class` reaching
+     * SharedQueryCache::normaliseRows() is rejected as "not a row set" and
+     * degrades to a clean miss. Code using this class as a general-purpose
+     * PSR-16 pool for its own objects is the one caller this narrows: such a
+     * value now round-trips as an incomplete class rather than a live object.
      */
     private function unserializeBody(string $body, string $path, mixed $default): mixed
     {
-        $value = @unserialize($body, ['allowed_classes' => true]);
+        $value = @unserialize($body, ['allowed_classes' => false]);
         if ($value === false && $body !== serialize(false)) {
             @unlink($path);
 

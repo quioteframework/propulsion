@@ -326,7 +326,17 @@ without `dependsOn()` throws for the same reason.
   published by another process midway through your request is not observed until
   the next one.
 - **BLOB columns** fetched as stream resources cannot be serialized; such queries
-  silently skip the shared tier and use L1 only.
+  silently skip the shared tier and use L1 only. Every row of the result set is
+  checked for one, not just the first — `serialize()` does not fail on a
+  resource, it quietly writes `i:0`, so a partial check would publish an entry
+  with blob columns turned into the integer `0`.
+- **The `file` driver does not deserialize objects.** Its directory is writable
+  by every process (and possibly every application) sharing it, which makes its
+  contents untrusted input, so `unserialize()` runs with
+  `allowed_classes: false` and a class payload comes back as
+  `__PHP_Incomplete_Class` rather than being instantiated. Nothing Propulsion
+  stores through it is an object; this only narrows using it as a
+  general-purpose PSR-16 pool for your own objects.
 
 ---
 

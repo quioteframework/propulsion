@@ -144,6 +144,29 @@ class SharedQueryCacheUnitTest extends TestCase
         }
     }
 
+    public function testResourceInALaterRowIsAlsoNotStored()
+    {
+        $cache = $this->makeCache();
+        $key = $cache->buildKey('bookstore', 'SELECT blob', [], ['v']);
+        $handle = fopen('php://memory', 'rb');
+        $this->assertIsResource($handle);
+
+        try {
+            // The regression: only row 0 used to be inspected, so a result set
+            // whose first row carries a NULL blob and whose later rows carry
+            // real streams passed the check. serialize() does not fail on a
+            // resource -- it writes i:0 with no warning at all -- so the entry
+            // was stored with its blob columns silently turned into the integer
+            // 0, and served that way to every subsequent reader.
+            $rows = [[1, null], [2, $handle]];
+
+            $this->assertFalse($cache->store($key, $rows, 300));
+            $this->assertFalse($cache->fetch($key)['hit']);
+        } finally {
+            fclose($handle);
+        }
+    }
+
     public function testPayloadFromAnIncompatibleFormatIsAMiss()
     {
         $backend = new ArrayCache(10);

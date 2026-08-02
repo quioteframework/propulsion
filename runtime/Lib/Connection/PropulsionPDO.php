@@ -183,6 +183,22 @@ interface PropulsionPDO
 	public function clearStatementCache(): void;
 
 	/**
+	 * Reset this connection's bookkeeping and evict it from the pool after the
+	 * server-side session behind it has gone away, then let the caller handle
+	 * the original exception. Does *not* retry -- see
+	 * {@see \Propulsion\Connection\PropulsionPDOTrait::handleDroppedConnection()}
+	 * for why retrying at this level cannot be made safe.
+	 *
+	 * Part of the interface because {@see DebugPDOStatement::execute()} has to
+	 * reach it: a statement discovers the drop, but only the connection can act
+	 * on it.
+	 *
+	 * @param     \PDOException  $e  The exception that revealed the drop.
+	 * @param     string         $methodName  Origin, for the log line.
+	 */
+	public function handleDroppedConnection(\PDOException $e, string $methodName = ''): void;
+
+	/**
 	 * Returns the number of queries this instance has performed on the database connection.
 	 *
 	 * @return     integer

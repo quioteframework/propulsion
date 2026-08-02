@@ -243,6 +243,66 @@ class FileCacheTest extends Psr16DriverTestCase
         $this->assertSame('second', $cache->get('lock'));
     }
 
+    public function testHandCraftedObjectPayloadIsNotInstantiated()
+    {
+        // This driver is shared across processes and SAPIs by design, so its
+        // directory is writable by everything that uses it (and possibly by
+        // another application sharing it) -- which makes what comes back out of
+        // it untrusted input. Deserializing arbitrary classes from there is a
+        // gadget-chain foothold in every reader, so unserialize() runs with
+        // allowed_classes: false and a class payload comes back inert.
+        $cache = new FileCache($this->dir);
+        $cache->set('seed', 'anything');
+
+        // Write a serialized object straight into the entry file, the way a
+        // hostile writer with directory access would.
+        $path = $this->entryPathFor($cache, 'seed');
+        $this->assertIsString($path);
+        $header = str_pad((string) (time() + 3600), 10, '0', STR_PAD_LEFT) . "\n";
+        file_put_contents($path, $header . serialize(new ArrayObject(['pwned'])));
+
+        $value = $cache->get('seed');
+
+        $this->assertNotInstanceOf(ArrayObject::class, $value);
+        $this->assertInstanceOf('__PHP_Incomplete_Class', $value);
+    }
+
+    public function testOrdinaryValueShapesStillRoundTrip()
+    {
+        // The flip side of the check above: narrowing unserialize() must not
+        // disturb anything Propulsion actually stores (scalar row arrays,
+        // version tokens, admission counters).
+        $cache = new FileCache($this->dir);
+        $rows = [[1, 'a', null], [2, 'b', 3.5]];
+
+        $cache->set('rows', $rows);
+        $cache->set('token', 'a1b2c3d4');
+        $cache->set('sightings', 2);
+
+        $this->assertSame($rows, $cache->get('rows'));
+        $this->assertSame('a1b2c3d4', $cache->get('token'));
+        $this->assertSame(2, $cache->get('sightings'));
+    }
+
+    /**
+     * The on-disk path FileCache uses for $key -- it shards by sha1, which is
+     * private, so this locates the one entry file that exists instead of
+     * recomputing the layout.
+     */
+    private function entryPathFor(FileCache $cache, string $key): ?string
+    {
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($cache->getRoot(), FilesystemIterator::SKIP_DOTS)
+        );
+        foreach ($iterator as $file) {
+            if ($file instanceof SplFileInfo && $file->isFile() && $file->getExtension() === 'pcache') {
+                return $file->getPathname();
+            }
+        }
+
+        return null;
+    }
+
     public function testFromConfigRequiresADirectory()
     {
         $this->expectException(PropulsionException::class);

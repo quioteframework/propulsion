@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **The `file` cache driver no longer deserializes objects.** Its whole selling
+  point is being shared across processes and SAPIs, which means its directory is
+  writable by everything using it — and possibly by another application sharing
+  it — so what comes back out is untrusted input. It ran `unserialize()` with
+  `allowed_classes: true`, handing anyone who could drop a file into that
+  directory a `__wakeup()`/`__destruct()` gadget-chain foothold in every reader.
+  It now runs with `allowed_classes: false`. Nothing Propulsion stores through
+  the driver is an object (row arrays, version tokens, admission counters), and
+  a class payload reaching `SharedQueryCache` is rejected as "not a row set" and
+  degrades to a clean miss. This narrows one use only: treating the driver as a
+  general-purpose PSR-16 pool for your own objects.
+
+### Changed
+
+- **A dropped connection is no longer "retried".** `PropulsionPDOTrait::exec()`/
+  `query()` and `DebugPDOStatement::execute()` caught a dropped-connection
+  `PDOException`, called `Propulsion::forceReconnect()`, and re-issued the same
+  statement on the same object — which PDO cannot revive, so the retry could
+  only fail again, this time with an uncaught exception. `forceReconnect()` also
+  takes a datasource *name* and defaulted to the default one, so a drop on any
+  other datasource evicted an unrelated healthy pair of connections instead of
+  the dead one. Retrying transparently is not safe in any case: losing the
+  connection loses any open transaction with it, so re-running a statement on a
+  fresh connection would execute it outside the transaction the caller believes
+  it is in. The new `PropulsionPDO::handleDroppedConnection()` instead zeroes the
+  transaction depth, discards the connection's buffered shared-cache version
+  bumps (as on a rollback — those writes never committed), drops the
+  prepared-statement cache, evicts the connection from the pool via the new
+  `Propulsion::discardConnection()`, and rethrows unchanged so recovery happens
+  where the transaction boundary is known. The bare `error_log()` calls on that
+  path are gone too; they broke the documented "Propulsion never writes anywhere
+  implicitly" rule.
+
 ### Fixed
 
 - **Query result cache: aliased and joined queries were indexed under names no
@@ -42,6 +77,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cleaning it up before `Session::reset()`'s dangling-transaction sweep at the
   next request boundary. All four now catch `\Throwable`, roll back, and rethrow
   the original throwable unchanged.
+- **Shared cache could store BLOB streams as the integer `0`.**
+  `SharedQueryCache`'s resource check only inspected the first row, and
+  `serialize()` does not fail on a resource — it writes `i:0` with no warning at
+  all, so nothing reached the surrounding `catch`. A result set whose first row
+  carried a NULL blob while a later row carried a real stream was published with
+  its blob columns silently replaced by `0`. Every row is now checked.
+- **`PropulsionPDO::getLastExecutedQuery()` could raise a `TypeError`.** Declared
+  `: string`, but `$lastExecutedQuery` is only ever assigned inside
+  `if ($this->useDebug)` branches and was left implicitly null, so calling it on
+  a connection that had never run with debugging on returned null from a
+  non-nullable return type. Now initialised to `''`. (Untyped property plus a
+  `@var string` docblock is why static analysis never caught it.)
 
 ## [2.0.0] — 2026-07-30
 

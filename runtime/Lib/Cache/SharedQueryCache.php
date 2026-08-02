@@ -313,21 +313,28 @@ class SharedQueryCache
     }
 
     /**
-     * PDO can hand back a stream resource for a BLOB column, and serializing a
-     * resource is fatal. Such a query silently skips the shared tier; the
-     * request-scoped tier still serves it.
+     * PDO can hand back a stream resource for a BLOB column. Such a query
+     * silently skips the shared tier; the request-scoped tier still serves it.
+     *
+     * **Every row is checked, not just the first.** serialize() does not fail
+     * on a resource -- it quietly writes `i:0`, with no warning and nothing for
+     * store()'s catch to catch -- so a result set whose first row happens to
+     * carry a NULL blob while a later row carries a real stream used to sail
+     * through this check and get published with its blob columns silently
+     * replaced by the integer 0. A wrong value served from cache is far worse
+     * than a skipped one, and the scan is cheap next to the serialize() it is
+     * guarding (is_resource() is a type-tag test, and it stops at the first
+     * hit).
      *
      * @param list<array<int, mixed>> $rows
      */
     private function isStorable(array $rows): bool
     {
-        $first = $rows[0] ?? null;
-        if (!is_array($first)) {
-            return true;
-        }
-        foreach ($first as $value) {
-            if (is_resource($value)) {
-                return false;
+        foreach ($rows as $row) {
+            foreach ($row as $value) {
+                if (is_resource($value)) {
+                    return false;
+                }
             }
         }
 

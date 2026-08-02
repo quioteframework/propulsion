@@ -112,9 +112,16 @@ trait PropulsionPDOTrait
 	/**
 	 * SQL code of the latest performed query.
 	 *
+	 * Initialised rather than left implicitly null: it is only ever assigned
+	 * from inside a `if ($this->useDebug)` branch, so on a connection that has
+	 * never run with debugging on, getLastExecutedQuery() -- declared
+	 * `: string` -- used to hit a TypeError instead of returning "no query
+	 * yet". (Untyped property plus a `@var string` docblock is also why static
+	 * analysis never flagged it.)
+	 *
 	 * @var       string
 	 */
-	protected $lastExecutedQuery;
+	protected $lastExecutedQuery = '';
 
 	/**
 	 * Whether or not the debug is enabled
@@ -507,6 +514,78 @@ trait PropulsionPDOTrait
 	}
 
 	/**
+	 * Bring this object's bookkeeping back in line with reality after the
+	 * server-side session behind it has gone away (see
+	 * {@see Propulsion::isConnectionDropped()}), and evict it from the pool so
+	 * the next {@see Propulsion::getConnection()} builds a fresh one.
+	 *
+	 * **This does not retry, and cannot.** PDO has no reconnect: a dropped
+	 * connection's object stays dropped for its whole lifetime. The code this
+	 * replaced caught the dropped-connection PDOException, called
+	 * Propulsion::forceReconnect(), and then re-issued the very same statement
+	 * through `parent::exec()`/`parent::query()` on `$this` -- the same dead
+	 * handle -- so the "retry" could only ever fail a second time, and did so
+	 * with a fresh exception that nothing was catching. Worse,
+	 * forceReconnect() takes a datasource *name* and defaulted to the default
+	 * one, so a dropped connection on any other datasource silently evicted an
+	 * unrelated, perfectly healthy pair of connections instead of itself.
+	 *
+	 * Retrying transparently one level up would not be safe either, which is
+	 * why this doesn't attempt it: losing the connection loses any open
+	 * transaction with it, so re-running one statement on a fresh connection
+	 * would execute it outside the transaction the caller believes it is in.
+	 * Recovery has to happen where the transaction boundary is known -- i.e. in
+	 * the caller -- so the exception is rethrown unchanged and this method
+	 * confines itself to leaving no stale state behind:
+	 *
+	 *  - the transaction depth counter is zeroed (whatever the server had open
+	 *    is gone, so a later commit()/rollBack() must not try to unwind levels
+	 *    that no longer exist, and Session::reset()'s dangling-transaction
+	 *    sweep must not try to roll one back on a dead handle),
+	 *  - buffered shared-query-cache version bumps for this connection are
+	 *    discarded, exactly as on a rollback -- the writes that generated them
+	 *    were never committed, and left in place they would keep this request
+	 *    bypassing the shared tier for those tables (and leak in the registry,
+	 *    since neither commit() nor rollBack() will ever be reached for them),
+	 *  - the prepared-statement cache is dropped, since every handle in it
+	 *    belongs to the dead connection.
+	 *
+	 * @param     \PDOException  $e  The exception that revealed the drop.
+	 * @param     string         $methodName  Origin, for the log line.
+	 */
+	public function handleDroppedConnection(\PDOException $e, string $methodName = ''): void
+	{
+		$this->nestedTransactionCount = 0;
+		$this->isUncommitable = false;
+		$this->clearStatementCache();
+		$this->discardQueryCacheInvalidations();
+
+		if ($this instanceof PropulsionPDO) {
+			Propulsion::discardConnection($this);
+		}
+
+		$message = ($methodName !== '' ? '[' . $methodName . '] ' : '')
+			. 'Database connection dropped (' . $e->getMessage() . '); it has been evicted from the pool, so the '
+			. 'next Propulsion::getConnection() will open a fresh one. The failing statement is not retried: any '
+			. 'transaction that was open is gone with the connection, so retrying here would silently run outside it.';
+
+		// Deliberately not routed through $this->log(): that one is the *debug*
+		// channel, gated on `debugpdo.logging.methods` containing the calling
+		// method, so a warning this consequential would be silently dropped in
+		// every default configuration. This mirrors only log()'s delegation
+		// tail -- per-connection logger if one is registered, the global one
+		// otherwise -- which stays a no-op when neither is, per the
+		// "Propulsion ships no logger and never writes anywhere implicitly"
+		// rule in README.md. (The code this replaced used a bare error_log(),
+		// which broke that rule outright.)
+		if ($this->logger !== null) {
+			$this->logger->log(Propulsion::LOG_WARNING, $message);
+		} else {
+			Propulsion::log($message, Propulsion::LOG_WARNING);
+		}
+	}
+
+	/**
 	 * Sets a connection attribute.
 	 *
 	 * This is overridden here to provide support for setting Propulsion-specific attributes too.
@@ -607,13 +686,10 @@ trait PropulsionPDOTrait
 		try {
 			$return = parent::exec($sql);
 		} catch (\PDOException $e) {
-			if (\Propulsion\Propulsion::isConnectionDropped($e)) {
-				error_log('[PropulsionPDO::exec] connection dropped, reconnecting and retrying');
-				\Propulsion\Propulsion::forceReconnect();
-				$return = parent::exec($sql);
-			} else {
-				throw $e;
+			if (Propulsion::isConnectionDropped($e)) {
+				$this->handleDroppedConnection($e, PropulsionPDO::class . '::' . __FUNCTION__);
 			}
+			throw $e;
 		}
 		if ($this->useDebug) {
 			$this->log($sql, null, PropulsionPDO::class . '::' . __FUNCTION__, $debug);
@@ -646,13 +722,10 @@ trait PropulsionPDOTrait
 		try {
 			$return = parent::query($query, $fetchMode, ...$args);
 		} catch (\PDOException $e) {
-			if (\Propulsion\Propulsion::isConnectionDropped($e)) {
-				error_log('[PropulsionPDO::query] connection dropped, reconnecting and retrying');
-				\Propulsion\Propulsion::forceReconnect();
-				$return = parent::query($query, $fetchMode, ...$args);
-			} else {
-				throw $e;
+			if (Propulsion::isConnectionDropped($e)) {
+				$this->handleDroppedConnection($e, PropulsionPDO::class . '::' . __FUNCTION__);
 			}
+			throw $e;
 		}
 
 		if ($this->useDebug) {

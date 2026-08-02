@@ -871,6 +871,18 @@ class Propulsion
 	 * Force a reconnection for the given datasource by dropping the cached connection.
 	 * The next getConnection() call will create a fresh connection.
 	 *
+	 * Note this is *name*-based and drops both the master and the slave entry
+	 * for that datasource. Code that has a dead connection object in hand and
+	 * wants to evict exactly that one should use {@see discardConnection()}
+	 * instead -- it needs no datasource name (which the connection itself does
+	 * not carry) and won't take an unrelated, still-healthy sibling connection
+	 * down with it.
+	 *
+	 * Neither method can revive an existing connection object: PDO has no
+	 * reconnect, so "reconnecting" here only ever means "make the *next*
+	 * getConnection() build a fresh one". Any caller still holding the old
+	 * object keeps holding a dead one.
+	 *
 	 * @param string $name The datasource name (default: the default datasource).
 	 */
 	public static function forceReconnect(?string $name = null): void
@@ -878,6 +890,39 @@ class Propulsion
 		$name = $name ?: self::getDefaultDB();
 		unset(self::$connectionMap[$name]['master']);
 		unset(self::$connectionMap[$name]['slave']);
+	}
+
+	/**
+	 * Evict one specific connection object from the pool, whichever datasource
+	 * and mode (master/slave) it happens to be registered under, so the next
+	 * getConnection() for that slot builds a fresh one.
+	 *
+	 * Matching is by object identity rather than by datasource name because
+	 * that is the only thing the caller reliably knows: a PropulsionPDO does not
+	 * carry the name it was registered under, and the same object can be
+	 * registered under more than one slot (getSlaveConnection() stores the
+	 * master under 'slave' when a datasource has no slaves configured), so all
+	 * matching slots are removed.
+	 *
+	 * @param  PDO $con The connection to evict.
+	 * @return bool Whether it was found in the pool at all.
+	 */
+	public static function discardConnection(PDO $con): bool
+	{
+		$found = false;
+		foreach (self::$connectionMap as $name => $modes) {
+			foreach ($modes as $mode => $pooled) {
+				if ($pooled === $con) {
+					unset(self::$connectionMap[$name][$mode]);
+					$found = true;
+				}
+			}
+			if (self::$connectionMap[$name] === array()) {
+				unset(self::$connectionMap[$name]);
+			}
+		}
+
+		return $found;
 	}
 
 	/**
