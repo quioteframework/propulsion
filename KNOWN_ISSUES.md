@@ -64,6 +64,37 @@ rm -rf fixtures/bookstore/build fixtures/schemas/build fixtures/namespaced/build
   few things that already need to differ, e.g. `RETURNING`), no dedicated
   `MariadbPlatform`. Not run in CI.
 
+## Known-open, deliberately not fixed
+
+Findings from the code-review pass that landed in `e06386a`/`cfe545a`/`547af90`,
+left open with a reason rather than silently:
+
+- **A dropped connection is detected on `exec()`/`query()`/`DebugPDOStatement::execute()`
+  only.** Almost all ORM traffic goes through `PDOStatement::execute()` on a
+  plain (non-debug) statement, which nothing wraps, so most dropped connections
+  surface as an ordinary `PDOException` with no pool eviction. Closing the gap
+  means either routing every execute through a Propulsion statement class or
+  checking at the `BasePeer`/`ModelCriteria` call sites; both are wider than a
+  bug fix. Note that the *recovery* story does not change either way — see
+  `PropulsionPDOTrait::handleDroppedConnection()` on why transparent retry
+  cannot be made safe below the transaction boundary.
+- **`Propulsion::initialize()` only resets `$connectionMap`.** `$adapterMap`,
+  `$dbMaps` and the memoised `$defaultDBName` survive a `setConfiguration()`, so
+  reconfiguring a live process (multi-tenant hosts, test harnesses swapping
+  datasources) keeps the previous default datasource and adapters. Resetting
+  them is easy; knowing whether anything relies on the current behaviour is not.
+- **`Criterion::equals()` compares chained sub-clauses by identity** (`===`)
+  rather than recursively, so two structurally identical chained criterions
+  never compare equal. Feeds `Criteria::equals()` and `addJoinObject()`'s
+  `in_array()` dedupe. Inherited from Propel 1; fixing it changes when joins get
+  deduplicated, which wants its own test pass.
+- **The shared tier stores one entry per formatter.** `SharedQueryCache::buildKey()`
+  folds in the `$variant` discriminator that the request-scoped tier genuinely
+  needs (it stores *formatted* results). L2 stores raw rows, so an
+  ARRAY-formatted and an OBJECT-formatted query with identical SQL could share
+  one entry and currently do not. Worth doing; needs coverage proving the two
+  formatters really can consume one another's stored rows.
+
 ## Missing modernization work
 
 - **PSR-18**: not started, nothing to wire it into yet.
