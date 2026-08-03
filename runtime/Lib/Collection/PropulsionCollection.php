@@ -48,9 +48,43 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	protected $model = '';
 
 	/**
+	 * The internal cursor backing getPosition()/getNext()/isLast()/etc. when no
+	 * foreach is currently driving this collection. Held strongly, because it
+	 * carries a position that has to survive between those calls and nothing
+	 * else references it.
+	 *
+	 * Only ever populated by getInternalIterator(), i.e. only for collections
+	 * whose caller actually uses that cursor API -- notably *not* by
+	 * getIterator(), which every plain foreach goes through. See
+	 * $foreachIterator for why that distinction matters.
+	 *
 	 * @var       Iterator<array-key,mixed>|null
 	 */
 	protected $iterator;
+
+	/**
+	 * A **weak** reference to the iterator most recently handed out by
+	 * getIterator(), i.e. the one a foreach currently in progress is driving.
+	 *
+	 * Weak, because ArrayObject::getIterator() returns an iterator that refers
+	 * back to this object, so memoising it strongly made every iterated
+	 * collection part of a reference cycle. A cycle is not freed when its
+	 * refcount drops -- only when PHP's cycle collector runs -- and under a
+	 * persistent worker there is no process exit to fall back on, so collections
+	 * accumulated: measured at roughly a kilobyte of retained overhead per
+	 * iterated collection, on top of the collection's own contents, until GC
+	 * happened to fire. clearIterator() exists to break exactly this, and
+	 * nothing has ever called it.
+	 *
+	 * A weak reference is enough because a running foreach holds the iterator
+	 * strongly for the duration of the loop. So calling isLast()/getNext()
+	 * *inside* a foreach still resolves to that loop's own iterator, exactly as
+	 * before; once the loop ends the iterator is collected immediately and the
+	 * cycle never forms.
+	 *
+	 * @var       \WeakReference<Iterator<array-key,mixed>>|null
+	 */
+	private ?\WeakReference $foreachIterator = null;
 
 	/**
 	 * @var       PropulsionFormatter
@@ -444,30 +478,54 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 		// `foreach ($collection as &$item) { ... }` would silently be lost
 		// (never written back to the collection) since PHP arrays are
 		// value types and getArrayCopy() detaches from the original data.
-		$this->iterator = parent::getIterator();
-		return $this->iterator;
+		$iterator = parent::getIterator();
+		// Remembered weakly, not strongly -- see $foreachIterator. This is the
+		// path every plain foreach takes, so it is the one that must not leave a
+		// reference cycle behind.
+		$this->foreachIterator = \WeakReference::create($iterator);
+
+		return $iterator;
 	}
 
 	/**
+	 * The iterator the position-bearing helpers (getPosition(), getNext(),
+	 * isLast(), ...) read from.
+	 *
+	 * Prefers the iterator a foreach is currently driving, so those helpers
+	 * called from inside a loop still describe that loop's position -- which is
+	 * how they have always behaved and what they are mostly used for. Falls back
+	 * to an internal cursor of its own otherwise, held strongly because nothing
+	 * else would keep it (and its position) alive between calls.
+	 *
 	 * @return    Iterator<array-key,mixed>
 	 */
 	public function getInternalIterator()
 	{
-		if (null === $this->iterator) {
-			return $this->getIterator();
+		$foreachIterator = $this->foreachIterator?->get();
+		if (null !== $foreachIterator) {
+			return $foreachIterator;
 		}
-		return $this->iterator;
+
+		return $this->iterator ??= parent::getIterator();
 	}
 
 	/**
-	 * Clear the internal Iterator.
-	 * PHP 5.3 doesn't know how to free a PropulsionCollection object if it has an attached
-	 * Iterator, so this must be done manually to avoid memory leaks.
+	 * Release the internal Iterator, breaking the reference cycle it forms with
+	 * this collection.
+	 *
+	 * Much less load-bearing than it used to be: getIterator() -- the path every
+	 * foreach takes -- now remembers its iterator weakly, so ordinary iteration
+	 * never creates a cycle to break. Only the getInternalIterator() cursor is
+	 * still held strongly (it has to be; see $iterator), so this is worth
+	 * calling on a long-lived collection whose caller used getNext()/isLast()
+	 * and is now done with it.
+	 *
 	 * @see http://www.propelorm.org/ticket/1232
 	 */
 	public function clearIterator(): void
 	{
 		$this->iterator = null;
+		$this->foreachIterator = null;
 	}
 
 	// Propulsion collection methods
