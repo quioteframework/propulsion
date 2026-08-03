@@ -193,7 +193,34 @@ class UnitOfWork
 			// explicit ROLLBACK) -- the exact failure
 			// Session::rollBackDanglingTransactions() exists to mop up at a
 			// request boundary, which is far too late to be useful here.
-			$this->con->rollBack();
+			//
+			// The rollback is itself guarded so it cannot replace $e. When the
+			// throwable came from commit() the transaction is already resolved,
+			// so PDO::rollBack() raises "There is no active transaction" -- and
+			// an exception thrown from inside a catch block supersedes the one
+			// being handled, so the deadlock or constraint violation that
+			// actually failed the flush was discarded in favour of a message
+			// about rollback, losing the only information the caller needed.
+			//
+			// $e is therefore always rethrown, and always unwrapped: callers
+			// catch specific types out of flush() (a ConcurrencyException from an
+			// OptimisticLockBehavior-guarded update, say), so wrapping it would
+			// break them, and it may be an \Error rather than an \Exception --
+			// which PropulsionException cannot even carry as a $previous. The
+			// rollback's own failure goes to the log instead, the same
+			// best-effort channel PropulsionPDOTrait::publishQueryCacheInvalidations()
+			// uses for exactly this shape of problem: real, worth recording, but
+			// never permitted to displace the primary outcome.
+			try {
+				$this->con->rollBack();
+			} catch (\Throwable $rollBackFailure) {
+				Propulsion::log(
+					'Unit of work flush failed and rolling the transaction back failed too ('
+					. $rollBackFailure->getMessage() . '); the connection may still have an open transaction '
+					. 'on it. The original failure is being rethrown.',
+					Propulsion::LOG_WARNING
+				);
+			}
 			throw $e;
 		} finally {
 			foreach ($suppressed as $entity) {

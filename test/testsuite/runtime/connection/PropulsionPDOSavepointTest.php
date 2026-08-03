@@ -293,4 +293,160 @@ class PropulsionPDOSavepointTest extends TestCase
             Propulsion::forceReconnect('propulsion_pdo_savepoint_test');
         }
     }
+
+    // ---------------------------------------------------------------------
+    // commit()'s depth-counter bookkeeping on the throwing paths.
+    //
+    // The counter is this object's own record of how many levels are open, and
+    // isInTransaction() is derived from it. Two callers depend on it being
+    // truthful after a failure, not just after a success:
+    // TieredQueryCache::sharedTierFor(), which declines the shared cache tier
+    // for the whole rest of the request while it believes a transaction is open,
+    // and Session::rollBackDanglingTransactions(), which only unwinds what the
+    // counter says is there. So a failed commit has to leave it correct -- and
+    // "correct" differs between the two failure modes, which is what these
+    // cover from both directions.
+    // ---------------------------------------------------------------------
+
+    /**
+     * Happy path, stated explicitly so the failure paths below have a baseline:
+     * a successful commit unwinds exactly one level.
+     */
+    public function testSuccessfulCommitDecrementsTheDepthCounter(): void
+    {
+        $this->pdo->beginTransaction();
+        $this->pdo->beginTransaction();
+        $this->assertSame(2, $this->pdo->getNestedTransactionCount());
+
+        $this->pdo->commit();
+        $this->assertSame(1, $this->pdo->getNestedTransactionCount());
+
+        $this->pdo->commit();
+        $this->assertSame(0, $this->pdo->getNestedTransactionCount());
+        $this->assertFalse($this->pdo->isInTransaction());
+    }
+
+    /**
+     * Failure path 1: the underlying COMMIT itself fails. The driver has
+     * resolved or aborted the transaction either way, so there is nothing left
+     * here to unwind and the counter must come back down -- it used to stay at 1
+     * forever, silently disabling the shared query cache tier for the remainder
+     * of the request (sharedTierFor() declines while isInTransaction()).
+     */
+    public function testFailedCommitStillDecrementsTheDepthCounter(): void
+    {
+        $this->pdo->beginTransaction();
+        $this->pdo->exec("INSERT INTO widgets (name) VALUES ('A')");
+        $this->assertSame(1, $this->pdo->getNestedTransactionCount());
+
+        // Resolve the transaction behind PropulsionPDO's back (exec() does not
+        // touch the depth counter), so its own commit() finds nothing to commit
+        // and PDO raises "There is no active transaction". That reproduces the
+        // real shape -- a PDOException escaping parent::commit() -- without
+        // needing to provoke a genuine deadlock or a deferred constraint.
+        $this->pdo->exec('COMMIT');
+
+        try {
+            $this->pdo->commit();
+            $this->fail('expected commit() to fail once the transaction was already resolved');
+        } catch (\PDOException) {
+            // The exception is the driver's business; the bookkeeping is ours,
+            // and it must survive the throw.
+        }
+
+        $this->assertSame(
+            0,
+            $this->pdo->getNestedTransactionCount(),
+            'a failed COMMIT is still terminal for the transaction, so the depth must come back down'
+        );
+        $this->assertFalse($this->pdo->isInTransaction());
+    }
+
+    /**
+     * Failure path 2: the poison-flag guard. This one throws *without issuing
+     * anything*, so unlike the case above the transaction genuinely is still
+     * open on the server -- and the counter must stay up to say so, which is
+     * what lets the caller's own rollBack() (or Session::reset()'s sweep) find
+     * and unwind it. Decrementing here would strand an open transaction nothing
+     * could see, poisoning the connection on Postgres for everything that
+     * reuses it.
+     */
+    public function testUncommitableGuardKeepsTheDepthSoTheTransactionCanStillBeUnwound(): void
+    {
+        $con = new class ('sqlite::memory:') extends SqlitePropulsionPDO {
+            protected function supportsSavepoints(): bool
+            {
+                return false;
+            }
+        };
+        $con->setConfiguration(new \Propulsion\Config\PropulsionConfiguration(array()));
+        $con->exec('CREATE TABLE widgets (id INTEGER PRIMARY KEY, name TEXT)');
+
+        $con->beginTransaction();
+        $con->exec("INSERT INTO widgets (name) VALUES ('A')");
+        $con->beginTransaction();
+        $con->rollBack();
+
+        $this->assertFalse($con->isCommitable());
+
+        try {
+            $con->commit();
+            $this->fail('expected commit() to refuse a poisoned transaction');
+        } catch (PropulsionException) {
+            // Expected; asserted in full by
+            // testFallsBackToPoisonFlagEmulationWhenSavepointsAreNotSupported().
+        }
+
+        $this->assertSame(
+            1,
+            $con->getNestedTransactionCount(),
+            'nothing was sent to the server, so the transaction is still open and must remain visible'
+        );
+        $this->assertTrue($con->isInTransaction());
+
+        // And it really can still be unwound, which is the point of keeping it.
+        $con->rollBack();
+        $this->assertSame(0, $con->getNestedTransactionCount());
+        $stmt = $con->query('SELECT name FROM widgets');
+        $this->assertNotFalse($stmt);
+        $this->assertSame([], $stmt->fetchAll(PDO::FETCH_COLUMN, 0));
+    }
+
+    /**
+     * A failed RELEASE SAVEPOINT (the nested-level commit) must unwind its level
+     * too -- same reasoning as the failed COMMIT above, and the reason the
+     * decrement lives in a `finally` around both branches rather than only the
+     * outermost one.
+     */
+    public function testFailedSavepointReleaseStillDecrementsTheDepthCounter(): void
+    {
+        $this->pdo->beginTransaction();
+        $this->pdo->beginTransaction();
+        $this->assertSame(2, $this->pdo->getNestedTransactionCount());
+
+        // Release the inner savepoint behind PropulsionPDO's back, so its own
+        // RELEASE finds nothing and SQLite raises "no such savepoint". A real
+        // driver error, not a simulated one -- and note it has to be provoked
+        // this way rather than by overriding exec(), since commit() deliberately
+        // calls parent::exec() to keep its own bookkeeping out of the picture.
+        $this->pdo->exec('RELEASE SAVEPOINT ' . 'PROPULSION_SAVEPOINT_LEVEL2');
+
+        try {
+            $this->pdo->commit();
+            $this->fail('expected the failing RELEASE SAVEPOINT to surface');
+        } catch (\PDOException) {
+            // Expected.
+        }
+
+        $this->assertSame(
+            1,
+            $this->pdo->getNestedTransactionCount(),
+            'the nested level is over however its RELEASE ended; the outer level must remain'
+        );
+        $this->assertTrue($this->pdo->isInTransaction());
+
+        // The outer level is still genuinely unwindable.
+        $this->pdo->rollBack();
+        $this->assertSame(0, $this->pdo->getNestedTransactionCount());
+    }
 }

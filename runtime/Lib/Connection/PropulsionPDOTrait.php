@@ -302,6 +302,28 @@ trait PropulsionPDOTrait
 	 * For nested calls on a savepoint-capable platform, this releases the SAVEPOINT that
 	 * was created by the matching beginTransaction() call instead.
 	 *
+	 * **Once a statement has actually been issued, the depth counter is decremented
+	 * even if that statement fails.** It used to be decremented only on the
+	 * success path, so a PDOException out of `parent::commit()` (a deadlock, a
+	 * serialization failure, a deferred constraint firing at COMMIT) or out of the
+	 * `RELEASE SAVEPOINT` left a pooled connection permanently claiming a depth it
+	 * no longer had. Two things then went wrong for the rest of the request, both
+	 * silent: `isInTransaction()` kept returning true, so
+	 * `TieredQueryCache::sharedTierFor()` refused to consult the shared cache at
+	 * all (it declines inside a transaction, to avoid publishing uncommitted
+	 * rows); and a caller that handled the failure and retried unwound one level
+	 * too few. Decrementing is right because the level really is over either way:
+	 * a failed COMMIT is still terminal for the transaction, the driver having
+	 * already resolved or aborted it, so there is nothing left here to unwind.
+	 *
+	 * The `isUncommitable` guard is deliberately *outside* that: it throws without
+	 * issuing anything, so the transaction genuinely is still open on the server
+	 * and the depth must stay to say so. That is what lets the caller's own
+	 * rollBack() -- or, failing that, `Session::rollBackDanglingTransactions()` at
+	 * the request boundary -- find it and unwind it. Decrementing here instead
+	 * would strand an open transaction that nothing could see, which on Postgres
+	 * poisons the connection for everything that reuses it.
+	 *
 	 * @return    boolean
 	 */
 	public function commit(): bool
@@ -311,10 +333,15 @@ trait PropulsionPDOTrait
 		$opcount = $this->nestedTransactionCount;
 
 		if ($opcount > 0) {
-			if ($opcount === 1) {
-				if ($this->isUncommitable) {
-					throw new PropulsionException('Cannot commit because a nested transaction was rolled back');
-				} else {
+			// Checked before the try/finally below: this path issues no
+			// statement, so the transaction stays open and the depth stays with
+			// it. See the docblock.
+			if ($opcount === 1 && $this->isUncommitable) {
+				throw new PropulsionException('Cannot commit because a nested transaction was rolled back');
+			}
+
+			try {
+				if ($opcount === 1) {
 					$return = parent::commit();
 					if ($this->useDebug) {
 						$this->log('Commit transaction', null, PropulsionPDO::class . '::' . __FUNCTION__);
@@ -325,13 +352,13 @@ trait PropulsionPDOTrait
 					// under an already-current version token, and nothing would
 					// bump again to dislodge it.
 					$this->publishQueryCacheInvalidations();
+				} elseif ($this->supportsSavepoints()) {
+					$return = !$this->supportsReleaseSavepoint()
+						|| parent::exec('RELEASE SAVEPOINT ' . $this->getSavepointName($opcount)) !== false;
 				}
-			} elseif ($this->supportsSavepoints()) {
-				$return = !$this->supportsReleaseSavepoint()
-					|| parent::exec('RELEASE SAVEPOINT ' . $this->getSavepointName($opcount)) !== false;
+			} finally {
+				$this->nestedTransactionCount--;
 			}
-
-			$this->nestedTransactionCount--;
 		}
 		return $return;
 	}

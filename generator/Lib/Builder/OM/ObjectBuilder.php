@@ -2158,9 +2158,23 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			\$con->commit();
 			\$this->setDeleted(true);";
 		}
+		// The rollback is guarded so it cannot replace \$e. If the throwable came
+		// from commit() the transaction is already resolved, so rollBack() raises
+		// "There is no active transaction" -- and an exception thrown from inside
+		// a catch block supersedes the one being handled, so the constraint
+		// violation, deadlock or hook refusal that actually failed the write was
+		// discarded in favour of a message about rollback. \$e is always rethrown
+		// unwrapped (callers catch specific types here, and it may be an \Error,
+		// which PropulsionException cannot carry as a \$previous); the rollback's
+		// own failure goes to the log, the same best-effort channel
+		// PropulsionPDOTrait::publishQueryCacheInvalidations() uses.
 		$script .= "
 		} catch (\Throwable \$e) {
-			\$con->rollBack();
+			try {
+				\$con->rollBack();
+			} catch (\Throwable \$rollBackFailure) {
+				Propulsion::log('Rolling back after a failed write failed too (' . \$rollBackFailure->getMessage() . '); the connection may still have an open transaction on it. The original failure is being rethrown.', Propulsion::LOG_WARNING);
+			}
 			throw \$e;
 		}
 	}";
@@ -2263,9 +2277,23 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			\$con->commit();
 			return \$affectedRows;";
 		}
+		// The rollback is guarded so it cannot replace \$e. If the throwable came
+		// from commit() the transaction is already resolved, so rollBack() raises
+		// "There is no active transaction" -- and an exception thrown from inside
+		// a catch block supersedes the one being handled, so the constraint
+		// violation, deadlock or hook refusal that actually failed the write was
+		// discarded in favour of a message about rollback. \$e is always rethrown
+		// unwrapped (callers catch specific types here, and it may be an \Error,
+		// which PropulsionException cannot carry as a \$previous); the rollback's
+		// own failure goes to the log, the same best-effort channel
+		// PropulsionPDOTrait::publishQueryCacheInvalidations() uses.
 		$script .= "
 		} catch (\Throwable \$e) {
-			\$con->rollBack();
+			try {
+				\$con->rollBack();
+			} catch (\Throwable \$rollBackFailure) {
+				Propulsion::log('Rolling back after a failed write failed too (' . \$rollBackFailure->getMessage() . '); the connection may still have an open transaction on it. The original failure is being rethrown.', Propulsion::LOG_WARNING);
+			}
 			throw \$e;
 		}
 	}";

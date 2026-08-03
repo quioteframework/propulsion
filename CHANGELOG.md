@@ -51,6 +51,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `SELECT DISTINCT a, COUNT(DISTINCT b) FROM t` became
   `SELECT DISTINCT TOP n a, COUNT(b) FROM t` — wrong results, with no error to
   notice it by. Only the leading keyword is removed now.
+- **A failed rollback no longer hides the failure it was cleaning up after.** The
+  generated `save()`/`delete()` and `UnitOfWork::flush()` all rolled back inside
+  `catch (\Throwable $e)` before rethrowing, unguarded. When that rollback also
+  failed — which is precisely what happens when the original throwable came from
+  `commit()`, since the transaction is already resolved and PDO then raises
+  "There is no active transaction" — the rollback's exception superseded the one
+  being handled, because an exception thrown from inside a catch block replaces
+  it. The constraint violation, deadlock or hook refusal that actually failed the
+  write was discarded in favour of a message about rollback. The original is now
+  always rethrown unwrapped (callers catch specific types here, and it may be an
+  `Error`, which `PropulsionException` cannot carry as a `$previous`), and the
+  rollback's own failure is logged via `Propulsion::log()` at warning level — the
+  same best-effort channel `publishQueryCacheInvalidations()` already uses.
+- **A failed `commit()` left the transaction depth counter stuck.**
+  `PropulsionPDOTrait::commit()` decremented `$nestedTransactionCount` only on
+  success, so a `PDOException` out of `parent::commit()` or out of the nested
+  `RELEASE SAVEPOINT` left a pooled connection permanently claiming a depth it no
+  longer had. `isInTransaction()` then kept returning true, which silently
+  disabled the shared query cache tier for the rest of the request
+  (`TieredQueryCache::sharedTierFor()` declines while a transaction is open), and
+  a caller that handled the failure and retried unwound one level too few. The
+  decrement now happens in a `finally`. The `isUncommitable` guard is
+  deliberately excluded: it throws without issuing anything, so the transaction
+  genuinely is still open and the depth must stay to say so — which is what lets
+  the caller's own `rollBack()`, or `Session::rollBackDanglingTransactions()` at
+  the request boundary, find and unwind it.
 
 ### Security
 

@@ -26,6 +26,11 @@ class UnitOfWorkTest extends BookstoreTestBase
 	{
 		$prop = new ReflectionProperty(Propulsion::class, 'eventDispatcher');
 		$prop->setValue(null, null);
+		// Propulsion::setLogger() has no unset counterpart, and a logger left
+		// registered here would keep collecting from every later test in the run
+		// (and, worse, keep a test-local object alive on a process-wide static).
+		$logger = new ReflectionProperty(Propulsion::class, 'logger');
+		$logger->setValue(null, null);
 		parent::tearDown();
 	}
 
@@ -378,6 +383,170 @@ class UnitOfWorkTest extends BookstoreTestBase
 		// caller can inspect and retry -- same contract as the
 		// PropulsionException path.
 		$this->assertSame(array($author), $uow->getTrackedEntities());
+	}
+
+	/**
+	 * Happy-path counterpart to the two tests below: when nothing fails, the
+	 * rollback guard must stay completely out of the way -- flush() commits, the
+	 * rows land, and the tracked set is cleared.
+	 */
+	public function testSuccessfulFlushCommitsAndClearsTracking(): void
+	{
+		$author = new Author();
+		$author->setFirstName('UnitOfWorkRollbackGuardHappyPath');
+		$author->setLastName('ShouldPersist');
+
+		$depthBefore = $this->con->getNestedTransactionCount();
+
+		$uow = new UnitOfWork($this->con);
+		$uow->track($author);
+		$uow->flush();
+
+		$this->assertSame($depthBefore, $this->con->getNestedTransactionCount());
+		$this->assertSame(array(), $uow->getTrackedEntities(), 'a successful flush clears what it flushed');
+		$this->assertNotNull(
+			AuthorQuery::create()->findOneByFirstName('UnitOfWorkRollbackGuardHappyPath', $this->con)
+		);
+	}
+
+	/**
+	 * The failure path the rollback guard exists for.
+	 *
+	 * flush()'s catch block rolls back before rethrowing. That rollback used to
+	 * be unguarded, so when it *also* failed -- which is exactly what happens
+	 * when the original throwable came from commit(), since the transaction is
+	 * already resolved and PDO then raises "There is no active transaction" --
+	 * the rollback's own exception superseded the one being handled. The
+	 * deadlock, constraint violation or listener error that actually failed the
+	 * flush was discarded in favour of a message about rollback, which is the
+	 * one piece of information the caller could not do without.
+	 *
+	 * Driven through a connection whose rollBack() throws. No SQL is issued at
+	 * all here: the entity's save() fails in its PreSave listener, so the
+	 * throwaway in-memory connection needs no bookstore schema -- only its
+	 * transaction methods are exercised.
+	 *
+	 * The original is rethrown *unwrapped* even in this case: callers catch
+	 * specific types out of flush(), and the throwable may be an \Error, which
+	 * PropulsionException cannot carry as a $previous at all. The rollback
+	 * failure is recorded via Propulsion::log() instead.
+	 *
+	 * This covers both guards at once -- the generated save()'s and flush()'s --
+	 * since the listener's exception has to survive both layers to arrive intact.
+	 * See BaseObjectSaveRollbackTest for save()'s own, isolated coverage.
+	 */
+	public function testFlushPreservesTheOriginalFailureWhenRollbackAlsoFails(): void
+	{
+		Propulsion::setEventDispatcher(new class implements EventDispatcherInterface {
+			public function dispatch(object $event): object
+			{
+				if ($event instanceof \Propulsion\Event\PreSaveEvent) {
+					throw new RuntimeException('the real cause');
+				}
+				return $event;
+			}
+		});
+
+		// Every rollback on this connection fails -- both the nested one the
+		// generated save() issues while unwinding the listener's refusal and the
+		// outer one flush() issues. Both are guarded, so neither may displace the
+		// listener's exception. The distinctive message is what lets the
+		// assertions tell a rollback's own failure apart from the failure it was
+		// cleaning up after, which is the entire distinction the fix turns on.
+		$con = new class ('sqlite::memory:') extends \Propulsion\Adapter\Sqlite\SqlitePropulsionPDO {
+			public function rollBack(): bool
+			{
+				throw new \PDOException('ROLLBACK_EXPLODED');
+			}
+		};
+		$con->setConfiguration(new \Propulsion\Config\PropulsionConfiguration(array()));
+
+		$author = new Author();
+		$author->setFirstName('UnitOfWorkRollbackGuard');
+		$author->setLastName('ShouldNotPersist');
+
+		// The rollback failure is logged, not thrown; capture it to prove it is
+		// genuinely recorded rather than swallowed silently.
+		$logger = new class extends \Psr\Log\AbstractLogger {
+			/** @var list<string> */
+			public array $messages = array();
+
+			public function log($level, $message, array $context = array()): void
+			{
+				$this->messages[] = (string) $message;
+			}
+		};
+		Propulsion::setLogger($logger);
+
+		$uow = new UnitOfWork($con);
+		$uow->track($author);
+
+		try {
+			$uow->flush();
+			$this->fail('expected flush() to report the failure');
+		} catch (\Throwable $e) {
+			// Before the fix, flush()'s own rollBack() threw from inside its
+			// catch block and superseded the exception being handled, so this was
+			// ROLLBACK_EXPLODED -- telling the caller nothing about why the flush
+			// actually failed.
+			$this->assertStringNotContainsString(
+				'ROLLBACK_EXPLODED',
+				$e->getMessage(),
+				"flush()'s own rollback failure must not displace the failure it was cleaning up after"
+			);
+			$this->assertSame(
+				'the real cause',
+				$e->getMessage(),
+				'the original failure must propagate, unwrapped'
+			);
+			$this->assertInstanceOf(RuntimeException::class, $e, 'and with its original type intact');
+		}
+
+		$this->assertNotEmpty($logger->messages, 'the rollback failure must not be swallowed silently');
+		$this->assertStringContainsString(
+			'ROLLBACK_EXPLODED',
+			implode("\n", $logger->messages),
+			'the rollback failure is recorded -- it means the connection may still be dirty'
+		);
+	}
+
+	/**
+	 * The other side of that guard: when the rollback succeeds -- the ordinary
+	 * case -- the original throwable must come out completely unwrapped, exactly
+	 * as it did before the guard existed. Wrapping it unconditionally would break
+	 * every caller that catches a specific exception type from flush(), e.g. a
+	 * ConcurrencyException from an OptimisticLockBehavior-guarded update.
+	 */
+	public function testFlushRethrowsTheOriginalUnwrappedWhenRollbackSucceeds(): void
+	{
+		Propulsion::setEventDispatcher(new class implements EventDispatcherInterface {
+			public function dispatch(object $event): object
+			{
+				if ($event instanceof \Propulsion\Event\PreSaveEvent) {
+					throw new RuntimeException('the real cause');
+				}
+				return $event;
+			}
+		});
+
+		$author = new Author();
+		$author->setFirstName('UnitOfWorkRollbackGuardUnwrapped');
+		$author->setLastName('ShouldNotPersist');
+
+		$uow = new UnitOfWork($this->con);
+		$uow->track($author);
+
+		try {
+			$uow->flush();
+			$this->fail('expected the listener RuntimeException to propagate out of flush()');
+		} catch (RuntimeException $e) {
+			$this->assertSame(
+				'the real cause',
+				$e->getMessage(),
+				'a successful rollback must leave the original throwable entirely untouched'
+			);
+			$this->assertNotInstanceOf(PropulsionException::class, $e);
+		}
 	}
 
 	public function testGetTrackedEntities(): void
