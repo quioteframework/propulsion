@@ -47,6 +47,13 @@ declare(strict_types=1);
 
 const IMAGE_TAG = 'propulsion-worker-test:latest';
 const CONTAINER_NAME_PREFIX = 'propulsion-worker-test-';
+
+/**
+ * How many times to start a worker container before giving up, when the container
+ * comes up healthy but its published host port is unreachable. See
+ * pickFreeHostPort() for what makes that happen.
+ */
+const WORKER_START_ATTEMPTS = 4;
 const CONTAINER_LABEL = 'propulsion.test-container=true';
 const CROSS_THREAD_COUNT = 4;
 
@@ -122,6 +129,7 @@ register_shutdown_function(static function () use (&$activeContainers, &$activeN
         run(['docker', 'network', 'rm', $name]);
     }
 });
+
 
 /** @return array<string, mixed> */
 function httpGetJson(string $url): array
@@ -290,10 +298,75 @@ function check(string $name, \Closure $fn): void
  */
 function startWorkerContainer(string $label, array $env, ?string $network = null): string
 {
+    for ($attempt = 1; ; $attempt++) {
+        $baseUrl = tryStartWorkerContainer($label, $env, $network, $attempt, $failure);
+        if ($baseUrl !== null) {
+            return $baseUrl;
+        }
+
+        // The container came up but its published port was unreachable. That is
+        // the host-side mapping failing, not the worker (see
+        // pickFreeHostPort()), and a different port usually works -- so re-roll
+        // rather than reporting a worker-safety failure that is nothing of the
+        // kind.
+        if ($attempt >= WORKER_START_ATTEMPTS) {
+            fail($failure);
+        }
+        fwrite(STDOUT, "[$label] published port was unreachable; retrying with a new port (attempt " . ($attempt + 1) . " of " . WORKER_START_ATTEMPTS . ")\n");
+    }
+}
+
+/**
+ * A host port to publish on, chosen from a fixed range *above* the kernel's
+ * ephemeral range.
+ *
+ * Letting Docker pick (`-p 127.0.0.1::8080`) puts the mapping inside
+ * `net.ipv4.ip_local_port_range` -- 32768-60999 on this kernel -- where it can
+ * collide with a port already handed out to some other socket. When that happens
+ * Docker still reports the mapping and `docker port` still prints it, but nothing
+ * listens on the host: every probe gets an immediate "Couldn't connect to server"
+ * while the container itself is running and serving perfectly well. Observed
+ * directly on WSL2 -- a run where ports 49674 and 49675 worked and the very next
+ * container, on 49676, was unreachable for 240 consecutive probes over 60s.
+ *
+ * Test-binding each candidate first is not airtight (the kernel could hand the
+ * port to something else in the window before Docker binds it), which is why
+ * startWorkerContainer() also retries; but staying out of the ephemeral range
+ * removes the systematic cause rather than just papering over it.
+ */
+function pickFreeHostPort(): int
+{
+    for ($port = 18080; $port < 18980; $port++) {
+        $sock = @stream_socket_server("tcp://127.0.0.1:$port", $errno, $errstr);
+        if ($sock !== false) {
+            fclose($sock);
+
+            return $port;
+        }
+    }
+
+    fail('Could not find a free host port in 18080-18979 to publish the worker on.');
+}
+
+/**
+ * One attempt at starting a worker container and waiting for it to serve.
+ *
+ * Returns its base URL, or null if the container started but never became
+ * reachable -- in which case $failure carries the (fully diagnosed) message
+ * startWorkerContainer() will report if it runs out of attempts. Anything that is
+ * definitely not a port problem (docker run itself failing, the container exiting)
+ * fails immediately rather than being retried.
+ *
+ * @param array<string, string> $env
+ */
+function tryStartWorkerContainer(string $label, array $env, ?string $network, int $attempt, ?string &$failure): ?string
+{
     global $activeContainers;
 
     $containerName = CONTAINER_NAME_PREFIX . bin2hex(random_bytes(4));
     $activeContainers[] = $containerName;
+
+    $hostPort = pickFreeHostPort();
 
     $cmd = ['docker', 'run', '-d', '--name', $containerName, '--label', CONTAINER_LABEL];
     if ($network !== null) {
@@ -305,7 +378,7 @@ function startWorkerContainer(string $label, array $env, ?string $network = null
         $cmd[] = "$key=$value";
     }
     $cmd[] = '-p';
-    $cmd[] = '127.0.0.1::8080';
+    $cmd[] = '127.0.0.1:' . $hostPort . ':8080';
     $cmd[] = IMAGE_TAG;
 
     [$runCode, , $runErr] = run($cmd);
@@ -317,23 +390,42 @@ function startWorkerContainer(string $label, array $env, ?string $network = null
     if ($portCode !== 0) {
         fail("[$label] docker port failed:\n$portErr");
     }
-    // e.g. "0.0.0.0:34567"
+    // e.g. "127.0.0.1:18080"
     if (!preg_match('/:(\d+)$/', $portOut, $m)) {
         fail("[$label] Could not parse host port from: $portOut");
     }
     $baseUrl = 'http://127.0.0.1:' . $m[1];
 
+    // The first start of each distinct container configuration is much slower
+    // than the steady state -- image layers to mount, FrankenPHP to boot 24
+    // threads, and (for the pgsql profiles) a just-started Postgres to accept
+    // its first connection. A 20s budget failed the *first* attempt at every
+    // profile on a machine where the second attempt passed in a couple of
+    // seconds, which reads as a regression when it is only a cold start. The
+    // budget is generous rather than tight because the cost of it being too
+    // small is a false failure, while the cost of it being too large is only
+    // waiting longer for a genuine one. Overridable for slower CI hosts.
+    $readyTimeout = (float) (getenv('WORKER_READY_TIMEOUT') ?: '60');
     $ready = false;
-    $deadline = microtime(true) + 20;
+    $attempts = 0;
+    // Why the *last* probe failed. Without this the timeout message said only
+    // "never became ready", which is indistinguishable between the three things
+    // that actually happen: the container died, the container is up but slow, and
+    // the probe cannot reach the port at all. That ambiguity cost real debugging
+    // time, so the reason is carried out to the failure message.
+    $lastError = 'no probe attempt completed';
+    $deadline = microtime(true) + $readyTimeout;
     while (microtime(true) < $deadline) {
+        $attempts++;
         try {
             $resp = httpGetJson("$baseUrl/?action=noop");
             if (($resp['ok'] ?? false) === true) {
                 $ready = true;
                 break;
             }
-        } catch (\Throwable) {
-            // not up yet
+            $lastError = 'responded without ok=true: ' . json_encode($resp);
+        } catch (\Throwable $e) {
+            $lastError = $e->getMessage();
         }
         usleep(250_000);
     }
@@ -341,7 +433,28 @@ function startWorkerContainer(string $label, array $env, ?string $network = null
         // FrankenPHP/Caddy logs to stderr, not stdout -- both are captured
         // here so a startup failure (e.g. a bad DSN) is actually visible.
         [, $logsOut, $logsErr] = run(['docker', 'logs', $containerName]);
-        fail("[$label] Worker never became ready within 20s. Container logs:\n$logsOut\n$logsErr");
+        [, $inspectOut] = run(['docker', 'inspect', '-f', '{{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}}', $containerName]);
+        $state = trim($inspectOut);
+        $failure =
+            "[$label] Worker never became ready within {$readyTimeout}s"
+            . " (raise WORKER_READY_TIMEOUT if this host is slower).\n"
+            . "  attempt:    $attempt of " . WORKER_START_ATTEMPTS . "\n"
+            . "  probed:     $baseUrl/?action=noop ($attempts attempts)\n"
+            . "  last error: $lastError\n"
+            . "  container:  $state\n"
+            . '  port map:   ' . trim($portOut) . "\n"
+            . "Container logs:\n$logsOut\n$logsErr";
+
+        // A running container that never answered is the host-side port mapping
+        // failing; that is worth another go on a different port. A container that
+        // exited is a real failure and must not be retried into silence.
+        if (str_starts_with($state, 'running')) {
+            run(['docker', 'rm', '-f', $containerName]);
+
+            return null;
+        }
+
+        fail($failure);
     }
 
     fwrite(STDOUT, "[$label] Worker is up on $baseUrl.\n");
