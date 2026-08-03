@@ -1071,7 +1071,7 @@ class BasePeer
 			// but this method isn't itself guaranteed a non-null key by its signature.
 			throw new PropulsionException('createSelectSqlWithCompiledCache() called without a compiled query cache key');
 		}
-		$cache = Propulsion::getSession()->getCompiledQueryCache();
+		$cache = Propulsion::getServiceContainer()->getCompiledQueryCache();
 
 		// The datasource is part of the entry's identity even though the caller
 		// never supplies it. Two datasources can use different adapters, and the

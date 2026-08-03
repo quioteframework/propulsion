@@ -78,6 +78,37 @@ class Session
     private array $instancePools = [];
 
     /**
+     * How many scopes have suspended instance pooling and not yet resumed.
+     *
+     * Distinct from `Propulsion::$instancePoolingEnabled`, which is the
+     * *explicit* application-level switch (`Propulsion::disableInstancePooling()`)
+     * and stays process-scoped because it is deployment configuration -- a batch
+     * worker that turns pooling off at boot means it for the whole process. This
+     * counter is the other thing that switch was being used for: a transient,
+     * nestable suspension for the duration of one streamed result set
+     * ({@see \Propulsion\Collection\PropulsionOnDemandIterator}).
+     *
+     * It is a counter rather than a boolean, and it lives here rather than on
+     * `Propulsion`, for two separate reasons:
+     *
+     *  - **A boolean cannot nest.** The iterator used to call
+     *    `Propulsion::disableInstancePooling()` and restore based on its "did I
+     *    change it" return value. With two on-demand iterations alive at once
+     *    (nested `foreach` over two streamed queries -- legitimate, and the
+     *    reason on-demand mode exists) the inner one saw "already disabled" and
+     *    recorded that it must not restore, so when the *outer* one finished it
+     *    re-enabled pooling while the inner was still streaming, and the inner
+     *    silently began pooling every row it hydrated -- the exact unbounded
+     *    growth on-demand mode exists to avoid.
+     *  - **A leaked suspension must not outlive the request.** An iterator kept
+     *    alive past the request boundary (by a reference cycle, or by an
+     *    exception holding the collection) never resumed, so pooling stayed off
+     *    for every subsequent request that worker process served, silently.
+     *    Being here means {@see reset()} restores it.
+     */
+    private int $instancePoolingSuspendCount = 0;
+
+    /**
      * Request-scoped cache of formatted query results (see
      * {@see QueryResultCache}). Same axis as `$instancePools`: cleared at
      * every request boundary by {@see reset()} so a cached row from one
@@ -85,13 +116,6 @@ class Session
      */
     private QueryResultCache $queryCache;
 
-    /**
-     * Request-scoped cache of compiled SELECT SQL strings (see
-     * {@see CompiledQueryCache}). Same axis as $queryCache: cleared at every
-     * request boundary by {@see reset()} so a compiled entry from one worker
-     * request never leaks into the next.
-     */
-    private CompiledQueryCache $compiledQueryCache;
 
     /**
      * Coordinates the request-scoped cache above with the process-shared tier.
@@ -105,7 +129,6 @@ class Session
     public function __construct()
     {
         $this->queryCache = new QueryResultCache();
-        $this->compiledQueryCache = new CompiledQueryCache();
     }
 
     /**
@@ -155,12 +178,20 @@ class Session
     }
 
     /**
-     * The current request's compiled-query (SQL-string) cache. Opted into per
-     * query via {@see \Propulsion\Query\Criteria::setCompiledQueryCache()}.
+     * The compiled-query (SQL-string) cache. Opted into per query via
+     * {@see \Propulsion\Query\Criteria::setCompiledQueryCache()}.
+     *
+     * @deprecated This cache is no longer owned by the Session -- it is
+     *             process-scoped now, so it survives {@see reset()} and is shared
+     *             by every request the worker serves (see
+     *             {@see CompiledQueryCache}'s docblock for why). This accessor is
+     *             kept as a delegator so existing callers keep working; new code
+     *             should ask {@see ServiceContainer::getCompiledQueryCache()},
+     *             which is where it actually lives.
      */
     public function getCompiledQueryCache(): CompiledQueryCache
     {
-        return $this->compiledQueryCache;
+        return Propulsion::getServiceContainer()->getCompiledQueryCache();
     }
 
     /**
@@ -229,6 +260,46 @@ class Session
     }
 
     /**
+     * Suspend instance pooling for the current scope. Every call must be paired
+     * with a {@see resumeInstancePooling()} call -- suspensions nest, and pooling
+     * only resumes once the outermost one has resumed.
+     *
+     * @see $instancePoolingSuspendCount for why this is a counter and why it
+     *      lives on the request-scoped Session.
+     */
+    public function suspendInstancePooling(): void
+    {
+        $this->instancePoolingSuspendCount++;
+    }
+
+    /**
+     * End one scope's suspension of instance pooling.
+     *
+     * Floors at zero rather than going negative: an unbalanced resume (a caller
+     * that resumes twice, or resumes something it never suspended) would
+     * otherwise leave the counter below zero and make the *next* legitimate
+     * suspension a no-op, which is a far more confusing failure than simply
+     * ignoring the extra resume.
+     */
+    public function resumeInstancePooling(): void
+    {
+        if ($this->instancePoolingSuspendCount > 0) {
+            $this->instancePoolingSuspendCount--;
+        }
+    }
+
+    /**
+     * Whether any scope currently has instance pooling suspended.
+     *
+     * Consulted by {@see Propulsion::isInstancePoolingEnabled()}, which ANDs it
+     * with the explicit application-level switch.
+     */
+    public function isInstancePoolingSuspended(): bool
+    {
+        return $this->instancePoolingSuspendCount > 0;
+    }
+
+    /**
      * For replication, set whether to always force the use of a master
      * connection.
      */
@@ -275,20 +346,43 @@ class Session
      *  4. Clear the query result cache ({@see QueryResultCache}) -- same
      *     reasoning as step 2: a result cached while serving one request must
      *     not be handed out to a later, unrelated request.
-     *  5. Clear the compiled-query cache ({@see CompiledQueryCache}) -- same
-     *     reasoning as step 4, applied to cached SQL strings instead of rows.
+     *  5. Drop any outstanding instance-pooling suspension (see
+     *     $instancePoolingSuspendCount) -- an on-demand iteration abandoned
+     *     mid-stream would otherwise leave pooling suspended for every later
+     *     request this worker process serves.
+     *  6. Zero each open connection's debug counters (query count, last
+     *     executed query), which are per-request figures sitting on a
+     *     process-scoped object -- see resetConnectionDebugCounters().
+     *
+     * Two things are deliberately *not* reset here:
+     *
+     *  - `Propulsion::$instancePoolingEnabled`, the explicit
+     *    `Propulsion::disableInstancePooling()` switch. That one reads as
+     *    deployment configuration -- a batch worker that turns pooling off at boot
+     *    means it for the life of the process, and re-enabling it at every request
+     *    boundary would silently override that. Only the transient, scoped
+     *    suspension above is request state.
+     *  - The compiled-query cache ({@see CompiledQueryCache}). This step used to be
+     *    here, on the same reasoning as step 4; it is gone because that cache holds
+     *    SQL text derived purely from the datasource and the query shape, with no
+     *    bound values and nothing request-identifying in it, and clearing it every
+     *    request made a worker recompile the same SQL forever -- defeating the one
+     *    deployment the cache exists for. It is process-scoped now, on
+     *    {@see ServiceContainer}, and cleared by `Propulsion::setConfiguration()`
+     *    instead (a new configuration can mean a new adapter, hence different SQL).
      */
     public function reset(): void
     {
         $this->rollBackDanglingTransactions();
         $this->clearAllPools();
         $this->forceMasterConnection = false;
+        $this->instancePoolingSuspendCount = 0;
         $this->queryCache->clear();
         // Request-scoped cache bookkeeping only. This must never reach the
         // shared PSR-16 backend: clearing that here would flush every other
         // process's cache at the end of every request.
         $this->tieredCache?->reset();
-        $this->compiledQueryCache->clear();
+        $this->resetConnectionDebugCounters();
     }
 
     /**
@@ -301,6 +395,23 @@ class Session
         foreach (Propulsion::getOpenConnections() as $con) {
             if ($con instanceof PropulsionPDO && $con->isInTransaction()) {
                 $con->forceRollBack();
+            }
+        }
+    }
+
+    /**
+     * Put every open connection's per-request debug bookkeeping back to zero.
+     *
+     * The connections themselves are process-scoped and deliberately survive the
+     * boundary -- reusing them is the point of worker mode -- but the query count
+     * and last-executed-query they carry are read as per-request figures, which is
+     * what they were under PHP-FPM where the connection died with the request.
+     */
+    private function resetConnectionDebugCounters(): void
+    {
+        foreach (Propulsion::getOpenConnections() as $con) {
+            if ($con instanceof PropulsionPDO) {
+                $con->resetDebugCounters();
             }
         }
     }

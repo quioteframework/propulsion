@@ -172,7 +172,18 @@ class Propulsion
 	private static $databaseMapClass = 'Propulsion\Map\DatabaseMap';
 
 	/**
-	 * @var        bool Whether the object instance pooling is enabled
+	 * @var        bool Whether the object instance pooling is enabled.
+	 *
+	 *             This is the *explicit* application-level switch, toggled by
+	 *             disableInstancePooling()/enableInstancePooling(). It stays
+	 *             process-scoped on purpose: turning pooling off is deployment
+	 *             configuration (a batch/import worker means it for the whole
+	 *             process), not per-request state.
+	 *
+	 *             The transient, nestable "suspend pooling for the duration of
+	 *             this streamed result set" case is a different thing and lives
+	 *             on {@see Session} -- see Session::$instancePoolingSuspendCount
+	 *             for why conflating the two was a bug.
 	 */
 	private static $instancePoolingEnabled = true;
 
@@ -284,6 +295,15 @@ class Propulsion
 		// file-backed driver creates directories and setConfiguration() is
 		// called from tests and generator commands that will never cache
 		// anything. The pool is rebuilt lazily on first use.
+
+		// Likewise drop every compiled SELECT. That cache is process-scoped, and
+		// the SQL text in it is specific to the adapter its datasource was using
+		// when it was compiled -- identifier quoting and the LIMIT/OFFSET dialect
+		// both come from there -- so a configuration naming a different adapter
+		// for the same datasource name must not leave the old dialect's SQL
+		// reachable. (While the cache was request-scoped this could not bite,
+		// because the entries never outlived the request that built them.)
+		self::$serviceContainer?->clearCompiledQueryCache();
 		self::$serviceContainer?->clearQueryCachePool();
 	}
 
@@ -1272,13 +1292,22 @@ class Propulsion
 	}
 
 	/**
-	 *  the instance pooling behaviour. True by default.
+	 * Whether objects hydrated right now should be pooled.
+	 *
+	 * Two independent gates, both of which must allow it:
+	 *
+	 *  - the explicit application-level switch (see $instancePoolingEnabled and
+	 *    disableInstancePooling()), which is process-scoped;
+	 *  - no scope currently having pooling *suspended* (see
+	 *    Session::suspendInstancePooling()), which is request-scoped and
+	 *    nestable -- this is what streamed/on-demand result sets use so they
+	 *    don't retain every row they pass over.
 	 *
 	 * @return     boolean Whether the pooling is enabled or not.
 	 */
 	public static function isInstancePoolingEnabled()
 	{
-		return self::$instancePoolingEnabled;
+		return self::$instancePoolingEnabled && !self::getSession()->isInstancePoolingSuspended();
 	}
 }
 

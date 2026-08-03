@@ -242,4 +242,113 @@ class SessionTest extends TestCase
 
         $this->assertSame(0, $session->getQueryResultCache()->count());
     }
+
+    // Instance-pooling suspension. A counter rather than a boolean, and
+    // request-scoped rather than a Propulsion static, so that (a) overlapping
+    // on-demand iterations cannot re-enable pooling underneath one another and
+    // (b) an iteration abandoned mid-stream cannot leave pooling suspended for
+    // every later request the worker serves.
+
+    public function testInstancePoolingIsNotSuspendedByDefault()
+    {
+        $session = new Session();
+        $this->assertFalse($session->isInstancePoolingSuspended());
+    }
+
+    public function testSuspendInstancePoolingSuspendsIt()
+    {
+        $session = new Session();
+        $session->suspendInstancePooling();
+        $this->assertTrue($session->isInstancePoolingSuspended());
+    }
+
+    public function testSuspensionsNestAndOnlyTheLastResumeLifts()
+    {
+        $session = new Session();
+        $session->suspendInstancePooling();
+        $session->suspendInstancePooling();
+
+        $session->resumeInstancePooling();
+        $this->assertTrue(
+            $session->isInstancePoolingSuspended(),
+            'an inner scope resuming must not lift an outer scope\'s suspension'
+        );
+
+        $session->resumeInstancePooling();
+        $this->assertFalse($session->isInstancePoolingSuspended());
+    }
+
+    public function testUnbalancedResumeDoesNotMakeTheNextSuspendANoOp()
+    {
+        $session = new Session();
+        // Resume without a matching suspend: floored at zero rather than going
+        // negative, which would otherwise swallow the next real suspension.
+        $session->resumeInstancePooling();
+        $session->resumeInstancePooling();
+
+        $session->suspendInstancePooling();
+
+        $this->assertTrue($session->isInstancePoolingSuspended());
+    }
+
+    public function testResetClearsALeakedInstancePoolingSuspension()
+    {
+        $session = new Session();
+        $session->suspendInstancePooling();
+
+        $session->reset();
+
+        $this->assertFalse($session->isInstancePoolingSuspended());
+    }
+
+    public function testInstancePoolingSuspensionIsIsolatedPerSessionInstance()
+    {
+        $a = new Session();
+        $a->suspendInstancePooling();
+
+        $b = new Session();
+
+        $this->assertTrue($a->isInstancePoolingSuspended());
+        $this->assertFalse($b->isInstancePoolingSuspended());
+    }
+
+    public function testPropulsionIsInstancePoolingEnabledHonoursTheSuspension()
+    {
+        $previous = Propulsion::getSession();
+        $session = new Session();
+        Propulsion::setSession($session);
+
+        try {
+            $this->assertTrue(Propulsion::isInstancePoolingEnabled());
+
+            $session->suspendInstancePooling();
+            $this->assertFalse(Propulsion::isInstancePoolingEnabled());
+
+            $session->resumeInstancePooling();
+            $this->assertTrue(Propulsion::isInstancePoolingEnabled());
+        } finally {
+            Propulsion::setSession($previous);
+        }
+    }
+
+    public function testResetDoesNotUndoTheExplicitDisableInstancePoolingSwitch()
+    {
+        // The explicit switch is deployment configuration (a batch worker means
+        // it for the whole process), so unlike the scoped suspension above it
+        // deliberately survives a request boundary.
+        $previous = Propulsion::getSession();
+        $session = new Session();
+        Propulsion::setSession($session);
+        $changed = Propulsion::disableInstancePooling();
+
+        try {
+            $session->reset();
+            $this->assertFalse(Propulsion::isInstancePoolingEnabled());
+        } finally {
+            if ($changed) {
+                Propulsion::enableInstancePooling();
+            }
+            Propulsion::setSession($previous);
+        }
+    }
 }

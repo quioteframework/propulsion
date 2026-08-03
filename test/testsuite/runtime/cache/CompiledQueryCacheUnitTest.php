@@ -19,6 +19,32 @@ use Propulsion\Cache\CompiledQueryCache;
  */
 class CompiledQueryCacheUnitTest extends TestCase
 {
+    public function testEntryCountIsBounded()
+    {
+        // Process-scoped and never expiring, so it needs a ceiling. A correctly
+        // keyed cache holds one entry per opted-in query shape -- a property of
+        // the code, not the traffic -- so this only bites a caller deriving keys
+        // from request data, against the documented contract.
+        $cache = new CompiledQueryCache();
+        for ($i = 0; $i < CompiledQueryCache::MAX_ENTRIES + 25; $i++) {
+            $cache->set('shape-' . $i, 'SELECT ' . $i, 1);
+        }
+
+        $this->assertSame(CompiledQueryCache::MAX_ENTRIES, $cache->count());
+        $this->assertFalse($cache->has('shape-0'), 'the oldest entry is evicted first');
+        $this->assertTrue($cache->has('shape-' . (CompiledQueryCache::MAX_ENTRIES + 24)), 'the newest entry is kept');
+    }
+
+    public function testReSettingAKeyDoesNotGrowTheCache()
+    {
+        $cache = new CompiledQueryCache();
+        $cache->set('shape', 'SELECT 1', 1);
+        $cache->set('shape', 'SELECT 2', 1);
+
+        $this->assertSame(1, $cache->count());
+        $this->assertSame(['sql' => 'SELECT 2', 'paramCount' => 1], $cache->get('shape'));
+    }
+
     public function testMissReturnsNull()
     {
         $cache = new CompiledQueryCache();

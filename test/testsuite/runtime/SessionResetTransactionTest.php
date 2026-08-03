@@ -128,4 +128,50 @@ class SessionResetTransactionTest extends BookstoreTestBase
 
         $this->assertFalse(Propulsion::getForceMasterConnection());
     }
+
+    /**
+     * The connection itself is process-scoped and deliberately survives the
+     * boundary, but the debug counters it carries are per-request figures --
+     * that is what they meant under PHP-FPM, where the connection died with the
+     * request. Without this, getQueryCount() reports a process total and
+     * getLastExecutedQuery() can return a statement issued for someone else's
+     * request.
+     */
+    public function testResetZeroesConnectionDebugCounters()
+    {
+        // Restore whatever debug mode this connection was already in, rather
+        // than forcing it off: the connection is process-scoped and shared with
+        // every later test, several of which assert on getQueryCount() and get
+        // no counting at all if debug is left switched off behind them.
+        $wasDebug = $this->con->useDebug;
+        $this->con->useDebug(true);
+        try {
+            $this->con->exec('SELECT 1');
+            $this->assertGreaterThan(0, $this->con->getQueryCount());
+            $this->assertNotSame('', $this->con->getLastExecutedQuery());
+
+            Propulsion::getSession()->reset();
+
+            $this->assertSame(0, $this->con->getQueryCount(), 'the query count is a per-request figure');
+            $this->assertSame('', $this->con->getLastExecutedQuery());
+        } finally {
+            $this->con->useDebug($wasDebug);
+        }
+    }
+
+    /**
+     * Resetting the counters must not turn debugging off as a side effect --
+     * useDebug(false) clears the same two fields, but as part of changing mode.
+     */
+    public function testResetLeavesDebugModeAlone()
+    {
+        $wasDebug = $this->con->useDebug;
+        $this->con->useDebug(true);
+        try {
+            Propulsion::getSession()->reset();
+            $this->assertTrue($this->con->useDebug);
+        } finally {
+            $this->con->useDebug($wasDebug);
+        }
+    }
 }

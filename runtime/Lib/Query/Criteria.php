@@ -189,7 +189,7 @@ class Criteria implements \IteratorAggregate
 	protected bool $queryCacheShared = true;
 
 	/**
-	 * Shape key for the current request's {@see \Propulsion\Cache\CompiledQueryCache},
+	 * Shape key for the process-wide {@see \Propulsion\Cache\CompiledQueryCache},
 	 * or null (the default) if compiled-query caching is off for this Criteria.
 	 * Unlike $queryCacheEnabled this is a caller-supplied string, not a bool --
 	 * see setCompiledQueryCache() for what the caller is responsible for.
@@ -1661,13 +1661,20 @@ class Criteria implements \IteratorAggregate
 	}
 
 	/**
-	 * Opt this query into the current request's compiled-query cache (see
+	 * Opt this query into the compiled-query cache (see
 	 * {@see \Propulsion\Cache\CompiledQueryCache}) -- a cache of *SQL strings*,
 	 * not rows (contrast {@see setQueryCache()}). Useful in long-lived worker
 	 * processes where the same generated Query/Peer method is called
 	 * repeatedly with only bound values differing between calls: the SELECT
 	 * SQL text itself is identical every time, so re-walking joins/columns/
 	 * criterions to re-derive it is wasted work.
+	 *
+	 * The cache is **process-scoped**: an entry compiled while serving one
+	 * request is reused by every later request the same worker process serves,
+	 * which is where the benefit actually comes from. It therefore outlives
+	 * `Session::reset()`, and a key must identify a query shape for the whole
+	 * process rather than merely within one request -- see the paragraph on `$key`
+	 * below, which was always the contract but now has a longer reach.
 	 *
 	 * `$key` must uniquely identify this query's *shape* -- the same joins,
 	 * the same WHERE/HAVING comparisons in the same order, the same number of

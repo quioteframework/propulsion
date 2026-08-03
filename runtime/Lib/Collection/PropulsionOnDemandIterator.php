@@ -40,7 +40,13 @@ class PropulsionOnDemandIterator implements Iterator
 
 	protected int $currentKey = -1;
 	protected ?bool $isValid = null;
-	protected bool $enableInstancePoolingOnFinish = false;
+
+	/**
+	 * Whether this iterator still owes the session a resumeInstancePooling()
+	 * call. Tracks *our own* outstanding suspension, not the global pooling
+	 * state -- see the constructor.
+	 */
+	protected bool $hasSuspendedInstancePooling = false;
 
 	/**
 	 * @param     PropulsionObjectFormatter  $formatter
@@ -50,7 +56,23 @@ class PropulsionOnDemandIterator implements Iterator
 	{
 		$this->formatter = $formatter;
 		$this->stmt = $stmt;
-		$this->enableInstancePoolingOnFinish = Propulsion::disableInstancePooling();
+		// Suspend pooling for as long as this iterator streams: pooling every
+		// row of a result set that is being read one row at a time defeats the
+		// entire point of on-demand mode, since the pool would retain what the
+		// iterator is careful not to.
+		//
+		// This suspends unconditionally and always resumes, rather than the old
+		// `enableInstancePoolingOnFinish = Propulsion::disableInstancePooling()`
+		// pattern, which asked the global switch "did I change you?" and
+		// restored only if so. That could not nest: with two on-demand
+		// iterations alive at once, the second saw "already disabled" and
+		// recorded that it must not restore, so the first one to finish
+		// re-enabled pooling underneath the other one, which then started
+		// pooling every remaining row. Suspensions count instead, so pooling
+		// resumes only when the last one does. See
+		// Session::$instancePoolingSuspendCount.
+		Propulsion::getSession()->suspendInstancePooling();
+		$this->hasSuspendedInstancePooling = true;
 	}
 
 	public function closeCursor(): void
@@ -114,17 +136,18 @@ class PropulsionOnDemandIterator implements Iterator
 	}
 
 	/**
-	 * Re-enables instance pooling if this iterator was the one that disabled it
-	 * and it hasn't already been restored. Guarded by resetting the flag, so it's
-	 * safe to call from both next() (on normal end-of-stream) and __destruct()
-	 * (for callers like ModelCriteria::findOne() that only ever read one row and
-	 * never exhaust the statement) without double-toggling the shared flag.
+	 * Ends this iterator's own suspension of instance pooling, if it still has
+	 * one outstanding. Idempotent via the flag, so it's safe to call from both
+	 * next() (on normal end-of-stream) and __destruct() (for callers like
+	 * ModelCriteria::findOne() that only ever read one row and never exhaust the
+	 * statement) without resuming twice and cancelling some *other* iterator's
+	 * suspension.
 	 */
 	private function restoreInstancePooling(): void
 	{
-		if ($this->enableInstancePoolingOnFinish) {
-			Propulsion::enableInstancePooling();
-			$this->enableInstancePoolingOnFinish = false;
+		if ($this->hasSuspendedInstancePooling) {
+			$this->hasSuspendedInstancePooling = false;
+			Propulsion::getSession()->resumeInstancePooling();
 		}
 	}
 

@@ -1141,7 +1141,7 @@ class CriteriaTest extends \PHPUnit\Framework\TestCase
 		// it: the shapes match, only the dialect differs.
 		Propulsion::setDB('cqc_sqlite_ds', new DBSQLite());
 		Propulsion::setDB('cqc_mysql_ds', new DBMySQL());
-		Propulsion::getSession()->getCompiledQueryCache()->clear();
+		Propulsion::getServiceContainer()->getCompiledQueryCache()->clear();
 
 		$sharedKey = 'same-shape-key';
 
@@ -1165,7 +1165,7 @@ class CriteriaTest extends \PHPUnit\Framework\TestCase
 		$this->assertStringContainsString('LIMIT 3, 5', $mysqlSql, 'the MySQL datasource must not be served the SQLite dialect from cache');
 		$this->assertNotSame($sqliteSql, $mysqlSql);
 
-		Propulsion::getSession()->getCompiledQueryCache()->clear();
+		Propulsion::getServiceContainer()->getCompiledQueryCache()->clear();
 	}
 
 	public function testCloneDeepCopiesNestedSubqueriesSetOperationsAndCtes()

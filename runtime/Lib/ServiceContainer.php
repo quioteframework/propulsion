@@ -10,6 +10,7 @@
 namespace Propulsion;
 
 use Propulsion\Cache\CacheDriverFactory;
+use Propulsion\Cache\CompiledQueryCache;
 use Propulsion\Cache\Driver\NullCache;
 use Propulsion\Cache\QueryCacheConfig;
 use Psr\SimpleCache\CacheInterface;
@@ -87,6 +88,38 @@ class ServiceContainer
     public function clearInstancePools(): void
     {
         Propulsion::getSession()->clearAllPools();
+    }
+
+    /**
+     * Compiled SELECT SQL strings, shared by every request this process serves.
+     *
+     * Built lazily so a process that never opts a query into it never allocates
+     * one. See {@see CompiledQueryCache}'s own docblock for why this is
+     * process-scoped rather than living on {@see Session} as it originally did.
+     */
+    private ?CompiledQueryCache $compiledQueryCache = null;
+
+    /**
+     * The process-wide compiled-query (SQL-string) cache. Opted into per query
+     * via {@see \Propulsion\Query\Criteria::setCompiledQueryCache()}.
+     */
+    public function getCompiledQueryCache(): CompiledQueryCache
+    {
+        return $this->compiledQueryCache ??= new CompiledQueryCache();
+    }
+
+    /**
+     * Discard every compiled statement.
+     *
+     * Called by {@see Propulsion::setConfiguration()}, because the SQL text an
+     * entry holds is specific to the adapter the datasource was using when it was
+     * compiled -- identifier quoting and LIMIT/OFFSET dialect both come from
+     * there -- so a reconfiguration must not leave entries compiled against the
+     * previous one reachable. Also useful for test isolation.
+     */
+    public function clearCompiledQueryCache(): void
+    {
+        $this->compiledQueryCache?->clear();
     }
 
     /**
