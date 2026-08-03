@@ -1,13 +1,28 @@
 # Tech debt
 
-## Open: `Column.php`/`Table.php` not clean at PHPStan `--level 9`
+**Nothing in this file is open any more.** `phpstan.neon` is at `level: 9` and
+the whole project (`generator`, `runtime`, `bin`) analyses clean at it, including
+the `Column.php`/`Table.php` item below that was the last thing left. Verify with:
+
+```
+vendor/bin/phpstan analyse          # uses phpstan.neon: level 9, whole project
+```
+
+Everything below is kept as the history of how each item was resolved, and as the
+reasoning behind decisions (the `require*()`-guard pattern, `WritableModelInterface`)
+that new code is still expected to follow. Note that several passages describe the
+baseline as `--level 6` or `--level 7`: those were accurate when written and have
+been left as-is rather than retconned, since the surrounding argument only makes
+sense against the level in force at the time.
+
+## Resolved: `Column.php`/`Table.php` not clean at PHPStan `--level 9`
 
 `generator/Lib/Model/Column.php` (115 findings) and `generator/Lib/Model/Table.php`
-(81 findings) are far from clean at `--level 9` (the project's real baseline,
-`phpstan.neon`, stays at `--level 6` and is unaffected). Unlike the
-`Platform` classes' own version of this problem (below), this isn't
+(81 findings) were far from clean at `--level 9` (the project's baseline at the
+time, `phpstan.neon`, was `--level 6` and unaffected). Unlike the
+`Platform` classes' own version of this problem (below), this wasn't
 fixable file-locally with a couple of `require*()` guards -- the findings
-trace back to two structural issues in the model layer itself:
+traced back to two structural issues in the model layer itself:
 
 1. **`XMLElement::getAttribute()` returns untyped `mixed`** (declared with no
    param/return types at all, just a docblock) -- every `$this->getAttribute(...)`
@@ -32,9 +47,9 @@ trace back to two structural issues in the model layer itself:
    -- which just relocates the problem rather than removing it, since
    *something* still has to assert the invariant PHPStan can't infer.
 
-Not attempted here: this is squarely "needs a generator-level decision", the
-same bar the `setByName()` dynamic-dispatch item (resolved via
-`WritableModelInterface`, see below) was held to before it got one.
+Both were resolved on the way to making `phpstan.neon` itself `level: 9`; the
+two structural issues above are the reasoning that shaped how, and remain the
+reference for anything new in the model layer.
 
 Every other item ever tracked in this file is resolved. Two batches landed:
 
@@ -55,15 +70,10 @@ original text and how it was fixed.
 
 `BasePeer.php`, `Criteria.php`, `ModelJoin.php`, and every file under
 `runtime/Lib/Validator/` are fully clean at `--level 9`. `ModelCriteria.php`
-went from 71 findings (batch 1's baseline) to 2. The project-wide `--level 6`
-baseline (`phpstan.neon`) stays clean throughout.
-
-Verify current counts with:
-
-```
-vendor/bin/phpstan analyse runtime/Lib/Query/ModelCriteria.php --level 9
-vendor/bin/phpstan analyse runtime/Lib/Util/BasePeer.php --level 9
-```
+went from 71 findings (batch 1's baseline) to 2, and subsequently to 0 --
+`phpstan.neon` is now `level: 9` project-wide, so the whole tree is verified by
+the single `vendor/bin/phpstan analyse` at the top of this file rather than by
+per-file spot checks.
 
 ## Resolved: `setByName()`'s dynamic dispatch on generated model objects
 

@@ -255,7 +255,19 @@ jobs:
           ./configure --with-pdo-oci=instantclient,/opt/oracle/instantclient,23.26
           make -j"$(nproc)"
           sudo cp modules/pdo_oci.so "$(php-config --extension-dir)/pdo_oci.so"
-          echo "extension=pdo_oci.so" | sudo tee "$(php --ini | grep 'Scan for additional' | sed 's/.*: //')/80-pdo_oci.ini"
+          # The scan directory is read from PHP itself rather than scraped out of
+          # `php --ini`. PHP 8.5 quotes the paths in that output ("Scan for
+          # additional .ini files in: "/etc/php/8.5/cli/conf.d""), so the previous
+          # `sed 's/.*: //'` captured the surrounding double quotes as part of the
+          # value and tee then failed with "No such file or directory" on a path
+          # that had quotes embedded in it. PHP_CONFIG_FILE_SCAN_DIR is the same
+          # value as a plain string with no formatting to parse; the PHP_INI_SCAN_DIR
+          # environment variable takes precedence over it when set, so it is
+          # honoured first.
+          SCAN_DIR="${PHP_INI_SCAN_DIR:-$(php -r 'echo PHP_CONFIG_FILE_SCAN_DIR;')}"
+          test -n "$SCAN_DIR" || { echo "Could not determine the PHP ini scan directory"; exit 1; }
+          sudo mkdir -p "$SCAN_DIR"
+          echo "extension=pdo_oci.so" | sudo tee "$SCAN_DIR/80-pdo_oci.ini"
           php -m | grep -i pdo_oci
 
       - name: Get composer cache directory
