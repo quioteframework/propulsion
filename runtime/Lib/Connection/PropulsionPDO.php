@@ -220,6 +220,18 @@ interface PropulsionPDO
 	public function getLastExecutedQuery(): string;
 
 	/**
+	 * Reset the two counters above to their initial state.
+	 *
+	 * Called at a worker request boundary ({@see \Propulsion\Session::reset()}).
+	 * Connections outlive requests in a persistent worker, so without this
+	 * getQueryCount() reports a process total rather than a per-request one --
+	 * which is what it means under PHP-FPM, where the connection died with the
+	 * request -- and getLastExecutedQuery() can hand back a statement issued
+	 * while serving an unrelated earlier request.
+	 */
+	public function resetDebugCounters(): void;
+
+	/**
 	 * Set the SQL code for the latest query executed by Propulsion
 	 *
 	 * @param     string  $query  Executable SQL code

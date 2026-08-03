@@ -81,14 +81,36 @@ trait PropulsionPDOTrait
 	protected static $releaseSavepointCapableDrivers = ['pgsql', 'mysql', 'sqlite'];
 
 	/**
-	 * Cache of prepared statements (PDOStatement) keyed by md5 of SQL.
+	 * Cache of prepared statements (PDOStatement) keyed by a digest of the SQL.
 	 *
 	 * Only successful prepares are stored -- see prepare() for why caching a
 	 * `false` return is worse than not caching it.
 	 *
-	 * @var       array<string, \PDOStatement>  [md5(sql) => PDOStatement]
+	 * Insertion-ordered, and bounded by self::MAX_CACHED_PREPARED_STATEMENTS;
+	 * see evictOldestPreparedStatements().
+	 *
+	 * @var       array<string, \PDOStatement>  [digest(sql) => PDOStatement]
 	 */
 	protected $preparedStatements = array();
+
+	/**
+	 * How many prepared statements one connection will hold at once when
+	 * PropulsionPDO::PROPEL_ATTR_CACHE_PREPARES is on.
+	 *
+	 * A bound is necessary rather than tidy. Connections are process-scoped and,
+	 * under a persistent worker, effectively immortal, while the set of distinct
+	 * SQL strings a process issues is not bounded by anything: a criterion with
+	 * an `IN (...)` list produces one placeholder arity per distinct list length,
+	 * so an unbounded cache accumulates statement handles (and server-side
+	 * prepared statements behind them) for the life of the process. In PHP-FPM
+	 * this was hidden by the connection dying with the request.
+	 *
+	 * The value is deliberately generous: it is meant to cap pathological growth,
+	 * not to make a well-behaved application miss, and an application whose hot
+	 * path really does span more than this many distinct statements would be
+	 * thrashing the cache rather than benefiting from it.
+	 */
+	protected const MAX_CACHED_PREPARED_STATEMENTS = 256;
 
 	/**
 	 * Whether to cache prepared statements.
@@ -670,6 +692,12 @@ trait PropulsionPDOTrait
 	 */
 	public function prepare($sql, $driver_options = []): false|\PDOStatement
 	{
+		// Initialised rather than only assigned inside the `useDebug` branch:
+		// log() takes ?array for exactly this, and the two `if ($this->useDebug)`
+		// blocks are only correlated by inspection -- any call on $this between
+		// them (evictOldestPreparedStatements(), below) legitimately stops static
+		// analysis from proving the second implies the first.
+		$debug = null;
 		if ($this->useDebug) {
 			$debug = $this->getDebugSnapshot();
 		}
@@ -679,8 +707,12 @@ trait PropulsionPDOTrait
 		}
 
 		if ($this->cachePreparedStatements) {
-			// Use hash for cache key to reduce memory usage and improve lookup speed
-			$cacheKey = md5($sql);
+			// Digest rather than the SQL itself, to keep the key small and the
+			// lookup cheap over the multi-kilobyte SQL a joined query produces.
+			// xxh128 rather than md5: faster over exactly those payloads, and
+			// 128 bits puts a collision -- which here would silently hand back a
+			// statement prepared for *different* SQL -- out of reach.
+			$cacheKey = hash('xxh128', $sql);
 			if (!isset($this->preparedStatements[$cacheKey])) {
 				$return = parent::prepare($sql, $driver_options);
 				// A failure is not cached. PDO::prepare() returns false rather
@@ -694,6 +726,7 @@ trait PropulsionPDOTrait
 				// difference is whether the next attempt can succeed.
 				if ($return !== false) {
 					$this->preparedStatements[$cacheKey] = $return;
+					$this->evictOldestPreparedStatements();
 				}
 			} else {
 				$return = $this->preparedStatements[$cacheKey];
@@ -787,6 +820,32 @@ trait PropulsionPDOTrait
 	}
 
 	/**
+	 * Drop the oldest cached statements until the cache is back within
+	 * self::MAX_CACHED_PREPARED_STATEMENTS.
+	 *
+	 * Insertion order, not least-recently-used: PHP arrays preserve insertion
+	 * order, so the first key is the oldest *stored* entry, and promoting on
+	 * every read (unset + re-add, as ArrayCache does) would add work to the hot
+	 * lookup path to sharpen a bound that only exists to stop pathological
+	 * growth. An application with a stable working set never reaches the bound
+	 * at all; one that does is issuing more distinct SQL than any eviction
+	 * policy could cache usefully.
+	 *
+	 * Normally evicts a single entry per call, since it runs on every insert.
+	 * The loop is there so that lowering the bound in a subclass still converges.
+	 */
+	private function evictOldestPreparedStatements(): void
+	{
+		while (count($this->preparedStatements) > static::MAX_CACHED_PREPARED_STATEMENTS) {
+			$oldest = array_key_first($this->preparedStatements);
+			if ($oldest === null) {
+				return;
+			}
+			unset($this->preparedStatements[$oldest]);
+		}
+	}
+
+	/**
 	 * Configures the PDOStatement class for this connection.
 	 *
 	 * @param     string   $class
@@ -855,6 +914,27 @@ trait PropulsionPDOTrait
 	public function getLastExecutedQuery(): string
 	{
 		return $this->lastExecutedQuery;
+	}
+
+	/**
+	 * Forget the debug counters -- the query count and the last executed query.
+	 *
+	 * Called by {@see \Propulsion\Session::reset()} at a worker request boundary.
+	 * Connections are process-scoped and reused across requests, so without this
+	 * getQueryCount() reports how many queries this *process* has run since it
+	 * booted, and getLastExecutedQuery() can return a statement issued while
+	 * serving somebody else's request. Both are read as per-request figures --
+	 * that is what they mean under PHP-FPM, where the connection died with the
+	 * request -- so a worker has to say so explicitly.
+	 *
+	 * Deliberately separate from useDebug(false), which resets the same two
+	 * fields as part of *turning debugging off*; this leaves the debug mode
+	 * exactly as it found it.
+	 */
+	public function resetDebugCounters(): void
+	{
+		$this->queryCount = 0;
+		$this->lastExecutedQuery = '';
 	}
 
 	/**
