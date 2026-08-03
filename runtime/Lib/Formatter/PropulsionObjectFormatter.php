@@ -88,17 +88,24 @@ class PropulsionObjectFormatter extends PropulsionFormatter
 			if ($this->hasLimit) {
 				throw new PropulsionException('Cannot use limit() in conjunction with with() on a one-to-many relationship. Please remove the with() call, or the limit() call.');
 			}
-			$pks = array();
+			// Keys already emitted, as a set rather than a list. The membership
+			// test used to be `in_array($pk, $pks, true)` over a growing list,
+			// which made hydrating a one-to-many with() quadratic in the number
+			// of joined rows -- ~12.5M comparisons for a 5,000-row result set,
+			// which is the shape this branch exists to handle.
+			//
+			// serialize() is what makes the set key faithful to what the strict
+			// in_array() guaranteed: it distinguishes types, so '1' and 1 -- or
+			// [0] and [null], the composite-key case the previous comment called
+			// out -- still do not collapse into one row, whereas casting a
+			// composite (array) key to a string key would.
+			$seenPks = array();
 			foreach ($rows as $row) {
 				$object = $this->getAllObjectsFromRow($row);
-				$pk = $object->getPrimaryKey();
-				// Strict: a primary key is compared against keys already seen,
-				// and loose comparison of composite (array) keys compares their
-				// elements loosely too, so e.g. ['1'] and [1] -- or [0] and
-				// [null] -- would collapse into one row.
-				if (!in_array($pk, $pks, true)) {
+				$pkKey = serialize($object->getPrimaryKey());
+				if (!isset($seenPks[$pkKey])) {
+					$seenPks[$pkKey] = true;
 					$collection[] = $object;
-					$pks[] = $pk;
 				}
 			}
 		} else {

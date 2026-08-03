@@ -1697,10 +1697,42 @@ class ModelCriteria extends Criteria
 	 */
 	private static function callSetByName(BaseObject $obj, string $key, mixed $value, string $type = BasePeer::TYPE_PHPNAME): void
 	{
-		if (!method_exists($obj, 'setByName')) {
-			throw new PropulsionException(get_class($obj) . ' has no setByName() method');
+		self::setByNameMethodFor($obj)->invoke($obj, $key, $value, $type);
+	}
+
+	/**
+	 * The `setByName()` ReflectionMethod for $obj's class, memoised per class.
+	 *
+	 * The only caller, doUpdate()'s $forceIndividualSaves branch, runs
+	 * callSetByName() once per updated column *per matched row*, so building a
+	 * fresh ReflectionMethod (and re-running method_exists()) inside it meant
+	 * O(rows x columns) reflection objects for one update. The lookup depends
+	 * only on the class, so it is done once per class instead.
+	 *
+	 * Keyed by class name and static, which is safe to share across requests in
+	 * a persistent worker: a ReflectionMethod holds no request state, and a
+	 * class cannot be redefined within a process. Bounded by the number of model
+	 * classes in the schema, so it cannot grow without limit.
+	 *
+	 * @var array<class-string, \ReflectionMethod>
+	 */
+	private static array $setByNameMethods = array();
+
+	/**
+	 * @throws PropulsionException if $obj's class has no setByName() method
+	 */
+	private static function setByNameMethodFor(BaseObject $obj): \ReflectionMethod
+	{
+		$class = get_class($obj);
+		if (isset(self::$setByNameMethods[$class])) {
+			return self::$setByNameMethods[$class];
 		}
-		(new \ReflectionMethod($obj, 'setByName'))->invoke($obj, $key, $value, $type);
+
+		if (!method_exists($obj, 'setByName')) {
+			throw new PropulsionException($class . ' has no setByName() method');
+		}
+
+		return self::$setByNameMethods[$class] = new \ReflectionMethod($obj, 'setByName');
 	}
 
 	/**
