@@ -133,15 +133,83 @@ class QueryResultCacheUnitTest extends TestCase
     }
 
     /**
-     * @return array<string, list<string>>
+     * The table index is a set of keys per table (table => [key => true]), not a
+     * list, so that re-caching a key under a table it is already indexed under
+     * cannot append a duplicate.
+     *
+     * @return array<string, array<string, true>>
      */
     private function tableIndexOf(QueryResultCache $cache): array
     {
         $prop = new ReflectionProperty(QueryResultCache::class, 'tableIndex');
 
+        /** @var array<string, array<string, true>> $value */
+        $value = $prop->getValue($cache);
+
+        return $value;
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    private function keyTablesOf(QueryResultCache $cache): array
+    {
+        $prop = new ReflectionProperty(QueryResultCache::class, 'keyTables');
+
         /** @var array<string, list<string>> $value */
         $value = $prop->getValue($cache);
 
         return $value;
+    }
+
+    public function testReCachingAKeyDoesNotDuplicateItInTheTableIndex()
+    {
+        $cache = new QueryResultCache();
+        $cache->set('k', 'rows', ['book']);
+        $cache->set('k', 'rows-again', ['book']);
+
+        $this->assertSame(['book' => ['k' => true]], $this->tableIndexOf($cache));
+    }
+
+    public function testInvalidatingATableLeavesNoReverseIndexBehind()
+    {
+        $cache = new QueryResultCache();
+        $cache->set('join-query', 'rows', ['book', 'author']);
+
+        $cache->invalidateTable('book');
+
+        $this->assertSame([], $this->tableIndexOf($cache), 'no table should still list an evicted key');
+        $this->assertSame([], $this->keyTablesOf($cache), 'the reverse index must not retain the evicted key either');
+    }
+
+    public function testEntryCountIsBounded()
+    {
+        $cache = new QueryResultCache();
+
+        // Each key is distinct, as it would be for a cached query whose bound
+        // parameters vary per iteration -- the shape that used to retain every
+        // formatted result set the request ever built.
+        for ($i = 0; $i < QueryResultCache::MAX_ENTRIES + 50; $i++) {
+            $cache->set('key-' . $i, 'rows', ['book']);
+        }
+
+        $this->assertSame(QueryResultCache::MAX_ENTRIES, $cache->count());
+        $this->assertFalse($cache->has('key-0'), 'the oldest entry is evicted first');
+        $this->assertTrue($cache->has('key-' . (QueryResultCache::MAX_ENTRIES + 49)), 'the newest entry is kept');
+    }
+
+    public function testEvictingForCapacityAlsoCleansBothIndexes()
+    {
+        $cache = new QueryResultCache();
+        for ($i = 0; $i < QueryResultCache::MAX_ENTRIES + 10; $i++) {
+            $cache->set('key-' . $i, 'rows', ['book']);
+        }
+
+        $this->assertCount(
+            QueryResultCache::MAX_ENTRIES,
+            $this->tableIndexOf($cache)['book'],
+            'the table index must not keep listing capacity-evicted keys'
+        );
+        $this->assertCount(QueryResultCache::MAX_ENTRIES, $this->keyTablesOf($cache));
     }
 }

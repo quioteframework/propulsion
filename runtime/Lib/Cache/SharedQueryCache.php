@@ -142,14 +142,21 @@ class SharedQueryCache
      * @param  float $elapsedSeconds how long the query took, recorded so
      *         probabilistic early recomputation can weight expensive queries
      *         toward refreshing sooner
+     * @param  bool|null $admitted the outcome of an {@see admit()} call the
+     *         caller already made for this key, so the sighting is not counted
+     *         twice. Null (the default) means "decide now", which is what a
+     *         caller that just wants to store something wants.
+     *         {@see TieredQueryCache::remember()} passes it because it has to
+     *         know the answer *before* running the query -- see admit()'s note
+     *         on why asking is not free of consequence.
      * @return bool whether the entry was actually admitted
      */
-    public function store(string $key, array $rows, ?int $ttl, float $elapsedSeconds = 0.0): bool
+    public function store(string $key, array $rows, ?int $ttl, float $elapsedSeconds = 0.0, ?bool $admitted = null): bool
     {
         if (!$this->isStorable($rows)) {
             return false;
         }
-        if (!$this->admit($key)) {
+        if (!($admitted ?? $this->admit($key))) {
             return false;
         }
 
@@ -184,8 +191,17 @@ class SharedQueryCache
      * stores anything, so the flood costs the attacker database load and costs
      * the cache nothing. A genuinely repeated query is admitted from its second
      * execution.
+     *
+     * **Asking records a sighting**, so this is not a free predicate and must be
+     * called exactly once per miss for a given key. Public because
+     * {@see TieredQueryCache::remember()} needs the answer *before* it runs the
+     * query: with the default `min_sightings` of 2, the first execution of every
+     * cached query is rejected, and materialising the whole row set only to
+     * discard it doubled peak memory for that query. It hands the answer back to
+     * {@see store()} via that method's `$admitted` argument so the sighting is
+     * not counted a second time.
      */
-    private function admit(string $key): bool
+    public function admit(string $key): bool
     {
         if ($this->config->minSightings <= 1) {
             return true;

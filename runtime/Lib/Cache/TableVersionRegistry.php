@@ -187,11 +187,26 @@ class TableVersionRegistry
      * nothing was ever published, so there is nothing to undo; the local
      * overrides are dropped so this request stops needlessly bypassing the
      * shared tier for those tables.
+     *
+     * **Only overrides this connection still owns are dropped.** `$memo` holds
+     * one token per table while `$pending` is per connection, so when two
+     * connections write the same table inside their own transactions the second
+     * `overrideLocally()` overwrites the first's memo entry. Unsetting
+     * unconditionally then meant one connection's rollback erased the *other's*
+     * still-live override, and that second transaction's own subsequent reads
+     * fell back to the published token -- which could serve it pre-write rows
+     * from the shared tier, breaking read-your-own-writes inside a transaction
+     * that had not rolled back anything. Comparing the token first leaves an
+     * override that has since been superseded alone; whoever owns it now is
+     * responsible for it, and will publish or discard it on their own commit or
+     * rollback.
      */
     public function discardPending(int $connectionId): void
     {
-        foreach (array_keys($this->pending[$connectionId] ?? []) as $key) {
-            unset($this->memo[$key]);
+        foreach ($this->pending[$connectionId] ?? [] as $key => $token) {
+            if (($this->memo[$key] ?? null) === $token) {
+                unset($this->memo[$key]);
+            }
         }
         unset($this->pending[$connectionId]);
     }

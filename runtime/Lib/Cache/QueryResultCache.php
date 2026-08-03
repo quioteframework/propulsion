@@ -26,14 +26,42 @@ namespace Propulsion\Cache;
 class QueryResultCache
 {
     /**
+     * How many results one request will hold at once.
+     *
+     * Request-scoped is not the same as small. Each entry is a *formatted*
+     * result -- typically a whole PropulsionCollection of hydrated objects --
+     * and caching is opt-in per query, so a request that runs a cached query in
+     * a loop with varying bound parameters produces a distinct key every
+     * iteration and retains every result set it has ever built. That is an
+     * out-of-memory condition rather than a cache.
+     *
+     * Evicting is always safe: the worst consequence of a miss is re-running the
+     * query, which is what an uncached query does anyway. The bound is therefore
+     * set generously -- high enough that no reasonable request reaches it, low
+     * enough to stop the pathological case.
+     */
+    public const MAX_ENTRIES = 500;
+
+    /**
      * @var array<string, mixed> cache key => formatted result
      */
     private array $entries = [];
 
     /**
-     * @var array<string, list<string>> table name => cache keys whose result depends on that table
+     * @var array<string, array<string, true>> table name => set of cache keys whose result depends on that table
      */
     private array $tableIndex = [];
+
+    /**
+     * The reverse of $tableIndex: which tables each entry was indexed under.
+     *
+     * Kept so that evicting an entry can remove it from exactly the lists it
+     * appears in, instead of scanning every other table's list to find it. See
+     * {@see invalidateTable()}.
+     *
+     * @var array<string, list<string>> cache key => table names it depends on
+     */
+    private array $keyTables = [];
 
     /**
      * A cache miss returns null, same as "no entry" -- callers must not cache
@@ -58,9 +86,48 @@ class QueryResultCache
     public function set(string $key, mixed $result, array $touchedTables): void
     {
         $this->entries[$key] = $result;
+        // Sets rather than lists, so re-caching the same key under the same
+        // table cannot append a duplicate.
         foreach ($touchedTables as $tableName) {
-            $this->tableIndex[$tableName][] = $key;
+            $this->tableIndex[$tableName][$key] = true;
         }
+        $this->keyTables[$key] = $touchedTables;
+        $this->evictIfOverCapacity();
+    }
+
+    /**
+     * Drop oldest-first until the entry count is back within
+     * {@see MAX_ENTRIES}.
+     *
+     * Insertion order rather than least-recently-used: promoting on every read
+     * would add work to the hot lookup path, and the bound exists to stop
+     * pathological growth, not to maximise hit rate under pressure. A request
+     * that reaches it is caching far more distinct queries than it can be
+     * re-using.
+     */
+    private function evictIfOverCapacity(): void
+    {
+        while (count($this->entries) > self::MAX_ENTRIES) {
+            // The loop condition guarantees a non-empty array, so
+            // array_key_first() always yields a key here.
+            $this->forget((string) array_key_first($this->entries));
+        }
+    }
+
+    /**
+     * Remove one entry and every trace of it in both indexes.
+     */
+    private function forget(string $key): void
+    {
+        unset($this->entries[$key]);
+
+        foreach ($this->keyTables[$key] ?? [] as $tableName) {
+            unset($this->tableIndex[$tableName][$key]);
+            if (($this->tableIndex[$tableName] ?? null) === []) {
+                unset($this->tableIndex[$tableName]);
+            }
+        }
+        unset($this->keyTables[$key]);
     }
 
     /**
@@ -74,6 +141,12 @@ class QueryResultCache
      * of its tables, so a request that invalidates and re-caches in a loop grows
      * the index without bound. The keys are therefore removed from every list
      * they appear in, not just this one.
+     *
+     * Which lists those are is read from $keyTables rather than found by
+     * scanning. This used to walk *every other table's* whole key list on every
+     * invalidation, making a request that mixes cached reads with writes cost
+     * O(writes x total index size); it is now proportional to what is actually
+     * evicted.
      */
     public function invalidateTable(string $tableName): void
     {
@@ -81,28 +154,21 @@ class QueryResultCache
             return;
         }
 
-        $evicted = [];
-        foreach ($this->tableIndex[$tableName] as $key) {
-            unset($this->entries[$key]);
-            $evicted[$key] = true;
+        foreach (array_keys($this->tableIndex[$tableName]) as $key) {
+            $this->forget($key);
         }
 
+        // Whatever is left here was indexed without a $keyTables entry, which
+        // cannot happen via set(); belt and braces so the table cannot linger
+        // with an empty list.
         unset($this->tableIndex[$tableName]);
-
-        foreach ($this->tableIndex as $otherTable => $keys) {
-            $remaining = array_values(array_filter($keys, static fn (string $key): bool => !isset($evicted[$key])));
-            if ($remaining === []) {
-                unset($this->tableIndex[$otherTable]);
-            } else {
-                $this->tableIndex[$otherTable] = $remaining;
-            }
-        }
     }
 
     public function clear(): void
     {
         $this->entries = [];
         $this->tableIndex = [];
+        $this->keyTables = [];
     }
 
     public function count(): int

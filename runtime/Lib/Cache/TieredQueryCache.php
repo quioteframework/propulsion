@@ -139,12 +139,38 @@ class TieredQueryCache
             return $value;
         }
 
+        // Will the shared tier actually accept this entry? Asked *before*
+        // running the query, because the answer decides whether the rows need
+        // materialising at all.
+        //
+        // With the default `min_sightings` of 2, the first execution of any
+        // cached query is rejected, as is every execution of a query whose key
+        // never repeats -- so unconditionally materialising meant the common
+        // cold case paid for a full row array *plus* the formatted result, and
+        // then threw the array away. Streaming straight to the formatter when
+        // nothing will be stored restores the L1-only memory profile for those.
+        //
+        // An entry that already exists is exempt: this is the stale early-refresh
+        // path (see shouldRecomputeEarly()), and a key with a live stored entry
+        // has self-evidently repeated. Re-asking admission there would usually
+        // fail -- the sighting marker expires on its own window, typically well
+        // before the entry it admitted -- and refuse to refresh anything, quietly
+        // disabling probabilistic early recomputation altogether.
+        $willStore = $entry['hit'] || $shared->admit($sharedKey);
+
         // On a miss, try to be the only caller that runs the query. A pool
         // that cannot lock lets everyone through, which is what the
         // probabilistic scheme above is there to soften.
         $holdsLock = $entry['hit'] || $shared->acquireRecomputeLock($sharedKey);
 
         try {
+            if (!$willStore) {
+                $value = $formatStatement($execute());
+                $this->local->set($localKey, $value, $touchedTables);
+
+                return $value;
+            }
+
             $startedAt = microtime(true);
             $rows = $this->rowsFrom($execute());
             $elapsed = microtime(true) - $startedAt;
@@ -155,7 +181,7 @@ class TieredQueryCache
             // Reuse the tokens the miss was observed under rather than
             // re-reading them: a bump that landed while the query was running
             // must orphan this entry, and re-reading would defeat that.
-            $shared->store($sharedKey, $rows, $ttl, $elapsed);
+            $shared->store($sharedKey, $rows, $ttl, $elapsed, admitted: true);
         } finally {
             if ($holdsLock) {
                 $shared->releaseRecomputeLock($sharedKey);
@@ -265,11 +291,21 @@ class TieredQueryCache
      * plain `->find()` producing identical SQL used to share one cache entry,
      * and whichever ran second silently received the other's result.
      *
+     * Digested rather than kept verbatim. The raw form is the datasource, the
+     * formatter, the full SQL and the serialized bound parameters concatenated,
+     * which for a joined query with a sizeable `IN (...)` list runs to several
+     * kilobytes -- held live as an array key for the rest of the request, and
+     * rehashed by PHP on every lookup. The shared tier already hashes the
+     * equivalent payload for the same reason ({@see SharedQueryCache::buildKey()});
+     * this brings L1 in line. xxh128 is fast over exactly these payloads and 128
+     * bits puts a collision -- which here would return another query's formatted
+     * result -- out of reach.
+     *
      * @param array<int|string, mixed> $params
      */
     private function localKey(string $dbName, string $sql, array $params, string $variant): string
     {
-        return $dbName . '|' . $variant . '|' . $sql . '|' . serialize($params);
+        return hash('xxh128', $dbName . "\0" . $variant . "\0" . $sql . "\0" . serialize($params));
     }
 
     /**

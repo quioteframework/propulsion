@@ -222,4 +222,45 @@ class TableVersionRegistryUnitTest extends TestCase
 
         $this->assertFalse($registry->hasPending(1));
     }
+
+    public function testDiscardingOneConnectionKeepsAnotherConnectionsOverrideForTheSameTable()
+    {
+        // $memo holds one token per table while $pending is per connection, so
+        // the second override supersedes the first in the memo. Discarding
+        // unconditionally then erased the *live* override belonging to a
+        // transaction that had not rolled back anything, and its own subsequent
+        // reads fell back to the published token -- which can serve it its own
+        // pre-write rows from the shared tier.
+        $registry = $this->makeRegistry();
+
+        $registry->overrideLocally('bookstore', 'book', 1);
+        $registry->overrideLocally('bookstore', 'book', 2);
+        $tokenHeldByConnection2 = $registry->tokensFor('bookstore', ['book'])[0];
+
+        $registry->discardPending(1);
+
+        $this->assertSame(
+            $tokenHeldByConnection2,
+            $registry->tokensFor('bookstore', ['book'])[0],
+            'one connection rolling back must not drop another\'s still-live local override'
+        );
+        $this->assertFalse($registry->hasPending(1));
+        $this->assertTrue($registry->hasPending(2));
+    }
+
+    public function testDiscardingTheOwningConnectionDoesDropItsOverride()
+    {
+        $registry = $this->makeRegistry();
+
+        $registry->overrideLocally('bookstore', 'book', 1);
+        $ownToken = $registry->tokensFor('bookstore', ['book'])[0];
+
+        $registry->discardPending(1);
+
+        $this->assertNotSame(
+            $ownToken,
+            $registry->tokensFor('bookstore', ['book'])[0],
+            'a rolled-back write must stop this request bypassing the shared tier for that table'
+        );
+    }
 }
