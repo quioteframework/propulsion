@@ -100,6 +100,64 @@ class DatabaseMapTest extends BookstoreTestBase
     $this->assertEquals($column, $this->databaseMap->getColumn('foo.BAR'), 'getColumn() returns a ColumnMap object based on a fully qualified name');
   }
 
+  public function testHasTableFindsSchemaQualifiedTables()
+  {
+    // A schema-qualified table registers under its dotted name -- that is what
+    // TableMap::getName() returns and what getTable() looks up (the schemas
+    // fixture generates TABLE_NAME = 'contest.bookstore_contest'). hasTable()
+    // used to truncate at the first dot unconditionally, so it answered "no"
+    // for every such table: it checked $tables['contest'].
+    $this->databaseMap->addTable('myschema.mytable');
+
+    $this->assertTrue(
+      $this->databaseMap->hasTable('myschema.mytable'),
+      'hasTable() finds a schema-qualified table under the name it was registered with'
+    );
+    $this->assertSame(
+      'myschema.mytable',
+      $this->databaseMap->getTable('myschema.mytable')->getName(),
+      'hasTable() and getTable() agree on schema-qualified names'
+    );
+    $this->assertFalse(
+      $this->databaseMap->hasTable('myschema.absent'),
+      'an unregistered table in a known schema is still absent'
+    );
+  }
+
+  public function testHasTableStillAcceptsAQualifiedColumnName()
+  {
+    // The historic first-segment fallback: callers passing "table.COLUMN".
+    // Retained, and checked second, so this can only ever answer "yes" where it
+    // used to answer "yes".
+    $this->databaseMap->addTable('qualifiedfallback');
+
+    $this->assertTrue(
+      $this->databaseMap->hasTable('qualifiedfallback.SOME_COLUMN'),
+      'hasTable() still resolves the leading table segment of a qualified column name'
+    );
+  }
+
+  public function testGetColumnSplitsOnTheLastDot()
+  {
+    // "schema.table.COLUMN" has three segments; splitting into two took
+    // ('schema', 'table') from it -- a table that does not exist and a column
+    // name that is really the table.
+    $tmap = $this->databaseMap->addTable('lastdot.mytable');
+    $column = $tmap->addColumn('MYCOL', 'Mycol', 'INTEGER');
+
+    $this->assertEquals(
+      $column,
+      $this->databaseMap->getColumn('lastdot.mytable.MYCOL'),
+      'getColumn() resolves a schema-qualified column reference'
+    );
+  }
+
+  public function testGetColumnRejectsAnUnqualifiedName()
+  {
+    $this->expectException(PropulsionException::class);
+    $this->databaseMap->getColumn('NOTQUALIFIED');
+  }
+
   public function testGetTableByPhpName()
   {
     try
@@ -126,6 +184,27 @@ class DatabaseMapTest extends BookstoreTestBase
   public function testGetTableByPhpNameNotLoaded()
   {
 		$this->assertEquals('book', Propulsion::getDatabaseMap('bookstore')->getTableByPhpName('Book')->getName(), 'getTableByPhpName() can autoload a TableMap when the Peer class is generated and autoloaded');
+  }
+
+  public function testGetTableByPhpNameCachesTheNameThatWasAskedFor()
+  {
+    // addTableObject() indexes a map under its own getClassname(), so when the
+    // requested phpName differs from that the fast-path lookup kept missing and
+    // the slow path -- a regex plus up to two class_exists() probes -- re-ran on
+    // every call. The resolution is now also indexed under the requested name.
+    $map = Propulsion::getDatabaseMap('bookstore');
+    $resolved = $map->getTableByPhpName('Book');
+
+    $reflected = new ReflectionProperty(DatabaseMap::class, 'tablesByPhpName');
+    /** @var array<string, TableMap> $index */
+    $index = $reflected->getValue($map);
+
+    $this->assertArrayHasKey('Book', $index, 'the resolved map is indexed under the requested phpName');
+    $this->assertSame(
+      $resolved,
+      $map->getTableByPhpName('Book'),
+      'a repeated lookup returns the very same TableMap instance'
+    );
   }
 
 }
