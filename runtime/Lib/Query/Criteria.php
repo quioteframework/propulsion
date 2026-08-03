@@ -1296,6 +1296,35 @@ class Criteria implements \IteratorAggregate
 	 * construction paths -- so `BookQuery::create()->join('Book.Author')` used
 	 * to depend on `author` but not on `book`.
 	 *
+	 * **The select columns are a dependency source too, and the only one for a
+	 * filter-less query.** `getTablesColumns()` is derived purely from the
+	 * criterion (WHERE) map, and `setPrimaryTableName()` is called on only two
+	 * paths (`ModelCriteria::configureSelectColumns()` and `count()`, the latter
+	 * with a comment saying exactly why) -- never by `ModelCriteria`'s
+	 * constructor, and never by `find()`/`findOne()`. So
+	 * `BookQuery::create()->setQueryCache()->find()` -- no WHERE, no join, the
+	 * plainest "select every row" query there is -- used to record *no*
+	 * dependencies at all, while `->count()` on the same query correctly
+	 * recorded `book`. An entry with no dependencies cannot be invalidated by
+	 * anything: `QueryResultCache::invalidateTable()` never reaches it, and
+	 * because `SharedQueryCache::buildKey()` folds in one version token per
+	 * dependency, its L2 key folds in none and so is immune to
+	 * `TableVersionRegistry::publish()` -- which makes it immune to
+	 * `Propulsion::invalidateQueryCacheForTables()`, the documented escape
+	 * hatch, as well. Every process kept serving the pre-write row set until the
+	 * TTL lapsed (300s by default).
+	 *
+	 * That table is recoverable because it is exactly what the FROM clause of
+	 * such a query is built from -- see `DBAdapter::createSelectSqlPart()`, which
+	 * derives FROM entries from the select columns for this very reason. This
+	 * method reads the same source, deliberately more liberally, and additionally
+	 * reads the `asColumns` expressions (`withColumn()`), which
+	 * `createSelectSqlPart()` emits into the SELECT list but never derives a FROM
+	 * entry from -- so a correlated expression like
+	 * `withColumn('(SELECT COUNT(*) FROM review WHERE review.BOOK_ID = book.ID)')`
+	 * names a table that appears nowhere else in the query. See
+	 * {@see tableNamesInSelectedExpressions()}.
+	 *
 	 * @return list<string>
 	 */
 	public function getQueryCacheTouchedTables(): array
@@ -1314,8 +1343,60 @@ class Criteria implements \IteratorAggregate
 				}
 			}
 		}
+		foreach ($this->tableNamesInSelectedExpressions() as $selectTableName) {
+			$tables[] = $this->resolveTableAlias($selectTableName);
+		}
 
 		return array_values(array_unique(array_filter($tables, static fn (string $table): bool => $table !== '')));
+	}
+
+	/**
+	 * The table (or alias) qualifying each `table.column`-shaped reference in
+	 * this Criteria's select columns and `withColumn()` expressions.
+	 *
+	 * Every qualified reference in the expression contributes, not just the last
+	 * one -- so `substring(book.TITLE from position('x' in book.TITLE))` yields
+	 * `book`, and a two-table expression yields both. That is a superset of what
+	 * `DBAdapter::createSelectSqlPart()` extracts from the same strings (it needs
+	 * the one table the column belongs to, for the FROM clause), and the bias is
+	 * deliberate: the two have opposite failure modes. Naming a table this query
+	 * does not really read costs a redundant invalidation and, at the shared
+	 * tier, one extra version token folded into the key -- nothing ever bumps it,
+	 * so the key stays stable and the entry stays servable. *Missing* one serves
+	 * stale rows, which is the bug this exists to prevent. Over-inclusion is
+	 * therefore the safe direction, and is chosen on purpose.
+	 *
+	 * Multi-segment (schema-qualified) names survive intact: only the final
+	 * segment of a dotted run is dropped, so `myschema.mytable.COLUMN` yields
+	 * `myschema.mytable`, matching the pgsql-multi-schema fixture's table names
+	 * and the form createSelectSqlPart() resolves aliases against.
+	 *
+	 * @return list<string>
+	 */
+	private function tableNamesInSelectedExpressions(): array
+	{
+		$expressions = array_merge(
+			array_values($this->getSelectColumns()),
+			array_values($this->getAsColumns())
+		);
+
+		$tableNames = array();
+		foreach ($expressions as $columnExpression) {
+			// Each match is a maximal dotted identifier run, e.g. "book.TITLE"
+			// or "myschema.mytable.COLUMN"; everything before its last dot is
+			// the table part.
+			if (!preg_match_all('/[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)+/', $columnExpression, $matches)) {
+				continue;
+			}
+			foreach ($matches[0] as $qualifiedReference) {
+				$lastDot = strrpos($qualifiedReference, '.');
+				if ($lastDot !== false && $lastDot > 0) {
+					$tableNames[] = substr($qualifiedReference, 0, $lastDot);
+				}
+			}
+		}
+
+		return $tableNames;
 	}
 
 	/**

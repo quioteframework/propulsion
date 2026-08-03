@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A cached `find()`/`findOne()` with no WHERE clause and no join recorded no
+  table dependencies, so nothing could ever invalidate it.**
+  `Criteria::getQueryCacheTouchedTables()` collected tables from the criterion
+  map, `getPrimaryTableName()` and the joins — but never from the select columns,
+  which for a plain "select every row" query are the only place the table appears
+  (`DBAdapter::createSelectSqlPart()` derives the FROM clause from them for
+  exactly this reason). `setPrimaryTableName()` is called only by
+  `configureSelectColumns()` and `count()`, never by `find()`/`findOne()`, so
+  `BookQuery::create()->setQueryCache()->find()` recorded an empty dependency
+  list while `->count()` on the same query correctly recorded `book`. An entry
+  with no dependencies is unreachable by every invalidation path:
+  `QueryResultCache::invalidateTable()` never matches it, and since
+  `SharedQueryCache::buildKey()` folds in one version token per dependency, its
+  L2 key folds in none and is immune to `TableVersionRegistry::publish()` — and
+  therefore to `Propulsion::invalidateQueryCacheForTables()`, the documented
+  escape hatch, as well. Every process kept serving the pre-write row set until
+  the TTL lapsed (300s by default). Select columns and `withColumn()` expressions
+  are now both read as dependency sources, the latter because they reach the
+  SELECT list without contributing a FROM entry, so a correlated expression can
+  name a table appearing nowhere else in the query. `TieredQueryCache::remember()`
+  additionally refuses to cache a result with no dependencies at all, degrading
+  to an uncached read rather than storing something nothing can evict.
+- **`OFFSET … ROWS` was emitted without an `ORDER BY` on MSSQL and Oracle,
+  producing invalid SQL.** Both adapters splice in a no-op ordering when the
+  query has none, because the ANSI OFFSET/FETCH clause requires one — but they
+  decided via `preg_match('/\bORDER BY\b/i', $sql)` over the whole generated
+  string, which matches an `ORDER BY` belonging to a *nested* query: a
+  FROM-clause subquery, an IN/EXISTS subquery, a CTE, or one branch of a set
+  operation. The synthetic clause was then skipped for an outer query that had no
+  ordering at all, yielding ORA-00907 on Oracle and an "invalid usage of the
+  option NEXT in the FETCH statement" error on SQL Server. `PropulsionModelPager`
+  always sets a limit, so any paginated query of that shape failed outright. The
+  decision now comes from `Criteria::getOrderByColumns()` — what `BasePeer` builds
+  the outer `ORDER BY` *from* — falling back to parenthesis-aware scanning of the
+  SQL for the callers that pass no Criteria.
+- **MSSQL's `TOP` rewrite silently stripped an aggregate's own `DISTINCT`.** The
+  leading `DISTINCT` has to be removed from the select list because it is
+  re-emitted as part of the `SELECT DISTINCT TOP n` prefix, but the unanchored
+  `str_ireplace('distinct ', '')` removed every occurrence, so
+  `SELECT DISTINCT a, COUNT(DISTINCT b) FROM t` became
+  `SELECT DISTINCT TOP n a, COUNT(b) FROM t` — wrong results, with no error to
+  notice it by. Only the leading keyword is removed now.
+
 ### Security
 
 - **The `file` cache driver no longer deserializes objects.** Its whole selling

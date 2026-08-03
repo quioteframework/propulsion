@@ -93,6 +93,25 @@ class TieredQueryCache
             return $formatStatement($execute());
         }
 
+        // A result with no recorded dependencies is not cacheable at any tier,
+        // because nothing could ever evict it. At L1 there is no table for
+        // invalidateTable() to match; at L2 the key folds in one version token
+        // per dependency, so with none it folds in nothing and no publish() can
+        // orphan it -- putting it out of reach of
+        // Propulsion::invalidateQueryCacheForTables() too. Such an entry would
+        // be served, stale, for its whole TTL across every process sharing the
+        // pool.
+        //
+        // Callers are expected to supply dependencies (Criteria derives them,
+        // RawQuery rejects the empty case outright with a message telling the
+        // caller to declare them), so this is a backstop against a future caller
+        // getting it wrong, not a supported mode: it degrades to an uncached
+        // read rather than throwing, since silently skipping the cache is the
+        // failure mode that cannot corrupt anything.
+        if ($touchedTables === []) {
+            return $formatStatement($execute());
+        }
+
         $localKey = $this->localKey($dbName, $sql, $params, $variant);
         if ($this->local->has($localKey)) {
             return $this->local->get($localKey);

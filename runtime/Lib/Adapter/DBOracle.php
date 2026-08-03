@@ -161,7 +161,12 @@ class DBOracle extends DBAdapter
 		// imposing a real ordering (Oracle requires a FROM on every query
 		// including this one, unlike DBMSSQL::applyLimit()'s own bare
 		// "ORDER BY (SELECT NULL)" for the same native clause).
-		if (!preg_match('/\bORDER BY\b/i', $sql)) {
+		//
+		// The check has to distinguish this query's *own* ORDER BY from one
+		// belonging to a nested query (a FROM/IN/EXISTS subquery, a CTE, a set
+		// operation branch); see DBAdapter::hasTopLevelOrderBy(), which is where
+		// that distinction and the ORA-00907 it prevents are spelled out.
+		if (!$this->hasTopLevelOrderBy($sql, $criteria)) {
 			$sql .= ' ORDER BY (SELECT NULL FROM dual)';
 		}
 		$sql .= ' OFFSET ' . $offset . ' ROWS';

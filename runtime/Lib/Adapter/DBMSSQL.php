@@ -184,7 +184,14 @@ class DBMSSQL extends DBAdapter
 				$selectText = 'SELECT ';
 				if (preg_match('/\Aselect(\s+)distinct/i', $sql)) {
 					$selectText .= 'DISTINCT ';
-					$selectStatement = str_ireplace('distinct ', '', $selectStatement);
+					// Only the *leading* DISTINCT -- the one being re-emitted as
+					// part of $selectText above -- may be removed. The previous
+					// str_ireplace('distinct ', '') was unanchored and stripped
+					// every occurrence, so a select list carrying an aggregate's
+					// own DISTINCT (e.g. "SELECT DISTINCT a, COUNT(DISTINCT b)")
+					// silently lost it and the query returned wrong counts, with
+					// no error to notice it by.
+					$selectStatement = preg_replace('/\Adistinct\s+/i', '', $selectStatement, 1) ?? $selectStatement;
 				}
 				$sql = $selectText . 'TOP ' . $limit . ' ' . $selectStatement . ' FROM ' . $fromStatement;
 				return;
@@ -204,7 +211,12 @@ class DBMSSQL extends DBAdapter
 		// ORDER BY clause; when the query has none, an arbitrary
 		// "ORDER BY (SELECT NULL)" satisfies the syntax requirement without
 		// imposing a real ordering.
-		if (!preg_match('/\bORDER BY\b/i', $sql)) {
+		//
+		// The check has to distinguish this query's *own* ORDER BY from one
+		// belonging to a nested query (a FROM/IN/EXISTS subquery, a CTE, a set
+		// operation branch); see DBAdapter::hasTopLevelOrderBy(), which is where
+		// that distinction and the syntax error it prevents are spelled out.
+		if (!$this->hasTopLevelOrderBy($sql, $criteria)) {
 			$sql .= ' ORDER BY (SELECT NULL)';
 		}
 		$sql .= ' OFFSET ' . $offset . ' ROWS';

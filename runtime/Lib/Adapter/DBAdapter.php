@@ -759,6 +759,126 @@ abstract class DBAdapter
 	public abstract function applyLimit(&$sql, $offset, $limit, $criteria = null): void;
 
 	/**
+	 * Whether $sql's *outermost* query level carries an ORDER BY clause.
+	 *
+	 * Only the adapters whose applyLimit() emits the ANSI "OFFSET n ROWS [FETCH
+	 * NEXT m ROWS ONLY]" clause need this (DBMSSQL, DBOracle): that clause is a
+	 * syntax error without an ORDER BY on the same query level, so both of them
+	 * splice in a no-op ordering when the query has none. Deciding *whether* it
+	 * has none is the subtle part, and a plain `preg_match('/\bORDER BY\b/i')`
+	 * over the generated SQL gets it wrong in a way that produces invalid SQL
+	 * rather than merely redundant SQL: it matches an ORDER BY belonging to a
+	 * nested query -- a FROM-clause subquery (Criteria::addSelectQuery()), an
+	 * IN/EXISTS subquery (addInQuery()/addExistsQuery()), a CTE (withCte()), or
+	 * one branch of a set operation (union()) -- and so concludes "already
+	 * ordered" for an outer query that in fact has no ordering at all. The
+	 * synthetic clause is then skipped and "OFFSET 0 ROWS" is emitted bare,
+	 * which Oracle rejects with ORA-00907 and SQL Server with an "invalid usage
+	 * of the option NEXT in the FETCH statement" error. PropulsionModelPager
+	 * always sets a limit, so any paginated query of that shape used to fail
+	 * outright on both platforms.
+	 *
+	 * Two sources are consulted, in order of authority:
+	 *
+	 *  1. **The Criteria, when one was passed.** Its getOrderByColumns() is the
+	 *     thing BasePeer::buildSelectSql()/createSetOperationSql() build the
+	 *     outer ORDER BY *from*, so it answers the question exactly rather than
+	 *     by inference: non-empty iff the SQL they produced has a top-level
+	 *     ORDER BY. (The ignore-case rewrite in buildSelectSql() substitutes the
+	 *     rendered expression per column but never adds or removes columns, so
+	 *     it cannot desynchronise the two.)
+	 *  2. **Parenthesis-aware scanning of the SQL, otherwise.** applyLimit()'s
+	 *     $criteria parameter is optional and part of a public, pluggable adapter
+	 *     interface, so a caller may legitimately pass none. Every nesting
+	 *     construct listed above puts its ORDER BY inside parentheses, so
+	 *     ignoring anything at paren depth > 0 gets the remaining cases right
+	 *     without needing a real SQL parser.
+	 *
+	 * @param     string  $sql       The fully assembled SQL for this query level.
+	 * @param     mixed   $criteria  The Criteria applyLimit() was handed, if any.
+	 * @return    boolean
+	 */
+	protected function hasTopLevelOrderBy(string $sql, mixed $criteria = null): bool
+	{
+		if ($criteria instanceof Criteria) {
+			return $criteria->getOrderByColumns() !== array();
+		}
+
+		return $this->containsOrderByAtTopParenDepth($sql);
+	}
+
+	/**
+	 * True when $sql contains an "ORDER BY" token that sits outside every pair of
+	 * parentheses. See hasTopLevelOrderBy(), whose fallback path this is.
+	 *
+	 * String literals are tracked so a quote inside them can't unbalance the
+	 * depth count, and so an "order by" appearing inside one (a LIKE pattern, a
+	 * query comment routed through Criteria::setComment()) is not mistaken for a
+	 * clause. Both quoting styles PDO-bound SQL can still carry are handled:
+	 * single-quoted literals (with SQL's doubled-quote escape) and
+	 * double-quoted/bracketed identifiers, which is what the quoting adapters
+	 * emit around column names.
+	 */
+	private function containsOrderByAtTopParenDepth(string $sql): bool
+	{
+		$depth = 0;
+		$length = strlen($sql);
+
+		for ($i = 0; $i < $length; $i++) {
+			$char = $sql[$i];
+
+			if ($char === "'" || $char === '"') {
+				// Skip to the matching close quote. A doubled quote inside a
+				// literal is an escaped quote, not the end of it, and is
+				// consumed by the same lookahead.
+				for ($i++; $i < $length; $i++) {
+					if ($sql[$i] !== $char) {
+						continue;
+					}
+					if (($i + 1) < $length && $sql[$i + 1] === $char) {
+						$i++;
+						continue;
+					}
+					break;
+				}
+				continue;
+			}
+
+			if ($char === '[') {
+				// MSSQL-style bracketed identifier; brackets don't nest.
+				$close = strpos($sql, ']', $i + 1);
+				$i = $close === false ? $length : $close;
+				continue;
+			}
+
+			if ($char === '(') {
+				$depth++;
+				continue;
+			}
+
+			if ($char === ')') {
+				if ($depth > 0) {
+					$depth--;
+				}
+				continue;
+			}
+
+			if ($depth !== 0) {
+				continue;
+			}
+
+			// At the outermost level: does an ORDER BY token start here?
+			if (($char === 'o' || $char === 'O')
+				&& preg_match('/\GORDER\s+BY\b/i', $sql, $m, 0, $i) === 1
+			) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * Whether a recursive common table expression needs the literal "RECURSIVE"
 	 * keyword ("WITH RECURSIVE name AS (...)"), as Postgres/MySQL/MariaDB/SQLite all
 	 * require. MSSQL and Oracle accept a self-referencing CTE under a plain "WITH"
