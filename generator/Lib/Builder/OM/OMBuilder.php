@@ -383,19 +383,100 @@ abstract class OMBuilder extends DataModelBuilder
 		return null;
 	}
 
+	/**
+	 * Runtime classes that generated code refers to by their bare historic name,
+	 * mapped to the FQCN a `use` statement has to import.
+	 *
+	 * Needed because a builder may `declareClass()` one of these by bare name
+	 * (inherited from when they really were global classes), and a bare name is
+	 * not something an import can be derived from. Anything declared with its
+	 * real FQCN already needs no entry here.
+	 *
+	 * @return    array<string, string>
+	 */
+	protected function getRuntimeClassFqcnMap(): array
+	{
+		return array(
+			'BaseObject'                 => 'Propulsion\\OM\\BaseObject',
+			'BasePeer'                   => 'Propulsion\\Util\\BasePeer',
+			'Criteria'                   => 'Propulsion\\Query\\Criteria',
+			'ModelCriteria'              => 'Propulsion\\Query\\ModelCriteria',
+			'ModelJoin'                  => 'Propulsion\\Query\\ModelJoin',
+			'Persistent'                 => 'Propulsion\\OM\\Persistent',
+			'Propulsion'                 => 'Propulsion\\Propulsion',
+			'PropulsionCollection'       => 'Propulsion\\Collection\\PropulsionCollection',
+			'PropulsionException'        => 'Propulsion\\Exception\\PropulsionException',
+			'PropulsionObjectCollection' => 'Propulsion\\Collection\\PropulsionObjectCollection',
+			'PropulsionPDO'              => 'Propulsion\\Connection\\PropulsionPDO',
+			'RelationMap'                => 'Propulsion\\Map\\RelationMap',
+			'TableMap'                   => 'Propulsion\\Map\\TableMap',
+			'WritableModelInterface'     => 'Propulsion\\OM\\WritableModelInterface',
+		);
+	}
+
+	/**
+	 * The `use` statements for everything this builder declared.
+	 *
+	 * This was previously overridden, near-identically, by ObjectBuilder,
+	 * PeerBuilder, QueryBuilder and TableMapBuilder -- each carrying its own copy
+	 * of the runtime-class map (with slightly different contents) and of the
+	 * logic below. They are gone; the map is {@see getRuntimeClassFqcnMap()}.
+	 *
+	 * Two rules, both about names that cannot be imported as declared:
+	 *
+	 *  - **A bare declare of a runtime class is resolved to its real FQCN.** A
+	 *    builder may declare e.g. `Criteria` rather than
+	 *    `Propulsion\Query\Criteria`; inside a `namespace Foo\Bar;` block a bare
+	 *    reference would resolve to `Foo\Bar\Criteria`, so the import is what
+	 *    makes it work, and it has to name the real class.
+	 *  - **Non-compound names are not imported at all in a global-namespace
+	 *    target.** `use DateTime;` is meaningful inside a namespace (it imports
+	 *    the global class) but in the global namespace it is a no-op that PHP
+	 *    warns about: "The use statement with non-compound name 'DateTime' has no
+	 *    effect". Flat generated code used to emit exactly those, so this removes
+	 *    warning noise as well as being required for the flat imports below.
+	 *
+	 * Together these are what let a *flat* (global-namespace) generated class
+	 * carry real imports for the runtime classes it uses, instead of relying on
+	 * the bare aliases `runtime/Lib/legacy-class-map.php` installs -- see that
+	 * file, and `docs/WORKER_MODE.md` on why those aliases cost every process
+	 * ~3.2 MB. Namespaced targets already worked this way.
+	 */
 	public function getUseStatements(?string $ignoredNamespace = null): string
 	{
-		$script = '';
 		$declaredClasses = $this->declaredClasses;
 		unset($declaredClasses[$ignoredNamespace ?? '']);
-		ksort($declaredClasses);
+
+		$runtimeClasses = $this->getRuntimeClassFqcnMap();
+		$isGlobalNamespace = !$this->getNamespace();
+
+		// Keyed by the name that comes into scope, which is also how a duplicate
+		// import -- fatal, and easy to produce from two declares of the same
+		// short name -- is collapsed to one.
+		$imports = array();
 		foreach ($declaredClasses as $namespace => $classes) {
-			sort($classes);
 			foreach ($classes as $class) {
-				$script .= sprintf("use %s\\%s;
-", $namespace, $class);
+				$fullName = $namespace !== '' ? $namespace . '\\' . $class : $class;
+
+				if (strpos($fullName, '\\') === false && isset($runtimeClasses[$class])) {
+					$fullName = $runtimeClasses[$class];
+				}
+
+				if ($isGlobalNamespace && strpos($fullName, '\\') === false) {
+					continue;
+				}
+
+				$imports[$class] = $fullName;
 			}
 		}
+
+		asort($imports);
+
+		$script = '';
+		foreach ($imports as $fullName) {
+			$script .= sprintf("use %s;\n", $fullName);
+		}
+
 		return $script;
 	}
 

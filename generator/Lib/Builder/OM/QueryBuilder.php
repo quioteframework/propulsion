@@ -300,77 +300,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
         };
     }
 
-    /**
-     * Override getUseStatements to provide PHP 8.4 compatible use statements with deduplication
-     */
-    public function getUseStatements(?string $ignoredNamespace = null): string
-    {
-        $script = '';
-        $declaredClasses = $this->declaredClasses;
-        unset($declaredClasses[$ignoredNamespace ?? '']);
 
-        // Build a map of class names to their preferred fully qualified names.
-        // These Propulsion\* core classes are aliased into the *global* namespace by
-        // runtime/Lib/legacy-class-map.php, so a bare reference to e.g. `Criteria` only
-        // resolves correctly on its own when the referencing class has no namespace of its
-        // own -- inside a real `namespace Foo\Bar;` block, an unimported bare name resolves
-        // relative to that namespace (`Foo\Bar\Criteria`), not globally, so a real `use`
-        // import is still required there.
-        $classMap = [];
-        $preferredNamespaces = [
-            'PropulsionException' => 'Propulsion\\Exception\\PropulsionException',
-            'BasePeer' => 'Propulsion\\Util\\BasePeer',
-            'Criteria' => 'Propulsion\\Query\\Criteria',
-            'ModelCriteria' => 'Propulsion\\Query\\ModelCriteria',
-            'ModelJoin' => 'Propulsion\\Query\\ModelJoin',
-            'PropulsionPDO' => 'Propulsion\\Connection\\PropulsionPDO',
-            'PropulsionCollection' => 'Propulsion\\Collection\\PropulsionCollection',
-            'PropulsionObjectCollection' => 'Propulsion\\Collection\\PropulsionObjectCollection',
-            'Propulsion' => 'Propulsion\\Propulsion',
-            'BaseObject' => 'Propulsion\\OM\\BaseObject',
-            'Persistent' => 'Propulsion\\OM\\Persistent'
-        ];
-        // True for the flat/legacy-style generation target (e.g. the bookstore fixture, or
-        // any PropulsionQuickBuilder-built schema): no `namespace` statement of its own, so bare
-        // core-class references already resolve via the global alias above with no import
-        // needed -- and PropulsionQuickBuilder concatenates many such classes into a single
-        // eval()'d script with no namespace block between them, so emitting the same
-        // `use Fully\Qualified\Name;` once per class (as addClassBody()'s FQCN
-        // declareClass() calls would otherwise cause here) is a fatal redeclaration.
-        $isFlat = !$this->getNamespace();
-
-        // Collect all classes and prefer properly namespaced versions
-        foreach ($declaredClasses as $namespace => $classes) {
-            foreach ($classes as $class) {
-                $fullName = $namespace ? $namespace . '\\' . $class : $class;
-
-                if ($isFlat && isset($preferredNamespaces[$class])
-                    && ($namespace === '' || $fullName === $preferredNamespaces[$class])) {
-                    // Flat target referencing a globally-aliased core class: no import needed.
-                    continue;
-                }
-
-                if (!$isFlat && $namespace === '' && isset($preferredNamespaces[$class])) {
-                    // Namespaced target with a legacy bare declare of a core class: import its
-                    // real FQCN, since a bare reference here would resolve relative to this
-                    // class's own namespace instead.
-                    $fullName = $preferredNamespaces[$class];
-                }
-
-                // Use the class name as the key for deduplication
-                $classMap[$class] = $fullName;
-            }
-        }
-
-        // Sort by fully qualified name for consistency
-        asort($classMap);
-
-        foreach ($classMap as $className => $fullName) {
-            $script .= sprintf("use %s;\n", $fullName);
-        }
-
-        return $script;
-    }
 
     /**
      * Specifies the methods that are added as part of the stub object class.

@@ -259,79 +259,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		// Removed duplicate declareClasses() call that was causing duplicate use statements
 	}
 
-	/**
-	 * Override getUseStatements to provide PHP 8.4 compatible use statements with deduplication
-	 * @param      ?string $ignoredNamespace
-	 */
-	public function getUseStatements(?string $ignoredNamespace = null): string
-	{
-		$script = '';
-		$declaredClasses = $this->declaredClasses;
-		unset($declaredClasses[$ignoredNamespace ?? '']);
 
-		// Build a map of class names to their preferred fully qualified names.
-		// See QueryBuilder::getUseStatements() for the full rationale: these Propulsion\*
-		// core classes are globally aliased by runtime/Lib/legacy-class-map.php, so a bare
-		// reference to e.g. `Criteria` only resolves correctly on its own for a class with
-		// no namespace of its own -- inside a real `namespace Foo\Bar;` block, it would
-		// resolve relative to that namespace instead, so it still needs a real `use` import
-		// there. PropulsionQuickBuilder also concatenates many flat/non-namespaced generated
-		// classes into a single eval()'d script with no namespace block between them, so
-		// unconditionally emitting `use Fully\Qualified\Name;` once per such class (as
-		// addClassBody()'s FQCN declareClass() calls would otherwise cause) is fatal.
-		$classMap = [];
-		$preferredNamespaces = [
-			'PropulsionException' => 'Propulsion\\Exception\\PropulsionException',
-			'BasePeer' => 'Propulsion\\Util\\BasePeer',
-			'Criteria' => 'Propulsion\\Query\\Criteria',
-			'ModelCriteria' => 'Propulsion\\Query\\ModelCriteria',
-			'ModelJoin' => 'Propulsion\\Query\\ModelJoin',
-			'PropulsionPDO' => 'Propulsion\\Connection\\PropulsionPDO',
-			'PropulsionCollection' => 'Propulsion\\Collection\\PropulsionCollection',
-			'Propulsion' => 'Propulsion\\Propulsion',
-			'BaseObject' => 'Propulsion\\OM\\BaseObject',
-			'Persistent' => 'Propulsion\\OM\\Persistent'
-		];
-		$isFlat = !$this->getNamespace();
-
-		// Collect all classes and prefer properly namespaced versions
-		foreach ($declaredClasses as $namespace => $classes) {
-			foreach ($classes as $class) {
-				$fullName = $namespace ? $namespace . '\\' . $class : $class;
-
-				if ($isFlat && isset($preferredNamespaces[$class])
-					&& ($namespace === '' || $fullName === $preferredNamespaces[$class])) {
-					// Flat target referencing a globally-aliased core class: no import needed.
-					continue;
-				}
-
-				if (!$isFlat && $namespace === '' && isset($preferredNamespaces[$class])) {
-					// Namespaced target with a legacy bare declare of a core class: import its
-					// real FQCN, since a bare reference here would resolve relative to this
-					// class's own namespace instead.
-					$fullName = $preferredNamespaces[$class];
-				}
-
-				// Use the class name as the key for deduplication
-				$classMap[$class] = $fullName;
-			}
-		}
-		
-		// Sort by fully qualified name for consistency
-		asort($classMap);
-		
-		foreach ($classMap as $className => $fullName) {
-			if (strpos($fullName, '\\') === 0) {
-				// Global namespace class (starts with \)
-				$script .= sprintf("use %s;\n", $fullName);
-			} else {
-				// Namespaced class
-				$script .= sprintf("use %s;\n", $fullName);
-			}
-		}
-		
-		return $script;
-	}
 
 	/**
 	 * Adds constant and variable declarations that go at the top of the class.

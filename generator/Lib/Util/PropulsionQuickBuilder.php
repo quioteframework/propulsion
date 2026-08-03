@@ -176,7 +176,46 @@ class PropulsionQuickBuilder
 	private function buildScriptFor(Table $table, string $target): string
 	{
 		$builder = $this->getConfig()->getConfiguredBuilder($table, $target);
-		return $builder instanceof OMBuilder ? $builder->build() : '';
+
+		return $builder instanceof OMBuilder ? self::wrapInNamespaceBlock($builder->build()) : '';
+	}
+
+	/**
+	 * Re-express one generated class as a *braced* namespace block, so that many
+	 * of them can be concatenated into the single script {@see getClasses()}
+	 * returns and {@see buildClasses()} eval()s.
+	 *
+	 * Each braced block has its own import scope. That is what makes the
+	 * concatenation legal now that generated classes carry real `use` statements
+	 * for the runtime classes they reference (see
+	 * {@see \Propulsion\Generator\Builder\OM\OMBuilder::getUseStatements()}):
+	 * repeating `use Propulsion\Query\Criteria;` once per class in a *single*
+	 * scope is a fatal error -- "Cannot use Propulsion\Query\Criteria as Criteria
+	 * because the name is already in use" -- and PHP raises it even when the two
+	 * imports are identical. Previously flat generated classes emitted no imports
+	 * at all and leaned on the global aliases instead, which is exactly the
+	 * dependency this removes.
+	 *
+	 * Every block is braced, including the global-namespace one (`namespace { }`),
+	 * because PHP refuses to mix braced and unbraced namespace declarations in one
+	 * script -- so a schema with namespaced tables cannot be handled by wrapping
+	 * only the flat ones. Classes declared inside `namespace { }` still land in the
+	 * global namespace, exactly as before.
+	 */
+	private static function wrapInNamespaceBlock(string $script): string
+	{
+		if (trim($script) === '') {
+			return '';
+		}
+
+		// The concatenated result is eval()'d, which is already in PHP mode.
+		$script = preg_replace('/^\s*<\?php\s*/', '', $script, 1) ?? $script;
+
+		if (preg_match('/^\s*namespace\s+([^;{]+);\s*/', $script, $matches) === 1) {
+			return sprintf("namespace %s {\n%s\n}\n", trim($matches[1]), substr($script, strlen($matches[0])));
+		}
+
+		return sprintf("namespace {\n%s\n}\n", $script);
 	}
 
 	/**
@@ -192,7 +231,7 @@ class PropulsionQuickBuilder
 		) {
 			$builder->setChild($child);
 		}
-		return $builder instanceof OMBuilder ? $builder->build() : '';
+		return $builder instanceof OMBuilder ? self::wrapInNamespaceBlock($builder->build()) : '';
 	}
 
 	public function buildClasses(): void
@@ -270,11 +309,13 @@ class PropulsionQuickBuilder
 						OMBuilder::class
 					));
 				}
-				$script .= $builder->build();
+				$script .= self::wrapInNamespaceBlock($builder->build());
 			}
 		}
 
-		// remove extra <?php
+		// Belt and braces: wrapInNamespaceBlock() already strips the opening tag
+		// from every block above, so this is a no-op now rather than the thing
+		// that made the concatenation valid.
 		$script = str_replace('<?php', '', $script);
 		return $script;
 	}

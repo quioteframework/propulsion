@@ -27,7 +27,6 @@ namespace Propulsion;
  */
 use Propulsion\Config\PropulsionConfiguration;
 use Propulsion\Exception\PropulsionException;
-use Propulsion\Util\PropulsionAutoloader;
 use Propulsion\Map\DatabaseMap;
 use Propulsion\Connection\PropulsionPDO;
 use PDO;
@@ -295,6 +294,7 @@ class Propulsion
 		// file-backed driver creates directories and setConfiguration() is
 		// called from tests and generator commands that will never cache
 		// anything. The pool is rebuilt lazily on first use.
+		self::$serviceContainer?->clearQueryCachePool();
 
 		// Likewise drop every compiled SELECT. That cache is process-scoped, and
 		// the SQL text in it is specific to the adapter its datasource was using
@@ -304,7 +304,6 @@ class Propulsion
 		// reachable. (While the cache was request-scoped this could not bite,
 		// because the entries never outlived the request that built them.)
 		self::$serviceContainer?->clearCompiledQueryCache();
-		self::$serviceContainer?->clearQueryCachePool();
 	}
 
 	/**
@@ -1322,6 +1321,28 @@ class Propulsion
 // block needs it. class_alias() autoloads its target class itself, so this eagerly
 // loads all of them once, whenever Propulsion\Propulsion is first loaded (i.e. always,
 // since Propulsion::init() is the mandatory bootstrap call).
+// Skippable, because aliasing all of these eagerly costs every process roughly
+// 3.2 MB and ~176 loaded classes (measured; see docs/WORKER_MODE.md), and an
+// application whose *generated* model classes are namespaced never needs any of
+// it -- namespaced generated code imports the runtime classes properly, and as of
+// the OMBuilder::getUseStatements() rework so does newly generated flat code.
+//
+// It stays opt-*out* rather than opt-in because what it also covers is
+// hand-written application code still using the bare historic names (`new
+// Criteria()`, `catch (PropelException $e)`, `$con instanceof PropelPDO`), and
+// those break *silently* without the alias: PHP does not consult the autoloader
+// for `catch`, `instanceof`, `is_a()` or a parameter type check, so the failure
+// is a wrong answer -- an unmatched catch, a false instanceof -- rather than an
+// error. Defaulting to on means nobody is broken by upgrading; defining the
+// constant is a deliberate statement that your own code does not rely on the bare
+// names either.
+//
+// Define it before anything loads this class, e.g. at the top of your front
+// controller:
+//
+//     define('PROPULSION_SKIP_LEGACY_CLASS_ALIASES', true);
+//
+if (!defined('PROPULSION_SKIP_LEGACY_CLASS_ALIASES') || !constant('PROPULSION_SKIP_LEGACY_CLASS_ALIASES')) {
 set_error_handler(static function (int $severity, string $message, string $file = '', int $line = 0): bool {
 	throw new \ErrorException($message, 0, $severity, $file, $line);
 });
@@ -1342,4 +1363,5 @@ try {
 } finally {
 	restore_error_handler();
 }
+} // PROPULSION_SKIP_LEGACY_CLASS_ALIASES
 
