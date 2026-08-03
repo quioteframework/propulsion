@@ -440,12 +440,27 @@ class Criterion
 		}
 		// If selection is case insensitive use ILIKE for PostgreSQL or SQL
 		// UPPER() function on column name for other databases.
+		//
+		// The Postgres branch resolves into a *local* comparison operator rather
+		// than writing back to $this->comparison. Rendering SQL is a read of the
+		// criterion, and this was the one place it mutated one: a criterion whose
+		// LIKE had been rewritten to ILIKE stayed rewritten afterwards. That is
+		// invisible on Postgres (the rewrite is idempotent -- a second render sees
+		// ILIKE, matches neither branch, and leaves it alone) but not across
+		// adapters: the same Criteria rendered for a Postgres datasource and then
+		// for a MySQL one carried ILIKE onto MySQL, which has no such operator, so
+		// the second query failed with a syntax error. Criteria objects are
+		// legitimately reused that way -- getComparison() is also part of the
+		// public API and read by Criteria::equals()/addJoinObject()'s dedupe, both
+		// of which should see what the caller asked for, not an artefact of which
+		// datasource happened to render first.
+		$comparison = $this->comparison;
 		if ($this->ignoreStringCase) {
 			if ($db instanceof DBPostgres) {
-				if ($this->comparison === Criteria::LIKE) {
-					$this->comparison = Criteria::ILIKE;
-				} elseif ($this->comparison === Criteria::NOT_LIKE) {
-					$this->comparison = Criteria::NOT_ILIKE;
+				if ($comparison === Criteria::LIKE) {
+					$comparison = Criteria::ILIKE;
+				} elseif ($comparison === Criteria::NOT_LIKE) {
+					$comparison = Criteria::NOT_ILIKE;
 				}
 			} else {
 				$field = $db->ignoreCase($field);
@@ -454,7 +469,7 @@ class Criterion
 
 		$params[] = array('table' => $this->realtable, 'column' => $this->column, 'value' => $this->value);
 
-		$sb .= $field . $this->comparison;
+		$sb .= $field . $comparison;
 
 		// If selection is case insensitive use SQL UPPER() function
 		// on criteria or, if Postgres we are using ILIKE, so not necessary.
@@ -633,12 +648,29 @@ class Criterion
 	}
 
 	/**
-	 * Ensures deep cloning of attached objects
+	 * Ensures deep cloning of attached objects.
+	 *
+	 * That includes a Criteria held as the *value*, which is how
+	 * Criteria::addExistsQuery()/addInQuery() store their subquery -- the one
+	 * nested Criteria that used to be shared by reference with the original.
+	 * Criteria::__clone() already deep-clones its own nested-Criteria collections
+	 * (selectQueries, setOperations, CTE queries) for a reason it states there:
+	 * isKeepQuery() defaults to true, so every find()/count()/update() clones the
+	 * query specifically to avoid mutating the caller's object, and SQL generation
+	 * does write to a Criteria it renders (BasePeer::buildSelectSql() sets
+	 * ignore-case flags on criterions and calls setDB() on them;
+	 * createCountSql() rewrites select columns). Leaving the EXISTS/IN subquery
+	 * shared meant those writes reached through a clone into the original, so the
+	 * invariant held for four of the five nested-query kinds and silently not for
+	 * the fifth.
 	 */
 	public function __clone()
 	{
 		foreach ($this->clauses as $key => $criterion) {
 			$this->clauses[$key] = clone $criterion;
+		}
+		if ($this->value instanceof Criteria) {
+			$this->value = clone $this->value;
 		}
 	}
 }

@@ -77,6 +77,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   genuinely is still open and the depth must stay to say so — which is what lets
   the caller's own `rollBack()`, or `Session::rollBackDanglingTransactions()` at
   the request boundary, find and unwind it.
+- **Rendering a criterion no longer rewrites it.** `Criterion::appendLikeToPs()`
+  assigned `Criteria::ILIKE` back onto `$this->comparison` on the ignore-case
+  Postgres path, so a criterion rendered once stayed rewritten. That is invisible
+  on Postgres alone (the rewrite is idempotent) but not across adapters: one
+  `Criteria` rendered for a Postgres datasource and then for a MySQL one carried
+  `ILIKE` onto MySQL, which has no such operator, so the second query failed with
+  a syntax error. The operator is now resolved into a local, leaving
+  `getComparison()` — public API, and read by `Criteria::equals()` and
+  `addJoinObject()`'s dedupe — reporting what the caller actually asked for.
+- **`Criterion::__clone()` now deep-clones a `Criteria`-valued `$value`**, which
+  is how `Criteria::addExistsQuery()`/`addInQuery()` store their subquery. It was
+  the one nested `Criteria` still shared by reference with the original;
+  `Criteria::__clone()` already deep-clones `selectQueries`, `setOperations` and
+  CTE queries for the reason it documents there — `isKeepQuery()` defaults to
+  true, so every `find()`/`count()`/`update()` clones the query specifically to
+  avoid mutating the caller's object, and SQL generation does write to a
+  `Criteria` it renders. So the invariant held for four of the five nested-query
+  kinds and silently not for the fifth. A non-`Criteria` value is still copied
+  as-is.
+- **A failed `prepare()` is no longer cached.** With
+  `PROPEL_ATTR_CACHE_PREPARES` enabled, `prepare()` stored whatever
+  `PDO::prepare()` returned — including `false`, which it returns instead of
+  throwing under `ERRMODE_SILENT`/`ERRMODE_WARNING` — and `isset()` reports a hit
+  for a stored `false` (it is only false for `null`). One transient failure (a
+  table not yet created by a concurrent migration, a connection that dropped
+  mid-request) therefore poisoned that SQL string for the whole life of the
+  connection, which for a pooled or worker-mode connection outlasts the condition
+  that caused it by a long way. Only successful prepares are cached now.
 
 ### Security
 

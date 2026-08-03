@@ -83,7 +83,10 @@ trait PropulsionPDOTrait
 	/**
 	 * Cache of prepared statements (PDOStatement) keyed by md5 of SQL.
 	 *
-	 * @var       array<string, \PDOStatement|false>  [md5(sql) => PDOStatement]
+	 * Only successful prepares are stored -- see prepare() for why caching a
+	 * `false` return is worse than not caching it.
+	 *
+	 * @var       array<string, \PDOStatement>  [md5(sql) => PDOStatement]
 	 */
 	protected $preparedStatements = array();
 
@@ -680,7 +683,18 @@ trait PropulsionPDOTrait
 			$cacheKey = md5($sql);
 			if (!isset($this->preparedStatements[$cacheKey])) {
 				$return = parent::prepare($sql, $driver_options);
-				$this->preparedStatements[$cacheKey] = $return;
+				// A failure is not cached. PDO::prepare() returns false rather
+				// than throwing when the error mode is ERRMODE_SILENT or
+				// ERRMODE_WARNING, and `isset()` is true for a stored false (it
+				// is only false for null), so a single transient failure -- a
+				// dropped connection, a table not yet created by a migration
+				// running concurrently -- used to be memoised and handed back for
+				// that SQL for the rest of the connection's life, with no further
+				// attempt to prepare it. Callers see false either way; the
+				// difference is whether the next attempt can succeed.
+				if ($return !== false) {
+					$this->preparedStatements[$cacheKey] = $return;
+				}
 			} else {
 				$return = $this->preparedStatements[$cacheKey];
 			}

@@ -341,6 +341,164 @@ class CriteriaTest extends \PHPUnit\Framework\TestCase
 		Propulsion::setDB(null, $originalDB);
 	}
 
+	/**
+	 * Rendering a criterion must not rewrite it.
+	 *
+	 * The ignore-case Postgres branch used to assign Criteria::ILIKE back onto
+	 * $this->comparison, so a criterion rendered once for Postgres stayed
+	 * rewritten. Invisible on Postgres alone (the rewrite is idempotent -- a
+	 * second render sees ILIKE and matches neither branch) but not across
+	 * adapters, which is what testCriterionIgnoreCase() above cannot catch: it
+	 * builds a fresh criterion per adapter, so nothing carries over.
+	 */
+	public function testCriterionIgnoreCaseDoesNotMutateTheCriterion()
+	{
+		$originalDB = Propulsion::getDB();
+		try {
+			Propulsion::setDB(null, new DBPostgres());
+			$criterion = (new Criteria())
+				->getNewCriterion('TABLE.COLUMN', 'FoObAr', Criteria::LIKE)
+				->setIgnoreCase(true);
+
+			$sb = '';
+			$params = array();
+			$criterion->appendPsTo($sb, $params);
+			$this->assertEquals('TABLE.COLUMN ILIKE :p1', $sb, 'Postgres still renders ILIKE');
+
+			$this->assertEquals(
+				Criteria::LIKE,
+				$criterion->getComparison(),
+				'the criterion still reports the comparison the caller asked for; getComparison() is '
+				. 'public API and feeds Criteria::equals()/addJoinObject() dedupe'
+			);
+		} finally {
+			Propulsion::setDB(null, $originalDB);
+		}
+	}
+
+	/**
+	 * The consequence of the above: one Criteria rendered for two datasources
+	 * with different adapters. MySQL has no ILIKE operator, so the leaked
+	 * rewrite produced a syntax error on the second query.
+	 */
+	public function testIgnoreCaseLikeDoesNotLeakIlikeOntoANonPostgresAdapter()
+	{
+		$originalDB = Propulsion::getDB();
+		try {
+			$criterion = (new Criteria())
+				->getNewCriterion('TABLE.COLUMN', 'FoObAr', Criteria::LIKE)
+				->setIgnoreCase(true);
+
+			$criterion->setDB(new DBPostgres());
+			$sb = '';
+			$params = array();
+			$criterion->appendPsTo($sb, $params);
+			$this->assertStringContainsString('ILIKE', $sb);
+
+			// Same criterion, different adapter.
+			$criterion->setDB(new DBMySQL());
+			$sb = '';
+			$params = array();
+			$criterion->appendPsTo($sb, $params);
+
+			$this->assertStringNotContainsString(
+				'ILIKE',
+				$sb,
+				'MySQL has no ILIKE operator; a rewrite from an earlier render must not reach it'
+			);
+			$this->assertEquals('UPPER(TABLE.COLUMN) LIKE UPPER(:p1)', $sb);
+		} finally {
+			Propulsion::setDB(null, $originalDB);
+		}
+	}
+
+	/**
+	 * Criteria::__clone() deep-clones its own nested-Criteria collections
+	 * (selectQueries, setOperations, CTE queries) so a clone cannot mutate the
+	 * original's subqueries -- isKeepQuery() defaults to true, so every
+	 * find()/count()/update() clones for exactly that reason, and rendering does
+	 * write to the Criteria it renders. The EXISTS/IN subquery, which lives in
+	 * Criterion::$value rather than in one of those collections, was the one kind
+	 * still shared by reference.
+	 */
+	public function testCloneDeepClonesAnExistsSubquery()
+	{
+		$subQuery = new Criteria('bookstore');
+		$subQuery->addSelectColumn('review.ID');
+
+		$c = new Criteria('bookstore');
+		$c->addSelectColumn('book.ID');
+		$c->addExistsQuery($subQuery);
+
+		$clone = clone $c;
+
+		$originalSub = $this->onlyCriterionValue($c);
+		$clonedSub = $this->onlyCriterionValue($clone);
+
+		$this->assertInstanceOf(Criteria::class, $originalSub);
+		$this->assertInstanceOf(Criteria::class, $clonedSub);
+		$this->assertNotSame($originalSub, $clonedSub, 'the subquery must not be shared with the clone');
+
+		// And the two are genuinely independent, which is the property that matters.
+		$clonedSub->addSelectColumn('review.STARS');
+		$this->assertEquals(array('review.ID'), $originalSub->getSelectColumns());
+		$this->assertEquals(array('review.ID', 'review.STARS'), $clonedSub->getSelectColumns());
+	}
+
+	public function testCloneDeepClonesAnInSubquery()
+	{
+		// addInQuery() stores its subquery the same way, so it needs its own
+		// assertion rather than riding on addExistsQuery()'s.
+		$subQuery = new Criteria('bookstore');
+		$subQuery->addSelectColumn('review.BOOK_ID');
+
+		$c = new Criteria('bookstore');
+		$c->addSelectColumn('book.ID');
+		$c->addInQuery('book.ID', $subQuery);
+
+		$clone = clone $c;
+
+		$originalSub = $this->onlyCriterionValue($c);
+		$clonedSub = $this->onlyCriterionValue($clone);
+
+		$this->assertInstanceOf(Criteria::class, $originalSub);
+		$this->assertInstanceOf(Criteria::class, $clonedSub);
+		$this->assertNotSame($originalSub, $clonedSub);
+	}
+
+	/**
+	 * A criterion whose value is *not* a Criteria must be copied as-is -- cloning
+	 * scalars is meaningless and cloning an arbitrary caller-supplied object
+	 * would change behaviour well beyond the subquery case.
+	 */
+	public function testCloneLeavesANonCriteriaValueAlone()
+	{
+		$value = new stdClass();
+		$value->marker = 'original';
+
+		$c = new Criteria('bookstore');
+		$c->add('book.TITLE', $value);
+
+		$clone = clone $c;
+
+		$this->assertSame(
+			$value,
+			$this->onlyCriterionValue($clone),
+			'only a Criteria value is deep-cloned; anything else is left exactly as the caller passed it'
+		);
+	}
+
+	/**
+	 * The value of the single criterion in $c.
+	 */
+	private function onlyCriterionValue(Criteria $c): mixed
+	{
+		$keys = array_keys($c->getMap());
+		$this->assertCount(1, $keys, 'this helper assumes exactly one criterion');
+
+		return $c->getCriterion($keys[0])->getValue();
+	}
+
 	public function testOrderByIgnoreCase()
 	{
 		$originalDB = Propulsion::getDB();
