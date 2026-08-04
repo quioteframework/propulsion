@@ -40,19 +40,44 @@ jobs:
         working-directory: test
         run: ../vendor/bin/phpunit -c phpunit.xml
 
-      - name: Generate changelog
-        # Downloaded standalone rather than via a third-party composite
-        # action: full control over the exact invocation instead of trusting
-        # an action's env-var/output contract.
-        # --current scopes the output to just the commits belonging to the
-        # tag that triggered this run (not the entire project history, which
-        # `--tag` alone would include on every release).
+      - name: Assemble release notes
+        # Two sources, checked in this order:
+        #
+        #  1. `.github/release-notes/<tag>.md`, if it exists. This is the escape
+        #     hatch for a tag whose history git-cliff cannot summarise usefully --
+        #     v2.0.0, whose 201 commits predate this repo's conventional-commit
+        #     convention, so `filter_unconventional` drops almost all of them.
+        #     Its notes are the curated CHANGELOG.md section instead.
+        #  2. git-cliff otherwise. Downloaded standalone rather than via a
+        #     third-party composite action: full control over the exact
+        #     invocation instead of trusting an action's env-var/output contract.
+        #     --current scopes the output to just the commits belonging to the
+        #     tag that triggered this run (not the entire project history, which
+        #     `--tag` alone would include on every release).
+        #
+        # Keyed off the tag name rather than an `if:` per tag, so adding notes
+        # for a future release is a matter of dropping the file in -- and there
+        # is no pair of conditions that can drift apart and leave the body empty.
         run: |
-          GIT_CLIFF_VERSION="2.13.1"
-          curl -sSL -o /tmp/git-cliff.tar.gz \
-            "https://github.com/orhun/git-cliff/releases/download/v${GIT_CLIFF_VERSION}/git-cliff-${GIT_CLIFF_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
-          tar -xzf /tmp/git-cliff.tar.gz -C /tmp
-          "/tmp/git-cliff-${GIT_CLIFF_VERSION}/git-cliff" --current --strip header -o /tmp/release-notes.md
+          NOTES=".github/release-notes/${GITHUB_REF_NAME}.md"
+          if [ -f "$NOTES" ]; then
+            echo "Using hand-written release notes: $NOTES"
+            cp "$NOTES" /tmp/release-notes.md
+          else
+            echo "Generating release notes with git-cliff"
+            GIT_CLIFF_VERSION="2.13.1"
+            curl -sSL -o /tmp/git-cliff.tar.gz \
+              "https://github.com/orhun/git-cliff/releases/download/v${GIT_CLIFF_VERSION}/git-cliff-${GIT_CLIFF_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+            tar -xzf /tmp/git-cliff.tar.gz -C /tmp
+            "/tmp/git-cliff-${GIT_CLIFF_VERSION}/git-cliff" --current --strip header -o /tmp/release-notes.md
+          fi
+          # An empty body is always a mistake -- either the tag has no
+          # conventional commits behind it, or the notes file was misnamed.
+          # Fail here rather than publishing a release with a blank description.
+          if [ ! -s /tmp/release-notes.md ]; then
+            echo "::error::Release notes for ${GITHUB_REF_NAME} are empty."
+            exit 1
+          fi
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
