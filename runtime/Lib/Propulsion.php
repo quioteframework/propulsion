@@ -44,7 +44,7 @@ class Propulsion
 	/**
 	 * The Propulsion version.
 	 */
-	const VERSION = '1.6.2-dev';
+	const VERSION = '2.0.0';
 
 	/**
 	 * A constant for <code>default</code>.

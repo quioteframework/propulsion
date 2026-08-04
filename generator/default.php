@@ -22,7 +22,7 @@ return [
     //  B A S I C   P R O P E R T I E S
     // -------------------------------------------------------------------
 
-    'propulsion.version' => '1.6.2-dev',
+    'propulsion.version' => '2.0.0',
 
     'propulsion.home' => '.',
 

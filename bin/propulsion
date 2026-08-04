@@ -32,7 +32,7 @@ use Propulsion\Generator\Command\MigrationDownCommand;
 use Propulsion\Generator\Command\DataDumpCommand;
 use Propulsion\Generator\Command\DataSqlCommand;
 
-$application = new Application('Propulsion', '1.0.0-dev');
+$application = new Application('Propulsion', \Propulsion\Propulsion::VERSION);
 
 $application->addCommand(new ModelBuildCommand());
 $application->addCommand(new SqlBuildCommand());

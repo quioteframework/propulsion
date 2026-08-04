@@ -7,465 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+## [2.0.0] — 2026-08-04
 
-- **`docs/WORKER_MODE.md`**: what to account for when Propulsion runs under a
-  persistent-worker SAPI — the process-scoped/request-scoped split, the rules new
-  code has to follow, a review checklist, and the currently-known gaps.
-- **`PROPULSION_SKIP_LEGACY_CLASS_ALIASES`**, to skip installing the 102 global
-  `class_alias()` calls that `runtime/Lib/legacy-class-map.php` drives. Measured
-  saving when skipped: **176 loaded classes/interfaces down to 1, and 3,208 KB
-  down to 115 KB**, per process.
-
-  Safe to set when nothing references the bare historic names (`Criteria`,
-  `PropulsionPDO`, `PropelException`, ...) — which is the case for any project
-  whose schemas declare a `namespace`, since namespaced generated code has always
-  imported the runtime classes properly, and as of the change below so does newly
-  generated flat code. It is opt-*out* rather than opt-in because hand-written
-  application code using the bare names breaks *silently* without the aliases:
-  PHP does not consult the autoloader for `catch`, `instanceof`, `is_a()` or a
-  parameter type check, so the failure is an unmatched catch or a false
-  `instanceof` rather than an error. Define it before Propulsion is loaded:
-
-      define('PROPULSION_SKIP_LEGACY_CLASS_ALIASES', true);
-- **`WORKER_READY_TIMEOUT`** for the worker harness (`test/worker/driver.php`).
-  The readiness budget was a hardcoded 20s, which the *first* start of each
-  distinct container configuration exceeded on an otherwise healthy machine —
-  image layers to mount, FrankenPHP to boot its threads, a just-started Postgres
-  to accept its first connection — so `composer test:worker` reported a failure
-  that a re-run passed in seconds. Default raised to 60s and made overridable for
-  slower CI hosts.
-
-### Fixed (test tooling)
-
-- **`composer test:worker` failed intermittently, on a different profile each
-  run, for a reason that had nothing to do with worker safety.** The harness
-  published each worker container with `-p 127.0.0.1::8080`, letting Docker choose
-  the host port — which lands inside the kernel's ephemeral range (32768–60999 on
-  Linux). When the allocator picked a port already handed out to another socket,
-  Docker still created the mapping and `docker port` still reported it, but nothing
-  listened on the host: every probe got an immediate "Couldn't connect to server"
-  while the container was running and serving normally. Reproduced directly on
-  WSL2 — ports 49674 and 49675 worked and the next container, on 49676, was
-  unreachable for 240 consecutive probes across 60s, yet answered in ~2s when
-  started by hand.
-
-  The harness now picks the host port itself from a fixed range above the
-  ephemeral one (18080+, test-binding each candidate), and retries the container
-  on a fresh port when it comes up healthy but unreachable — while still failing
-  immediately, without retrying, for a container that actually exited, so a real
-  regression cannot be retried into silence. Readiness failures also now report
-  the probed URL, attempt count, last curl error, container state and port
-  mapping; previously the message was just "never became ready", which could not
-  distinguish a dead container from an unreachable port. Four consecutive full
-  runs now pass all 46 checks with zero retries.
-
-### Fixed
-
-- **Overlapping on-demand iterations re-enabled instance pooling underneath one
-  another, and an abandoned one disabled it for the rest of the worker's life.**
-  `PropulsionOnDemandIterator` suspended pooling by calling
-  `Propulsion::disableInstancePooling()` and restoring based on its "did I change
-  it" return value. That cannot nest: with two on-demand iterations alive at once
-  (a nested `foreach` over two streamed queries — legitimate, and the reason
-  on-demand mode exists) the inner one saw "already disabled" and recorded that it
-  must not restore, so when the *outer* one finished it re-enabled pooling while
-  the inner was still streaming, and the inner silently began pooling every
-  remaining row — the exact unbounded growth on-demand mode exists to avoid. The
-  same flag being a `Propulsion` static also meant an iterator that never resumed
-  (held past the request boundary by a reference cycle, or by an exception holding
-  the collection) left pooling disabled for every subsequent request that worker
-  process served. The transient case is now `Session::$instancePoolingSuspendCount`
-  — a counter, so suspensions nest and pooling resumes only when the last scope
-  does, and request-scoped, so `Session::reset()` clears a leaked suspension. The
-  explicit `Propulsion::disableInstancePooling()` switch deliberately stays
-  process-scoped and survives `reset()`: turning pooling off is deployment
-  configuration, not request state.
-- **Every iterated `PropulsionCollection` leaked until PHP's cycle collector
-  ran.** `getIterator()` memoised the iterator it handed out, so that
-  `getPosition()`/`getNext()`/`isLast()` called from inside a `foreach` describe
-  that loop — but `ArrayObject`'s iterator refers back to the collection, making
-  each iterated collection part of a reference cycle. A cycle is reclaimed only
-  when the collector runs, not when its refcount drops, and a worker has no
-  process exit to fall back on: measured at ~1 KB of retained overhead per
-  iterated collection, on top of the collection's own contents. `clearIterator()`
-  existed for exactly this and was called by nothing. `getIterator()` now
-  remembers the iterator through a `WeakReference` — a running `foreach` holds it
-  strongly for the duration of the loop, so the position helpers behave exactly as
-  before — and the strongly-held cursor is built only by `getInternalIterator()`,
-  which genuinely needs a position that survives between calls.
-- **One connection's rollback discarded another connection's uncommitted table
-  version override.** `TableVersionRegistry::$memo` holds one token per table
-  while `$pending` is per connection, so when two connections write the same table
-  inside their own transactions the second `overrideLocally()` supersedes the
-  first's memo entry. `discardPending()` then unset it unconditionally, erasing
-  the *live* override belonging to a transaction that had rolled back nothing; its
-  own subsequent reads fell back to the published token and could be served its
-  own pre-write rows from the shared tier, breaking read-your-own-writes inside an
-  open transaction. It now only drops an override the rolling-back connection
-  still owns.
-- **`getQueryCount()` and `getLastExecutedQuery()` reported process-lifetime
-  values under a worker.** Connections are process-scoped and deliberately
-  survive the request boundary, but those two counters are read as per-request
-  figures — which is what they meant under PHP-FPM, where the connection died
-  with the request. `getQueryCount()` instead accumulated across every request the
-  worker had served, and `getLastExecutedQuery()` could hand back a statement
-  issued while serving someone else's request. `Session::reset()` now zeroes them
-  on every open connection via the new `PropulsionPDO::resetDebugCounters()`,
-  which leaves the debug *mode* untouched (unlike `useDebug(false)`, which clears
-  the same two fields as part of switching mode). Note this adds a method to the
-  `PropulsionPDO` interface: every bundled implementation gets it from
-  `PropulsionPDOTrait`, but a third-party class implementing the interface
-  directly has to add it.
-- **`DatabaseMap::hasTable()` answered "no" for every schema-qualified table.** It
-  truncated the name at the first dot unconditionally, so a table registered as
-  `contest.bookstore_contest` (what `TABLE_NAME` is for a table with a `schema`
-  attribute — see the `schemas` fixture) was looked up as `contest` and reported
-  absent, disagreeing with `getTable()`, which keys on the full name. That made
-  `Propulsion::rawQuery(...)->dependsOn('contest.bookstore_contest')` reject a
-  perfectly valid table name outright, and turned the `if (!$dbMap->hasTable(...))`
-  guard in every generated `buildTableMap()` into a permanent no-op for such
-  tables. The exact name is now checked first, with the historic first-segment
-  behaviour kept as a fallback so it can only ever answer "yes" where it used to.
-  `DatabaseMap::getColumn()` likewise split on the first dot, taking
-  `('contest', 'bookstore_contest')` out of `contest.bookstore_contest.ID` — a
-  nonexistent table and a column name that was really the table; it now splits on
-  the last dot, and rejects an unqualified name with a clear message instead of a
-  PHP error.
-- **A cached `find()`/`findOne()` with no WHERE clause and no join recorded no
-  table dependencies, so nothing could ever invalidate it.**
-  `Criteria::getQueryCacheTouchedTables()` collected tables from the criterion
-  map, `getPrimaryTableName()` and the joins — but never from the select columns,
-  which for a plain "select every row" query are the only place the table appears
-  (`DBAdapter::createSelectSqlPart()` derives the FROM clause from them for
-  exactly this reason). `setPrimaryTableName()` is called only by
-  `configureSelectColumns()` and `count()`, never by `find()`/`findOne()`, so
-  `BookQuery::create()->setQueryCache()->find()` recorded an empty dependency
-  list while `->count()` on the same query correctly recorded `book`. An entry
-  with no dependencies is unreachable by every invalidation path:
-  `QueryResultCache::invalidateTable()` never matches it, and since
-  `SharedQueryCache::buildKey()` folds in one version token per dependency, its
-  L2 key folds in none and is immune to `TableVersionRegistry::publish()` — and
-  therefore to `Propulsion::invalidateQueryCacheForTables()`, the documented
-  escape hatch, as well. Every process kept serving the pre-write row set until
-  the TTL lapsed (300s by default). Select columns and `withColumn()` expressions
-  are now both read as dependency sources, the latter because they reach the
-  SELECT list without contributing a FROM entry, so a correlated expression can
-  name a table appearing nowhere else in the query. `TieredQueryCache::remember()`
-  additionally refuses to cache a result with no dependencies at all, degrading
-  to an uncached read rather than storing something nothing can evict.
-- **`OFFSET … ROWS` was emitted without an `ORDER BY` on MSSQL and Oracle,
-  producing invalid SQL.** Both adapters splice in a no-op ordering when the
-  query has none, because the ANSI OFFSET/FETCH clause requires one — but they
-  decided via `preg_match('/\bORDER BY\b/i', $sql)` over the whole generated
-  string, which matches an `ORDER BY` belonging to a *nested* query: a
-  FROM-clause subquery, an IN/EXISTS subquery, a CTE, or one branch of a set
-  operation. The synthetic clause was then skipped for an outer query that had no
-  ordering at all, yielding ORA-00907 on Oracle and an "invalid usage of the
-  option NEXT in the FETCH statement" error on SQL Server. `PropulsionModelPager`
-  always sets a limit, so any paginated query of that shape failed outright. The
-  decision now comes from `Criteria::getOrderByColumns()` — what `BasePeer` builds
-  the outer `ORDER BY` *from* — falling back to parenthesis-aware scanning of the
-  SQL for the callers that pass no Criteria.
-- **MSSQL's `TOP` rewrite silently stripped an aggregate's own `DISTINCT`.** The
-  leading `DISTINCT` has to be removed from the select list because it is
-  re-emitted as part of the `SELECT DISTINCT TOP n` prefix, but the unanchored
-  `str_ireplace('distinct ', '')` removed every occurrence, so
-  `SELECT DISTINCT a, COUNT(DISTINCT b) FROM t` became
-  `SELECT DISTINCT TOP n a, COUNT(b) FROM t` — wrong results, with no error to
-  notice it by. Only the leading keyword is removed now.
-- **A failed rollback no longer hides the failure it was cleaning up after.** The
-  generated `save()`/`delete()` and `UnitOfWork::flush()` all rolled back inside
-  `catch (\Throwable $e)` before rethrowing, unguarded. When that rollback also
-  failed — which is precisely what happens when the original throwable came from
-  `commit()`, since the transaction is already resolved and PDO then raises
-  "There is no active transaction" — the rollback's exception superseded the one
-  being handled, because an exception thrown from inside a catch block replaces
-  it. The constraint violation, deadlock or hook refusal that actually failed the
-  write was discarded in favour of a message about rollback. The original is now
-  always rethrown unwrapped (callers catch specific types here, and it may be an
-  `Error`, which `PropulsionException` cannot carry as a `$previous`), and the
-  rollback's own failure is logged via `Propulsion::log()` at warning level — the
-  same best-effort channel `publishQueryCacheInvalidations()` already uses.
-- **A failed `commit()` left the transaction depth counter stuck.**
-  `PropulsionPDOTrait::commit()` decremented `$nestedTransactionCount` only on
-  success, so a `PDOException` out of `parent::commit()` or out of the nested
-  `RELEASE SAVEPOINT` left a pooled connection permanently claiming a depth it no
-  longer had. `isInTransaction()` then kept returning true, which silently
-  disabled the shared query cache tier for the rest of the request
-  (`TieredQueryCache::sharedTierFor()` declines while a transaction is open), and
-  a caller that handled the failure and retried unwound one level too few. The
-  decrement now happens in a `finally`. The `isUncommitable` guard is
-  deliberately excluded: it throws without issuing anything, so the transaction
-  genuinely is still open and the depth must stay to say so — which is what lets
-  the caller's own `rollBack()`, or `Session::rollBackDanglingTransactions()` at
-  the request boundary, find and unwind it.
-- **Rendering a criterion no longer rewrites it.** `Criterion::appendLikeToPs()`
-  assigned `Criteria::ILIKE` back onto `$this->comparison` on the ignore-case
-  Postgres path, so a criterion rendered once stayed rewritten. That is invisible
-  on Postgres alone (the rewrite is idempotent) but not across adapters: one
-  `Criteria` rendered for a Postgres datasource and then for a MySQL one carried
-  `ILIKE` onto MySQL, which has no such operator, so the second query failed with
-  a syntax error. The operator is now resolved into a local, leaving
-  `getComparison()` — public API, and read by `Criteria::equals()` and
-  `addJoinObject()`'s dedupe — reporting what the caller actually asked for.
-- **`Criterion::__clone()` now deep-clones a `Criteria`-valued `$value`**, which
-  is how `Criteria::addExistsQuery()`/`addInQuery()` store their subquery. It was
-  the one nested `Criteria` still shared by reference with the original;
-  `Criteria::__clone()` already deep-clones `selectQueries`, `setOperations` and
-  CTE queries for the reason it documents there — `isKeepQuery()` defaults to
-  true, so every `find()`/`count()`/`update()` clones the query specifically to
-  avoid mutating the caller's object, and SQL generation does write to a
-  `Criteria` it renders. So the invariant held for four of the five nested-query
-  kinds and silently not for the fifth. A non-`Criteria` value is still copied
-  as-is.
-- **A failed `prepare()` is no longer cached.** With
-  `PROPEL_ATTR_CACHE_PREPARES` enabled, `prepare()` stored whatever
-  `PDO::prepare()` returned — including `false`, which it returns instead of
-  throwing under `ERRMODE_SILENT`/`ERRMODE_WARNING` — and `isset()` reports a hit
-  for a stored `false` (it is only false for `null`). One transient failure (a
-  table not yet created by a concurrent migration, a connection that dropped
-  mid-request) therefore poisoned that SQL string for the whole life of the
-  connection, which for a pooled or worker-mode connection outlasts the condition
-  that caused it by a long way. Only successful prepares are cached now.
-
-### Security
-
-- **The `file` cache driver no longer deserializes objects.** Its whole selling
-  point is being shared across processes and SAPIs, which means its directory is
-  writable by everything using it — and possibly by another application sharing
-  it — so what comes back out is untrusted input. It ran `unserialize()` with
-  `allowed_classes: true`, handing anyone who could drop a file into that
-  directory a `__wakeup()`/`__destruct()` gadget-chain foothold in every reader.
-  It now runs with `allowed_classes: false`. Nothing Propulsion stores through
-  the driver is an object (row arrays, version tokens, admission counters), and
-  a class payload reaching `SharedQueryCache` is rejected as "not a row set" and
-  degrades to a clean miss. This narrows one use only: treating the driver as a
-  general-purpose PSR-16 pool for your own objects.
-
-### Performance
-
-- **A cold cached query held its whole result set twice.** With a shared (L2)
-  tier configured, `TieredQueryCache::remember()` materialised every miss's rows
-  into an array so they could be stored — but `SharedQueryCache::admit()` rejects
-  the first execution of every query (`min_sightings` defaults to 2) and every
-  execution of a query whose key never repeats, so the common cold case paid for
-  a full row array *plus* the formatted result and then discarded the array.
-  Admission is now decided before the query runs, and a rejection formats
-  straight off the live statement, restoring the streaming memory profile for
-  those. An entry that already exists is exempt from the re-check, because that
-  is the stale early-refresh path and its sighting marker has usually expired by
-  then — re-asking would have quietly disabled probabilistic early recomputation
-  altogether.
-- **The request-scoped result cache was unbounded and keyed on raw SQL.**
-  `QueryResultCache` had no entry cap, so a request running a cached query in a
-  loop with varying bound parameters retained every formatted result set it had
-  ever built — an out-of-memory condition rather than a cache. It now caps at
-  `QueryResultCache::MAX_ENTRIES` (500) with oldest-first eviction; evicting is
-  always safe, since the worst consequence of a miss is re-running the query. The
-  key is also digested with `xxh128` now instead of being the datasource,
-  formatter, full SQL and serialized parameters concatenated verbatim — several
-  kilobytes for a joined query with a sizeable `IN (...)` list, held live as an
-  array key and rehashed on every lookup. The shared tier already hashed the
-  equivalent payload for exactly this reason.
-- **`QueryResultCache::invalidateTable()` scanned the whole index on every
-  write.** Evicting an entry has to remove it from every table list it appears
-  in, and that was done by walking each *other* table's complete key list —
-  O(writes x total index size) for a request that mixes cached reads with
-  writes. A reverse key-to-tables index makes it proportional to what is actually
-  evicted, and the forward index became a set per table so re-caching a key
-  cannot append a duplicate.
-- **`DatabaseMap::getTableByPhpName()` re-ran its slow path on every call for
-  some names.** The resolution — a regex, up to two `class_exists()` probes, and
-  possibly instantiating a `TableMap` — was only ever cached under the map's own
-  `getClassname()`. When the requested phpName differed from that (a generated
-  `...\OM\Base*` name, or one that resolved via the `\Map\` namespace insertion)
-  the fast-path lookup kept missing and the whole probe sequence repeated on
-  every single call. The resolution is now also indexed under the name that was
-  asked for.
-- **Hydrating a one-to-many `with()` was quadratic in the number of joined
-  rows.** `PropulsionObjectFormatter`'s duplicate-row check was
-  `in_array($pk, $pks, true)` over a growing list, i.e. ~12.5M comparisons for a
-  5,000-row result set — the exact shape that branch exists to handle. It is now
-  a keyed set, keyed on `serialize()` of the primary key so that the strictness
-  the previous strict `in_array()` provided is preserved: `'1'` and `1`, or `[0]`
-  and `[null]`, still do not collapse into one row.
-- **`ModelCriteria::doUpdate()` with `$forceIndividualSaves` built a
-  `ReflectionMethod` per column per row.** `callSetByName()` ran `method_exists()`
-  and constructed a fresh `ReflectionMethod` on every call, and its only caller
-  invokes it once per updated column *per matched row* — O(rows x columns)
-  reflection objects for one update. The lookup depends only on the class, so it
-  is memoised per class now.
-- **The per-connection prepared-statement cache is bounded.** With
-  `PropulsionPDO::PROPEL_ATTR_CACHE_PREPARES` on, `$preparedStatements` grew
-  without limit for the life of the connection — which under a persistent worker
-  means the life of the process, while the set of distinct SQL strings is bounded
-  by nothing (an `IN (...)` criterion produces one placeholder arity per distinct
-  list length). It now caps at `MAX_CACHED_PREPARED_STATEMENTS` (256) and evicts
-  oldest-first. The cache key also moved from `md5()` to `xxh128`: faster over the
-  multi-kilobyte SQL a joined query produces, and 128 bits puts a collision —
-  which here would hand back a statement prepared for *different* SQL — out of
-  reach.
-
-### Changed
-
-- **Flat (global-namespace) generated code now imports the runtime classes it
-  uses, instead of relying on the global aliases.** Namespaced generated code has
-  always emitted `use Propulsion\Query\Criteria;` and friends; flat targets
-  deliberately suppressed those imports and leaned on
-  `runtime/Lib/legacy-class-map.php` to provide a global `Criteria` instead. The
-  reason was real: `PropulsionQuickBuilder` concatenates every generated class
-  into one script and `eval()`s it, and repeating an import in a single scope is
-  fatal — PHP rejects even two *identical* `use` statements. Each generated class
-  is now wrapped in its own braced `namespace { … }` block there, and each braced
-  block has its own import scope, so the constraint no longer applies. Classes
-  still land in the global namespace exactly as before.
-
-  Alongside this, the four near-identical `getUseStatements()` overrides on
-  ObjectBuilder/PeerBuilder/QueryBuilder/TableMapBuilder are gone, replaced by one
-  implementation on `OMBuilder` with the runtime-class map factored out to
-  `getRuntimeClassFqcnMap()`. That implementation also stops emitting
-  non-compound imports in a global-namespace target (`use DateTime;`,
-  `use PDO;`, `use BookPeer;`), which PHP warns about as having no effect — the
-  existing namespaced output was emitting those too.
-
-  Existing generated code is unaffected and needs no regeneration: the aliases
-  still install by default. Regenerating is what lets you then set
-  `PROPULSION_SKIP_LEGACY_CLASS_ALIASES`.
-- **The compiled-query cache is process-scoped instead of request-scoped.** It
-  lived on `Session` and was cleared at every request boundary, on the reasoning
-  that an entry keyed by a caller-chosen string must not leak between unrelated
-  requests using the same key for differently-shaped queries. That made it close
-  to pointless for the deployment it exists to serve: a worker recompiled
-  identical SELECT text on every request, when the whole benefit is meant to
-  accrue *across* requests. An entry is a pure function of the datasource and the
-  query shape — no bound values, no request data, nothing identifying who asked —
-  which is the definition of process-scoped state. It now lives on
-  `ServiceContainer`.
-
-  The key-collision hazard is unchanged in kind (two call sites sharing one key
-  for different shapes collided within a request before, and across requests
-  now) and is still guarded the same way, by comparing the recorded parameter
-  count on every hit. Three things follow from the move:
-  `Propulsion::setConfiguration()` now clears the cache, because the SQL text
-  depends on the datasource's adapter for identifier quoting and LIMIT/OFFSET
-  dialect and a reconfiguration must not leave the previous adapter's SQL
-  reachable; the cache is bounded by `CompiledQueryCache::MAX_ENTRIES` (1000,
-  oldest-first) since it no longer gets emptied every request; and
-  `Session::getCompiledQueryCache()` is deprecated in favour of
-  `ServiceContainer::getCompiledQueryCache()`, though it still works and returns
-  the same instance.
-- **A dropped connection is no longer "retried".** `PropulsionPDOTrait::exec()`/
-  `query()` and `DebugPDOStatement::execute()` caught a dropped-connection
-  `PDOException`, called `Propulsion::forceReconnect()`, and re-issued the same
-  statement on the same object — which PDO cannot revive, so the retry could
-  only fail again, this time with an uncaught exception. `forceReconnect()` also
-  takes a datasource *name* and defaulted to the default one, so a drop on any
-  other datasource evicted an unrelated healthy pair of connections instead of
-  the dead one. Retrying transparently is not safe in any case: losing the
-  connection loses any open transaction with it, so re-running a statement on a
-  fresh connection would execute it outside the transaction the caller believes
-  it is in. The new `PropulsionPDO::handleDroppedConnection()` instead zeroes the
-  transaction depth, discards the connection's buffered shared-cache version
-  bumps (as on a rollback — those writes never committed), drops the
-  prepared-statement cache, evicts the connection from the pool via the new
-  `Propulsion::discardConnection()`, and rethrows unchanged so recovery happens
-  where the transaction boundary is known. The bare `error_log()` calls on that
-  path are gone too; they broke the documented "Propulsion never writes anywhere
-  implicitly" rule.
-
-### Fixed
-
-- **Query result cache: aliased and joined queries were indexed under names no
-  write ever invalidates.** `Criteria::getQueryCacheTouchedTables()` derived its
-  table list from the criterion-map keys, which carry the *alias* for an aliased
-  query (`b.TITLE`, not `book.TITLE`) — so a cached
-  `setModelAlias('b', true)` query depended on `"b"` while every write path
-  bumps `"book"`, and the entry survived a write that should have evicted it
-  (for the rest of the request in the L1 tier, or until the TTL lapsed in the
-  shared tier). Separately, only the *right* side of each join contributed, so
-  `BookQuery::create()->join('Book.Author')` depended on `author` but not on
-  `book` at all, since a query with no WHERE clause contributes no criterion
-  keys and the find() path never calls `setPrimaryTableName()`. Both sides of
-  every join are now included, and every name is resolved through the alias map
-  before being recorded. `BasePeer::doDelete()` was the one write path
-  invalidating under the alias rather than the real table name (it resolved the
-  alias for its SQL but not for the invalidation call), so it now agrees with
-  `doInsert()`/`doUpdate()`/`doDeleteAll()`/`doUpsert()`.
-- **`count()` left its statement's cursor open.** `StatementRows::iterate()`
-  closed the cursor after its loop, which only runs when the generator is driven
-  to exhaustion. `ModelCriteria::countFromRows()` returns from inside its
-  `foreach` as soon as it has the scalar, leaving the generator suspended and
-  the cursor never closed — the exact FreeTDS/pdo_dblib "results pending"
-  hazard the class exists to centralise. The close moved into a `finally`, which
-  also covers a consumer that `break`s out or throws.
-- **A transaction could be left open when a non-`PropulsionException` escaped.**
-  `UnitOfWork::flush()` and `ModelCriteria::delete()`/`deleteAll()`/`update()`
-  each opened a transaction but caught only `PropulsionException` for the
-  rollback. A PSR-14 listener's own exception, a `TypeError`, or a raw
-  `PDOException` from `commit()` propagated out with the transaction still open;
-  on PostgreSQL that poisons the connection for whatever reuses it next
-  ("current transaction is aborted" until an explicit `ROLLBACK`), with nothing
-  cleaning it up before `Session::reset()`'s dangling-transaction sweep at the
-  next request boundary. All four now catch `\Throwable`, roll back, and rethrow
-  the original throwable unchanged.
-- **Shared cache could store BLOB streams as the integer `0`.**
-  `SharedQueryCache`'s resource check only inspected the first row, and
-  `serialize()` does not fail on a resource — it writes `i:0` with no warning at
-  all, so nothing reached the surrounding `catch`. A result set whose first row
-  carried a NULL blob while a later row carried a real stream was published with
-  its blob columns silently replaced by `0`. Every row is now checked.
-- **`PropulsionPDO::getLastExecutedQuery()` could raise a `TypeError`.** Declared
-  `: string`, but `$lastExecutedQuery` is only ever assigned inside
-  `if ($this->useDebug)` branches and was left implicitly null, so calling it on
-  a connection that had never run with debugging on returned null from a
-  non-nullable return type. Now initialised to `''`. (Untyped property plus a
-  `@var string` docblock is why static analysis never caught it.)
-- **Compiled-query cache entries are now scoped to the datasource.** The cache
-  was keyed purely on the caller-supplied shape key, and `Session` holds one
-  cache per request, so two datasources running the same generated method with
-  the documented `__METHOD__` key served each other's SQL — including across
-  adapters, where the dialect genuinely differs (`LIMIT 3, 5` vs
-  `LIMIT 5 OFFSET 3`). The `paramCount` guard could not catch it: the shapes
-  match, only the dialect differs.
-- **`Criteria::__clone()` now deep-copies nested queries.** Subqueries
-  (`addSelectQuery()`), set-operation branches (`union()` and friends) and CTE
-  queries (`withCte()`) were shallow-copied, so a clone shared them with the
-  original — and `isKeepQuery()` defaults to true, meaning every
-  `find()`/`count()`/`update()` clones precisely to avoid mutating the caller's
-  object.
-- **`Criteria::clear()` now resets everything it claims to.**
-  `primaryTableName`, the query comment, the `setQueryCache()` TTL/shared flags,
-  and the pending `_or()` combine operator all survived a `clear()`, so a reused
-  Criteria could carry a stale primary table or OR its first new condition onto
-  nothing.
-- **`QueryResultCache`'s table index no longer accumulates evicted keys.**
-  Invalidating one table dropped only that table's key list, leaving the evicted
-  keys listed under every other table they depended on; re-caching then appended
-  them again, growing the index without bound across an
-  invalidate-and-re-cache loop.
-- **`FileCache::prune()` now collects orphaned `.tmp` files.** `set()` writes a
-  temp file then renames it, so a process killed in between left one behind
-  forever: nothing reads it, `clear()` only sweeps the root, and the entry walk
-  only matched `*.pcache`. Only files older than an hour are collected, so an
-  in-flight write is never disturbed.
-- **A raw `ColumnExpression` update with more than one `?` now throws** instead
-  of allocating placeholders nothing binds to and silently shifting every
-  subsequent `:pN` onto the wrong value. Only one bound value can be supplied
-  per column.
-- **One-to-many `with()` hydration dedupes primary keys strictly.** Loose
-  `in_array()` compares composite (array) keys element-wise loosely, so `['1']`
-  and `[1]` — or `[0]` and `[null]` — collapsed into one row.
-
-## [2.0.0] — 2026-07-30
-
-180 commits since v1.0.0 (2026-07-07); 411 files changed. This release adds a
+201 commits since v1.0.0 (2026-07-07); 457 files changed. This release adds a
 large batch of query-layer capabilities, new column types, per-platform DDL
-parity, full test-suite parity on MySQL/MSSQL/Oracle, and takes the whole
-project from a PHPStan level 6 baseline to a clean level 9. It also removes
-several legacy code paths, hence the major version bump.
+parity, a two-tier query result cache, and support for running under a
+persistent-worker SAPI; it reaches full test-suite parity on
+MySQL/MSSQL/Oracle and takes the whole project from a PHPStan level 6 baseline
+to a clean level 9. It also removes several legacy code paths, hence the major
+version bump.
 
 ### Added
+
 
 #### Query layer
 
@@ -608,6 +161,34 @@ several legacy code paths, hence the major version bump.
   Oracle. MariaDB is detected at runtime (`DBMySQL::isMariaDb()`) to gate its
   `RETURNING` support.
 
+#### Worker mode
+
+- **`docs/WORKER_MODE.md`**: what to account for when Propulsion runs under a
+  persistent-worker SAPI — the process-scoped/request-scoped split, the rules new
+  code has to follow, a review checklist, and the currently-known gaps.
+- **`Session::reset()` as the request boundary.** `Propulsion::$session` and every
+  connection it holds are one instance shared by *every* worker thread in a
+  process, so request-boundary isolation — not per-thread separation — is what
+  makes concurrent requests safe. `reset()` clears the instance pools, the
+  request-scoped result cache, any leaked instance-pooling suspension, and the
+  per-connection debug counters, and rolls back dangling transactions.
+- **`PROPULSION_SKIP_LEGACY_CLASS_ALIASES`**, to skip installing the 102 global
+  `class_alias()` calls that `runtime/Lib/legacy-class-map.php` drives. Measured
+  saving when skipped: **176 loaded classes/interfaces down to 1, and 3,208 KB
+  down to 115 KB**, per process.
+
+  Safe to set when nothing references the bare historic names (`Criteria`,
+  `PropulsionPDO`, `PropelException`, ...) — which is the case for any project
+  whose schemas declare a `namespace`, since namespaced generated code has always
+  imported the runtime classes properly, and as of the change below so does newly
+  generated flat code. It is opt-*out* rather than opt-in because hand-written
+  application code using the bare names breaks *silently* without the aliases:
+  PHP does not consult the autoloader for `catch`, `instanceof`, `is_a()` or a
+  parameter type check, so the failure is an unmatched catch or a false
+  `instanceof` rather than an error. Define it before Propulsion is loaded:
+
+      define('PROPULSION_SKIP_LEGACY_CLASS_ALIASES', true);
+
 #### Testing & tooling
 
 - **Full test-suite parity on MySQL, MSSQL, and Oracle**, all wired into CI as
@@ -638,8 +219,17 @@ several legacy code paths, hence the major version bump.
   `Propulsion\OM\WritableModelInterface`, implemented by generated models
   exactly when the generic mutators (`setByName()`/`setByPosition()`/
   `fromArray()`) are emitted.
+- **FrankenPHP worker-mode harness** (`test/worker/`, `composer test:worker`):
+  runs a request-boundary-safety matrix against SQLite and Postgres on a single
+  worker thread, plus a cross-thread matrix at `WORKER_THREAD_COUNT=4`. The
+  harness allocates its own host ports from a fixed range above the kernel's
+  ephemeral range and retries a container that comes up healthy but unreachable,
+  while still failing immediately — without retrying — for a container that
+  actually exited, so a real regression cannot be retried into silence. Readiness
+  budget is `WORKER_READY_TIMEOUT` (default 60s).
 
 ### Changed
+
 
 - **`PropulsionPDO` is now an interface**, not a concrete class. Every
   connection Propulsion constructs is a driver-specific subclass of the
@@ -672,12 +262,77 @@ several legacy code paths, hence the major version bump.
   queries modernized from `sysobjects`/`sysreferences` to
   `sys.foreign_keys`/`sys.tables`. Oracle's `applyLimit()` likewise replaced
   its `ROWNUM` double-nested subquery with `OFFSET ... FETCH NEXT ... ROWS ONLY`.
+  Both adapters splice in a no-op ordering when the query has none, because the
+  ANSI OFFSET/FETCH clause requires one; the decision comes from
+  `Criteria::getOrderByColumns()` — what `BasePeer` builds the outer `ORDER BY`
+  *from* — rather than scanning the generated SQL, so an `ORDER BY` belonging to
+  a nested subquery, CTE or set-operation branch cannot be mistaken for the outer
+  query's own.
 - `PropulsionTypes` and `PropulsionColumnTypes`, which had drifted apart,
   deduplicated into one map (fixing two real PDO-type mismatches).
 - `getPhp84TypeHint()`/`getPhp84PropertyType()` renamed to `getPhp85*`.
 
-### Removed
+- **Flat (global-namespace) generated code now imports the runtime classes it
+  uses, instead of relying on the global aliases.** Namespaced generated code has
+  always emitted `use Propulsion\Query\Criteria;` and friends; flat targets
+  deliberately suppressed those imports and leaned on
+  `runtime/Lib/legacy-class-map.php` to provide a global `Criteria` instead. The
+  reason was real: `PropulsionQuickBuilder` concatenates every generated class
+  into one script and `eval()`s it, and repeating an import in a single scope is
+  fatal — PHP rejects even two *identical* `use` statements. Each generated class
+  is now wrapped in its own braced `namespace { … }` block there, and each braced
+  block has its own import scope, so the constraint no longer applies. Classes
+  still land in the global namespace exactly as before.
 
+  Alongside this, the four near-identical `getUseStatements()` overrides on
+  ObjectBuilder/PeerBuilder/QueryBuilder/TableMapBuilder are gone, replaced by one
+  implementation on `OMBuilder` with the runtime-class map factored out to
+  `getRuntimeClassFqcnMap()`. That implementation also stops emitting
+  non-compound imports in a global-namespace target (`use DateTime;`,
+  `use PDO;`, `use BookPeer;`), which PHP warns about as having no effect.
+
+  Existing generated code is unaffected and needs no regeneration: the aliases
+  still install by default. Regenerating is what lets you then set
+  `PROPULSION_SKIP_LEGACY_CLASS_ALIASES`.
+- **The compiled-query cache is process-scoped, and keyed by datasource.** It
+  lives on `ServiceContainer`, not `Session`, so a worker stops recompiling
+  identical SELECT text on every request — the whole benefit is meant to accrue
+  *across* requests, and an entry is a pure function of the datasource and the
+  query shape (no bound values, no request data, nothing identifying who asked),
+  which is the definition of process-scoped state. The datasource is part of the
+  key because the SQL text depends on the adapter for identifier quoting and
+  LIMIT/OFFSET dialect, and two datasources running the same generated method
+  with the documented `__METHOD__` key would otherwise serve each other's SQL;
+  the `paramCount` guard cannot catch that, since the shapes match and only the
+  dialect differs.
+
+  Two things follow from process scoping: `Propulsion::setConfiguration()` clears
+  the cache, so a reconfiguration cannot leave the previous adapter's SQL
+  reachable; and the cache is bounded by `CompiledQueryCache::MAX_ENTRIES` (1000,
+  oldest-first) since it is no longer emptied every request.
+  `Session::getCompiledQueryCache()` is deprecated in favour of
+  `ServiceContainer::getCompiledQueryCache()`, though it still works and returns
+  the same instance.
+- **A dropped connection is no longer "retried".** `PropulsionPDOTrait::exec()`/
+  `query()` and `DebugPDOStatement::execute()` caught a dropped-connection
+  `PDOException`, called `Propulsion::forceReconnect()`, and re-issued the same
+  statement on the same object — which PDO cannot revive, so the retry could
+  only fail again, this time with an uncaught exception. `forceReconnect()` also
+  takes a datasource *name* and defaulted to the default one, so a drop on any
+  other datasource evicted an unrelated healthy pair of connections instead of
+  the dead one. Retrying transparently is not safe in any case: losing the
+  connection loses any open transaction with it, so re-running a statement on a
+  fresh connection would execute it outside the transaction the caller believes
+  it is in. The new `PropulsionPDO::handleDroppedConnection()` instead zeroes the
+  transaction depth, discards the connection's buffered shared-cache version
+  bumps (as on a rollback — those writes never committed), drops the
+  prepared-statement cache, evicts the connection from the pool via the new
+  `Propulsion::discardConnection()`, and rethrows unchanged so recovery happens
+  where the transaction boundary is known. The bare `error_log()` calls on that
+  path are gone too; they broke the documented "Propulsion never writes anywhere
+  implicitly" rule.
+
+### Removed
 - **`buildtime-conf.xml` support.** Build-time connection config is
   plain-PHP-array only now (a `.php` file, or the
   `propulsion.buildtimeConfigArray` build property):
@@ -699,6 +354,7 @@ several legacy code paths, hence the major version bump.
 
 ### Fixed
 
+
 Selected fixes; many more came out of the level 7/8/9 cleanup and the live
 multi-platform test runs.
 
@@ -714,12 +370,19 @@ multi-platform test runs.
   pending" cursor leaks, an auto-increment PK leaking into `UPDATE SET`,
   aliased `UPDATE`, and `applyLimit()` for offset-only and structurally
   unrewritable queries (UNION etc.).
-- **`Criteria::clear()` could null out `dbName`.**
+- **`Criteria::clear()` now resets everything it claims to.** It could null out
+  `dbName`, and `primaryTableName`, the query comment, the `setQueryCache()`
+  TTL/shared flags and the pending `_or()` combine operator all survived it — so
+  a reused Criteria could carry a stale primary table, or OR its first new
+  condition onto nothing.
 - **Two request-scoped query-cache bugs, both found while building the global
   tier.** `getQueryCacheKey()` ignored the formatter, so within one request an
   `ARRAY`-formatted and an object-formatted query producing identical SQL shared
-  a cache entry and whichever ran second silently received the other's result;
-  the formatter is now part of the key. And `FORMAT_STATEMENT` /
+  a cache entry and whichever ran second silently received the other's result.
+  The key is now an `xxh128` digest of the datasource, the formatter, the full
+  SQL and the serialized parameters — hashed rather than concatenated verbatim,
+  which for a joined query with a sizeable `IN (...)` list was several kilobytes
+  held live as an array key and rehashed on every lookup. And `FORMAT_STATEMENT` /
   `FORMAT_ON_DEMAND` results were cached despite being tied to a live statement,
   so a second hit handed back an exhausted cursor; both formatters now bypass
   caching entirely via `PropulsionFormatter::supportsRowCaching()`. The latter
@@ -741,7 +404,207 @@ multi-platform test runs.
 - Test harness now bootstraps Propulsion config unconditionally; Postgres-only
   generator tests skip cleanly under other `PROPULSION_TEST_DB` values.
 
+- **Overlapping on-demand iterations re-enabled instance pooling underneath one
+  another, and an abandoned one disabled it for the rest of the worker's life.**
+  `PropulsionOnDemandIterator` suspended pooling by calling
+  `Propulsion::disableInstancePooling()` and restoring based on its "did I change
+  it" return value. That cannot nest: with two on-demand iterations alive at once
+  (a nested `foreach` over two streamed queries — legitimate, and the reason
+  on-demand mode exists) the inner one saw "already disabled" and recorded that it
+  must not restore, so when the *outer* one finished it re-enabled pooling while
+  the inner was still streaming, and the inner silently began pooling every
+  remaining row — the exact unbounded growth on-demand mode exists to avoid. The
+  same flag being a `Propulsion` static also meant an iterator that never resumed
+  left pooling disabled for every subsequent request that worker process served.
+  The transient case is now `Session::$instancePoolingSuspendCount` — a counter,
+  so suspensions nest and pooling resumes only when the last scope does, and
+  request-scoped, so `Session::reset()` clears a leaked suspension. The explicit
+  `Propulsion::disableInstancePooling()` switch deliberately stays process-scoped
+  and survives `reset()`: turning pooling off is deployment configuration, not
+  request state.
+- **Every iterated `PropulsionCollection` leaked until PHP's cycle collector
+  ran.** `getIterator()` memoised the iterator it handed out, so that
+  `getPosition()`/`getNext()`/`isLast()` called from inside a `foreach` describe
+  that loop — but `ArrayObject`'s iterator refers back to the collection, making
+  each iterated collection part of a reference cycle. A cycle is reclaimed only
+  when the collector runs, not when its refcount drops, and a worker has no
+  process exit to fall back on: measured at ~1 KB of retained overhead per
+  iterated collection, on top of the collection's own contents. `getIterator()`
+  now remembers the iterator through a `WeakReference` — a running `foreach` holds
+  it strongly for the duration of the loop, so the position helpers behave exactly
+  as before — and the strongly-held cursor is built only by
+  `getInternalIterator()`, which genuinely needs a position that survives between
+  calls.
+- **One connection's rollback discarded another connection's uncommitted table
+  version override.** `TableVersionRegistry::$memo` holds one token per table
+  while `$pending` is per connection, so when two connections write the same table
+  inside their own transactions the second `overrideLocally()` supersedes the
+  first's memo entry. `discardPending()` then unset it unconditionally, erasing
+  the *live* override belonging to a transaction that had rolled back nothing; its
+  own subsequent reads fell back to the published token and could be served its
+  own pre-write rows from the shared tier, breaking read-your-own-writes inside an
+  open transaction. It now only drops an override the rolling-back connection
+  still owns.
+- **`getQueryCount()` and `getLastExecutedQuery()` reported process-lifetime
+  values under a worker.** Connections are process-scoped and deliberately
+  survive the request boundary, but those two counters are read as per-request
+  figures — which is what they meant under PHP-FPM, where the connection died
+  with the request. `getQueryCount()` instead accumulated across every request the
+  worker had served, and `getLastExecutedQuery()` could hand back a statement
+  issued while serving someone else's request. `Session::reset()` now zeroes them
+  on every open connection via the new `PropulsionPDO::resetDebugCounters()`,
+  which leaves the debug *mode* untouched (unlike `useDebug(false)`, which clears
+  the same two fields as part of switching mode). Note this adds a method to the
+  `PropulsionPDO` interface: every bundled implementation gets it from
+  `PropulsionPDOTrait`, but a third-party class implementing the interface
+  directly has to add it.
+- **`DatabaseMap::hasTable()` answered "no" for every schema-qualified table.** It
+  truncated the name at the first dot unconditionally, so a table registered as
+  `contest.bookstore_contest` (what `TABLE_NAME` is for a table with a `schema`
+  attribute) was looked up as `contest` and reported absent, disagreeing with
+  `getTable()`, which keys on the full name. That made
+  `Propulsion::rawQuery(...)->dependsOn('contest.bookstore_contest')` reject a
+  perfectly valid table name outright, and turned the `if (!$dbMap->hasTable(...))`
+  guard in every generated `buildTableMap()` into a permanent no-op for such
+  tables. The exact name is now checked first, with the historic first-segment
+  behaviour kept as a fallback so it can only ever answer "yes" where it used to.
+  `DatabaseMap::getColumn()` likewise split on the first dot, taking
+  `('contest', 'bookstore_contest')` out of `contest.bookstore_contest.ID` — a
+  nonexistent table and a column name that was really the table; it now splits on
+  the last dot, and rejects an unqualified name with a clear message instead of a
+  PHP error.
+- **Cached queries recorded table dependencies that no write ever invalidated.**
+  `Criteria::getQueryCacheTouchedTables()` derived its list from the criterion-map
+  keys, `getPrimaryTableName()` and the joins, which left three holes. The
+  criterion keys carry the *alias* for an aliased query (`b.TITLE`, not
+  `book.TITLE`), so a `setModelAlias('b', true)` query depended on `"b"` while
+  every write path bumps `"book"`. Only the *right* side of each join
+  contributed, so `BookQuery::create()->join('Book.Author')` depended on `author`
+  but not on `book`. And a plain "select every row" query — no WHERE, no join —
+  recorded *nothing at all*, because the table appears only in the select columns
+  and `setPrimaryTableName()` is called by `configureSelectColumns()` and
+  `count()` but never by `find()`/`findOne()`. An entry with no dependencies is
+  unreachable by every invalidation path, including
+  `Propulsion::invalidateQueryCacheForTables()`, the documented escape hatch, so
+  every process kept serving pre-write rows until the TTL lapsed. Both sides of
+  every join are now included, every name is resolved through the alias map
+  before being recorded, and select columns and `withColumn()` expressions are
+  read as dependency sources — the latter because they reach the SELECT list
+  without contributing a FROM entry, so a correlated expression can name a table
+  appearing nowhere else in the query. `TieredQueryCache::remember()` additionally
+  refuses to cache a result with no dependencies at all, degrading to an uncached
+  read rather than storing something nothing can evict. `BasePeer::doDelete()` was
+  the one write path invalidating under the alias rather than the real table name,
+  so it now agrees with `doInsert()`/`doUpdate()`/`doDeleteAll()`/`doUpsert()`.
+- **MSSQL's `TOP` rewrite silently stripped an aggregate's own `DISTINCT`.** The
+  leading `DISTINCT` has to be removed from the select list because it is
+  re-emitted as part of the `SELECT DISTINCT TOP n` prefix, but the unanchored
+  `str_ireplace('distinct ', '')` removed every occurrence, so
+  `SELECT DISTINCT a, COUNT(DISTINCT b) FROM t` became
+  `SELECT DISTINCT TOP n a, COUNT(b) FROM t` — wrong results, with no error to
+  notice it by. Only the leading keyword is removed now.
+- **A failed rollback no longer hides the failure it was cleaning up after.** The
+  generated `save()`/`delete()` and `UnitOfWork::flush()` all rolled back inside
+  `catch (\Throwable $e)` before rethrowing, unguarded. When that rollback also
+  failed — which is precisely what happens when the original throwable came from
+  `commit()`, since the transaction is already resolved and PDO then raises
+  "There is no active transaction" — the rollback's exception superseded the one
+  being handled, because an exception thrown from inside a catch block replaces
+  it. The constraint violation, deadlock or hook refusal that actually failed the
+  write was discarded in favour of a message about rollback. The original is now
+  always rethrown unwrapped (callers catch specific types here, and it may be an
+  `Error`, which `PropulsionException` cannot carry as a `$previous`), and the
+  rollback's own failure is logged via `Propulsion::log()` at warning level.
+- **A failed `commit()` left the transaction depth counter stuck.**
+  `PropulsionPDOTrait::commit()` decremented `$nestedTransactionCount` only on
+  success, so a `PDOException` out of `parent::commit()` or out of the nested
+  `RELEASE SAVEPOINT` left a pooled connection permanently claiming a depth it no
+  longer had. `isInTransaction()` then kept returning true, which silently
+  disabled the shared query cache tier for the rest of the request, and a caller
+  that handled the failure and retried unwound one level too few. The decrement
+  now happens in a `finally`. The `isUncommitable` guard is deliberately excluded:
+  it throws without issuing anything, so the transaction genuinely is still open
+  and the depth must stay to say so — which is what lets the caller's own
+  `rollBack()`, or `Session::rollBackDanglingTransactions()` at the request
+  boundary, find and unwind it.
+- **A transaction could be left open when a non-`PropulsionException` escaped.**
+  `UnitOfWork::flush()` and `ModelCriteria::delete()`/`deleteAll()`/`update()`
+  each opened a transaction but caught only `PropulsionException` for the
+  rollback. A PSR-14 listener's own exception, a `TypeError`, or a raw
+  `PDOException` from `commit()` propagated out with the transaction still open;
+  on PostgreSQL that poisons the connection for whatever reuses it next
+  ("current transaction is aborted" until an explicit `ROLLBACK`). All four now
+  catch `\Throwable`, roll back, and rethrow the original throwable unchanged.
+- **Rendering a criterion no longer rewrites it.** `Criterion::appendLikeToPs()`
+  assigned `Criteria::ILIKE` back onto `$this->comparison` on the ignore-case
+  Postgres path, so a criterion rendered once stayed rewritten. That is invisible
+  on Postgres alone (the rewrite is idempotent) but not across adapters: one
+  `Criteria` rendered for a Postgres datasource and then for a MySQL one carried
+  `ILIKE` onto MySQL, which has no such operator, so the second query failed with
+  a syntax error. The operator is now resolved into a local, leaving
+  `getComparison()` — public API, and read by `Criteria::equals()` and
+  `addJoinObject()`'s dedupe — reporting what the caller actually asked for.
+- **Cloning a `Criteria` now deep-copies every nested query.** Subqueries
+  (`addSelectQuery()`), set-operation branches (`union()` and friends), CTE
+  queries (`withCte()`) and the `Criteria`-valued `$value` that
+  `addExistsQuery()`/`addInQuery()` store on a `Criterion` were all shallow-copied,
+  so a clone shared them with the original — and `isKeepQuery()` defaults to true,
+  meaning every `find()`/`count()`/`update()` clones precisely to avoid mutating
+  the caller's object, while SQL generation does write to a `Criteria` it renders.
+  A non-`Criteria` criterion value is still copied as-is.
+- **A failed `prepare()` is no longer cached.** With
+  `PROPEL_ATTR_CACHE_PREPARES` enabled, `prepare()` stored whatever
+  `PDO::prepare()` returned — including `false`, which it returns instead of
+  throwing under `ERRMODE_SILENT`/`ERRMODE_WARNING` — and `isset()` reports a hit
+  for a stored `false` (it is only false for `null`). One transient failure (a
+  table not yet created by a concurrent migration, a connection that dropped
+  mid-request) therefore poisoned that SQL string for the whole life of the
+  connection, which for a pooled or worker-mode connection outlasts the condition
+  that caused it by a long way. Only successful prepares are cached now.
+- **`count()` left its statement's cursor open.** `StatementRows::iterate()`
+  closed the cursor after its loop, which only runs when the generator is driven
+  to exhaustion. `ModelCriteria::countFromRows()` returns from inside its
+  `foreach` as soon as it has the scalar, leaving the generator suspended and the
+  cursor never closed — the exact FreeTDS/pdo_dblib "results pending" hazard the
+  class exists to centralise. The close moved into a `finally`, which also covers
+  a consumer that `break`s out or throws.
+- **Shared cache could store BLOB streams as the integer `0`.**
+  `SharedQueryCache`'s resource check only inspected the first row, and
+  `serialize()` does not fail on a resource — it writes `i:0` with no warning at
+  all, so nothing reached the surrounding `catch`. A result set whose first row
+  carried a NULL blob while a later row carried a real stream was published with
+  its blob columns silently replaced by `0`. Every row is now checked.
+- **`PropulsionPDO::getLastExecutedQuery()` could raise a `TypeError`.** Declared
+  `: string`, but `$lastExecutedQuery` is only ever assigned inside
+  `if ($this->useDebug)` branches and was left implicitly null, so calling it on
+  a connection that had never run with debugging on returned null from a
+  non-nullable return type. Now initialised to `''`. (Untyped property plus a
+  `@var string` docblock is why static analysis never caught it.)
+- **`FileCache::prune()` now collects orphaned `.tmp` files.** `set()` writes a
+  temp file then renames it, so a process killed in between left one behind
+  forever: nothing reads it, `clear()` only sweeps the root, and the entry walk
+  only matched `*.pcache`. Only files older than an hour are collected, so an
+  in-flight write is never disturbed.
+- **A raw `ColumnExpression` update with more than one `?` now throws** instead
+  of allocating placeholders nothing binds to and silently shifting every
+  subsequent `:pN` onto the wrong value. Only one bound value can be supplied
+  per column.
+
+### Security
+- **The `file` cache driver deserializes with `allowed_classes: false`.** Its
+  whole selling point is being shared across processes and SAPIs, which means its
+  directory is writable by everything using it — and possibly by another
+  application sharing it — so what comes back out is untrusted input. Running
+  `unserialize()` with objects allowed would hand anyone who could drop a file
+  into that directory a `__wakeup()`/`__destruct()` gadget-chain foothold in every
+  reader. Nothing Propulsion stores through the driver is an object (row arrays,
+  version tokens, admission counters), and a class payload reaching
+  `SharedQueryCache` is rejected as "not a row set" and degrades to a clean miss.
+  This narrows one use only: treating the driver as a general-purpose PSR-16 pool
+  for your own objects.
+
 ### Performance
+
 
 Measured with `bench/` on PHP 8.5 with JIT on; see `bench/RESULTS.md`.
 
@@ -770,6 +633,64 @@ Measured with `bench/` on PHP 8.5 with JIT on; see `bench/RESULTS.md`.
 - Bulk load (`COPY`/`LOAD DATA`) is an order of magnitude faster than multi-row
   INSERT for seeding and imports.
 
+- **A cold cached query no longer holds its whole result set twice.** With a
+  shared (L2) tier configured, `TieredQueryCache::remember()` materialised every
+  miss's rows into an array so they could be stored — but `SharedQueryCache::admit()`
+  rejects the first execution of every query (`min_sightings` defaults to 2) and
+  every execution of a query whose key never repeats, so the common cold case paid
+  for a full row array *plus* the formatted result and then discarded the array.
+  Admission is decided before the query runs, and a rejection formats straight off
+  the live statement, preserving the streaming memory profile. An entry that
+  already exists is exempt from the re-check, because that is the stale
+  early-refresh path and its sighting marker has usually expired by then —
+  re-asking would have quietly disabled probabilistic early recomputation
+  altogether.
+- **The request-scoped result cache is bounded, and its table index no longer
+  grows without limit.** `QueryResultCache` had no entry cap, so a request running
+  a cached query in a loop with varying bound parameters retained every formatted
+  result set it had ever built — an out-of-memory condition rather than a cache.
+  It now caps at `QueryResultCache::MAX_ENTRIES` (500) with oldest-first eviction;
+  evicting is always safe, since the worst consequence of a miss is re-running the
+  query. Separately, `invalidateTable()` had to remove an evicted entry from every
+  table list it appeared in and did so by walking each *other* table's complete
+  key list — O(writes × total index size) for a request mixing cached reads with
+  writes — while dropping only the invalidated table's own list, leaving evicted
+  keys listed under every other table they depended on and re-appending them on
+  re-cache. A reverse key-to-tables index makes eviction proportional to what is
+  actually evicted, and the forward index is a set per table, so a re-cached key
+  cannot append a duplicate.
+- **`DatabaseMap::getTableByPhpName()` re-ran its slow path on every call for
+  some names.** The resolution — a regex, up to two `class_exists()` probes, and
+  possibly instantiating a `TableMap` — was only ever cached under the map's own
+  `getClassname()`. When the requested phpName differed from that (a generated
+  `...\OM\Base*` name, or one that resolved via the `\Map\` namespace insertion)
+  the fast-path lookup kept missing and the whole probe sequence repeated on every
+  single call. The resolution is now also indexed under the name that was asked
+  for.
+- **Hydrating a one-to-many `with()` was quadratic in the number of joined
+  rows.** `PropulsionObjectFormatter`'s duplicate-row check was
+  `in_array($pk, $pks, true)` over a growing list, i.e. ~12.5M comparisons for a
+  5,000-row result set — the exact shape that branch exists to handle. It is now a
+  keyed set, keyed on `serialize()` of the primary key, which also makes the
+  dedupe strict for composite keys: `['1']` and `[1]`, or `[0]` and `[null]`, no
+  longer collapse into one row the way loose `in_array()` comparison made them.
+- **`ModelCriteria::doUpdate()` with `$forceIndividualSaves` built a
+  `ReflectionMethod` per column per row.** `callSetByName()` ran `method_exists()`
+  and constructed a fresh `ReflectionMethod` on every call, and its only caller
+  invokes it once per updated column *per matched row* — O(rows × columns)
+  reflection objects for one update. The lookup depends only on the class, so it
+  is memoised per class now.
+- **The per-connection prepared-statement cache is bounded.** With
+  `PropulsionPDO::PROPEL_ATTR_CACHE_PREPARES` on, `$preparedStatements` grew
+  without limit for the life of the connection — which under a persistent worker
+  means the life of the process, while the set of distinct SQL strings is bounded
+  by nothing (an `IN (...)` criterion produces one placeholder arity per distinct
+  list length). It now caps at `MAX_CACHED_PREPARED_STATEMENTS` (256) and evicts
+  oldest-first. The cache key also moved from `md5()` to `xxh128`: faster over the
+  multi-kilobyte SQL a joined query produces, and 128 bits puts a collision —
+  which here would hand back a statement prepared for *different* SQL — out of
+  reach.
+
 ## [1.0.0] — 2026-07-07
 
 Initial release of Propulsion: [Propel 1](https://github.com/propelorm/Propel1)
@@ -778,5 +699,7 @@ throughout, Phing replaced by a plain Symfony Console app, PostgreSQL promoted
 to the default and recommended database, PSR-3 logging, and a PHPStan level 6
 baseline. See `NOTICE.md` for attribution.
 
+
+[Unreleased]: https://github.com/quioteframework/propulsion/compare/v2.0.0...HEAD
 [2.0.0]: https://github.com/quioteframework/propulsion/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/quioteframework/propulsion/releases/tag/v1.0.0
