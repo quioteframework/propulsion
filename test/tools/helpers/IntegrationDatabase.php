@@ -290,7 +290,7 @@ class IntegrationDatabase
 
         return [
             'host' => self::requireContainer()->getHost(),
-            'port' => self::requireContainer()->getFirstMappedPort(),
+            'port' => self::hostPort(),
         ];
     }
 
@@ -353,7 +353,7 @@ class IntegrationDatabase
         }
 
         try {
-            self::loadFixtureData(self::requireContainer()->getHost(), self::requireContainer()->getFirstMappedPort());
+            self::loadFixtureData(self::requireContainer()->getHost(), self::hostPort());
         } catch (\Throwable $e) {
             self::$skipReason = 'Could not build bookstore fixtures: ' . $e->getMessage();
             throw self::unavailable(self::$skipReason);
@@ -498,7 +498,7 @@ class IntegrationDatabase
         }
 
         try {
-            self::buildNamespacedFixtures(self::requireContainer()->getHost(), self::requireContainer()->getFirstMappedPort());
+            self::buildNamespacedFixtures(self::requireContainer()->getHost(), self::hostPort());
         } catch (\Throwable $e) {
             self::$namespacedSkipReason = 'Could not build namespaced fixtures: ' . $e->getMessage();
             throw new \RuntimeException(self::$namespacedSkipReason);
@@ -549,7 +549,7 @@ class IntegrationDatabase
         }
 
         try {
-            self::buildSchemasFixtures(self::requireContainer()->getHost(), self::requireContainer()->getFirstMappedPort());
+            self::buildSchemasFixtures(self::requireContainer()->getHost(), self::hostPort());
         } catch (\Throwable $e) {
             self::$schemasSkipReason = 'Could not build schemas fixtures: ' . $e->getMessage();
             throw new \RuntimeException(self::$schemasSkipReason);
@@ -654,46 +654,58 @@ class IntegrationDatabase
     }
 
     /**
-     * testcontainers-php's StartedGenericContainer::getBoundPorts() calls its own
-     * containerInspect() exactly once and caches the raw response forever -- see that
-     * method's own "TODO: find a better strategy... For the loop $this->inspect()
-     * shouldn't be cached" comment -- even when Docker's own API returns a response
-     * where the port-publishing info isn't populated yet. Observed in practice under
-     * GH Actions' resource contention: the MSSQL/Oracle readiness probe here is a
-     * WaitForLog on the application's own "ready" message, which only confirms the
-     * server process inside the container is listening, not that Docker has finished
-     * publishing the host-side port mapping for it -- a separate, slightly later step.
-     * If the very first getFirstMappedPort()/getHost() call on the container lands in
-     * that gap, the incomplete response gets cached, and it fails identically on every
-     * later call too (not just a transient blip) -- degrading the entire dependent test
-     * suite to markTestSkipped() while PHPUnit still reports a passing "OK, but some
-     * tests were skipped!" run, so CI stays green through it. Retrying
-     * getFirstMappedPort() itself can't help once that cache is poisoned; this instead
-     * polls the *uncached* Docker API directly (via the container's own public
-     * getClient()/getId()) until the port mapping genuinely exists, before this class
-     * ever calls a method on $container that would trigger (and cache) its own inspect.
+     * The host port the shared testcontainer is reachable on, resolved once.
+     *
+     * Deliberately not `StartedGenericContainer::getFirstMappedPort()`. That reads
+     * `NetworkSettings.Ports` out of an inspect response it caches forever (see its
+     * own "TODO: ... shouldn't be cached" comment), so if the first call lands
+     * before Docker has populated that field, every later call fails identically
+     * rather than transiently.
+     *
+     * Waiting for the field to populate does not work either: on GitHub Actions the
+     * MSSQL and Oracle containers sit at `status=running`, having already logged that
+     * they are accepting connections, with `NetworkSettings.Ports` still carrying no
+     * host binding after 60s. Whatever the cause, that field is not a reliable signal
+     * there.
+     *
+     * `HostConfig.PortBindings` is, because it is not something Docker reports back --
+     * it is what testcontainers *asked for*. `GenericContainer::createPortBindings()`
+     * picks a concrete host port itself (`RandomPortGenerator`) and binds
+     * `0.0.0.0:<port>`, so the number is settled before the container is even created.
+     * `NetworkSettings.Ports` is still preferred when present, being the authoritative
+     * record of what Docker actually published; the request is the fallback.
+     *
+     * Being wrong here is self-correcting: the caller immediately opens a real
+     * connection on the port this returns, so a mapping that does not exist surfaces
+     * as a connection failure naming the port, rather than as an opaque wait timeout.
      */
-    private static function waitForPortsPublished(StartedGenericContainer $container): void
+    private static ?int $hostPort = null;
+
+    private static function hostPort(): int
     {
-        $budget = (int) (getenv('PROPULSION_PORT_PUBLISH_TIMEOUT') ?: 60);
+        return self::$hostPort ??= self::resolveHostPort(self::requireContainer());
+    }
+
+    private static function resolveHostPort(StartedGenericContainer $container): int
+    {
+        $budget = (int) (getenv('PROPULSION_PORT_PUBLISH_TIMEOUT') ?: 30);
         $deadline = microtime(true) + $budget;
+        $requested = null;
         $lastState = 'unknown';
 
         do {
             $response = $container->getClient()->containerInspect($container->getId());
             if ($response instanceof \Docker\API\Model\ContainersIdJsonGetResponse200) {
-                // A container that has exited will never publish anything, so stop
-                // waiting out the whole budget for it and say what actually happened.
-                // This is the difference between "Docker never published the port
-                // mappings" (true, but not the cause) and "the container exited with
-                // code 1 / was OOM-killed" (the cause). Oracle Free in particular is
-                // heavy enough to be killed on a constrained runner.
+                // A container that has exited will never publish anything. Say so,
+                // with the exit code and OOM flag, instead of waiting out the budget
+                // and blaming Docker -- Oracle Free in particular is heavy enough to
+                // be killed on a constrained runner.
                 $state = $response->getState();
                 if ($state !== null) {
                     $lastState = $state->getStatus() ?? 'unknown';
                     if ($state->getRunning() !== true && $state->getRestarting() !== true) {
                         throw new \RuntimeException(sprintf(
-                            "Container %s is not running (status=%s, exitCode=%s, oomKilled=%s%s).",
+                            'Container %s is not running (status=%s, exitCode=%s, oomKilled=%s%s).',
                             $container->getId(),
                             $lastState,
                             $state->getExitCode() ?? '?',
@@ -703,38 +715,61 @@ class IntegrationDatabase
                     }
                 }
 
-                // Mirror exactly what StartedGenericContainer::getFirstMappedPort()
-                // will do next, rather than merely checking that the ports map is
-                // non-empty. Docker populates the map with the *exposed* port as a key
-                // ("1433/tcp" => null) as soon as the container exists, and only fills
-                // in the host binding once it has actually published it -- so a
-                // count() > 0 check passes immediately and waits for nothing, which is
-                // precisely the gap this method exists to close. getFirstMappedPort()
-                // then reads $ports[$first][0]?->getHostPort(), gets null, throws
-                // "Failed to get first mapped port for container", and caches the
-                // incomplete inspect response forever (see this method's own note
-                // above), so every later call fails identically.
-                $ports = (array) ($response->getNetworkSettings()?->getPorts() ?? []);
-                $first = array_key_first($ports);
-                if ($first !== null) {
-                    $binding = $ports[$first][0] ?? null;
-                    if ($binding instanceof \Docker\API\Model\PortBinding
-                        && ($binding->getHostPort() ?? '') !== ''
-                    ) {
-                        return;
-                    }
+                $published = self::firstHostPort($response->getNetworkSettings()?->getPorts());
+                if ($published !== null) {
+                    return $published;
                 }
+
+                $requested ??= self::firstHostPort($response->getHostConfig()?->getPortBindings());
             }
-            usleep(500_000);
+            usleep(250_000);
         } while (microtime(true) < $deadline);
 
+        if ($requested !== null) {
+            fwrite(STDERR, sprintf(
+                "\nNote: Docker reported no published port for container %s within %ds (status=%s); "
+                . "using the host port testcontainers requested (%d) instead.\n",
+                $container->getId(),
+                $budget,
+                $lastState,
+                $requested
+            ));
+
+            return $requested;
+        }
+
         throw new \RuntimeException(sprintf(
-            "Docker never published container %s's host port binding within %ds (status=%s). "
-            . 'Raise PROPULSION_PORT_PUBLISH_TIMEOUT if this host is just slow.',
+            'Container %s has neither a published port nor a requested host port binding '
+            . 'after %ds (status=%s).',
             $container->getId(),
             $budget,
             $lastState
         ));
+    }
+
+    /**
+     * First `HostPort` in a Docker port map, whether that map came from
+     * `NetworkSettings.Ports` (what Docker published) or `HostConfig.PortBindings`
+     * (what was requested). Both use the same
+     * `"<port>/<proto>" => [PortBinding, ...]` shape; an entry whose value is null or
+     * whose binding carries no host port means "not bound", which is exactly the case
+     * a bare `count($ports) > 0` check used to mistake for success.
+     *
+     * @param iterable<string, mixed>|null $ports
+     */
+    private static function firstHostPort(?iterable $ports): ?int
+    {
+        foreach ((array) ($ports ?? []) as $bindings) {
+            $binding = ((array) $bindings)[0] ?? null;
+            if ($binding instanceof \Docker\API\Model\PortBinding) {
+                $hostPort = $binding->getHostPort();
+                if ($hostPort !== null && $hostPort !== '' && (int) $hostPort > 0) {
+                    return (int) $hostPort;
+                }
+            }
+        }
+
+        return null;
     }
 
     private static function ensureContainerStarted(): void
@@ -758,7 +793,7 @@ class IntegrationDatabase
                     ->withMySQLDatabase('propulsion_test')
                     ->withLabels(self::CONTAINER_LABELS)
                     ->start();
-                self::enableMysqlLocalInfile(self::$container->getHost(), self::$container->getFirstMappedPort());
+                self::enableMysqlLocalInfile(self::$container->getHost(), self::hostPort());
             } catch (\Throwable $e) {
                 throw new \RuntimeException('Could not start the MySQL testcontainer (is Docker running?): ' . $e->getMessage());
             }
@@ -786,7 +821,7 @@ class IntegrationDatabase
                     ->withWait(new \Testcontainers\Wait\WaitForExec(['mariadb-admin', 'ping', '-h', '127.0.0.1'], null, 15000))
                     ->withLabels(self::CONTAINER_LABELS)
                     ->start();
-                self::enableMysqlLocalInfile(self::$container->getHost(), self::$container->getFirstMappedPort());
+                self::enableMysqlLocalInfile(self::$container->getHost(), self::hostPort());
             } catch (\Throwable $e) {
                 throw new \RuntimeException('Could not start the MariaDB testcontainer (is Docker running?): ' . $e->getMessage());
             }
@@ -801,13 +836,12 @@ class IntegrationDatabase
                     ->withWait(new WaitForLog('SQL Server is now ready for client connections', timeout: 60000))
                     ->withLabels(self::CONTAINER_LABELS)
                     ->start();
-                self::waitForPortsPublished(self::$container);
             } catch (\Throwable $e) {
                 throw new \RuntimeException('Could not start the MSSQL (azure-sql-edge) testcontainer (is Docker running?): ' . $e->getMessage());
             }
 
             try {
-                self::createMssqlDatabase(self::requireContainer()->getHost(), self::requireContainer()->getFirstMappedPort());
+                self::createMssqlDatabase(self::requireContainer()->getHost(), self::hostPort());
             } catch (\Throwable $e) {
                 throw new \RuntimeException('Could not create the MSSQL testcontainer\'s propulsion_test database: ' . $e->getMessage());
             }
@@ -822,7 +856,6 @@ class IntegrationDatabase
                     ->withWait(new WaitForLog('DATABASE IS READY TO USE', timeout: 180000))
                     ->withLabels(self::CONTAINER_LABELS)
                     ->start();
-                self::waitForPortsPublished(self::$container);
             } catch (\Throwable $e) {
                 throw new \RuntimeException('Could not start the Oracle (oracle-free) testcontainer (is Docker running?): ' . $e->getMessage());
             }
