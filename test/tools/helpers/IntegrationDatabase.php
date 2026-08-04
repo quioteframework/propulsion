@@ -32,8 +32,8 @@ use Propulsion\Generator\Util\PropulsionSQLParser;
  * Set PROPULSION_SKIP_INTEGRATION=1 to skip all tests that depend on this (e.g. in
  * environments without Docker) rather than fail on a Docker error.
  *
- * Set PROPULSION_TEST_DB=mysql|mssql|oracle to run the *main bookstore fixture
- * only* against a MySQL/MSSQL/Oracle testcontainer instead of the default Postgres
+ * Set PROPULSION_TEST_DB=mysql|mariadb|mssql|oracle to run the *main bookstore
+ * fixture only* against that testcontainer instead of the default Postgres
  * one -- useful for confirming whether a given test failure is a real library bug
  * or a platform-semantics difference (documented ones: MySQL's loose numeric
  * coercion in WHERE clauses and relaxed non-standard GROUP BY; identifier quoting
@@ -156,8 +156,16 @@ class IntegrationDatabase
      * naming-convention platform class lookup
      * ("platform.${propulsion.database}Platform") and the runtime's datasource
      * 'adapter' key need steering back to the class that actually exists.
+     *
+     * Public because tests that build their own datasource config need it too:
+     * an `'adapter' => currentPlatform()` there resolves to a `MariadbPlatform`
+     * that does not exist. Use `currentPlatform()` to decide *whether* a test
+     * applies, and this to name the adapter/platform it should actually load.
+     * Note this is not the same mapping as `pdoDriverPrefix()`, which answers a
+     * different question (mssql -> dblib, oracle -> oci); the platform classes
+     * for those two do exist under their own names.
      */
-    private static function generatorPlatform(): string
+    public static function generatorPlatform(): string
     {
         return self::platform() === 'mariadb' ? 'mysql' : self::platform();
     }

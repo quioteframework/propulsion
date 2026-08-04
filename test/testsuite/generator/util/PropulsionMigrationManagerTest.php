@@ -66,7 +66,10 @@ class PropulsionMigrationManagerTest extends TestCase
             $this->markTestSkipped($e->getMessage());
         }
 
-        $this->platform = IntegrationDatabase::currentPlatform();
+        // generatorPlatform(), not currentPlatform(): see MigrationCommandsTest's
+        // identical note -- MariaDB is served by MysqlPlatform, so the adapter name
+        // and every dialect decision below want 'mysql', not 'mariadb'.
+        $this->platform = IntegrationDatabase::generatorPlatform();
 
         $this->dsn = IntegrationDatabase::pdoDsn($conn['host'], $conn['port'], 'propulsion_test');
         [$dbUser, $dbPassword] = IntegrationDatabase::pdoCredentials();

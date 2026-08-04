@@ -65,7 +65,13 @@ class MigrationCommandsTest extends TestCase
             $this->markTestSkipped($e->getMessage());
         }
 
-        $this->platform = IntegrationDatabase::currentPlatform();
+        // generatorPlatform(), not currentPlatform(): every use below is either a
+        // SQL-dialect decision or an adapter/--database name feeding the generator's
+        // "platform.${propulsion.database}Platform" lookup, and MariaDB is served by
+        // MysqlPlatform throughout -- currentPlatform() would send both looking for a
+        // MariadbPlatform that does not exist, and drop the DDL below into the
+        // Postgres default arm.
+        $this->platform = IntegrationDatabase::generatorPlatform();
 
         $this->dsn = IntegrationDatabase::pdoDsn($conn['host'], $conn['port'], 'propulsion_test');
         [$dbUser, $dbPassword] = IntegrationDatabase::pdoCredentials();
