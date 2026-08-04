@@ -294,11 +294,42 @@ class IntegrationDatabase
         ];
     }
 
+    /**
+     * The exception to raise when the bookstore tier cannot be brought up.
+     *
+     * Normally a `\RuntimeException`, which every test base catches and turns into
+     * `markTestSkipped()` -- the right behaviour on a developer machine with no
+     * Docker. In CI that is actively harmful: a job whose entire purpose is to run
+     * the suite against MSSQL reports a green "OK, but some tests were skipped!"
+     * having run none of it, and the breakage is invisible until someone reads the
+     * skip count. Both the MSSQL and Oracle jobs sat broken that way.
+     *
+     * With `PROPULSION_REQUIRE_INTEGRATION=1` this returns an `\Error` instead,
+     * which the `catch (\RuntimeException)` in the test bases does not catch, so the
+     * run goes red at the first affected test with the real reason attached.
+     *
+     * Deliberately scoped to this tier only. The namespaced and schemas fixture
+     * projects are Postgres-specific by design and are *supposed* to skip under
+     * every other `PROPULSION_TEST_DB` value; failing on those would make the
+     * MySQL/MSSQL/Oracle jobs permanently red for no reason.
+     */
+    private static function unavailable(string $message): \Throwable
+    {
+        if (getenv('PROPULSION_REQUIRE_INTEGRATION') && !getenv('PROPULSION_SKIP_INTEGRATION')) {
+            return new \Error(
+                'PROPULSION_REQUIRE_INTEGRATION is set, so an unavailable integration '
+                . 'database is a failure rather than a skip: ' . $message
+            );
+        }
+
+        return new \RuntimeException($message);
+    }
+
     public static function ensureReady(): void
     {
         if (self::$attempted) {
             if (self::$skipReason !== null) {
-                throw new \RuntimeException(self::$skipReason);
+                throw self::unavailable(self::$skipReason);
             }
             return;
         }
@@ -311,21 +342,21 @@ class IntegrationDatabase
             self::ensureClassesGenerated();
         } catch (\Throwable $e) {
             self::$skipReason = $e->getMessage();
-            throw new \RuntimeException(self::$skipReason);
+            throw self::unavailable(self::$skipReason);
         }
 
         try {
             self::ensureContainerStarted();
         } catch (\Throwable $e) {
             self::$skipReason = $e->getMessage();
-            throw new \RuntimeException(self::$skipReason);
+            throw self::unavailable(self::$skipReason);
         }
 
         try {
             self::loadFixtureData(self::requireContainer()->getHost(), self::requireContainer()->getFirstMappedPort());
         } catch (\Throwable $e) {
             self::$skipReason = 'Could not build bookstore fixtures: ' . $e->getMessage();
-            throw new \RuntimeException(self::$skipReason);
+            throw self::unavailable(self::$skipReason);
         }
     }
 
@@ -644,17 +675,66 @@ class IntegrationDatabase
      */
     private static function waitForPortsPublished(StartedGenericContainer $container): void
     {
-        for ($attempt = 0; $attempt < 20; $attempt++) {
+        $budget = (int) (getenv('PROPULSION_PORT_PUBLISH_TIMEOUT') ?: 60);
+        $deadline = microtime(true) + $budget;
+        $lastState = 'unknown';
+
+        do {
             $response = $container->getClient()->containerInspect($container->getId());
             if ($response instanceof \Docker\API\Model\ContainersIdJsonGetResponse200) {
-                $ports = $response->getNetworkSettings()?->getPorts();
-                if ($ports !== null && count((array) $ports) > 0) {
-                    return;
+                // A container that has exited will never publish anything, so stop
+                // waiting out the whole budget for it and say what actually happened.
+                // This is the difference between "Docker never published the port
+                // mappings" (true, but not the cause) and "the container exited with
+                // code 1 / was OOM-killed" (the cause). Oracle Free in particular is
+                // heavy enough to be killed on a constrained runner.
+                $state = $response->getState();
+                if ($state !== null) {
+                    $lastState = $state->getStatus() ?? 'unknown';
+                    if ($state->getRunning() !== true && $state->getRestarting() !== true) {
+                        throw new \RuntimeException(sprintf(
+                            "Container %s is not running (status=%s, exitCode=%s, oomKilled=%s%s).",
+                            $container->getId(),
+                            $lastState,
+                            $state->getExitCode() ?? '?',
+                            $state->getOOMKilled() ? 'yes' : 'no',
+                            ($state->getError() ?? '') !== '' ? ', error=' . $state->getError() : ''
+                        ));
+                    }
+                }
+
+                // Mirror exactly what StartedGenericContainer::getFirstMappedPort()
+                // will do next, rather than merely checking that the ports map is
+                // non-empty. Docker populates the map with the *exposed* port as a key
+                // ("1433/tcp" => null) as soon as the container exists, and only fills
+                // in the host binding once it has actually published it -- so a
+                // count() > 0 check passes immediately and waits for nothing, which is
+                // precisely the gap this method exists to close. getFirstMappedPort()
+                // then reads $ports[$first][0]?->getHostPort(), gets null, throws
+                // "Failed to get first mapped port for container", and caches the
+                // incomplete inspect response forever (see this method's own note
+                // above), so every later call fails identically.
+                $ports = (array) ($response->getNetworkSettings()?->getPorts() ?? []);
+                $first = array_key_first($ports);
+                if ($first !== null) {
+                    $binding = $ports[$first][0] ?? null;
+                    if ($binding instanceof \Docker\API\Model\PortBinding
+                        && ($binding->getHostPort() ?? '') !== ''
+                    ) {
+                        return;
+                    }
                 }
             }
             usleep(500_000);
-        }
-        throw new \RuntimeException("Docker never published container {$container->getId()}'s port mappings.");
+        } while (microtime(true) < $deadline);
+
+        throw new \RuntimeException(sprintf(
+            "Docker never published container %s's host port binding within %ds (status=%s). "
+            . 'Raise PROPULSION_PORT_PUBLISH_TIMEOUT if this host is just slow.',
+            $container->getId(),
+            $budget,
+            $lastState
+        ));
     }
 
     private static function ensureContainerStarted(): void

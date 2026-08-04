@@ -92,6 +92,8 @@ jobs:
         working-directory: test
         env:
           XDEBUG_MODE: coverage
+          # An unavailable container must fail this job, not skip its way to green.
+          PROPULSION_REQUIRE_INTEGRATION: '1'
         run: ../vendor/bin/phpunit -c phpunit.xml --coverage-clover=coverage/clover.xml
 
       - name: Upload coverage to Codecov
@@ -138,6 +140,7 @@ jobs:
         working-directory: test
         env:
           PROPULSION_TEST_DB: mysql
+          PROPULSION_REQUIRE_INTEGRATION: '1'
         run: ../vendor/bin/phpunit -c phpunit.xml
 
   integration-mssql:
@@ -175,6 +178,7 @@ jobs:
         working-directory: test
         env:
           PROPULSION_TEST_DB: mssql
+          PROPULSION_REQUIRE_INTEGRATION: '1'
         run: ../vendor/bin/phpunit -c phpunit.xml
 
   integration-oracle:
@@ -308,6 +312,7 @@ jobs:
         working-directory: test
         env:
           PROPULSION_TEST_DB: oracle
+          PROPULSION_REQUIRE_INTEGRATION: '1'
         run: ../vendor/bin/phpunit -c phpunit.xml
 
   analyse:

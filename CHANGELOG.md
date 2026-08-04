@@ -389,6 +389,8 @@ multi-platform test runs.
   and an Oracle Instant Client download 404, both in CI.
 - Oracle CI: `pdo_oci` failed to build (SDK extraction) and then to load
   (Instant Client not on the loader path). Both fixed.
+- CI: a testcontainer that failed to start skipped the entire integration tier
+  and still reported success. `PROPULSION_REQUIRE_INTEGRATION=1` makes it fail.
 - CI coverage reporting: pcov instrumented nothing on PHP 8.5.
 - Test harness now bootstraps Propulsion config unconditionally; Postgres-only
   generator tests skip cleanly under other `PROPULSION_TEST_DB` values.
