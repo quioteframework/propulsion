@@ -98,7 +98,13 @@ class SortableBehaviorQueryBuilderModifierTest extends BookstoreSortableTestBase
 
 	public function testReorder()
 	{
-		$objects = Table11Query::create()->find();
+		// orderById(): $expected below encodes the fixture's *insertion* order
+		// (row1, row4, row2, row3 -- see populateTable11()), because that is the
+		// order $ids is zipped against array(4, 3, 2, 1). An unordered find()
+		// only happens to return rows that way; Oracle guarantees no order
+		// without an ORDER BY and does intermittently return them in another,
+		// which made this test flaky there.
+		$objects = Table11Query::create()->orderById()->find();
 		$ids = array();
 		foreach ($objects as $object) {
 			$ids[]= $object->getPrimaryKey();

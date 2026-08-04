@@ -146,7 +146,20 @@ class SessionResetTransactionTest extends BookstoreTestBase
         $wasDebug = $this->con->useDebug;
         $this->con->useDebug(true);
         try {
-            $this->con->exec('SELECT 1');
+            // Deliberately query() + consume + closeCursor() rather than
+            // exec('SELECT 1'): exec() is for statements that return no result
+            // set, and on MySQL the unconsumed rows it leaves behind make every
+            // later query on this (process-scoped, shared) connection fail with
+            // "Cannot execute queries while other unbuffered queries are active"
+            // -- including the rollback in tearDown(), so the outer transaction
+            // stays open and every subsequent test dies on beginTransaction().
+            // A real fixture table rather than a bare "SELECT 1" keeps it valid
+            // on Oracle, which has no FROM-less SELECT.
+            $stmt = $this->con->query('SELECT COUNT(*) FROM ' . AuthorPeer::TABLE_NAME);
+            $this->assertNotFalse($stmt);
+            $stmt->fetchAll();
+            $stmt->closeCursor();
+
             $this->assertGreaterThan(0, $this->con->getQueryCount());
             $this->assertNotSame('', $this->con->getLastExecutedQuery());
 
