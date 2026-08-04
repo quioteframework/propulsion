@@ -56,9 +56,6 @@ rm -rf fixtures/bookstore/build fixtures/schemas/build fixtures/namespaced/build
   each CLI process its own segment, a cron job can neither read nor *invalidate*
   the web tier's entries. If anything writes to the database from CLI, use
   `file` or a shared network pool.
-- **MSSQL full-suite parity**: `PROPULSION_TEST_DB=mssql` is 0 errors/0
-  failures as of the last audit, but has much less scrutiny overall than
-  Postgres/MySQL.
 - **MariaDB**: served by `DBMySQL`/`MysqlPlatform` as though it were MySQL
   (`DBMySQL::isMariaDb()` detects it at the runtime-connection level for the
   few things that already need to differ, e.g. `RETURNING`), no dedicated

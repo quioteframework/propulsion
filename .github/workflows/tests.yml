@@ -13,9 +13,9 @@ jobs:
     # Blocking: PROPULSION_SKIP_INTEGRATION=1 used to error out on ~77 tests that
     # depended on the Docker-built fixtures without being properly guarded/decoupled
     # (see KNOWN_ISSUES.md for the fix and how those tests were triaged). This tier
-    # now agrees exactly with the "integration" job below on errors/failures (both
-    # currently have the same 2 pre-existing MssqlPlatformTest failures -- also
-    # tracked in KNOWN_ISSUES.md, unrelated to Docker availability).
+    # now agrees exactly with the "integration" job below on errors/failures, and
+    # both are green: the 2 MssqlPlatformTest failures this comment used to record
+    # as pre-existing were fixed during the MSSQL parity work.
     steps:
       - uses: actions/checkout@v4
 
