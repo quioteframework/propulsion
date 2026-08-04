@@ -311,26 +311,24 @@ class DBMySQL extends DBAdapter
 	 * Bulk-loads $rows via LOAD DATA LOCAL INFILE, writing them to a temporary file first
 	 * (unlike Postgres's pgsqlCopyFromArray(), there is no rows-array variant for MySQL --
 	 * LOAD DATA always reads from a file). Requires the connection to have been created
-	 * with PDO::MYSQL_ATTR_LOCAL_INFILE enabled (pass it in the datasource's PDO connection
+	 * with Pdo\Mysql::ATTR_LOCAL_INFILE enabled (pass it in the datasource's PDO connection
 	 * options -- it cannot be toggled on an already-open connection) *and* the server's
 	 * `local_infile` global variable set to 1 (defaults to 0/OFF on stock MySQL 8+). Throws
 	 * a clear, actionable error up front if the connection-side half of that isn't set,
 	 * rather than letting it fail with MySQL's own less obvious error message.
 	 *
-	 * As of PHP 8.5, PDO::MYSQL_ATTR_LOCAL_INFILE itself is deprecated in favor of
-	 * Pdo\Mysql::ATTR_LOCAL_INFILE -- same reasoning as DBPostgres::bulkLoad()'s note on
-	 * pgsqlCopyFromArray(): that only exists on an actual Pdo\Mysql instance, and
-	 * PropulsionPDO extends \PDO directly for every driver rather than being
-	 * auto-selected per-driver, so the deprecation notice here is likewise expected and,
-	 * for now, unavoidable without restructuring that whole class hierarchy.
+	 * Uses Pdo\Mysql::ATTR_LOCAL_INFILE rather than the identically-valued
+	 * PDO::MYSQL_ATTR_LOCAL_INFILE, which PHP 8.5 deprecates. Every MySQL connection
+	 * Propulsion constructs is a MysqlPropulsionPDO, which extends \Pdo\Mysql, so the
+	 * driver-specific constant is always available here.
 	 *
 	 * @see       DBAdapter::bulkLoad()
 	 */
 	public function bulkLoad(PropulsionPDO $con, string $tableName, array $columns, iterable $rows): int
 	{
-		if (!$con->getAttribute(PDO::MYSQL_ATTR_LOCAL_INFILE)) {
+		if (!$con->getAttribute(\Pdo\Mysql::ATTR_LOCAL_INFILE)) {
 			throw new PropulsionException(
-				'DBMySQL::bulkLoad() requires the connection to be created with PDO::MYSQL_ATTR_LOCAL_INFILE '
+				'DBMySQL::bulkLoad() requires the connection to be created with Pdo\Mysql::ATTR_LOCAL_INFILE '
 				. "enabled (pass it in the datasource's PDO connection options) and the server's local_infile "
 				. 'global variable set to 1 -- both are required, and neither can be toggled on an already-open connection.'
 			);

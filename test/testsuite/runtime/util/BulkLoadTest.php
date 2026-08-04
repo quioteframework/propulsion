@@ -79,8 +79,8 @@ class BulkLoadTest extends BookstoreTestBase
 		}
 
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
-		if ($con->getAttribute(PDO::MYSQL_ATTR_LOCAL_INFILE)) {
-			$this->markTestSkipped('this connection was configured with MYSQL_ATTR_LOCAL_INFILE enabled');
+		if ($con->getAttribute(\Pdo\Mysql::ATTR_LOCAL_INFILE)) {
+			$this->markTestSkipped('this connection was configured with ATTR_LOCAL_INFILE enabled');
 		}
 
 		$this->expectException(PropulsionException::class);

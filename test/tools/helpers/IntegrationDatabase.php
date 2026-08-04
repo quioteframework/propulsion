@@ -1125,7 +1125,7 @@ class IntegrationDatabase
                 // enableMysqlLocalInfile() above, since it's a server, not a connection,
                 // setting.
                 'options' => match ($platform) {
-                    'mysql' => ['PDO::MYSQL_ATTR_LOCAL_INFILE' => ['value' => true]],
+                    'mysql' => ['Pdo\Mysql::ATTR_LOCAL_INFILE' => ['value' => true]],
                     default => [],
                 },
             ],

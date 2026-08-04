@@ -299,22 +299,25 @@ These are gaps in the shared query builder — confirmed absent by grep across
   seeding and imports. Complements (does not duplicate) the "Statement
   batching" item in `UNIT_OF_WORK.md`, which is about the flush path.
   - [x] Postgres and MySQL/MariaDB via `DBAdapter::supportsBulkLoad()`/
-    `bulkLoad()` and `BasePeer::doBulkInsert()`. Postgres uses PDO's
-    `pgsqlCopyFromArray()` (real `COPY FROM STDIN`, no temp file needed) --
-    deprecated as of PHP 8.5 in favor of `Pdo\Pgsql::copyFromArray()`, but
-    that only exists on an actual `Pdo\Pgsql` instance (the driver-specific
-    subclass plain `new PDO('pgsql:...')` auto-selects), and `PropulsionPDO`
-    extends `\PDO` directly for every driver rather than being
-    auto-selected per-driver -- switching would mean restructuring that
-    whole class hierarchy, well beyond this feature's scope, so the
-    resulting deprecation notice is expected/unavoidable for now. MySQL
-    uses `LOAD DATA LOCAL INFILE` against a temp file (no rows-array
-    variant exists for MySQL the way Postgres has one); this needs the
-    connection created with `PDO::MYSQL_ATTR_LOCAL_INFILE` enabled (can't
-    be toggled after connecting) *and* the server's `local_infile` global
-    variable set to 1 (defaults OFF on stock MySQL 8+) -- `bulkLoad()`
-    throws a clear, actionable error up front if the connection-side half
-    isn't set, rather than surfacing MySQL's own less obvious error.
+    `bulkLoad()` and `BasePeer::doBulkInsert()`. Postgres uses
+    `\Pdo\Pgsql::copyFromArray()` (real `COPY FROM STDIN`, no temp file
+    needed); MySQL uses `LOAD DATA LOCAL INFILE` against a temp file (no
+    rows-array variant exists for MySQL the way Postgres has one), which
+    needs the connection created with `Pdo\Mysql::ATTR_LOCAL_INFILE`
+    enabled (can't be toggled after connecting) *and* the server's
+    `local_infile` global variable set to 1 (defaults OFF on stock MySQL
+    8+) -- `bulkLoad()` throws a clear, actionable error up front if the
+    connection-side half isn't set, rather than surfacing MySQL's own less
+    obvious error.
+
+    Both use the driver-specific `\Pdo\*` API rather than the
+    bolted-on-`\PDO` spellings (`PDO::pgsqlCopyFromArray()`,
+    `PDO::MYSQL_ATTR_LOCAL_INFILE`) that PHP 8.5 deprecates or has already
+    removed. That is possible because `PropulsionPDO` is an interface and
+    every connection Propulsion constructs is the matching driver-specific
+    subclass (`PgsqlPropulsionPDO extends \Pdo\Pgsql`,
+    `MysqlPropulsionPDO extends \Pdo\Mysql`), so no deprecation notice is
+    emitted on either path.
   - [ ] MSSQL `BULK INSERT`/`OPENROWSET(BULK ...)` needs the file to be
     readable by the SQL Server *process itself*, not the PHP client -- a
     generic client library can't assume a shared filesystem with the
