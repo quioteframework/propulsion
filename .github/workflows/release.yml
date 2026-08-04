@@ -38,6 +38,12 @@ jobs:
 
       - name: Run tests
         working-directory: test
+        env:
+          # This is the gate on publishing, so it must not be possible to pass it
+          # by skipping. Without this a testcontainer that failed to start would
+          # skip the whole integration tier, report "OK, but some tests were
+          # skipped!", and the release would go out on a suite that never ran.
+          PROPULSION_REQUIRE_INTEGRATION: '1'
         run: ../vendor/bin/phpunit -c phpunit.xml
 
       - name: Assemble release notes

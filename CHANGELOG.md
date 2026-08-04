@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.0.0] - 2026-08-04
 
-201 commits since v1.0.0 (2026-07-07); 457 files changed. This release adds a
+The first major release since v1.0.0 (2026-07-07). It adds a
 large batch of query-layer capabilities, new column types, per-platform DDL
 parity, a two-tier query result cache, and support for running under a
 persistent-worker SAPI; it reaches full test-suite parity on
