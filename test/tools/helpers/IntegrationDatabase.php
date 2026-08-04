@@ -289,7 +289,7 @@ class IntegrationDatabase
         self::ensureContainerStarted();
 
         return [
-            'host' => self::requireContainer()->getHost(),
+            'host' => self::hostName(),
             'port' => self::hostPort(),
         ];
     }
@@ -353,7 +353,7 @@ class IntegrationDatabase
         }
 
         try {
-            self::loadFixtureData(self::requireContainer()->getHost(), self::hostPort());
+            self::loadFixtureData(self::hostName(), self::hostPort());
         } catch (\Throwable $e) {
             self::$skipReason = 'Could not build bookstore fixtures: ' . $e->getMessage();
             throw self::unavailable(self::$skipReason);
@@ -498,7 +498,7 @@ class IntegrationDatabase
         }
 
         try {
-            self::buildNamespacedFixtures(self::requireContainer()->getHost(), self::hostPort());
+            self::buildNamespacedFixtures(self::hostName(), self::hostPort());
         } catch (\Throwable $e) {
             self::$namespacedSkipReason = 'Could not build namespaced fixtures: ' . $e->getMessage();
             throw new \RuntimeException(self::$namespacedSkipReason);
@@ -549,7 +549,7 @@ class IntegrationDatabase
         }
 
         try {
-            self::buildSchemasFixtures(self::requireContainer()->getHost(), self::hostPort());
+            self::buildSchemasFixtures(self::hostName(), self::hostPort());
         } catch (\Throwable $e) {
             self::$schemasSkipReason = 'Could not build schemas fixtures: ' . $e->getMessage();
             throw new \RuntimeException(self::$schemasSkipReason);
@@ -654,52 +654,73 @@ class IntegrationDatabase
     }
 
     /**
-     * The host port the shared testcontainer is reachable on, resolved once.
+     * The host/port the shared testcontainer is actually reachable on, resolved once
+     * and *verified by connecting to it* rather than inferred from Docker metadata.
      *
-     * Deliberately not `StartedGenericContainer::getFirstMappedPort()`. That reads
-     * `NetworkSettings.Ports` out of an inspect response it caches forever (see its
-     * own "TODO: ... shouldn't be cached" comment), so if the first call lands
-     * before Docker has populated that field, every later call fails identically
-     * rather than transiently.
+     * Three earlier attempts at this all trusted one field or another and all shipped
+     * a wrong answer to CI:
      *
-     * Waiting for the field to populate does not work either: on GitHub Actions the
-     * MSSQL and Oracle containers sit at `status=running`, having already logged that
-     * they are accepting connections, with `NetworkSettings.Ports` still carrying no
-     * host binding after 60s. Whatever the cause, that field is not a reliable signal
-     * there.
+     *  - `getFirstMappedPort()` reads `NetworkSettings.Ports` from an inspect response
+     *    testcontainers caches forever, so one early read poisons every later one.
+     *  - Waiting for `NetworkSettings.Ports` to gain a host binding never completes on
+     *    GitHub Actions for the MSSQL/Oracle containers: they sit at `status=running`,
+     *    having logged that they accept connections, with that field still empty after
+     *    60s.
+     *  - Falling back to the host port in `HostConfig.PortBindings` -- what
+     *    `RandomPortGenerator` chose and asked Docker to bind -- is right whenever
+     *    Docker honoured the request, but for Oracle it demonstrably did not: nothing
+     *    listened on the requested port and the run died with ORA-12541.
      *
-     * `HostConfig.PortBindings` is, because it is not something Docker reports back --
-     * it is what testcontainers *asked for*. `GenericContainer::createPortBindings()`
-     * picks a concrete host port itself (`RandomPortGenerator`) and binds
-     * `0.0.0.0:<port>`, so the number is settled before the container is even created.
-     * `NetworkSettings.Ports` is still preferred when present, being the authoritative
-     * record of what Docker actually published; the request is the fallback.
+     * So no single field is authoritative. This tries each candidate route in turn and
+     * returns the first that accepts a TCP connection:
      *
-     * Being wrong here is self-correcting: the caller immediately opens a real
-     * connection on the port this returns, so a mapping that does not exist surfaces
-     * as a connection failure naming the port, rather than as an opaque wait timeout.
+     *  1. the published host port, if Docker reports one;
+     *  2. the requested host port from `HostConfig.PortBindings`;
+     *  3. the container's own address on the Docker bridge, with the *container* port.
+     *
+     * (3) needs no port publishing at all and is routable from the host on Linux,
+     * which is what CI runs. It is last because a published port is the more portable
+     * route where it works (Docker Desktop and WSL2 cannot generally reach the bridge
+     * directly), so the ordering prefers the answer that also holds locally.
+     *
+     * The whole thing runs against a deadline, since a container can log readiness
+     * shortly before its listener actually accepts connections.
+     *
+     * @return array{host: string, port: int}
      */
-    private static ?int $hostPort = null;
+    private static ?array $endpoint = null;
+
+    /** @return array{host: string, port: int} */
+    private static function endpoint(): array
+    {
+        return self::$endpoint ??= self::resolveEndpoint(self::requireContainer());
+    }
 
     private static function hostPort(): int
     {
-        return self::$hostPort ??= self::resolveHostPort(self::requireContainer());
+        return self::endpoint()['port'];
     }
 
-    private static function resolveHostPort(StartedGenericContainer $container): int
+    private static function hostName(): string
     {
-        $budget = (int) (getenv('PROPULSION_PORT_PUBLISH_TIMEOUT') ?: 30);
+        return self::endpoint()['host'];
+    }
+
+    /** @return array{host: string, port: int} */
+    private static function resolveEndpoint(StartedGenericContainer $container): array
+    {
+        $budget = (int) (getenv('PROPULSION_PORT_PUBLISH_TIMEOUT') ?: 60);
         $deadline = microtime(true) + $budget;
-        $requested = null;
+        $dockerHost = $container->getHost();
+        $tried = [];
         $lastState = 'unknown';
 
         do {
             $response = $container->getClient()->containerInspect($container->getId());
             if ($response instanceof \Docker\API\Model\ContainersIdJsonGetResponse200) {
-                // A container that has exited will never publish anything. Say so,
-                // with the exit code and OOM flag, instead of waiting out the budget
-                // and blaming Docker -- Oracle Free in particular is heavy enough to
-                // be killed on a constrained runner.
+                // A container that has exited will never become reachable. Report the
+                // exit code and OOM flag rather than waiting out the whole budget --
+                // Oracle Free is heavy enough to be killed on a constrained runner.
                 $state = $response->getState();
                 if ($state !== null) {
                     $lastState = $state->getStatus() ?? 'unknown';
@@ -715,36 +736,128 @@ class IntegrationDatabase
                     }
                 }
 
-                $published = self::firstHostPort($response->getNetworkSettings()?->getPorts());
-                if ($published !== null) {
-                    return $published;
-                }
+                $net = $response->getNetworkSettings();
+                foreach (self::candidateEndpoints($response, $dockerHost) as $candidate) {
+                    [$host, $port, $label] = $candidate;
+                    $tried["$host:$port"] = $label;
+                    if (self::accepts($host, $port)) {
+                        if ($label !== 'published host port') {
+                            fwrite(STDERR, sprintf(
+                                "\nNote: reached container %s via its %s (%s:%d); Docker reported "
+                                . "no usable published port.\n",
+                                substr($container->getId(), 0, 12),
+                                $label,
+                                $host,
+                                $port
+                            ));
+                        }
 
-                $requested ??= self::firstHostPort($response->getHostConfig()?->getPortBindings());
+                        return ['host' => $host, 'port' => $port];
+                    }
+                }
+                unset($net);
             }
-            usleep(250_000);
+            usleep(500_000);
         } while (microtime(true) < $deadline);
 
-        if ($requested !== null) {
-            fwrite(STDERR, sprintf(
-                "\nNote: Docker reported no published port for container %s within %ds (status=%s); "
-                . "using the host port testcontainers requested (%d) instead.\n",
-                $container->getId(),
-                $budget,
-                $lastState,
-                $requested
-            ));
-
-            return $requested;
+        $detail = [];
+        foreach ($tried as $where => $label) {
+            $detail[] = "$where ($label)";
         }
 
         throw new \RuntimeException(sprintf(
-            'Container %s has neither a published port nor a requested host port binding '
-            . 'after %ds (status=%s).',
+            'Container %s (status=%s) did not accept a connection on any known route within %ds. Tried: %s.',
             $container->getId(),
+            $lastState,
             $budget,
-            $lastState
+            $detail === [] ? 'nothing -- Docker reported no ports or address at all' : implode(', ', $detail)
         ));
+    }
+
+    /**
+     * Candidate (host, port, label) routes to the container, best-supported first.
+     *
+     * @return list<array{0: string, 1: int, 2: string}>
+     */
+    private static function candidateEndpoints(
+        \Docker\API\Model\ContainersIdJsonGetResponse200 $response,
+        string $dockerHost
+    ): array {
+        $candidates = [];
+
+        $published = self::firstHostPort($response->getNetworkSettings()?->getPorts());
+        if ($published !== null) {
+            $candidates[] = [$dockerHost, $published, 'published host port'];
+        }
+
+        $requested = self::firstHostPort($response->getHostConfig()?->getPortBindings());
+        if ($requested !== null && $requested !== $published) {
+            $candidates[] = [$dockerHost, $requested, 'requested host port binding'];
+        }
+
+        $containerPort = self::firstContainerPort($response);
+        if ($containerPort !== null) {
+            foreach (self::containerAddresses($response) as $ip) {
+                $candidates[] = [$ip, $containerPort, 'container address on the Docker bridge'];
+            }
+        }
+
+        return $candidates;
+    }
+
+    /** The container-side port, taken from whichever port map is populated. */
+    private static function firstContainerPort(\Docker\API\Model\ContainersIdJsonGetResponse200 $response): ?int
+    {
+        foreach ([$response->getNetworkSettings()?->getPorts(), $response->getHostConfig()?->getPortBindings()] as $map) {
+            foreach (array_keys((array) ($map ?? [])) as $key) {
+                // Keys are "<port>/<proto>", e.g. "1521/tcp".
+                $port = (int) strtok((string) $key, '/');
+                if ($port > 0) {
+                    return $port;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /** @return list<string> */
+    private static function containerAddresses(\Docker\API\Model\ContainersIdJsonGetResponse200 $response): array
+    {
+        $net = $response->getNetworkSettings();
+        if ($net === null) {
+            return [];
+        }
+
+        $addresses = [];
+        $primary = $net->getIPAddress();
+        if ($primary !== null && $primary !== '') {
+            $addresses[] = $primary;
+        }
+
+        foreach ((array) ($net->getNetworks() ?? []) as $endpoint) {
+            if ($endpoint instanceof \Docker\API\Model\EndpointSettings) {
+                $ip = $endpoint->getIPAddress();
+                if ($ip !== null && $ip !== '' && !in_array($ip, $addresses, true)) {
+                    $addresses[] = $ip;
+                }
+            }
+        }
+
+        return $addresses;
+    }
+
+    /** Whether something is actually accepting TCP connections there. */
+    private static function accepts(string $host, int $port): bool
+    {
+        $connection = @fsockopen($host, $port, $errno, $errstr, 2.0);
+        if (is_resource($connection)) {
+            fclose($connection);
+
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -793,7 +906,7 @@ class IntegrationDatabase
                     ->withMySQLDatabase('propulsion_test')
                     ->withLabels(self::CONTAINER_LABELS)
                     ->start();
-                self::enableMysqlLocalInfile(self::$container->getHost(), self::hostPort());
+                self::retrying(static fn () => self::enableMysqlLocalInfile(self::hostName(), self::hostPort()));
             } catch (\Throwable $e) {
                 throw new \RuntimeException('Could not start the MySQL testcontainer (is Docker running?): ' . $e->getMessage());
             }
@@ -821,7 +934,7 @@ class IntegrationDatabase
                     ->withWait(new \Testcontainers\Wait\WaitForExec(['mariadb-admin', 'ping', '-h', '127.0.0.1'], null, 15000))
                     ->withLabels(self::CONTAINER_LABELS)
                     ->start();
-                self::enableMysqlLocalInfile(self::$container->getHost(), self::hostPort());
+                self::retrying(static fn () => self::enableMysqlLocalInfile(self::hostName(), self::hostPort()));
             } catch (\Throwable $e) {
                 throw new \RuntimeException('Could not start the MariaDB testcontainer (is Docker running?): ' . $e->getMessage());
             }
@@ -841,7 +954,7 @@ class IntegrationDatabase
             }
 
             try {
-                self::createMssqlDatabase(self::requireContainer()->getHost(), self::hostPort());
+                self::retrying(static fn () => self::createMssqlDatabase(self::hostName(), self::hostPort()));
             } catch (\Throwable $e) {
                 throw new \RuntimeException('Could not create the MSSQL testcontainer\'s propulsion_test database: ' . $e->getMessage());
             }
@@ -861,7 +974,7 @@ class IntegrationDatabase
             }
 
             try {
-                self::createOracleAppUser(self::requireContainer());
+                self::retrying(static fn () => self::createOracleAppUser(self::requireContainer()));
             } catch (\Throwable $e) {
                 throw new \RuntimeException('Could not create the Oracle testcontainer\'s propulsion app user: ' . $e->getMessage());
             }
@@ -892,6 +1005,42 @@ class IntegrationDatabase
      * flip it -- the 'propulsion' user created by withMySQLUser() doesn't have the
      * SYSTEM_VARIABLES_ADMIN/SUPER privilege SET GLOBAL requires.
      */
+    /**
+     * Retries $work until it stops throwing, or the budget runs out.
+     *
+     * resolveEndpoint() proves a TCP listener is accepting connections, which is
+     * strictly weaker than the server behind it being ready to serve: MySQL accepts
+     * connections while still initialising its user tables, SQL Server while still
+     * recovering databases. The post-start setup below is the first thing to actually
+     * authenticate, so it is where that gap shows up -- as an intermittent failure
+     * during container start, on a container that is otherwise fine.
+     *
+     * @template T
+     * @param callable(): T $work
+     * @return T
+     */
+    private static function retrying(callable $work, int $seconds = 30)
+    {
+        $deadline = microtime(true) + $seconds;
+        $attempt = 0;
+
+        while (true) {
+            try {
+                return $work();
+            } catch (\Throwable $e) {
+                $attempt++;
+                if (microtime(true) >= $deadline) {
+                    throw new \RuntimeException(
+                        sprintf('still failing after %d attempts over %ds: ', $attempt, $seconds) . $e->getMessage(),
+                        0,
+                        $e
+                    );
+                }
+                usleep(500_000);
+            }
+        }
+    }
+
     private static function enableMysqlLocalInfile(string $host, int $port): void
     {
         $pdo = new \PDO("mysql:host=$host;port=$port", 'root', 'root');
