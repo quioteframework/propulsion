@@ -60,8 +60,14 @@ use Propulsion\Generator\Util\PropulsionSQLParser;
  *     `make`. The built `modules/pdo_oci.so` can be loaded without installing it
  *     system-wide via `php -d extension=/path/to/pdo_oci.so ...`, but the Instant
  *     Client directory (plus, on Ubuntu 24.04+, a `libaio.so.1 -> libaio.so.1t64`
- *     compat symlink for the `libaio1t64` "64-bit time_t" package rename) must be
- *     on `LD_LIBRARY_PATH` at runtime.
+ *     compat symlink for the `libaio1t64` "64-bit time_t" package rename) has to
+ *     be on the dynamic loader's search path at runtime, not just at build time.
+ *     Either put it in `/etc/ld.so.conf.d/` and run `ldconfig` (what CI does, and
+ *     what makes it work for every process without further setup), or export
+ *     `LD_LIBRARY_PATH` for each invocation. The rpath the build bakes in is not
+ *     enough on its own: it is emitted as `DT_RUNPATH`, which the loader consults
+ *     only for `pdo_oci.so`'s own direct dependencies, so `libclntsh.so` resolves
+ *     but the `libnnz.so` it in turn needs does not.
  */
 class IntegrationDatabase
 {

@@ -19,7 +19,6 @@ version bump.
 
 ### Added
 
-
 #### Query layer
 
 - **Common table expressions and window functions.** `Criteria::withCte()`
@@ -230,7 +229,6 @@ version bump.
 
 ### Changed
 
-
 - **`PropulsionPDO` is now an interface**, not a concrete class. Every
   connection Propulsion constructs is a driver-specific subclass of the
   matching PHP 8.4 `\Pdo\*` class — `PgsqlPropulsionPDO extends \Pdo\Pgsql`,
@@ -354,7 +352,6 @@ version bump.
 
 ### Fixed
 
-
 Selected fixes; many more came out of the level 7/8/9 cleanup and the live
 multi-platform test runs.
 
@@ -390,16 +387,8 @@ multi-platform test runs.
   longer cached at all, at either tier.
 - A testcontainer startup race that silently skipped ~1300 MSSQL/Oracle tests,
   and an Oracle Instant Client download 404, both in CI.
-- **Oracle CI job could not build `pdo_oci`.** The Instant Client Basic and SDK
-  archives both contain `META-INF/MANIFEST.MF`, so the second `unzip` stopped
-  to ask whether to replace it; with no TTY on a runner it read EOF, answered
-  "[N]one", and skipped the remainder of the archive, so the SDK headers never
-  landed and `./configure --with-pdo-oci` failed with no obvious cause (`-q`
-  suppresses the file listing, not the prompt). Now unzipped with `-o`, with an
-  explicit `test -f sdk/include/oci.h` so an incomplete extraction fails at the
-  point it happens. The download step's `actions/cache` key was bumped as well —
-  otherwise a cache hit would restore the previously-saved partial extraction
-  and skip the download entirely, and the fix would never take effect.
+- Oracle CI: `pdo_oci` failed to build (SDK extraction) and then to load
+  (Instant Client not on the loader path). Both fixed.
 - CI coverage reporting: pcov instrumented nothing on PHP 8.5.
 - Test harness now bootstraps Propulsion config unconditionally; Postgres-only
   generator tests skip cleanly under other `PROPULSION_TEST_DB` values.
@@ -605,7 +594,6 @@ multi-platform test runs.
 
 ### Performance
 
-
 Measured with `bench/` on PHP 8.5 with JIT on; see `bench/RESULTS.md`.
 
 - Generated ORM hot paths (instance-pool state hoisted out of per-row loops,
@@ -698,7 +686,6 @@ forked, renamed, and modernized for PHP 8.5+ — modern syntax and types
 throughout, Phing replaced by a plain Symfony Console app, PostgreSQL promoted
 to the default and recommended database, PSR-3 logging, and a PHPStan level 6
 baseline. See `NOTICE.md` for attribution.
-
 
 [Unreleased]: https://github.com/quioteframework/propulsion/compare/v2.0.0...HEAD
 [2.0.0]: https://github.com/quioteframework/propulsion/compare/v1.0.0...v2.0.0

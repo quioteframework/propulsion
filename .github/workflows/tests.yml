@@ -255,6 +255,26 @@ jobs:
           ./configure --with-pdo-oci=instantclient,/opt/oracle/instantclient,23.26
           make -j"$(nproc)"
           sudo cp modules/pdo_oci.so "$(php-config --extension-dir)/pdo_oci.so"
+          # Put the Instant Client on the loader's search path for every later
+          # step and every process, not just the phpunit one.
+          #
+          # pdo_oci.so links against libclntsh.so with an rpath of
+          # /opt/oracle/instantclient, but modern binutils emits DT_RUNPATH
+          # rather than DT_RPATH, and RUNPATH applies *only* to the direct
+          # dependencies of the object carrying it. libclntsh.so is found;
+          # libnnz.so -- which libclntsh.so itself needs, and which carries no
+          # rpath of its own -- is not, so loading fails with
+          # "libnnz.so: cannot open shared object file". DT_RPATH would have
+          # been inherited transitively; DT_RUNPATH is not.
+          #
+          # ldconfig fixes it for the whole machine, which matters because the
+          # `php -m` verification below and `composer install` both run in steps
+          # that have no LD_LIBRARY_PATH. Setting that variable per-step is what
+          # this job did before, and it left the verification line failing on a
+          # build that had actually succeeded.
+          echo /opt/oracle/instantclient | sudo tee /etc/ld.so.conf.d/oracle-instantclient.conf
+          sudo ldconfig
+          ldconfig -p | grep -q libclntsh || { echo "Instant Client is not on the loader path"; exit 1; }
           # The scan directory is read from PHP itself rather than scraped out of
           # `php --ini`. PHP 8.5 quotes the paths in that output ("Scan for
           # additional .ini files in: "/etc/php/8.5/cli/conf.d""), so the previous
@@ -288,7 +308,6 @@ jobs:
         working-directory: test
         env:
           PROPULSION_TEST_DB: oracle
-          LD_LIBRARY_PATH: /opt/oracle/instantclient
         run: ../vendor/bin/phpunit -c phpunit.xml
 
   analyse:
