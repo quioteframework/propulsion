@@ -110,7 +110,17 @@ class PropulsionQuickBuilder
 		$this->buildSQL($con);
 		$this->buildClasses();
 		$name = $this->requireDatabase()->getName();
-		if (!Propulsion::isInit()) {
+		// Only when nothing has configured Propulsion yet: setConfiguration()
+		// replaces the configuration wholesale and drops everything derived from
+		// the one it replaces -- including every adapter registered with setDB().
+		// Calling it on each build would therefore unregister the adapters of the
+		// databases built before this one, and the next query against any of them
+		// would fail with "Unable to find adapter for datasource". Building
+		// several schemas in one process is ordinary here (a test class per
+		// schema, several schemas per suite), and the later builds have nothing
+		// to add anyway: this sets a *default* datasource name, while generated
+		// code reaches its own datasource by Peer::DATABASE_NAME.
+		if (!Propulsion::isInit() && Propulsion::getConfigurationArray() === array()) {
 			Propulsion::setConfiguration(array('datasources' => array('default' => $name)));
 		}
 		Propulsion::setDB($name, $adapter);

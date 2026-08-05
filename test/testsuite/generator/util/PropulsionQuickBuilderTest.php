@@ -120,4 +120,48 @@ EOF;
 		$this->assertEquals($foo, QuickBuildFoo2Query::create()->findOne());
 	}
 
+	/**
+	 * Building a second schema must not unregister the first one's adapter.
+	 * build() configures Propulsion only when nothing else has, because
+	 * setConfiguration() drops every adapter registered under the configuration
+	 * it replaces -- so a per-build call would leave the earlier database
+	 * failing with "Unable to find adapter for datasource".
+	 */
+	public function testBuildKeepsEarlierDatabasesUsable()
+	{
+		$first = <<<EOF
+<database name="test_quick_build_first">
+	<table name="quick_build_first">
+		<column name="id" primaryKey="true" type="INTEGER" autoIncrement="true" />
+		<column name="bar" type="INTEGER" />
+	</table>
+</database>
+EOF;
+		$second = <<<EOF
+<database name="test_quick_build_second">
+	<table name="quick_build_second">
+		<column name="id" primaryKey="true" type="INTEGER" autoIncrement="true" />
+		<column name="bar" type="INTEGER" />
+	</table>
+</database>
+EOF;
+		$firstBuilder = new PropulsionQuickBuilder();
+		$firstBuilder->setSchema($first);
+		$firstBuilder->build();
+
+		$secondBuilder = new PropulsionQuickBuilder();
+		$secondBuilder->setSchema($second);
+		$secondBuilder->build();
+
+		$foo = new QuickBuildFirst();
+		$foo->setBar(3);
+		$foo->save();
+		$this->assertEquals(1, QuickBuildFirstQuery::create()->count(), 'the first database is still queryable after a second one is built');
+
+		$bar = new QuickBuildSecond();
+		$bar->setBar(4);
+		$bar->save();
+		$this->assertEquals(1, QuickBuildSecondQuery::create()->count(), 'the second database works too');
+	}
+
 }

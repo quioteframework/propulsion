@@ -22,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`PropulsionQuickBuilder::build()` no longer unregisters the adapters of
+  databases built before it**, by configuring Propulsion only when nothing else
+  has.
 - **Object classes generated before the modified-columns set landed still
   save.** Such classes append to `$modifiedColumns` instead of keying by column
   name; the runtime saw none of those entries, so every insert/update wrote
