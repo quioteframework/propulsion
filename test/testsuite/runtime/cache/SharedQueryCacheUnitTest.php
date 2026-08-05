@@ -115,15 +115,26 @@ class SharedQueryCacheUnitTest extends TestCase
         $this->assertNotSame($base, $cache->buildKey('bookstore', 'SELECT 1', [['v' => 1]], ['v']));
     }
 
-    public function testKeyIgnoresVariantByDefaultSoFormattersShareRows()
+    public function testKeyIsDeterminedByTheRowsAloneSoFormattersShareThem()
     {
-        // Rows are formatter-independent, so an ARRAY-formatted and an
-        // OBJECT-formatted query with identical SQL should share one entry.
-        $cache = $this->makeCache();
+        // Datasource, SQL, parameters and version tokens are the whole key.
+        // There is deliberately no formatter/variant argument by which two
+        // callers wanting the same rows could be given different keys: this
+        // tier stores raw rows, so an ARRAY-formatted and an OBJECT-formatted
+        // query with identical SQL share one entry. (The L1 key *does* fold the
+        // formatter in -- it stores the formatted result, where the two are
+        // different values of different types. See TieredQueryCache::localKey().)
+        //
+        // Guarded here as a signature property because it is the kind of thing
+        // a later change adds back "for safety"; that it is also *correct* --
+        // that each formatter can really consume the other's stored rows -- is
+        // proven end-to-end in GlobalQueryResultCacheTest.
+        $parameters = (new ReflectionMethod(SharedQueryCache::class, 'buildKey'))->getParameters();
 
         $this->assertSame(
-            $cache->buildKey('bookstore', 'SELECT 1', [], ['v']),
-            $cache->buildKey('bookstore', 'SELECT 1', [], ['v'])
+            ['dbName', 'sql', 'params', 'versionTokens'],
+            array_map(static fn (ReflectionParameter $p): string => $p->getName(), $parameters),
+            'buildKey() must not grow a discriminator that would fragment one row set across formatters'
         );
     }
 

@@ -129,7 +129,11 @@ class TieredQueryCache
         }
 
         $tokens = $shared->versions()->tokensFor($dbName, $touchedTables);
-        $sharedKey = $shared->buildKey($dbName, $sql, $params, $tokens, $variant);
+        // No $variant here, unlike the L1 key above: this tier stores raw rows,
+        // which the datasource, SQL and parameters identify completely, so an
+        // ARRAY-formatted and an OBJECT-formatted query with identical SQL
+        // share one entry. See SharedQueryCache::buildKey().
+        $sharedKey = $shared->buildKey($dbName, $sql, $params, $tokens);
 
         $entry = $shared->fetch($sharedKey);
         if ($entry['hit'] && !($entry['stale'] && $shared->acquireRecomputeLock($sharedKey))) {
@@ -290,6 +294,14 @@ class TieredQueryCache
      * is not part of the SQL, so a `->setFormatter(FORMAT_ARRAY)->find()` and a
      * plain `->find()` producing identical SQL used to share one cache entry,
      * and whichever ran second silently received the other's result.
+     *
+     * The shared tier's key deliberately does *not* fold it in
+     * ({@see SharedQueryCache::buildKey()}). That is not an inconsistency: the
+     * two tiers store different things. L2 holds the raw rows, which are the
+     * same whatever formats them, so a discriminator there would fragment one
+     * row set into one entry per formatter. L1 holds the formatted result, where
+     * two formatters' outputs are genuinely different values of genuinely
+     * different types.
      *
      * Digested rather than kept verbatim. The raw form is the datasource, the
      * formatter, the full SQL and the serialized bound parameters concatenated,

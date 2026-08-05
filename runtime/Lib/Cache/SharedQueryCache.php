@@ -21,14 +21,14 @@ use Psr\SimpleCache\CacheInterface;
  * it on the way out runs the normal generated `populateObject()` path, instance
  * pool and all -- so an L2 hit is indistinguishable from a fresh database read.
  *
- * Note that an ARRAY-formatted and an OBJECT-formatted query with identical SQL
- * do *not* currently share one entry, despite rows being formatter-agnostic:
- * {@see buildKey()} folds in the same `$variant` discriminator the L1 key needs
- * (see {@see TieredQueryCache::localKey()} -- L1 stores the *formatted* result,
- * so there the discriminator prevents a genuine wrong-type collision). Sharing
- * them here would be a real improvement and costs only the key change; it is
- * called out rather than done because it needs its own coverage proving the two
- * formatters really can consume one another's stored rows.
+ * Because rows are formatter-agnostic, an ARRAY-formatted and an
+ * OBJECT-formatted query with identical SQL share one entry here.
+ * {@see buildKey()} deliberately takes no formatter/variant discriminator, which
+ * is the one place this tier's key differs in *shape* from L1's
+ * ({@see TieredQueryCache::localKey()}): L1 stores the formatted result, so
+ * there the discriminator prevents a genuine wrong-type collision, while here it
+ * would only fragment identical row sets across as many entries as there are
+ * ways to format them.
  *
  * Nothing in this class may throw on a backend problem. A dead Redis or an
  * unwritable cache directory has to degrade to a miss, never to a failed query.
@@ -83,16 +83,24 @@ class SharedQueryCache
      * it is far faster over the multi-kilobyte payloads a joined query's SQL
      * produces, and 128 bits puts a collision out of reach.
      *
+     * **Datasource, SQL and parameters identify the rows completely**, which is
+     * why no formatter or variant discriminator appears here. What this tier
+     * stores is exactly what executing that statement returns -- fetched
+     * `PDO::FETCH_NUM` by {@see \Propulsion\Util\StatementRows}, the same way
+     * for every formatter -- so two callers agreeing on those three things are
+     * asking for the same rows however differently they intend to shape them
+     * afterwards. Adding a discriminator would not prevent a collision; it would
+     * manufacture one entry per formatter for one row set.
+     *
      * @param array<int|string, mixed> $params
      * @param list<string>      $versionTokens
      */
-    public function buildKey(string $dbName, string $sql, array $params, array $versionTokens, string $variant = ''): string
+    public function buildKey(string $dbName, string $sql, array $params, array $versionTokens): string
     {
         $payload = implode("\0", array_merge(
             [
                 (string) SharedQueryCacheConfig::PAYLOAD_FORMAT,
                 $dbName,
-                $variant,
                 $sql,
                 serialize($params),
             ],

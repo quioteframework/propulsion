@@ -165,6 +165,148 @@ class GlobalQueryResultCacheTest extends BookstoreAutocommitTestBase
         $this->assertNotSame($first[0], $second[0], 'a shared-tier hit must re-hydrate, never hand back the previous request\'s object');
     }
 
+    /**
+     * The same query, formatted differently. Identical SQL by construction --
+     * the formatter is not part of it -- so both are asking the shared tier for
+     * the same rows.
+     *
+     * @return PropulsionObjectCollection<int, mixed>|PropulsionArrayCollection<int, mixed>
+     */
+    private function cachedFindAs(string $format)
+    {
+        $c = new ModelCriteria('bookstore', 'Book', 'b');
+        $c->setQueryCache(true);
+        $c->orderBy('b.Id');
+        $c->setFormatter($format);
+
+        return $c->find($this->con);
+    }
+
+    /**
+     * How many entries the shared pool is holding.
+     */
+    private function sharedEntryCount(): int
+    {
+        return $this->pool->count();
+    }
+
+    public function testTwoFormattersShareOneSharedEntry(): void
+    {
+        // The payoff: L2 stores raw rows, which are formatter-independent, so
+        // folding the formatter into its key -- as L1 must, since L1 stores the
+        // formatted result -- would store one identical row set twice and make
+        // each formatter miss on the other's work.
+        $this->pool->clear();
+
+        $objects = $this->cachedFindAs(ModelCriteria::FORMAT_OBJECT);
+        $this->assertGreaterThan(0, count($objects));
+        $afterFirst = $this->sharedEntryCount();
+
+        $this->newRequest();
+
+        $arrays = $this->cachedFindAs(ModelCriteria::FORMAT_ARRAY);
+
+        $this->assertSame(
+            $afterFirst,
+            $this->sharedEntryCount(),
+            'the ARRAY-formatted query must reuse the OBJECT-formatted query\'s stored rows, not store a second copy'
+        );
+        $this->assertSame(count($objects), count($arrays));
+    }
+
+    public function testArrayFormatterConsumesRowsStoredByTheObjectFormatter(): void
+    {
+        // The correctness half of the sharing claim, and the coverage that was
+        // named as the precondition for making it: it is not enough that the
+        // two agree on a key, the rows one stored have to be genuinely usable
+        // by the other.
+        $objects = $this->cachedFindAs(ModelCriteria::FORMAT_OBJECT);
+        $expectedTitles = array();
+        foreach ($objects as $book) {
+            $expectedTitles[] = $book->getTitle();
+        }
+
+        $this->newRequest();
+
+        // Bypass the ORM, so no table version is bumped and the stored entry
+        // stays valid. This is what makes the assertion below load-bearing: if
+        // the ARRAY query re-executed instead of consuming the OBJECT query's
+        // stored rows, it would see this row and the titles would differ.
+        $this->con->exec("INSERT INTO book (title, isbn) VALUES ('Formatter Sharing Probe A', '000-0-000-00000-6')");
+
+        $arrays = $this->cachedFindAs(ModelCriteria::FORMAT_ARRAY);
+
+        $actualTitles = array();
+        foreach ($arrays as $row) {
+            $this->assertIsArray($row, 'the ARRAY formatter must still produce arrays off a shared hit');
+            $actualTitles[] = $row['Title'];
+        }
+
+        $this->assertSame(
+            $expectedTitles,
+            $actualTitles,
+            'the ARRAY-formatted query must have been served the rows the OBJECT-formatted one stored'
+        );
+        $this->assertNotContains('Formatter Sharing Probe A', $actualTitles);
+    }
+
+    public function testObjectFormatterConsumesRowsStoredByTheArrayFormatter(): void
+    {
+        // And the other direction, which is the one that would break if the
+        // stored rows were ever formatter-shaped rather than raw: hydrating a
+        // real object graph out of them has to work too.
+        $arrays = $this->cachedFindAs(ModelCriteria::FORMAT_ARRAY);
+        $expectedTitles = array();
+        foreach ($arrays as $row) {
+            $expectedTitles[] = $row['Title'];
+        }
+
+        $this->newRequest();
+        $this->con->exec("INSERT INTO book (title, isbn) VALUES ('Formatter Sharing Probe B', '000-0-000-00000-7')");
+
+        $objects = $this->cachedFindAs(ModelCriteria::FORMAT_OBJECT);
+
+        $actualTitles = array();
+        foreach ($objects as $book) {
+            $this->assertInstanceOf(Book::class, $book, 'a shared hit must hydrate real model objects');
+            $this->assertFalse($book->isNew(), 'and they must be hydrated as existing rows, not new ones');
+            $actualTitles[] = $book->getTitle();
+        }
+
+        $this->assertSame(
+            $expectedTitles,
+            $actualTitles,
+            'the OBJECT-formatted query must have been served the rows the ARRAY-formatted one stored'
+        );
+        $this->assertNotContains('Formatter Sharing Probe B', $actualTitles);
+    }
+
+    public function testSharingFormattersStillRespectsInvalidation(): void
+    {
+        // Sharing must not accidentally make an entry harder to evict: the
+        // single entry the two formatters share still depends on `book`.
+        $this->cachedFindAs(ModelCriteria::FORMAT_OBJECT);
+        $this->newRequest();
+
+        $book = new Book();
+        $book->setTitle('Shared Between Formatters');
+        $book->setISBN('000-0-000-00000-9');
+        $book->save($this->con);
+
+        $this->newRequest();
+
+        $titles = array();
+        foreach ($this->cachedFindAs(ModelCriteria::FORMAT_ARRAY) as $row) {
+            $titles[] = $row['Title'];
+        }
+
+        $this->assertContains(
+            'Shared Between Formatters',
+            $titles,
+            'an ORM write must evict the entry both formatters share'
+        );
+    }
+
     public function testUncachedQueriesAreUnaffected(): void
     {
         $uncached = new ModelCriteria('bookstore', 'Book');

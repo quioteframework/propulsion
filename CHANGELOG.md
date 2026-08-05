@@ -22,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The shared cache tier no longer stores one entry per formatter.** It holds
+  raw rows, which are formatter-independent, but its key folded in the formatter
+  anyway — so an `ARRAY`-formatted and an `OBJECT`-formatted query with identical
+  SQL stored the same rows twice and each missed on the other's work. They now
+  share one entry.
 - **Query cache invalidation now follows nested queries.** A result whose table
   was read only from inside a FROM-clause subquery, a CTE, a set-operation
   branch or an `EXISTS`/`IN` filter recorded no dependency on it, so an ordinary

@@ -81,12 +81,6 @@ left open with a reason rather than silently:
   never compare equal. Feeds `Criteria::equals()` and `addJoinObject()`'s
   `in_array()` dedupe. Inherited from Propel 1; fixing it changes when joins get
   deduplicated, which wants its own test pass.
-- **The shared tier stores one entry per formatter.** `SharedQueryCache::buildKey()`
-  folds in the `$variant` discriminator that the request-scoped tier genuinely
-  needs (it stores *formatted* results). L2 stores raw rows, so an
-  ARRAY-formatted and an OBJECT-formatted query with identical SQL could share
-  one entry and currently do not. Worth doing; needs coverage proving the two
-  formatters really can consume one another's stored rows.
 
 ## Missing modernization work
 

@@ -317,6 +317,12 @@ without `dependsOn()` throws for the same reason.
   a cached `find()` result mutates the cache entry. An L2 hit returns a freshly
   hydrated graph and behaves exactly like a real database read, instance pool
   included.
+- **The two tiers key differently, on purpose.** L1 folds the formatter into its
+  key, because it stores the formatted result and an `ARRAY` and an `OBJECT`
+  result are different values of different types. L2 does not, because it stores
+  raw rows, which are the same whatever formats them — so an `ARRAY`-formatted
+  and an `OBJECT`-formatted query with identical SQL share one L2 entry, and
+  either can be served from the other's stored rows.
 - **Subqueries and CTEs** *are* followed. `getQueryCacheTouchedTables()`
   descends into FROM-clause subqueries (`addSelectQuery()`), CTEs (`withCte()`),
   set-operation branches (`union()`/`intersect()`/`except()`) and
