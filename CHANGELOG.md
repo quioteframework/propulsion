@@ -27,6 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   name; the runtime saw none of those entries, so every insert/update wrote
   nothing (an insert died with "Database insert attempted without anything
   specified to insert"). Both shapes are now understood.
+- **`useQuery()` resolves a namespaced model's query class**, via the
+  TableMap's fully-qualified classname rather than its bare phpName.
+- **`withQuery()` accepts a secondary criteria class as its third argument
+  again**, as generated code predating `withTypedQuery()` passes it. PHP
+  discards a surplus argument silently, so dropping it lost the class without
+  any error at the call site.
 - **Migrated (Propel) configurations connect again.** A bare PDO option name
   such as `ATTR_PERSISTENT` -- what Propel's `convert-conf` emitted -- resolved
   only against `Propulsion\Connection\PropulsionPDO`, which became an interface

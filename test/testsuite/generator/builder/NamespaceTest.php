@@ -180,6 +180,28 @@ class NamespaceTest extends TestCase
 		$this->assertEquals($publisher->getId(), $publisher2->getId());
 	}
 
+	/**
+	 * useQuery() without an explicit secondary class has to find the related
+	 * model's query class from its TableMap. A TableMap's phpName is the bare
+	 * model name ('NamespacedPublisher'), which names no class at all here --
+	 * only its fully-qualified classname does.
+	 */
+	public function testUseQueryResolvesANamespacedQueryClass()
+	{
+		$c = \Foo\Bar\NamespacedBookQuery::create('b')
+			->leftJoin('b.NamespacedPublisher p');
+
+		$secondary = $c->useQuery('p');
+		$this->assertInstanceOf(
+			\Baz\NamespacedPublisherQuery::class,
+			$secondary,
+			'useQuery() resolves the related model\'s namespaced query class'
+		);
+
+		$secondary->where('p.Name = ?', 'Penguin');
+		$this->assertSame($c, $secondary->endUse(), 'the secondary query merges back into the one that opened it');
+	}
+
 	public function testFindWithOneToMany()
 	{
 		\Foo\Bar\NamespacedBookQuery::create()->deleteAll();

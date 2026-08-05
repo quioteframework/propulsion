@@ -1103,7 +1103,16 @@ class ModelCriteria extends Criteria
 			if ($className === null) {
 				throw new PropulsionException('Join ' . $relationName . '\'s TableMap has no PHP name set');
 			}
-			$secondaryCriteria = PropulsionQuery::from($className);
+			// getPhpName() is the *unqualified* model name ('ItemRelation'), so
+			// PropulsionQuery::from() can only resolve it when the generated classes
+			// sit in the global namespace. A namespaced object model records its
+			// fully-qualified name on the same TableMap, and that is what the query
+			// class is actually called -- so prefer it whenever it resolves, and keep
+			// the bare name as the fallback for flat generated code.
+			$classname = $tableMap->getClassname();
+			$secondaryCriteria = PropulsionQuery::from(
+				$classname !== null && class_exists($classname . 'Query') ? $classname : $className
+			);
 		} else {
 			$secondaryCriteria = new $secondaryCriteriaClass();
 		}
@@ -1154,12 +1163,23 @@ class ModelCriteria extends Criteria
 	 * @param     string $relationName Relation name or alias
 	 * @param     callable(ModelCriteria): void $callback Receives the secondary criteria to
 	 *             add conditions to
+	 * @param     class-string<ModelCriteria>|null $secondaryCriteriaClass Classname for the
+	 *             ModelCriteria to be used. Accepted for backwards compatibility with code
+	 *             generated before withTypedQuery() existed -- prefer withTypedQuery(), which
+	 *             types $callback's argument as that class instead of the ModelCriteria
+	 *             supertype. Dropping the parameter here would not have been a loud break:
+	 *             PHP ignores surplus positional arguments to a userland function, so such
+	 *             callers keep running and merely lose the class, then fail much later inside
+	 *             useQuery() -- where the bare model name resolves to no query class at all
+	 *             for a namespaced object model.
 	 *
 	 * @return    static
 	 */
-	public function withQuery(string $relationName, callable $callback) : static
+	public function withQuery(string $relationName, callable $callback, ?string $secondaryCriteriaClass = null) : static
 	{
-		$secondary = $this->useQuery($relationName);
+		$secondary = $secondaryCriteriaClass === null
+			? $this->useQuery($relationName)
+			: $this->useQuery($relationName, $secondaryCriteriaClass);
 		$callback($secondary);
 		$secondary->endUse();
 

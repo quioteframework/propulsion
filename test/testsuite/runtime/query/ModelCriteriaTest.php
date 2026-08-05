@@ -2392,6 +2392,30 @@ class ModelCriteriaTest extends BookstoreTestBase
 		$this->assertEquals($expectedSQL, normalizeGeneratedSql($con->getLastExecutedQuery()), 'withTypedQuery() honors the custom secondary criteria class');
 	}
 
+	/**
+	 * Object model code generated before withTypedQuery() was split out passes the
+	 * secondary criteria class as withQuery()'s third argument. PHP would ignore a
+	 * surplus argument silently, so such a caller has to keep working here rather
+	 * than fall through to resolving the class from the bare model name.
+	 */
+	public function testWithQueryCustomClassAsThirdArgument()
+	{
+		$c = new ModelCriteria('bookstore', 'Book', 'b');
+		$c->where('b.Title = ?', 'foo');
+		$c->setLimit(10);
+		$c->leftJoin('b.Author a');
+
+		$c = $c->withQuery('a', function ($c2) {
+			$this->assertTrue($c2 instanceof ModelCriteriaForUseQuery, 'withQuery() calls back with a secondary Criteria of the class given as its third argument');
+			$c2->withNoName();
+		}, 'ModelCriteriaForUseQuery');
+
+		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
+		$c->find($con);
+		$expectedSQL = "SELECT book.ID, book.TITLE, book.ISBN, book.PRICE, book.PUBLISHER_ID, book.AUTHOR_ID FROM book LEFT JOIN author a ON (book.AUTHOR_ID=a.ID) WHERE book.TITLE = 'foo' AND a.FIRST_NAME IS NOT NULL  AND a.LAST_NAME IS NOT NULL LIMIT 10";
+		$this->assertEquals($expectedSQL, normalizeGeneratedSql($con->getLastExecutedQuery()), 'withQuery() honors a secondary criteria class passed as its third argument');
+	}
+
 	public function testWithQuerySequential()
 	{
 		// mirrors testUseFkQueryTwoRelations-style usage: two independent relations,
