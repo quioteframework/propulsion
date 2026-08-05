@@ -560,21 +560,53 @@ class Criterion
 			&& $this->comparison === $crit->getComparison());
 
 		// check chained criterion
-
-		$clausesLength = count($this->clauses);
-		$isEquiv = $isEquiv && (count($crit->getClauses()) == $clausesLength);
-		$critConjunctions = $crit->getConjunctions();
-		$critClauses = $crit->getClauses();
-		for ($i=0; $i < $clausesLength && $isEquiv; $i++) {
-			$isEquiv = ($this->conjunctions[$i] === $critConjunctions[$i]);
-			$isEquiv = $isEquiv && ($this->clauses[$i] === $critClauses[$i]);
-		}
+		$isEquiv = $isEquiv && $this->clausesEqual($crit);
 
 		if ($isEquiv) {
 			$isEquiv = $this->value === $crit->getValue();
 		}
 
 		return $isEquiv;
+	}
+
+	/**
+	 * Whether this criterion's chained AND/OR clauses match another's, compared
+	 * *recursively* rather than by object identity.
+	 *
+	 * They used to be compared with `===`, so two structurally identical chained
+	 * criterions never compared equal unless they literally shared the same
+	 * sub-criterion instances -- which nothing in the query builder arranges,
+	 * since each `addAnd()`/`addOr()` appends a freshly constructed object. The
+	 * effect was that every field of a criterion was compared by value except
+	 * its clauses, which made {@see Criteria::equals()} answer "not equal" for
+	 * two queries built the same way from the same inputs the moment either grew
+	 * a single chained condition. Inherited from Propel 1.
+	 *
+	 * The clause chain is a tree: `addAnd()`/`addOr()` append an
+	 * already-constructed criterion and nothing re-parents one, so this cannot
+	 * revisit a node it is already inside unless a caller deliberately builds a
+	 * cycle by hand. The `$this === $obj` fast path in the callers covers the
+	 * one-node case of that.
+	 */
+	protected function clausesEqual(Criterion $crit): bool
+	{
+		$clausesLength = count($this->clauses);
+		if (count($crit->getClauses()) !== $clausesLength) {
+			return false;
+		}
+
+		$critConjunctions = $crit->getConjunctions();
+		$critClauses = $crit->getClauses();
+		for ($i = 0; $i < $clausesLength; $i++) {
+			if ($this->conjunctions[$i] !== $critConjunctions[$i]) {
+				return false;
+			}
+			if (!$this->clauses[$i]->equals($critClauses[$i])) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	/**

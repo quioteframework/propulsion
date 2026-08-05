@@ -261,17 +261,55 @@ class ModelCriterionTest extends TestCase
         $this->assertFalse($a->equals($b));
     }
 
-    public function testEqualsComparesAttachedClausesByIdentityNotEquivalence()
+    public function testEqualsComparesAttachedClausesByEquivalenceNotIdentity()
     {
-        // equals() compares $this->clauses[$i] === $critClauses[$i] -- strict object
-        // identity, not ->equals(). Two separately-built (but content-equivalent)
-        // attached sub-criterion are therefore NOT considered equal, unlike the
-        // top-level table/column/clause/comparison/value fields compared just above.
+        // This used to assert the opposite. equals() compared
+        // $this->clauses[$i] === $critClauses[$i] -- strict object identity --
+        // so every field of a criterion was compared by value except its
+        // clauses. Since each addAnd()/addOr() appends a freshly constructed
+        // object, two queries built the same way from the same inputs stopped
+        // comparing equal the moment either grew a chained condition.
         $a = $this->makeCriterion('book.TITLE = ?', 'foo');
         $a->addAnd($this->makeCriterion('book.ISBN = ?', 'bar'));
         $b = $this->makeCriterion('book.TITLE = ?', 'foo');
         $b->addAnd($this->makeCriterion('book.ISBN = ?', 'bar'));
+        $this->assertTrue($a->equals($b));
+    }
+
+    public function testEqualsIsFalseWhenAnAttachedClauseDiffers()
+    {
+        // The other half of comparing by value: equivalence must still
+        // distinguish clauses that really differ, or the fix would have traded
+        // false negatives for false positives.
+        $a = $this->makeCriterion('book.TITLE = ?', 'foo');
+        $a->addAnd($this->makeCriterion('book.ISBN = ?', 'bar'));
+        $b = $this->makeCriterion('book.TITLE = ?', 'foo');
+        $b->addAnd($this->makeCriterion('book.ISBN = ?', 'different'));
         $this->assertFalse($a->equals($b));
+    }
+
+    public function testEqualsIsFalseWhenTheConjunctionDiffers()
+    {
+        $a = $this->makeCriterion('book.TITLE = ?', 'foo');
+        $a->addAnd($this->makeCriterion('book.ISBN = ?', 'bar'));
+        $b = $this->makeCriterion('book.TITLE = ?', 'foo');
+        $b->addOr($this->makeCriterion('book.ISBN = ?', 'bar'));
+        $this->assertFalse($a->equals($b), 'AND and OR are not the same query');
+    }
+
+    public function testEqualsComparesNestedClauseChainsAllTheWayDown()
+    {
+        $nest = function (string $isbn): ModelCriterion {
+            $outer = $this->makeCriterion('book.TITLE = ?', 'foo');
+            $middle = $this->makeCriterion('book.ISBN = ?', $isbn);
+            $middle->addAnd($this->makeCriterion('book.PRICE = ?', 10));
+            $outer->addAnd($middle);
+
+            return $outer;
+        };
+
+        $this->assertTrue($nest('bar')->equals($nest('bar')));
+        $this->assertFalse($nest('bar')->equals($nest('baz')), 'a difference two levels down still counts');
     }
 
     public function testEqualsIsTrueWhenAttachedClauseIsTheSameSharedInstance()

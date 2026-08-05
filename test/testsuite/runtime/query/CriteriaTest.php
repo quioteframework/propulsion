@@ -1080,6 +1080,37 @@ class CriteriaTest extends \PHPUnit\Framework\TestCase
 	}
 
 	/**
+	 * Two Criteria built the same way from the same inputs must compare equal
+	 * even when a condition is chained -- the practical consequence of
+	 * Criterion::equals() comparing its attached clauses by value rather than by
+	 * object identity.
+	 */
+	public function testEqualsWithChainedConditions()
+	{
+		$build = static function (string $isbn): Criteria {
+			$c = new Criteria();
+			$criterion = $c->getNewCriterion('book.TITLE', 'foo');
+			$criterion->addAnd($c->getNewCriterion('book.ISBN', $isbn));
+			$c->add($criterion);
+
+			return $c;
+		};
+
+		// Every field of a criterion was compared by value except its clauses,
+		// and each addAnd() appends a freshly built object -- so this used to be
+		// false for any query carrying a chained condition, however identical.
+		$this->assertTrue(
+			$build('bar')->equals($build('bar')),
+			'two identically built Criteria with a chained condition must compare equal'
+		);
+
+		$this->assertFalse(
+			$build('bar')->equals($build('baz')),
+			'and a real difference inside the chained clause must still be detected'
+		);
+	}
+
+	/**
 	 * Test whether calling setDistinct twice puts in two distinct keywords or not.
 	 */
 	public function testDoubleSelectModifiers()

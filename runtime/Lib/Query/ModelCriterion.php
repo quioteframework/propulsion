@@ -240,16 +240,9 @@ class ModelCriterion extends Criterion
 			&& $this->column === $crit->getColumn()
 			&& $this->comparison === $crit->getComparison());
 
-		// check chained criterion
-
-		$clausesLength = count($this->clauses);
-		$isEquiv = $isEquiv && (count($crit->getClauses()) == $clausesLength);
-		$critConjunctions = $crit->getConjunctions();
-		$critClauses = $crit->getClauses();
-		for ($i=0; $i < $clausesLength && $isEquiv; $i++) {
-			$isEquiv = ($this->conjunctions[$i] === $critConjunctions[$i]);
-			$isEquiv = $isEquiv && ($this->clauses[$i] === $critClauses[$i]);
-		}
+		// check chained criterion -- recursively, via the shared helper on
+		// Criterion; see clausesEqual() there for why identity was wrong.
+		$isEquiv = $isEquiv && $this->clausesEqual($crit);
 
 		if ($isEquiv) {
 			$isEquiv = $this->value === $crit->getValue();
