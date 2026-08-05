@@ -1377,14 +1377,63 @@ change-tracker steal list, which is deliberately not repeated here.
   `CompiledQueryCacheUnitTest` (storage API in isolation) and
   `CompiledQueryCacheTest` (end-to-end via `ModelCriteria`/BookstoreTestBase,
   including the different-shared-key-different-param-count exception).
-- [ ] **Execution strategy: connection liveness + transaction retry.**
-  Reconnect-on-drop exists but is ad hoc and undocumented
-  (`PropulsionPDO.php:507`, `:546`, `DebugPDOStatement.php:99`) — and it
-  writes to `error_log()` directly, bypassing the PSR-3 logger the rest of the
-  codebase standardized on. Wanted: a pre-checkout ping, and retry-with-backoff
-  on deadlock/serialization-failure SQLSTATEs (EF Core
-  `EnableRetryOnFailure`). Matters most in FrankenPHP worker mode, where
-  connections outlive requests.
+- [x] **Execution strategy: connection liveness + transaction retry.** Three
+  pieces, all documented in `docs/CONNECTIONS.md`; the two recovery features
+  are opt-in via a new, strictly-validated `connection` runtime-config section
+  (`ConnectionConfig`, memoised on `ServiceContainer` the same way
+  `QueryCacheConfig` is), because each spends something real and neither is
+  safe to enable without a deployment having thought about it.
+  - **Detection, on the path traffic actually takes.** This item's own text
+    understated the gap: it wasn't that reconnect-on-drop was "ad hoc", it was
+    that detection lived on `exec()`/`query()`/`DebugPDOStatement::execute()`
+    and *almost nothing goes through any of those* -- the generated Peer/
+    ModelCriteria paths all prepare a statement and call `execute()` on it,
+    which on a non-debug connection was a plain `\PDOStatement` nothing
+    wrapped. New `Propulsion\Connection\PropulsionStatement` is now the
+    statement class on every non-persistent connection (with
+    `DebugPDOStatement` reparented onto it, so debug mode inherits the
+    detection instead of repeating it, and `useDebug(false)` no longer resets
+    the statement class back to a plain `\PDOStatement` -- which would have
+    switched a correctness feature off along with a diagnostic one). Verified
+    end-to-end against a real prepared-statement `execute()` by inducing a
+    genuine dropped-connection-classified `PDOException` from a SQLite
+    `RAISE(ABORT, ...)` trigger (`PropulsionStatementTest`), rather than by
+    mocking PDO. The `error_log()` complaint in this item's original text was
+    already stale -- `handleDroppedConnection()` had been moved onto PSR-3
+    before this pass; the remaining `error_log()` calls are the
+    `AGAVI_DEBUG_DATABASE_FORCE` env-gated deep-debug channel, deliberately
+    separate.
+  - **Pre-checkout ping** (`connection.liveness`), consulted from
+    `getMasterConnection()`/`getSlaveConnection()` via `PropulsionPDO::ping()`
+    (`SELECT 1`, overridden to `SELECT 1 FROM dual` on
+    `OraclePropulsionPDO` -- the hook lives on the driver-specific connection
+    subclass rather than on `DBAdapter` because a connection does not know the
+    datasource name it was registered under and so cannot look its own adapter
+    up). Only *idle* connections are pinged, tracked by a `lastActivityAt`
+    stamp refreshed at the coarse seams that see real traffic, so under
+    sustained load this collapses to ~zero extra round trips while still
+    covering the quiet period after which connections actually get reaped.
+  - **`Propulsion::transaction(callable, ?string $dbName, ?RetryPolicy)`**
+    with exponential backoff and **full jitter** by default (un-jittered
+    backoff is actively counterproductive for the one failure this exists to
+    handle: a deadlock has at least two transactions in it, and equal delays
+    collide again on the retry). Retryable errors come from a new
+    `DBAdapter::isRetryableError()` hook -- base implementation matches
+    SQLSTATE `40001`/`40P01`, with overrides where SQLSTATE alone is not
+    enough: MySQL's 1205 lock-wait timeout and Oracle's ORA-00060/ORA-08177
+    both hide under a generic `HY000`, MSSQL's 1205 is matched on the driver
+    code as well because pdo_dblib and pdo_sqlsrv disagree on how faithfully
+    they surface SQLSTATE, and SQLite's `SQLITE_BUSY`/`SQLITE_LOCKED` are the
+    whole-database-lock equivalent. **A connection dropped while the COMMIT is
+    in flight is deliberately not retried** -- the outcome is genuinely
+    unknown (the server may have committed and died before saying so), so
+    re-running the closure could apply the work twice; a drop *before* the
+    commit is issued is retried, since nothing was committed. Nested calls run
+    inside a savepoint and never retry, because the failures being retried
+    abort the entire transaction and the outer one is already dead. Covered by
+    `TransactionRetryTest` (real SQLite transactions with real rollback, only
+    the failures synthetic), `RetryPolicyTest`, `ConnectionConfigTest`,
+    `ConnectionLivenessTest` and `RetryableErrorTest`.
 - [ ] **Observability hooks.** PSR-3 query logging exists; there is no
   OpenTelemetry span emission, query-timing metric, or slow-query-threshold
   callback (SQLAlchemy events, Doctrine middleware, EF Core interceptors).

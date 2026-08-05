@@ -364,7 +364,15 @@ class PropulsionPDOTest extends TestCase
 	{
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 		$con->useDebug(false);
-		$this->assertEquals(array('PDOStatement'), $con->getAttribute(PDO::ATTR_STATEMENT_CLASS), 'Statement is PDOStatement when debug is false');
+		// PropulsionStatement, not a plain PDOStatement: turning debugging off
+		// must not also turn off dropped-connection detection, which lives on
+		// PropulsionStatement::execute() and is a correctness feature rather
+		// than a diagnostic one.
+		$this->assertEquals(
+			array('Propulsion\Connection\PropulsionStatement', array($con)),
+			$con->getAttribute(PDO::ATTR_STATEMENT_CLASS),
+			'Statement is PropulsionStatement when debug is false'
+		);
 		$con->useDebug(true);
 		$this->assertEquals(array('Propulsion\Connection\DebugPDOStatement', array($con)), $con->getAttribute(PDO::ATTR_STATEMENT_CLASS), 'statement is DebugPDOStament when debug is true');
 	}

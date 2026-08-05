@@ -567,4 +567,20 @@ class DBMSSQL extends DBAdapter
 			}
 		}
 	}
+
+	/**
+	 * SQL Server error 1205 is the deadlock victim message ("Transaction was
+	 * deadlocked on lock resources with another process and has been chosen as
+	 * the deadlock victim. Rerun the transaction" -- the server itself says to
+	 * retry). It is normally accompanied by SQLSTATE 40001, which the base
+	 * implementation already catches, but the two PDO drivers in play here
+	 * (pdo_dblib and pdo_sqlsrv) do not agree on how faithfully they surface
+	 * SQLSTATE, so the driver code is matched as well.
+	 *
+	 * @see       DBAdapter::isRetryableError()
+	 */
+	public function isRetryableError(\PDOException $e): bool
+	{
+		return parent::isRetryableError($e) || $this->extractDriverErrorCode($e) === 1205;
+	}
 }

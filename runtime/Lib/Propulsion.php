@@ -33,6 +33,9 @@ use PDO;
 use PDOException;
 use Propulsion\Adapter\DBAdapter;
 use Propulsion\Cache\QueryCacheConfig;
+use Propulsion\Connection\ConnectionConfig;
+use Propulsion\Connection\PropulsionPDOTrait;
+use Propulsion\Connection\RetryPolicy;
 use Propulsion\Query\RawQuery;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
@@ -295,6 +298,10 @@ class Propulsion
 		// called from tests and generator commands that will never cache
 		// anything. The pool is rebuilt lazily on first use.
 		self::$serviceContainer?->clearQueryCachePool();
+
+		// Same for the execution-strategy settings, which are memoised for the
+		// same "consulted on every connection checkout" reason.
+		self::$serviceContainer?->clearConnectionConfig();
 
 		// Likewise drop every compiled SELECT. That cache is process-scoped, and
 		// the SQL text in it is specific to the adapter its datasource was using
@@ -857,9 +864,87 @@ class Propulsion
 			if (getenv('AGAVI_DEBUG_DATABASE')) {
 				self::log('[Propulsion::getMasterConnection] created new connection for ' . $name, LogLevel::DEBUG);
 			}
+
+			// A connection built one statement ago needs no liveness check.
+			return self::$connectionMap[$name]['master'];
 		}
 
-		return self::$connectionMap[$name]['master'];
+		return self::checkOutPooled(self::$connectionMap[$name]['master'], $name, self::CONNECTION_WRITE);
+	}
+
+	/**
+	 * Guards {@see checkOutPooled()} against re-entering itself: the rebuilt
+	 * connection it returns has just been opened, and pinging *that* would at
+	 * best waste a round trip and at worst loop.
+	 */
+	private static bool $rebuildingConnection = false;
+
+	/**
+	 * The pre-checkout liveness check: hand back a pooled connection only after
+	 * establishing it still has a server on the other end, replacing it if not.
+	 *
+	 * Off unless `connection.liveness.enabled` is set, because it is not free
+	 * and not always worth it -- see {@see ConnectionConfig}. Where it pays for
+	 * itself is the deployment shape this ORM targets: under a persistent
+	 * worker a connection outlives the request that opened it, so it can be
+	 * reaped by a server-side idle timeout, a load balancer, a failover or a
+	 * database restart in between two requests, and without this check the
+	 * *next* request discovers that by failing. Under PHP-FPM, where the
+	 * connection died with the request that made it, there is nothing here to
+	 * catch.
+	 *
+	 * Only genuinely idle connections are pinged (`connection.liveness.idle_threshold`
+	 * seconds, default 5): a connection that ran a statement moments ago is
+	 * evidence of its own liveness, so under sustained traffic this collapses to
+	 * approximately zero extra round trips while still covering the gap after a
+	 * quiet period, which is where connections actually get reaped.
+	 *
+	 * A dead connection has already evicted itself from the pool by the time
+	 * ping() returns false (via {@see PropulsionPDOTrait::handleDroppedConnection()}),
+	 * so the rebuild below is an ordinary cache miss rather than special-case
+	 * surgery on the pool.
+	 *
+	 * @param      PDO|PropulsionPDO $con  The pooled connection about to be handed out.
+	 * @param      string            $name The datasource it is registered under.
+	 * @param      string            $mode Propulsion::CONNECTION_READ or ::CONNECTION_WRITE.
+	 *
+	 * @return     PDO|PropulsionPDO The same connection, or a fresh replacement.
+	 */
+	private static function checkOutPooled(PDO|PropulsionPDO $con, string $name, string $mode)
+	{
+		if (self::$rebuildingConnection || !$con instanceof PropulsionPDO) {
+			return $con;
+		}
+
+		$config = self::getServiceContainer()->getConnectionConfig();
+		if (!$config->livenessEnabled || $con->getIdleSeconds() < $config->idleThreshold) {
+			return $con;
+		}
+
+		if ($con->ping()) {
+			return $con;
+		}
+
+		self::log(
+			'[Propulsion::checkOutPooled] pooled ' . $mode . ' connection for datasource [' . $name . '] failed its '
+			. 'liveness check after ' . sprintf('%.1f', $con->getIdleSeconds()) . 's idle; opening a replacement.',
+			self::LOG_INFO
+		);
+
+		// Belt and braces: ping() only evicts via handleDroppedConnection(),
+		// which runs for a *dropped* connection. Anything else that made the
+		// ping fail leaves the pool entry in place, and returning it here would
+		// defeat the whole check.
+		self::discardConnection($con);
+
+		self::$rebuildingConnection = true;
+		try {
+			return $mode === self::CONNECTION_READ
+				? self::getSlaveConnection($name)
+				: self::getMasterConnection($name);
+		} finally {
+			self::$rebuildingConnection = false;
+		}
 	}
 
 	/**
@@ -923,10 +1008,14 @@ class Propulsion
 	 * master under 'slave' when a datasource has no slaves configured), so all
 	 * matching slots are removed.
 	 *
-	 * @param  PDO $con The connection to evict.
+	 * @param  PDO|PropulsionPDO $con The connection to evict. Accepts the
+	 *         interface as well as the class because PropulsionPDO does not
+	 *         extend PDO -- it is implemented by driver-specific subclasses that
+	 *         do -- so a caller holding one typed as the interface (as
+	 *         {@see checkOutPooled()} does) has nothing narrower to pass.
 	 * @return bool Whether it was found in the pool at all.
 	 */
-	public static function discardConnection(PDO $con): bool
+	public static function discardConnection(PDO|PropulsionPDO $con): bool
 	{
 		$found = false;
 		foreach (self::$connectionMap as $name => $modes) {
@@ -942,6 +1031,183 @@ class Propulsion
 		}
 
 		return $found;
+	}
+
+	/**
+	 * Run a closure inside a transaction, retrying the whole thing if the
+	 * database aborts it for a transient reason.
+	 *
+	 *     $book = Propulsion::transaction(function ($con) {
+	 *         $book = BookQuery::create()->filterByISBN($isbn)->findOne($con);
+	 *         $book->setStock($book->getStock() - 1);
+	 *         $book->save($con);
+	 *         return $book;
+	 *     });
+	 *
+	 * The transaction is begun, the closure is called with the connection, and
+	 * the transaction is committed if it returns or rolled back if it throws.
+	 * The closure's return value is this method's return value.
+	 *
+	 * **What gets retried.** Only failures the adapter classifies as transient
+	 * ({@see DBAdapter::isRetryableError()}: deadlock victim, serialization
+	 * failure, lock-wait timeout) and connection drops -- and drops only when
+	 * the connection was lost *before* the COMMIT was issued. A connection lost
+	 * while the commit is in flight leaves the transaction's outcome genuinely
+	 * unknown: the server may have committed it and died before saying so, so
+	 * re-running the closure could apply the work twice. That case is rethrown
+	 * for the caller to resolve, which is the only place the information to do
+	 * so exists. Anything the closure itself throws is a business failure, not
+	 * a transient one, and is rolled back and rethrown without retrying.
+	 *
+	 * **The closure must be safe to run more than once.** That is the price of
+	 * retrying and it cannot be paid on the caller's behalf: database work is
+	 * undone by the rollback, but anything the closure does *outside* the
+	 * transaction -- sending mail, charging a card, incrementing a counter in
+	 * Redis, mutating objects the caller kept a reference to -- is not. Keep
+	 * side effects out of the closure, or pass {@see RetryPolicy::none()}.
+	 *
+	 * **Nested calls do not retry.** If the connection is already in a
+	 * transaction, this runs the closure inside a nested one (a real SAVEPOINT
+	 * where the platform has them) and never retries it, because it cannot: the
+	 * failures this retries abort the *entire* transaction on most platforms,
+	 * so the outer transaction the caller is in the middle of is already dead,
+	 * and re-running the inner scope inside it would only fail again. Retrying
+	 * has to happen at the outermost boundary, which is where the whole unit of
+	 * work can actually be replayed.
+	 *
+	 * @param      callable(PropulsionPDO): mixed $work   Called with the connection.
+	 * @param      string|null                    $name   Datasource, defaulting to the default one.
+	 * @param      RetryPolicy|null               $policy Overrides the `connection.retry`
+	 *                                                    configuration; {@see RetryPolicy::none()}
+	 *                                                    to opt one call out of retrying.
+	 *
+	 * @return     mixed Whatever $work returned.
+	 *
+	 * @throws     \Throwable Whatever $work threw, or the last database failure
+	 *                        if every attempt was exhausted.
+	 */
+	public static function transaction(callable $work, ?string $name = null, ?RetryPolicy $policy = null)
+	{
+		$con = self::getWriteConnection($name);
+		if (!$con instanceof PropulsionPDO) {
+			throw new PropulsionException(
+				'Propulsion::transaction() needs a PropulsionPDO connection for datasource ['
+				. ($name ?? self::getDefaultDB()) . '], got a ' . get_debug_type($con)
+			);
+		}
+
+		if ($con->isInTransaction()) {
+			return self::runInTransaction($con, $work);
+		}
+
+		$policy ??= self::getServiceContainer()->getConnectionConfig()->getRetryPolicy() ?? RetryPolicy::none();
+		$adapter = self::getDB($name);
+		$attempts = 0;
+
+		while (true) {
+			$attempts++;
+			// Re-fetched each attempt rather than reused: a dropped connection
+			// has evicted itself from the pool, so this is how the next attempt
+			// gets a live one. (On a deadlock the connection is fine and this
+			// hands back the very same object.)
+			$con = self::getWriteConnection($name);
+			if (!$con instanceof PropulsionPDO) {
+				throw new PropulsionException(
+					'Propulsion::transaction() needs a PropulsionPDO connection for datasource ['
+					. ($name ?? self::getDefaultDB()) . '], got a ' . get_debug_type($con)
+				);
+			}
+
+			$committing = false;
+			try {
+				$con->beginTransaction();
+				$result = $work($con);
+				$committing = true;
+				$con->commit();
+
+				return $result;
+			} catch (PDOException $e) {
+				self::rollBackQuietly($con);
+
+				$retryable = $committing
+					? false
+					: ($adapter->isRetryableError($e) || self::isConnectionDropped($e));
+
+				if (!$retryable || !$policy->shouldRetry($attempts)) {
+					throw $e;
+				}
+
+				$delay = $policy->delayMicrosecondsFor($attempts);
+				self::log(
+					'[Propulsion::transaction] attempt ' . $attempts . ' of ' . $policy->maxAttempts
+					. ' failed with a retryable error (' . $e->getMessage() . '); retrying in '
+					. sprintf('%.1f', $delay / 1000) . 'ms.',
+					self::LOG_INFO
+				);
+				if ($delay > 0) {
+					usleep($delay);
+				}
+			} catch (\Throwable $e) {
+				// The closure's own failure. Undo the transaction, but do not
+				// second-guess the caller by re-running it.
+				self::rollBackQuietly($con);
+
+				throw $e;
+			}
+		}
+	}
+
+	/**
+	 * The nested case of {@see transaction()}: the caller is already inside a
+	 * transaction, so this opens a nested one (a SAVEPOINT where the platform
+	 * supports it) and never retries.
+	 *
+	 * @param      callable(PropulsionPDO): mixed $work
+	 * @return     mixed
+	 * @throws     \Throwable
+	 */
+	private static function runInTransaction(PropulsionPDO $con, callable $work)
+	{
+		$con->beginTransaction();
+		try {
+			$result = $work($con);
+		} catch (\Throwable $e) {
+			self::rollBackQuietly($con);
+
+			throw $e;
+		}
+		$con->commit();
+
+		return $result;
+	}
+
+	/**
+	 * Roll back, tolerating a connection that can no longer be rolled back.
+	 *
+	 * Two ways that happens, both normal here rather than exceptional: the
+	 * connection was dropped, in which case handleDroppedConnection() has
+	 * already zeroed the transaction depth and the server-side transaction died
+	 * with the session anyway; or the server aborted the transaction itself
+	 * (Postgres does this on a serialization failure) and the rollback races
+	 * with that. Either way the failure being handled is the one worth
+	 * reporting, so a rollback failure must not replace it -- it is logged and
+	 * dropped.
+	 */
+	private static function rollBackQuietly(PropulsionPDO $con): void
+	{
+		if (!$con->isInTransaction()) {
+			return;
+		}
+
+		try {
+			$con->rollBack();
+		} catch (\Throwable $e) {
+			self::log(
+				'[Propulsion::transaction] rollback after a failed transaction itself failed ('
+				. $e->getMessage() . '); the original failure is being rethrown.',
+				self::LOG_WARNING
+			);
+		}
 	}
 
 	/**
@@ -988,9 +1254,10 @@ class Propulsion
 				self::$connectionMap[$name]['slave'] = $con;
 			}
 
+			return self::$connectionMap[$name]['slave'];
 		} // if datasource slave not set
 
-		return self::$connectionMap[$name]['slave'];
+		return self::checkOutPooled(self::$connectionMap[$name]['slave'], $name, self::CONNECTION_READ);
 	}
 
 	/**

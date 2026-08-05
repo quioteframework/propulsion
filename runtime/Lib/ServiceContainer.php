@@ -13,6 +13,7 @@ use Propulsion\Cache\CacheDriverFactory;
 use Propulsion\Cache\CompiledQueryCache;
 use Propulsion\Cache\Driver\NullCache;
 use Propulsion\Cache\QueryCacheConfig;
+use Propulsion\Connection\ConnectionConfig;
 use Psr\SimpleCache\CacheInterface;
 
 /**
@@ -228,5 +229,44 @@ class ServiceContainer
     {
         $this->queryCachePool = null;
         $this->queryCacheConfig = null;
+    }
+
+    /** Parsed `connection` configuration, resolved lazily and then memoised. */
+    private ?ConnectionConfig $connectionConfig = null;
+
+    /**
+     * The parsed `connection` section -- the pre-checkout liveness check and
+     * the transaction retry policy -- read from the runtime configuration on
+     * first use and memoised thereafter.
+     *
+     * Memoised because it is consulted on the hot path: the liveness check runs
+     * on every {@see Propulsion::getConnection()}, so re-parsing (and
+     * re-validating) the section per checkout would cost more than the feature
+     * it configures.
+     */
+    public function getConnectionConfig(): ConnectionConfig
+    {
+        return $this->connectionConfig ??= ConnectionConfig::fromConfigArray(
+            Propulsion::getConfigurationArray()
+        );
+    }
+
+    /**
+     * Override the connection configuration, bypassing the runtime
+     * configuration file.
+     */
+    public function setConnectionConfig(ConnectionConfig $config): void
+    {
+        $this->connectionConfig = $config;
+    }
+
+    /**
+     * Forget the memoised connection configuration, so the next
+     * {@see getConnectionConfig()} call reads it again. Called by
+     * {@see Propulsion::setConfiguration()}.
+     */
+    public function clearConnectionConfig(): void
+    {
+        $this->connectionConfig = null;
     }
 }

@@ -164,6 +164,20 @@ trait PropulsionPDOTrait
 	protected ?LoggerInterface $logger = null;
 
 	/**
+	 * microtime(true) of the last statement this connection is known to have
+	 * run, seeded at construction time.
+	 *
+	 * Read by {@see Propulsion::getMasterConnection()}'s pre-checkout liveness
+	 * check to decide whether this connection has been idle long enough to be
+	 * worth pinging, so it only needs to be *approximately* right: a missed
+	 * update costs an unnecessary ping, never a false "still fresh". That is
+	 * why it is updated at the few coarse seams that see real traffic
+	 * (exec()/query()/PropulsionStatement::execute()/ping()) rather than
+	 * everywhere a driver might touch the socket.
+	 */
+	protected float $lastActivityAt = 0.0;
+
+	/**
 	 * The log level to use for logging.
 	 *
 	 * @var       string
@@ -214,10 +228,18 @@ trait PropulsionPDOTrait
 
 		parent::__construct($dsn, $username, $password, $driver_options);
 
+		$this->lastActivityAt = microtime(true);
+
+		// Use fully-qualified statement class names to satisfy PDO strict validation.
 		if ($this->useDebug) {
-			// Use fully-qualified statement class to satisfy PDO strict validation
-			$this->configureStatementClass('\\Propulsion\\Connection\\DebugPDOStatement', true);
+			$this->configureStatementClass(DebugPDOStatement::class, true);
 			$this->log('Opening connection', null, PropulsionPDO::class . '::' . __FUNCTION__, $debug);
+		} else {
+			// Installed unconditionally, not only under debugging: this is what
+			// makes a dropped connection visible on the ordinary
+			// PDOStatement::execute() path that essentially all ORM traffic
+			// takes. See PropulsionStatement's own docblock.
+			$this->configureStatementClass(PropulsionStatement::class, true);
 		}
 	}
 
@@ -638,6 +660,81 @@ trait PropulsionPDOTrait
 	}
 
 	/**
+	 * Record that this connection just ran something, for the idle-time
+	 * calculation the pre-checkout liveness check makes.
+	 *
+	 * Public because {@see PropulsionStatement::execute()} -- the seam most ORM
+	 * traffic actually goes through -- is a separate object, not part of this
+	 * trait.
+	 */
+	public function touchActivity(): void
+	{
+		$this->lastActivityAt = microtime(true);
+	}
+
+	/**
+	 * Seconds since this connection last ran a statement.
+	 */
+	public function getIdleSeconds(): float
+	{
+		return microtime(true) - $this->lastActivityAt;
+	}
+
+	/**
+	 * The cheapest statement that proves the server is still on the other end
+	 * of this socket.
+	 *
+	 * Overridden by {@see \Propulsion\Adapter\Oracle\OraclePropulsionPDO}, whose
+	 * dialect requires a FROM clause on every SELECT. Lives on the connection
+	 * rather than on DBAdapter because a connection does not know the datasource
+	 * name it was registered under, and so cannot look its own adapter up --
+	 * while the driver-specific PropulsionPDO subclasses already exist, one per
+	 * platform, and are exactly the right granularity for this.
+	 */
+	protected function getPingSql(): string
+	{
+		return 'SELECT 1';
+	}
+
+	/**
+	 * Check that the server behind this connection is still there.
+	 *
+	 * Returns false rather than throwing when it is not: a failed ping is the
+	 * expected outcome this exists to detect, not an error. Any *other*
+	 * exception is left to propagate -- a ping that fails because the server
+	 * rejected `SELECT 1` is a misconfiguration worth surfacing, not something
+	 * to paper over by rebuilding the connection in a loop.
+	 *
+	 * A dropped connection detected here goes through the ordinary
+	 * {@see handleDroppedConnection()} path (parent::query() is deliberately
+	 * bypassed... see below), so the caller does not have to evict it by hand.
+	 *
+	 * Never pings inside a transaction: the caller would be checking out a
+	 * connection mid-transaction, which is not a thing the pool does, and a
+	 * stray statement inside somebody's transaction is worse than a stale
+	 * connection.
+	 */
+	public function ping(): bool
+	{
+		if ($this->isInTransaction()) {
+			return true;
+		}
+
+		try {
+			// $this->query() rather than parent::query() so the drop handling
+			// and activity touch in this trait's own override both apply.
+			$this->query($this->getPingSql());
+		} catch (\PDOException $e) {
+			if (!Propulsion::isConnectionDropped($e)) {
+				throw $e;
+			}
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
 	 * Sets a connection attribute.
 	 *
 	 * This is overridden here to provide support for setting Propulsion-specific attributes too.
@@ -751,6 +848,12 @@ trait PropulsionPDOTrait
 	 */
 	public function exec($sql): false|int
 	{
+		// Initialised rather than only assigned inside the branch, for the same
+		// reason prepare() spells out above: log() takes ?array precisely so
+		// that the two `if ($this->useDebug)` blocks need not be provably
+		// correlated, and the touchActivity() call between them legitimately
+		// stops static analysis proving the second implies the first.
+		$debug = null;
 		if ($this->useDebug) {
 			$debug = $this->getDebugSnapshot();
 		}
@@ -765,6 +868,9 @@ trait PropulsionPDOTrait
 			}
 			throw $e;
 		}
+
+		$this->touchActivity();
+
 		if ($this->useDebug) {
 			$this->log($sql, null, PropulsionPDO::class . '::' . __FUNCTION__, $debug);
 			$this->setLastExecutedQuery($sql);
@@ -786,6 +892,8 @@ trait PropulsionPDOTrait
 	 */
 	public function query(string $query, ?int $fetchMode = null, mixed ...$args): \PDOStatement|false
 	{
+		// See exec() above for why this is initialised rather than only assigned.
+		$debug = null;
 		if ($this->useDebug) {
 			$debug = $this->getDebugSnapshot();
 		}
@@ -801,6 +909,8 @@ trait PropulsionPDOTrait
 			}
 			throw $e;
 		}
+
+		$this->touchActivity();
 
 		if ($this->useDebug) {
 			$this->log($query, null, PropulsionPDO::class . '::' . __FUNCTION__, $debug);
@@ -956,10 +1066,13 @@ trait PropulsionPDOTrait
 	{
 		if ($value) {
 			// Use fully-qualified statement class to satisfy PDO strict validation
-			$this->configureStatementClass('\\Propulsion\\Connection\\DebugPDOStatement', true);
+			$this->configureStatementClass(DebugPDOStatement::class, true);
 		} else {
-			// reset query logging
-			$this->setAttribute(\PDO::ATTR_STATEMENT_CLASS, array('PDOStatement'));
+			// reset query logging -- but back to PropulsionStatement, not to a
+			// plain \PDOStatement: turning *debugging* off must not also turn
+			// off dropped-connection detection, which is a correctness feature
+			// rather than a diagnostic one.
+			$this->configureStatementClass(PropulsionStatement::class, true);
 			$this->setLastExecutedQuery('');
 			$this->queryCount = 0;
 		}

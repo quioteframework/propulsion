@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Connection resilience** (`docs/CONNECTIONS.md`). Dropped connections are
+  now detected on the ordinary `PDOStatement::execute()` path that essentially
+  all ORM traffic takes, via a new `PropulsionStatement` installed on every
+  non-persistent connection; previously only `exec()`/`query()`/
+  `DebugPDOStatement::execute()` were watched, so most drops left a dead
+  connection in the pool. Two opt-in recovery features join it under a new
+  `connection` config section: a pre-checkout liveness ping for idle pooled
+  connections, and `Propulsion::transaction()`, which retries deadlocks and
+  serialization failures with jittered exponential backoff. A connection
+  dropped mid-COMMIT is deliberately never retried.
+
+### Changed
+
+- `useDebug(false)` resets the statement class to `PropulsionStatement` rather
+  than a plain `PDOStatement`, so turning debugging off no longer turns
+  dropped-connection detection off with it.
+
 ## [2.0.0] - 2026-08-04
 
 The first major release since v1.0.0 (2026-07-07). It adds a

@@ -493,4 +493,20 @@ class DBMySQL extends DBAdapter
 
 		return $params;
 	}
+
+	/**
+	 * MySQL/MariaDB report a broken deadlock as error 1213 with SQLSTATE 40001,
+	 * which the base implementation already recognises. Added here is 1205,
+	 * `ER_LOCK_WAIT_TIMEOUT` -- a transaction that waited out
+	 * `innodb_lock_wait_timeout` for a row lock somebody else held. It arrives
+	 * under the generic SQLSTATE `HY000`, so only the driver code identifies
+	 * it, and it is every bit as retryable as a deadlock: the same statement
+	 * run again once the holder has committed simply succeeds.
+	 *
+	 * @see       DBAdapter::isRetryableError()
+	 */
+	public function isRetryableError(\PDOException $e): bool
+	{
+		return parent::isRetryableError($e) || $this->extractDriverErrorCode($e) === 1205;
+	}
 }

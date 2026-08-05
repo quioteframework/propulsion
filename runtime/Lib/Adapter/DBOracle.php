@@ -677,4 +677,22 @@ class DBOracle extends DBAdapter
 			);
 		}
 	}
+
+	/**
+	 * Oracle reports both of its retryable concurrency failures under the
+	 * generic SQLSTATE `HY000`, so neither is visible to the base
+	 * implementation's SQLSTATE check and both have to be matched on the ORA
+	 * number instead:
+	 *
+	 *  - ORA-00060: deadlock detected while waiting for resource
+	 *  - ORA-08177: can't serialize access for this transaction (the
+	 *    SERIALIZABLE-isolation failure other platforms report as 40001)
+	 *
+	 * @see       DBAdapter::isRetryableError()
+	 */
+	public function isRetryableError(\PDOException $e): bool
+	{
+		return parent::isRetryableError($e)
+			|| in_array($this->extractDriverErrorCode($e), [60, 8177], true);
+	}
 }

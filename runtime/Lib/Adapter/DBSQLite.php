@@ -267,4 +267,24 @@ class DBSQLite extends DBAdapter
 	{
 		return 'random()';
 	}
+
+	/**
+	 * SQLite has no row-level locking to deadlock over, but it does have
+	 * whole-database write locking, and a writer that cannot get the lock fails
+	 * with SQLITE_BUSY (5) or SQLITE_LOCKED (6) under SQLSTATE `HY000`. That is
+	 * the same situation as a lock-wait timeout elsewhere -- somebody else is
+	 * mid-write and this transaction lost -- and the same response applies.
+	 *
+	 * Retrying is what `busy_timeout` would otherwise do inside the driver; it
+	 * remains worth doing at this level because a busy timeout cannot help a
+	 * transaction that has already upgraded to a write lock and hit
+	 * SQLITE_BUSY_SNAPSHOT, which only restarting the transaction resolves.
+	 *
+	 * @see       DBAdapter::isRetryableError()
+	 */
+	public function isRetryableError(\PDOException $e): bool
+	{
+		return parent::isRetryableError($e)
+			|| in_array($this->extractDriverErrorCode($e), [5, 6], true);
+	}
 }

@@ -19,15 +19,8 @@ use \PDO;
  * @author     Jarno Rantanen <jarno.rantanen@tkk.fi>
  * @since      2007-07-12
  */
-class DebugPDOStatement extends \PDOStatement
+class DebugPDOStatement extends PropulsionStatement
 {
-	/**
-	 * The PDO connection from which this instance was created.
-	 *
-	 * @var       PropulsionPDO
-	 */
-	protected $pdo;
-
 	/**
 	 * Hashmap for resolving the PDO::PARAM_* class constants to their human-readable names.
 	 * This is only used in logging the binding of variables.
@@ -52,18 +45,6 @@ class DebugPDOStatement extends \PDOStatement
 	protected $boundValues = array();
 
 	/**
-	 * Construct a new statement class with reference to main DebugPDO object from
-	 * which this instance was created.
-	 *
-	 * @param     PropulsionPDO  $pdo  Reference to the parent PDO instance.
-	 * @return    DebugPDOStatement
-	 */
-	protected function __construct(PropulsionPDO $pdo)
-	{
-		$this->pdo = $pdo;
-	}
-
-	/**
 	 * @return    string
 	 */
 	public function getExecutedQueryString()
@@ -85,32 +66,27 @@ class DebugPDOStatement extends \PDOStatement
 	 * Executes a prepared statement.  Returns a boolean value indicating success.
 	 * Overridden for query counting and logging.
 	 *
-	 * @param     array<int|string,mixed>|null  $input_parameters
+	 * Dropped-connection detection is *not* repeated here: it lives in
+	 * {@see PropulsionStatement::execute()}, which this now extends and which
+	 * the `parent::execute()` call below goes through, so a dropped connection
+	 * is evicted from the pool exactly once whether or not debugging is on.
+	 * All this catch block adds is the forced-logging line.
+	 *
+	 * @param     array<int|string,mixed>|null  $params
 	 * @return    boolean
 	 */
-	public function execute(array|null $input_parameters = null) : bool
+	public function execute(array|null $params = null) : bool
 	{
 		$debug = $this->pdo->getDebugSnapshot();
 		// Logging active if AGAVI_DEBUG_DATABASE=1; FORCE env overrides for deep debugging
 		$forced = getenv('AGAVI_DEBUG_DATABASE_FORCE') ?: getenv('AGAVI_DEBUG_DATABASE');
 		$start = microtime(true);
 		try {
-			$return = parent::execute($input_parameters);
+			$return = parent::execute($params);
 		} catch (\Throwable $e) {
 			if ($forced) {
 				$sqlErr = $this->getExecutedQueryString();
 				$this->forcedLogChunked('PROPEL_SQL_FORCE execute EXCEPTION: '.get_class($e).': '.$e->getMessage().' SQL=', $sqlErr);
-			}
-			// A dropped connection can't be retried here: this statement handle
-			// belongs to the dead connection, so re-running parent::execute()
-			// on it (which is what this used to do, after a
-			// Propulsion::forceReconnect() that couldn't affect $this either)
-			// only fails again. Hand it to the connection so it can evict
-			// itself from the pool and reset its transaction bookkeeping, then
-			// let the caller deal with it -- see
-			// PropulsionPDOTrait::handleDroppedConnection().
-			if ($e instanceof \PDOException && \Propulsion\Propulsion::isConnectionDropped($e)) {
-				$this->pdo->handleDroppedConnection($e, __METHOD__);
 			}
 			throw $e;
 		}

@@ -25,4 +25,13 @@ use Propulsion\Connection\PropulsionPDOTrait;
 class OraclePropulsionPDO extends \PDO implements PropulsionPDO
 {
 	use PropulsionPDOTrait;
+
+	/**
+	 * Oracle requires a FROM clause on every SELECT, so the bare `SELECT 1`
+	 * every other platform pings with is a syntax error here.
+	 */
+	protected function getPingSql(): string
+	{
+		return 'SELECT 1 FROM dual';
+	}
 }

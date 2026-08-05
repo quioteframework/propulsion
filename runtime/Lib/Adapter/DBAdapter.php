@@ -661,6 +661,74 @@ abstract class DBAdapter
 	}
 
 	/**
+	 * Whether this exception describes a *transient* failure -- one where the
+	 * same transaction, re-run unchanged, has a real chance of succeeding.
+	 *
+	 * In practice that means the concurrency-control failures: a deadlock the
+	 * server broke by picking this transaction as the victim, and a
+	 * serialization failure under SERIALIZABLE/REPEATABLE READ. Both are the
+	 * database working as designed -- it aborts one transaction so another can
+	 * proceed -- and both are exactly what the loser is supposed to respond to
+	 * by trying again. Consulted by {@see \Propulsion\Propulsion::transaction()};
+	 * see {@see \Propulsion\Connection\RetryPolicy} for the backoff.
+	 *
+	 * The base implementation recognises the two ANSI-ish SQLSTATEs that most
+	 * platforms report:
+	 *
+	 *  - `40001` serialization failure (Postgres, MySQL's own mapping for its
+	 *    deadlock error, SQLite's busy-snapshot, MSSQL's deadlock victim)
+	 *  - `40P01` deadlock detected (a Postgres extension to the class)
+	 *
+	 * SQLSTATE alone is not enough on every platform -- Oracle and MySQL both
+	 * report interesting cases under a generic `HY000` -- so those adapters
+	 * override this and match on their own driver-specific error codes; see
+	 * {@see \Propulsion\Adapter\DBMySQL::isRetryableError()} and
+	 * {@see \Propulsion\Adapter\DBOracle::isRetryableError()}.
+	 *
+	 * Deliberately *not* including a dropped connection. That is transient too,
+	 * but whether it is safe to retry depends on when it happened rather than
+	 * on what it was -- a connection lost while COMMIT was in flight leaves the
+	 * transaction's outcome genuinely unknown -- so it is classified at the
+	 * call site, which knows that, rather than here, which does not. See
+	 * Propulsion::transaction().
+	 */
+	public function isRetryableError(\PDOException $e): bool
+	{
+		return in_array($this->extractSqlState($e), ['40001', '40P01'], true);
+	}
+
+	/**
+	 * The SQLSTATE from a PDOException, or '' when it carries none.
+	 *
+	 * Read from errorInfo() rather than from getCode(), which PDO also
+	 * populates with the SQLSTATE but types as a string on PDOException and as
+	 * an int on the base Exception -- and which is '' rather than a code for an
+	 * exception raised before any statement reached the server.
+	 *
+	 * @param     \PDOException  $e
+	 */
+	protected function extractSqlState(\PDOException $e): string
+	{
+		return isset($e->errorInfo[0]) && is_scalar($e->errorInfo[0]) ? (string) $e->errorInfo[0] : '';
+	}
+
+	/**
+	 * The driver-specific error code from a PDOException (errorInfo[1]), or
+	 * null when it carries none. Used by the adapters whose retryable errors
+	 * are not distinguishable by SQLSTATE alone.
+	 *
+	 * @param     \PDOException  $e
+	 */
+	protected function extractDriverErrorCode(\PDOException $e): ?int
+	{
+		if (!isset($e->errorInfo[1]) || !is_numeric($e->errorInfo[1])) {
+			return null;
+		}
+
+		return (int) $e->errorInfo[1];
+	}
+
+	/**
 	 * Formats a temporal value brefore binding, given a ColumnMap object
 	 *
 	 * @param     mixed      $value  The temporal value

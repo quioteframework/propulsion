@@ -189,7 +189,7 @@ interface PropulsionPDO
 	 * {@see \Propulsion\Connection\PropulsionPDOTrait::handleDroppedConnection()}
 	 * for why retrying at this level cannot be made safe.
 	 *
-	 * Part of the interface because {@see DebugPDOStatement::execute()} has to
+	 * Part of the interface because {@see PropulsionStatement::execute()} has to
 	 * reach it: a statement discovers the drop, but only the connection can act
 	 * on it.
 	 *
@@ -197,6 +197,30 @@ interface PropulsionPDO
 	 * @param     string         $methodName  Origin, for the log line.
 	 */
 	public function handleDroppedConnection(\PDOException $e, string $methodName = ''): void;
+
+	/**
+	 * Record that this connection just ran a statement, resetting its idle
+	 * timer. Part of the interface for the same reason as the method above:
+	 * {@see PropulsionStatement::execute()} is where most statements actually
+	 * run, and it is a separate object from the connection.
+	 */
+	public function touchActivity(): void;
+
+	/**
+	 * Seconds since this connection last ran a statement.
+	 */
+	public function getIdleSeconds(): float;
+
+	/**
+	 * Verify the server is still on the other end of this connection, returning
+	 * false (rather than throwing) if it is not. A connection found dead this
+	 * way has already evicted itself from the pool.
+	 *
+	 * Used by {@see \Propulsion\Propulsion::getConnection()}'s pre-checkout
+	 * liveness check; see {@see \Propulsion\Connection\ConnectionConfig} for
+	 * when that runs.
+	 */
+	public function ping(): bool;
 
 	/**
 	 * Returns the number of queries this instance has performed on the database connection.
