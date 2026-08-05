@@ -904,6 +904,22 @@ class IntegrationDatabase
                     ->withMySQLUser('propulsion', 'propulsion')
                     ->withMySQLDatabase('propulsion_test')
                     ->withLabels(self::CONTAINER_LABELS)
+                    // MySQLContainer hardcodes a 15s wait, which is not enough
+                    // for this image's *first* boot: initialising the data
+                    // directory and creating the configured user takes longer
+                    // than that on a loaded machine, and `mysql:latest` has
+                    // since floated to 26.x, which is slower again. The server
+                    // then comes up perfectly well a few seconds after the wait
+                    // has already given up, so the failure reads as "Timeout
+                    // reached while waiting for container" with a healthy
+                    // container sitting right there -- reproducible three runs
+                    // out of three here. The ping itself is fine and is kept
+                    // exactly as the module has it; only the deadline changes.
+                    ->withWait(new \Testcontainers\Wait\WaitForExec(
+                        ['mysqladmin', 'ping', '-h', '127.0.0.1'],
+                        null,
+                        120000
+                    ))
                     ->start();
                 self::retrying(static fn () => self::enableMysqlLocalInfile(self::hostName(), self::hostPort()));
             } catch (\Throwable $e) {
