@@ -75,16 +75,6 @@ left open with a reason rather than silently:
   `configureStatementClass()` suppresses that failure rather than refusing to
   connect. Nothing can be done about it below "don't use persistent connections
   with this ORM", which is also what `getQueryCount()` already tells you.
-- **`Propulsion::initialize()` only resets `$connectionMap`.** `$adapterMap`,
-  `$dbMaps` and the memoised `$defaultDBName` survive a `setConfiguration()`, so
-  reconfiguring a live process (multi-tenant hosts, test harnesses swapping
-  datasources) keeps the previous default datasource and adapters. Resetting
-  them is easy; knowing whether anything relies on the current behaviour is not.
-- **`Criterion::equals()` compares chained sub-clauses by identity** (`===`)
-  rather than recursively, so two structurally identical chained criterions
-  never compare equal. Feeds `Criteria::equals()` and `addJoinObject()`'s
-  `in_array()` dedupe. Inherited from Propel 1; fixing it changes when joins get
-  deduplicated, which wants its own test pass.
 
 ## Missing modernization work
 

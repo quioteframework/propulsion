@@ -22,6 +22,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Migrated (Propel) configurations connect again.** A bare PDO option name
+  such as `ATTR_PERSISTENT` -- what Propel's `convert-conf` emitted -- resolved
+  only against `Propulsion\Connection\PropulsionPDO`, which became an interface
+  and so inherits none of PDO's constants; bare names now fall back to `PDO::`.
+  A configured `classname` of `PropelPDO`/`PropulsionPDO` is likewise accepted
+  and resolved to the adapter's own driver-specific class instead of being
+  rejected as "not a PDO subclass".
+- **Reconfiguring a live process now takes effect.** `initialize()` reset only
+  the connection map, so the adapters and the memoised default datasource name
+  from the previous configuration survived `setConfiguration()`. (Table maps
+  deliberately still survive -- they describe the schema, not the connection.)
+- **`Criterion::equals()` compares chained AND/OR sub-clauses by value** rather
+  than by object identity, so two `Criteria` built the same way from the same
+  inputs compare equal even when a condition is chained.
 - **The shared cache tier no longer stores one entry per formatter.** It holds
   raw rows, which are formatter-independent, but its key folded in the formatter
   anyway — so an `ARRAY`-formatted and an `OBJECT`-formatted query with identical
