@@ -106,4 +106,49 @@ class QueryResultCacheTest extends BookstoreTestBase
 
 		$this->assertSame(0, Propulsion::getSession()->getQueryResultCache()->count(), 'a query must not populate the cache unless setQueryCache(true) was called');
 	}
+
+	public function testAWriteInvalidatesAnEntryWhoseTableIsOnlyReadInsideASubquery(): void
+	{
+		// The table this query depends on most is one it never names in its own
+		// FROM clause: which books come back is decided entirely by the review
+		// rows the EXISTS finds. While getQueryCacheTouchedTables() did not
+		// descend into subqueries, the entry was indexed under `book` alone, so
+		// an ORM write to `review` -- a write Propulsion can see perfectly well
+		// and does bump a version token for -- left it served for the rest of
+		// the request and, at the shared tier, for the whole TTL.
+		$booksWithReviews = static function (): ModelCriteria {
+			$query = new ModelCriteria('bookstore', 'Book');
+			$query->setQueryCache(true);
+			$query->useExistsQuery('Review', static function ($subQuery) {
+				$subQuery->where('Review.BookId = Book.Id');
+			});
+
+			return $query;
+		};
+
+		$before = $booksWithReviews()->count($this->con);
+
+		// Give a book that had no review one, through the ORM, so the correct
+		// answer really does change.
+		$book = BookQuery::create()
+			->useExistsQuery('Review', static function ($subQuery) {
+				$subQuery->where('Review.BookId = Book.Id');
+			}, true)
+			->findOne($this->con);
+		$this->assertNotNull($book, 'the fixture needs at least one book with no reviews for this to prove anything');
+
+		$review = new Review();
+		$review->setReviewedBy('Subquery Invalidation Test');
+		$review->setRecommended(true);
+		$review->setBook($book);
+		$review->save($this->con);
+
+		$after = $booksWithReviews()->count($this->con);
+
+		$this->assertSame(
+			$before + 1,
+			$after,
+			'a write to a table read only through an EXISTS subquery must still evict the entry'
+		);
+	}
 }

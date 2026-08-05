@@ -317,9 +317,15 @@ without `dependsOn()` throws for the same reason.
   a cached `find()` result mutates the cache entry. An L2 hit returns a freshly
   hydrated graph and behaves exactly like a real database read, instance pool
   included.
-- **Subqueries and CTEs.** `getQueryCacheTouchedTables()` does not descend into
-  them, so a query whose only reference to a table is inside a subquery will not
-  be invalidated by writes to it. Declare such queries with `rawQuery()`
+- **Subqueries and CTEs** *are* followed. `getQueryCacheTouchedTables()`
+  descends into FROM-clause subqueries (`addSelectQuery()`), CTEs (`withCte()`),
+  set-operation branches (`union()`/`intersect()`/`except()`) and
+  `EXISTS`/`IN` filters (`addExistsQuery()`/`addInQuery()`), so a table read only
+  from inside one is still a dependency. What is *not* followed is SQL
+  Propulsion never parsed: a table named inside a raw string clause reaches the
+  query as opaque text. `withColumn()` expressions are scanned for
+  `table.column` references and so are covered; a bare `where('...')` predicate
+  naming an otherwise-unmentioned table is not. Declare those with `rawQuery()`
   and `dependsOn()`, or leave them uncached.
 - **Read-your-own-writes** is guaranteed within a process. Across processes it is
   bounded by commit-to-publish latency plus the per-request token memo: a bump

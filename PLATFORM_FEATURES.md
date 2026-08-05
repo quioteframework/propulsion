@@ -1291,7 +1291,9 @@ change-tracker steal list, which is deliberately not repeated here.
   **Scope-downs**, in the register this document already uses: no coherence with
   writes that bypass the ORM (TTL, default 300s, is the only backstop, which is
   why "never expire" is not the default);
-  `getQueryCacheTouchedTables()` still does not descend into subqueries or CTEs;
+  (`getQueryCacheTouchedTables()`'s failure to descend into subqueries and CTEs
+  was also listed here, and has since been fixed -- it now follows FROM-clause
+  subqueries, CTEs, set-operation branches and EXISTS/IN filters);
   no automatic GC for the `file` driver beyond lazy unlink-on-expired-read,
   since probabilistic in-request GC turns one unlucky request into a full-tree
   stat walk (a non-PSR `prune()` is provided for cron instead); and no

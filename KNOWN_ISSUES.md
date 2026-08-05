@@ -38,9 +38,6 @@ rm -rf fixtures/bookstore/build fixtures/schemas/build fixtures/namespaced/build
     until their TTL lapses. TTL is the only backstop, which is why it defaults
     to a finite 300s rather than "never".
     `Propulsion::invalidateQueryCacheForTables()` is the escape hatch.
-  - `getQueryCacheTouchedTables()` does not descend into subqueries or CTEs, so
-    a query referencing a table only from inside one is not invalidated by
-    writes to it (the same deliberate scope-down the compiled-query cache makes).
   - Strict single-flight needs an atomic create-if-absent, which PSR-16 cannot
     express. Propulsion's own drivers implement it; a third-party pool gets
     probabilistic early recomputation only, so N truly simultaneous cold misses

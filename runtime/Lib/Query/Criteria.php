@@ -1325,11 +1325,65 @@ class Criteria implements \IteratorAggregate
 	 * names a table that appears nowhere else in the query. See
 	 * {@see tableNamesInSelectedExpressions()}.
 	 *
+	 * **Nested queries contribute their own tables.** A query that reads a table
+	 * only from inside a subquery, a CTE, a set-operation branch or an
+	 * `EXISTS`/`IN` filter depends on that table just as much as one naming it in
+	 * its own FROM clause, so this descends into all four (see
+	 * {@see collectQueryCacheTouchedTables()}). It did not always: while the
+	 * only nesting the query builder could express was `addSelectQuery()`, the
+	 * scope-down was narrow enough to live with, but `withCte()`,
+	 * `union()`/`intersect()`/`except()` and `addExistsQuery()`/`addInQuery()`
+	 * each widened it, and a query whose dependency set misses a table it really
+	 * reads keeps serving pre-write rows for the whole TTL after a write that
+	 * should have evicted it.
+	 *
+	 * A CTE's *name*, and a FROM-clause subquery's alias, are collected too --
+	 * they look exactly like table names in the outer query's column references
+	 * and nothing here can tell them apart from one. That is harmless and
+	 * deliberate, for the same reason over-inclusion is chosen throughout this
+	 * method: no write path ever bumps a version token for a name that is not a
+	 * real table, so the extra dependency simply never fires. Suppressing them
+	 * would mean deciding a name is *not* a table, which is the failure
+	 * direction that serves stale data.
+	 *
 	 * @return list<string>
 	 */
 	public function getQueryCacheTouchedTables(): array
 	{
 		$tables = array();
+		$visited = array();
+		$this->collectQueryCacheTouchedTables($tables, $visited);
+
+		return array_values(array_unique(array_filter($tables, static fn (string $table): bool => $table !== '')));
+	}
+
+	/**
+	 * Accumulate this query's own table dependencies into $tables, then recurse
+	 * into every Criteria nested inside it.
+	 *
+	 * $visited is keyed by object id and guards against a Criteria reachable
+	 * from itself. Nothing in the query builder builds such a cycle today --
+	 * every nesting API takes an already-constructed Criteria, so a cycle needs
+	 * a caller to deliberately hand a query to itself -- but the cost of the
+	 * guard is one array write per node and the cost of not having it is an
+	 * infinite recursion inside a cache lookup.
+	 *
+	 * Aliases are resolved per node, against the map of the Criteria that owns
+	 * them: a subquery's `b` may be a different table from its parent's `b`.
+	 * That happens naturally by recursing as a method call on the nested object.
+	 *
+	 * @param list<string>       $tables  accumulator, real table names (and
+	 *                                    CTE/subquery names -- see the caller)
+	 * @param array<int, true>   $visited accumulator, spl_object_id set
+	 */
+	private function collectQueryCacheTouchedTables(array &$tables, array &$visited): void
+	{
+		$objectId = spl_object_id($this);
+		if (isset($visited[$objectId])) {
+			return;
+		}
+		$visited[$objectId] = true;
+
 		foreach (array_keys($this->getTablesColumns()) as $tableAliasOrName) {
 			$tables[] = $this->resolveTableAlias($tableAliasOrName);
 		}
@@ -1347,7 +1401,56 @@ class Criteria implements \IteratorAggregate
 			$tables[] = $this->resolveTableAlias($selectTableName);
 		}
 
-		return array_values(array_unique(array_filter($tables, static fn (string $table): bool => $table !== '')));
+		// FROM-clause subqueries (addSelectQuery()).
+		foreach ($this->getSelectQueries() as $subQuery) {
+			$subQuery->collectQueryCacheTouchedTables($tables, $visited);
+		}
+
+		// Common table expressions (withCte()). A recursive CTE's body
+		// references the CTE's own name, which is not a real table; it is
+		// collected like any other name and, like any other non-table name,
+		// never invalidates anything.
+		foreach ($this->getCommonTableExpressions() as $cte) {
+			$cte['query']->collectQueryCacheTouchedTables($tables, $visited);
+		}
+
+		// Set operations (union()/unionAll()/intersect()/except()). Each branch
+		// is a full query in its own right and its rows are part of this
+		// query's result, so a write to any table in any branch has to evict it.
+		foreach ($this->getSetOperations() as $setOperation) {
+			$setOperation[1]->collectQueryCacheTouchedTables($tables, $visited);
+		}
+
+		// EXISTS/IN subquery filters (addExistsQuery()/addInQuery()), which live
+		// as an ordinary Criterion whose *value* is a Criteria rather than a
+		// bound value -- including inside chained AND/OR clauses.
+		foreach ($this->getMap() as $criterion) {
+			$this->collectQueryCacheTouchedTablesFromCriterion($criterion, $tables, $visited);
+		}
+		if (($having = $this->getHaving()) !== null) {
+			$this->collectQueryCacheTouchedTablesFromCriterion($having, $tables, $visited);
+		}
+	}
+
+	/**
+	 * Descend one criterion and its chained clauses, recursing into any
+	 * sub-Criteria found as a criterion value.
+	 *
+	 * @param list<string>     $tables
+	 * @param array<int, true> $visited
+	 */
+	private function collectQueryCacheTouchedTablesFromCriterion(
+		Criterion $criterion,
+		array &$tables,
+		array &$visited
+	): void {
+		$value = $criterion->getValue();
+		if ($value instanceof Criteria) {
+			$value->collectQueryCacheTouchedTables($tables, $visited);
+		}
+		foreach ($criterion->getClauses() as $clause) {
+			$this->collectQueryCacheTouchedTablesFromCriterion($clause, $tables, $visited);
+		}
 	}
 
 	/**

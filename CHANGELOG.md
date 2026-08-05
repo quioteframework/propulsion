@@ -20,6 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   serialization failures with jittered exponential backoff. A connection
   dropped mid-COMMIT is deliberately never retried.
 
+### Fixed
+
+- **Query cache invalidation now follows nested queries.** A result whose table
+  was read only from inside a FROM-clause subquery, a CTE, a set-operation
+  branch or an `EXISTS`/`IN` filter recorded no dependency on it, so an ordinary
+  ORM write to that table did not evict the entry — it stayed served for the
+  rest of the request, and for the whole TTL at the shared tier.
+
 ### Changed
 
 - `useDebug(false)` resets the statement class to `PropulsionStatement` rather
