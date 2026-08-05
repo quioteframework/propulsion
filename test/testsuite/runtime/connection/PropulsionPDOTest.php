@@ -42,6 +42,31 @@ class PropulsionPDOTest extends TestCase
 		}
 	}
 
+	/**
+	 * Every test here opens transactions on the process-wide connection and
+	 * closes them at the end of its own method -- which is exactly the shape
+	 * that leaks one when an assertion earlier in the method fails, since the
+	 * failure aborts the method before the closing commit()/rollBack(). The
+	 * connection is shared with the rest of the suite, so a leak here holds
+	 * write locks for the remainder of the run.
+	 *
+	 * TransactionLeakGuard catches this suite-wide and reports it, but this
+	 * class is the one that knows it opens transactions, so it unwinds its own.
+	 */
+	protected function tearDown(): void
+	{
+		// Whatever is already open, rather than getConnection(): tearDown() runs
+		// for a skipped test too, and asking for a connection there would try to
+		// open one against a datasource this tier has no server for.
+		foreach (Propulsion::getOpenConnections() as $con) {
+			if ($con instanceof PropulsionPDO && $con->isInTransaction()) {
+				$con->forceRollBack();
+			}
+		}
+
+		parent::tearDown();
+	}
+
 	public function testSetAttribute()
 	{
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);

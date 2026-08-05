@@ -45,6 +45,8 @@ class_exists(\Propulsion\Propulsion::class);
 require_once __DIR__ . '/tools/helpers/BaseTestCase.php';
 require_once __DIR__ . '/tools/helpers/SchemaPlatformFixtures.php';
 require_once __DIR__ . '/tools/helpers/SqlAssertions.php';
+// Registered as an extension in phpunit.xml, which loads this bootstrap first.
+require_once __DIR__ . '/tools/helpers/TransactionLeakGuard.php';
 
 // Include data populators if they exist  
 $dataPopulatorFile = __DIR__ . '/tools/helpers/bookstore/BookstoreDataPopulator.php';
