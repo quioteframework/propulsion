@@ -31,6 +31,27 @@ use Propulsion\Query\ModelCriteria;
 class QueryCacheTouchedTablesTest extends TestCase
 {
 	/**
+	 * Skip unless every named generated class is loadable.
+	 *
+	 * Most of this file needs only `BookQuery` and the bookstore DatabaseMap,
+	 * which are reachable on the no-Docker tier -- hence the class docblock's
+	 * claim that it runs there. A few cases below reach for a *second* model's
+	 * generated Query class (`AuthorQuery`, or `PropulsionQuery::from('Review')`
+	 * inside useExistsQuery()), and those are not reliably autoloadable when
+	 * PROPULSION_SKIP_INTEGRATION is set: the fixtures' classmap autoloader is
+	 * registered as part of the fixture build, which that mode skips. They run,
+	 * and are asserted, in every integration job.
+	 */
+	private function requireGeneratedClasses(string ...$classes): void
+	{
+		foreach ($classes as $class) {
+			if (!class_exists($class)) {
+				$this->markTestSkipped($class . ' is not available (bookstore fixtures not built)');
+			}
+		}
+	}
+
+	/**
 	 * @param list<string> $expected
 	 */
 	private function assertTouchedTables(array $expected, Criteria $c, string $message = ''): void
@@ -409,6 +430,8 @@ class QueryCacheTouchedTablesTest extends TestCase
 
 	public function testNestedQueryAliasesResolveAgainstTheirOwnQuery(): void
 	{
+		$this->requireGeneratedClasses('AuthorQuery');
+
 		// The subquery's "a" and the outer query's "a" are different tables.
 		// Recursing as a method call on the nested object is what keeps each
 		// alias map local to the query that owns it.
@@ -428,6 +451,8 @@ class QueryCacheTouchedTablesTest extends TestCase
 
 	public function testUseExistsQueryContributesItsTables(): void
 	{
+		$this->requireGeneratedClasses('ReviewQuery');
+
 		// The same thing through the ModelCriteria-level API a caller actually
 		// writes, rather than the Criteria primitive underneath it.
 		$c = BookQuery::create();
@@ -441,6 +466,8 @@ class QueryCacheTouchedTablesTest extends TestCase
 
 	public function testUseCteQueryContributesItsTables(): void
 	{
+		$this->requireGeneratedClasses('AuthorQuery');
+
 		$c = BookQuery::create();
 		$c->addSelfSelectColumns();
 		$c->useCteQuery('recent_authors', 'Author', function ($subQuery) {

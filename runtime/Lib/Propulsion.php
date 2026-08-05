@@ -120,9 +120,13 @@ class Propulsion
 	const CONNECTION_WRITE = 'write';
 
 	/**
-	 * @var        string The db name that is specified as the default in the property file
+	 * Memo of the datasource named as the default in the configuration, or null
+	 * before it has been read (and again after a reconfiguration drops it -- see
+	 * {@see forgetConfigurationDerivedState()}). {@see getDefaultDB()} has always
+	 * treated null as "not resolved yet"; the `@var string` this used to carry
+	 * was simply wrong about an untyped static, which defaults to null.
 	 */
-	private static $defaultDBName;
+	private static ?string $defaultDBName = null;
 
 	/**
 	 * @var        array<string, DatabaseMap> The global cache of database maps
@@ -208,7 +212,35 @@ class Propulsion
 	private static ?Session $session = null;
 
 	/**
-	 * Initializes Propulsion
+	 * Initializes Propulsion against the current configuration, discarding
+	 * everything derived from the previous one.
+	 *
+	 * This is the "apply a new configuration to a live process" entry point --
+	 * multi-tenant hosts switching datasources, test harnesses swapping one
+	 * fixture database for another. It used to reset only `$connectionMap`, so
+	 * the adapters and the memoised default datasource name from the *old*
+	 * configuration survived: a reconfigured process kept talking to the new
+	 * DSN through the old adapter, and `getDefaultDB()` kept naming the old
+	 * default. Both are now dropped and rebuilt lazily from whatever
+	 * configuration is current.
+	 *
+	 * `$dbMaps` is deliberately *not* dropped, and does not belong on that list
+	 * even though KNOWN_ISSUES.md used to group it with them. It is not derived
+	 * from the configuration at all: a DatabaseMap describes the *schema* -- what
+	 * tables exist and what columns they have -- which is a property of the
+	 * generated model classes, not of the DSN they are reached through.
+	 * Re-pointing a datasource at another server does not change what columns
+	 * `book` has.
+	 *
+	 * Clearing it would also be unrecoverable rather than merely wasteful. Each
+	 * generated Peer registers its TableMap from a `Foo::buildTableMap();`
+	 * statement at the bottom of its own class file, which runs once, when the
+	 * class is autoloaded. Nothing re-runs it, and `DatabaseMap::getTable()`
+	 * has only the table name to work from -- it cannot dynamically resolve a
+	 * TableMap class the way `getTableByPhpName()` can. So a cleared map would
+	 * stay empty for every already-loaded class, and every `getTableMap()` call
+	 * would throw "Cannot fetch TableMap for undefined table" for the rest of
+	 * the process.
 	 *
 	 * @throws     PropulsionException Any exceptions caught during processing will be
 	 *                             rethrown wrapped into a PropulsionException.
@@ -221,8 +253,31 @@ class Propulsion
 
 		// reset the connection map (this should enable runtime changes of connection params)
 		self::$connectionMap = array();
+		self::forgetConfigurationDerivedState();
 
 		self::$isInit = true;
+	}
+
+	/**
+	 * Drop the process-global state that is a cache of, or a memo over, the
+	 * runtime configuration, so the next access rebuilds it from whatever
+	 * configuration is current.
+	 *
+	 * Both entries are lazily rebuilt by their own accessors -- {@see getDB()}
+	 * re-reads `datasources.<name>.adapter` and calls `DBAdapter::factory()`,
+	 * {@see getDefaultDB()} re-reads `datasources.default` -- so dropping them
+	 * is always safe, never merely deferred work.
+	 *
+	 * Note this also discards an adapter registered explicitly with
+	 * {@see setDB()}: such a registration describes the configuration the
+	 * process was running under, and a new configuration supersedes it. Register
+	 * it again after reconfiguring if it was meant to override the new
+	 * configuration too.
+	 */
+	private static function forgetConfigurationDerivedState(): void
+	{
+		self::$adapterMap = array();
+		self::$defaultDBName = null;
 	}
 
 	/**
@@ -290,6 +345,14 @@ class Propulsion
 			throw new PropulsionException('Propulsion configuration must be an array or a PropulsionConfiguration instance');
 		}
 		self::$configuration = $c;
+
+		// The adapters and the memoised default datasource name describe the
+		// configuration being replaced, so they go with it -- otherwise a caller
+		// that reconfigures without also calling initialize() keeps the old
+		// default datasource and the old adapters, silently. initialize() calls
+		// this too; it is cheap, and doing it here as well means the two entry
+		// points cannot disagree about which one is responsible.
+		self::forgetConfigurationDerivedState();
 
 		// A new configuration may name a different cache driver, so drop any
 		// pool already built from the old one. Note this only *invalidates* --
@@ -1291,8 +1354,36 @@ class Propulsion
 
 		if (isset($conparams['classname']) && !empty($conparams['classname'])) {
 			$classname = $conparams['classname'];
-			if (!is_string($classname) || !class_exists($classname)) {
-				throw new PropulsionException('Unable to load specified PDO subclass: ' . var_export($classname, true));
+			if (!is_string($classname)) {
+				throw new PropulsionException('Configured PDO classname must be a string, got ' . get_debug_type($classname));
+			}
+			if (!class_exists($classname)) {
+				// A configuration naming PropulsionPDO itself -- or the legacy
+				// `PropelPDO`, which legacy-class-map.php aliases to it -- is
+				// asking for "Propulsion's PDO", which is exactly what the
+				// adapter's default class is. It only fails the class_exists()
+				// check because that name became an *interface* in Propulsion,
+				// implemented by the driver-specific subclasses; in Propel 1.6 it
+				// was the concrete class you instantiated. `<classname>PropelPDO</classname>`
+				// is what Propel's own convert-conf emitted, so refusing it would
+				// reject essentially every migrated configuration over a rename
+				// that was never the operator's business.
+				//
+				// Honoured rather than merely tolerated: the substituted class is
+				// the driver-specific PropulsionPDO for this datasource's adapter,
+				// which is a strictly better answer than the interface could have
+				// been even when it was a class.
+				if (interface_exists($classname) && is_a($classname, PropulsionPDO::class, true)) {
+					$classname = $defaultClass ?? $adapter->getDefaultPdoClass();
+				} else {
+					throw new PropulsionException(
+						'Unable to load the PDO class configured for datasource [' . $name . ']: '
+						. var_export($conparams['classname'], true) . ' is not a class. It must be a concrete '
+						. 'class extending PDO (Propulsion\\Connection\\GenericPropulsionPDO, or one of the '
+						. 'driver-specific subclasses); omit `classname` entirely to get the right one for this '
+						. "datasource's adapter automatically."
+					);
+				}
 			}
 		} else {
 			$classname = $defaultClass ?? $adapter->getDefaultPdoClass();
@@ -1363,13 +1454,42 @@ class Propulsion
 		foreach ($source as $option => $optiondata) {
 			if (is_string($option) && strpos($option, '::') !== false) {
 				$key = $option;
+				if (!defined($key)) {
+					throw new PropulsionException("Invalid PDO option/attribute name specified: ".$key);
+				}
 			} elseif (is_string($option)) {
+				// A bare name is resolved against the PropulsionPDO interface
+				// first, then against PDO itself.
+				//
+				// The fallback is not a convenience, it is the whole of what
+				// makes a bare name work at all. In Propel 1.6 the same name was
+				// a *class* -- `PropelPDO extends PDO` -- so `PropelPDO::ATTR_PERSISTENT`
+				// resolved through inheritance, and a bare `ATTR_PERSISTENT` in a
+				// config file (which is exactly what Propel's own convert-conf
+				// emitted, `<option id="ATTR_PERSISTENT">`) found it. Propulsion
+				// made PropulsionPDO an interface, and an interface inherits
+				// nothing from PDO: it declares only PROPEL_ATTR_CACHE_PREPARES
+				// and the two DEFAULT_* constants, so *every* real PDO constant
+				// name became undefined under that prefix and every migrated
+				// configuration using one failed to connect at all.
+				//
+				// The two sets do not overlap -- PROPEL_ATTR_CACHE_PREPARES (-1)
+				// exists only on the interface, the ATTR_*/MYSQL_ATTR_* names only
+				// on PDO -- so trying the interface first is unambiguous and keeps
+				// Propulsion's own attribute working.
 				$key = 'Propulsion\\Connection\\PropulsionPDO::' . $option;
+				if (!defined($key)) {
+					$key = 'PDO::' . $option;
+				}
+				if (!defined($key)) {
+					throw new PropulsionException(
+						'Invalid PDO option/attribute name specified: "' . $option . '" is not a constant on '
+						. 'Propulsion\\Connection\\PropulsionPDO or on PDO. Qualify it explicitly '
+						. '(e.g. "PDO::ATTR_PERSISTENT") if it belongs to some other class.'
+					);
+				}
 			} else {
 				throw new PropulsionException("Invalid PDO option/attribute name specified: " . var_export($option, true));
-			}
-			if (!defined($key)) {
-				throw new PropulsionException("Invalid PDO option/attribute name specified: ".$key);
 			}
 			$key = constant($key);
 			if (!is_int($key) && !is_string($key)) {
