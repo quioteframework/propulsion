@@ -379,6 +379,17 @@
 				</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
+		<xs:attribute name="opclass" type="xs:string" use="optional">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					A Postgres operator class for this index entry, emitted after the
+					column inside the index's column list (`USING hnsw ("embedding"
+					vector_l2_ops)`). Required by some access methods rather than
+					optional -- pgvector's HNSW and IVFFlat both refuse to build
+					without one. Only honored by PgsqlPlatform.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
 	</xs:complexType>
 
 	<xs:complexType name="exclusion">

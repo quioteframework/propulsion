@@ -353,6 +353,49 @@ These are gaps in the shared query builder — confirmed absent by grep across
     (MSSQL/Oracle) builds its own placeholder list inside
     `getMergeUpsertSql()` and is not rewritten; neither adapter rewrites any
     column today, so there is nothing to thread through it yet.
+- [x] **Vector similarity queries** — the query-layer half the `Vector types`
+  entry in section 2 explicitly scoped out ("`<=>`/`<->` distance operators and
+  HNSW/IVFFlat index support are explicitly out of scope here — this item is
+  DDL + hydration only"). Two independent pieces:
+  - New `Propulsion\Query\VectorExpression`, a distance-expression builder
+    (`l2Distance()`/`cosineDistance()`/`innerProduct()`/`l1Distance()`) usable
+    anywhere a raw clause is — `ModelCriteria::withColumn()` accepts one
+    directly alongside `WindowExpression`, and `orderBy()` on the resulting
+    alias gives the ordinary "nearest N" query. The SQL itself comes from a
+    new `DBAdapter::getVectorDistanceSql()` hook, because the platforms do
+    not agree on shape, not just on spelling: pgvector's are infix operators
+    (`<->`, `<=>`, `<#>`, `<+>`) while MariaDB's are function calls
+    (`VEC_DISTANCE_EUCLIDEAN`/`VEC_DISTANCE_COSINE` — and it has no
+    inner-product or L1 function at all, which throws rather than silently
+    substituting a different metric).
+    **The query vector is written into the SQL as a literal, not bound**,
+    which is a deliberate exception to how every other value in this query
+    builder is handled: an ANN index scan needs the operand visible to the
+    planner. It is safe for the reason that makes it necessary — the operand
+    is a fixed-length list of numbers `VectorExpression::literal()` formats
+    itself from PHP floats, rejecting anything non-numeric outright rather
+    than escaping it, so there is no string for a caller to smuggle anything
+    through.
+  - **`opclass` on `<index-column>`** (`Index::getOpclassAtPosition()`,
+    honored by `PgsqlPlatform::getIndexColumnListDDL()`), emitting the
+    operator class Postgres puts inside the column list: `CREATE INDEX ... 
+    USING hnsw ("embedding" vector_l2_ops)`. Not a convenience — pgvector's
+    HNSW and IVFFlat both refuse to build without one, so before this **no
+    pgvector ANN index could be generated at all**. The existing
+    `expression="..."` escape hatch was not a workaround either: PgsqlPlatform
+    wraps an expression entry in its own parentheses, producing
+    `((embedding vector_l2_ops))`, a syntax error.
+  - Live-verified against a real `pgvector/pgvector:pg17` server: the
+    generated HNSW index DDL is accepted as-is, all four distance operators
+    return correct orderings, and `EXPLAIN` confirms the planner really
+    serves `ORDER BY embedding <-> ... LIMIT n` from the index
+    (`Index Scan using doc_embedding_idx`) rather than sorting a seq scan.
+  - Still out of scope, deliberately: `halfvec`/`sparsevec`/`bit` column types
+    and their own operator classes (a type-system item, not a query-layer
+    one), and index build/search tuning knobs beyond what the existing
+    `storageParameters` attribute already passes through verbatim
+    (`WITH (m=16, ef_construction=64)` works today; the session-level
+    `hnsw.ef_search` GUC is a runtime setting, not schema).
 - [ ] **Named / advisory locks** — Pg `pg_advisory_lock`, MySQL `GET_LOCK`,
   MSSQL `sp_getapplock`, Oracle `DBMS_LOCK`. A uniform cross-platform
   app-level mutex; nothing in the tree references any of them.

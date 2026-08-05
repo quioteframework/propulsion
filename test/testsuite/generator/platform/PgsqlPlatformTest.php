@@ -671,6 +671,45 @@ CREATE INDEX \"babar\" ON \"foo\" USING gin (\"search_vector\");
 		$this->assertEquals($expected, $this->getPlatform()->getAddIndexDDL($index));
 	}
 
+	public function testGetAddIndexDDLWithOpclass()
+	{
+		// The pgvector ANN-index shape: HNSW refuses to build without an
+		// operator class, so this is what makes such an index generatable.
+		$table = new Table('doc');
+		$column = new Column('embedding');
+		$column->getDomain()->copy(new Domain('VECTOR'));
+		$table->addColumn($column);
+		$index = new Index('doc_embedding_idx');
+		$index->addColumn(array('name' => 'embedding', 'opclass' => 'vector_l2_ops'));
+		$index->setIndexType('hnsw');
+		$index->setStorageParameters('m=16, ef_construction=64');
+		$table->addIndex($index);
+
+		$expected = "
+CREATE INDEX \"doc_embedding_idx\" ON \"doc\" USING hnsw (\"embedding\" vector_l2_ops) WITH (m=16, ef_construction=64);
+";
+		$this->assertEquals($expected, $this->getPlatform()->getAddIndexDDL($index));
+	}
+
+	public function testGetAddIndexDDLOpclassOnlyAppliesToTheColumnItWasDeclaredOn()
+	{
+		$table = new Table('doc');
+		foreach (array('a', 'b') as $name) {
+			$column = new Column($name);
+			$column->getDomain()->copy(new Domain('FOOTYPE'));
+			$table->addColumn($column);
+		}
+		$index = new Index('multi');
+		$index->addColumn(array('name' => 'a'));
+		$index->addColumn(array('name' => 'b', 'opclass' => 'text_pattern_ops'));
+		$table->addIndex($index);
+
+		$expected = "
+CREATE INDEX \"multi\" ON \"doc\" (\"a\",\"b\" text_pattern_ops);
+";
+		$this->assertEquals($expected, $this->getPlatform()->getAddIndexDDL($index));
+	}
+
 	public function testGetAddIndexDDLWithoutIndexTypeStaysDefault()
 	{
 		$table = new Table('foo');

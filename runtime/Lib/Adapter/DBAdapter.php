@@ -1129,6 +1129,30 @@ abstract class DBAdapter
 	}
 
 	/**
+	 * The SQL for the distance between a vector column and a query vector --
+	 * see {@see \Propulsion\Query\VectorExpression}, which is the intended
+	 * caller and which validates $vectorLiteral before it gets here.
+	 *
+	 * Every platform spells this differently enough that there is no shared
+	 * shape to factor out: pgvector uses infix operators (`col <-> '[...]'`),
+	 * MariaDB uses function calls (`VEC_DISTANCE_EUCLIDEAN(col, '[...]')`),
+	 * and a platform may support some metrics and not others. Unsupported
+	 * throughout by default.
+	 *
+	 * @param     string $column        A column reference, already resolved to real SQL.
+	 * @param     string $vectorLiteral A bracketed comma-separated number list, unquoted.
+	 * @param     string $metric        One of the {@see \Propulsion\Query\VectorExpression} constants.
+	 *
+	 * @return    string
+	 * @throws    PropulsionException If this platform has no vector distance operator,
+	 *                                or none for $metric.
+	 */
+	public function getVectorDistanceSql(string $column, string $vectorLiteral, string $metric): string
+	{
+		throw new PropulsionException(static::class . ' does not support vector distance expressions');
+	}
+
+	/**
 	 * Gets the SQL string that this adapter uses for getting a random number.
 	 *
 	 * Nullable: DBNone's implementation returns nothing (this adapter is used when

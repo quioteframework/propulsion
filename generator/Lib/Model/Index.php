@@ -101,6 +101,27 @@ class Index extends XMLElement
 	private ?bool $clustered = null;
 
 	/**
+	 * Per-column operator class (`<index-column opclass="vector_l2_ops">`),
+	 * keyed by the same ordinal position getColumns() uses; a position with no
+	 * entry has none.
+	 *
+	 * Postgres puts the operator class after the column inside the index's
+	 * column list (`USING hnsw (embedding vector_l2_ops)`), and for several
+	 * access methods it is not optional -- pgvector's HNSW and IVFFlat both
+	 * refuse to build without one, which made every pgvector ANN index
+	 * ungeneratable before this existed. The `expression` attribute was not a
+	 * workaround: PgsqlPlatform wraps an expression entry in its own
+	 * parentheses, turning `embedding vector_l2_ops` into
+	 * `((embedding vector_l2_ops))`, which is a syntax error.
+	 *
+	 * Only honored by PgsqlPlatform -- no other supported platform has the
+	 * concept.
+	 *
+	 * @var        array<int, string>
+	 */
+	private array $columnOpclasses = array();
+
+	/**
 	 * Creates a new Index instance.
 	 *
 	 * @param      string $name
@@ -369,6 +390,9 @@ class Index extends XMLElement
 			}
 		} else {
 			$attrib = $data;
+			if (isset($attrib['opclass']) && is_string($attrib['opclass']) && $attrib['opclass'] !== '') {
+				$this->columnOpclasses[count($this->indexColumns)] = $attrib['opclass'];
+			}
 			if (isset($attrib['expression']) && is_string($attrib['expression'])) {
 				$this->indexColumns[] = $attrib['expression'];
 				$this->columnIsExpression[] = true;
@@ -397,6 +421,7 @@ class Index extends XMLElement
 		$this->indexColumns = array();
 		$this->indexColumnSizes = array();
 		$this->columnIsExpression = array();
+		$this->columnOpclasses = array();
 		foreach ($indexColumns as $col) {
 			$this->addColumn($col);
 		}
@@ -410,6 +435,15 @@ class Index extends XMLElement
 	public function isExpressionAtPosition(int $pos): bool
 	{
 		return $this->columnIsExpression[$pos] ?? false;
+	}
+
+	/**
+	 * The operator class declared for the column entry at $pos, or null if it
+	 * has none -- see the `opclass` schema attribute on `<index-column>`.
+	 */
+	public function getOpclassAtPosition(int $pos): ?string
+	{
+		return $this->columnOpclasses[$pos] ?? null;
 	}
 
 	/**

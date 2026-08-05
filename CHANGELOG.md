@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Vector similarity queries.** `VectorExpression::cosineDistance()` (and L2,
+  L1, inner product) builds a distance expression for `withColumn()`/`orderBy()`,
+  rendered per platform via a new `DBAdapter::getVectorDistanceSql()` hook. A
+  new `opclass` attribute on `<index-column>` emits the operator class
+  pgvector's HNSW and IVFFlat indexes require, which no schema could express
+  before.
 - **Column-SQL rewriting hooks.** A few native column types can only be read
   and written through a platform conversion function, never a plain bind. Two
   new `DBAdapter` hooks — `getColumnBindExpression()` and

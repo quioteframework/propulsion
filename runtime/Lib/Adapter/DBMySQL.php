@@ -27,6 +27,7 @@ use Propulsion\Map\DatabaseMap;
 use Propulsion\Query\Criteria;
 use Propulsion\Exception\PropulsionException;
 use Propulsion\Connection\PropulsionPDO;
+use Propulsion\Query\VectorExpression;
 class DBMySQL extends DBAdapter
 {
 	/**
@@ -325,6 +326,33 @@ class DBMySQL extends DBAdapter
 	public function getColumnSelectExpression(ColumnMap $cMap, string $columnExpression): string
 	{
 		return $cMap->isNativeVector() ? 'VEC_ToText(' . $columnExpression . ')' : $columnExpression;
+	}
+
+	/**
+	 * MariaDB 11.7+'s vector distance functions. Unlike pgvector's four infix
+	 * operators these are ordinary function calls, and only two metrics exist
+	 * -- there is no inner-product or L1 function on this platform, so those
+	 * throw rather than being silently approximated by a different metric.
+	 *
+	 * Applies to a `nativeVector="true"` column; on the default text emulation
+	 * the column is not a vector to the server at all and the function will
+	 * reject it, which is the schema author's declaration to get right the
+	 * same way it is for reads and writes (see getColumnBindExpression()).
+	 *
+	 * @see       DBAdapter::getVectorDistanceSql()
+	 */
+	public function getVectorDistanceSql(string $column, string $vectorLiteral, string $metric): string
+	{
+		$function = match ($metric) {
+			VectorExpression::L2 => 'VEC_DISTANCE_EUCLIDEAN',
+			VectorExpression::COSINE => 'VEC_DISTANCE_COSINE',
+			default => throw new PropulsionException(
+				'DBMySQL: MariaDB has no vector distance function for the "' . $metric . '" metric; '
+				. 'only L2 (VEC_DISTANCE_EUCLIDEAN) and cosine (VEC_DISTANCE_COSINE) exist.'
+			),
+		};
+
+		return $function . '(' . $column . ", VEC_FromText('" . $vectorLiteral . "'))";
 	}
 
 	/**

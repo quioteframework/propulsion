@@ -1037,21 +1037,28 @@ class ModelCriteria extends Criteria
 	 * Adds a supplementary column to the select clause
 	 * These columns can later be retrieved from the hydrated objects using getVirtualColumn()
 	 *
-	 * @param     string|WindowExpression $clause The SQL clause with object model column names
-	 *                           e.g. 'UPPER(Author.FirstName)', or a WindowExpression built via
-	 *                           e.g. WindowExpression::rowNumber()->partitionBy(...)->orderBy(...)
-	 *                           for a "<function>(...) OVER (...)" window-function column -- either
-	 *                           way, Model.Column names are resolved the same, since a WindowExpression
-	 *                           is converted to its SQL string form before that happens.
+	 * @param     string|WindowExpression|VectorExpression $clause The SQL clause with object
+	 *                           model column names e.g. 'UPPER(Author.FirstName)', or a
+	 *                           WindowExpression built via e.g.
+	 *                           WindowExpression::rowNumber()->partitionBy(...)->orderBy(...)
+	 *                           for a "<function>(...) OVER (...)" window-function column, or a
+	 *                           VectorExpression (e.g. VectorExpression::cosineDistance(...)) for
+	 *                           a vector-similarity column -- in every case, Model.Column names
+	 *                           are resolved the same, since the expression is converted to its
+	 *                           SQL string form before that happens.
 	 * @param     string $name   Optional alias for the added column
 	 *                           If no alias is provided, the clause is used as a column alias
 	 *                           This alias is used for retrieving the column via BaseObject::getVirtualColumn($alias)
 	 *
 	 * @return     static The current object, for fluid interface
 	 */
-	public function withColumn(string|WindowExpression $clause, ?string $name = null) : static
+	public function withColumn(string|WindowExpression|VectorExpression $clause, ?string $name = null) : static
 	{
-		$clause = (string) $clause;
+		// A VectorExpression is rendered against *this* query's datasource
+		// rather than the default one: the same expression is spelled as an
+		// infix operator on Postgres and a function call on MariaDB, and
+		// __toString() has no way to know which it is looking at.
+		$clause = $clause instanceof VectorExpression ? $clause->toSql($this->getDbName()) : (string) $clause;
 		if (null === $name) {
 			$name = str_replace(array('.', '(', ')'), '', $clause);
 		}

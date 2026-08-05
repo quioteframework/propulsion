@@ -765,6 +765,35 @@ CREATE %sINDEX %s%s ON %s%s (%s)%s%s%s;
 	}
 
 	/**
+	 * As DefaultPlatform's, plus the per-column operator class Postgres puts
+	 * inside the index's column list (`USING hnsw ("embedding"
+	 * vector_l2_ops)`) -- required, not optional, by pgvector's HNSW and
+	 * IVFFlat access methods, so without it no pgvector ANN index could be
+	 * generated at all. See Index::getOpclassAtPosition().
+	 *
+	 * The opclass is emitted verbatim rather than quoted as an identifier:
+	 * it names an operator class, not a column, and Postgres resolves it
+	 * through the normal unquoted (lower-cased) lookup path every example in
+	 * its own documentation uses.
+	 */
+	protected function getIndexColumnListDDL(Index $index): string
+	{
+		$parts = array();
+		foreach ($index->getColumns() as $pos => $column) {
+			$part = $index->isExpressionAtPosition($pos)
+				? '(' . $column . ')'
+				: $this->quoteIdentifier($column);
+			$opclass = $index->getOpclassAtPosition($pos);
+			if ($opclass !== null) {
+				$part .= ' ' . $opclass;
+			}
+			$parts[] = $part;
+		}
+
+		return implode(',', $parts);
+	}
+
+	/**
 	 * @see        Platform::supportsSchemas()
 	 */
 	public function supportsSchemas()

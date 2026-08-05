@@ -22,6 +22,7 @@ use PDO;
 use Propulsion\Query\Criteria;
 use Propulsion\Exception\PropulsionException;
 use Propulsion\Connection\PropulsionPDO;
+use Propulsion\Query\VectorExpression;
 class DBPostgres extends DBAdapter
 {
 	/**
@@ -379,6 +380,34 @@ class DBPostgres extends DBAdapter
 	public function getExplainSql(string $sql, bool $analyze = false): string
 	{
 		return 'EXPLAIN ' . ($analyze ? 'ANALYZE ' : '') . $sql;
+	}
+
+	/**
+	 * pgvector's distance operators. All four are infix and all four are
+	 * "smaller is closer", which is what lets an HNSW/IVFFlat index serve an
+	 * `ORDER BY ... LIMIT n` from them -- including `<#>`, which is the
+	 * *negative* inner product for exactly that reason.
+	 *
+	 * The literal is emitted single-quoted and cast to `vector` explicitly:
+	 * without the cast Postgres has to infer the type of an untyped literal
+	 * next to an operator that is overloaded across `vector`, `halfvec` and
+	 * `sparsevec`, and picks wrong often enough to be worth ruling out here.
+	 * Quoting is safe without escaping because VectorExpression validated the
+	 * literal as numbers-and-punctuation before this was called.
+	 *
+	 * @see       DBAdapter::getVectorDistanceSql()
+	 */
+	public function getVectorDistanceSql(string $column, string $vectorLiteral, string $metric): string
+	{
+		$operator = match ($metric) {
+			VectorExpression::L2 => '<->',
+			VectorExpression::COSINE => '<=>',
+			VectorExpression::INNER_PRODUCT => '<#>',
+			VectorExpression::L1 => '<+>',
+			default => throw new PropulsionException('DBPostgres: unknown vector distance metric "' . $metric . '"'),
+		};
+
+		return $column . ' ' . $operator . " '" . $vectorLiteral . "'::vector";
 	}
 
 	/**
