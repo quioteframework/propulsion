@@ -329,6 +329,58 @@ class DBMySQL extends DBAdapter
 	}
 
 	/**
+	 * @see       DBAdapter::supportsAdvisoryLocks()
+	 */
+	public function supportsAdvisoryLocks(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * `GET_LOCK(name, timeout)` -- the closest thing here to the hook's own
+	 * shape, since it is named rather than numbered and takes the timeout
+	 * directly. A negative timeout means "wait forever" on both MySQL 8+ and
+	 * MariaDB, which is how null is expressed.
+	 *
+	 * The timeout is whole seconds only (MySQL 5.7+ accepts a fractional
+	 * value; MariaDB truncates), so a sub-second wait is rounded **up** to one
+	 * second rather than down to zero -- rounding down would silently turn
+	 * "wait briefly" into "don't wait", which is a different operation.
+	 *
+	 * A null result means the lock attempt errored (e.g. the connection was
+	 * killed while waiting) rather than merely lost the race, and is reported
+	 * as not-acquired, which is the only safe reading.
+	 *
+	 * MySQL caps lock names at 64 characters and errors above that; the name
+	 * is passed through unchanged rather than silently hashed, so an
+	 * over-long name surfaces as the server's own error instead of two
+	 * different callers colliding on a truncation.
+	 *
+	 * @see       DBAdapter::acquireAdvisoryLock()
+	 */
+	public function acquireAdvisoryLock(PropulsionPDO $con, string $name, ?float $timeout = null): bool
+	{
+		$seconds = $timeout === null ? -1 : ($timeout <= 0.0 ? 0 : (int) ceil($timeout));
+
+		$result = $this->fetchAdvisoryLockResult($con, 'SELECT GET_LOCK(:p1, :p2)', array($name, $seconds));
+
+		return is_numeric($result) && (int) $result === 1;
+	}
+
+	/**
+	 * @see       DBAdapter::releaseAdvisoryLock()
+	 */
+	public function releaseAdvisoryLock(PropulsionPDO $con, string $name): bool
+	{
+		// RELEASE_LOCK() is 1 if released, 0 if the lock is held by another
+		// session, and NULL if nobody holds it at all -- all three collapse to
+		// this method's "did I have it?" boolean.
+		$result = $this->fetchAdvisoryLockResult($con, 'SELECT RELEASE_LOCK(:p1)', array($name));
+
+		return is_numeric($result) && (int) $result === 1;
+	}
+
+	/**
 	 * MariaDB 11.7+'s vector distance functions. Unlike pgvector's four infix
 	 * operators these are ordinary function calls, and only two metrics exist
 	 * -- there is no inner-product or L1 function on this platform, so those

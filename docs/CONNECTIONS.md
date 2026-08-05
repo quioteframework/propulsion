@@ -174,11 +174,82 @@ Propulsion::transaction($work, dbName: null, policy: RetryPolicy::none());
 
 A `RetryPolicy` passed explicitly always overrides the configuration.
 
+## 4. Named (advisory) locks
+
+A mutex the database stores and arbitrates but attaches to nothing — no row,
+no table. It is the right tool for "only one of these should run at a time"
+when there is no row to take a `FOR UPDATE` on, or when the work is not a
+database write at all: a job-queue dispatcher, a cron entry deployed to three
+app servers, a migration guard.
+
+```php
+use Propulsion\Exception\AdvisoryLockTimeoutException;
+
+try {
+    Propulsion::withAdvisoryLock('nightly-invoice-run', function ($con) {
+        // At most one process in the cluster is in here.
+    }, timeout: 0.0);
+} catch (AdvisoryLockTimeoutException) {
+    // Another run is already going. Usually: log and exit.
+}
+```
+
+The `timeout` is in seconds: `null` (the default) waits indefinitely, `0.0`
+gives up at once, a positive value waits at most that long. Failing to acquire
+throws `AdvisoryLockTimeoutException` rather than a generic error, because
+"somebody else has it" is an ordinary answer to asking for a mutex and a caller
+usually wants to act on it, not treat it as a fault.
+
+`Propulsion::acquireAdvisoryLock()`/`releaseAdvisoryLock()` are there for a
+lock whose lifetime does not fit a closure. Prefer `withAdvisoryLock()` where
+it does: its `finally` is the difference between a request that throws
+releasing the lock and it being held until the connection is reaped.
+
+### What to know before relying on it
+
+- **The lock lives on the connection, not the transaction.** Every platform's
+  primitive is used in its session-scoped form, so a `COMMIT` inside the
+  closure does not drop it, and it is released by the `finally` or by the
+  connection closing. That last part is the main reason to prefer this over a
+  lock table: the database cleans up after a crashed holder, and a row in a
+  table does not.
+- **The write connection is always used**, even for read-only work, and never
+  a replica — acquire and release have to land on the same session, which the
+  read pool does not promise. The closure is handed that connection so work
+  that must be covered by the lock can use it.
+- **Not re-entrant.** Nesting the same name on one connection behaves
+  differently per platform, and the inner release would free a lock the outer
+  scope still believes it holds. Don't.
+- **Names are passed through, not hashed** (except on Postgres, whose
+  primitive is numbered rather than named and where a 63-bit SHA-256 prefix is
+  used). MySQL rejects names over 64 characters and Oracle over 128; that
+  surfaces as the server's own error rather than as a silent truncation two
+  callers could collide on.
+- **SQLite has none of this** and `withAdvisoryLock()` throws there rather
+  than running your closure unserialised, which is the exact outcome you were
+  trying to prevent. `Propulsion::supportsAdvisoryLocks()` lets you branch if
+  a single-instance deployment can live without it.
+- **Oracle needs `GRANT EXECUTE ON DBMS_LOCK`**, which is not granted by
+  default. Without it the acquisition fails loudly with Oracle's own error
+  rather than being reported as "busy" — those are not the same situation and
+  only one of them is worth retrying.
+
+Per platform: `pg_advisory_lock` (Postgres), `GET_LOCK` (MySQL/MariaDB),
+`sp_getapplock` with `@LockOwner = 'Session'` (MSSQL), `DBMS_LOCK.REQUEST`
+with `release_on_commit => FALSE` (Oracle). Where the primitive takes whole
+seconds (MySQL, Oracle) a sub-second timeout is rounded **up**, since rounding
+down would turn "wait briefly" into "don't wait".
+
 ## What is still not handled
 
 - **Persistent connections** get no statement-level detection (see above).
 - **The check-then-use window** in the liveness check cannot be closed, only
   narrowed.
+- **Advisory locks on MSSQL and Oracle are not covered by a live test.**
+  Postgres and MariaDB both are (real two-session mutual exclusion); the other
+  two are implemented from their documented semantics and exercised only as
+  SQL shapes, so treat them as less battle-tested — the same caveat
+  `PLATFORM_FEATURES.md` records for those platforms generally.
 - **`Propulsion::initialize()` only resets `$connectionMap`** — `$adapterMap`,
   `$dbMaps` and the memoised `$defaultDBName` survive a `setConfiguration()`.
   See `KNOWN_ISSUES.md`.

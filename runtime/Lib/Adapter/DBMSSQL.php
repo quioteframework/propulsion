@@ -127,6 +127,72 @@ class DBMSSQL extends DBAdapter
 	}
 
 	/**
+	 * @see       DBAdapter::supportsAdvisoryLocks()
+	 */
+	public function supportsAdvisoryLocks(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * `sp_getapplock`, with `@LockOwner = 'Session'` so the lock is not tied
+	 * to a transaction -- the default there is `'Transaction'`, which SQL
+	 * Server additionally *requires* to be inside an explicit transaction and
+	 * which releases at the next COMMIT/ROLLBACK. Neither matches this hook's
+	 * contract.
+	 *
+	 * `@LockTimeout` is in milliseconds, with -1 meaning "wait indefinitely",
+	 * so all three timeout shapes map directly with no emulation.
+	 *
+	 * The return code is an output parameter in T-SQL, so it is captured into
+	 * a local and selected back: 0 (granted) and 1 (granted after waiting) are
+	 * success; -1 (timeout), -2 (cancelled), -3 (deadlock victim) and -999
+	 * (parameter/other error) are not. Only the negatives are treated as "not
+	 * acquired", so an unexpected code cannot read as success.
+	 *
+	 * @see       DBAdapter::acquireAdvisoryLock()
+	 */
+	public function acquireAdvisoryLock(PropulsionPDO $con, string $name, ?float $timeout = null): bool
+	{
+		$milliseconds = $timeout === null ? -1 : ($timeout <= 0.0 ? 0 : (int) ceil($timeout * 1000));
+
+		$result = $this->fetchAdvisoryLockResult(
+			$con,
+			'DECLARE @result int; '
+			. "EXEC @result = sp_getapplock @Resource = :p1, @LockMode = 'Exclusive', "
+			. '@LockOwner = \'Session\', @LockTimeout = :p2; '
+			. 'SELECT @result',
+			array($name, $milliseconds)
+		);
+
+		return is_numeric($result) && (int) $result >= 0;
+	}
+
+	/**
+	 * @see       DBAdapter::releaseAdvisoryLock()
+	 */
+	public function releaseAdvisoryLock(PropulsionPDO $con, string $name): bool
+	{
+		// 0 = released, -999 = this session did not hold it. sp_releaseapplock
+		// raises rather than returning for the latter on some versions, so the
+		// error is caught and reported as "there was nothing to release",
+		// which is what a caller releasing in a finally needs.
+		try {
+			$result = $this->fetchAdvisoryLockResult(
+				$con,
+				'DECLARE @result int; '
+				. "EXEC @result = sp_releaseapplock @Resource = :p1, @LockOwner = 'Session'; "
+				. 'SELECT @result',
+				array($name)
+			);
+		} catch (\PDOException) {
+			return false;
+		}
+
+		return is_numeric($result) && (int) $result === 0;
+	}
+
+	/**
 	 * @see       DBAdapter::random()
 	 *
 	 * @param     string  $seed

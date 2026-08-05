@@ -396,9 +396,62 @@ These are gaps in the shared query builder — confirmed absent by grep across
     `storageParameters` attribute already passes through verbatim
     (`WITH (m=16, ef_construction=64)` works today; the session-level
     `hnsw.ef_search` GUC is a runtime setting, not schema).
-- [ ] **Named / advisory locks** — Pg `pg_advisory_lock`, MySQL `GET_LOCK`,
-  MSSQL `sp_getapplock`, Oracle `DBMS_LOCK`. A uniform cross-platform
-  app-level mutex; nothing in the tree references any of them.
+- [x] **Named / advisory locks** — `Propulsion::withAdvisoryLock(string $name,
+  callable $work, ?float $timeout = null, ?string $dbName = null)`, plus
+  `acquireAdvisoryLock()`/`releaseAdvisoryLock()` for a lock whose lifetime
+  doesn't fit a closure and `supportsAdvisoryLocks()` to branch on. Full
+  documentation in `docs/CONNECTIONS.md` §4, which is where this belongs: it
+  is a connection-scoped facility, not a query-builder one, and sits next to
+  `Propulsion::transaction()` for the same reason. Three adapter hooks
+  (`supportsAdvisoryLocks()`/`acquireAdvisoryLock()`/`releaseAdvisoryLock()`)
+  over `pg_advisory_lock` (Postgres), `GET_LOCK` (MySQL/MariaDB),
+  `sp_getapplock` (MSSQL) and `DBMS_LOCK.REQUEST` (Oracle).
+  - **Session-scoped everywhere, uniformly** -- `pg_advisory_lock` not
+    `pg_advisory_xact_lock`, `@LockOwner = 'Session'` not the T-SQL default
+    `'Transaction'`, `release_on_commit => FALSE` on Oracle. A lock that
+    evaporated at the next COMMIT would be useless for the job-queue and
+    cron-singleton cases this exists for, and the platforms' defaults disagree
+    about that, so each is pinned explicitly.
+  - **Timeout semantics are uniform too** (`null` waits, `0.0` tries once, a
+    positive value waits that long), which took real per-platform work:
+    MySQL/MSSQL/Oracle each take a timeout argument directly, but **Postgres
+    has no timeout-taking advisory-lock function at all** -- the finite case
+    sets `lock_timeout` around a blocking `pg_advisory_lock` and restores the
+    session's previous value afterwards (restores, not resets to DEFAULT, so a
+    deployment setting its own doesn't silently lose it), catching only
+    SQLSTATE `55P03` so a real failure can't be reported as "busy". Polling
+    `pg_try_advisory_lock` to a deadline was the alternative and is worse: a
+    busy loop that also can't wake the instant the lock frees. Where the
+    primitive takes whole seconds (MySQL, Oracle) a sub-second timeout is
+    rounded **up** -- rounding down turns "wait briefly" into "don't wait",
+    which is a different operation.
+  - Failure to acquire throws a dedicated `AdvisoryLockTimeoutException`
+    rather than a generic one: "somebody else has it" is the expected answer
+    to asking for a mutex with a timeout, and a caller wanting to log-and-skip
+    on that must be able to tell it from a database fault it should not
+    swallow.
+  - **SQLite has no named-lock primitive** (whole-database locking only), so
+    `supportsAdvisoryLocks()` is false there and the facade throws instead of
+    running the closure unserialised -- precisely the outcome the caller is
+    trying to prevent, so silently passing through would be the worst
+    available behaviour.
+  - **Not re-entrant, deliberately.** Nesting the same name on one connection
+    behaves differently on each platform (MySQL 5.7+/Oracle re-grant, Postgres
+    counts, MSSQL grants) and the inner release would free a lock the outer
+    scope still believes it holds. Documented rather than emulated with a
+    process-local depth counter, which would be a second source of truth about
+    a lock the database already owns.
+  - Live-verified two ways: against the Postgres testcontainer with a *second
+    real connection* standing in for the other process (`AdvisoryLockTest` --
+    mutual exclusion, release-on-throw, zero and finite timeouts, the
+    `lock_timeout` restore, and survival across a COMMIT), and by hand against
+    a real MariaDB 11.8 server for the `GET_LOCK` path (including that a 0.4s
+    timeout really waits the rounded-up 1.0s). **MSSQL and Oracle are
+    implemented from documented semantics and not live-verified** -- no
+    container for either was to hand, and Oracle additionally needs a
+    `GRANT EXECUTE ON DBMS_LOCK` a stock image doesn't have. Recorded in
+    `docs/CONNECTIONS.md`'s own "still not handled" list rather than left
+    implicit.
 - [x] **Bulk load path** — Pg `COPY FROM STDIN`, MySQL `LOAD DATA`, MSSQL
   `BULK INSERT`. An order of magnitude faster than multi-row `INSERT` for
   seeding and imports. Complements (does not duplicate) the "Statement

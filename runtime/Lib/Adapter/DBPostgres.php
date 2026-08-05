@@ -383,6 +383,82 @@ class DBPostgres extends DBAdapter
 	}
 
 	/**
+	 * @see       DBAdapter::supportsAdvisoryLocks()
+	 */
+	public function supportsAdvisoryLocks(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * `pg_advisory_lock` family, keyed by the 63-bit hash of the lock name
+	 * (Postgres's advisory locks are numbered, not named).
+	 *
+	 * Session-scoped (`pg_advisory_lock`, not `pg_advisory_xact_lock`) so the
+	 * lock outlives a COMMIT, matching the contract every other adapter here
+	 * implements and the one the cron-singleton/job-queue use cases need.
+	 *
+	 * Three timeout shapes, three mechanisms:
+	 *
+	 *  - **0.0**: `pg_try_advisory_lock`, which returns immediately.
+	 *  - **null**: `pg_advisory_lock`, which blocks until it wins.
+	 *  - **finite**: `pg_advisory_lock` with `lock_timeout` set around it.
+	 *    Postgres has no timeout-taking advisory-lock function, and the
+	 *    alternative -- polling `pg_try_advisory_lock` until a deadline --
+	 *    trades a server-side wait for a busy loop that also cannot be woken
+	 *    the instant the lock frees. `lock_timeout` genuinely applies to
+	 *    advisory-lock waits, and is restored to its previous value
+	 *    afterwards rather than reset to DEFAULT, so this cannot clobber a
+	 *    deployment that sets its own.
+	 *
+	 * @see       DBAdapter::acquireAdvisoryLock()
+	 */
+	public function acquireAdvisoryLock(PropulsionPDO $con, string $name, ?float $timeout = null): bool
+	{
+		$key = $this->advisoryLockKey($name);
+
+		if ($timeout !== null && $timeout <= 0.0) {
+			return (bool) $this->fetchAdvisoryLockResult($con, 'SELECT pg_try_advisory_lock(:p1)', array($key));
+		}
+
+		if ($timeout === null) {
+			$this->fetchAdvisoryLockResult($con, 'SELECT pg_advisory_lock(:p1)', array($key));
+
+			return true;
+		}
+
+		$previous = $this->fetchAdvisoryLockResult($con, 'SHOW lock_timeout');
+		$con->exec('SET lock_timeout = ' . (int) ceil($timeout * 1000));
+		try {
+			$this->fetchAdvisoryLockResult($con, 'SELECT pg_advisory_lock(:p1)', array($key));
+
+			return true;
+		} catch (\PDOException $e) {
+			// 55P03 lock_not_available is what lock_timeout raises; anything
+			// else is a real failure and must not be reported as "busy".
+			if ($this->extractSqlState($e) !== '55P03') {
+				throw $e;
+			}
+
+			return false;
+		} finally {
+			$con->exec('SET lock_timeout = ' . $con->quote(is_string($previous) ? $previous : '0'));
+		}
+	}
+
+	/**
+	 * @see       DBAdapter::releaseAdvisoryLock()
+	 */
+	public function releaseAdvisoryLock(PropulsionPDO $con, string $name): bool
+	{
+		return (bool) $this->fetchAdvisoryLockResult(
+			$con,
+			'SELECT pg_advisory_unlock(:p1)',
+			array($this->advisoryLockKey($name))
+		);
+	}
+
+	/**
 	 * pgvector's distance operators. All four are infix and all four are
 	 * "smaller is closer", which is what lets an HNSW/IVFFlat index serve an
 	 * `ORDER BY ... LIMIT n` from them -- including `<#>`, which is the

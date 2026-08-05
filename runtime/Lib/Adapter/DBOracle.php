@@ -407,6 +407,103 @@ class DBOracle extends DBAdapter
 	}
 
 	/**
+	 * @see       DBAdapter::supportsAdvisoryLocks()
+	 */
+	public function supportsAdvisoryLocks(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * `DBMS_LOCK.ALLOCATE_UNIQUE` + `DBMS_LOCK.REQUEST`, in one anonymous
+	 * PL/SQL block so the allocated handle never has to make a round trip.
+	 *
+	 * **This needs `GRANT EXECUTE ON DBMS_LOCK` and does not have it by
+	 * default.** Oracle restricts the package because a lock taken with
+	 * `release_on_commit => FALSE` (which is what this hook's contract
+	 * requires) survives until the session ends. There is nothing this
+	 * adapter can do about that beyond failing loudly, which it does: the
+	 * ORA-06550/ORA-00904 an ungranted schema produces is passed straight
+	 * through rather than swallowed into a "lock busy" false, because those
+	 * are not the same situation and only one of them is worth retrying.
+	 *
+	 * `ALLOCATE_UNIQUE` maps an arbitrary name onto a handle and commits its
+	 * own bookkeeping transaction as a side effect -- an Oracle-specific
+	 * wrinkle worth knowing about before calling this mid-transaction. The
+	 * name is truncated to `ALLOCATE_UNIQUE`'s own 128-character limit by
+	 * Oracle itself; it is not pre-hashed here for the same reason MySQL's
+	 * isn't (a silent truncation that collides is worse than an error).
+	 *
+	 * `REQUEST`'s timeout is whole seconds, with `DBMS_LOCK.MAXWAIT`
+	 * (2^31 - 1) standing in for "indefinitely"; 0 returns immediately.
+	 * Status 0 is "acquired", 4 is "already held by this session" (also a
+	 * success -- the caller has it either way), and 1/2/3/5 are timeout,
+	 * deadlock, parameter error and illegal handle.
+	 *
+	 * @see       DBAdapter::acquireAdvisoryLock()
+	 */
+	public function acquireAdvisoryLock(PropulsionPDO $con, string $name, ?float $timeout = null): bool
+	{
+		$seconds = $timeout === null ? 2147483647 : ($timeout <= 0.0 ? 0 : (int) ceil($timeout));
+
+		$status = $this->runLockBlock(
+			$con,
+			'DECLARE l_handle VARCHAR2(128); BEGIN '
+			. 'DBMS_LOCK.ALLOCATE_UNIQUE(:lock_name, l_handle); '
+			. ':lock_status := DBMS_LOCK.REQUEST(lockhandle => l_handle, lockmode => DBMS_LOCK.X_MODE, '
+			. 'timeout => :lock_timeout, release_on_commit => FALSE); END;',
+			$name,
+			$seconds
+		);
+
+		return in_array($status, array(0, 4), true);
+	}
+
+	/**
+	 * @see       DBAdapter::releaseAdvisoryLock()
+	 */
+	public function releaseAdvisoryLock(PropulsionPDO $con, string $name): bool
+	{
+		$status = $this->runLockBlock(
+			$con,
+			'DECLARE l_handle VARCHAR2(128); BEGIN '
+			. 'DBMS_LOCK.ALLOCATE_UNIQUE(:lock_name, l_handle); '
+			. ':lock_status := DBMS_LOCK.RELEASE(lockhandle => l_handle); END;',
+			$name,
+			null
+		);
+
+		return $status === 0;
+	}
+
+	/**
+	 * Runs one of the two DBMS_LOCK PL/SQL blocks above and returns the status
+	 * it wrote to `:lock_status`.
+	 *
+	 * An anonymous block has no result set, so the status comes back through
+	 * an OUT bind -- the same mechanism (and the same reason for it) as
+	 * prepareInsertReturning()'s `:ret_id`, which is why this cannot use the
+	 * base class's fetchAdvisoryLockResult() helper the other three adapters
+	 * share.
+	 */
+	private function runLockBlock(PropulsionPDO $con, string $sql, string $name, ?int $timeoutSeconds): int
+	{
+		$stmt = $con->prepare($sql);
+		if ($stmt === false) {
+			throw new PropulsionException('PropulsionPDO::prepare() returned false for a DBMS_LOCK block');
+		}
+		$status = 0;
+		$stmt->bindValue(':lock_name', $name, PDO::PARAM_STR);
+		if ($timeoutSeconds !== null) {
+			$stmt->bindValue(':lock_timeout', $timeoutSeconds, PDO::PARAM_INT);
+		}
+		$stmt->bindParam(':lock_status', $status, PDO::PARAM_INT, 40);
+		$stmt->execute();
+
+		return (int) $status;
+	}
+
+	/**
 	 * @param     string  $seed
 	 * @return    string
 	 */

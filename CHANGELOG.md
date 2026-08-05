@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Named (advisory) locks** (`docs/CONNECTIONS.md` §4).
+  `Propulsion::withAdvisoryLock($name, $work, $timeout)` takes a cross-platform
+  application-level mutex — `pg_advisory_lock`, `GET_LOCK`, `sp_getapplock`,
+  `DBMS_LOCK` — scoped to the connection rather than the transaction, released
+  in a `finally`. Contention throws `AdvisoryLockTimeoutException`, which is
+  distinct from a database fault on purpose. SQLite has no such primitive and
+  throws rather than running the closure unserialised.
 - **Vector similarity queries.** `VectorExpression::cosineDistance()` (and L2,
   L1, inner product) builds a distance expression for `withColumn()`/`orderBy()`,
   rendered per platform via a new `DBAdapter::getVectorDistanceSql()` hook. A

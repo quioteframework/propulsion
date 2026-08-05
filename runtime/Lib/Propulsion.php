@@ -26,6 +26,7 @@ namespace Propulsion;
  * @version    $Revision$
  */
 use Propulsion\Config\PropulsionConfiguration;
+use Propulsion\Exception\AdvisoryLockTimeoutException;
 use Propulsion\Exception\PropulsionException;
 use Propulsion\Map\DatabaseMap;
 use Propulsion\Connection\PropulsionPDO;
@@ -1242,6 +1243,181 @@ class Propulsion
 		$con->commit();
 
 		return $result;
+	}
+
+	/**
+	 * Run a closure while holding a named application-level ("advisory") lock,
+	 * releasing it afterwards whatever happens.
+	 *
+	 *     Propulsion::withAdvisoryLock('nightly-invoice-run', function () {
+	 *         // at most one process in the cluster is in here
+	 *     });
+	 *
+	 * The lock is a mutex the database only stores and arbitrates; it is
+	 * attached to no row and no table, and the database cares nothing about
+	 * what the name means. That is what makes it the right tool for "only one
+	 * worker should do this at a time" -- a job queue's dispatcher, a cron
+	 * entry running on three app servers, a migration guard -- where there is
+	 * no row to take a `FOR UPDATE` on, or where the work is not a database
+	 * write at all.
+	 *
+	 * **Scoped to the connection, not the transaction.** Every platform's
+	 * primitive is used in its session-scoped form, so a COMMIT inside the
+	 * closure does not drop the lock. It is released in a `finally`, and by
+	 * the connection closing if the process dies -- the database is the one
+	 * component that can be relied on to clean up after a crashed holder,
+	 * which is the main reason to prefer this over a lock table.
+	 *
+	 * **Re-entrancy is not provided.** Nesting two calls with the same name on
+	 * one connection behaves differently per platform (MySQL 5.7+ and Oracle
+	 * grant it again, Postgres counts it, MSSQL grants it) and the inner
+	 * release would then free a lock the outer scope still believes it holds.
+	 * Don't nest the same name.
+	 *
+	 * @param      string   $name    The lock name. Platform limits apply and are
+	 *                               not papered over: MySQL rejects names over 64
+	 *                               characters, Oracle over 128. Postgres has no
+	 *                               limit because the name is hashed to an integer
+	 *                               there -- see DBAdapter::advisoryLockKey().
+	 * @param      callable(PropulsionPDO): mixed $work Called with the connection
+	 *                               holding the lock. Use *that* connection for
+	 *                               work that must be covered by it.
+	 * @param      ?float   $timeout Seconds to wait for the lock: null (the
+	 *                               default) waits indefinitely, 0.0 gives up
+	 *                               immediately if it is held, and a positive
+	 *                               value waits at most that long. Sub-second
+	 *                               values are rounded *up* on the platforms
+	 *                               whose primitive takes whole seconds
+	 *                               (MySQL, Oracle), because rounding down would
+	 *                               turn "wait briefly" into "don't wait".
+	 * @param      ?string  $dbName  Datasource, defaulting to the default one.
+	 *
+	 * @return     mixed Whatever $work returned.
+	 *
+	 * @throws     AdvisoryLockTimeoutException If the lock could not be acquired
+	 *                               within $timeout. Distinct from a generic
+	 *                               failure on purpose: "someone else has it" is
+	 *                               an ordinary, expected outcome a caller may
+	 *                               well want to catch and skip on, rather than
+	 *                               an error.
+	 * @throws     PropulsionException If the platform has no advisory locks
+	 *                               (SQLite). Deliberately fatal rather than a
+	 *                               silent pass-through: running the closure
+	 *                               unserialised is precisely the outcome the
+	 *                               caller is trying to prevent.
+	 * @throws     \Throwable Whatever $work threw.
+	 */
+	public static function withAdvisoryLock(string $name, callable $work, ?float $timeout = null, ?string $dbName = null)
+	{
+		$adapter = self::getDB($dbName);
+		// Capability first, connection second: "this platform cannot do it at
+		// all" is the more useful error, and opening a connection to find that
+		// out would bury it behind a configuration one.
+		self::requireAdvisoryLockSupport($adapter, $dbName);
+		$con = self::advisoryLockConnection($dbName);
+
+		if (!$adapter->acquireAdvisoryLock($con, $name, $timeout)) {
+			throw new AdvisoryLockTimeoutException($name, $timeout);
+		}
+
+		try {
+			return $work($con);
+		} finally {
+			$adapter->releaseAdvisoryLock($con, $name);
+		}
+	}
+
+	/**
+	 * Takes out a named lock and leaves it held, for the cases
+	 * {@see withAdvisoryLock()}'s scope doesn't fit -- a lock spanning several
+	 * top-level operations, or one whose release is driven by something other
+	 * than a closure returning.
+	 *
+	 * The caller then owns releasing it via {@see releaseAdvisoryLock()}, on
+	 * the same datasource. Prefer withAdvisoryLock() where it fits: its
+	 * `finally` is the difference between a crashed request releasing the lock
+	 * and it being held until the connection is reaped.
+	 *
+	 * @param      string  $name
+     * @param      ?float  $timeout See withAdvisoryLock().
+	 * @param      ?string $dbName
+	 *
+	 * @return     bool Whether the lock is now held.
+	 * @throws     PropulsionException If the platform has no advisory locks.
+	 */
+	public static function acquireAdvisoryLock(string $name, ?float $timeout = null, ?string $dbName = null): bool
+	{
+		$adapter = self::getDB($dbName);
+		self::requireAdvisoryLockSupport($adapter, $dbName);
+
+		return $adapter->acquireAdvisoryLock(self::advisoryLockConnection($dbName), $name, $timeout);
+	}
+
+	/**
+	 * Releases a lock taken with {@see acquireAdvisoryLock()}.
+	 *
+	 * @param      string  $name
+	 * @param      ?string $dbName
+	 *
+	 * @return     bool Whether this datasource's connection was holding it. False
+	 *                  is informational rather than an error -- see
+	 *                  DBAdapter::releaseAdvisoryLock().
+	 * @throws     PropulsionException If the platform has no advisory locks.
+	 */
+	public static function releaseAdvisoryLock(string $name, ?string $dbName = null): bool
+	{
+		$adapter = self::getDB($dbName);
+		self::requireAdvisoryLockSupport($adapter, $dbName);
+
+		return $adapter->releaseAdvisoryLock(self::advisoryLockConnection($dbName), $name);
+	}
+
+	/**
+	 * Whether $dbName's platform has advisory locks at all, for a caller that
+	 * wants to degrade gracefully (say, to a single-instance deployment
+	 * assumption on SQLite) rather than catch the exception the three methods
+	 * above throw.
+	 */
+	public static function supportsAdvisoryLocks(?string $dbName = null): bool
+	{
+		return self::getDB($dbName)->supportsAdvisoryLocks();
+	}
+
+	/**
+	 * The write connection, which is where an advisory lock is taken.
+	 *
+	 * Always the write connection even for read-only work, and never a slave:
+	 * an advisory lock lives on one session, so acquiring and releasing it
+	 * have to land on the same connection, and the read pool makes no such
+	 * promise. Callers that need their queries covered by the lock get that
+	 * connection handed to them for exactly this reason.
+	 */
+	private static function advisoryLockConnection(?string $dbName): PropulsionPDO
+	{
+		$con = self::getWriteConnection($dbName);
+		if (!$con instanceof PropulsionPDO) {
+			throw new PropulsionException(
+				'Advisory locks need a PropulsionPDO connection for datasource ['
+				. ($dbName ?? self::getDefaultDB()) . '], got a ' . get_debug_type($con)
+			);
+		}
+
+		return $con;
+	}
+
+	private static function requireAdvisoryLockSupport(DBAdapter $adapter, ?string $dbName): void
+	{
+		if ($adapter->supportsAdvisoryLocks()) {
+			return;
+		}
+
+		throw new PropulsionException(sprintf(
+			'%s (datasource [%s]) has no advisory locks. SQLite locks the whole database and has no '
+			. 'named-lock primitive; use Propulsion::supportsAdvisoryLocks() to branch if the '
+			. 'deployment can tolerate running unserialised.',
+			get_class($adapter),
+			$dbName ?? self::getDefaultDB()
+		));
 	}
 
 	/**

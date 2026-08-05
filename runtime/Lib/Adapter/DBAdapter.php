@@ -1129,6 +1129,126 @@ abstract class DBAdapter
 	}
 
 	/**
+	 * Whether this platform has an application-level named ("advisory") lock --
+	 * a mutex the application takes out by name, which the database only stores
+	 * and arbitrates and never associates with any row or table of its own.
+	 *
+	 * True for Postgres (`pg_advisory_lock`), MySQL/MariaDB (`GET_LOCK`), MSSQL
+	 * (`sp_getapplock`) and Oracle (`DBMS_LOCK`). False for SQLite, which locks
+	 * at whole-database granularity and has no named-lock primitive at all --
+	 * {@see \Propulsion\Propulsion::withAdvisoryLock()} throws there rather
+	 * than silently running unserialised work, which is the failure mode the
+	 * caller is specifically trying to avoid.
+	 *
+	 * @return    bool
+	 */
+	public function supportsAdvisoryLocks(): bool
+	{
+		return false;
+	}
+
+	/**
+	 * Takes out the named lock on $con, returning whether it was acquired.
+	 *
+	 * **The lock belongs to the connection, not to the process.** Every
+	 * platform below scopes it to the session, so it is released by
+	 * {@see releaseAdvisoryLock()} on the *same* connection or by that
+	 * connection closing -- never by a COMMIT or ROLLBACK. That is deliberate
+	 * and uniform: a lock that quietly evaporated at the next commit would be
+	 * useless for the job-queue and cron-singleton cases this exists for.
+	 *
+	 * $timeout is in seconds: null waits indefinitely, 0.0 tries once and
+	 * returns false immediately if the lock is held, and a positive value
+	 * waits at most that long. Sub-second values are honoured where the
+	 * platform can express them and rounded up to whole seconds where it
+	 * cannot (see each adapter).
+	 *
+	 * @param     PropulsionPDO $con
+	 * @param     string        $name    Caller-chosen lock name.
+	 * @param     ?float        $timeout Seconds to wait; null for indefinitely.
+	 *
+	 * @return    bool True if the lock is now held by $con.
+	 * @throws    PropulsionException If this platform has no advisory locks.
+	 */
+	public function acquireAdvisoryLock(PropulsionPDO $con, string $name, ?float $timeout = null): bool
+	{
+		throw new PropulsionException(static::class . ' does not support advisory locks');
+	}
+
+	/**
+	 * Releases a lock taken out by {@see acquireAdvisoryLock()} on this same
+	 * connection, returning whether there was one to release.
+	 *
+	 * A false return is informational, not an error: it means this connection
+	 * did not hold the lock (already released, never taken, or taken by
+	 * someone else). Callers that release in a `finally` should not treat it
+	 * as a failure.
+	 *
+	 * @param     PropulsionPDO $con
+	 * @param     string        $name
+	 *
+	 * @return    bool
+	 * @throws    PropulsionException If this platform has no advisory locks.
+	 */
+	public function releaseAdvisoryLock(PropulsionPDO $con, string $name): bool
+	{
+		throw new PropulsionException(static::class . ' does not support advisory locks');
+	}
+
+	/**
+	 * A stable 63-bit integer derived from an arbitrary lock name, for the
+	 * platforms whose advisory-lock primitive is keyed by a number rather than
+	 * by a string (Postgres's `pg_advisory_lock(bigint)`).
+	 *
+	 * SHA-256's first eight bytes, masked to 63 bits so the result is always a
+	 * non-negative PHP int and cannot depend on how the platform reads the
+	 * sign bit of a `bigint`. Collisions are possible in principle and
+	 * irrelevant in practice at 2^63; the alternative -- making the caller
+	 * supply the integer -- pushes exactly this problem onto them while losing
+	 * the cross-platform name-based API this hook exists to provide.
+	 *
+	 * @param     string $name
+	 *
+	 * @return    int
+	 */
+	protected function advisoryLockKey(string $name): int
+	{
+		$unpacked = unpack('J', substr(hash('sha256', $name, true), 0, 8));
+		if ($unpacked === false || !isset($unpacked[1]) || !is_int($unpacked[1])) {
+			throw new PropulsionException('Could not derive an advisory lock key for ' . $name);
+		}
+
+		return $unpacked[1] & 0x7FFFFFFFFFFFFFFF;
+	}
+
+	/**
+	 * Runs a single-value SQL query on $con and returns the first column of
+	 * the first row -- the shape every advisory-lock primitive below answers
+	 * in (`SELECT pg_try_advisory_lock(...)`, `SELECT GET_LOCK(...)`).
+	 *
+	 * @param     PropulsionPDO      $con
+	 * @param     string             $sql
+	 * @param     array<int, mixed>  $params Bound positionally as :p1, :p2, ...
+	 *
+	 * @return    mixed
+	 */
+	protected function fetchAdvisoryLockResult(PropulsionPDO $con, string $sql, array $params = array()): mixed
+	{
+		$stmt = $con->prepare($sql);
+		if ($stmt === false) {
+			throw new PropulsionException('PropulsionPDO::prepare() returned false for [' . $sql . ']');
+		}
+		$position = 0;
+		foreach ($params as $value) {
+			$position++;
+			$stmt->bindValue(':p' . $position, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+		}
+		$stmt->execute();
+
+		return $stmt->fetchColumn();
+	}
+
+	/**
 	 * The SQL for the distance between a vector column and a query vector --
 	 * see {@see \Propulsion\Query\VectorExpression}, which is the intended
 	 * caller and which validates $vectorLiteral before it gets here.
