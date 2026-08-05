@@ -73,7 +73,11 @@ abstract class BaseObject
 	 * in_array(), and repeated setter calls can't accumulate duplicate entries.
 	 * The public API (getModifiedColumns()) still returns a plain list of names.
 	 *
-	 * @var        array<string,true>
+	 * Model classes generated before that change append to this array instead
+	 * ($modifiedColumns[] = Peer::COL), which is why the reads below tolerate
+	 * integer-keyed entries -- see normalizeModifiedColumns().
+	 *
+	 * @var        array<int|string,string|true>
 	 */
 	protected array $modifiedColumns = array();
 
@@ -190,6 +194,10 @@ abstract class BaseObject
 	 */
 	public function isColumnModified($col)
 	{
+		if (isset($this->modifiedColumns[0])) {
+			$this->normalizeModifiedColumns();
+		}
+
 		return isset($this->modifiedColumns[$col]);
 	}
 
@@ -199,7 +207,56 @@ abstract class BaseObject
 	 */
 	public function getModifiedColumns()
 	{
-		return array_keys($this->modifiedColumns);
+		if (isset($this->modifiedColumns[0])) {
+			$this->normalizeModifiedColumns();
+		}
+
+		// Cast because a column name is an array key here, and PHP silently
+		// turns an all-digits key into an int on the way in.
+		$columns = array();
+		foreach (array_keys($this->modifiedColumns) as $col) {
+			$columns[] = (string) $col;
+		}
+
+		return $columns;
+	}
+
+	/**
+	 * Fold list-style entries in $modifiedColumns into the set representation
+	 * this class reads.
+	 *
+	 * Generated model classes write to $modifiedColumns directly, and they live
+	 * in the *application's* repository -- so an application can (and in
+	 * practice does) upgrade the runtime long before it regenerates its object
+	 * model. Classes generated before the set representation landed still do
+	 * `$this->modifiedColumns[] = Peer::COL`, which lands under an integer key
+	 * and is invisible to isset($this->modifiedColumns[$col]). The failure mode
+	 * is silent and total: isColumnModified() answers false for every column, so
+	 * buildCriteria() returns an empty Criteria and every insert/update writes
+	 * nothing (an insert dies in BasePeer::doInsert() with "Database insert
+	 * attempted without anything specified to insert"; an update simply saves
+	 * no columns at all).
+	 *
+	 * Any `[] =` append produces key 0 whenever the array holds only string
+	 * keys, so `isset($this->modifiedColumns[0])` is a complete -- and, on the
+	 * hot path where nothing legacy is present, free -- detector for it.
+	 *
+	 * @return void
+	 */
+	private function normalizeModifiedColumns(): void
+	{
+		$normalized = array();
+		foreach ($this->modifiedColumns as $key => $value) {
+			if (is_int($key)) {
+				if (is_string($value)) {
+					$normalized[$value] = true;
+				}
+			} else {
+				$normalized[$key] = true;
+			}
+		}
+
+		$this->modifiedColumns = $normalized;
 	}
 
 	/**
@@ -376,6 +433,9 @@ abstract class BaseObject
 		public function resetModified($col = null)
 		{
 			if ($col !== null) {
+				if (isset($this->modifiedColumns[0])) {
+					$this->normalizeModifiedColumns();
+				}
 				unset($this->modifiedColumns[$col]);
 			} else {
 				$this->modifiedColumns = array();

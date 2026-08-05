@@ -22,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Object classes generated before the modified-columns set landed still
+  save.** Such classes append to `$modifiedColumns` instead of keying by column
+  name; the runtime saw none of those entries, so every insert/update wrote
+  nothing (an insert died with "Database insert attempted without anything
+  specified to insert"). Both shapes are now understood.
 - **Migrated (Propel) configurations connect again.** A bare PDO option name
   such as `ATTR_PERSISTENT` -- what Propel's `convert-conf` emitted -- resolved
   only against `Propulsion\Connection\PropulsionPDO`, which became an interface
