@@ -56,7 +56,11 @@ rm -rf fixtures/bookstore/build fixtures/schemas/build fixtures/namespaced/build
 - **MariaDB**: served by `DBMySQL`/`MysqlPlatform` as though it were MySQL
   (`DBMySQL::isMariaDb()` detects it at the runtime-connection level for the
   few things that already need to differ, e.g. `RETURNING`), no dedicated
-  `MariadbPlatform`. Not run in CI.
+  `MariadbPlatform`. Covered by its own full-suite CI job
+  (`integration-mariadb`, `mariadb:11`) since 2026-08-05, so the MariaDB-only
+  paths -- `RETURNING`, and `MysqlPlatform`'s `CREATE SEQUENCE`/native-UUID
+  opt-ins -- are no longer verified only by hand. A dedicated platform/adapter
+  pair is still the open item here, not the coverage.
 
 ## Known-open, deliberately not fixed
 

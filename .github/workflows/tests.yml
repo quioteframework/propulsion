@@ -143,6 +143,63 @@ jobs:
           PROPULSION_REQUIRE_INTEGRATION: '1'
         run: ../vendor/bin/phpunit -c phpunit.xml
 
+  integration-mariadb:
+    name: Full suite (with Docker/MariaDB)
+    runs-on: ubuntu-latest
+    # Blocking: 0 errors/0 failures on a clean local run of the whole suite
+    # against mariadb:11 (2026-08-05), verified alongside Postgres and MySQL runs
+    # of the same tree so a failure here means MariaDB, not a general regression.
+    #
+    # This tier exists because MariaDB is not "MySQL, near enough" to this
+    # codebase: DBMySQL::isMariaDb() probes the live server's version string and
+    # gates real behaviour on it -- RETURNING for INSERT and for
+    # UPDATE/DELETE ... RETURNING, which MySQL proper has no equivalent of -- and
+    # MysqlPlatform has MariaDB-only opt-ins (CREATE SEQUENCE, native UUID). None
+    # of that executes under PROPULSION_TEST_DB=mysql, so until this job existed
+    # every one of those paths was covered only by whoever remembered to run
+    # `PROPULSION_TEST_DB=mariadb` by hand.
+    #
+    # It earned itself immediately: the first run found a test correlating an
+    # EXISTS subquery as `Review.BookId = Book.Id`, which passes on Postgres only
+    # because unquoted identifiers fold to lower case there. MySQL-family servers
+    # on Linux do not fold table names, so it was an "Unknown column" error -- and
+    # it would have broken the MySQL, MSSQL and Oracle jobs too, not just this one.
+    #
+    # No MariadbContainer module ships in testcontainers/testcontainers, so
+    # IntegrationDatabase builds one on GenericContainer; see that class for why
+    # (the healthcheck binary is mariadb-admin, not mysqladmin).
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          # Same driver as real MySQL: there is no separate pdo_mariadb.
+          extensions: pdo, pdo_sqlite, pdo_pgsql, pdo_mysql, mbstring, xml, simplexml
+          coverage: none
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Run full PHPUnit suite (starts its own MariaDB testcontainer)
+        working-directory: test
+        env:
+          PROPULSION_TEST_DB: mariadb
+          PROPULSION_REQUIRE_INTEGRATION: '1'
+        run: ../vendor/bin/phpunit -c phpunit.xml
+
   integration-mssql:
     name: Full suite (with Docker/MSSQL)
     runs-on: ubuntu-latest

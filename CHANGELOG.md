@@ -35,6 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- MariaDB now has its own full-suite CI job, so the MariaDB-only code paths
+  (`RETURNING`, `CREATE SEQUENCE`, native UUID) are verified on every push
+  rather than by hand.
 - `useDebug(false)` resets the statement class to `PropulsionStatement` rather
   than a plain `PDOStatement`, so turning debugging off no longer turns
   dropped-connection detection off with it.

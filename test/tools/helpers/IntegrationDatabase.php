@@ -44,9 +44,8 @@ use Propulsion\Generator\Util\PropulsionSQLParser;
  * since they try to open a `pgsql:` DSN against a differently-flavored container
  * and fail the same way they would with no Docker at all.
  *
- * MSSQL and Oracle each have their own full-suite CI job, the same as Postgres and
- * MySQL (see .github/workflows/tests.yml). MariaDB is the one platform this class
- * supports that CI does not cover -- see KNOWN_ISSUES.md. Requirements to run
+ * Every platform this class supports -- Postgres, MySQL, MariaDB, MSSQL, Oracle --
+ * has its own full-suite CI job (see .github/workflows/tests.yml). Requirements to run
  * MSSQL/Oracle locally, since neither ships a PDO driver most PHP installs have
  * by default:
  *   - MSSQL: `pdo_dblib` (Debian/Ubuntu: the `php-sybase` package). No further

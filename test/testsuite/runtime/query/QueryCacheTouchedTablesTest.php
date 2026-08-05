@@ -433,7 +433,7 @@ class QueryCacheTouchedTablesTest extends TestCase
 		$c = BookQuery::create();
 		$c->addSelfSelectColumns();
 		$c->useExistsQuery('Review', function ($subQuery) {
-			$subQuery->where('Review.BookId = Book.Id');
+			$subQuery->where('review.BOOK_ID = book.ID');
 		});
 
 		$this->assertTouchedTables(array('book', 'review'), $c);

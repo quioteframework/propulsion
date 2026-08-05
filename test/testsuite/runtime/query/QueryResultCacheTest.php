@@ -120,7 +120,7 @@ class QueryResultCacheTest extends BookstoreTestBase
 			$query = new ModelCriteria('bookstore', 'Book');
 			$query->setQueryCache(true);
 			$query->useExistsQuery('Review', static function ($subQuery) {
-				$subQuery->where('Review.BookId = Book.Id');
+				$subQuery->where('review.BOOK_ID = book.ID');
 			});
 
 			return $query;
@@ -132,7 +132,7 @@ class QueryResultCacheTest extends BookstoreTestBase
 		// answer really does change.
 		$book = BookQuery::create()
 			->useExistsQuery('Review', static function ($subQuery) {
-				$subQuery->where('Review.BookId = Book.Id');
+				$subQuery->where('review.BOOK_ID = book.ID');
 			}, true)
 			->findOne($this->con);
 		$this->assertNotNull($book, 'the fixture needs at least one book with no reviews for this to prove anything');

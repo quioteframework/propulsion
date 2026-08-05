@@ -138,7 +138,8 @@ These are gaps in the shared query builder — confirmed absent by grep across
     backward-compatibility prefix some MariaDB builds still report), and
     gates every RETURNING-related hook on that. A `PROPULSION_TEST_DB=mariadb`
     testcontainer path (`test/tools/helpers/IntegrationDatabase.php`) was
-    added to verify this against a live `mariadb:11` server — not run in CI.
+    added to verify this against a live `mariadb:11` server, and is now a CI job
+    of its own (`integration-mariadb`).
     Confirmed, and unrelated to this feature: MariaDB has no
     `ONLY_FULL_GROUP_BY`-equivalent default `sql_mode`
     (`ModelCriteriaTest::testMagicGroupBy()` skips itself there now).
