@@ -9,6 +9,7 @@
  */
 namespace Propulsion\Cache;
 
+use Propulsion\Config\ConfigSectionReader;
 use Propulsion\Exception\PropulsionException;
 
 /**
@@ -30,6 +31,8 @@ use Propulsion\Exception\PropulsionException;
  */
 final readonly class QueryCacheConfig
 {
+    use ConfigSectionReader;
+
     /** Driver name meaning "the application supplies its own PSR-16 pool". */
     public const DRIVER_USER_SUPPLIED = 'psr16';
 
@@ -208,18 +211,9 @@ final readonly class QueryCacheConfig
         }
         self::rejectUnknownKeys($raw, ['beta', 'lock_ttl'], 'cache.query.stampede');
 
-        $beta = self::DEFAULT_BETA;
-        if (array_key_exists('beta', $raw)) {
-            $value = $raw['beta'];
-            if (!is_float($value) && !is_int($value)) {
-                throw new PropulsionException(
-                    'Propulsion configuration option "cache.query.stampede.beta" must be a number, got ' . get_debug_type($value)
-                );
-            }
-            $beta = (float) $value;
-            if ($beta < 0.0) {
-                throw new PropulsionException('Propulsion configuration option "cache.query.stampede.beta" must not be negative, got ' . $beta);
-            }
+        $beta = self::readFloat($raw, 'beta', self::DEFAULT_BETA, 'cache.query.stampede.beta');
+        if ($beta < 0.0) {
+            throw new PropulsionException('Propulsion configuration option "cache.query.stampede.beta" must not be negative, got ' . $beta);
         }
 
         $lockTtl = self::readInt($raw, 'lock_ttl', self::DEFAULT_LOCK_TTL, 'cache.query.stampede.lock_ttl');
@@ -245,101 +239,5 @@ final readonly class QueryCacheConfig
                 . $namespace . '": Check your configuration file'
             );
         }
-    }
-
-    /**
-     * @param  array<mixed, mixed> $section
-     * @param  list<string>        $known
-     * @throws PropulsionException
-     */
-    private static function rejectUnknownKeys(array $section, array $known, string $path): void
-    {
-        foreach (array_keys($section) as $key) {
-            if (!is_string($key) || !in_array($key, $known, true)) {
-                throw new PropulsionException(
-                    'Unknown Propulsion configuration option "' . $path . '.' . (is_string($key) ? $key : (string) $key)
-                    . '": Check your configuration file. Known options: ' . implode(', ', $known)
-                );
-            }
-        }
-    }
-
-    /**
-     * @param  array<mixed, mixed> $section
-     * @throws PropulsionException
-     */
-    private static function readBool(array $section, string $key, bool $default, string $path): bool
-    {
-        if (!array_key_exists($key, $section)) {
-            return $default;
-        }
-        $value = $section[$key];
-        if (!is_bool($value)) {
-            throw new PropulsionException(
-                'Propulsion configuration option "' . $path . '" must be a boolean, got ' . get_debug_type($value)
-            );
-        }
-
-        return $value;
-    }
-
-    /**
-     * @param  array<mixed, mixed> $section
-     * @throws PropulsionException
-     */
-    private static function readString(array $section, string $key, string $default, string $path): string
-    {
-        if (!array_key_exists($key, $section)) {
-            return $default;
-        }
-        $value = $section[$key];
-        if (!is_string($value)) {
-            throw new PropulsionException(
-                'Propulsion configuration option "' . $path . '" must be a string, got ' . get_debug_type($value)
-            );
-        }
-
-        return $value;
-    }
-
-    /**
-     * @param  array<mixed, mixed> $section
-     * @throws PropulsionException
-     */
-    private static function readInt(array $section, string $key, int $default, string $path): int
-    {
-        if (!array_key_exists($key, $section)) {
-            return $default;
-        }
-        $value = $section[$key];
-        if (!is_int($value)) {
-            throw new PropulsionException(
-                'Propulsion configuration option "' . $path . '" must be an integer, got ' . get_debug_type($value)
-            );
-        }
-
-        return $value;
-    }
-
-    /**
-     * @param  array<mixed, mixed> $section
-     * @throws PropulsionException
-     */
-    private static function readNullableInt(array $section, string $key, ?int $default, string $path): ?int
-    {
-        if (!array_key_exists($key, $section)) {
-            return $default;
-        }
-        $value = $section[$key];
-        if ($value === null) {
-            return null;
-        }
-        if (!is_int($value)) {
-            throw new PropulsionException(
-                'Propulsion configuration option "' . $path . '" must be an integer or null, got ' . get_debug_type($value)
-            );
-        }
-
-        return $value;
     }
 }
