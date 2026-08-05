@@ -407,6 +407,30 @@ class DBOracle extends DBAdapter
 	}
 
 	/**
+	 * @see       DBAdapter::supportsJsonPath()
+	 */
+	public function supportsJsonPath(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * `JSON_VALUE` (12c+) for a scalar and `JSON_QUERY` for an object or
+	 * array -- the same two-function split as T-SQL, and the same silent-NULL
+	 * consequence for choosing wrong. Works against both the native `JSON`
+	 * column type (21c+, what PropulsionTypes::JSON maps to here) and a plain
+	 * CLOB holding JSON text.
+	 *
+	 * @see       DBAdapter::getJsonExtractSql()
+	 */
+	public function getJsonExtractSql(string $column, string $path, bool $asText = true): string
+	{
+		$function = $asText ? 'JSON_VALUE' : 'JSON_QUERY';
+
+		return $function . '(' . $column . ', ' . $this->renderJsonPathLiteral($this->parseJsonPath($path)) . ')';
+	}
+
+	/**
 	 * @see       DBAdapter::supportsAdvisoryLocks()
 	 */
 	public function supportsAdvisoryLocks(): bool

@@ -383,6 +383,47 @@ class DBPostgres extends DBAdapter
 	}
 
 	/**
+	 * @see       DBAdapter::supportsJsonPath()
+	 */
+	public function supportsJsonPath(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * `#>>` (as text) and `#>` (as json), the path-taking operators, rather
+	 * than `->>`/`->`: the latter pair takes a single key or index, so a
+	 * nested path has to be built by chaining them, while `#>>` takes the
+	 * whole path as a text array in one go -- which is exactly the shape
+	 * parseJsonPath() produces.
+	 *
+	 * The empty path (`$`, the whole document) has no `#>>` spelling, since
+	 * an empty array is not a valid path; it degenerates to the column
+	 * itself, cast to text when text was asked for.
+	 *
+	 * Path elements are double-quoted inside the array literal so a key
+	 * containing a comma or a brace cannot break out of it. parseJsonPath()
+	 * has already ruled out a key containing a quote or backslash, so no
+	 * further escaping is needed.
+	 *
+	 * @see       DBAdapter::getJsonExtractSql()
+	 */
+	public function getJsonExtractSql(string $column, string $path, bool $asText = true): string
+	{
+		$segments = $this->parseJsonPath($path);
+		if ($segments === array()) {
+			return $asText ? '(' . $column . ')::text' : $column;
+		}
+
+		$elements = array();
+		foreach ($segments as $segment) {
+			$elements[] = '"' . $segment . '"';
+		}
+
+		return '(' . $column . ' ' . ($asText ? '#>>' : '#>') . " '{" . implode(',', $elements) . "}')";
+	}
+
+	/**
 	 * @see       DBAdapter::supportsAdvisoryLocks()
 	 */
 	public function supportsAdvisoryLocks(): bool

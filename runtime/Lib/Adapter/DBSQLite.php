@@ -241,6 +241,32 @@ class DBSQLite extends DBAdapter
 	}
 
 	/**
+	 * @see       DBAdapter::supportsJsonPath()
+	 */
+	public function supportsJsonPath(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * The `->`/`->>` operators (3.38+, 2022), which are SQLite's own spelling
+	 * of "JSON value" and "SQL value" respectively -- the same distinction,
+	 * and the same trap, as MySQL's JSON_EXTRACT/JSON_UNQUOTE pair.
+	 *
+	 * Assumed available unconditionally, on the same reasoning already
+	 * recorded for RETURNING (3.35, 2021): there is no runtime version probe
+	 * anywhere in this codebase, and every still-supported PHP bundles a far
+	 * newer libsqlite3 than either.
+	 *
+	 * @see       DBAdapter::getJsonExtractSql()
+	 */
+	public function getJsonExtractSql(string $column, string $path, bool $asText = true): string
+	{
+		return '(' . $column . ' ' . ($asText ? '->>' : '->') . ' '
+			. $this->renderJsonPathLiteral($this->parseJsonPath($path)) . ')';
+	}
+
+	/**
 	 * SQLite has no row-level locking (the whole database file is locked at the
 	 * connection/transaction level), so SELECT ... FOR UPDATE has no equivalent here.
 	 *

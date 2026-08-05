@@ -482,9 +482,54 @@ These are gaps in the shared query builder — confirmed absent by grep across
     database server, so this isn't implemented. Revisit if a
     table-valued-parameter-based approach (pdo_sqlsrv-specific, not
     available via pdo_dblib) turns out to be practical.
-- [ ] JSON-path query helpers at the `Criteria` layer — JSON columns exist at
-  the DDL level (Pg/MySQL/Oracle/SQLite) but there is no query-side support
-  for `->>`/`JSON_EXTRACT`/`JSON_VALUE`.
+- [x] **JSON-path query helpers** — JSON columns existed at the DDL level with
+  no query-side support at all. Now: `ModelCriteria::whereJsonPath(string
+  $column, string $path, mixed $value, string $comparison = Criteria::EQUAL)`
+  for filtering, and `Propulsion\Query\JsonExpression::text()`/`json()` (an
+  expression object `withColumn()` accepts, alongside `WindowExpression` and
+  `VectorExpression`) for selecting. Underneath: new
+  `DBAdapter::supportsJsonPath()`/`getJsonExtractSql(string $column, string
+  $path, bool $asText)`, implemented for all five platforms.
+  - **One path syntax everywhere.** The JSONPath-ish spelling (`$.author.name`,
+    `$.tags[0]`) is what MySQL/MariaDB, SQLite, MSSQL and Oracle already take
+    natively; Postgres's operators want a text array instead, so the path is
+    *parsed* into segments (`DBAdapter::parseJsonPath()`) and re-rendered per
+    platform rather than pasted. Object keys are always double-quoted in the
+    rendered path (`$."author"."name"`), which every one of those four accepts
+    for any key and which stops a key containing a space or a reserved word
+    from being a per-platform landmine.
+  - **The parser is deliberately a small strict subset** — object keys and
+    non-negative integer indexes, nothing else. No wildcards, slices, filters
+    or recursive descent: the platforms disagree about all of them and several
+    support none, so accepting one would mean silently shipping a query that
+    works on one database and not the next. Being strict is also what makes
+    the rendered path safe to embed as a literal (a key cannot contain a quote
+    or backslash), checked once in the parser instead of trusted at five call
+    sites.
+  - **`$asText` is the load-bearing parameter**, not a convenience: every
+    platform distinguishes "the SQL value" from "the JSON value", and the JSON
+    form of a string carries its quotes, so a `JSON_EXTRACT`/`#>`/`JSON_QUERY`
+    comparison against a bound `foo` silently never matches. Per platform:
+    `#>>`/`#>` (Postgres, the *path-taking* operators rather than chained
+    `->>`), `JSON_UNQUOTE(JSON_EXTRACT(...))`/`JSON_EXTRACT(...)` (MySQL/
+    MariaDB), `->>`/`->` (SQLite 3.38+, assumed present on the same reasoning
+    already recorded for `RETURNING`), and `JSON_VALUE`/`JSON_QUERY`
+    (MSSQL 2016+, Oracle 12c+). `whereJsonPath()` always compares as text for
+    the same reason, and null with an equality comparison becomes `IS NULL`
+    rather than the never-true `= NULL`.
+  - Live-verified against Postgres (the bookstore fixture's own
+    `book2.metadata` JSON column, end to end through `whereJsonPath()` and
+    `withColumn()`), plus by hand against real SQLite and a real MariaDB 11.8
+    server for their own operator spellings, including that a key with a space
+    round-trips. MSSQL/Oracle are string-shape tested only, the same caveat
+    those platforms carry throughout this document.
+  - **Not implemented**, and separate from extraction rather than a smaller
+    version of it: containment/existence predicates (`@>`, `?`, `JSON_CONTAINS`,
+    `JSON_EXISTS`), which have no common shape across the five — Postgres's
+    operators take a JSON document, MySQL's takes a candidate plus a path,
+    MSSQL has no containment operator at all — and JSON aggregation/
+    construction (`json_agg`, `JSON_OBJECT`). Both are reachable today through
+    the ordinary raw-clause escape hatch.
 - [ ] **Global query filters** — auto-applied `WHERE` predicates
   (soft-delete, multi-tenancy) suppressible per query. Also tracked in
   `UNIT_OF_WORK.md` under the EF Core steal list; recorded here too because

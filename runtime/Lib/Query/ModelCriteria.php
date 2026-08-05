@@ -361,6 +361,64 @@ class ModelCriteria extends Criteria
 	}
 
 	/**
+	 * Filters on a value *inside* a JSON column.
+	 *
+	 * <code>
+	 * BookQuery::create()->whereJsonPath('Book.Meta', '$.author.name', 'Ursula');
+	 * BookQuery::create()->whereJsonPath('Book.Meta', '$.tags[0]', array('a', 'b'), Criteria::IN);
+	 * BookQuery::create()->whereJsonPath('Book.Meta', '$.retired', null);   // IS NULL
+	 * </code>
+	 *
+	 * The extraction is compared **as text**, which is what makes the
+	 * comparison behave the way a caller expects: the JSON form of a string is
+	 * `"Ursula"`, quotes included, and would never equal the bound `Ursula`.
+	 * See {@see JsonExpression} for the same distinction spelled out, and
+	 * {@see \Propulsion\Adapter\DBAdapter::getJsonExtractSql()} for the
+	 * per-platform SQL.
+	 *
+	 * A consequence worth knowing: the comparison is textual on every
+	 * platform, so `'$.count'` compared against `5` matches the *string* "5".
+	 * That is a property of JSON extraction rather than of this method (the
+	 * platforms disagree about implicit casts here, and picking one would make
+	 * the same query behave differently per database), so cast explicitly in
+	 * the path expression via {@see where()} if numeric ordering is needed.
+	 *
+	 * @param      string $column     The JSON column, as a `Model.Property` name (resolved
+	 *                                like any other clause) or a plain `table.COLUMN`.
+	 * @param      string $path       A JSONPath-ish path, e.g. `$.author.name` or
+	 *                                `$.tags[0]`. Parsed, not pasted -- a malformed
+	 *                                one throws here rather than reaching the server.
+	 * @param      mixed  $value      The value to compare against. Null with the default
+	 *                                comparison produces `IS NULL`, matching how
+	 *                                Criteria treats a null elsewhere.
+	 * @param      string $comparison A Criteria comparison constant.
+	 *
+	 * @return     static The current object, for fluid interface
+	 * @throws     PropulsionException If the platform has no JSON path support, or
+	 *                                 the path is malformed.
+	 */
+	public function whereJsonPath(string $column, string $path, mixed $value = null, string $comparison = Criteria::EQUAL) : static
+	{
+		// The column name is left unresolved on purpose: where() runs
+		// replaceNames() over the finished clause, which both resolves
+		// Model.Property and -- crucially -- tells it which ColumnMap to bind
+		// the value against. replaceNames() is string-literal aware, so the
+		// path literal this splices in cannot be mangled by it even if a JSON
+		// key happens to look like a Model.Property reference.
+		$expression = Propulsion::getDB($this->getDbName())->getJsonExtractSql($column, $path, true);
+		$operator = trim($comparison);
+
+		if ($value === null && ($operator === trim(Criteria::EQUAL) || $operator === trim(Criteria::ISNULL))) {
+			return $this->where($expression . ' IS NULL');
+		}
+		if ($value === null && ($operator === trim(Criteria::NOT_EQUAL) || $operator === trim(Criteria::ALT_NOT_EQUAL) || $operator === trim(Criteria::ISNOTNULL))) {
+			return $this->where($expression . ' IS NOT NULL');
+		}
+
+		return $this->where($expression . ' ' . $operator . ' ?', $value);
+	}
+
+	/**
 	 * Adds a condition on a column based on a pseudo SQL clause
 	 * Uses introspection to translate the column phpName into a fully qualified name
 	 * <code>
@@ -1037,7 +1095,7 @@ class ModelCriteria extends Criteria
 	 * Adds a supplementary column to the select clause
 	 * These columns can later be retrieved from the hydrated objects using getVirtualColumn()
 	 *
-	 * @param     string|WindowExpression|VectorExpression $clause The SQL clause with object
+	 * @param     string|WindowExpression|VectorExpression|JsonExpression $clause The SQL clause with object
 	 *                           model column names e.g. 'UPPER(Author.FirstName)', or a
 	 *                           WindowExpression built via e.g.
 	 *                           WindowExpression::rowNumber()->partitionBy(...)->orderBy(...)
@@ -1052,13 +1110,15 @@ class ModelCriteria extends Criteria
 	 *
 	 * @return     static The current object, for fluid interface
 	 */
-	public function withColumn(string|WindowExpression|VectorExpression $clause, ?string $name = null) : static
+	public function withColumn(string|WindowExpression|VectorExpression|JsonExpression $clause, ?string $name = null) : static
 	{
-		// A VectorExpression is rendered against *this* query's datasource
+		// A Vector/JsonExpression is rendered against *this* query's datasource
 		// rather than the default one: the same expression is spelled as an
 		// infix operator on Postgres and a function call on MariaDB, and
 		// __toString() has no way to know which it is looking at.
-		$clause = $clause instanceof VectorExpression ? $clause->toSql($this->getDbName()) : (string) $clause;
+		$clause = ($clause instanceof VectorExpression || $clause instanceof JsonExpression)
+			? $clause->toSql($this->getDbName())
+			: (string) $clause;
 		if (null === $name) {
 			$name = str_replace(array('.', '(', ')'), '', $clause);
 		}

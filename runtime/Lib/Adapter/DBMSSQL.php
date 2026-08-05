@@ -127,6 +127,31 @@ class DBMSSQL extends DBAdapter
 	}
 
 	/**
+	 * @see       DBAdapter::supportsJsonPath()
+	 */
+	public function supportsJsonPath(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * `JSON_VALUE` (2016+) for a scalar and `JSON_QUERY` for an object or
+	 * array. T-SQL splits these into two functions rather than one function
+	 * with two modes, and each returns NULL for the other's case in the
+	 * default lax mode, so picking the wrong one fails silently -- which is
+	 * exactly what $asText exists to decide once instead of at every call
+	 * site.
+	 *
+	 * @see       DBAdapter::getJsonExtractSql()
+	 */
+	public function getJsonExtractSql(string $column, string $path, bool $asText = true): string
+	{
+		$function = $asText ? 'JSON_VALUE' : 'JSON_QUERY';
+
+		return $function . '(' . $column . ', ' . $this->renderJsonPathLiteral($this->parseJsonPath($path)) . ')';
+	}
+
+	/**
 	 * @see       DBAdapter::supportsAdvisoryLocks()
 	 */
 	public function supportsAdvisoryLocks(): bool

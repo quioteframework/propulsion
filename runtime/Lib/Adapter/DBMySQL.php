@@ -329,6 +329,29 @@ class DBMySQL extends DBAdapter
 	}
 
 	/**
+	 * @see       DBAdapter::supportsJsonPath()
+	 */
+	public function supportsJsonPath(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * `JSON_EXTRACT`, wrapped in `JSON_UNQUOTE` for the text form -- the wrap
+	 * is the whole point rather than a detail: bare `JSON_EXTRACT` returns the
+	 * *JSON* value, so a string comes back as `"foo"` including its quotes and
+	 * never equals a bound `foo`.
+	 *
+	 * @see       DBAdapter::getJsonExtractSql()
+	 */
+	public function getJsonExtractSql(string $column, string $path, bool $asText = true): string
+	{
+		$extract = 'JSON_EXTRACT(' . $column . ', ' . $this->renderJsonPathLiteral($this->parseJsonPath($path)) . ')';
+
+		return $asText ? 'JSON_UNQUOTE(' . $extract . ')' : $extract;
+	}
+
+	/**
 	 * @see       DBAdapter::supportsAdvisoryLocks()
 	 */
 	public function supportsAdvisoryLocks(): bool

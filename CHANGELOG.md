@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **JSON path queries.** `ModelCriteria::whereJsonPath('Book.Meta',
+  '$.author.name', 'Ursula')` filters on a value inside a JSON column, and
+  `JsonExpression::text()`/`json()` selects one via `withColumn()`. One
+  JSONPath-ish syntax across all five platforms, parsed and re-rendered per
+  platform rather than pasted.
 - **Named (advisory) locks** (`docs/CONNECTIONS.md` §4).
   `Propulsion::withAdvisoryLock($name, $work, $timeout)` takes a cross-platform
   application-level mutex — `pg_advisory_lock`, `GET_LOCK`, `sp_getapplock`,

@@ -1129,6 +1129,143 @@ abstract class DBAdapter
 	}
 
 	/**
+	 * Whether this platform can extract a value from inside a JSON column at
+	 * query time -- {@see getJsonExtractSql()}. False by default; true for
+	 * every real adapter here, since all five platforms have had JSON path
+	 * support for years.
+	 *
+	 * @return    bool
+	 */
+	public function supportsJsonPath(): bool
+	{
+		return false;
+	}
+
+	/**
+	 * The SQL to read the value at $path out of the JSON document in $column.
+	 *
+	 * $path is written in the JSONPath-ish syntax four of the five platforms
+	 * already use natively (`$.author.name`, `$.tags[0]`, `$` for the whole
+	 * document) and is parsed rather than pasted -- see
+	 * {@see parseJsonPath()}. Postgres, whose operators take a Postgres text
+	 * array instead, re-renders the parsed segments into its own form, so one
+	 * path string works everywhere.
+	 *
+	 * $asText picks between the two things every platform distinguishes:
+	 * `true` gives the *SQL* value (a scalar, unquoted, comparable against a
+	 * bound parameter -- the overwhelmingly common case), `false` gives the
+	 * *JSON* value (still a JSON document, so an object or array survives
+	 * instead of collapsing to NULL or to its serialisation). Getting this
+	 * backwards is the classic JSON-query bug: `JSON_EXTRACT` returns `"foo"`
+	 * *with the quotes*, which never equals the bound string `foo`.
+	 *
+	 * @param     string $column A column reference, e.g. "book.META".
+	 * @param     string $path
+	 * @param     bool   $asText
+	 *
+	 * @return    string
+	 * @throws    PropulsionException If this platform has no JSON path support,
+	 *                                or $path is not a valid path.
+	 */
+	public function getJsonExtractSql(string $column, string $path, bool $asText = true): string
+	{
+		throw new PropulsionException(static::class . ' does not support JSON path expressions');
+	}
+
+	/**
+	 * Splits a JSONPath-ish string into its segments: `'$.a.b[0]'` becomes
+	 * `['a', 'b', 0]`, and a bare `'$'` becomes `[]` (the whole document).
+	 *
+	 * Deliberately a small, strict subset -- object keys and array indexes,
+	 * nothing else. No wildcards, no filters, no recursive descent, no
+	 * negative or slice indexes: the platforms disagree about all of those
+	 * (and several support none of them), so accepting one here would mean
+	 * silently producing a query that works on one database and not the next,
+	 * which is the opposite of what a cross-platform helper is for.
+	 *
+	 * Strictness is also what makes the rendered path safe to embed as a
+	 * literal. A key may not contain a quote, a backslash, a dot or a bracket,
+	 * so nothing a caller writes can terminate the string literal the path is
+	 * emitted inside. That is checked here, once, rather than trusted at each
+	 * of the five call sites.
+	 *
+	 * @param     string $path
+	 *
+	 * @return    array<int, string|int>
+	 * @throws    PropulsionException
+	 */
+	protected function parseJsonPath(string $path): array
+	{
+		$trimmed = trim($path);
+		if ($trimmed === '' || ($trimmed[0] !== '$')) {
+			throw new PropulsionException('A JSON path must start with "$", got: ' . $path);
+		}
+
+		$segments = array();
+		$rest = substr($trimmed, 1);
+		$offset = 0;
+		$length = strlen($rest);
+
+		while ($offset < $length) {
+			$char = $rest[$offset];
+			if ($char === '.') {
+				$end = strcspn($rest, '.[', $offset + 1) + $offset + 1;
+				$key = substr($rest, $offset + 1, $end - $offset - 1);
+				if ($key === '' || preg_match('/["\'\\\\\]]/', $key) === 1) {
+					throw new PropulsionException(
+						'Invalid object key in JSON path "' . $path . '": a key must be non-empty and may not '
+						. 'contain a quote, backslash or bracket.'
+					);
+				}
+				$segments[] = $key;
+				$offset = $end;
+				continue;
+			}
+			if ($char === '[') {
+				$close = strpos($rest, ']', $offset);
+				$index = $close === false ? '' : substr($rest, $offset + 1, $close - $offset - 1);
+				if ($close === false || preg_match('/^\d+$/', $index) !== 1) {
+					throw new PropulsionException(
+						'Invalid array index in JSON path "' . $path . '": only non-negative integer indexes are '
+						. 'supported (no wildcards, slices or filters -- the platforms disagree about those).'
+					);
+				}
+				$segments[] = (int) $index;
+				$offset = $close + 1;
+				continue;
+			}
+
+			throw new PropulsionException('Unexpected "' . $char . '" in JSON path "' . $path . '".');
+		}
+
+		return $segments;
+	}
+
+	/**
+	 * Renders parsed segments back into the `$."a"."b"[0]` form MySQL/MariaDB,
+	 * SQLite, MSSQL and Oracle all accept, quoted string literal included.
+	 *
+	 * Keys are always double-quoted rather than only when they need to be:
+	 * every one of those four accepts the quoted form for any key, and a key
+	 * containing a space or a reserved word would otherwise be a per-platform
+	 * landmine. parseJsonPath() has already guaranteed no key contains a
+	 * quote or backslash, so nothing needs escaping.
+	 *
+	 * @param     array<int, string|int> $segments
+	 *
+	 * @return    string
+	 */
+	protected function renderJsonPathLiteral(array $segments): string
+	{
+		$path = '$';
+		foreach ($segments as $segment) {
+			$path .= is_int($segment) ? '[' . $segment . ']' : '."' . $segment . '"';
+		}
+
+		return "'" . $path . "'";
+	}
+
+	/**
 	 * Whether this platform has an application-level named ("advisory") lock --
 	 * a mutex the application takes out by name, which the database only stores
 	 * and arbitrates and never associates with any row or table of its own.
