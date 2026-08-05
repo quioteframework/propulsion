@@ -67,14 +67,18 @@ rm -rf fixtures/bookstore/build fixtures/schemas/build fixtures/namespaced/build
 Findings from the code-review pass that landed in `e06386a`/`cfe545a`/`547af90`,
 left open with a reason rather than silently:
 
-- **Persistent connections get no statement-level dropped-connection detection.**
-  `PropulsionStatement` closed this gap for ordinary connections (see
-  `docs/CONNECTIONS.md`), but PDO refuses a custom statement class when
-  `PDO::ATTR_PERSISTENT` is set, so a deployment using persistent connections
-  still surfaces most drops as a plain `PDOException` with no pool eviction.
-  `configureStatementClass()` suppresses that failure rather than refusing to
-  connect. Nothing can be done about it below "don't use persistent connections
-  with this ORM", which is also what `getQueryCount()` already tells you.
+- **Persistent connections get no statement-level dropped-connection detection,
+  and no query observation either.** `PropulsionStatement` closed the first
+  gap for ordinary connections (see `docs/CONNECTIONS.md`) and is also where
+  query observers are notified (`docs/OBSERVABILITY.md`), but PDO refuses a
+  custom statement class when `PDO::ATTR_PERSISTENT` is set, so a deployment
+  using persistent connections still surfaces most drops as a plain
+  `PDOException` with no pool eviction, and its observers see only
+  `exec()`/`query()` rather than the prepared-statement executions that carry
+  essentially all ORM traffic. `configureStatementClass()` suppresses that
+  failure rather than refusing to connect. Nothing can be done about it below
+  "don't use persistent connections with this ORM", which is also what
+  `getQueryCount()` already tells you.
 
 ## Missing modernization work
 

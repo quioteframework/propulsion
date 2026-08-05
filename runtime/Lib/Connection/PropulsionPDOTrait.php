@@ -30,6 +30,7 @@ namespace Propulsion\Connection;
  */
 use Propulsion\Propulsion;
 use Propulsion\Config\PropulsionConfiguration;
+use Propulsion\Observability\QueryExecution;
 use Propulsion\Exception\PropulsionException;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
@@ -860,14 +861,20 @@ trait PropulsionPDOTrait
 		if (getenv('AGAVI_DEBUG_DATABASE_FORCE') || getenv('AGAVI_DEBUG_DATABASE')) {
 			@error_log('PROPEL_SQL '.(getenv('AGAVI_DEBUG_DATABASE_FORCE') ? 'FORCE ' : '') .'exec: '.preg_replace('/\s+/', ' ', substr($sql,0,600)));
 		}
+		$observers = Propulsion::getServiceContainer()->getQueryObservers();
+		$execution = $observers->start($sql, QueryExecution::SOURCE_EXEC, $this);
+
 		try {
 			$return = parent::exec($sql);
 		} catch (\PDOException $e) {
+			$observers->finish($execution, null, $e);
 			if (Propulsion::isConnectionDropped($e)) {
 				$this->handleDroppedConnection($e, PropulsionPDO::class . '::' . __FUNCTION__);
 			}
 			throw $e;
 		}
+
+		$observers->finish($execution, $return === false ? null : $return);
 
 		$this->touchActivity();
 
@@ -901,14 +908,22 @@ trait PropulsionPDOTrait
 			@error_log('PROPEL_SQL '.(getenv('AGAVI_DEBUG_DATABASE_FORCE') ? 'FORCE ' : '') .'query: '.preg_replace('/\s+/', ' ', substr($query,0,600)));
 		}
 
+		$observers = Propulsion::getServiceContainer()->getQueryObservers();
+		$execution = $observers->start($query, QueryExecution::SOURCE_QUERY, $this);
+
 		try {
 			$return = parent::query($query, $fetchMode, ...$args);
 		} catch (\PDOException $e) {
+			$observers->finish($execution, null, $e);
 			if (Propulsion::isConnectionDropped($e)) {
 				$this->handleDroppedConnection($e, PropulsionPDO::class . '::' . __FUNCTION__);
 			}
 			throw $e;
 		}
+
+		// No rowCount(): query() always returns a result set, and rowCount()
+		// is documented as unreliable for one -- see PropulsionStatement.
+		$observers->finish($execution);
 
 		$this->touchActivity();
 

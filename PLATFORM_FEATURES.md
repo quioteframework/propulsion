@@ -1693,9 +1693,52 @@ change-tracker steal list, which is deliberately not repeated here.
     `TransactionRetryTest` (real SQLite transactions with real rollback, only
     the failures synthetic), `RetryPolicyTest`, `ConnectionConfigTest`,
     `ConnectionLivenessTest` and `RetryableErrorTest`.
-- [ ] **Observability hooks.** PSR-3 query logging exists; there is no
-  OpenTelemetry span emission, query-timing metric, or slow-query-threshold
-  callback (SQLAlchemy events, Doctrine middleware, EF Core interceptors).
+- [x] **Observability hooks.** `Propulsion\Observability\QueryObserver`, an
+  interface notified *around* every statement, registered via
+  `Propulsion::addQueryObserver()`. Full documentation in
+  `docs/OBSERVABILITY.md`. Distinct from the PSR-3 query logging that already
+  existed (`useDebug`), which logs every statement and is a development tool
+  you cannot leave on; an observer decides for itself what is worth reporting.
+  - **Two callbacks, not one after-the-fact event**, because the shape a
+    tracer needs is a *span*: OpenTelemetry wants it open while the statement
+    runs so the driver's and server's own time falls inside it. The same
+    mutable `QueryExecution` is passed to both, with a `setAttribute()`
+    scratch space, so an observer can hang the open span off it instead of
+    keeping a correlation map keyed by something this codebase would have had
+    to invent. An observer that only cares about the outcome leaves
+    `queryStarted()` empty.
+  - **Two first-party observers** cover the two items this bullet originally
+    named: `SlowQueryObserver` (threshold callback, PSR-3 by default, silent
+    until something is actually slow) and `QueryStatsObserver` (count, failed
+    count, total/average/slowest duration, split by statement source).
+    Deliberately a collector rather than a metrics *client* — StatsD,
+    Prometheus and OTel all have mature PHP clients, and reimplementing one
+    here would be maintenance with no upside, the same reasoning that keeps a
+    Redis driver out of the query cache.
+  - **Where the hook sits is the load-bearing decision.**
+    `PropulsionStatement::execute()`, plus `exec()`/`query()`. Essentially all
+    ORM traffic prepares a statement and executes it, so instrumenting
+    `exec()`/`query()` alone would have measured almost nothing while looking
+    like it worked — which is exactly the mistake dropped-connection detection
+    made in this codebase for years and which `PropulsionStatement` was
+    introduced to fix. There is a live test asserting a generated query
+    class's `find()`/`count()`/`save()` are seen, specifically to keep that
+    from regressing.
+  - **An observer cannot break a query**: a throw is caught, logged at error
+    level and skipped. Worse than it first looks if it weren't — an exception
+    out of `queryFinished()` would *replace* the exception the statement
+    itself was reporting.
+  - `getRowCount()` is deliberately null for a SELECT: PDO documents
+    `rowCount()` as unreliable there, and several drivers must buffer the
+    whole result set to answer, so consulting it would make the measurement
+    change what it measures.
+  - **Not shipped, on purpose**: an OpenTelemetry adapter of our own. The
+    interface is the integration point and `opentelemetry-php` is a
+    fully-featured dependency; a thin wrapper here would pin its version for
+    every consumer. `docs/OBSERVABILITY.md` shows the ~15-line observer that
+    does it. Persistent connections see nothing from prepared-statement
+    execution, the same PDO `ATTR_PERSISTENT` limitation
+    `KNOWN_ISSUES.md` already records for dropped-connection detection.
 - [x] **`->explain()`** on a query object, returning the platform's plan
   (Rails, Django, Laravel all ship this). New `ModelCriteria::explain(bool
   $analyze = false, ?PropulsionPDO $con = null): array` builds the exact same

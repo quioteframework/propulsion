@@ -1246,6 +1246,59 @@ class Propulsion
 	}
 
 	/**
+	 * Registers an observer notified around every statement Propulsion
+	 * executes -- the interception seam SQLAlchemy spells as events, Doctrine
+	 * as middleware and EF Core as interceptors.
+	 *
+	 *     Propulsion::addQueryObserver(new SlowQueryObserver(0.1));  // log anything >= 100ms
+	 *     Propulsion::addQueryObserver($myOpenTelemetryTracer);      // span per statement
+	 *
+	 * Distinct from the PSR-3 query logging that already exists (`useDebug`),
+	 * which logs every statement and is a development tool you cannot leave
+	 * on. An observer is notified *before and after* each statement, so it can
+	 * open and close a tracing span around it, and it decides for itself what
+	 * is worth reporting.
+	 *
+	 * Registering the same instance twice is a no-op rather than a
+	 * double-registration, which would double-count every metric and open two
+	 * spans per query.
+	 *
+	 * @see \Propulsion\Observability\QueryObserver for what observers see, and
+	 *      for the two cases they do not: statements on a *persistent*
+	 *      connection (PDO refuses the custom statement class there), and the
+	 *      fact that internal bookkeeping statements are included.
+	 */
+	public static function addQueryObserver(\Propulsion\Observability\QueryObserver $observer): void
+	{
+		self::getServiceContainer()->getQueryObservers()->add($observer);
+	}
+
+	/**
+	 * Unregisters an observer. A no-op if it was never registered.
+	 */
+	public static function removeQueryObserver(\Propulsion\Observability\QueryObserver $observer): void
+	{
+		self::getServiceContainer()->getQueryObservers()->remove($observer);
+	}
+
+	/**
+	 * Unregisters every query observer. Mostly for test isolation.
+	 */
+	public static function clearQueryObservers(): void
+	{
+		self::getServiceContainer()->getQueryObservers()->clear();
+	}
+
+	/**
+	 * The query observer registry itself -- what the instrumentation consults,
+	 * and what a caller inspects to see what is registered.
+	 */
+	public static function getQueryObservers(): \Propulsion\Observability\QueryObservers
+	{
+		return self::getServiceContainer()->getQueryObservers();
+	}
+
+	/**
 	 * Registers a predicate applied to every query on $modelName unless the
 	 * query opts out -- soft delete and multi-tenancy being the two cases this
 	 * exists for.

@@ -9,6 +9,7 @@
  */
 namespace Propulsion\Connection;
 
+use Propulsion\Observability\QueryExecution;
 use Propulsion\Propulsion;
 
 /**
@@ -71,25 +72,47 @@ class PropulsionStatement extends \PDOStatement
 
 	/**
 	 * Executes the statement, reporting a dropped connection to the connection
-	 * itself before letting the exception continue on to the caller.
+	 * itself before letting the exception continue on to the caller, and
+	 * notifying any registered {@see \Propulsion\Observability\QueryObserver}
+	 * around the call.
 	 *
 	 * The exception is rethrown unchanged: this is a notification seam, not an
 	 * error-handling one. Callers that were already catching PDOException see
 	 * exactly what they saw before; what changes is that the dead connection no
 	 * longer stays in the pool behind them.
 	 *
+	 * This is where observability is hooked in for the same reason
+	 * dropped-connection detection is: essentially all ORM traffic prepares a
+	 * statement and executes it here, so instrumenting anywhere else would
+	 * measure almost nothing. An application with no observers registered pays
+	 * one array check ({@see \Propulsion\Observability\QueryObservers::isEmpty()},
+	 * via `start()` returning null) and never builds an execution record.
+	 *
 	 * @param     array<int|string, mixed>|null  $params
 	 */
 	public function execute(?array $params = null): bool
 	{
+		$observers = Propulsion::getServiceContainer()->getQueryObservers();
+		$execution = $observers->start($this->queryString, QueryExecution::SOURCE_STATEMENT, $this->pdo);
+
 		try {
 			$return = parent::execute($params);
 		} catch (\PDOException $e) {
+			// Finished before handleDroppedConnection() and before the rethrow,
+			// so an observer sees the failure of the statement it opened rather
+			// than a span left dangling.
+			$observers->finish($execution, null, $e);
 			if (Propulsion::isConnectionDropped($e)) {
 				$this->pdo->handleDroppedConnection($e, static::class . '::' . __FUNCTION__);
 			}
 			throw $e;
 		}
+
+		// rowCount() is only consulted for a statement that changed rows.
+		// PDO documents it as unreliable for SELECT (several drivers return 0,
+		// others buffer the whole result set to answer), and calling it there
+		// would make the measurement change the thing measured.
+		$observers->finish($execution, $this->columnCount() === 0 ? $this->rowCount() : null);
 
 		$this->pdo->touchActivity();
 

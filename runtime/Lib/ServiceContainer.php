@@ -14,6 +14,7 @@ use Propulsion\Cache\CompiledQueryCache;
 use Propulsion\Cache\Driver\NullCache;
 use Propulsion\Cache\QueryCacheConfig;
 use Propulsion\Connection\ConnectionConfig;
+use Propulsion\Observability\QueryObservers;
 use Propulsion\Query\GlobalQueryFilters;
 use Psr\SimpleCache\CacheInterface;
 
@@ -142,6 +143,24 @@ class ServiceContainer
     public function getGlobalQueryFilters(): GlobalQueryFilters
     {
         return $this->globalQueryFilters ??= new GlobalQueryFilters();
+    }
+
+    /**
+     * Observers notified around every statement -- see {@see QueryObservers}.
+     *
+     * Process-scoped for the same reason the filters above are: observers are
+     * bootstrap wiring, and a tracer that silently stopped tracing at the
+     * request boundary under a worker runtime would be worse than one that was
+     * never installed, because nothing would say so.
+     */
+    private ?QueryObservers $queryObservers = null;
+
+    /**
+     * The process-wide query observer registry, created on first use.
+     */
+    public function getQueryObservers(): QueryObservers
+    {
+        return $this->queryObservers ??= new QueryObservers();
     }
 
     /**

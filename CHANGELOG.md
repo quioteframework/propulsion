@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Observability hooks** (`docs/OBSERVABILITY.md`). `QueryObserver` is
+  notified before and after every statement — the shape a tracing span needs —
+  and is registered with `Propulsion::addQueryObserver()`. Ships
+  `SlowQueryObserver` (threshold logging) and `QueryStatsObserver` (counts and
+  timings). Instrumented on `PropulsionStatement::execute()`, which is where
+  ORM traffic actually goes.
 - **Global query filters.** `Propulsion::addGlobalQueryFilter('Book',
   'not-deleted', $filter)` applies a predicate to every SELECT, COUNT, UPDATE
   and DELETE on a model; a query drops one with
