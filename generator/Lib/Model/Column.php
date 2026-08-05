@@ -144,6 +144,26 @@ class Column extends XMLElement
 	protected bool $isNativeUuid = false;
 
 	/**
+	 * Whether a VECTOR column is declared `nativeVector="true"`: emits
+	 * MariaDB 11.7+'s real native `VECTOR(n)` column type instead of the
+	 * bracketed-JSON-in-a-text-column emulation every platform otherwise
+	 * uses. Only honored by MysqlPlatform.
+	 *
+	 * Opt-in for the same reason `nativeUuid` is (MysqlPlatform serves both
+	 * MySQL and MariaDB with no build-time way to tell them apart), plus one
+	 * of its own: a native `VECTOR` column can only be read or written
+	 * through `VEC_ToText()`/`VEC_FromText()` at the SQL level, so setting
+	 * this also switches the runtime onto
+	 * `DBAdapter::getColumnBindExpression()`/`getColumnSelectExpression()`
+	 * for the column (via `ColumnMap::isNativeVector()`, which
+	 * `TableMapBuilder` emits for exactly this reason). MySQL 9.0+'s own
+	 * native `VECTOR` uses differently-named conversion functions
+	 * (`STRING_TO_VECTOR()`/`VECTOR_TO_STRING()`) and is not covered by this
+	 * flag -- see PLATFORM_FEATURES.md.
+	 */
+	protected bool $isNativeVector = false;
+
+	/**
 	 * For a TSVECTOR column, the sibling column names (`tsvectorFrom="title,
 	 * body"`) this column's value is derived from -- see
 	 * PgsqlPlatform::getColumnDDL()'s `GENERATED ALWAYS AS (to_tsvector(...))
@@ -376,6 +396,7 @@ class Column extends XMLElement
 			$this->isIdentity = $this->booleanValue($this->getAttribute("identity"));
 			$this->isNativeArray = $this->booleanValue($this->getAttribute("nativeArray"));
 			$this->isNativeUuid = $this->booleanValue($this->getAttribute("nativeUuid"));
+			$this->isNativeVector = $this->booleanValue($this->getAttribute("nativeVector"));
 
 			$tsvectorFromAttr = $this->getStringAttribute('tsvectorFrom');
 			if ($tsvectorFromAttr !== null) {
@@ -1200,6 +1221,23 @@ class Column extends XMLElement
 	public function setNativeUuid(bool $isNativeUuid): void
 	{
 		$this->isNativeUuid = $isNativeUuid;
+	}
+
+	/**
+	 * Whether this VECTOR column is declared `nativeVector="true"` -- see the
+	 * property docblock for what that changes.
+	 */
+	public function isNativeVector(): bool
+	{
+		return $this->isNativeVector;
+	}
+
+	/**
+	 * Sets whether this VECTOR column is `nativeVector="true"`.
+	 */
+	public function setNativeVector(bool $isNativeVector): void
+	{
+		$this->isNativeVector = $isNativeVector;
 	}
 
 	/**

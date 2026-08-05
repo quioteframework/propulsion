@@ -34,6 +34,7 @@ use PDO;
 use Propulsion\Map\ColumnMap;
 use Propulsion\Util\PropulsionDateTime;
 use Propulsion\Generator\Model\PropulsionTypes;
+use Propulsion\Query\ColumnSqlRewriter;
 use Propulsion\Query\Criteria;
 use Propulsion\Map\DatabaseMap;
 use Propulsion\Connection\PropulsionPDO;
@@ -661,6 +662,74 @@ abstract class DBAdapter
 	}
 
 	/**
+	 * Whether any column type this adapter maps needs its SQL rewritten around
+	 * the plain `:pN` bind / bare `table.column` reference the query builder
+	 * would otherwise emit -- see {@see getColumnBindExpression()} and
+	 * {@see getColumnSelectExpression()}.
+	 *
+	 * False by default, and this is the *only* check made on the hot path for
+	 * an adapter with no such column type: the four call sites (INSERT value
+	 * list, UPDATE/upsert SET clause, SELECT list, WHERE comparison) skip the
+	 * per-column DatabaseMap lookup entirely when this is false, so the
+	 * mechanism costs one bool test per statement where it is unused.
+	 *
+	 * @return    bool
+	 */
+	public function usesColumnSqlRewriting(): bool
+	{
+		return false;
+	}
+
+	/**
+	 * The SQL to write a value *into* $cMap's column: normally just the
+	 * `:pN` placeholder itself, but a column whose native type cannot accept
+	 * the bound wire format directly needs a conversion function around it
+	 * (MariaDB's `VECTOR(n)` wants `VEC_FromText(:p1)`; a real geometry column
+	 * wants `ST_GeomFromText(:p1)`).
+	 *
+	 * Only consulted when {@see usesColumnSqlRewriting()} is true, and only for
+	 * a reference the query builder could resolve to exactly one mapped column
+	 * -- see {@see \Propulsion\Query\ColumnSqlRewriter}. The returned string is
+	 * spliced into the statement verbatim, so it must reference $placeholder
+	 * (or nothing) and must not introduce a second placeholder: the caller has
+	 * already committed to binding exactly one value at that position.
+	 *
+	 * @param     ColumnMap $cMap
+	 * @param     string    $placeholder The `:pN` reference the caller will bind to.
+	 *
+	 * @return    string
+	 */
+	public function getColumnBindExpression(ColumnMap $cMap, string $placeholder): string
+	{
+		return $placeholder;
+	}
+
+	/**
+	 * The SQL to read $cMap's column back *out* as the wire format the
+	 * generated hydration code expects -- the counterpart to
+	 * {@see getColumnBindExpression()} (MariaDB's `VEC_ToText(col)`, a geometry
+	 * column's `ST_AsText(col)`).
+	 *
+	 * $columnExpression is the reference as it appears in the query, alias and
+	 * all ("b.EMBEDDING"), and must be used rather than reconstructed from
+	 * $cMap: the real table name may not be in scope under an alias.
+	 *
+	 * Deliberately emits no `AS` alias of its own. Hydration is positional
+	 * (every formatter fetches `PDO::FETCH_NUM`), so the result column's *name*
+	 * is not load-bearing, and inventing one would risk colliding with a
+	 * same-named column from another table in a joined query.
+	 *
+	 * @param     ColumnMap $cMap
+	 * @param     string    $columnExpression
+	 *
+	 * @return    string
+	 */
+	public function getColumnSelectExpression(ColumnMap $cMap, string $columnExpression): string
+	{
+		return $columnExpression;
+	}
+
+	/**
 	 * Whether this exception describes a *transient* failure -- one where the
 	 * same transaction, re-run unchanged, has a real chance of succeeding.
 	 *
@@ -1112,6 +1181,7 @@ abstract class DBAdapter
 	public function createSelectSqlPart(Criteria $criteria, &$fromClause, $aliasAll = false): string
 	{
 		$selectClause = array();
+		$rewritesColumns = $this->usesColumnSqlRewriting();
 
 		if ($aliasAll) {
 			$this->turnSelectColumnsToAliases($criteria);
@@ -1124,7 +1194,14 @@ abstract class DBAdapter
 
 				$tableName = "";
 
-				$selectClause[] = $columnName; // the full column name: e.g. MAX(books.price)
+				// the full column name: e.g. MAX(books.price) -- or, for a
+				// column type this platform can only read through a conversion
+				// function, that function wrapped around it (see
+				// getColumnSelectExpression()). The FROM-clause derivation
+				// below still scans the *unwrapped* name.
+				$selectClause[] = $rewritesColumns
+					? ColumnSqlRewriter::select($this, $criteria, $columnName)
+					: $columnName;
 
 				// Find the last "table.column"-shaped reference in the expression and take its
 				// table part by scanning backwards from the last dot for identifier characters
@@ -1160,7 +1237,7 @@ abstract class DBAdapter
 
 		// set the aliases
 		foreach ($criteria->getAsColumns() as $alias => $col) {
-			$selectClause[] = $col . ' AS ' . $alias;
+			$selectClause[] = ($rewritesColumns ? ColumnSqlRewriter::select($this, $criteria, $col) : $col) . ' AS ' . $alias;
 		}
 
 		$selectModifiers = $criteria->getSelectModifiers();

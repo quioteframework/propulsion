@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Column-SQL rewriting hooks.** A few native column types can only be read
+  and written through a platform conversion function, never a plain bind. Two
+  new `DBAdapter` hooks — `getColumnBindExpression()` and
+  `getColumnSelectExpression()`, behind a `usesColumnSqlRewriting()` fast-path
+  flag — wrap the value on the way in and the column on the way out, wired
+  into the INSERT value list, the UPDATE/upsert SET clause, the SELECT list
+  and WHERE comparisons. First consumer: MariaDB 11.7+'s real `VECTOR(n)`,
+  opt-in per column via `nativeVector="true"`.
 - **Connection resilience** (`docs/CONNECTIONS.md`). Dropped connections are
   now detected on the ordinary `PDOStatement::execute()` path that essentially
   all ORM traffic takes, via a new `PropulsionStatement` installed on every

@@ -394,6 +394,15 @@ class ".$this->getClassname()." extends \Propulsion\Map\TableMap
         \$this->getColumn('$cup')->setNativeEnum(true);";
                 }
             }
+            if ($col->isVectorType() && $col->isNativeVector()) {
+                // Switches the runtime adapter's column-SQL-rewriting hooks on
+                // for this column: a native VECTOR column can only be read or
+                // written through the platform's own conversion functions
+                // (MariaDB's VEC_ToText()/VEC_FromText()), never through a
+                // plain bind. See DBAdapter::getColumnBindExpression().
+                $script .= "
+        \$this->getColumn('$cup')->setNativeVector(true);";
+            }
             if ($col->isPrimaryString()) {
                 $script .= "
         \$this->getColumn('$cup')->setPrimaryString(true);";

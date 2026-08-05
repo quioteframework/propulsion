@@ -27,6 +27,7 @@ namespace Propulsion\Util;
  * @version    $Revision$
  */
 
+ use Propulsion\Query\ColumnSqlRewriter;
  use Propulsion\Query\Criteria;
  use Propulsion\Exception\PropulsionException;
  use Propulsion\Connection\PropulsionPDO;
@@ -460,10 +461,7 @@ class BasePeer
 				. ' (' . implode(',', $columns) . ')'
 				. ' VALUES (';
 				// . substr(str_repeat("?,", count($columns)), 0, -1) .
-				for($p=1, $cnt=count($columns); $p <= $cnt; $p++) {
-					$sql .= ':p'.$p;
-					if ($p !== $cnt) $sql .= ',';
-				}
+				$sql .= self::buildBindPlaceholderList($qualifiedCols, $adapter, $criteria->getDbName(), 1);
 				$sql .= ')';
 
 				if ($useInsertReturning) {
@@ -757,12 +755,9 @@ class BasePeer
 			} else {
 				$sql = 'INSERT INTO ' . $insertTableName
 				. ' (' . implode(',', $columns) . ')'
-				. ' VALUES (';
-				for($p=1, $cnt=count($columns); $p <= $cnt; $p++) {
-					$sql .= ':p'.$p;
-					if ($p !== $cnt) $sql .= ',';
-				}
-				$sql .= ')';
+				. ' VALUES ('
+				. self::buildBindPlaceholderList($qualifiedCols, $db, $criteria->getDbName(), 1)
+				. ')';
 
 				$sql = $db->getUpsertSql($sql, $conflictColumnNames, $setClause);
 			}
@@ -1474,6 +1469,49 @@ class BasePeer
 	}
 
 	/**
+	 * Builds the ":p1,:p2,..." bound-placeholder list an INSERT's VALUES clause
+	 * needs for $qualifiedCols, in order, starting at $startParamIndex.
+	 *
+	 * Each placeholder passes through {@see DBAdapter::getColumnBindExpression()}
+	 * when the adapter reports {@see DBAdapter::usesColumnSqlRewriting()}, so a
+	 * column whose native type cannot accept the bound wire format directly
+	 * (MariaDB's `VECTOR(n)`, a real geometry column) gets its conversion
+	 * function spliced in here -- one placeholder still binds one value either
+	 * way, so nothing downstream in the params array shifts.
+	 *
+	 * Not applied to the `MERGE`-shaped upsert path (MSSQL/Oracle), which
+	 * builds its own placeholder list inside
+	 * {@see DBAdapter::getMergeUpsertSql()}; neither of those adapters rewrites
+	 * any column today, and the hook can be threaded through that shape if one
+	 * ever does.
+	 *
+	 * @param      array<int, string> $qualifiedCols Fully-qualified column names.
+	 * @return     string
+	 */
+	private static function buildBindPlaceholderList(array $qualifiedCols, DBAdapter $db, string $dbName, int $startParamIndex): string
+	{
+		$rewrites = $db->usesColumnSqlRewriting();
+		$placeholders = array();
+		$p = $startParamIndex;
+		foreach ($qualifiedCols as $qualifiedCol) {
+			$placeholder = ':p' . $p++;
+			if ($rewrites) {
+				$dotPos = strrpos($qualifiedCol, '.');
+				$placeholder = ColumnSqlRewriter::bind(
+					$db,
+					$dbName,
+					$dotPos === false ? null : substr($qualifiedCol, 0, $dotPos),
+					$dotPos === false ? null : substr($qualifiedCol, $dotPos + 1),
+					$placeholder
+				);
+			}
+			$placeholders[] = $placeholder;
+		}
+
+		return implode(',', $placeholders);
+	}
+
+	/**
 	 * Builds a "col1=:p1, col2 = <raw expr>, ..." SET-clause fragment (no leading
 	 * "SET " and no trailing comma) for $columns from $values, starting bound-parameter
 	 * numbering at $startParamIndex. A column whose comparison is Criteria::CUSTOM_EQUAL
@@ -1496,14 +1534,30 @@ class BasePeer
 	{
 		$sql = '';
 		$p = $startParamIndex;
+		$rewrites = $db->usesColumnSqlRewriting();
 		foreach ($columns as $col) {
-			$updateColumnName = substr($col, strrpos($col, '.') + 1);
+			$dotPos = strrpos($col, '.');
+			$updateColumnName = substr($col, $dotPos + 1);
 			// add identifiers for the actual database?
 			if ($db->useQuoteIdentifier()) {
 				$updateColumnName = $db->quoteIdentifier($updateColumnName);
 			}
 			if ($values->getComparison($col) != Criteria::CUSTOM_EQUAL) {
-				$sql .= $updateColumnName . '=:p'.$p++.', ';
+				// Same conversion-function wrapping the INSERT value list gets
+				// -- see buildBindPlaceholderList(). A raw CUSTOM_EQUAL
+				// expression (the branch below) is deliberately left alone:
+				// the caller wrote that SQL themselves and owns its shape.
+				$placeholder = ':p'.$p++;
+				if ($rewrites) {
+					$placeholder = ColumnSqlRewriter::bind(
+						$db,
+						$values->getDbName(),
+						$dotPos === false ? null : substr($col, 0, $dotPos),
+						$dotPos === false ? null : substr($col, $dotPos + 1),
+						$placeholder
+					);
+				}
+				$sql .= $updateColumnName . '=' . $placeholder . ', ';
 			} else {
 				$param = $values->get($col);
 				$sql .= $updateColumnName . ' = ';

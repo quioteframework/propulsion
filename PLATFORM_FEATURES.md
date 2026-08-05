@@ -292,6 +292,67 @@ These are gaps in the shared query builder — confirmed absent by grep across
   a raw, unbound `where()` clause referencing the parent's table/alias
   works for this, since `where()` falls through to a literal expression
   when it finds no column to bind a value to.
+- [x] **Column-SQL rewriting hooks** — the mechanism this document's `vector`,
+  `GEOMETRY` and MySQL-spatial items each separately identified as their own
+  blocker ("needs query-layer SQL-rewriting a plain bind can't do", "this
+  codebase has no hook anywhere to wrap a column's SQL like that yet"). A
+  handful of native column types cannot be read or written through a plain
+  parameterized bind at all: the value has to be wrapped in a conversion
+  function at the *statement* level going in, and the column wrapped in the
+  inverse function coming out. Two new `DBAdapter` hooks express exactly that
+  pair — `getColumnBindExpression(ColumnMap, string $placeholder)` and
+  `getColumnSelectExpression(ColumnMap, string $columnExpression)` — behind a
+  `usesColumnSqlRewriting()` fast-path flag that is `false` for every adapter
+  with no such column type, so an ordinary schema pays one bool test per
+  statement and never reaches the rest.
+  - Wired into all four places the query builder puts a column next to a
+    value: `BasePeer::doInsert()`/`doUpsert()`'s VALUES list,
+    `BasePeer::buildSetClause()`'s UPDATE/upsert SET clause,
+    `DBAdapter::createSelectSqlPart()`'s SELECT list, and `Criterion`'s
+    WHERE comparisons (basic and `IN`). The shared "which `ColumnMap` is this
+    reference?" half lives in one place, `Propulsion\Query\ColumnSqlRewriter`,
+    which deliberately only matches a *plain* qualified `table.column` string
+    and leaves every raw-SQL escape hatch (`MAX(book.PRICE)`, `a || b`,
+    already-quoted identifiers) alone — those are slots the query builder
+    legitimately fills with hand-written SQL, and "leave it alone" is the
+    right answer for all of them.
+  - Bind-side wrapping goes around the *value*, not the column
+    (`col = VEC_FromText(:p1)`, not `VEC_ToText(col) = :p1`): the latter
+    forces every candidate row through a text conversion and defeats any
+    index. Select-side wrapping emits no `AS` alias of its own — hydration is
+    positional on every formatter (`PDO::FETCH_NUM`), so the result column's
+    name isn't load-bearing, and inventing one risks colliding with a
+    same-named column from another table in a joined query.
+  - **First consumer: MariaDB 11.7+'s real `VECTOR(n)`**, opt-in via a new
+    `nativeVector="true"` column attribute (`Column::isNativeVector()`),
+    replacing the bracketed-JSON-in-`TEXT` emulation `MysqlPlatform` still
+    defaults to. Requires an explicit `size` (the dimension) and throws an
+    `EngineException` without one, since MariaDB's type has no default.
+    `TableMapBuilder` emits `ColumnMap::setNativeVector(true)` into the
+    generated `TableMap` — the same "a runtime flag the adapter reads"
+    mechanism `nativeEnum` already uses — and `DBMySQL` wraps reads/writes in
+    `VEC_ToText()`/`VEC_FromText()` off the back of it. Opt-in for the same
+    reason `nativeUuid`/`nativeSequence` are (MysqlPlatform serves both MySQL
+    and MariaDB with no build-time way to tell which server a schema targets),
+    and deliberately *not* gated on the runtime `DBMySQL::isMariaDb()` probe
+    the RETURNING hooks use: the column is only native because the schema
+    author said so, and a mis-declared schema fails at DDL-execution time with
+    a much clearer error than a plain bind against a native column would give.
+  - **Still deferred, and why.** MySQL 9.0+'s own native `VECTOR` spells the
+    same pair `STRING_TO_VECTOR()`/`VECTOR_TO_STRING()`; the hook is
+    indifferent, but a second opt-in flag (or a tri-state one) is needed to
+    pick between two mutually incompatible spellings that `MysqlPlatform`
+    cannot distinguish at generator time, and there is no MySQL 9 in this
+    repo's CI to verify it against — `nativeVector` therefore means MariaDB.
+    Native geometry (`ST_GeomFromText()`/`ST_AsText()`, PostGIS `geometry`,
+    MySQL `GEOMETRY`, MSSQL `geometry`, Oracle `SDO_GEOMETRY`) is now
+    *expressible* but is not implemented: unlike VECTOR it also needs a
+    per-platform DDL type change plus a WKT-parsing value object to be worth
+    having, and none of the five containers this repo tests against ships the
+    spatial extension by default. The `MERGE`-shaped upsert path
+    (MSSQL/Oracle) builds its own placeholder list inside
+    `getMergeUpsertSql()` and is not rewritten; neither adapter rewrites any
+    column today, so there is nothing to thread through it yet.
 - [ ] **Named / advisory locks** — Pg `pg_advisory_lock`, MySQL `GET_LOCK`,
   MSSQL `sp_getapplock`, Oracle `DBMS_LOCK`. A uniform cross-platform
   app-level mutex; nothing in the tree references any of them.
@@ -412,9 +473,14 @@ These are gaps in the shared query builder — confirmed absent by grep across
   engines require `VEC_FromText()`/`VEC_ToText()` (MariaDB) or
   `STRING_TO_VECTOR()`/`VECTOR_TO_STRING()` (MySQL) wrapped around the value
   at the SQL level, the same "needs query-layer SQL-rewriting a plain bind
-  can't do" problem GEOMETRY's own comment already flags — this codebase has
-  no hook anywhere to wrap a column's SQL like that yet (see BasePeer/
-  Criteria). The originally-shipped `VECTOR(n)`-native MySQL/MariaDB mapping
+  can't do" problem GEOMETRY's own comment already flags — which this codebase
+  had no hook anywhere to express at the time. **It does now** (see
+  "Column-SQL rewriting hooks" in section 1), and MariaDB's native `VECTOR(n)`
+  is reachable through it via an opt-in `nativeVector="true"` column
+  attribute; MySQL 9's differently-spelled conversion functions are still not
+  covered, for the reasons that item records. The rest of this paragraph is
+  the original finding, kept because it is why the *default* is still the
+  emulation. The originally-shipped `VECTOR(n)`-native MySQL/MariaDB mapping
   was accordingly **downgraded to the same text emulation** every other
   non-Postgres platform already uses (`MysqlPlatform::initialize()`'s VECTOR
   domain mapping, `hasSize()` updated alongside it so the emulated TEXT column
@@ -860,11 +926,21 @@ These are gaps in the shared query builder — confirmed absent by grep across
     `MysqlPlatformTest` assertions (no-implicit-sequence, named-sequence-
     without-opt-in-stays-a-no-op, native sequence DDL, native UUID DDL,
     emulated-CHAR(36)-by-default).
-  - **`VECTOR` gating**, originally scoped here too, turned out moot: live
-    verification found MariaDB's (and MySQL's) real `VECTOR` type unusable via
-    a plain bind regardless of version, so it was never made native for
-    either engine in the first place (see the `Vector types` item above) --
-    there is no MySQL/MariaDB divergence left to gate on `isMariaDb()`.
+  - **`nativeVector="true"` `Column` attribute** (on a `VECTOR` column) --
+    MariaDB 11.7+'s real native `VECTOR(n)` column type in place of the
+    bracketed-JSON-text emulation. Originally scoped here as "`VECTOR`
+    gating" and closed as moot, because live verification found MariaDB's
+    (and MySQL's) real `VECTOR` unusable via a plain bind regardless of
+    version. That is still true -- what changed is that the SQL-level
+    wrapping it needs is now expressible (`VEC_FromText()`/`VEC_ToText()` via
+    the column-SQL rewriting hooks in section 1), so it joins `nativeUuid`/
+    `nativeSequence` as an opt-in MariaDB divergence rather than staying
+    unreachable. Not gated on `isMariaDb()`: that probe needs a live
+    connection, and the flag is a build-time declaration of intent, exactly
+    like the other two here. MySQL 9.0+'s own native `VECTOR`
+    (`STRING_TO_VECTOR()`/`VECTOR_TO_STRING()`) remains uncovered -- see
+    section 1's own note on why a second flag is needed and wasn't added
+    blind.
   - A `PROPULSION_TEST_DB=mariadb` testcontainer path still exists for the
     main integration suite (`test/tools/helpers/IntegrationDatabase.php`, not
     run in CI) — unrelated to the two build-time features above, which don't

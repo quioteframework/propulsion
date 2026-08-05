@@ -142,19 +142,23 @@ class MysqlPlatform extends DefaultPlatform
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::DATERANGE, "VARCHAR", 64));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::TSRANGE, "VARCHAR", 64));
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::TSTZRANGE, "VARCHAR", 64));
-		// NOT mapped to MariaDB 11.7+/MySQL 9.0+'s real native `VECTOR` type,
-		// despite one existing -- confirmed live against a real MariaDB 11.8
-		// server that it rejects a plain bound/literal bracket-JSON string
-		// outright ("Incorrect vector value"), the same problem GEOMETRY's own
-		// comment below already flags for MySQL's real `GEOMETRY` type:
-		// reading/writing the real column needs VEC_FromText()/VEC_ToText()
-		// wrapped around the value at the SQL level (MariaDB; MySQL's own
-		// equivalents are STRING_TO_VECTOR()/VECTOR_TO_STRING()), which is
-		// query-layer SQL-rewriting this codebase has nowhere to hook for any
-		// column type yet (see BasePeer/Criteria) -- not something a plain
-		// parameterized bind can do. Emulated as plain text (the same
-		// bracketed JSON VectorHandler already produces) until that wrapping
-		// exists, the same deferral GEOMETRY made for the same reason.
+		// The *default* mapping only: emulated as plain text (the same
+		// bracketed JSON VectorHandler already produces), because MariaDB
+		// 11.7+/MySQL 9.0+'s real native `VECTOR` type rejects a plain
+		// bound/literal bracket-JSON string outright ("Incorrect vector
+		// value", confirmed live against a real MariaDB 11.8 server) and
+		// needs VEC_FromText()/VEC_ToText() wrapped around the value at the
+		// SQL level instead.
+		//
+		// That wrapping now exists -- DBAdapter::getColumnBindExpression()/
+		// getColumnSelectExpression(), see DBMySQL's overrides -- so a column
+		// can opt into the real type with `nativeVector="true"`, handled in
+		// getColumnDDL() below. It stays opt-in rather than becoming the
+		// default for the same reason nativeUuid does: MysqlPlatform serves
+		// both MySQL and MariaDB, and generator time has no live connection
+		// to tell which server a schema targets. MySQL 9.0+'s own native
+		// VECTOR spells its conversion functions STRING_TO_VECTOR()/
+		// VECTOR_TO_STRING() and is not covered by that flag.
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::VECTOR, "TEXT"));
 		// Emulated as plain text (WKT), not MySQL's own real `GEOMETRY` type --
 		// see PropulsionTypes::GEOMETRY_NATIVE_TYPE for why.
@@ -519,6 +523,30 @@ DROP TABLE IF EXISTS " . $this->quoteIdentifier($this->requireString($table->get
 			// generator time to auto-detect which server this schema targets).
 			// No size parameter, unlike the CHAR(36) emulation it replaces.
 			$ddl []= 'UUID';
+		} elseif ($col->isVectorType() && $col->isNativeVector()) {
+			// MariaDB 11.7+'s real native VECTOR(n) column type in place of the
+			// bracketed-JSON-in-TEXT emulation the domain mapping above sets up.
+			// Opt-in for the same "no build-time way to tell MariaDB from MySQL"
+			// reason as nativeUuid above, plus its own: reading and writing this
+			// column needs VEC_ToText()/VEC_FromText() wrapped around it at the
+			// SQL level, which only happens because ColumnMap::isNativeVector()
+			// (emitted by TableMapBuilder from this same flag) switches
+			// DBMySQL's column-SQL-rewriting hooks on for it.
+			//
+			// The dimension is required and comes from the ordinary `size`
+			// attribute, the same one printSize() renders for VARCHAR(n) -- but
+			// hasSize() deliberately excludes the emulated "TEXT" mapping, so
+			// it is spelled out here rather than reached through that path.
+			$rawSize = $col->getSize();
+			$size = is_numeric($rawSize) ? (int) $rawSize : 0;
+			if ($size < 1) {
+				throw new EngineException(sprintf(
+					'Column "%s" is nativeVector="true" but has no size: MariaDB\'s VECTOR type requires an '
+					. 'explicit dimension (e.g. size="1536").',
+					$this->requireString($col->getName(), 'Column name')
+				));
+			}
+			$ddl []= 'VECTOR(' . $size . ')';
 		} elseif ($this->hasSize($sqlType) && $col->isDefaultSqlType($this)) {
 			$ddl []= $sqlType . $domain->printSize();
 		} else {

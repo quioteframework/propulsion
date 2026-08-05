@@ -939,6 +939,53 @@ EOF;
 		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($column));
 	}
 
+	public function testGetColumnDDLNativeVector()
+	{
+		$table = new Table('foo');
+		$column = new Column('embedding');
+		$column->setTable($table);
+		$column->getDomain()->copy((new MysqlPlatform())->getDomainForType(PropulsionTypes::VECTOR));
+		$column->setType(PropulsionTypes::VECTOR);
+		$column->setSize(1536);
+		$column->setNativeVector(true);
+		$table->addColumn($column);
+
+		$expected = '`embedding` VECTOR(1536)';
+		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($column));
+	}
+
+	public function testGetColumnDDLVectorEmulatedAsTextByDefault()
+	{
+		// Without the opt-in, the size stays off the emitted type: the
+		// emulated column is unbounded TEXT, and printing TEXT(1536) would
+		// imply a length constraint that isn't there. See hasSize().
+		$table = new Table('foo');
+		$column = new Column('embedding');
+		$column->setTable($table);
+		$column->getDomain()->copy((new MysqlPlatform())->getDomainForType(PropulsionTypes::VECTOR));
+		$column->setType(PropulsionTypes::VECTOR);
+		$column->setSize(1536);
+		$table->addColumn($column);
+
+		$expected = '`embedding` TEXT';
+		$this->assertEquals($expected, $this->getPlatform()->getColumnDDL($column));
+	}
+
+	public function testGetColumnDDLNativeVectorWithoutSizeThrows()
+	{
+		$table = new Table('foo');
+		$column = new Column('embedding');
+		$column->setTable($table);
+		$column->getDomain()->copy((new MysqlPlatform())->getDomainForType(PropulsionTypes::VECTOR));
+		$column->setType(PropulsionTypes::VECTOR);
+		$column->setNativeVector(true);
+		$table->addColumn($column);
+
+		$this->expectException(EngineException::class);
+		$this->expectExceptionMessage('requires an explicit dimension');
+		$this->getPlatform()->getColumnDDL($column);
+	}
+
 	public function testGetColumnDDLGeneratedNotNull()
 	{
 		// Unlike MSSQL, MySQL allows NOT NULL on a VIRTUAL generated column,

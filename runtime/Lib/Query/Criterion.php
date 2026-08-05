@@ -85,6 +85,14 @@ class Criterion
 	protected $parent;
 
 	/**
+	 * The datasource the outer Criteria belongs to, remembered at init() time
+	 * so {@see bindExpression()} can look this criterion's column up in the
+	 * right DatabaseMap. Null only if init() ran against a Criteria with no
+	 * datasource resolved.
+	 */
+	protected ?string $dbName = null;
+
+	/**
 	 * Create a new instance.
 	 *
 	 * @param      Criteria $outer The outer class (this is an "inner" class).
@@ -128,6 +136,29 @@ class Criterion
 		$realtable = $criteria->getTableForAlias($this->table);
 		$this->realtable = $realtable ? $realtable : $this->table;
 
+		$this->dbName = $criteria->getDbName();
+	}
+
+	/**
+	 * Wraps a `:pN` placeholder in whatever conversion function this column's
+	 * native type needs on the way in -- see
+	 * {@see \Propulsion\Adapter\DBAdapter::getColumnBindExpression()}. A no-op
+	 * (returns $placeholder unchanged) for every adapter that reports no
+	 * column-rewriting column types, which is all of them by default.
+	 *
+	 * Applied to the value side rather than the column side on purpose: for a
+	 * type like MariaDB's `VECTOR`, `col = VEC_FromText(:p1)` compares two
+	 * native vectors, whereas wrapping the column instead would force a
+	 * round trip through text on every candidate row.
+	 */
+	protected function bindExpression(string $placeholder): string
+	{
+		$db = $this->db;
+		if ($db === null || $this->dbName === null || !$db->usesColumnSqlRewriting()) {
+			return $placeholder;
+		}
+
+		return \Propulsion\Query\ColumnSqlRewriter::bind($db, $this->dbName, $this->realtable, $this->column, $placeholder);
 	}
 
 	/**
@@ -409,7 +440,7 @@ class Criterion
 			foreach ((array) $this->value as $value) {
 				$params[] = array('table' => $this->realtable, 'column' => $this->column, 'value' => $value);
 				$index++; // increment this first to correct for wanting bind params to start with :p1
-				$bindParams[] = ':p' . $index;
+				$bindParams[] = $this->bindExpression(':p' . $index);
 			}
 			if (count($bindParams)) {
 				$field = ($this->table === null) ? $this->column : $this->table . '.' . $this->column;
@@ -514,7 +545,7 @@ class Criterion
 					}
 					$sb .= $db->ignoreCase($field) . $this->comparison . $db->ignoreCase(':p'.count($params));
 				} else {
-					$sb .= $field . $this->comparison . ':p'.count($params);
+					$sb .= $field . $this->comparison . $this->bindExpression(':p'.count($params));
 				}
 
 			}

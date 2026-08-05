@@ -692,6 +692,22 @@
 				</xs:documentation>
 			</xs:annotation>
 		</xs:attribute>
+		<xs:attribute name="nativeVector" type="xs:boolean" use="optional" default="false">
+			<xs:annotation>
+				<xs:documentation xml:lang="en">
+					 For a VECTOR column, whether to use MariaDB 11.7+'s real native
+					 `VECTOR(n)` column type instead of the default bracketed-JSON
+					 text emulation. Requires an explicit `size` (the dimension).
+					 Only honored by MysqlPlatform, and opt-in for the same reason
+					 `nativeUuid` is, plus one of its own: a native VECTOR column can
+					 only be read/written through `VEC_ToText()`/`VEC_FromText()`, so
+					 this flag also switches the runtime onto the adapter's
+					 column-SQL-rewriting hooks for the column. MySQL 9.0+'s own
+					 native VECTOR spells those conversion functions differently and
+					 is not covered by this flag.
+				</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
 		<xs:attribute name="tsvectorFrom" type="xs:string" use="optional">
 			<xs:annotation>
 				<xs:documentation xml:lang="en">

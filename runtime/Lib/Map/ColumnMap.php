@@ -70,6 +70,14 @@ class ColumnMap
   // directly instead of the emulated integer index (see getPdoType()).
   protected bool $isNativeEnum = false;
 
+  // Whether a VECTOR column is `nativeVector="true"` -- stored in the
+  // platform's real native vector type rather than as bracketed-JSON text,
+  // which means it can only be read/written through that platform's
+  // conversion functions. Consulted by the adapter's
+  // usesColumnSqlRewriting()/getColumnBindExpression()/
+  // getColumnSelectExpression() hooks.
+  protected bool $isNativeVector = false;
+
   // Is this a primaryString column?
   protected bool $isPkString = false;
 
@@ -199,6 +207,23 @@ class ColumnMap
   public function isNativeEnum(): bool
   {
     return $this->isNativeEnum;
+  }
+
+  /**
+   * Sets whether this VECTOR column is `nativeVector="true"`.
+   */
+  public function setNativeVector(bool $isNativeVector): void
+  {
+    $this->isNativeVector = $isNativeVector;
+  }
+
+  /**
+   * Whether this VECTOR column is stored in the platform's real native vector
+   * type -- see {@see \Propulsion\Adapter\DBAdapter::getColumnBindExpression()}.
+   */
+  public function isNativeVector(): bool
+  {
+    return $this->isNativeVector;
   }
 
   /**

@@ -210,6 +210,22 @@ EOF;
 		$this->assertFalse($column3->isJsonType());
 	}
 
+	public function testNativeVectorDefaultsOffAndIsReadFromTheSchemaAttribute()
+	{
+		$database = new Database();
+		$database->setPlatform(new MysqlPlatform());
+		$table = new Table('doc');
+		$database->addTable($table);
+
+		$column = new Column('embedding');
+		$column->setType(PropulsionTypes::VECTOR);
+		$table->addColumn($column);
+		$this->assertFalse($column->isNativeVector(), 'nativeVector is opt-in');
+
+		$column->loadFromXML(array('name' => 'embedding', 'type' => 'VECTOR', 'size' => '3', 'nativeVector' => 'true'));
+		$this->assertTrue($column->isNativeVector());
+	}
+
 	public function testIsNativeArrayStorageRequiresPlatformSupport()
 	{
 		$database = new Database();

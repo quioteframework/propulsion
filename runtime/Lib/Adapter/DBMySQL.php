@@ -276,6 +276,58 @@ class DBMySQL extends DBAdapter
 	}
 
 	/**
+	 * True because of `nativeVector="true"` columns -- see
+	 * getColumnBindExpression() below. Every other column type this adapter
+	 * maps round-trips through a plain bind unchanged.
+	 *
+	 * @see       DBAdapter::usesColumnSqlRewriting()
+	 */
+	public function usesColumnSqlRewriting(): bool
+	{
+		return true;
+	}
+
+	/**
+	 * MariaDB 11.7+'s real `VECTOR(n)` column rejects a bound bracket-JSON
+	 * string outright ("Incorrect vector value", confirmed live against
+	 * MariaDB 11.8) -- the value has to go through `VEC_FromText()` at the SQL
+	 * level, which is exactly what this hook exists for.
+	 *
+	 * Deliberately *not* gated on {@see isMariaDb()}, unlike this adapter's
+	 * RETURNING support: the column is only ever native in the first place
+	 * because the schema author wrote `nativeVector="true"`, which
+	 * MysqlPlatform documents as meaning "this schema targets MariaDB 11.7+"
+	 * (same convention as `nativeUuid`/`nativeSequence`). Probing the server
+	 * here would silently emit a plain bind against a native column on a
+	 * mis-declared schema, which fails at the server anyway but with a much
+	 * less obvious error than the DDL step already produced.
+	 *
+	 * MySQL 9.0+'s own native `VECTOR` spells these `STRING_TO_VECTOR()`/
+	 * `VECTOR_TO_STRING()` and is not covered by the `nativeVector` flag; see
+	 * PLATFORM_FEATURES.md for why that is left open.
+	 *
+	 * @see       DBAdapter::getColumnBindExpression()
+	 */
+	public function getColumnBindExpression(ColumnMap $cMap, string $placeholder): string
+	{
+		return $cMap->isNativeVector() ? 'VEC_FromText(' . $placeholder . ')' : $placeholder;
+	}
+
+	/**
+	 * The read counterpart of getColumnBindExpression(): a native `VECTOR`
+	 * column selected bare comes back as an opaque binary blob, so it is read
+	 * through `VEC_ToText()` to give the generated hydration code the same
+	 * bracketed-JSON text every other platform's emulated vector column
+	 * produces.
+	 *
+	 * @see       DBAdapter::getColumnSelectExpression()
+	 */
+	public function getColumnSelectExpression(ColumnMap $cMap, string $columnExpression): string
+	{
+		return $cMap->isNativeVector() ? 'VEC_ToText(' . $columnExpression . ')' : $columnExpression;
+	}
+
+	/**
 	 * @see       DBAdapter::supportsUpsert()
 	 */
 	public function supportsUpsert(): bool
