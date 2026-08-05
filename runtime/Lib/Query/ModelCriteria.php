@@ -78,6 +78,30 @@ class ModelCriteria extends Criteria
 	/** @var ModelJoin|null */
 	protected $previousJoin = null; // this is introduced to prevent useQuery->join from going wrong
 	protected bool $isKeepQuery = true; // whether to clone the current object before termination methods
+
+	/**
+	 * Whether {@see withoutGlobalFilters()} has switched every registered
+	 * filter off for this query.
+	 */
+	protected bool $allGlobalFiltersDisabled = false;
+
+	/**
+	 * Filter names switched off individually by {@see withoutGlobalFilter()},
+	 * as a name => true set.
+	 *
+	 * @var array<string, true>
+	 */
+	protected array $disabledGlobalFilters = array();
+
+	/**
+	 * Whether this query's global filters have already been applied.
+	 *
+	 * Guards against applying them twice, which is possible on the
+	 * `keepQuery(false)` path where the termination methods operate on `$this`
+	 * rather than on a fresh clone, so a second `find()` would otherwise add
+	 * the same conditions again.
+	 */
+	protected bool $globalFiltersApplied = false;
 	/** @var array<int, string>|string|null */
 	protected $select = null;  // this is for the select method
 
@@ -1623,6 +1647,84 @@ class ModelCriteria extends Criteria
 	}
 
 	/**
+	 * Runs this query without any of the predicates registered for its model
+	 * via {@see \Propulsion\Propulsion::addGlobalQueryFilter()}.
+	 *
+	 * The blunt instrument, and named to read like one. A report that wants to
+	 * see soft-deleted rows almost never also wants to see *other tenants'*
+	 * rows, and dropping both because only one was in the way is a data leak
+	 * rather than an inconvenience -- prefer {@see withoutGlobalFilter()},
+	 * which drops the one you meant.
+	 *
+	 * @return    static The current object, for fluid interface
+	 */
+	public function withoutGlobalFilters() : static
+	{
+		$this->allGlobalFiltersDisabled = true;
+
+		return $this;
+	}
+
+	/**
+	 * Runs this query without the named global filter(s), keeping the rest.
+	 *
+	 * Naming one that isn't registered is deliberately not an error: filters
+	 * are registered by application bootstrap and a query that says "not the
+	 * soft-delete one" should keep working in a context where soft delete is
+	 * not configured at all.
+	 *
+	 * @param     string ...$filterNames
+	 * @return    static The current object, for fluid interface
+	 */
+	public function withoutGlobalFilter(string ...$filterNames) : static
+	{
+		foreach ($filterNames as $filterName) {
+			$this->disabledGlobalFilters[$filterName] = true;
+		}
+
+		return $this;
+	}
+
+	/**
+	 * Adds the predicates registered for this query's model, unless the query
+	 * opted out of them. Called once per query from the four places SQL is
+	 * built: {@see prepareSelectSql()}, {@see prepareCountSql()},
+	 * {@see doDelete()} and {@see doUpdate()}.
+	 *
+	 * At build time rather than at construction, because a filter's own
+	 * conditions may depend on state that is only settled once the caller has
+	 * finished composing the query (and, for the tenancy case, on request
+	 * state that is not known when the query object is created).
+	 *
+	 * **Applies to this query's own model only.** A joined or merged secondary
+	 * query (`useQuery()`, `withQuery()`, `join()`) is not filtered by its own
+	 * model's registrations: the predicate would have to be rewritten against
+	 * the join's alias, and there is no general way to do that to an arbitrary
+	 * caller-supplied closure. Filter the relation explicitly inside the
+	 * `useQuery()` scope where that matters. Recorded rather than papered over
+	 * -- see PLATFORM_FEATURES.md.
+	 */
+	protected function applyGlobalQueryFilters(): void
+	{
+		if ($this->globalFiltersApplied || $this->allGlobalFiltersDisabled) {
+			return;
+		}
+		$this->globalFiltersApplied = true;
+
+		$registry = Propulsion::getServiceContainer()->getGlobalQueryFilters();
+		if ($registry->isEmpty()) {
+			return;
+		}
+
+		foreach ($registry->forModel($this->modelName) as $filterName => $filter) {
+			if (isset($this->disabledGlobalFilters[$filterName])) {
+				continue;
+			}
+			$filter($this);
+		}
+	}
+
+	/**
 	 * Code to execute before every SELECT statement
 	 *
 	 * @param     PropulsionPDO $con The connection object used by the query
@@ -1915,6 +2017,8 @@ class ModelCriteria extends Criteria
 	 */
 	protected function prepareSelectSql(PropulsionPDO $con): array
 	{
+		$this->applyGlobalQueryFilters();
+
 		// check that the columns of the main class are already added (if this is the primary ModelCriteria)
 		if (!$this->hasSelectClause() && !$this->getPrimaryCriteria()) {
 			$this->addSelfSelectColumns();
@@ -2191,6 +2295,8 @@ class ModelCriteria extends Criteria
 	 */
 	protected function prepareCountSql(PropulsionPDO $con): array
 	{
+		$this->applyGlobalQueryFilters();
+
 		$db = Propulsion::getDB($this->getDbName());
 
 		// check that the columns of the main class are already added (if this is the primary ModelCriteria)
@@ -2357,6 +2463,13 @@ class ModelCriteria extends Criteria
 	 */
 	public function doDelete(PropulsionPDO $con)
 	{
+		// A DELETE has to be filtered for the same reason a SELECT does: a
+		// tenancy filter that only narrowed reads would let a delete reach
+		// another tenant's rows, which is worse than showing them.
+		// doDeleteAll() deliberately is *not* filtered -- it is the explicit
+		// "empty this table" operation and has no WHERE clause to narrow.
+		$this->applyGlobalQueryFilters();
+
 		$affectedRows = $this->modelPeerName::doDelete($this, $con);
 		if (!is_int($affectedRows)) {
 			throw new PropulsionException("{$this->modelPeerName}::doDelete() was expected to return an int");
@@ -2541,6 +2654,13 @@ class ModelCriteria extends Criteria
 	*/
 	public function doUpdate(array $values, PropulsionPDO $con, bool $forceIndividualSaves = false) : int
 	{
+		// Same reasoning as doDelete(): an unfiltered UPDATE would write
+		// across the boundary a filtered SELECT is there to enforce. The
+		// $forceIndividualSaves branch below goes through find(), which
+		// applies them again -- harmless, since applyGlobalQueryFilters() is
+		// idempotent per query object.
+		$this->applyGlobalQueryFilters();
+
 		if($forceIndividualSaves) {
 
 			foreach ($values as $value) {

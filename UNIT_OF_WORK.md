@@ -243,12 +243,13 @@ porting vs. what Propulsion already does better or doesn't need:
   `UnitOfWork::attach()`/`EntityState` above.
 - [ ] **`AsNoTracking()` query mode** — directly applicable, see "No-
   tracking read mode" above.
-- [ ] **Global query filters** (auto-applied `WHERE` clauses for soft-delete
-  or multi-tenancy, suppressible per-query) — Propulsion has
-  `SoftDeleteBehavior` per-table already; a general filter mechanism at the
-  `Criteria` level (auto-injected predicate unless explicitly disabled for
-  one query) would generalize that pattern and cover multi-tenancy too.
-  Worth a design pass, lower priority than the above.
+- [x] **Global query filters** (auto-applied `WHERE` clauses for soft-delete
+  or multi-tenancy, suppressible per-query) — shipped as
+  `Propulsion::addGlobalQueryFilter()` plus
+  `ModelCriteria::withoutGlobalFilter()`/`withoutGlobalFilters()`. See
+  `PLATFORM_FEATURES.md`'s own entry for the design notes (why a callable
+  rather than a stored predicate, why UPDATE/DELETE are filtered too, and the
+  joined-model limitation).
 - [x] **Topological insert/update ordering across the whole tracked graph**
   — done, see `UnitOfWork::flush()`'s table-level topological sort above
   (table-level, not per-instance, but covers the whole tracked batch, not

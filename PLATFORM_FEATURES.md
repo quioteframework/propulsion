@@ -530,11 +530,50 @@ These are gaps in the shared query builder — confirmed absent by grep across
     MSSQL has no containment operator at all — and JSON aggregation/
     construction (`json_agg`, `JSON_OBJECT`). Both are reachable today through
     the ordinary raw-clause escape hatch.
-- [ ] **Global query filters** — auto-applied `WHERE` predicates
-  (soft-delete, multi-tenancy) suppressible per query. Also tracked in
-  `UNIT_OF_WORK.md` under the EF Core steal list; recorded here too because
-  it's a `Criteria`-level mechanism, and `SoftDeleteBehavior` is the existing
-  per-table special case it would generalize.
+- [x] **Global query filters** — `Propulsion::addGlobalQueryFilter(string
+  $modelName, string $filterName, callable $filter)`, applied to every query
+  on that model unless it opts out with
+  `ModelCriteria::withoutGlobalFilter('name')` (one) or
+  `withoutGlobalFilters()` (all). Registry lives on `ServiceContainer`
+  (process-scoped configuration, like the cache pools and unlike anything on
+  `Session`). Generalizes what `SoftDeleteBehavior` does for one table; also
+  tracked in `UNIT_OF_WORK.md`'s EF Core steal list.
+  - **A callable, not a stored `Criterion`.** The two motivating filters split
+    on exactly this: soft delete is knowable at bootstrap, multi-tenancy is
+    not -- the tenant is a property of the request. A closure receiving the
+    query runs at build time, can use the generated `filterByX()` methods, and
+    can read whatever request state it needs then. Registration is keyed by
+    name, so a bootstrap that runs twice (a test, a worker reload) replaces
+    rather than stacks.
+  - **Applied to SELECT, COUNT, UPDATE *and* DELETE**, at the four
+    SQL-building seams (`prepareSelectSql()`, `prepareCountSql()`,
+    `doDelete()`, `doUpdate()`), guarded by a per-query applied-once flag
+    because the `keepQuery(false)` path reuses the query object rather than
+    cloning it. Filtering only reads would be worse than not filtering at all
+    for the tenancy case: a `delete()` that reached rows the matching
+    `find()` hides is a cross-tenant write. `deleteAll()` is deliberately
+    exempt -- it is the explicit "empty this table" operation and has no
+    WHERE clause to narrow.
+  - **Named filters, and `withoutGlobalFilters()` named to read as the blunt
+    instrument it is.** A report that wants to see soft-deleted rows almost
+    never also wants to see other tenants', so dropping every filter because
+    one was in the way is a data leak rather than an inconvenience. Naming a
+    filter that isn't registered is not an error, so a query written against a
+    deployment that configures soft delete still runs on one that doesn't.
+  - **Scope: the query's own model only.** A joined or merged secondary query
+    (`useQuery()`/`withQuery()`/`join()`) is not filtered by *its* model's
+    registrations -- the predicate would have to be rewritten against the
+    join's alias, and there is no general way to do that to an arbitrary
+    caller-supplied closure (it may add joins, `orWhere` groups, or nothing).
+    Filter the relation explicitly inside the `useQuery()` scope where that
+    matters. Deliberately deferred rather than half-done: a rewriter that
+    handled the simple `filterByX()` case and silently mis-scoped anything
+    else would be worse than an honest limitation.
+  - Covered live against the bookstore fixture (narrowing find/findOne/count/
+    update/delete, per-filter and all-filter opt-out, no cross-model leakage,
+    no double application on a reused query, and a filter reading state that
+    changes between runs -- the multi-tenancy shape), plus a no-database unit
+    suite for the registry itself.
 
 ## 2. Type-system additions
 

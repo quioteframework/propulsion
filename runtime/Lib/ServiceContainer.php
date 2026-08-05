@@ -14,6 +14,7 @@ use Propulsion\Cache\CompiledQueryCache;
 use Propulsion\Cache\Driver\NullCache;
 use Propulsion\Cache\QueryCacheConfig;
 use Propulsion\Connection\ConnectionConfig;
+use Propulsion\Query\GlobalQueryFilters;
 use Psr\SimpleCache\CacheInterface;
 
 /**
@@ -121,6 +122,26 @@ class ServiceContainer
     public function clearCompiledQueryCache(): void
     {
         $this->compiledQueryCache?->clear();
+    }
+
+    /**
+     * Predicates applied to every query on a model unless it opts out.
+     *
+     * Process-scoped, like the caches above and unlike anything on
+     * {@see \Propulsion\Session}: these are configuration registered at
+     * bootstrap, and a filter that vanished at the request boundary would
+     * silently stop filtering -- which for a tenancy filter is a data leak,
+     * not a degraded feature. A filter that needs request state reads it when
+     * it runs; see {@see \Propulsion\Query\GlobalQueryFilters}.
+     */
+    private ?GlobalQueryFilters $globalQueryFilters = null;
+
+    /**
+     * The process-wide global query filter registry, created on first use.
+     */
+    public function getGlobalQueryFilters(): GlobalQueryFilters
+    {
+        return $this->globalQueryFilters ??= new GlobalQueryFilters();
     }
 
     /**

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Global query filters.** `Propulsion::addGlobalQueryFilter('Book',
+  'not-deleted', $filter)` applies a predicate to every SELECT, COUNT, UPDATE
+  and DELETE on a model; a query drops one with
+  `withoutGlobalFilter('not-deleted')` or all with `withoutGlobalFilters()`.
+  Filters are closures, so a multi-tenancy filter can read request state each
+  time it runs.
 - **JSON path queries.** `ModelCriteria::whereJsonPath('Book.Meta',
   '$.author.name', 'Ursula')` filters on a value inside a JSON column, and
   `JsonExpression::text()`/`json()` selects one via `withColumn()`. One

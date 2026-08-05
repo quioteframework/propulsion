@@ -1246,6 +1246,78 @@ class Propulsion
 	}
 
 	/**
+	 * Registers a predicate applied to every query on $modelName unless the
+	 * query opts out -- soft delete and multi-tenancy being the two cases this
+	 * exists for.
+	 *
+	 *     Propulsion::addGlobalQueryFilter('Book', 'not-deleted', function ($q) {
+	 *         $q->filterByDeletedAt(null);
+	 *     });
+	 *     Propulsion::addGlobalQueryFilter('Book', 'tenant', function ($q) {
+	 *         $q->filterByTenantId(CurrentTenant::id());
+	 *     });
+	 *
+	 * A callable rather than a stored condition, because the interesting
+	 * filters are not knowable at registration time: the tenant is a property
+	 * of the request, not of the bootstrap. The closure runs when the query is
+	 * built and receives the query itself, so it can use the generated
+	 * `filterByX()` methods and read whatever it needs then.
+	 *
+	 * Filters are **process-scoped configuration** and survive
+	 * `Session::reset()`, which is what a persistent worker needs -- register
+	 * the closure once and let it read request state on each run. Do not
+	 * capture a tenant id *by value* inside a request; capture the lookup.
+	 *
+	 * Applied to SELECT, COUNT, UPDATE and DELETE alike. An unfiltered UPDATE
+	 * or DELETE would write across the boundary the filtered SELECT exists to
+	 * enforce, which is a worse failure than reading across it.
+	 * `deleteAll()` is deliberately exempt: it is the explicit "empty this
+	 * table" operation and has no WHERE clause to narrow.
+	 *
+	 * @param      string $modelName  The model's name as its query class reports it
+	 *                                ({@see ModelCriteria::getModelName()}), namespace
+	 *                                included if it has one.
+	 * @param      string $filterName A name unique per model. Re-registering a name
+	 *                                replaces rather than stacks, so a bootstrap that
+	 *                                runs twice cannot apply its filters twice --
+	 *                                and it is what a query names to drop this one
+	 *                                filter without dropping the others
+	 *                                ({@see ModelCriteria::withoutGlobalFilter()}).
+	 * @param      callable(\Propulsion\Query\ModelCriteria): void $filter
+	 */
+	public static function addGlobalQueryFilter(string $modelName, string $filterName, callable $filter): void
+	{
+		self::getServiceContainer()->getGlobalQueryFilters()->add($modelName, $filterName, $filter);
+	}
+
+	/**
+	 * Unregisters one global query filter. A no-op if it was never registered.
+	 */
+	public static function removeGlobalQueryFilter(string $modelName, string $filterName): void
+	{
+		self::getServiceContainer()->getGlobalQueryFilters()->remove($modelName, $filterName);
+	}
+
+	/**
+	 * Unregisters every global query filter on $modelName, or on every model
+	 * when it is null. Mostly for test isolation.
+	 */
+	public static function clearGlobalQueryFilters(?string $modelName = null): void
+	{
+		self::getServiceContainer()->getGlobalQueryFilters()->clear($modelName);
+	}
+
+	/**
+	 * The global query filter registry itself, for a caller that wants to
+	 * inspect it (which names are registered for a model, say) rather than go
+	 * through the three convenience methods above.
+	 */
+	public static function getGlobalQueryFilters(): \Propulsion\Query\GlobalQueryFilters
+	{
+		return self::getServiceContainer()->getGlobalQueryFilters();
+	}
+
+	/**
 	 * Run a closure while holding a named application-level ("advisory") lock,
 	 * releasing it afterwards whatever happens.
 	 *
