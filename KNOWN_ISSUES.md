@@ -81,6 +81,49 @@ rm -rf fixtures/bookstore/build fixtures/schemas/build fixtures/namespaced/build
   opt-ins -- are no longer verified only by hand. A dedicated platform/adapter
   pair is still the open item here, not the coverage.
 
+- **Tests that reconfigure Propulsion leak its adapter map.**
+  `Propulsion::setConfiguration()` drops every registered adapter, and one
+  registered with `setDB()` (which is how `PropulsionQuickBuilder` hands each
+  built schema to the runtime) cannot be rebuilt from the configuration — so a
+  test that reconfigures and restores only the configuration array silently
+  unregisters ~50 datasources belonging to other tests. The failure lands on
+  an unrelated test later in the run (`Unable to find adapter for datasource
+  [...]`) and depends on execution order, so it reproduces only with a cleared
+  `test/.phpunit.cache`. It has reddened CI twice.
+
+  `GlobalStateLeakGuard` (a PHPUnit extension, sibling of
+  `TransactionLeakGuard`) now names the culprit after every test *and
+  re-registers what was lost*, so a leak can no longer travel.
+  `PropulsionStateSnapshot::capture()/restore()` is the fix for a test that
+  means to reconfigure. Still leaking, and why the guard reports rather than
+  fails: `NamespaceTest`, `ModelCriteriaWithSchemaTest`,
+  `RelatedMapSymmetricalWithSchemasTest`, `GeneratedRelationMapWithSchemasTest`,
+  `ConcreteInheritanceBehaviorWithSchemaTest`,
+  `AggregateColumnBehaviorWithSchemaTest`, `CompiledQueryCacheTest` — 29 tests
+  across 7 classes, all of which switch to another fixture project's
+  configuration on purpose. Once they use the snapshot, flip the guard's
+  `report()` to `exit(1)`.
+
+- **The suite is not order-independent.** Roughly a third of random orderings
+  fail with 15 errors, all `Class "Book" not found` in tests that use the
+  generated bookstore fixture (`OMBuilderTest::testClear`,
+  `QueryCacheTouchedTablesTest`, `FieldnameRelatedTest`). Reproduce with:
+
+  ```
+  cd test && rm -rf .phpunit.cache
+  PROPULSION_SKIP_INTEGRATION=1 ../vendor/bin/phpunit -c phpunit.xml \
+      --order-by=random --random-order-seed=2222
+  ```
+
+  Pre-existing and long-standing: it reproduces unchanged at `a71a711`
+  (2026-08-06) on 3 of 4 seeds tried. The default `executionOrder="depends,defects"`
+  happens to avoid it, which is why CI has never seen it, but it means the
+  suite currently depends on an ordering nobody chose deliberately. Not
+  diagnosed further than "something about when the bookstore classmap
+  autoloader is registered relative to the fixture projects that register
+  their own" -- worth doing, because an order-independent suite is what stops
+  the whole class of bug above from reaching CI in the first place.
+
 ## Known-open, deliberately not fixed
 
 Findings from the code-review pass that landed in `e06386a`/`cfe545a`/`547af90`,

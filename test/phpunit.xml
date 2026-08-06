@@ -13,6 +13,7 @@
         <!-- Names the test that left a transaction open, and unwinds it before
              its locks can fail hundreds of later tests. See the class. -->
         <bootstrap class="TransactionLeakGuard"/>
+        <bootstrap class="GlobalStateLeakGuard"/>
     </extensions>
 
     <testsuites>

@@ -46,6 +46,7 @@ require_once __DIR__ . '/tools/helpers/BaseTestCase.php';
 require_once __DIR__ . '/tools/helpers/SchemaPlatformFixtures.php';
 require_once __DIR__ . '/tools/helpers/SqlAssertions.php';
 require_once __DIR__ . '/tools/helpers/PropulsionStateSnapshot.php';
+require_once __DIR__ . '/tools/helpers/GlobalStateLeakGuard.php';
 // Registered as an extension in phpunit.xml, which loads this bootstrap first.
 require_once __DIR__ . '/tools/helpers/TransactionLeakGuard.php';
 

@@ -26,29 +26,25 @@ use Propulsion\Propulsion;
  */
 class ReconfigureTest extends TestCase
 {
-    /** @var array<string, mixed>|null */
-    private ?array $previousConfiguration = null;
+    private ?PropulsionStateSnapshot $state = null;
 
     protected function setUp(): void
     {
         parent::setUp();
-        try {
-            /** @var array<string, mixed> $existing */
-            $existing = Propulsion::getConfiguration(PropulsionConfiguration::TYPE_ARRAY);
-            $this->previousConfiguration = $existing;
-        } catch (PropulsionException) {
-            $this->previousConfiguration = null;
-        }
+        $this->state = PropulsionStateSnapshot::capture();
     }
 
     protected function tearDown(): void
     {
         // Propulsion's configuration is process-global and the rest of the
-        // suite runs in this process, so put it back exactly as found.
-        if ($this->previousConfiguration !== null) {
-            Propulsion::setConfiguration($this->previousConfiguration);
-            Propulsion::initialize();
-        }
+        // suite runs in this process, so put it back exactly as found --
+        // including the adapters. Restoring the configuration alone (what this
+        // used to do) left 54 adapters registered by earlier QuickBuilder
+        // fixtures unregistered for the remainder of the run, because
+        // setConfiguration() drops the whole map and only the ones described
+        // in the configuration can be rebuilt. Nothing noticed because this
+        // class runs near the end; GlobalStateLeakGuard notices now.
+        $this->state?->restore();
         parent::tearDown();
     }
 

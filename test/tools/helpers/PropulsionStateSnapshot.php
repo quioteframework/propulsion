@@ -26,6 +26,13 @@ use Propulsion\Propulsion;
  * suite's non-bookstore fixtures work -- cannot be rebuilt from anything and
  * are simply gone.
  *
+ * The configuration is captured and restored as the *object*, not as its
+ * array of values. Restoring from an array builds a fresh
+ * PropulsionConfiguration, and a connection that had already resolved the old
+ * instance keeps reading that one -- which is its own order-dependent failure
+ * (see ConnectionConfigurationFollowsPropulsionTest). Putting the original
+ * instance back leaves identity intact.
+ *
  * Restoring only the configuration array is therefore not enough, and looks
  * like it is: the reconfiguring test passes, and some later, unrelated test
  * fails with "Unable to find adapter for datasource [...]" naming a
@@ -41,11 +48,10 @@ use Propulsion\Propulsion;
 final class PropulsionStateSnapshot
 {
     /**
-     * @param array<string, mixed>|null $configuration
-     * @param array<string, DBAdapter>  $adapters
+     * @param array<string, DBAdapter> $adapters
      */
     private function __construct(
-        private readonly ?array $configuration,
+        private readonly ?PropulsionConfiguration $configuration,
         private readonly array $adapters,
     ) {
     }
@@ -53,10 +59,12 @@ final class PropulsionStateSnapshot
     public static function capture(): self
     {
         try {
-            /** @var array<string, mixed> $configuration */
-            $configuration = Propulsion::getConfiguration(PropulsionConfiguration::TYPE_ARRAY);
+            $configuration = Propulsion::getConfiguration(PropulsionConfiguration::TYPE_OBJECT);
         } catch (PropulsionException) {
             // Nothing configured yet; restore() will leave it that way.
+            $configuration = null;
+        }
+        if (!$configuration instanceof PropulsionConfiguration) {
             $configuration = null;
         }
 
