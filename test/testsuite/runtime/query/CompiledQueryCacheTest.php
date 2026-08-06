@@ -124,12 +124,22 @@ class CompiledQueryCacheTest extends BookstoreTestBase
 		$cache = Propulsion::getServiceContainer()->getCompiledQueryCache();
 		$this->assertGreaterThan(0, $cache->count());
 
-		// A new configuration can name a different adapter for the same
-		// datasource, and the cached SQL carries that adapter's identifier
-		// quoting and LIMIT/OFFSET dialect, so it must not stay reachable.
-		Propulsion::setConfiguration(Propulsion::getConfiguration());
+		// Reconfiguring is this test's subject, so it cannot avoid dropping the
+		// adapter map; it can avoid leaving it dropped. Restoring is what stops
+		// the QuickBuilder-registered adapters -- unrebuildable from any
+		// configuration -- vanishing for every test that runs after this one.
+		$state = PropulsionStateSnapshot::capture();
 
-		$this->assertSame(0, $cache->count(), 'setConfiguration() must drop SQL compiled against the previous configuration');
+		try {
+			// A new configuration can name a different adapter for the same
+			// datasource, and the cached SQL carries that adapter's identifier
+			// quoting and LIMIT/OFFSET dialect, so it must not stay reachable.
+			Propulsion::setConfiguration(Propulsion::getConfiguration());
+
+			$this->assertSame(0, $cache->count(), 'setConfiguration() must drop SQL compiled against the previous configuration');
+		} finally {
+			$state->restore();
+		}
 	}
 
 	public function testTheSessionAccessorStillReachesTheProcessWideCache(): void

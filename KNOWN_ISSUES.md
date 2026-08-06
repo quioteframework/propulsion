@@ -92,17 +92,19 @@ rm -rf fixtures/bookstore/build fixtures/schemas/build fixtures/namespaced/build
   `test/.phpunit.cache`. It has reddened CI twice.
 
   `GlobalStateLeakGuard` (a PHPUnit extension, sibling of
-  `TransactionLeakGuard`) now names the culprit after every test *and
-  re-registers what was lost*, so a leak can no longer travel.
+  `TransactionLeakGuard`) names the culprit after every test *and re-registers
+  what was lost*, so a leak can no longer travel.
   `PropulsionStateSnapshot::capture()/restore()` is the fix for a test that
-  means to reconfigure. Still leaking, and why the guard reports rather than
-  fails: `NamespaceTest`, `ModelCriteriaWithSchemaTest`,
-  `RelatedMapSymmetricalWithSchemasTest`, `GeneratedRelationMapWithSchemasTest`,
-  `ConcreteInheritanceBehaviorWithSchemaTest`,
-  `AggregateColumnBehaviorWithSchemaTest`, `CompiledQueryCacheTest` — 29 tests
-  across 7 classes, all of which switch to another fixture project's
-  configuration on purpose. Once they use the snapshot, flip the guard's
-  `report()` to `exit(1)`.
+  means to reconfigure.
+
+  **The backlog is empty** — zero leaks on all five platforms — so a report
+  now means a newly introduced leak rather than a known one. Like
+  `TransactionLeakGuard`, the guard reports without failing the run; the
+  repair is what protects the suite, and a named test is enough to get it
+  fixed. Note that the leaking set differs per platform, because which tests
+  skip differs: the seven classes originally listed here were the Postgres
+  set, and Oracle reported seven *different* ones. A single-platform run does
+  not clear this.
 
 - **One order-dependent failure remains, in the integration tier only.**
   Random orderings of the *no-Docker* tier are now clean (12 seeds, identical

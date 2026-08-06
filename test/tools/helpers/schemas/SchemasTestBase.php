@@ -18,6 +18,7 @@ require_once dirname(__FILE__) . '/../IntegrationDatabase.php';
  */
 abstract class SchemasTestBase extends TestCase
 {
+	private ?PropulsionStateSnapshot $state = null;
 
 	protected function setUp(): void
 	{
@@ -29,19 +30,24 @@ abstract class SchemasTestBase extends TestCase
 			$this->markTestSkipped($e->getMessage());
 		}
 
+		// Captured before init(), which drops the entire adapter map on its way
+		// to installing the schemas configuration. Re-initialising back to the
+		// bookstore conf in tearDown() -- what this used to do -- restores the
+		// configuration but not the adapters registered with setDB(), which no
+		// configuration can rebuild. Those belong to the QuickBuilder-based
+		// tests, so the cost landed on tests with no connection to this one.
+		$this->state = PropulsionStateSnapshot::capture();
+
 		Propulsion::init(IntegrationDatabase::schemasConfFile());
 	}
 
 	protected function tearDown(): void
 	{
+		// Null when setUp() skipped before capturing, which is also the case
+		// where there is nothing to put back.
+		$this->state?->restore();
+		$this->state = null;
+
 		parent::tearDown();
-		try {
-			IntegrationDatabase::ensureReady();
-			Propulsion::init(IntegrationDatabase::confFile());
-		} catch (\RuntimeException $e) {
-			// Bookstore fixtures unavailable (e.g. Docker missing) -- nothing to
-			// reset back to, and the schemas test above will already have been
-			// skipped in that case.
-		}
 	}
 }

@@ -39,11 +39,12 @@ use Propulsion\Propulsion;
  * {@see PropulsionStateSnapshot} is the fix for a test that means to
  * reconfigure; this is what notices when one forgot.
  *
- * **Reports and repairs, but does not (yet) fail the run.** Putting the
- * adapters back before the next test starts is what stops a leak travelling,
- * and is the part that would have prevented the failures this was written
- * for. Making it fatal is a second step, blocked on the backlog of
- * pre-existing leakers recorded in KNOWN_ISSUES.md.
+ * **Reports and repairs, but does not fail the run**, matching
+ * {@see TransactionLeakGuard}. Putting the adapters back before the next test
+ * starts is what stops a leak travelling, and is the part that would have
+ * prevented the failures this was written for. The backlog of pre-existing
+ * leakers this was written against is now empty, so a report here means a new
+ * leak: fix the test rather than adding it to a list.
  *
  * **Only adapter *loss* is treated as a leak.** Registering a new adapter is
  * ordinary (every QuickBuilder-based test does it), and the configuration
@@ -130,12 +131,9 @@ final class GlobalStateLeakGuard implements Extension
 			implode("\n", array_map(static fn (string $l): string => '  ' . $l, self::$leaks))
 		));
 
-		// Deliberately does *not* fail the run yet, unlike TransactionLeakGuard.
-		// Restoring above is what actually protects the suite -- the adapters
-		// are back before the next test starts, so a leak can no longer travel
-		// -- and that protection is worth having immediately. Failing on top of
-		// it has to wait for the pre-existing backlog listed in KNOWN_ISSUES.md
-		// to be cleared, or the guard would simply turn CI red for leaks that
-		// predate it. Flip this to exit(1) once that list is empty.
+		// Deliberately does *not* fail the run, the same choice TransactionLeakGuard
+		// makes. Restoring above is what actually protects the suite -- the
+		// adapters are back before the next test starts, so a leak can no longer
+		// travel -- and a report is enough to get the offending test fixed.
 	}
 }

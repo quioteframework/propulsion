@@ -19,6 +19,8 @@ require_once dirname(__FILE__) . '/../../../tools/helpers/IntegrationDatabase.ph
  */
 class NamespaceTest extends TestCase
 {
+	private ?PropulsionStateSnapshot $state = null;
+
 	protected function setUp(): void
 	{
 		parent::setUp();
@@ -30,18 +32,25 @@ class NamespaceTest extends TestCase
 		}
 
 		set_include_path(get_include_path() . PATH_SEPARATOR . realpath(IntegrationDatabase::namespacedClassesDir()));
+
+		// Captured before init(), which drops the entire adapter map on its way
+		// to installing the namespaced configuration. Re-initialising back to
+		// the bookstore conf in tearDown() -- what this used to do -- restores
+		// the configuration but not the adapters registered with setDB(), which
+		// no configuration can rebuild. See PropulsionStateSnapshot.
+		$this->state = PropulsionStateSnapshot::capture();
+
 		Propulsion::init(IntegrationDatabase::namespacedConfFile());
 	}
 
 	protected function tearDown(): void
 	{
+		// Null when setUp() skipped before capturing, which is also the case
+		// where there is nothing to put back.
+		$this->state?->restore();
+		$this->state = null;
+
 		parent::tearDown();
-		try {
-			IntegrationDatabase::ensureReady();
-			Propulsion::init(IntegrationDatabase::confFile());
-		} catch (\RuntimeException $e) {
-			// Bookstore fixtures aren't available either; nothing to restore.
-		}
 	}
 
 	public function testInsert()
