@@ -255,24 +255,48 @@ trait PropulsionPDOTrait
 	}
 
 	/**
-	 * Get the runtime configuration
+	 * Get the runtime configuration: this connection's own if one was injected
+	 * via {@see setConfiguration()}, otherwise Propulsion's current one.
+	 *
+	 * **The fallback is deliberately not memoised.** It used to be, and that
+	 * made a connection permanently pin whichever `PropulsionConfiguration`
+	 * instance happened to be current the first time anything asked it --
+	 * typically at construction. `Propulsion::setConfiguration()` replaces that
+	 * instance (it builds a new one from an array), so every connection already
+	 * open went on reading the *old* configuration for the rest of the process,
+	 * silently: logging settings, `debugpdo.logging.methods`, the
+	 * prepared-statement cache size. Reconfiguring therefore appeared to work
+	 * everywhere except on the connections doing the actual work.
+	 *
+	 * That was the odd one out. `Propulsion::setConfiguration()` already drops
+	 * every other piece of memoised, configuration-derived state for exactly
+	 * this reason -- the adapters, the default datasource name, the query cache
+	 * pool, the connection config, the compiled-query cache -- and this was the
+	 * one it could not reach, because the copies live on connection objects it
+	 * does not enumerate. Not memoising here fixes it without needing it to.
+	 *
+	 * Cheap: the fallback is a static property read plus a type check, and the
+	 * callers that ask repeatedly ({@see log()} and friends) only run under
+	 * `useDebug`.
 	 *
 	 * @return    PropulsionConfiguration
 	 */
 	public function getConfiguration()
 	{
-		if (null === $this->configuration) {
-			$config = Propulsion::getConfiguration(PropulsionConfiguration::TYPE_OBJECT);
-			if (!$config instanceof PropulsionConfiguration) {
-				// Propulsion::getConfiguration()'s return type is polymorphic on its
-				// $type argument (array or PropulsionConfiguration) and so can't be
-				// narrowed from its signature alone -- TYPE_OBJECT guarantees this
-				// in practice, checked explicitly here rather than asserted away.
-				throw new PropulsionException('Propulsion::getConfiguration(PropulsionConfiguration::TYPE_OBJECT) unexpectedly returned a ' . get_debug_type($config));
-			}
-			$this->configuration = $config;
+		if (null !== $this->configuration) {
+			return $this->configuration;
 		}
-		return $this->configuration;
+
+		$config = Propulsion::getConfiguration(PropulsionConfiguration::TYPE_OBJECT);
+		if (!$config instanceof PropulsionConfiguration) {
+			// Propulsion::getConfiguration()'s return type is polymorphic on its
+			// $type argument (array or PropulsionConfiguration) and so can't be
+			// narrowed from its signature alone -- TYPE_OBJECT guarantees this
+			// in practice, checked explicitly here rather than asserted away.
+			throw new PropulsionException('Propulsion::getConfiguration(PropulsionConfiguration::TYPE_OBJECT) unexpectedly returned a ' . get_debug_type($config));
+		}
+
+		return $config;
 	}
 
 	/**
