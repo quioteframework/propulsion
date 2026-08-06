@@ -17,6 +17,24 @@
  */
 class TimestampableBehaviorTest extends BookstoreTestBase
 {
+
+	/**
+	 * Asserts that $actual is a timestamp set *during* the operation that ran
+	 * between $before and now.
+	 *
+	 * Not assertEquals against a single time() reading, which is what this
+	 * replaces: `$t = time(); $obj->save();` compares two separate clock reads,
+	 * so it fails whenever the second ticks over in between. That is rare
+	 * enough to pass locally and often enough to redden one of five blocking CI
+	 * jobs at random -- observed against MSSQL, 1786002464 vs 1786002465. The
+	 * behaviour under test is "the column was stamped with the current time",
+	 * and a window is the honest way to say that.
+	 */
+	private function assertStampedDuring(int $before, mixed $actual, string $message): void
+	{
+		$this->assertGreaterThanOrEqual($before, (int) $actual, $message);
+		$this->assertLessThanOrEqual(time(), (int) $actual, $message);
+	}
 	public function testParameters()
 	{
 		$table2 = Table2Peer::getTableMap();
@@ -35,12 +53,12 @@ class TimestampableBehaviorTest extends BookstoreTestBase
 		$this->assertNull($t1->getUpdatedAt());
 		$tsave = time();
 		$t1->save();
-		$this->assertEquals($t1->getUpdatedAt('U'), $tsave, 'Timestampable sets updated_column to time() on creation');
+		$this->assertStampedDuring($tsave, $t1->getUpdatedAt('U'), 'Timestampable sets updated_column to time() on creation');
 		sleep(1);
 		$t1->setTitle('foo');
 		$tupdate = time();
 		$t1->save();
-		$this->assertEquals($t1->getUpdatedAt('U'), $tupdate, 'Timestampable changes updated_column to time() on update');
+		$this->assertStampedDuring($tupdate, $t1->getUpdatedAt('U'), 'Timestampable changes updated_column to time() on update');
 	}
 
 	public function testPreSaveNoChange()
@@ -49,7 +67,7 @@ class TimestampableBehaviorTest extends BookstoreTestBase
 		$this->assertNull($t1->getUpdatedAt());
 		$tsave = time();
 		$t1->save();
-		$this->assertEquals($t1->getUpdatedAt('U'), $tsave, 'Timestampable sets updated_column to time() on creation');
+		$this->assertStampedDuring($tsave, $t1->getUpdatedAt('U'), 'Timestampable sets updated_column to time() on creation');
 		sleep(1);
 		$tupdate = time();
 		$t1->save();
@@ -78,7 +96,7 @@ class TimestampableBehaviorTest extends BookstoreTestBase
 		$this->assertNull($t1->getCreatedAt());
 		$tsave = time();
 		$t1->save();
-		$this->assertEquals($t1->getCreatedAt('U'), $tsave, 'Timestampable sets created_column to time() on creation');
+		$this->assertStampedDuring($tsave, $t1->getCreatedAt('U'), 'Timestampable sets created_column to time() on creation');
 		sleep(1);
 		$t1->setTitle('foo');
 		$tupdate = time();
@@ -106,7 +124,7 @@ class TimestampableBehaviorTest extends BookstoreTestBase
 		$t1->setTitle('foo');
 		$tsave = time();
 		$t1->save();
-		$this->assertEquals($t1->getUpdatedAt('U'), $tsave);
+		$this->assertStampedDuring($tsave, $t1->getUpdatedAt('U'), 'touch() stamps the column with the current time');
 
 		// now let's do this a second time
 		$t1 = new Table2();

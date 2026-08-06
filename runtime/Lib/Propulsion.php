@@ -291,6 +291,18 @@ class Propulsion
 	 */
 	public static function configure($configFile): void
 	{
+		// Checked before including rather than relying on include() returning
+		// false: a missing file makes include() emit two PHP warnings of its
+		// own ("Failed to open stream", "Failed opening for inclusion") on the
+		// way, which say less than the exception below and reach the caller
+		// through a completely different channel -- the error handler, where
+		// an application running with a strict one (or PHPUnit, which fails
+		// the test) sees a warning rather than the PropulsionException this
+		// method means to throw.
+		if (!is_file($configFile)) {
+			throw new PropulsionException("Unable to open configuration file: " . var_export($configFile, true));
+		}
+
 		$configuration = include($configFile);
 		if ($configuration === false) {
 			throw new PropulsionException("Unable to open configuration file: " . var_export($configFile, true));

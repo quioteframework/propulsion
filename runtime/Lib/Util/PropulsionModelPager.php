@@ -21,13 +21,19 @@ namespace Propulsion\Util;
  use Propulsion\Query\ModelCriteria;
  use Propulsion\Collection\PropulsionCollection;
  use Propulsion\Connection\PropulsionPDO;
- use Propulsion\Exception\PropulsionException;
 /**
  * @implements \IteratorAggregate<array-key, mixed>
  */
 class PropulsionModelPager implements \IteratorAggregate, \Countable
 {
-	protected ?ModelCriteria $query = null;
+	/**
+	 * Never null in practice, and typed to say so: the constructor requires a
+	 * query and {@see setQuery()} will not accept anything else, so there is no
+	 * way to observe an unset one. It used to be `?ModelCriteria = null`, which
+	 * bought two unreachable "no query set" guards in init()/getResults() and a
+	 * nullable getQuery() that every caller had to narrow for nothing.
+	 */
+	protected ModelCriteria $query;
 	protected int $page = 1;
 	protected int $maxPerPage = 10;
 	protected int $lastPage = 1;
@@ -61,10 +67,7 @@ class PropulsionModelPager implements \IteratorAggregate, \Countable
 	public function init(?PropulsionPDO $con = null): void
 	{
 		$this->con = $con;
-		$query = $this->getQuery();
-		if ($query === null) {
-			throw new PropulsionException('Cannot init a PropulsionModelPager with no query set');
-		}
+		$query = $this->query;
 		$maxRecordLimit = $this->getMaxRecordLimit();
 		$hasMaxRecordLimit = is_int($maxRecordLimit);
 
@@ -109,11 +112,7 @@ class PropulsionModelPager implements \IteratorAggregate, \Countable
 	public function getResults()
 	{
 		if (null === $this->results) {
-			$query = $this->getQuery();
-			if ($query === null) {
-				throw new PropulsionException('Cannot get results from a PropulsionModelPager with no query set');
-			}
-			$this->results = $query->find($this->con);
+			$this->results = $this->query->find($this->con);
 		}
 		return $this->results;
 	}
