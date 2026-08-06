@@ -104,43 +104,25 @@ rm -rf fixtures/bookstore/build fixtures/schemas/build fixtures/namespaced/build
   configuration on purpose. Once they use the snapshot, flip the guard's
   `report()` to `exit(1)`.
 
-- **The suite is not order-independent** -- two distinct pre-existing failure
-  modes, neither fixed. Both reproduce at `a71a711` (2026-08-06), i.e. they
-  predate the current work; the default `executionOrder="depends,defects"`
-  happens to route around both, which is why CI has never seen them.
-
-  **Reproduce them honestly.** Clearing `.phpunit.cache` is not enough: the
-  generated fixture trees must go too, or which tests skip varies between
-  runs and the results are not comparable. Several hours were lost to
-  measurements taken without this.
+- **One order-dependent failure remains, in the integration tier only.**
+  Random orderings of the *no-Docker* tier are now clean (12 seeds, identical
+  assertion and skip counts), but a Postgres run under
+  `--order-by=random --random-order-seed=606` fails
+  `GeneratedPeerDoDeleteTest::testDoDeleteCompositePK` with a foreign-key
+  violation (`book_opinion.reader_id=2` has no `book_reader` row). That is a
+  *fixture-data* dependency -- the test assumes rows another test created --
+  and so is a different problem from the two bootstrap-state ones fixed in
+  `<this commit>`. Reproduce with:
 
   ```
   cd test
   rm -rf .phpunit.cache fixtures/bookstore/build fixtures/schemas/build fixtures/namespaced/build
-  PROPULSION_SKIP_INTEGRATION=1 ../vendor/bin/phpunit -c phpunit.xml \
+  PROPULSION_REQUIRE_INTEGRATION=1 ../vendor/bin/phpunit -c phpunit.xml \
       --order-by=random --random-order-seed=606
   ```
 
-  Under that protocol, of seeds 101/202/303/404/505/606: three fail.
-
-  1. **15 x `Class "Book" not found`** (seed 606, and 1010/2222/7777/9999/12345)
-     in `OMBuilderTest::testClear`, `QueryCacheTouchedTablesTest` and
-     `FieldnameRelatedTest`. Diagnosed as far as: the classmap autoloader
-     reads `build/classes/bookstore/Book.php` and gets **zero bytes**, so
-     nothing is declared -- and because it used `require_once`, the file is
-     then marked included and every later attempt silently no-ops, making the
-     class permanently unavailable for the rest of the process. The file is
-     *not* empty between tests (checked after every test), so it is being
-     rewritten *within* a single test, and the autoload lands in that window.
-     What rewrites it was not identified. A `require`-again fallback in the
-     autoloader does not help: re-reading still yields an empty file.
-  2. **~88 errors, `Propulsion cannot be used without a configuration`**
-     (seeds 101, 505, 707, 909). Not investigated. Note these runs report 3
-     fewer skips than a healthy run, so a different set of tests is executing.
-
-  Worth fixing: an order-independent suite is what would stop this whole class
-  of bug reaching CI, and both modes are latent landmines for anyone who adds
-  a test file and shifts the ordering.
+  Note the cleanup: clearing `.phpunit.cache` alone is not enough to compare
+  two runs, because the generated fixture trees change which tests skip.
 
 ## Known-open, deliberately not fixed
 

@@ -405,6 +405,57 @@ class IntegrationDatabase
         class_exists(\Propulsion\Propulsion::class);
 
         self::registerClassmapAutoloader();
+        self::writePlaceholderConfIfMissing();
+    }
+
+    /**
+     * Write a runtime conf naming the bookstore datasources and their adapter,
+     * but with no usable connection, unless a real one already exists.
+     *
+     * The real conf is written by loadFixtureData(), which needs the
+     * testcontainer's host and port -- so without Docker (or with
+     * PROPULSION_SKIP_INTEGRATION=1) there was no conf file at all, and the
+     * bootstrap's `Propulsion::init()` was silently skipped. Propulsion then
+     * started the run *uninitialised*, and the suite quietly depended on
+     * whichever test happened to call `Propulsion::init()` first: in orderings
+     * where a test needing `Propulsion::getDB(null)` ran before any of them,
+     * 87 tests failed with "Unable to find adapter for datasource [default]".
+     * About a third of random orderings hit it. (The bootstrap's own comment
+     * claimed codegen already wrote this file; it did not.)
+     *
+     * Datasource names and the adapter are all the no-Docker tier needs -- it
+     * resolves adapters and default-datasource names constantly and opens no
+     * connections, because everything that would is skipped. The DSN is
+     * therefore deliberately unusable rather than plausible: anything that
+     * tries to connect on this conf has escaped its skip guard, and should say
+     * so loudly instead of hanging on a port that might answer.
+     */
+    private static function writePlaceholderConfIfMissing(): void
+    {
+        if (is_file(self::confFile())) {
+            return;
+        }
+
+        $datasource = [
+            'adapter' => self::platform() === 'mariadb' ? 'mysql' : self::platform(),
+            'connection' => ['dsn' => 'this-datasource-has-no-live-connection'],
+        ];
+        $config = [
+            'datasources' => [
+                'default' => 'bookstore',
+                'bookstore' => $datasource,
+                'bookstore-cms' => $datasource,
+                'bookstore-behavior' => $datasource,
+            ],
+        ];
+
+        $confDir = dirname(self::confFile());
+        if (!is_dir($confDir) && !mkdir($confDir, 0777, true) && !is_dir($confDir)) {
+            return;
+        }
+        file_put_contents(self::confFile(), "<?php
+return " . var_export($config, true) . ";
+");
     }
 
     private static function generateFixtureClasses(): void
@@ -1259,6 +1310,41 @@ class IntegrationDatabase
                 require_once $classmap[$class];
             }
         });
+
+        // Load the whole map now rather than on demand.
+        //
+        // Lazy loading made this suite order-dependent in a way that could not
+        // be repaired once it happened. The Rector rule tests boot Rector,
+        // which boots PHPStan -- a static analyser with its own container and
+        // error handling, running inside the PHPUnit process. Resolving the
+        // types in its fixtures makes it reach for these generated classes, and
+        // whatever it does while doing so leaves e.g.
+        // build/classes/bookstore/Book.php registered in PHP's include-once
+        // table with `class Book` never declared. require_once will not re-run
+        // a file it has already seen, so the class is unavailable for the rest
+        // of the process, and every later test touching it dies with
+        // "Class Book not found" -- tests with no connection to Rector, failing
+        // only in the orderings where Rector happens to run first. That was
+        // roughly a third of random orderings.
+        //
+        // Declaring everything up front closes the window: by the time any test
+        // runs, the classes exist, and a later half-include of an
+        // already-declared class is harmless. Costs a few tens of milliseconds
+        // once, against a whole class of order-dependent failure.
+        //
+        // Errors are deliberately swallowed per file: a generated tree may
+        // legitimately contain a class whose parent lives in another fixture
+        // project that has not been registered yet, and that is exactly the
+        // case the autoloader above still covers on demand.
+        foreach ($classmap as $class => $file) {
+            if (!class_exists($class, false) && !interface_exists($class, false)) {
+                try {
+                    require_once $file;
+                } catch (\Throwable) {
+                    // Left to the autoloader.
+                }
+            }
+        }
     }
 
     /**
