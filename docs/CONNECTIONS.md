@@ -236,8 +236,9 @@ releasing the lock and it being held until the connection is reaped.
   is worth retrying.
 - **"Wait forever" is not portable, and is handled for you.** MySQL 8.0.1+
   reads a negative `GET_LOCK` timeout as an infinite wait; MariaDB rejects one
-  and returns NULL. The adapter picks the spelling the connected server
-  accepts, so `timeout: null` behaves the same on both.
+  and returns NULL. Propulsion uses a very large finite wait instead — the one
+  spelling both engines accept — so `timeout: null` behaves the same on
+  either, with no version sniffing involved.
 
 Per platform: `pg_advisory_lock` (Postgres), `GET_LOCK` (MySQL/MariaDB),
 `sp_getapplock` with `@LockOwner = 'Session'` (MSSQL), `DBMS_LOCK.REQUEST`

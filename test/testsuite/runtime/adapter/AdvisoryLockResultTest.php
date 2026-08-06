@@ -155,55 +155,59 @@ class AdvisoryLockResultTest extends TestCase
 	}
 
 	/**
-	 * "Wait forever" is spelled differently on MySQL and MariaDB, and getting
-	 * it wrong is silent: MySQL 8.0.1+ reads a negative GET_LOCK timeout as an
-	 * infinite wait, while MariaDB rejects it ("Incorrect timeout value") and
-	 * returns NULL -- i.e. never acquires. Since null is withAdvisoryLock()'s
-	 * default timeout, that made its commonest call shape fail on every
+	 * "Wait forever" must not be MySQL's negative-timeout spelling, which
+	 * MariaDB rejects outright ("Incorrect timeout value") and answers NULL to
+	 * -- i.e. never acquires. Since null is withAdvisoryLock()'s *default*
+	 * timeout, that made its commonest call shape fail silently on every
 	 * MariaDB server until a live run caught it.
 	 *
-	 * @dataProvider waitForeverTimeouts
+	 * Asserted as a property of the emitted value rather than per server
+	 * version on purpose: the fix is a single timeout that both engines
+	 * accept, so there is deliberately no version probe left in this path for
+	 * a test to have to mirror. Pinning example versions here would imply a
+	 * dependence that no longer exists -- and would have to be revisited on
+	 * every server release for no reason.
 	 */
-	#[\PHPUnit\Framework\Attributes\DataProvider('waitForeverTimeouts')]
-	public function testWaitForeverUsesTheSpellingTheServerAccepts(string $serverVersion, int $expectedTimeout)
+	public function testWaitForeverUsesATimeoutBothEnginesAccept()
+	{
+		$this->assertGreaterThan(
+			0,
+			$this->timeoutBoundFor(null),
+			'a negative GET_LOCK timeout means "forever" only to MySQL; MariaDB rejects it'
+		);
+		// Large enough that it cannot be reached in practice, so it is
+		// indistinguishable from an infinite wait.
+		$this->assertGreaterThanOrEqual(86400 * 365, $this->timeoutBoundFor(null));
+	}
+
+	public function testAFiniteTimeoutIsRoundedUp()
+	{
+		// Rounding down would turn "wait briefly" into "don't wait", which is
+		// a different operation. GET_LOCK takes whole seconds.
+		$this->assertSame(1, $this->timeoutBoundFor(0.4));
+		$this->assertSame(1, $this->timeoutBoundFor(1.0));
+		$this->assertSame(2, $this->timeoutBoundFor(1.2));
+	}
+
+	public function testAZeroTimeoutStaysZero()
+	{
+		$this->assertSame(0, $this->timeoutBoundFor(0.0));
+	}
+
+	/** The seconds DBMySQL binds to GET_LOCK's second argument for $timeout. */
+	private function timeoutBoundFor(?float $timeout): int
 	{
 		$stmt = new ScriptedRowsetStatement(array(array('columns' => 1, 'value' => 1)));
 		$con = $this->createStub(PropulsionPDO::class);
 		$con->method('prepare')->willReturn($stmt);
-		$con->method('getAttribute')->willReturn($serverVersion);
 
 		$adapter = new \Propulsion\Adapter\DBMySQL();
-		$this->assertTrue($adapter->acquireAdvisoryLock($con, 'x', null));
-		$this->assertSame($expectedTimeout, $stmt->boundValues[':p2'] ?? null);
-	}
+		$adapter->acquireAdvisoryLock($con, 'x', $timeout);
 
-	/**
-	 * @return array<string, array{0: string, 1: int}>
-	 */
-	public static function waitForeverTimeouts(): array
-	{
-		return array(
-			// MariaDB has no infinite-wait spelling; a very large finite wait
-			// stands in for one.
-			'MariaDB'  => array('11.8.8-MariaDB-ubu2404', 2147483647),
-			'MySQL'    => array('9.7.2', -1),
-		);
-	}
+		$bound = $stmt->boundValues[':p2'] ?? null;
+		$this->assertIsInt($bound);
 
-	public function testAFiniteTimeoutIsRoundedUpOnBothEngines()
-	{
-		// Rounding down would turn "wait briefly" into "don't wait", which is
-		// a different operation.
-		foreach (array('11.8.8-MariaDB-ubu2404', '9.7.2') as $serverVersion) {
-			$stmt = new ScriptedRowsetStatement(array(array('columns' => 1, 'value' => 1)));
-			$con = $this->createStub(PropulsionPDO::class);
-			$con->method('prepare')->willReturn($stmt);
-			$con->method('getAttribute')->willReturn($serverVersion);
-
-			$adapter = new \Propulsion\Adapter\DBMySQL();
-			$adapter->acquireAdvisoryLock($con, 'x', 0.4);
-			$this->assertSame(1, $stmt->boundValues[':p2'] ?? null, $serverVersion);
-		}
+		return $bound;
 	}
 
 	public function testTheCursorIsAlwaysClosed()

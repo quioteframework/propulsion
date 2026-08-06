@@ -448,14 +448,15 @@ These are gaps in the shared query builder — confirmed absent by grep across
     busy loop that also can't wake the instant the lock frees. Where the
     primitive takes whole seconds (MySQL, Oracle) a sub-second timeout is
     rounded **up** -- rounding down turns "wait briefly" into "don't wait",
-    which is a different operation. And **"wait forever" is spelled
-    differently on MySQL and MariaDB**: MySQL 8.0.1+ reads a negative
+    which is a different operation. And **"wait forever" is not
+    portable across the MySQL family at all**: MySQL 8.0.1+ reads a negative
     `GET_LOCK` timeout as an infinite wait, MariaDB rejects one outright
-    ("Incorrect timeout value") and returns NULL, i.e. never acquires -- so
-    MariaDB gets a very large finite wait instead. Since `null` is the default
-    timeout, the naive spelling made `withAdvisoryLock()`'s commonest call
-    shape fail silently on every MariaDB server; found by live-running it, and
-    now regression-tested.
+    ("Incorrect timeout value") and returns NULL, i.e. never acquires. Since
+    `null` is the default timeout, the naive spelling made
+    `withAdvisoryLock()`'s commonest call shape fail silently on every MariaDB
+    server. Fixed with a very large finite wait, which -- verified against
+    both engines -- is the one spelling they *both* accept, so the default
+    timeout's correctness does not depend on the version probe at all.
   - Failure to acquire throws a dedicated `AdvisoryLockTimeoutException`
     rather than a generic one: "somebody else has it" is the expected answer
     to asking for a mutex with a timeout, and a caller wanting to log-and-skip

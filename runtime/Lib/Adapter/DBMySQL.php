@@ -441,30 +441,33 @@ class DBMySQL extends DBAdapter
 	}
 
 	/**
-	 * "Wait forever" for MariaDB's `GET_LOCK`, which -- unlike MySQL 8+'s --
-	 * has no infinite-wait spelling at all.
+	 * How "wait indefinitely" is expressed to `GET_LOCK`.
 	 *
-	 * ~68 years. Chosen because MariaDB accepts it without complaint (verified
-	 * against 11.8) and it is indistinguishable from "forever" for any process
-	 * that could plausibly be holding a lock, while still being a value the
-	 * server will take rather than reject.
+	 * MySQL 8.0.1+ reads a *negative* timeout as an infinite wait. MariaDB has
+	 * no infinite-wait spelling at all and rejects a negative one outright
+	 * ("Incorrect timeout value: '-1' for function get_lock"), returning NULL
+	 * -- i.e. never acquiring, which since `null` is the default timeout would
+	 * silently break {@see \Propulsion\Propulsion::withAdvisoryLock()}'s
+	 * commonest call shape on every MariaDB server.
+	 *
+	 * So this uses the one spelling *both* accept: a very large finite wait,
+	 * ~68 years, which is indistinguishable from forever for anything that
+	 * could plausibly be holding a lock. Deliberately not branched on the
+	 * server flavour -- a branch here would make the correctness of the
+	 * default timeout depend on the version probe, and there is no need for it
+	 * when one value works everywhere.
 	 */
-	private const MARIADB_GET_LOCK_FOREVER = 2147483647;
+	private const GET_LOCK_FOREVER = 2147483647;
 
 	/**
 	 * `GET_LOCK(name, timeout)` -- the closest thing here to the hook's own
 	 * shape, since it is named rather than numbered and takes the timeout
 	 * directly.
 	 *
-	 * **"Wait forever" is spelled differently on the two engines**, and this
-	 * is not cosmetic. MySQL 8.0.1+ documents a negative timeout as an
-	 * infinite wait; MariaDB rejects one outright ("Incorrect timeout value:
-	 * '-1' for function get_lock") and returns NULL, i.e. *never acquires*.
-	 * Since `null` is this hook's default timeout, passing -1 unconditionally
-	 * would have made `Propulsion::withAdvisoryLock()`'s most common call
-	 * shape silently fail on every MariaDB server. Found by running this
-	 * against a real one; MariaDB therefore gets a very large finite wait
-	 * instead ({@see MARIADB_GET_LOCK_FOREVER}).
+	 * **"Wait forever" is not portable** -- MySQL's negative-timeout spelling
+	 * is a syntax error to MariaDB -- so it goes through
+	 * {@see GET_LOCK_FOREVER}, the one value both engines accept. See that
+	 * constant for why this is not branched on the server flavour.
 	 *
 	 * The timeout is whole seconds only (MySQL 5.7+ accepts a fractional
 	 * value; MariaDB truncates), so a sub-second wait is rounded **up** to one
@@ -485,7 +488,7 @@ class DBMySQL extends DBAdapter
 	public function acquireAdvisoryLock(PropulsionPDO $con, string $name, ?float $timeout = null): bool
 	{
 		if ($timeout === null) {
-			$seconds = $this->isMariaDb($con) ? self::MARIADB_GET_LOCK_FOREVER : -1;
+			$seconds = self::GET_LOCK_FOREVER;
 		} else {
 			$seconds = $timeout <= 0.0 ? 0 : (int) ceil($timeout);
 		}
