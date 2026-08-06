@@ -49,6 +49,7 @@ class OracleSchemaParserTest extends TestCase
 {
     private static ?PDO $pdo = null;
     private static ?Database $database = null;
+    private static ?int $parsedTableCount = null;
     private static ?string $skipReason = null;
 
     public static function setUpBeforeClass(): void
@@ -108,9 +109,31 @@ class OracleSchemaParserTest extends TestCase
         self::$pdo->exec('CREATE INDEX rev_book_price_idx ON rev_book (price)');
         self::$pdo->exec('CREATE UNIQUE INDEX rev_book_title_idx ON rev_book (title)');
 
-        self::$database = new Database();
-        self::$database->setPlatform(new OraclePlatform());
-        self::$database->setDefaultIdMethod(IDMethod::NATIVE);
+    }
+
+    /**
+     * The parsed schema, built on first use and shared by every test here.
+     *
+     * Deliberately *not* built in setUpBeforeClass(), where the fixture DDL
+     * above still is. PHPUnit collects coverage per test *method*, so anything
+     * run in setUpBeforeClass() falls outside every collection window: while
+     * the parse lived there, this parser measured 0% coverage despite being
+     * thoroughly tested, and was indistinguishable in the coverage report from
+     * a parser with no working test at all -- which is exactly what the MySQL
+     * one turned out to be. Parsing lazily from the first test method that
+     * asks moves the work inside a window at no extra cost; it still happens
+     * exactly once per class, which is the point of the shared-fixture design
+     * (13 Oracle DDL round trips took over ten minutes).
+     */
+    private static function database(): Database
+    {
+        if (self::$database !== null) {
+            return self::$database;
+        }
+
+        $database = new Database();
+        $database->setPlatform(new OraclePlatform());
+        $database->setDefaultIdMethod(IDMethod::NATIVE);
 
         $config = new QuickGeneratorConfig();
         // Not configured by default anywhere QuickGeneratorConfig would pick
@@ -123,7 +146,9 @@ class OracleSchemaParserTest extends TestCase
         $parser = new OracleSchemaParser(self::$pdo);
         $parser->setGeneratorConfig($config);
         $parser->setPlatform(new OraclePlatform());
-        $parser->parse(self::$database);
+        self::$parsedTableCount = $parser->parse($database);
+
+        return self::$database = $database;
     }
 
     public static function tearDownAfterClass(): void
@@ -133,6 +158,7 @@ class OracleSchemaParserTest extends TestCase
         }
         self::$pdo = null;
         self::$database = null;
+        self::$parsedTableCount = null;
     }
 
     protected function setUp(): void
@@ -170,14 +196,14 @@ class OracleSchemaParserTest extends TestCase
      */
     public function testParseFindsBothTablesUppercased()
     {
-        $names = array_map(fn($t) => $t->getName(), self::$database->getTables());
+        $names = array_map(fn($t) => $t->getName(), self::database()->getTables());
         $this->assertContains('REV_AUTHOR', $names, 'unquoted Oracle identifiers come back uppercase');
         $this->assertContains('REV_BOOK', $names);
     }
 
     public function testSequenceBackedPrimaryKeyIsDetectedAsAutoIncrement()
     {
-        $column = self::$database->getTable('REV_AUTHOR')->getColumn('ID');
+        $column = self::database()->getTable('REV_AUTHOR')->getColumn('ID');
         $this->assertTrue($column->isPrimaryKey());
         $this->assertTrue($column->isAutoIncrement());
     }
@@ -192,7 +218,7 @@ class OracleSchemaParserTest extends TestCase
      */
     public function testTableWithNoMatchingSequenceIsNotAutoIncrement()
     {
-        $column = self::$database->getTable('REV_BOOK')->getColumn('ID');
+        $column = self::database()->getTable('REV_BOOK')->getColumn('ID');
         $this->assertTrue($column->isPrimaryKey());
         $this->assertFalse($column->isAutoIncrement());
     }
@@ -209,14 +235,14 @@ class OracleSchemaParserTest extends TestCase
      */
     public function testUnscopedNumberColumnBecomesBigintViaLengthFallback()
     {
-        $column = self::$database->getTable('REV_AUTHOR')->getColumn('ID');
+        $column = self::database()->getTable('REV_AUTHOR')->getColumn('ID');
         $this->assertSame(PropulsionTypes::BIGINT, $column->getType(), 'documents a parser quirk, not desired behavior -- see this test\'s docblock');
         $this->assertEquals(22, $column->getSize());
     }
 
     public function testVarcharColumnCapturesSizeAndNotNull()
     {
-        $column = self::$database->getTable('REV_AUTHOR')->getColumn('NAME');
+        $column = self::database()->getTable('REV_AUTHOR')->getColumn('NAME');
         $this->assertSame(PropulsionTypes::VARCHAR, $column->getType());
         $this->assertEquals(100, $column->getSize());
         $this->assertTrue($column->isNotNull());
@@ -228,7 +254,7 @@ class OracleSchemaParserTest extends TestCase
         // NULL regardless of its real nullability, a confirmed pdo_dblib
         // limitation), OracleSchemaParser reads USER_TAB_COLS.NULLABLE
         // correctly.
-        $column = self::$database->getTable('REV_AUTHOR')->getColumn('EMAIL');
+        $column = self::database()->getTable('REV_AUTHOR')->getColumn('EMAIL');
         $this->assertFalse($column->isNotNull());
     }
 
@@ -241,7 +267,7 @@ class OracleSchemaParserTest extends TestCase
      */
     public function testClobColumnMapsToClobEmu()
     {
-        $column = self::$database->getTable('REV_AUTHOR')->getColumn('BIO');
+        $column = self::database()->getTable('REV_AUTHOR')->getColumn('BIO');
         $this->assertSame(PropulsionTypes::CLOB_EMU, $column->getType());
     }
 
@@ -250,7 +276,7 @@ class OracleSchemaParserTest extends TestCase
         // Unlike MssqlSchemaParser's LENGTH-vs-PRECISION size bug,
         // OracleSchemaParser correctly captures both DATA_PRECISION and
         // DATA_SCALE for a scoped NUMBER(p,s) column.
-        $column = self::$database->getTable('REV_AUTHOR')->getColumn('RATING');
+        $column = self::database()->getTable('REV_AUTHOR')->getColumn('RATING');
         $this->assertSame(PropulsionTypes::DECIMAL, $column->getType());
         $this->assertEquals(3, $column->getSize());
         $this->assertEquals(2, $column->getScale());
@@ -258,7 +284,7 @@ class OracleSchemaParserTest extends TestCase
 
     public function testNumberWithDifferentScaleOnAnotherTable()
     {
-        $column = self::$database->getTable('REV_BOOK')->getColumn('PRICE');
+        $column = self::database()->getTable('REV_BOOK')->getColumn('PRICE');
         $this->assertSame(PropulsionTypes::DECIMAL, $column->getType());
         $this->assertEquals(10, $column->getSize());
         $this->assertEquals(2, $column->getScale());
@@ -266,7 +292,7 @@ class OracleSchemaParserTest extends TestCase
 
     public function testSmallScopedNumberMapsToInteger()
     {
-        $column = self::$database->getTable('REV_AUTHOR')->getColumn('ACTIVE');
+        $column = self::database()->getTable('REV_AUTHOR')->getColumn('ACTIVE');
         $this->assertSame(PropulsionTypes::INTEGER, $column->getType());
         $default = $column->getDefaultValue();
         $this->assertNotNull($default);
@@ -289,17 +315,17 @@ class OracleSchemaParserTest extends TestCase
      */
     public function testNoIndexIsEverReverseEngineeredAsUnique()
     {
-        foreach (self::$database->getTable('REV_AUTHOR')->getIndices() as $index) {
+        foreach (self::database()->getTable('REV_AUTHOR')->getIndices() as $index) {
             $this->assertNotInstanceOf(Unique::class, $index, $index->getName() . ' should not be a Unique instance');
         }
-        foreach (self::$database->getTable('REV_BOOK')->getIndices() as $index) {
+        foreach (self::database()->getTable('REV_BOOK')->getIndices() as $index) {
             $this->assertNotInstanceOf(Unique::class, $index, $index->getName() . ' should not be a Unique instance');
         }
     }
 
     public function testPlainIndexIsReverseEngineered()
     {
-        $table = self::$database->getTable('REV_BOOK');
+        $table = self::database()->getTable('REV_BOOK');
         $index = null;
         foreach ($table->getIndices() as $idx) {
             if ($idx->getName() === 'REV_BOOK_PRICE_IDX') {
@@ -319,7 +345,7 @@ class OracleSchemaParserTest extends TestCase
      */
     public function testForeignKeyOnDeleteActionIsAlsoCopiedToOnUpdate()
     {
-        $table = self::$database->getTable('REV_BOOK');
+        $table = self::database()->getTable('REV_BOOK');
         $fks = $table->getForeignKeys();
         $this->assertCount(1, $fks);
         $fk = $fks[0];
@@ -329,5 +355,24 @@ class OracleSchemaParserTest extends TestCase
         $this->assertSame(array('ID'), $fk->getForeignColumns());
         $this->assertSame('CASCADE', $fk->getOnDelete());
         $this->assertSame('CASCADE', $fk->getOnUpdate(), 'documents a parser approximation, not a real Oracle ON UPDATE action -- see this test\'s docblock');
+    }
+
+    /**
+     * parse()'s return value: the number of tables it added.
+     *
+     * Nothing else here checks it, and it is the one thing the shared
+     * `database()` accessor above would otherwise throw away.
+     */
+    public function testParseReportsTheNumberOfTablesFound()
+    {
+        $database = self::database();
+
+        $this->assertNotNull(self::$parsedTableCount);
+        $this->assertGreaterThanOrEqual(2, self::$parsedTableCount, 'at least the two fixture tables');
+        $this->assertSame(
+            self::$parsedTableCount,
+            count($database->getTables()),
+            'the return value must match what was actually added'
+        );
     }
 }

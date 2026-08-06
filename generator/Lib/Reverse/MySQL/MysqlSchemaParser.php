@@ -209,10 +209,25 @@ class MysqlSchemaParser extends BaseSchemaParser
 			if ($matches[3]) {
 				$sqlType = $rowType;
 			}
-			foreach (self::$defaultTypeSizes as $type => $defaultSize) {
-				if ($nativeType == $type && $size == $defaultSize) {
-					$size = null;
-					continue;
+			// Drop a size that only restates MySQL's own default for the type
+			// (INT(11), CHAR(1), ...), which carries no information and would
+			// otherwise be written into the generated schema as though the
+			// author had asked for it.
+			//
+			// **Never when a scale was given.** DECIMAL's "default size" is 10,
+			// so DECIMAL(10,2) used to have its precision stripped while
+			// keeping scale 2 -- and Domain::printSize() emits nothing at all
+			// unless *both* are set, so the column regenerated as a bare
+			// DECIMAL, which MySQL reads as DECIMAL(10,0). Every decimal place
+			// was silently lost on a reverse-engineer/regenerate round trip;
+			// a price column came back as whole units. DECIMAL(10,2) is not
+			// DECIMAL, and only the latter is redundant.
+			if ($scale === null) {
+				foreach (self::$defaultTypeSizes as $type => $defaultSize) {
+					if ($nativeType == $type && $size == $defaultSize) {
+						$size = null;
+						break;
+					}
 				}
 			}
 		} elseif (preg_match('/^(\w+)\(/', $rowType, $matches)) {
@@ -253,7 +268,18 @@ class MysqlSchemaParser extends BaseSchemaParser
 				if ($default == '1') $default = 'true';
 				if ($default == '0') $default = 'false';
 			}
-			if (in_array($default, array('CURRENT_TIMESTAMP'))) {
+			// A function default has to be recorded as an expression, or it is
+			// regenerated quoted -- DEFAULT 'current_timestamp()' stores those
+			// 19 characters rather than the time.
+			//
+			// Matched by pattern rather than against the literal string
+			// 'CURRENT_TIMESTAMP', which is only what *MySQL* reports: MariaDB
+			// 10.2+ answers `current_timestamp()`, lower-cased and with
+			// parentheses, and either engine appends a fractional-second
+			// precision (`CURRENT_TIMESTAMP(6)`) when the column has one. The
+			// exact-match test therefore silently failed on every MariaDB
+			// server, which is where this was found.
+			if (preg_match('/^(current_timestamp|now|localtime|localtimestamp)(\s*\(\s*\d*\s*\))?$/i', $default) === 1) {
 				$type = ColumnDefaultValue::TYPE_EXPR;
 			} else {
 				$type = ColumnDefaultValue::TYPE_VALUE;
