@@ -37,8 +37,7 @@ class ConnectionConfigurationFollowsPropulsionTest extends TestCase
 {
     private const DATASOURCE = 'connection_configuration_follows_test';
 
-    /** @var array<string, mixed>|null */
-    private ?array $previousConfiguration = null;
+    private ?PropulsionStateSnapshot $state = null;
 
     private ?SqlitePropulsionPDO $pdo = null;
 
@@ -46,13 +45,7 @@ class ConnectionConfigurationFollowsPropulsionTest extends TestCase
     {
         parent::setUp();
 
-        try {
-            /** @var array<string, mixed> $existing */
-            $existing = Propulsion::getConfiguration(PropulsionConfiguration::TYPE_ARRAY);
-            $this->previousConfiguration = $existing;
-        } catch (\Propulsion\Exception\PropulsionException) {
-            $this->previousConfiguration = null;
-        }
+        $this->state = PropulsionStateSnapshot::capture();
 
         Propulsion::setDB(self::DATASOURCE, new DBSQLite());
         $this->pdo = new SqlitePropulsionPDO('sqlite::memory:');
@@ -64,9 +57,7 @@ class ConnectionConfigurationFollowsPropulsionTest extends TestCase
             Propulsion::discardConnection($this->pdo);
             $this->pdo = null;
         }
-        if ($this->previousConfiguration !== null) {
-            Propulsion::setConfiguration($this->previousConfiguration);
-        }
+        $this->state?->restore();
         parent::tearDown();
     }
 

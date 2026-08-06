@@ -30,12 +30,18 @@ class ConnectionLivenessTest extends TestCase
     /** @var array<string, mixed>|null */
     private ?array $previousConfiguration = null;
 
+    private ?PropulsionStateSnapshot $state = null;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         // Saved and restored rather than clobbered: Propulsion's configuration
         // is process-global and the rest of the suite runs in this process too.
+        // The snapshot covers the adapter map as well, which setConfiguration()
+        // also drops and which restoring the configuration alone does not bring
+        // back -- see PropulsionStateSnapshot.
+        $this->state = PropulsionStateSnapshot::capture();
         try {
             /** @var array<string, mixed> $existing */
             $existing = Propulsion::getConfiguration(\Propulsion\Config\PropulsionConfiguration::TYPE_ARRAY);
@@ -57,9 +63,7 @@ class ConnectionLivenessTest extends TestCase
     protected function tearDown(): void
     {
         Propulsion::forceReconnect(self::DATASOURCE);
-        if ($this->previousConfiguration !== null) {
-            Propulsion::setConfiguration($this->previousConfiguration);
-        }
+        $this->state?->restore();
         Propulsion::getServiceContainer()->clearConnectionConfig();
         parent::tearDown();
     }

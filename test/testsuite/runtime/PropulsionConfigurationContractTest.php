@@ -29,26 +29,21 @@ use Propulsion\Propulsion;
  */
 class PropulsionConfigurationContractTest extends TestCase
 {
-    /** @var array<string, mixed>|null */
-    private ?array $previousConfiguration = null;
+    private ?PropulsionStateSnapshot $state = null;
 
     protected function setUp(): void
     {
         parent::setUp();
-        try {
-            /** @var array<string, mixed> $existing */
-            $existing = Propulsion::getConfiguration(PropulsionConfiguration::TYPE_ARRAY);
-            $this->previousConfiguration = $existing;
-        } catch (PropulsionException) {
-            $this->previousConfiguration = null;
-        }
+        // Adapters as well as the configuration: setConfiguration() drops the
+        // whole adapter map, and one registered with setDB() rather than
+        // described in the configuration cannot be rebuilt. See
+        // PropulsionStateSnapshot.
+        $this->state = PropulsionStateSnapshot::capture();
     }
 
     protected function tearDown(): void
     {
-        if ($this->previousConfiguration !== null) {
-            Propulsion::setConfiguration($this->previousConfiguration);
-        }
+        $this->state?->restore();
         parent::tearDown();
     }
 

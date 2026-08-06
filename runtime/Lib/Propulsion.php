@@ -823,6 +823,25 @@ class Propulsion
 	}
 
 	/**
+	 * The datasource names that currently have an adapter registered.
+	 *
+	 * Symmetric with {@see getDatabaseMapNames()}, and useful for the same
+	 * reason plus one of its own: {@see setConfiguration()} drops the whole
+	 * adapter map, and an adapter registered out of band with {@see setDB()}
+	 * -- rather than described in the configuration, which {@see getDB()} can
+	 * rebuild from -- is gone for good once that happens. Anything that
+	 * reconfigures Propulsion while wanting the process to carry on working
+	 * (a multi-tenant switch, a test) has to put those back itself, and
+	 * cannot without being able to enumerate them first.
+	 *
+	 * @return     array<int, string>
+	 */
+	public static function getRegisteredAdapterNames(): array
+	{
+		return array_keys(self::$adapterMap);
+	}
+
+	/**
 	 * @return     array<int, PDO> Every PDO/PropulsionPDO connection Propulsion currently
 	 *                              has open (master and slave, across all
 	 *                              datasources), deduplicated.
