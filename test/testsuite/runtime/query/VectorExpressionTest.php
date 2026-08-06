@@ -113,6 +113,21 @@ class VectorExpressionTest extends TestCase
 		VectorExpression::innerProduct('doc.EMBEDDING', array(1, 2))->toSql(self::MY);
 	}
 
+	public function testMysqlHasNoDistanceFunctionAtAll()
+	{
+		// Community MySQL 9 ships the VECTOR type and its two conversion
+		// functions but no distance function -- DISTANCE() is HeatWave-only.
+		// Saying so beats emitting SQL that cannot run on the MySQL you can
+		// actually install.
+		$mysql = new DBMySQL();
+		$mysql->setServerFlavor(false);
+		Propulsion::setDB('vector_expression_test_mysql9', $mysql);
+
+		$this->expectException(PropulsionException::class);
+		$this->expectExceptionMessage('HeatWave-only');
+		VectorExpression::l2Distance('doc.EMBEDDING', array(1, 2))->toSql('vector_expression_test_mysql9');
+	}
+
 	public function testAPlatformWithoutVectorSupportSaysSo()
 	{
 		$this->expectException(PropulsionException::class);

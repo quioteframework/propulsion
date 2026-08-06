@@ -45,8 +45,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `getColumnSelectExpression()`, behind a `usesColumnSqlRewriting()` fast-path
   flag — wrap the value on the way in and the column on the way out, wired
   into the INSERT value list, the UPDATE/upsert SET clause, the SELECT list
-  and WHERE comparisons. First consumer: MariaDB 11.7+'s real `VECTOR(n)`,
-  opt-in per column via `nativeVector="true"`.
+  and WHERE comparisons. First consumer: the real native `VECTOR(n)` on both
+  MariaDB 11.7+ and MySQL 9.0+, opt-in per column via `nativeVector="true"`.
+  The two engines name their conversion functions differently; the runtime
+  picks from the server version, so the schema says nothing about it.
 - **Connection resilience** (`docs/CONNECTIONS.md`). Dropped connections are
   now detected on the ordinary `PDOStatement::execute()` path that essentially
   all ORM traffic takes, via a new `PropulsionStatement` installed on every

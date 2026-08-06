@@ -323,34 +323,47 @@ These are gaps in the shared query builder — confirmed absent by grep across
     positional on every formatter (`PDO::FETCH_NUM`), so the result column's
     name isn't load-bearing, and inventing one risks colliding with a
     same-named column from another table in a joined query.
-  - **First consumer: MariaDB 11.7+'s real `VECTOR(n)`**, opt-in via a new
-    `nativeVector="true"` column attribute (`Column::isNativeVector()`),
-    replacing the bracketed-JSON-in-`TEXT` emulation `MysqlPlatform` still
-    defaults to. Requires an explicit `size` (the dimension) and throws an
-    `EngineException` without one, since MariaDB's type has no default.
+  - **First consumer: the real native `VECTOR(n)`** on both engines that have
+    it — MariaDB 11.7+ and MySQL 9.0+ — opt-in via a new `nativeVector="true"`
+    column attribute (`Column::isNativeVector()`), replacing the
+    bracketed-JSON-in-`TEXT` emulation `MysqlPlatform` still defaults to.
+    Requires an explicit `size` (the dimension) and throws an
+    `EngineException` without one, since neither engine's type has a default.
     `TableMapBuilder` emits `ColumnMap::setNativeVector(true)` into the
     generated `TableMap` — the same "a runtime flag the adapter reads"
     mechanism `nativeEnum` already uses — and `DBMySQL` wraps reads/writes in
-    `VEC_ToText()`/`VEC_FromText()` off the back of it. Opt-in for the same
-    reason `nativeUuid`/`nativeSequence` are (MysqlPlatform serves both MySQL
-    and MariaDB with no build-time way to tell which server a schema targets),
-    and deliberately *not* gated on the runtime `DBMySQL::isMariaDb()` probe
-    the RETURNING hooks use: the column is only native because the schema
-    author said so, and a mis-declared schema fails at DDL-execution time with
-    a much clearer error than a plain bind against a native column would give.
-  - **Still deferred, and why.** MySQL 9.0+'s own native `VECTOR` spells the
-    same pair `STRING_TO_VECTOR()`/`VECTOR_TO_STRING()`; the hook is
-    indifferent, but a second opt-in flag (or a tri-state one) is needed to
-    pick between two mutually incompatible spellings that `MysqlPlatform`
-    cannot distinguish at generator time, and there is no MySQL 9 in this
-    repo's CI to verify it against — `nativeVector` therefore means MariaDB.
-    Native geometry (`ST_GeomFromText()`/`ST_AsText()`, PostGIS `geometry`,
-    MySQL `GEOMETRY`, MSSQL `geometry`, Oracle `SDO_GEOMETRY`) is now
-    *expressible* but is not implemented: unlike VECTOR it also needs a
-    per-platform DDL type change plus a WKT-parsing value object to be worth
-    having, and none of the five containers this repo tests against ships the
-    spatial extension by default. The `MERGE`-shaped upsert path
-    (MSSQL/Oracle) builds its own placeholder list inside
+    the conversion functions off the back of it.
+    - **One flag, not two, because the split is a runtime concern.** The two
+      engines spell the column *type* identically, so the generator never
+      needs to know which is targeted; they differ only in the conversion
+      function names (`VEC_FromText()`/`VEC_ToText()` versus
+      `STRING_TO_VECTOR()`/`VECTOR_TO_STRING()`, and neither recognises the
+      other's). That distinction is made at runtime, where a connection
+      exists to ask — reusing the same `PDO::ATTR_SERVER_VERSION` probe the
+      RETURNING hooks already use.
+    - The one wrinkle: the column-SQL hooks are called from SELECT-list and
+      WHERE construction, which have *no* connection to offer. So
+      `DBMySQL::initConnection()` primes the probe's cache, which is enough
+      because a connection is always opened before SQL is built for its
+      datasource. A connection the application built itself and handed to
+      `setConnection()` never reaches `initConnection()`; that case defaults
+      to MariaDB and `DBMySQL::setServerFlavor()` declares it explicitly. The
+      wrong answer there is a loud "FUNCTION does not exist" from the server,
+      not silent corruption.
+    - Still opt-in rather than the default, for the reason `nativeUuid`/
+      `nativeSequence` are plus one of its own: it changes the storage format
+      of a column an existing schema may already hold data in.
+  - **Still deferred, and why.** MySQL 9 gets the type and the round trip but
+    **no distance function**: `DISTANCE()` is a HeatWave feature, not part of
+    the community server, so `getVectorDistanceSql()` throws there with that
+    explanation rather than emitting SQL that cannot run on the MySQL you can
+    actually install. Native geometry (`ST_GeomFromText()`/`ST_AsText()`,
+    PostGIS `geometry`, MySQL `GEOMETRY`, MSSQL `geometry`, Oracle
+    `SDO_GEOMETRY`) is now *expressible* but is not implemented: unlike VECTOR
+    it also needs a per-platform DDL type change plus a WKT-parsing value
+    object to be worth having, and none of the five containers this repo tests
+    against ships the spatial extension by default. The `MERGE`-shaped upsert
+    path (MSSQL/Oracle) builds its own placeholder list inside
     `getMergeUpsertSql()` and is not rewritten; neither adapter rewrites any
     column today, so there is nothing to thread through it yet.
 - [x] **Vector similarity queries** — the query-layer half the `Vector types`
@@ -655,12 +668,12 @@ These are gaps in the shared query builder — confirmed absent by grep across
   at the SQL level, the same "needs query-layer SQL-rewriting a plain bind
   can't do" problem GEOMETRY's own comment already flags — which this codebase
   had no hook anywhere to express at the time. **It does now** (see
-  "Column-SQL rewriting hooks" in section 1), and MariaDB's native `VECTOR(n)`
-  is reachable through it via an opt-in `nativeVector="true"` column
-  attribute; MySQL 9's differently-spelled conversion functions are still not
-  covered, for the reasons that item records. The rest of this paragraph is
-  the original finding, kept because it is why the *default* is still the
-  emulation. The originally-shipped `VECTOR(n)`-native MySQL/MariaDB mapping
+  "Column-SQL rewriting hooks" in section 1), and the native `VECTOR(n)` is
+  reachable through it on *both* engines via an opt-in `nativeVector="true"`
+  column attribute — the conversion-function names differ, but that is decided
+  at runtime from the server version rather than declared in the schema. The
+  rest of this paragraph is the original finding, kept because it is why the
+  *default* is still the emulation. The originally-shipped `VECTOR(n)`-native MySQL/MariaDB mapping
   was accordingly **downgraded to the same text emulation** every other
   non-Postgres platform already uses (`MysqlPlatform::initialize()`'s VECTOR
   domain mapping, `hasSize()` updated alongside it so the emulated TEXT column
@@ -1107,20 +1120,27 @@ These are gaps in the shared query builder — confirmed absent by grep across
     without-opt-in-stays-a-no-op, native sequence DDL, native UUID DDL,
     emulated-CHAR(36)-by-default).
   - **`nativeVector="true"` `Column` attribute** (on a `VECTOR` column) --
-    MariaDB 11.7+'s real native `VECTOR(n)` column type in place of the
+    the real native `VECTOR(n)` column type in place of the
     bracketed-JSON-text emulation. Originally scoped here as "`VECTOR`
     gating" and closed as moot, because live verification found MariaDB's
     (and MySQL's) real `VECTOR` unusable via a plain bind regardless of
     version. That is still true -- what changed is that the SQL-level
-    wrapping it needs is now expressible (`VEC_FromText()`/`VEC_ToText()` via
-    the column-SQL rewriting hooks in section 1), so it joins `nativeUuid`/
-    `nativeSequence` as an opt-in MariaDB divergence rather than staying
-    unreachable. Not gated on `isMariaDb()`: that probe needs a live
-    connection, and the flag is a build-time declaration of intent, exactly
-    like the other two here. MySQL 9.0+'s own native `VECTOR`
-    (`STRING_TO_VECTOR()`/`VECTOR_TO_STRING()`) remains uncovered -- see
-    section 1's own note on why a second flag is needed and wasn't added
-    blind.
+    wrapping it needs is now expressible (via the column-SQL rewriting hooks
+    in section 1).
+    **Unlike `nativeSequence`/`nativeUuid` above, this is *not* a MariaDB-only
+    divergence and needs no engine flag**, which is worth spelling out since
+    it sits in this section: MariaDB 11.7+ and MySQL 9.0+ spell the column
+    type identically, so the generator emits the same DDL either way. They
+    differ only in the conversion-function names
+    (`VEC_FromText()`/`VEC_ToText()` versus
+    `STRING_TO_VECTOR()`/`VECTOR_TO_STRING()`), and that *is* gated on the
+    `isMariaDb()` probe -- the same one the RETURNING hooks use -- because
+    unlike DDL generation the runtime has a connection to ask. The only new
+    plumbing is `DBMySQL::initConnection()` priming that probe's cache, since
+    the column-SQL hooks are called from query construction where no
+    connection is available; see section 1. What MySQL 9 does *not* get is a
+    distance function: `DISTANCE()` is HeatWave-only, so
+    `getVectorDistanceSql()` throws there rather than emitting unusable SQL.
   - A `PROPULSION_TEST_DB=mariadb` testcontainer path still exists for the
     main integration suite (`test/tools/helpers/IntegrationDatabase.php`, not
     run in CI) — unrelated to the two build-time features above, which don't

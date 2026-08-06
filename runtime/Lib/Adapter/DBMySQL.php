@@ -47,6 +47,34 @@ class DBMySQL extends DBAdapter
 	}
 
 	/**
+	 * Primes the MariaDB-vs-MySQL answer while a connection is definitely in
+	 * hand, on top of whatever the base implementation does.
+	 *
+	 * Most hooks that need the distinction are handed a connection and can ask
+	 * for themselves. The column-SQL rewriting hooks
+	 * ({@see getColumnBindExpression()}, {@see getColumnSelectExpression()})
+	 * cannot: they are called from SELECT-list and WHERE-clause construction,
+	 * which has no connection to offer and cannot be given one without
+	 * threading it through the whole query builder. Since every connection
+	 * Propulsion opens passes through here first, and SQL cannot be built for a
+	 * datasource before one is opened, the answer is always available by the
+	 * time those hooks run.
+	 *
+	 * A connection handed to Propulsion ready-made (`setConnection()` with a
+	 * PDO the application built itself) never reaches this method, so nothing
+	 * primes the cache; {@see usesMariaDbVectorFunctions()} states what happens
+	 * then and {@see setServerFlavor()} is how to say so explicitly.
+	 *
+	 * @param     PDO    $con
+	 * @param     array<string,mixed>  $settings
+	 */
+	public function initConnection(PDO $con, array $settings): void
+	{
+		$this->detectServerFlavor($con);
+		parent::initConnection($con, $settings);
+	}
+
+	/**
 	 * Distinguishes a real MariaDB server (RETURNING support on INSERT/UPDATE/
 	 * DELETE since 10.5) from plain MySQL (no RETURNING at all, any version) --
 	 * both served by this same adapter class; there is no separate MariadbPlatform/
@@ -62,6 +90,19 @@ class DBMySQL extends DBAdapter
 	 */
 	private function isMariaDb(PropulsionPDO $con): bool
 	{
+		return $this->detectServerFlavor($con);
+	}
+
+	/**
+	 * The version probe behind {@see isMariaDb()}, widened to accept a plain
+	 * PDO so {@see initConnection()} -- whose signature is PDO's, not
+	 * PropulsionPDO's -- can prime the same cache. (PropulsionPDO is an
+	 * interface and does not extend PDO, so the union is needed rather than
+	 * just the base type.) Idempotent: only the first call reads the server
+	 * version.
+	 */
+	private function detectServerFlavor(PDO|PropulsionPDO $con): bool
+	{
 		if ($this->isMariaDbCache === null) {
 			$rawVersion = $con->getAttribute(PDO::ATTR_SERVER_VERSION);
 			$version = is_string($rawVersion) ? $rawVersion : '';
@@ -74,6 +115,45 @@ class DBMySQL extends DBAdapter
 				&& version_compare($m[1], '10.5', '>=');
 		}
 		return $this->isMariaDbCache;
+	}
+
+	/**
+	 * Declares which MySQL-family server this datasource talks to, overriding
+	 * the version probe.
+	 *
+	 * Only needed when nothing has primed the probe -- i.e. when the connection
+	 * was built by the application and handed to `Propulsion::setConnection()`
+	 * rather than opened by Propulsion itself, so {@see initConnection()} never
+	 * ran. Everything else detects it.
+	 *
+	 * @param     ?bool $isMariaDb True for MariaDB, false for MySQL, null to go
+	 *                             back to detecting it.
+	 */
+	public function setServerFlavor(?bool $isMariaDb): void
+	{
+		$this->isMariaDbCache = $isMariaDb;
+	}
+
+	/**
+	 * Whether a native `VECTOR` column on this datasource is read and written
+	 * with MariaDB's `VEC_ToText()`/`VEC_FromText()` rather than MySQL 9's
+	 * `VECTOR_TO_STRING()`/`STRING_TO_VECTOR()`.
+	 *
+	 * Both engines spell the *column type* identically (`VECTOR(n)`, which is
+	 * why the generator needs no flavour flag) and neither accepts a plain
+	 * bound bracket-JSON string, but they named the conversion functions
+	 * differently and neither recognises the other's.
+	 *
+	 * Defaults to MariaDB when nothing has been detected or declared. That is
+	 * not a coin flip: `nativeVector="true"` is opt-in, and the only way to
+	 * reach this code with no probed answer is a hand-built connection, where
+	 * the wrong guess produces an immediate, obvious "FUNCTION does not exist"
+	 * from the server rather than silent corruption -- and
+	 * {@see setServerFlavor()} fixes it in one line.
+	 */
+	private function usesMariaDbVectorFunctions(): bool
+	{
+		return $this->isMariaDbCache ?? true;
 	}
 
 	/**
@@ -289,43 +369,44 @@ class DBMySQL extends DBAdapter
 	}
 
 	/**
-	 * MariaDB 11.7+'s real `VECTOR(n)` column rejects a bound bracket-JSON
-	 * string outright ("Incorrect vector value", confirmed live against
-	 * MariaDB 11.8) -- the value has to go through `VEC_FromText()` at the SQL
-	 * level, which is exactly what this hook exists for.
+	 * A real `VECTOR(n)` column rejects a bound bracket-JSON string outright
+	 * ("Incorrect vector value", confirmed live against MariaDB 11.8) -- the
+	 * value has to go through a conversion function at the SQL level, which is
+	 * exactly what this hook exists for.
 	 *
-	 * Deliberately *not* gated on {@see isMariaDb()}, unlike this adapter's
-	 * RETURNING support: the column is only ever native in the first place
-	 * because the schema author wrote `nativeVector="true"`, which
-	 * MysqlPlatform documents as meaning "this schema targets MariaDB 11.7+"
-	 * (same convention as `nativeUuid`/`nativeSequence`). Probing the server
-	 * here would silently emit a plain bind against a native column on a
-	 * mis-declared schema, which fails at the server anyway but with a much
-	 * less obvious error than the DDL step already produced.
-	 *
-	 * MySQL 9.0+'s own native `VECTOR` spells these `STRING_TO_VECTOR()`/
-	 * `VECTOR_TO_STRING()` and is not covered by the `nativeVector` flag; see
-	 * PLATFORM_FEATURES.md for why that is left open.
+	 * Both engines that have the type name that function differently, and
+	 * neither recognises the other's, so which one is emitted follows the
+	 * detected server flavour -- see {@see usesMariaDbVectorFunctions()}.
+	 * MariaDB 11.7+: `VEC_FromText()`. MySQL 9.0+: `STRING_TO_VECTOR()`.
 	 *
 	 * @see       DBAdapter::getColumnBindExpression()
 	 */
 	public function getColumnBindExpression(ColumnMap $cMap, string $placeholder): string
 	{
-		return $cMap->isNativeVector() ? 'VEC_FromText(' . $placeholder . ')' : $placeholder;
+		if (!$cMap->isNativeVector()) {
+			return $placeholder;
+		}
+
+		return ($this->usesMariaDbVectorFunctions() ? 'VEC_FromText(' : 'STRING_TO_VECTOR(') . $placeholder . ')';
 	}
 
 	/**
 	 * The read counterpart of getColumnBindExpression(): a native `VECTOR`
 	 * column selected bare comes back as an opaque binary blob, so it is read
-	 * through `VEC_ToText()` to give the generated hydration code the same
-	 * bracketed-JSON text every other platform's emulated vector column
-	 * produces.
+	 * through the matching conversion function -- MariaDB's `VEC_ToText()` or
+	 * MySQL 9's `VECTOR_TO_STRING()` -- to give the generated hydration code
+	 * the same bracketed-JSON text every other platform's emulated vector
+	 * column produces.
 	 *
 	 * @see       DBAdapter::getColumnSelectExpression()
 	 */
 	public function getColumnSelectExpression(ColumnMap $cMap, string $columnExpression): string
 	{
-		return $cMap->isNativeVector() ? 'VEC_ToText(' . $columnExpression . ')' : $columnExpression;
+		if (!$cMap->isNativeVector()) {
+			return $columnExpression;
+		}
+
+		return ($this->usesMariaDbVectorFunctions() ? 'VEC_ToText(' : 'VECTOR_TO_STRING(') . $columnExpression . ')';
 	}
 
 	/**
@@ -418,6 +499,19 @@ class DBMySQL extends DBAdapter
 	 */
 	public function getVectorDistanceSql(string $column, string $vectorLiteral, string $metric): string
 	{
+		if (!$this->usesMariaDbVectorFunctions()) {
+			// Community MySQL 9 ships the VECTOR *type* and its two conversion
+			// functions but no distance function at all -- DISTANCE() is a
+			// HeatWave feature, not part of the server you can run yourself.
+			// Emitting it would produce SQL that fails on the only MySQL 9 this
+			// codebase can be tested against, so this says so instead.
+			throw new PropulsionException(
+				'DBMySQL: MySQL 9 has no vector distance function (DISTANCE() is HeatWave-only, not part of '
+				. 'community MySQL). Compute the distance in the application, or use MariaDB 11.7+, whose '
+				. 'VEC_DISTANCE_EUCLIDEAN()/VEC_DISTANCE_COSINE() are supported here.'
+			);
+		}
+
 		$function = match ($metric) {
 			VectorExpression::L2 => 'VEC_DISTANCE_EUCLIDEAN',
 			VectorExpression::COSINE => 'VEC_DISTANCE_COSINE',

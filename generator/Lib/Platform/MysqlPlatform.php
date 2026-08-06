@@ -153,12 +153,13 @@ class MysqlPlatform extends DefaultPlatform
 		// That wrapping now exists -- DBAdapter::getColumnBindExpression()/
 		// getColumnSelectExpression(), see DBMySQL's overrides -- so a column
 		// can opt into the real type with `nativeVector="true"`, handled in
-		// getColumnDDL() below. It stays opt-in rather than becoming the
-		// default for the same reason nativeUuid does: MysqlPlatform serves
-		// both MySQL and MariaDB, and generator time has no live connection
-		// to tell which server a schema targets. MySQL 9.0+'s own native
-		// VECTOR spells its conversion functions STRING_TO_VECTOR()/
-		// VECTOR_TO_STRING() and is not covered by that flag.
+		// getColumnDDL() below. That covers both engines: MariaDB 11.7+ and
+		// MySQL 9.0+ spell the column *type* identically, so nothing here
+		// needs to know which is targeted; they differ only in the names of
+		// the conversion functions, which DBMySQL picks from the live
+		// connection at runtime. It stays opt-in rather than becoming the
+		// default because it changes the storage format of a column an
+		// existing schema may already hold data in.
 		$this->setSchemaDomainMapping(new Domain(PropulsionTypes::VECTOR, "TEXT"));
 		// Emulated as plain text (WKT), not MySQL's own real `GEOMETRY` type --
 		// see PropulsionTypes::GEOMETRY_NATIVE_TYPE for why.
@@ -524,14 +525,15 @@ DROP TABLE IF EXISTS " . $this->quoteIdentifier($this->requireString($table->get
 			// No size parameter, unlike the CHAR(36) emulation it replaces.
 			$ddl []= 'UUID';
 		} elseif ($col->isVectorType() && $col->isNativeVector()) {
-			// MariaDB 11.7+'s real native VECTOR(n) column type in place of the
+			// The real native VECTOR(n) column type -- MariaDB 11.7+ and MySQL
+			// 9.0+ both spell it this way -- in place of the
 			// bracketed-JSON-in-TEXT emulation the domain mapping above sets up.
-			// Opt-in for the same "no build-time way to tell MariaDB from MySQL"
-			// reason as nativeUuid above, plus its own: reading and writing this
-			// column needs VEC_ToText()/VEC_FromText() wrapped around it at the
-			// SQL level, which only happens because ColumnMap::isNativeVector()
-			// (emitted by TableMapBuilder from this same flag) switches
-			// DBMySQL's column-SQL-rewriting hooks on for it.
+			// Reading and writing the column needs a conversion function wrapped
+			// around it at the SQL level, which only happens because
+			// ColumnMap::isNativeVector() (emitted by TableMapBuilder from this
+			// same flag) switches DBMySQL's column-SQL-rewriting hooks on for it;
+			// which engine's function names those hooks emit is decided at
+			// runtime, where there is a connection to ask.
 			//
 			// The dimension is required and comes from the ordinary `size`
 			// attribute, the same one printSize() renders for VARCHAR(n) -- but

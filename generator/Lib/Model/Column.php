@@ -144,22 +144,26 @@ class Column extends XMLElement
 	protected bool $isNativeUuid = false;
 
 	/**
-	 * Whether a VECTOR column is declared `nativeVector="true"`: emits
-	 * MariaDB 11.7+'s real native `VECTOR(n)` column type instead of the
+	 * Whether a VECTOR column is declared `nativeVector="true"`: emits the
+	 * real native `VECTOR(n)` column type instead of the
 	 * bracketed-JSON-in-a-text-column emulation every platform otherwise
-	 * uses. Only honored by MysqlPlatform.
+	 * uses. Only honored by MysqlPlatform, and covering both engines that
+	 * have the type -- MariaDB 11.7+ and MySQL 9.0+ -- since they spell the
+	 * column type itself identically.
 	 *
-	 * Opt-in for the same reason `nativeUuid` is (MysqlPlatform serves both
-	 * MySQL and MariaDB with no build-time way to tell them apart), plus one
-	 * of its own: a native `VECTOR` column can only be read or written
-	 * through `VEC_ToText()`/`VEC_FromText()` at the SQL level, so setting
-	 * this also switches the runtime onto
-	 * `DBAdapter::getColumnBindExpression()`/`getColumnSelectExpression()`
-	 * for the column (via `ColumnMap::isNativeVector()`, which
-	 * `TableMapBuilder` emits for exactly this reason). MySQL 9.0+'s own
-	 * native `VECTOR` uses differently-named conversion functions
-	 * (`STRING_TO_VECTOR()`/`VECTOR_TO_STRING()`) and is not covered by this
-	 * flag -- see PLATFORM_FEATURES.md.
+	 * No engine flag is needed here for that reason. The two *do* differ in
+	 * how a value is read and written (MariaDB's `VEC_ToText()`/
+	 * `VEC_FromText()` versus MySQL's `VECTOR_TO_STRING()`/
+	 * `STRING_TO_VECTOR()`; neither recognises the other's), but that is a
+	 * runtime concern where a live connection exists to tell them apart --
+	 * see `DBMySQL::initConnection()`. All this flag has to do is switch the
+	 * runtime onto `DBAdapter::getColumnBindExpression()`/
+	 * `getColumnSelectExpression()` for the column at all, which it does via
+	 * `ColumnMap::isNativeVector()`, emitted by `TableMapBuilder`.
+	 *
+	 * Still opt-in rather than the default, for the reason `nativeUuid` is:
+	 * the emulated text column is what an existing schema already has, and
+	 * switching storage format under it is the schema author's decision.
 	 */
 	protected bool $isNativeVector = false;
 
