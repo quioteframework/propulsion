@@ -78,7 +78,14 @@ class QueryObserverOrmTrafficTest extends BookstoreTestBase
 		$book->setISBN('isbn-observed');
 		$book->save();
 
-		$inserts = array_filter($sql, static fn (string $s): bool => stripos($s, 'INSERT INTO book') !== false);
+		// Quoting-agnostic: MySQL/MariaDB emit `book`, MSSQL [book], Postgres
+		// and Oracle a bare book. Matching the literal "INSERT INTO book"
+		// would pass on this repo's default platform and fail on three of the
+		// five CI jobs.
+		$inserts = array_filter(
+			$sql,
+			static fn (string $s): bool => preg_match('/^\s*INSERT\s+INTO\s+\W?book\W/i', $s) === 1
+		);
 		$this->assertNotEmpty($inserts, 'the INSERT the ORM issued must have been observed');
 	}
 
