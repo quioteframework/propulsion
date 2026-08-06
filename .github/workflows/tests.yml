@@ -68,11 +68,16 @@ jobs:
         with:
           php-version: '8.5'
           extensions: pdo, pdo_sqlite, pdo_pgsql, pdo_mysql, mbstring, xml, simplexml
-          # Blocking: pcov (as of 1.0.12) silently instruments nothing on PHP 8.5 --
-          # no error, just a 0.00% report regardless of what actually ran. Xdebug's
-          # coverage driver works correctly on the same PHP build, so use that
-          # instead even though it's slower; see KNOWN_ISSUES.md.
-          coverage: xdebug
+          # pcov, not xdebug. This job used to use xdebug because pcov "silently
+          # instruments nothing on PHP 8.5 -- a 0.00% report regardless of what
+          # actually ran". That diagnosis was wrong: pcov 1.0.12 works fine on
+          # 8.5, but only instruments files under `pcov.directory`, which
+          # defaults to the *working directory* -- and every job below runs
+          # PHPUnit from `test/`, while the code being measured is in
+          # `../runtime/Lib` and `../generator/Lib`. So pcov was faithfully
+          # reporting 0% of the nothing it had been pointed at. Hence the
+          # explicit -d on the run line; do not drop it.
+          coverage: pcov
 
       - name: Get composer cache directory
         id: composer-cache
@@ -91,16 +96,23 @@ jobs:
       - name: Run full PHPUnit suite (starts its own Postgres testcontainer)
         working-directory: test
         env:
-          XDEBUG_MODE: coverage
           # An unavailable container must fail this job, not skip its way to green.
           PROPULSION_REQUIRE_INTEGRATION: '1'
-        run: ../vendor/bin/phpunit -c phpunit.xml --coverage-clover=coverage/clover.xml
+        run: php -d pcov.directory=${{ github.workspace }} ../vendor/bin/phpunit -c phpunit.xml --coverage-clover=coverage/clover.xml
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: test/coverage/clover.xml
+          # Flagged per platform so Codecov merges the five DB jobs' reports
+          # into one number instead of the last upload winning. Without this
+          # the reported figure was a Postgres-only run, which systematically
+          # understated exactly the code most likely to break: the per-platform
+          # adapters (measured on one such run: MSSQL 34%, Oracle 32%, MySQL
+          # 50%, against Postgres 75% and SQLite 94% -- all of them fully
+          # exercised, just in jobs whose coverage was thrown away).
+          flags: postgres
           fail_ci_if_error: true
 
   integration-mysql:
@@ -120,7 +132,9 @@ jobs:
         with:
           php-version: '8.5'
           extensions: pdo, pdo_sqlite, pdo_pgsql, pdo_mysql, mbstring, xml, simplexml
-          coverage: none
+          # See the integration job above for why pcov needs an explicit
+          # pcov.directory on the run line.
+          coverage: pcov
 
       - name: Get composer cache directory
         id: composer-cache
@@ -141,7 +155,15 @@ jobs:
         env:
           PROPULSION_TEST_DB: mysql
           PROPULSION_REQUIRE_INTEGRATION: '1'
-        run: ../vendor/bin/phpunit -c phpunit.xml
+        run: php -d pcov.directory=${{ github.workspace }} ../vendor/bin/phpunit -c phpunit.xml --coverage-clover=coverage/clover.xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: test/coverage/clover.xml
+          flags: mysql
+          fail_ci_if_error: true
 
   integration-mariadb:
     name: Full suite (with Docker/MariaDB)
@@ -177,7 +199,9 @@ jobs:
           php-version: '8.5'
           # Same driver as real MySQL: there is no separate pdo_mariadb.
           extensions: pdo, pdo_sqlite, pdo_pgsql, pdo_mysql, mbstring, xml, simplexml
-          coverage: none
+          # See the integration job above for why pcov needs an explicit
+          # pcov.directory on the run line.
+          coverage: pcov
 
       - name: Get composer cache directory
         id: composer-cache
@@ -198,7 +222,15 @@ jobs:
         env:
           PROPULSION_TEST_DB: mariadb
           PROPULSION_REQUIRE_INTEGRATION: '1'
-        run: ../vendor/bin/phpunit -c phpunit.xml
+        run: php -d pcov.directory=${{ github.workspace }} ../vendor/bin/phpunit -c phpunit.xml --coverage-clover=coverage/clover.xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: test/coverage/clover.xml
+          flags: mariadb
+          fail_ci_if_error: true
 
   integration-mssql:
     name: Full suite (with Docker/MSSQL)
@@ -215,7 +247,9 @@ jobs:
         with:
           php-version: '8.5'
           extensions: pdo, pdo_sqlite, pdo_pgsql, pdo_mysql, pdo_dblib, mbstring, xml, simplexml
-          coverage: none
+          # See the integration job above for why pcov needs an explicit
+          # pcov.directory on the run line.
+          coverage: pcov
 
       - name: Get composer cache directory
         id: composer-cache
@@ -236,7 +270,15 @@ jobs:
         env:
           PROPULSION_TEST_DB: mssql
           PROPULSION_REQUIRE_INTEGRATION: '1'
-        run: ../vendor/bin/phpunit -c phpunit.xml
+        run: php -d pcov.directory=${{ github.workspace }} ../vendor/bin/phpunit -c phpunit.xml --coverage-clover=coverage/clover.xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: test/coverage/clover.xml
+          flags: mssql
+          fail_ci_if_error: true
 
   integration-oracle:
     name: Full suite (with Docker/Oracle)
@@ -269,7 +311,9 @@ jobs:
         with:
           php-version: '8.5'
           extensions: pdo, pdo_sqlite, pdo_pgsql, pdo_mysql, mbstring, xml, simplexml
-          coverage: none
+          # See the integration job above for why pcov needs an explicit
+          # pcov.directory on the run line.
+          coverage: pcov
 
       - name: Cache Oracle Instant Client download
         id: instantclient-cache
@@ -370,7 +414,15 @@ jobs:
         env:
           PROPULSION_TEST_DB: oracle
           PROPULSION_REQUIRE_INTEGRATION: '1'
-        run: ../vendor/bin/phpunit -c phpunit.xml
+        run: php -d pcov.directory=${{ github.workspace }} ../vendor/bin/phpunit -c phpunit.xml --coverage-clover=coverage/clover.xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: test/coverage/clover.xml
+          flags: oracle
+          fail_ci_if_error: true
 
   analyse:
     name: PHPStan (level 9)

@@ -25,6 +25,25 @@ rm -rf fixtures/bookstore/build fixtures/schemas/build fixtures/namespaced/build
   (`Session::reset()`) is what makes concurrent requests safe, not any
   per-thread separation the runtime provides for you.
 - `composer test:cleanup-containers` — remove any testcontainers leaked by a killed run.
+- **Code coverage:** pass `-d pcov.directory=<repo root>` explicitly:
+
+  ```
+  cd test
+  php -d pcov.directory=.. ../vendor/bin/phpunit -c phpunit.xml --coverage-text
+  ```
+
+  Without it pcov reports **0.00%** with no error. `pcov.directory` defaults to
+  the working directory, the suite runs from `test/`, and the code being
+  measured lives in `../runtime/Lib` and `../generator/Lib` — so pcov
+  faithfully reports 0% of the nothing it was pointed at. This was previously
+  misdiagnosed as "pcov silently instruments nothing on PHP 8.5" and worked
+  around by using xdebug in CI; it is neither a PHP 8.5 nor a pcov bug.
+
+  Note that a single run only measures the platform it ran against. The
+  per-platform adapters look far worse than they are from a Postgres-only run
+  — `DBMySQL` measures 53.6% there and 88.5% under `PROPULSION_TEST_DB=mariadb`
+  — which is why CI collects coverage from every database job and uploads each
+  under its own Codecov flag so they merge.
 
 ## Open issues
 
