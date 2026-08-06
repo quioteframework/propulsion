@@ -231,8 +231,13 @@ releasing the lock and it being held until the connection is reaped.
   a single-instance deployment can live without it.
 - **Oracle needs `GRANT EXECUTE ON DBMS_LOCK`**, which is not granted by
   default. Without it the acquisition fails loudly with Oracle's own error
-  rather than being reported as "busy" — those are not the same situation and
-  only one of them is worth retrying.
+  (ORA-06550/PLS-00201, verified against a real 23 server) rather than being
+  reported as "busy" — those are not the same situation and only one of them
+  is worth retrying.
+- **"Wait forever" is not portable, and is handled for you.** MySQL 8.0.1+
+  reads a negative `GET_LOCK` timeout as an infinite wait; MariaDB rejects one
+  and returns NULL. The adapter picks the spelling the connected server
+  accepts, so `timeout: null` behaves the same on both.
 
 Per platform: `pg_advisory_lock` (Postgres), `GET_LOCK` (MySQL/MariaDB),
 `sp_getapplock` with `@LockOwner = 'Session'` (MSSQL), `DBMS_LOCK.REQUEST`
@@ -240,16 +245,16 @@ with `release_on_commit => FALSE` (Oracle). Where the primitive takes whole
 seconds (MySQL, Oracle) a sub-second timeout is rounded **up**, since rounding
 down would turn "wait briefly" into "don't wait".
 
+All four are verified against a real server of that platform, each with a
+second connection standing in for the other process — Postgres in the test
+suite, the rest by hand against MariaDB 11.8, MySQL 9.7, `azure-sql-edge` and
+Oracle 23.
+
 ## What is still not handled
 
 - **Persistent connections** get no statement-level detection (see above).
 - **The check-then-use window** in the liveness check cannot be closed, only
   narrowed.
-- **Advisory locks on MSSQL and Oracle are not covered by a live test.**
-  Postgres and MariaDB both are (real two-session mutual exclusion); the other
-  two are implemented from their documented semantics and exercised only as
-  SQL shapes, so treat them as less battle-tested — the same caveat
-  `PLATFORM_FEATURES.md` records for those platforms generally.
 - **`Propulsion::initialize()` only resets `$connectionMap`** — `$adapterMap`,
   `$dbMaps` and the memoised `$defaultDBName` survive a `setConfiguration()`.
   See `KNOWN_ISSUES.md`.

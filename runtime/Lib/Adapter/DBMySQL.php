@@ -441,10 +441,30 @@ class DBMySQL extends DBAdapter
 	}
 
 	/**
+	 * "Wait forever" for MariaDB's `GET_LOCK`, which -- unlike MySQL 8+'s --
+	 * has no infinite-wait spelling at all.
+	 *
+	 * ~68 years. Chosen because MariaDB accepts it without complaint (verified
+	 * against 11.8) and it is indistinguishable from "forever" for any process
+	 * that could plausibly be holding a lock, while still being a value the
+	 * server will take rather than reject.
+	 */
+	private const MARIADB_GET_LOCK_FOREVER = 2147483647;
+
+	/**
 	 * `GET_LOCK(name, timeout)` -- the closest thing here to the hook's own
 	 * shape, since it is named rather than numbered and takes the timeout
-	 * directly. A negative timeout means "wait forever" on both MySQL 8+ and
-	 * MariaDB, which is how null is expressed.
+	 * directly.
+	 *
+	 * **"Wait forever" is spelled differently on the two engines**, and this
+	 * is not cosmetic. MySQL 8.0.1+ documents a negative timeout as an
+	 * infinite wait; MariaDB rejects one outright ("Incorrect timeout value:
+	 * '-1' for function get_lock") and returns NULL, i.e. *never acquires*.
+	 * Since `null` is this hook's default timeout, passing -1 unconditionally
+	 * would have made `Propulsion::withAdvisoryLock()`'s most common call
+	 * shape silently fail on every MariaDB server. Found by running this
+	 * against a real one; MariaDB therefore gets a very large finite wait
+	 * instead ({@see MARIADB_GET_LOCK_FOREVER}).
 	 *
 	 * The timeout is whole seconds only (MySQL 5.7+ accepts a fractional
 	 * value; MariaDB truncates), so a sub-second wait is rounded **up** to one
@@ -464,7 +484,11 @@ class DBMySQL extends DBAdapter
 	 */
 	public function acquireAdvisoryLock(PropulsionPDO $con, string $name, ?float $timeout = null): bool
 	{
-		$seconds = $timeout === null ? -1 : ($timeout <= 0.0 ? 0 : (int) ceil($timeout));
+		if ($timeout === null) {
+			$seconds = $this->isMariaDb($con) ? self::MARIADB_GET_LOCK_FOREVER : -1;
+		} else {
+			$seconds = $timeout <= 0.0 ? 0 : (int) ceil($timeout);
+		}
 
 		$result = $this->fetchAdvisoryLockResult($con, 'SELECT GET_LOCK(:p1, :p2)', array($name, $seconds));
 

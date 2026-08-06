@@ -353,6 +353,17 @@ These are gaps in the shared query builder — confirmed absent by grep across
     - Still opt-in rather than the default, for the reason `nativeUuid`/
       `nativeSequence` are plus one of its own: it changes the storage format
       of a column an existing schema may already hold data in.
+    - Live-verified end to end against **MySQL 9.7**: the generated
+      `VECTOR(3)` DDL is accepted (`information_schema` reports `vector`), the
+      flavour is auto-detected through `initConnection()` so the hooks emit
+      `STRING_TO_VECTOR()`/`VECTOR_TO_STRING()`, a full `BasePeer` insert +
+      select round-trips, and a plain bind is genuinely rejected ("Value of
+      type 'string, size: 7' cannot be converted to 'vector' type") --
+      which is what makes the wrapping load-bearing rather than decorative.
+      Note MySQL returns the text form in scientific notation
+      (`[1.50000e+00,...]`) where MariaDB and pgvector do not; that is still
+      valid JSON, so the shared `decodeJsonColumn()` hydration path parses it
+      to the same floats with no platform branching.
   - **Still deferred, and why.** MySQL 9 gets the type and the round trip but
     **no distance function**: `DISTANCE()` is a HeatWave feature, not part of
     the community server, so `getVectorDistanceSql()` throws there with that
@@ -437,7 +448,14 @@ These are gaps in the shared query builder — confirmed absent by grep across
     busy loop that also can't wake the instant the lock frees. Where the
     primitive takes whole seconds (MySQL, Oracle) a sub-second timeout is
     rounded **up** -- rounding down turns "wait briefly" into "don't wait",
-    which is a different operation.
+    which is a different operation. And **"wait forever" is spelled
+    differently on MySQL and MariaDB**: MySQL 8.0.1+ reads a negative
+    `GET_LOCK` timeout as an infinite wait, MariaDB rejects one outright
+    ("Incorrect timeout value") and returns NULL, i.e. never acquires -- so
+    MariaDB gets a very large finite wait instead. Since `null` is the default
+    timeout, the naive spelling made `withAdvisoryLock()`'s commonest call
+    shape fail silently on every MariaDB server; found by live-running it, and
+    now regression-tested.
   - Failure to acquire throws a dedicated `AdvisoryLockTimeoutException`
     rather than a generic one: "somebody else has it" is the expected answer
     to asking for a mutex with a timeout, and a caller wanting to log-and-skip
@@ -454,17 +472,29 @@ These are gaps in the shared query builder — confirmed absent by grep across
     scope still believes it holds. Documented rather than emulated with a
     process-local depth counter, which would be a second source of truth about
     a lock the database already owns.
-  - Live-verified two ways: against the Postgres testcontainer with a *second
-    real connection* standing in for the other process (`AdvisoryLockTest` --
-    mutual exclusion, release-on-throw, zero and finite timeouts, the
-    `lock_timeout` restore, and survival across a COMMIT), and by hand against
-    a real MariaDB 11.8 server for the `GET_LOCK` path (including that a 0.4s
-    timeout really waits the rounded-up 1.0s). **MSSQL and Oracle are
-    implemented from documented semantics and not live-verified** -- no
-    container for either was to hand, and Oracle additionally needs a
-    `GRANT EXECUTE ON DBMS_LOCK` a stock image doesn't have. Recorded in
-    `docs/CONNECTIONS.md`'s own "still not handled" list rather than left
-    implicit.
+  - **Live-verified on all four platforms**, each with a *second real
+    connection* standing in for the other process, since nothing about a
+    session-scoped lock can be demonstrated within one connection and a mocked
+    PDO would only prove the SQL was assembled. Postgres runs in the suite
+    (`AdvisoryLockTest`: mutual exclusion, release-on-throw, zero and finite
+    timeouts, the `lock_timeout` restore, survival across a COMMIT); MariaDB
+    11.8, MySQL 9.7, SQL Server (`azure-sql-edge`) and Oracle 23
+    (`gvenzl/oracle-free:23-slim`) were driven by hand through the same
+    matrix, 8-10 checks each, all passing.
+    That pass found two real bugs that no amount of string-shape testing
+    would have: the MariaDB infinite-wait spelling above, and MSSQL's
+    result-set shape -- `sp_getapplock` is a stored procedure, so the batch
+    calling it yields an *empty* leading rowset over pdo_dblib, which
+    `fetchAdvisoryLockResult()` read as "not acquired", so **every** MSSQL
+    acquisition silently failed; leaving the remaining rowsets unconsumed also
+    broke the next statement on that connection with dblib's "results
+    pending". Both fixed and regression-tested (`AdvisoryLockResultTest`,
+    driven through a scripted statement so the coverage survives without
+    Docker).
+    Oracle's documented `GRANT EXECUTE ON DBMS_LOCK` requirement was verified
+    from both sides: without the grant the acquisition throws
+    ORA-06550/PLS-00201 (loudly, not as a "busy" false), and with it the same
+    unprivileged user acquires and releases normally.
 - [x] **Bulk load path** — Pg `COPY FROM STDIN`, MySQL `LOAD DATA`, MSSQL
   `BULK INSERT`. An order of magnitude faster than multi-row `INSERT` for
   seeding and imports. Complements (does not duplicate) the "Statement

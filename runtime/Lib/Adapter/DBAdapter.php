@@ -1360,8 +1360,24 @@ abstract class DBAdapter
 
 	/**
 	 * Runs a single-value SQL query on $con and returns the first column of
-	 * the first row -- the shape every advisory-lock primitive below answers
-	 * in (`SELECT pg_try_advisory_lock(...)`, `SELECT GET_LOCK(...)`).
+	 * the first row that has one -- the shape every advisory-lock primitive
+	 * below answers in (`SELECT pg_try_advisory_lock(...)`,
+	 * `SELECT GET_LOCK(...)`).
+	 *
+	 * **Skips leading empty result sets, and closes the cursor.** Both matter
+	 * only on MSSQL, and both were found by running this against a real
+	 * server. `sp_getapplock` is a stored procedure, so the T-SQL batch that
+	 * calls it and then selects its return code produces *two* result sets
+	 * over pdo_dblib: an empty one from the `EXEC`, then the `SELECT`. Reading
+	 * the first one gives `false`, which this method's callers would have read
+	 * as "lock not acquired" -- an advisory lock that silently never granted.
+	 * And leaving the statement's remaining rowsets unconsumed makes the
+	 * *next* statement on that connection fail outright with dblib's
+	 * "Attempt to initiate a new Adaptive Server operation with results
+	 * pending".
+	 *
+	 * Harmless on the platforms that return exactly one rowset: the loop reads
+	 * the value on its first pass and never asks for another.
 	 *
 	 * @param     PropulsionPDO      $con
 	 * @param     string             $sql
@@ -1382,7 +1398,21 @@ abstract class DBAdapter
 		}
 		$stmt->execute();
 
-		return $stmt->fetchColumn();
+		$result = false;
+		do {
+			// columnCount() rather than the fetchColumn() result alone: a
+			// rowset with columns that is genuinely empty, or whose value is
+			// literally false/null, must not be skipped past in search of a
+			// later one that does not exist.
+			if ($stmt->columnCount() > 0) {
+				$result = $stmt->fetchColumn();
+				break;
+			}
+		} while ($stmt->nextRowset());
+
+		$stmt->closeCursor();
+
+		return $result;
 	}
 
 	/**
