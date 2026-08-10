@@ -252,8 +252,11 @@ class Propulsion
 			throw new PropulsionException("Propulsion cannot be initialized without a valid configuration. Please check the log files for further details.");
 		}
 
-		// reset the connection map (this should enable runtime changes of connection params)
-		self::$connectionMap = array();
+		// Drop the pooled connections so the next getConnection() builds against whatever
+		// configuration was just installed, rolling back anything they still have open --
+		// see releasePooledConnections() for why that rollback is the only part of "closing"
+		// achievable from here.
+		self::releasePooledConnections();
 		self::forgetConfigurationDerivedState();
 
 		self::$isInit = true;
@@ -1092,6 +1095,73 @@ class Propulsion
 	}
 
 	/**
+	 * Rolls back whatever the pooled connections still have open, then drops this class's
+	 * references to them.
+	 *
+	 * Clearing the map is not closing the connections. PHP ends a PDO connection when its
+	 * last reference is released, and this class is rarely the only holder: an adapter that
+	 * caches the handle getConnection() gave it keeps one for as long as it lives. Forgetting
+	 * the map while such a holder exists leaves that connection open on the server, and the
+	 * next getConnection() opens a second beside it -- so a long-lived process accumulates a
+	 * backend per reset, each still holding the locks of whatever transaction it was in the
+	 * middle of. Under a per-request SAPI the process death hid this; under a worker it does
+	 * not.
+	 *
+	 * Rolling back first is the achievable part. It cannot shorten a connection's life, but
+	 * it releases the locks now rather than whenever the holder happens to be collected. Work
+	 * in progress is lost either way: a connection being dropped from the pool was never
+	 * going to be committed through.
+	 */
+	private static function releasePooledConnections(): void
+	{
+		foreach (self::$connectionMap as $cons) {
+			foreach ($cons as $con) {
+				self::rollBackOpenTransaction($con);
+			}
+		}
+
+		self::$connectionMap = array();
+	}
+
+	/**
+	 * Unwinds any transaction open on one connection, tolerating a failure to do so.
+	 *
+	 * A failure here means the connection was already unusable -- a dropped socket, a server
+	 * that went away -- in which case the server has reclaimed the locks itself and there is
+	 * nothing to salvage. It must not stop the remaining connections being released.
+	 *
+	 * @param PDO|PropulsionPDO $con The connection to unwind. Accepts the interface as well
+	 *        as the class, for the same reason {@see discardConnection()} does: PropulsionPDO
+	 *        is implemented by driver-specific subclasses of PDO, so a pooled connection may
+	 *        be typed as either.
+	 */
+	private static function rollBackOpenTransaction(PDO|PropulsionPDO $con): void
+	{
+		try {
+			if ($con instanceof PropulsionPDO) {
+				// rollBack() unwinds one nesting level per call and only the outermost issues
+				// a real ROLLBACK, so a nested transaction needs one call per level. Bounded by
+				// the reported depth, so a driver that fails to decrement cannot spin here.
+				for ($depth = (int) $con->getNestedTransactionCount(); $depth > 0; $depth--) {
+					$con->rollBack();
+				}
+
+				return;
+			}
+
+			if ($con->inTransaction()) {
+				$con->rollBack();
+			}
+		} catch (\Throwable $e) {
+			self::log(
+				'[Propulsion] could not roll back a pooled connection while releasing it; '
+				. 'its locks are left for the server to reclaim: ' . $e->getMessage(),
+				LogLevel::WARNING
+			);
+		}
+	}
+
+	/**
 	 * Evict one specific connection object from the pool, whichever datasource
 	 * and mode (master/slave) it happens to be registered under, so the next
 	 * getConnection() for that slot builds a fresh one.
@@ -1901,10 +1971,14 @@ class Propulsion
 	}
 
 	/**
-	 * Closes any associated resource handles.
+	 * Releases this class's references to the pooled connections, rolling back any
+	 * transaction they still have open.
 	 *
-	 * This method frees any database connection handles that have been
-	 * opened by the getConnection() method.
+	 * Deliberately not described as closing them: PDO has no close(), and a connection ends
+	 * only when its *last* reference goes. Callers keep their own -- an adapter that caches
+	 * the handle it was given, a peer holding one for a unit of work -- so afterwards those
+	 * connections may well still be open on the server. Releasing their locks is what this
+	 * can guarantee.
 	 */
 	public static function close(): void
 	{
@@ -1916,15 +1990,14 @@ class Propulsion
 			if (getenv('AGAVI_DEBUG_DATABASE')) {
 				$masterCount = isset($cons['master']) ? 1 : 0;
 				$slaveCount = isset($cons['slave']) ? 1 : 0;
-				self::log('[Propulsion::close] closing connection group: ' . $idx . ' (master=' . $masterCount . ' slave=' . $slaveCount . ')', LogLevel::DEBUG);
+				self::log('[Propulsion::close] releasing connection group: ' . $idx . ' (master=' . $masterCount . ' slave=' . $slaveCount . ')', LogLevel::DEBUG);
 			}
 		}
 
-		// Clear the entire connection map to release all PDO references
-		self::$connectionMap = array();
+		self::releasePooledConnections();
 
 		if (getenv('AGAVI_DEBUG_DATABASE')) {
-			self::log('[Propulsion::close] all connections closed - connection map cleared', LogLevel::DEBUG);
+			self::log('[Propulsion::close] connection map cleared', LogLevel::DEBUG);
 		}
 	}
 
