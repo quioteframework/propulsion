@@ -17,7 +17,7 @@ jobs:
     # both are green: the 2 MssqlPlatformTest failures this comment used to record
     # as pre-existing were fixed during the MSSQL parity work.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
@@ -61,7 +61,7 @@ jobs:
     # Blocking: this is the source of truth for suite health (see
     # KNOWN_ISSUES.md), and the source of the coverage number reported to Codecov.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
@@ -125,7 +125,7 @@ jobs:
     # and were flaky under container-resource contention in that audit; if this job
     # goes red only on those suites, that's the known issue, not a MySQL regression.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
@@ -191,7 +191,7 @@ jobs:
     # IntegrationDatabase builds one on GenericContainer; see that class for why
     # (the healthcheck binary is mariadb-admin, not mysqladmin).
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
@@ -240,7 +240,7 @@ jobs:
     # full runs. If this job goes red, treat it as a real regression, not a known
     # flake (unlike integration-mysql's Postgres-only-suite caveat above).
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
@@ -304,7 +304,7 @@ jobs:
     # --with-pdo-oci=instantclient,...,23.26 version argument in the next step are
     # unaffected by patch-level bumps within the same 23.26.x line.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
@@ -431,7 +431,7 @@ jobs:
     # enforced it mechanically -- this job turns that rule from discipline into
     # a gate.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
@@ -465,7 +465,7 @@ jobs:
     # there for the next, while the request-scoped tier is not. It also covers
     # the request-boundary safety guarantees the whole Phase 4 rework exists for.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
