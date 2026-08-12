@@ -62,15 +62,30 @@ class NestedSetPeerBuilder extends AbstractPeerBuilder
 	 */
 	protected function addIncludes(&$script = null): void
 	{
-		// PHP 8.4 uses namespaces and autoloading, but the generated code below still
-		// references these short class names, so they must be declared here for the
-		// framework to auto-generate the corresponding `use` statements (see
-		// OMBuilder::declareClass()/getUseStatements()).
+		// Nothing to include. The runtime-class declares this used to carry are in
+		// declareRuntimeClasses() instead -- see there.
+	}
+
+	/**
+	 * Declares the runtime classes the generated code below refers to by their
+	 * short name, so OMBuilder::getUseStatements() emits real imports for them.
+	 *
+	 * Called from addClassOpen() rather than addIncludes(), which is where these
+	 * declares used to live: addIncludes() only runs when the `addIncludes` build
+	 * property is set, and it defaults to off, so on an ordinary build nothing
+	 * declared here ever happened and the class came out with no imports at all.
+	 * It worked anyway only because the bare names resolved through the aliases
+	 * `runtime/Lib/legacy-class-map.php` installs -- which is what this whole
+	 * mechanism exists to stop needing.
+	 */
+	protected function declareRuntimeClasses(): void
+	{
 		$this->declareClassFromBuilder($this->getStubPeerBuilder());
 		$this->declareClassFromBuilder($this->getStubObjectBuilder());
 		$this->declareClass('Propulsion\\Connection\\PropulsionPDO');
 		$this->declareClass('Propulsion\\OM\\NodeObject');
 		$this->declareClass('Propulsion\\Util\\NodePeer');
+		$this->declareClass('Propulsion\\Util\\BasePeer');
 		$this->declareClass('Propulsion\\Exception\\PropulsionException');
 		$this->declareClass('Propulsion\\Query\\Criteria');
 		$this->declareClass('Propulsion\\Propulsion');
@@ -84,6 +99,8 @@ class NestedSetPeerBuilder extends AbstractPeerBuilder
 	 */
 	protected function addClassOpen(&$script): void
 	{
+		$this->declareRuntimeClasses();
+
 		$table = $this->getTable();
 		$tableName = $table->getName();
 		$tableDesc = $table->getDescription();

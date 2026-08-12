@@ -70,7 +70,7 @@ class ConcreteInheritanceParentBehavior extends Behavior
 		$this->builder = $builder;
 		$script = '';
 		$this->addHasChildObject($script);
-		$this->addGetChildObject($script);
+		$this->addGetChildObject($script, $builder);
 
 		return $script;
 	}
@@ -90,8 +90,18 @@ public function hasChildObject()
 ";
 	}
 
-	protected function addGetChildObject(string &$script): void
+	/**
+	 * $builder is taken as a parameter rather than read back off $this->builder,
+	 * which is nullable and would need a runtime null check here to say something
+	 * objectMethods() already knows: it has the builder in hand when it calls this.
+	 */
+	protected function addGetChildObject(string &$script, ObjectBuilder $builder): void
 	{
+		// The body below calls PropulsionQuery::from() by short name; declare it so
+		// the host class gets a real `use` for it instead of leaning on the bare
+		// alias in runtime/Lib/legacy-class-map.php.
+		$builder->declareClass('Propulsion\\Query\\PropulsionQuery');
+
 		$script .= "
 /**
  * Get the child object of this object

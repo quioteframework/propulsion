@@ -428,7 +428,17 @@ abstract class OMBuilder extends DataModelBuilder
 	 *    builder may declare e.g. `Criteria` rather than
 	 *    `Propulsion\Query\Criteria`; inside a `namespace Foo\Bar;` block a bare
 	 *    reference would resolve to `Foo\Bar\Criteria`, so the import is what
-	 *    makes it work, and it has to name the real class.
+	 *    makes it work, and it has to name the real class. This resolution has to
+	 *    happen *before* the target's own namespace is dropped below, because a
+	 *    bare declare is filed under the root namespace and a flat target's own
+	 *    namespace *is* the root namespace -- so for exactly the builders that
+	 *    declare bare (QueryInheritanceBuilder, the NestedSet/Node builders) the
+	 *    drop was eating every runtime declare they made, and the generated class
+	 *    came out with no imports at all. That is not a missing-import warning at
+	 *    the point of use: `BaseXxxQuery::create(?Criteria $criteria = null)`
+	 *    inherits from a base that spells the same parameter
+	 *    `Propulsion\Query\Criteria`, so PHP cannot prove the override compatible
+	 *    and fatals while *loading* the class.
 	 *  - **Non-compound names are not imported at all in a global-namespace
 	 *    target.** `use DateTime;` is meaningful inside a namespace (it imports
 	 *    the global class) but in the global namespace it is a no-op that PHP
@@ -445,9 +455,24 @@ abstract class OMBuilder extends DataModelBuilder
 	public function getUseStatements(?string $ignoredNamespace = null): string
 	{
 		$declaredClasses = $this->declaredClasses;
+		$runtimeClasses = $this->getRuntimeClassFqcnMap();
+
+		// Refile bare declares of runtime classes under the namespace they really
+		// live in, so the drop below cannot mistake them for "declared in the
+		// target's own namespace, therefore needs no import".
+		foreach ($declaredClasses[''] ?? array() as $key => $class) {
+			if (!isset($runtimeClasses[$class])) {
+				continue;
+			}
+			$namespace = substr($runtimeClasses[$class], 0, (int) strrpos($runtimeClasses[$class], '\\'));
+			unset($declaredClasses[''][$key]);
+			if (!in_array($class, $declaredClasses[$namespace] ?? array(), true)) {
+				$declaredClasses[$namespace][] = $class;
+			}
+		}
+
 		unset($declaredClasses[$ignoredNamespace ?? '']);
 
-		$runtimeClasses = $this->getRuntimeClassFqcnMap();
 		$isGlobalNamespace = !$this->getNamespace();
 
 		// Keyed by the name that comes into scope, which is also how a duplicate
@@ -457,10 +482,6 @@ abstract class OMBuilder extends DataModelBuilder
 		foreach ($declaredClasses as $namespace => $classes) {
 			foreach ($classes as $class) {
 				$fullName = $namespace !== '' ? $namespace . '\\' . $class : $class;
-
-				if (strpos($fullName, '\\') === false && isset($runtimeClasses[$class])) {
-					$fullName = $runtimeClasses[$class];
-				}
 
 				if ($isGlobalNamespace && strpos($fullName, '\\') === false) {
 					continue;

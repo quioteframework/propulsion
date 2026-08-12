@@ -1498,6 +1498,11 @@ public function deleteDescendants(?PropulsionPDO \$con = null)
 
 	protected function addGetIterator(string &$script): void
 	{
+		// The body below instantiates NestedSetRecursiveIterator by short name;
+		// declare it so the host class gets a real `use` for it instead of leaning
+		// on the bare alias in runtime/Lib/legacy-class-map.php.
+		$this->requireBuilder()->declareClass('Propulsion\\OM\\NestedSetRecursiveIterator');
+
 		$script .= "
 /**
  * Returns a pre-order iterator for this node and its children.
