@@ -3936,23 +3936,29 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	
 	protected function addValidationFailuresAttribute(string &$script): void
 	{
+		// ValidationFailed appears in the docblocks emitted below; declare it so the
+		// generated class carries a real import for it.
+		$this->declareClass('Propulsion\\Validator\\ValidationFailed');
 		$script .= "
 
 	/**
 	 * Array to store validation failures.
-	 * @var array<string,string>
+	 * @var array<string, ValidationFailed>
 	 */
 	protected array \$validationFailures = [];";
 	}
 	
 	protected function addGetValidationFailures(string &$script): void
 	{
+		// ValidationFailed appears in the docblocks emitted below; declare it so the
+		// generated class carries a real import for it.
+		$this->declareClass('Propulsion\\Validator\\ValidationFailed');
 		$script .= "
 
 	/**
 	 * Gets any ValidationFailed objects that resulted from last call to validate().
 	 *
-	 * @return array<string,string> Array of ValidationFailed objects
+	 * @return array<string, ValidationFailed> Keyed by column name.
 	 */
 	public function getValidationFailures(): array
 	{
@@ -3986,6 +3992,9 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	
 	protected function addDoValidate(string &$script): void
 	{
+		// ValidationFailed appears in the docblocks emitted below; declare it so the
+		// generated class carries a real import for it.
+		$this->declareClass('Propulsion\\Validator\\ValidationFailed');
 		$script .= "
 
 	/**
@@ -3996,7 +4005,8 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 * an aggreagated array of ValidationFailed objects will be returned.
 	 *
 	 * @param      array<int,string>|string|null \$columns Array of column names to validate.
-	 * @return     true|array<string,string> <code>true</code> if all validations pass; array of <code>ValidationFailed</code> objets otherwise.
+	 * @return     true|array<string, ValidationFailed> <code>true</code> if all validations pass;
+	 *             the <code>ValidationFailed</code> objects keyed by column name otherwise.
 	 */
 	protected function doValidate(array|string|null \$columns = null): true|array
 	{
@@ -4026,10 +4036,11 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 
 		$script .= "
 
+			// doValidateThis() returns true or the failure map, so `!== true` has
+			// already established the array; it used to be re-checked with
+			// is_array() because the method was typed `mixed`.
 			if ((\$retval = " . $this->getPeerClassname() . "::doValidateThis(\$this, \$columns)) !== true) {
-				if (is_array(\$retval)) {
-					\$failureMap = array_merge(\$failureMap, \$retval);
-				}
+				\$failureMap = array_merge(\$failureMap, \$retval);
 			}
 
 ";

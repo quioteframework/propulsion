@@ -1650,6 +1650,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 */
 	protected function addDoValidate(string &$script): void
 	{
+		// ValidationFailed appears in the docblocks emitted below; declare it so the
+		// generated class carries a real import for it.
+		$this->declareClass('Propulsion\\Validator\\ValidationFailed');
 		$table = $this->getTable();
 		$script .= "
 	/**
@@ -1673,7 +1676,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * @param      mixed \$obj The object to validate.
 	 * @param      mixed \$cols Column name or array of column names.
 	 *
-	 * @return     mixed TRUE if all columns are valid or the error message of the first invalid column.
+	 * @return     true|array<string, ValidationFailed> TRUE if every column is valid, otherwise
+	 *             the ValidationFailed objects keyed by column name -- whatever
+	 *             {$this->basePeerClassname}::doValidate() returned, which this hands straight back.
 	 */
 	public static function doValidateThis(\$obj, mixed \$cols = null)
 	{
@@ -1722,7 +1727,8 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * @param      string \$tableName The name of the table
 	 * @param      array<string, mixed> \$columns Array of column names as key and column values as value.
 	 *
-	 * @return     mixed TRUE if all columns are valid or the error message of the first invalid column.
+	 * @return     true|array<string, ValidationFailed> TRUE if every column is valid, otherwise the
+	 *             ValidationFailed objects keyed by column name.
 	 */
 	public static function doValidate(\$dbName, \$tableName, \$columns)
 	{
