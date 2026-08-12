@@ -245,6 +245,9 @@ public function getMaxRank(" . ($useScope ? "\$scope = null, " : "") . "?Propuls
 	if (\$con === null) {
 		\$con = Propulsion::getConnection({$this->peerClassname}::DATABASE_NAME);
 	}
+	if (!\$con instanceof PropulsionPDO) {
+		throw new PropulsionException('Expected a PropulsionPDO connection');
+	}
 	// shift the objects with a position lower than the one of object
 	\$this->addSelectColumn('MAX(' . {$this->peerClassname}::RANK_COL . ')');";
 		if ($useScope) {
@@ -289,6 +292,9 @@ public function reorder(array \$order, ?PropulsionPDO \$con = null)
 {
 	if (\$con === null) {
 		\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME);
+	}
+	if (!\$con instanceof PropulsionPDO) {
+		throw new PropulsionException('Expected a PropulsionPDO connection');
 	}
 
 	\$con->beginTransaction();

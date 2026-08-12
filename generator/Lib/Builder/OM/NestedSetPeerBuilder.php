@@ -886,6 +886,9 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 		if (\$con === null) {
 			\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME, Propulsion::CONNECTION_READ);
 		}
+		if (!\$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
+		}
 
 		\$sql = \"SELECT COUNT(*) AS lvl FROM \" . self::TABLE_NAME . \" WHERE \" . self::LEFT_COL . \" < :left AND \" . self::RIGHT_COL . \" > :right\";
 
@@ -1350,6 +1353,9 @@ $rightSetterLine
 		if (\$con === null) {
 			\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
 		}
+		if (!\$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
+		}
 
 		\$leftUpdateCol = substr(self::LEFT_COL, strrpos(self::LEFT_COL, '.') + 1);
 		\$rightUpdateCol = substr(self::RIGHT_COL, strrpos(self::RIGHT_COL, '.') + 1);
@@ -1423,6 +1429,9 @@ $rightSetterLine
 	{
 		if (\$con === null) {
 			\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
+		}
+		if (!\$con instanceof PropulsionPDO) {
+			throw new PropulsionException('Expected a PropulsionPDO connection');
 		}
 
 		\$leftUpdateCol = substr(self::LEFT_COL, strrpos(self::LEFT_COL, '.') + 1);

@@ -444,6 +444,9 @@ public static function doSoftDelete(\$values, ?PropulsionPDO \$con = null)
 	if (\$con === null) {
 		\$con = Propulsion::getConnection({$this->requireTable()->getPhpName()}Peer::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
 	}
+	if (!\$con instanceof PropulsionPDO) {
+		throw new PropulsionException('Expected a PropulsionPDO connection');
+	}
 	if (\$values instanceof Criteria) {
 		// rename for clarity
 		\$selectCriteria = clone \$values;
@@ -515,6 +518,9 @@ public static function doSoftDeleteAll(?PropulsionPDO \$con = null)
 {
 	if (\$con === null) {
 		\$con = Propulsion::getConnection({$this->requireBuilder()->getPeerClassname()}::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
+	}
+	if (!\$con instanceof PropulsionPDO) {
+		throw new PropulsionException('Expected a PropulsionPDO connection');
 	}
 	\$selectCriteria = new Criteria();
 	\$selectCriteria->add({$this->requireBuilder()->getColumnConstant($this->requireColumnForParameter('deleted_column'))}, null, Criteria::ISNULL);

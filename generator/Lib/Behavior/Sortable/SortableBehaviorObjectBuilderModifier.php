@@ -419,6 +419,9 @@ public function moveToRank(\$newRank, ?PropulsionPDO \$con = null)
 	if (\$con === null) {
 		\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME);
 	}
+	if (!\$con instanceof PropulsionPDO) {
+		throw new PropulsionException('Expected a PropulsionPDO connection');
+	}
 	if (\$newRank < 1 || \$newRank > {$this->queryClassname}::create()->getMaxRank(" . ($useScope ? "\$this->{$this->getColumnGetter('scope_column')}(), " : '') . "\$con)) {
 		throw new PropulsionException('Invalid rank ' . \$newRank);
 	}
@@ -466,6 +469,9 @@ public function swapWith(\$object, ?PropulsionPDO \$con = null)
 	if (\$con === null) {
 		\$con = Propulsion::getConnection({$this->peerClassname}::DATABASE_NAME);
 	}
+	if (!\$con instanceof PropulsionPDO) {
+		throw new PropulsionException('Expected a PropulsionPDO connection');
+	}
 	\$con->beginTransaction();
 	try {
 		\$oldRank = \$this->{$this->getColumnGetter()}();
@@ -502,6 +508,9 @@ public function moveUp(?PropulsionPDO \$con = null)
 	}
 	if (\$con === null) {
 		\$con = Propulsion::getConnection({$this->peerClassname}::DATABASE_NAME);
+	}
+	if (!\$con instanceof PropulsionPDO) {
+		throw new PropulsionException('Expected a PropulsionPDO connection');
 	}
 	\$con->beginTransaction();
 	try {
@@ -544,6 +553,9 @@ public function moveDown(?PropulsionPDO \$con = null)
 	}
 	if (\$con === null) {
 		\$con = Propulsion::getConnection({$this->peerClassname}::DATABASE_NAME);
+	}
+	if (!\$con instanceof PropulsionPDO) {
+		throw new PropulsionException('Expected a PropulsionPDO connection');
 	}
 	\$con->beginTransaction();
 	try {
@@ -604,6 +616,9 @@ public function moveToBottom(?PropulsionPDO \$con = null)
 	}
 	if (\$con === null) {
 		\$con = Propulsion::getConnection({$this->peerClassname}::DATABASE_NAME);
+	}
+	if (!\$con instanceof PropulsionPDO) {
+		throw new PropulsionException('Expected a PropulsionPDO connection');
 	}
 	\$con->beginTransaction();
 	try {

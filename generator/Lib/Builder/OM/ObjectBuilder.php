@@ -2734,8 +2734,13 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$i = 0;
 		foreach ($table->getColumns() as $col) {
 			$cfc = $col->getPhpName();
+			// Same narrowing fromArray() applies: $value arrives as mixed (the
+			// WritableModelInterface signature) and the setters are typed, so it has
+			// to be coerced to the column's own type on the way in rather than
+			// reaching a typed setter unchecked.
+			$castExpr = $this->getColumnValueCastExpr($col, '$value');
 			$script .= "
-			$i => \$this->set$cfc(\$value),";
+			$i => \$this->set$cfc($castExpr),";
 			$i++;
 		}
 		$script .= "
