@@ -126,6 +126,83 @@ rm -rf fixtures/bookstore/build fixtures/schemas/build fixtures/namespaced/build
   Note the cleanup: clearing `.phpunit.cache` alone is not enough to compare
   two runs, because the generated fixture trees change which tests skip.
 
+## Open: generated relation parameters name the stub class, not the base
+
+253 of the ~550 remaining PHPStan level 9 findings in *generated* code are one
+shape:
+
+```
+Parameter #1 $v of method BaseReview::setBook() expects Book, $this(BaseBook) given.
+```
+
+Every relation call the generator emits lives in the `Base<Model>` class, and
+passes `$this`:
+
+```php
+// emitted into BaseBook
+$review->setBook($this);                 // setBook(?Book $v) is on BaseReview
+$query->filterByBook($this)->find($con); // filterByBook(Book|PropulsionObjectCollection<Book>)
+```
+
+`$this` there is a `BaseBook`. The parameter says `Book`. That holds at runtime
+only because the generator's stub (`class Book extends BaseBook {}`) is the sole
+subclass -- an invariant nothing states or enforces. Anyone who hand-writes
+`class Rogue extends BaseBook` gets a real `TypeError` out of generated code, not
+a degraded experience.
+
+Affected emitters, by finding count: `filterBy<Relation>()` (100),
+`set<Relation>()` (62), `add<Relation>()` (51), and the nested-set behavior's
+`isDescendantOf()`/`isAncestorOf()`/`childrenOf()`/`descendantsOf()`/
+`ancestorsOf()`/`prune()`/`branchOf()` (~40).
+
+### What does not work
+
+Checked against PHPStan 2.2.5, all with a scratch reproduction:
+
+- **`final class Book`.** Constrains the wrong class. It forbids extending
+  `Book`; what would have to be forbidden is extending `BaseBook`. `$this`
+  inside `BaseBook` stays `static of BaseBook`.
+- **`@phpstan-sealed Book` / `@psalm-inheritors Book` on `BaseBook`.** Neither
+  narrows `$this`; PHPStan does not read either as a closed-world statement.
+- **A self-referential template** (`@template T of BaseBook` on the base,
+  `@extends BaseBook<Book>` on the stub, parameters typed `T`). This *does*
+  work for a call written inside the stub, where `T` resolves to `Book`. It
+  fails for calls inside the base, which is where all of ours are:
+
+  ```
+  expects T of BaseNote, $this(BaseNote<T of BaseNote>) given.
+  💡 Type $this(BaseNote<T of BaseNote>) is not always the same as T.
+  ```
+
+  It also cannot reach the common case at all: `$review->setBook($this)` needs a
+  type on a parameter belonging to a *different* model's class, where no `T` of
+  `BaseBook`'s is in scope.
+
+The constraint, however it is spelled: the parameter must name a type `$this`
+provably already is -- `BaseBook` itself, or an interface `BaseBook` implements.
+Anything below it in the hierarchy cannot work from inside the base, because
+subclassing the base is always legal.
+
+### The two options that do work
+
+1. **Type the parameters on the base object class** -- `setBook(?BaseBook $v)`.
+   One change per emitter: use `getNewObjectBuilder($table)->getClassname()`
+   where `getNewStubObjectBuilder($table)->getClassname()` is used today, for
+   both the docblock and the `instanceof` narrowing inside the method body. It
+   admits exactly the same runtime objects (nothing but `BaseBook` subclasses
+   ever reaches these), and a hand-extended base starts working rather than
+   throwing. Cost: `BaseBook` appears in public signatures.
+
+2. **Generate an interface per model** -- `BaseBook implements BookInterface`,
+   parameters typed `BookInterface`. Nicer signatures and a genuine extension
+   point, at the cost of a new builder, a config entry, and one more generated
+   file per model.
+
+Option 1 was chosen and then deferred rather than implemented; it is a wide,
+mechanical diff across the relation emitters in `QueryBuilder`, `ObjectBuilder`
+and the nested-set behavior modifiers, and it changes public generated
+signatures, so it wants to land on its own rather than inside a level 9 sweep.
+
 ## Known-open, deliberately not fixed
 
 Findings from the code-review pass that landed in `e06386a`/`cfe545a`/`547af90`,
