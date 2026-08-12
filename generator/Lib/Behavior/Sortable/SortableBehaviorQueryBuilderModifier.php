@@ -182,7 +182,10 @@ public function orderByRank(\$order = Criteria::ASC)
 		$script .= "
  * @param     PropulsionPDO \$con optional connection
  *
- * @return    static
+ * @return    {$this->objectClassname}|null The matching object, or null if no row has that rank.
+ *            Not `static`: this calls findOne(), which hydrates a model object -- the old
+ *            annotation named the query class and propagated a wrong type into the
+ *            generated getNext()/getPrevious().
  */
 public function findOneByRank(\$rank, " . ($useScope ? "\$scope = null, " : "") . "?PropulsionPDO \$con = null)
 {
@@ -238,7 +241,7 @@ public function findList(" . ($useScope ? "\$scope = null, " : "") . "\$con = nu
 		$script .= "
  * @param     ?PropulsionPDO \$con optional connection
  *
- * @return    integer highest position
+ * @return    int|null The highest rank, or null when the list is empty
  */
 public function getMaxRank(" . ($useScope ? "\$scope = null, " : "") . "?PropulsionPDO \$con = null)
 {

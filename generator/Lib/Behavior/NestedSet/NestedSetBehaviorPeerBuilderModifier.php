@@ -147,7 +147,7 @@ const SCOPE_COL = '" . $tableName . '.' . $this->getColumnConstant('scope_column
  * Returns the root nodes for the tree
  *
  * @param      PropulsionPDO \$con	Connection to use.
- * @return     {$this->objectClassname}			Propulsion object for root node
+ * @return     array<int, {$this->objectClassname}> Propulsion objects for the root nodes
  */
 public static function retrieveRoots(?Criteria \$criteria = null, ?PropulsionPDO \$con = null)
 {
@@ -181,7 +181,7 @@ public static function retrieveRoots(?Criteria \$criteria = null, ?PropulsionPDO
  		}
  		$script .= "
  * @param      PropulsionPDO \$con	Connection to use.
- * @return     {$this->objectClassname}			Propulsion object for root node
+ * @return     {$this->objectClassname}|null Propulsion object for the root node, or null when there is none
  */
 public static function retrieveRoot(" . ($useScope ? "\$scope = null, " : "") . "?PropulsionPDO \$con = null)
 {
@@ -213,7 +213,7 @@ public static function retrieveRoot(" . ($useScope ? "\$scope = null, " : "") . 
  		$script .= "
  * @param      Criteria \$criteria	Optional Criteria to filter the query
  * @param      PropulsionPDO \$con	Connection to use.
- * @return     {$this->objectClassname}			Propulsion object for root node
+ * @return     array<int, {$this->objectClassname}> Propulsion objects for the whole tree
  */
 public static function retrieveTree(" . ($useScope ? "\$scope = null, " : "") . "?Criteria \$criteria = null, ?PropulsionPDO \$con = null)
 {

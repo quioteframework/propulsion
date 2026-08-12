@@ -179,7 +179,7 @@ public function setSlug(\$v)
 /**
  * Wrap the getter for slug value
  *
- * @return  string
+ * @return  string|null The slug, or null before one has been generated
  */
 public function getSlug()
 {
@@ -370,7 +370,7 @@ public function filterBySlug(\$slug)
  * @param     string \$slug The value to use as filter.
  * @param     PropulsionPDO \$con The optional connection object
  *
- * @return    " . $this->requireBuilder()->getStubObjectBuilder()->getClassname() . " the result, formatted by the current formatter
+ * @return    " . $this->requireBuilder()->getStubObjectBuilder()->getClassname() . "|null the result, formatted by the current formatter, or null when no row has that slug
  */
 public function findOneBySlug(\$slug, \$con = null)
 {

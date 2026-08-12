@@ -289,7 +289,7 @@ protected function processNestedSetQueries(\$con)
  * Proxy getter method for the left value of the nested set model.
  * It provides a generic way to get the value, whatever the actual column name is.
  *
- * @return     int The nested set left value
+ * @return     ?int The nested set left value, or null on a node that has not been placed in a tree yet
  */
 public function getLeftValue()
 {
@@ -305,7 +305,7 @@ public function getLeftValue()
  * Proxy getter method for the right value of the nested set model.
  * It provides a generic way to get the value, whatever the actual column name is.
  *
- * @return     int The nested set right value
+ * @return     ?int The nested set right value, or null on a node that has not been placed in a tree yet
  */
 public function getRightValue()
 {
@@ -321,7 +321,7 @@ public function getRightValue()
  * Proxy getter method for the level value of the nested set model.
  * It provides a generic way to get the value, whatever the actual column name is.
  *
- * @return     int The nested set level value
+ * @return     ?int The nested set level value, or null on a node that has not been placed in a tree yet
  */
 public function getLevel()
 {
@@ -337,7 +337,7 @@ public function getLevel()
  * Proxy getter method for the scope value of the nested set model.
  * It provides a generic way to get the value, whatever the actual column name is.
  *
- * @return     int The nested set scope value
+ * @return     ?int The nested set scope value, or null on a node that has not been placed in a tree yet
  */
 public function getScopeValue()
 {
@@ -353,8 +353,8 @@ public function getScopeValue()
  * Proxy setter method for the left value of the nested set model.
  * It provides a generic way to set the value, whatever the actual column name is.
  *
- * @param      int \$v The nested set left value
- * @return     static The current object (for fluent API support)
+ * @param      ?int \$v The nested set left value; nullable, like the column it proxies
+ * @return     {$this->objectClassname} The current object (for fluent API support)
  */
 public function setLeftValue(\$v)
 {
@@ -370,8 +370,8 @@ public function setLeftValue(\$v)
  * Proxy setter method for the right value of the nested set model.
  * It provides a generic way to set the value, whatever the actual column name is.
  *
- * @param      int \$v The nested set right value
- * @return     static The current object (for fluent API support)
+ * @param      ?int \$v The nested set right value; nullable, like the column it proxies
+ * @return     {$this->objectClassname} The current object (for fluent API support)
  */
 public function setRightValue(\$v)
 {
@@ -387,8 +387,8 @@ public function setRightValue(\$v)
  * Proxy setter method for the level value of the nested set model.
  * It provides a generic way to set the value, whatever the actual column name is.
  *
- * @param      int \$v The nested set level value
- * @return     static The current object (for fluent API support)
+ * @param      ?int \$v The nested set level value; nullable, like the column it proxies
+ * @return     {$this->objectClassname} The current object (for fluent API support)
  */
 public function setLevel(\$v)
 {
@@ -404,8 +404,8 @@ public function setLevel(\$v)
  * Proxy setter method for the scope value of the nested set model.
  * It provides a generic way to set the value, whatever the actual column name is.
  *
- * @param      int \$v The nested set scope value
- * @return     static The current object (for fluent API support)
+ * @param      ?int \$v The nested set scope value; nullable, like the column it proxies
+ * @return     {$this->objectClassname} The current object (for fluent API support)
  */
 public function setScopeValue(\$v)
 {
@@ -772,7 +772,7 @@ public function hasChildren()
  *
  * @param      Criteria  \$criteria Criteria to filter results.
  * @param      PropulsionPDO \$con Connection to use.
- * @return     array<int, $objectClassname>     List of $objectClassname objects
+ * @return     PropulsionObjectCollection<$objectClassname>|null The child $objectClassname objects
  */
 public function getChildren(\$criteria = null, ?PropulsionPDO \$con = null)
 {
@@ -835,7 +835,8 @@ public function countChildren(\$criteria = null, ?PropulsionPDO \$con = null)
  *
  * @param      Criteria \$query Criteria to filter results.
  * @param      PropulsionPDO \$con Connection to use.
- * @return     array<int, $objectClassname> 		List of $objectClassname objects
+ * @return     $objectClassname|array{}|null The firstchild child, null when the query matches nothing,
+ *             or an empty array on a leaf -- see KNOWN_ISSUES.md, these shapes should be one
  */
 public function getFirstChild(\$query = null, ?PropulsionPDO \$con = null)
 {
@@ -861,7 +862,8 @@ public function getFirstChild(\$query = null, ?PropulsionPDO \$con = null)
  *
  * @param      Criteria \$query Criteria to filter results.
  * @param      PropulsionPDO \$con Connection to use.
- * @return     array<int, $objectClassname> 		List of $objectClassname objects
+ * @return     $objectClassname|array{}|null The lastchild child, null when the query matches nothing,
+ *             or an empty array on a leaf -- see KNOWN_ISSUES.md, these shapes should be one
  */
 public function getLastChild(\$query = null, ?PropulsionPDO \$con = null)
 {
@@ -889,7 +891,9 @@ public function getLastChild(\$query = null, ?PropulsionPDO \$con = null)
  * @param      Criteria \$query Criteria to filter results.
  * @param      PropulsionPDO \$con Connection to use.
  *
- * @return     array<int, $objectClassname> 		List of $objectClassname objects
+ * @return     PropulsionObjectCollection<$objectClassname>|array{} The matching $objectClassname
+ *             objects, or an empty array on the short-circuit branch -- see
+ *             KNOWN_ISSUES.md, these two shapes should be one
  */
 public function getSiblings(\$includeNode = false, \$query = null, ?PropulsionPDO \$con = null)
 {
@@ -918,7 +922,9 @@ public function getSiblings(\$includeNode = false, \$query = null, ?PropulsionPD
  *
  * @param      Criteria \$query Criteria to filter results.
  * @param      PropulsionPDO \$con Connection to use.
- * @return     array<int, $objectClassname> 		List of $objectClassname objects
+ * @return     PropulsionObjectCollection<$objectClassname>|array{} The matching $objectClassname
+ *             objects, or an empty array on the short-circuit branch -- see
+ *             KNOWN_ISSUES.md, these two shapes should be one
  */
 public function getDescendants(\$query = null, ?PropulsionPDO \$con = null)
 {
@@ -970,7 +976,9 @@ public function countDescendants(\$query = null, ?PropulsionPDO \$con = null)
  *
  * @param      Criteria \$query Criteria to filter results.
  * @param      PropulsionPDO \$con Connection to use.
- * @return     array<int, $objectClassname> 		List of $objectClassname objects
+ * @return     PropulsionObjectCollection<$objectClassname>|array{} The matching $objectClassname
+ *             objects, or an empty array on the short-circuit branch -- see
+ *             KNOWN_ISSUES.md, these two shapes should be one
  */
 public function getBranch(\$query = null, ?PropulsionPDO \$con = null)
 {
@@ -993,7 +1001,9 @@ public function getBranch(\$query = null, ?PropulsionPDO \$con = null)
  *
  * @param      Criteria \$query Criteria to filter results.
  * @param      PropulsionPDO \$con Connection to use.
- * @return     array<int, $objectClassname> 		List of $objectClassname objects
+ * @return     PropulsionObjectCollection<$objectClassname>|array{} The matching $objectClassname
+ *             objects, or an empty array on the short-circuit branch -- see
+ *             KNOWN_ISSUES.md, these two shapes should be one
  */
 public function getAncestors(\$query = null, ?PropulsionPDO \$con = null)
 {

@@ -146,7 +146,7 @@ const SCOPE_COL = '" . $tableName . '.' . $this->getColumnConstant('scope_column
 		$script .= "
  * @param     ?PropulsionPDO \$con optional connection
  *
- * @return    integer highest position
+ * @return    int|null The highest rank, or null when the list is empty
  */
 public static function getMaxRank(" . ($useScope ? "\$scope = null, " : "") . "?PropulsionPDO \$con = null)
 {
@@ -198,7 +198,7 @@ public static function getMaxRank(" . ($useScope ? "\$scope = null, " : "") . "?
 		$script .= "
  * @param     PropulsionPDO \$con optional connection
  *
- * @return {$this->objectClassname}
+ * @return {$this->objectClassname}|null The object at that rank, or null if no row has it
  */
 public static function retrieveByRank(\$rank, " . ($useScope ? "\$scope = null, " : "") . "?PropulsionPDO \$con = null)
 {

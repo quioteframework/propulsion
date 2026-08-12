@@ -166,7 +166,7 @@ protected \$sortableQueries = array();
 /**
  * Wrap the getter for rank value
  *
- * @return    int
+ * @return    int|null The rank, or null on an object not yet placed in a list
  */
 public function getRank()
 {
@@ -177,7 +177,7 @@ public function getRank()
  * Wrap the setter for rank value
  *
  * @param     int \$v
- * @return    static
+ * @return    {$this->objectClassname} The current object (for fluent API support)
  */
 public function setRank(\$v)
 {
@@ -595,7 +595,8 @@ public function moveToTop(?PropulsionPDO \$con = null)
  *
  * @param     PropulsionPDO \$con optional connection
  *
- * @return integer the old object's rank
+ * @return    {$this->objectClassname}|false The current object, or false when it is already
+ *            last and nothing was moved. Never an integer -- moveToRank() returns the object.
  */
 public function moveToBottom(?PropulsionPDO \$con = null)
 {
