@@ -55,7 +55,20 @@ class QueryBuilder extends OMBuilder
      */
     public function getUnprefixedClassname()
     {
-        return $this->getStringBuildProperty('basePrefix') . $this->getStubQueryBuilder()->getUnprefixedClassname();
+        return $this->getStubQueryBuilder()->getUnprefixedClassname() . $this->getStringBuildProperty('generatedSuffix');
+    }
+
+    /**
+     * Returns the class name a fluent method emitted into the generated trait
+     * should declare it returns.
+     *
+     * Not getClassname(): that names the trait, and a trait name in a return
+     * type is a type nothing can satisfy. See ObjectBuilder::getObjectReturnType().
+     * @return     string
+     */
+    public function getQueryReturnType(): string
+    {
+        return $this->getStubQueryBuilder()->getClassname();
     }
 
     /**
@@ -77,12 +90,15 @@ class QueryBuilder extends OMBuilder
         $tableDesc = $table->getDescription();
         $queryClass = $this->getStubQueryBuilder()->getClassname();
         $modelClass = $this->getStubObjectBuilder()->getClassname();
-        $parentClass = $this->getBehaviorContent('parentClass');
-        $parentClass = is_string($parentClass) ? $parentClass : 'ModelCriteria';
 
         $script .= "
 /**
- * Base class that represents a query for the '$tableName' table.
+ * Generated code for a query on the '$tableName' table.
+ *
+ * A trait rather than a base class, so that \$this inside this generated code is
+ * provably the query class using it -- see docs/GENERATED_TRAITS_PLAN.md. The
+ * parent class this code assumes (ModelCriteria, or whatever a behavior's
+ * parentClass hook names) is carried by the stub ExtensionQueryBuilder emits.
  *
  * $tableDesc
  *";
@@ -250,7 +266,7 @@ class QueryBuilder extends OMBuilder
  * @method     static distinct() Alias for setDistinct()
  *
  */
-abstract class ".$this->getClassname()." extends " . $parentClass . "
+trait ".$this->getClassname()."
 {
     ";
     }
@@ -409,7 +425,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
     {
         $script .= "
     /**
-     * Initializes internal state of " . $this->getClassname() . " object.
+     * Initializes internal state of " . $this->getQueryReturnType() . " object.
      * @param      ?string \$dbName The database name
      * @param      ?string \$modelName The phpName of a model, e.g. 'Book'
      * @param      ?string \$modelAlias The alias for the model in this query, e.g. 'b'
@@ -430,7 +446,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
     {
         $script .= "
     /**
-     * Initializes internal state of ".$this->getClassname()." object.
+     * Initializes internal state of ".$this->getQueryReturnType()." object.
      *
      * @param     string \$dbName The dabase name
      * @param     string \$modelName The phpName of a model, e.g. 'Book'

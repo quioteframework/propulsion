@@ -54,7 +54,12 @@ require '".$requiredClassFilePath."';
 		$this->declareClassFromBuilder($this->getQueryBuilder());
 		$tableName = $table->getName();
 		$tableDesc = $table->getDescription();
-		$baseClassname = $this->getQueryBuilder()->getClassname();
+		// This class, not the generated code, is what extends: the generated code is
+		// a trait this class uses. See docs/GENERATED_TRAITS_PLAN.md.
+		$this->declareClass('Propulsion\\Query\\ModelCriteria');
+		$parentClass = $this->getBehaviorContent('parentClass');
+		$parentClass = is_string($parentClass) ? $parentClass : 'ModelCriteria';
+		$traitName = $this->getQueryBuilder()->getClassname();
 
 		$script .= "
 
@@ -76,7 +81,8 @@ require '".$requiredClassFilePath."';
  * long as it does not already exist in the output directory.
  *
  */
-class ".$this->getClassname()." extends $baseClassname {
+class ".$this->getClassname()." extends $parentClass {
+    use $traitName;
 ";
 	}
 

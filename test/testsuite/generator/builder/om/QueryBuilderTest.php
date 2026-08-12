@@ -63,7 +63,7 @@ class QueryBuilderTest extends BookstoreTestBase
 		$this->assertEquals('Propulsion\\Query\\ModelCriteria', $method->getDeclaringClass()->getName(), 'BaseQuery does not override basePreSelect() by default');
 
 		$method = new ReflectionMethod('Table3Query', 'basePreSelect');
-		$this->assertEquals('BaseTable3Query', $method->getDeclaringClass()->getName(), 'BaseQuery overrides basePreSelect() when a behavior is registered');
+		$this->assertEquals('Table3Query', $method->getDeclaringClass()->getName(), 'the generated query trait overrides basePreSelect() when a behavior is registered');
 	}
 
 	public function testBasePreDelete()
@@ -72,7 +72,7 @@ class QueryBuilderTest extends BookstoreTestBase
 		$this->assertEquals('Propulsion\\Query\\ModelCriteria', $method->getDeclaringClass()->getName(), 'BaseQuery does not override basePreDelete() by default');
 
 		$method = new ReflectionMethod('Table3Query', 'basePreDelete');
-		$this->assertEquals('BaseTable3Query', $method->getDeclaringClass()->getName(), 'BaseQuery overrides basePreDelete() when a behavior is registered');
+		$this->assertEquals('Table3Query', $method->getDeclaringClass()->getName(), 'the generated query trait overrides basePreDelete() when a behavior is registered');
 	}
 
 	public function testBasePostDelete()
@@ -81,7 +81,7 @@ class QueryBuilderTest extends BookstoreTestBase
 		$this->assertEquals('Propulsion\\Query\\ModelCriteria', $method->getDeclaringClass()->getName(), 'BaseQuery does not override basePostDelete() by default');
 
 		$method = new ReflectionMethod('Table3Query', 'basePostDelete');
-		$this->assertEquals('BaseTable3Query', $method->getDeclaringClass()->getName(), 'BaseQuery overrides basePostDelete() when a behavior is registered');
+		$this->assertEquals('Table3Query', $method->getDeclaringClass()->getName(), 'the generated query trait overrides basePostDelete() when a behavior is registered');
 	}
 
 	public function testBasePreUpdate()
@@ -90,7 +90,7 @@ class QueryBuilderTest extends BookstoreTestBase
 		$this->assertEquals('Propulsion\\Query\\ModelCriteria', $method->getDeclaringClass()->getName(), 'BaseQuery does not override basePreUpdate() by default');
 
 		$method = new ReflectionMethod('Table3Query', 'basePreUpdate');
-		$this->assertEquals('BaseTable3Query', $method->getDeclaringClass()->getName(), 'BaseQuery overrides basePreUpdate() when a behavior is registered');
+		$this->assertEquals('Table3Query', $method->getDeclaringClass()->getName(), 'the generated query trait overrides basePreUpdate() when a behavior is registered');
 	}
 
 	public function testBasePostUpdate()
@@ -99,7 +99,7 @@ class QueryBuilderTest extends BookstoreTestBase
 		$this->assertEquals('Propulsion\\Query\\ModelCriteria', $method->getDeclaringClass()->getName(), 'BaseQuery does not override basePostUpdate() by default');
 
 		$method = new ReflectionMethod('Table3Query', 'basePostUpdate');
-		$this->assertEquals('BaseTable3Query', $method->getDeclaringClass()->getName(), 'BaseQuery overrides basePostUpdate() when a behavior is registered');
+		$this->assertEquals('Table3Query', $method->getDeclaringClass()->getName(), 'the generated query trait overrides basePostUpdate() when a behavior is registered');
 	}
 
 	public function testQuery()
@@ -120,7 +120,7 @@ class QueryBuilderTest extends BookstoreTestBase
 	public function testFindPk()
 	{
 		$method = new ReflectionMethod('Table4Query', 'findPk');
-		$this->assertEquals('BaseTable4Query', $method->getDeclaringClass()->getName(), 'BaseQuery overrides findPk()');
+		$this->assertEquals('Table4Query', $method->getDeclaringClass()->getName(), 'the generated query trait overrides findPk()');
 	}
 
 	public function testFindPkSimpleKey()
@@ -177,7 +177,7 @@ class QueryBuilderTest extends BookstoreTestBase
 	public function testFindPks()
 	{
 		$method = new ReflectionMethod('Table4Query', 'findPks');
-		$this->assertEquals('BaseTable4Query', $method->getDeclaringClass()->getName(), 'BaseQuery overrides findPks()');
+		$this->assertEquals('Table4Query', $method->getDeclaringClass()->getName(), 'the generated query trait overrides findPks()');
 	}
 
 	public function testFindPksSimpleKey()
