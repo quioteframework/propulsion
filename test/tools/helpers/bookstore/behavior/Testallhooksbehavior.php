@@ -74,29 +74,53 @@ class TestAllHooksObjectBuilderModifier
 {
   public function objectAttributes($builder)
   {
-    return 'public $customAttribute = 1;
+    return '/** @var int */
+public $customAttribute = 1;
+/** @var ?int */
 public $preSave;
+/** @var ?bool */
 public $preSaveIsAfterSave;
+/** @var ?string */
 public $preSaveBuilder;
+/** @var ?int */
 public $postSave;
+/** @var ?bool */
 public $postSaveIsAfterSave;
+/** @var ?string */
 public $postSaveBuilder;
+/** @var ?int */
 public $preInsert;
+/** @var ?bool */
 public $preInsertIsAfterSave;
+/** @var ?string */
 public $preInsertBuilder;
+/** @var ?int */
 public $postInsert;
+/** @var ?bool */
 public $postInsertIsAfterSave;
+/** @var ?string */
 public $postInsertBuilder;
+/** @var ?int */
 public $preUpdate;
+/** @var ?bool */
 public $preUpdateIsAfterSave;
+/** @var ?string */
 public $preUpdateBuilder;
+/** @var ?int */
 public $postUpdate;
+/** @var ?bool */
 public $postUpdateIsAfterSave;
+/** @var ?string */
 public $postUpdateBuilder;
+/** @var ?int */
 public $preDelete;
+/** @var ?bool */
 public $preDeleteIsBeforeDelete;
+/** @var ?string */
 public $preDeleteBuilder;
+/** @var ?int */
 public $postDelete;
+/** @var ?bool */
 public $postDeleteIsBeforeDelete;
 public $postDeleteBuilder;';
   }
@@ -166,7 +190,10 @@ class TestAllHooksPeerBuilderModifier
 {
   public function staticAttributes($builder)
   {
-    return 'public static $customStaticAttribute = 1;public static $staticAttributeBuilder = "' . get_class($builder) . '";';
+    return '/** @var int */
+public static $customStaticAttribute = 1;
+/** @var string */
+public static $staticAttributeBuilder = "' . get_class($builder) . '";';
   }
 
   public function staticMethods($builder)

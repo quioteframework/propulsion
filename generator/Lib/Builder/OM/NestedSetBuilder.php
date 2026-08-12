@@ -202,7 +202,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	/**
 	 * Store node if has prev sibling
 	 */
-	protected ?$objectClassName \$prevSibling = null;
+	protected ?NodeObject \$prevSibling = null;
 
 	/**
 	 * Store if node has next sibling
@@ -212,7 +212,7 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	/**
 	 * Store node if has next sibling
 	 */
-	protected ?$objectClassName \$nextSibling = null;
+	protected ?NodeObject \$nextSibling = null;
 
 	/**
 	 * Store if node has parent node
@@ -222,12 +222,12 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 	/**
 	 * Store the parent node
 	 */
-	protected ?$objectClassName \$parentNode = null;
+	protected ?NodeObject \$parentNode = null;
 
 	/**
 	 * Store children of the node
 	 *
-	 * @var ?array<int, $objectClassName>
+	 * @var ?array<int, NodeObject>
 	 */
 	protected ?array \$children = null;
 ";

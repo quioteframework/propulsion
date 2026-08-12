@@ -236,7 +236,7 @@ public function findList(" . ($useScope ? "\$scope = null, " : "") . "\$con = nu
  * @param      int \$scope		Scope to determine which suite to consider";
 		}
 		$script .= "
- * @param     PropulsionPDO optional connection
+ * @param     ?PropulsionPDO \$con optional connection
  *
  * @return    integer highest position
  */

@@ -119,7 +119,11 @@ class QueryBuilder extends OMBuilder
             $baseType = ltrim($phpType, '?');
             // The array form covers both IN-style lists (int keys) and range filters
             // (string 'min'/'max' keys), so the value type can't be narrowed further than mixed.
-            $filterType = $baseType . '|array<int|string, mixed>' . (str_starts_with($phpType, '?') ? '|null' : '');
+            // mixed already covers arrays and null; unioning them in would be
+            // redundant and PHPStan flags it.
+            $filterType = $baseType === 'mixed'
+                ? 'mixed'
+                : $baseType . '|array<int|string, mixed>' . (str_starts_with($phpType, '?') ? '|null' : '');
             $script .= "
  * @method     static filterBy" . $column->getPhpName() . "($filterType \$" . $column->getName() . ", ?string \$comparison = null) Filter by the " . $column->getName() . " column";
         }
@@ -272,6 +276,15 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
 
         // Fall back to the PHP type mapping
         $phpType = $column->getPhpType();
+
+        // OBJECT, JSON and JSONB have no native PHP type at all -- their
+        // *_NATIVE_TYPE constants are the empty string, because the value's shape
+        // is whatever the application serialised. Left alone that emitted `?` as a
+        // type and a leading `|` in the filterBy union, which is not parseable
+        // PHPDoc, so PHPStan discarded the whole @method tag.
+        if ($phpType === '') {
+            return 'mixed';
+        }
 
         if ($phpType === 'DateTime') {
             $this->declareClass('\\DateTimeInterface');
