@@ -99,7 +99,7 @@ class SortableBehaviorQueryBuilderModifier
  *
  * @param     int \$scope		Scope to determine which objects node to return
  *
- * @return    {$this->queryClassname} The current query, for fluid interface
+ * @return    static The current query, for fluid interface
  */
 public function inList(\$scope = null)
 {
@@ -123,7 +123,7 @@ public function inList(\$scope = null)
 		}
 		$script .= "
  *
- * @return    " . $this->queryClassname . " The current query, for fluid interface
+ * @return    static The current query, for fluid interface
  */
 public function filterByRank(\$rank" . ($useScope ? ", \$scope = null" : "") . ")
 {
@@ -147,7 +147,7 @@ public function filterByRank(\$rank" . ($useScope ? ", \$scope = null" : "") . "
  *
  * @param     string \$order either Criteria::ASC (default) or Criteria::DESC
  *
- * @return    " . $this->queryClassname . " The current query, for fluid interface
+ * @return    static The current query, for fluid interface
  */
 public function orderByRank(\$order = Criteria::ASC)
 {
@@ -182,7 +182,7 @@ public function orderByRank(\$order = Criteria::ASC)
 		$script .= "
  * @param     PropulsionPDO \$con optional connection
  *
- * @return    {$this->objectClassname}
+ * @return    static
  */
 public function findOneByRank(\$rank, " . ($useScope ? "\$scope = null, " : "") . "?PropulsionPDO \$con = null)
 {

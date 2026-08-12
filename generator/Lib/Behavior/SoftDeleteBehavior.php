@@ -220,7 +220,7 @@ protected \$localSoftDelete = true;
  *
  * @see {$this->requireBuilder()->getStubQueryBuilder()->getClassname()}::disableSoftDelete() to disable the filter for more than one query
  *
- * @return {$this->requireBuilder()->getStubQueryBuilder()->getClassname()} The current query, for fluid interface
+ * @return static The current query, for fluid interface
  */
 public function includeDeleted()
 {

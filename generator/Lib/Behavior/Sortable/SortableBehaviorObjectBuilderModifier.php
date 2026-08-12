@@ -177,7 +177,7 @@ public function getRank()
  * Wrap the setter for rank value
  *
  * @param     int \$v
- * @return    {$this->objectClassname}
+ * @return    static
  */
 public function setRank(\$v)
 {
@@ -206,7 +206,7 @@ public function getScopeValue()
  * Wrap the setter for scope value
  *
  * @param     int \$v
- * @return    {$this->objectClassname}
+ * @return    static
  */
 public function setScopeValue(\$v)
 {
@@ -257,7 +257,7 @@ public function isLast(?PropulsionPDO \$con = null)
  *
  * @param     PropulsionPDO  \$con      optional connection
  *
- * @return    {$this->objectClassname}
+ * @return    ?{$this->objectClassname} The adjacent object, or null at the end of the list
  */
 public function getNext(?PropulsionPDO \$con = null)
 {";
@@ -286,7 +286,7 @@ public function getNext(?PropulsionPDO \$con = null)
  *
  * @param     PropulsionPDO  \$con      optional connection
  *
- * @return    {$this->objectClassname}
+ * @return    ?{$this->objectClassname} The adjacent object, or null at the end of the list
  */
 public function getPrevious(?PropulsionPDO \$con = null)
 {";
@@ -317,7 +317,7 @@ public function getPrevious(?PropulsionPDO \$con = null)
  * @param     integer    \$rank rank value
  * @param     PropulsionPDO  \$con      optional connection
  *
- * @return    {$this->objectClassname} the current object
+ * @return    static the current object
  *
  * @throws    PropulsionException
  */
@@ -359,7 +359,7 @@ public function insertAtRank(\$rank, ?PropulsionPDO \$con = null)
  *
  * @param PropulsionPDO \$con optional connection
  *
- * @return    {$this->objectClassname} the current object
+ * @return    static the current object
  *
  * @throws    PropulsionException
  */
@@ -386,7 +386,7 @@ public function insertAtBottom(?PropulsionPDO \$con = null)
  * Insert in the first rank
  * The modifications are not persisted until the object is saved.
  *
- * @return    {$this->objectClassname} the current object
+ * @return    static the current object
  */
 public function insertAtTop()
 {
@@ -407,7 +407,7 @@ public function insertAtTop()
  * @param     integer   \$newRank rank value
  * @param     PropulsionPDO \$con optional connection
  *
- * @return    {$this->objectClassname} the current object
+ * @return    static the current object
  *
  * @throws    PropulsionException
  */
@@ -457,7 +457,7 @@ public function moveToRank(\$newRank, ?PropulsionPDO \$con = null)
  * @param     {$this->objectClassname} \$object
  * @param     PropulsionPDO \$con optional connection
  *
- * @return    {$this->objectClassname} the current object
+ * @return    static the current object
  *
  * @throws Exception if the database cannot execute the two updates
  */
@@ -493,7 +493,7 @@ public function swapWith(\$object, ?PropulsionPDO \$con = null)
  *
  * @param     PropulsionPDO \$con optional connection
  *
- * @return    {$this->objectClassname} the current object
+ * @return    static the current object
  */
 public function moveUp(?PropulsionPDO \$con = null)
 {
@@ -506,6 +506,15 @@ public function moveUp(?PropulsionPDO \$con = null)
 	\$con->beginTransaction();
 	try {
 		\$prev = \$this->getPrevious(\$con);
+		if (\$prev === null) {
+			// isFirst() said there is a row above this one, but no row actually
+			// holds rank-1: the list has a gap, or a concurrent write removed it.
+			// Nothing to swap with, so leave the rank alone rather than fataling
+			// inside swapWith().
+			\$con->commit();
+
+			return \$this;
+		}
 		\$this->swapWith(\$prev, \$con);
 		\$con->commit();
 
@@ -526,7 +535,7 @@ public function moveUp(?PropulsionPDO \$con = null)
  *
  * @param     PropulsionPDO \$con optional connection
  *
- * @return    {$this->objectClassname} the current object
+ * @return    static the current object
  */
 public function moveDown(?PropulsionPDO \$con = null)
 {
@@ -539,6 +548,12 @@ public function moveDown(?PropulsionPDO \$con = null)
 	\$con->beginTransaction();
 	try {
 		\$next = \$this->getNext(\$con);
+		if (\$next === null) {
+			// See moveUp(): isLast() said otherwise, but no row holds rank+1.
+			\$con->commit();
+
+			return \$this;
+		}
 		\$this->swapWith(\$next, \$con);
 		\$con->commit();
 
@@ -559,7 +574,7 @@ public function moveDown(?PropulsionPDO \$con = null)
  *
  * @param     PropulsionPDO \$con optional connection
  *
- * @return    {$this->objectClassname} the current object
+ * @return    static the current object
  */
 public function moveToTop(?PropulsionPDO \$con = null)
 {
@@ -614,7 +629,7 @@ public function moveToBottom(?PropulsionPDO \$con = null)
  * Removes the current object from the list.
  * The modifications are not persisted until the object is saved.
  *
- * @return    {$this->objectClassname} the current object
+ * @return    static the current object
  */
 public function removeFromList()
 {

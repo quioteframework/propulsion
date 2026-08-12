@@ -359,7 +359,7 @@ public function getScopeValue()
  * It provides a generic way to set the value, whatever the actual column name is.
  *
  * @param      int \$v The nested set left value
- * @return     {$this->objectClassname} The current object (for fluent API support)
+ * @return     static The current object (for fluent API support)
  */
 public function setLeftValue(\$v)
 {
@@ -376,7 +376,7 @@ public function setLeftValue(\$v)
  * It provides a generic way to set the value, whatever the actual column name is.
  *
  * @param      int \$v The nested set right value
- * @return     {$this->objectClassname} The current object (for fluent API support)
+ * @return     static The current object (for fluent API support)
  */
 public function setRightValue(\$v)
 {
@@ -393,7 +393,7 @@ public function setRightValue(\$v)
  * It provides a generic way to set the value, whatever the actual column name is.
  *
  * @param      int \$v The nested set level value
- * @return     {$this->objectClassname} The current object (for fluent API support)
+ * @return     static The current object (for fluent API support)
  */
 public function setLevel(\$v)
 {
@@ -410,7 +410,7 @@ public function setLevel(\$v)
  * It provides a generic way to set the value, whatever the actual column name is.
  *
  * @param      int \$v The nested set scope value
- * @return     {$this->objectClassname} The current object (for fluent API support)
+ * @return     static The current object (for fluent API support)
  */
 public function setScopeValue(\$v)
 {
@@ -425,7 +425,7 @@ public function setScopeValue(\$v)
 /**
  * Creates the supplied node as the root node.
  *
- * @return     {$this->objectClassname} The current object (for fluent API support)
+ * @return     static The current object (for fluent API support)
  * @throws     PropulsionException
  */
 public function makeRoot()
@@ -554,7 +554,7 @@ public function hasParent(?PropulsionPDO \$con = null)
  * Use moveTofirstChildOf() or moveToLastChildOf() for that purpose
  *
  * @param      $objectClassname \$parent
- * @return     $objectClassname The current object, for fluid interface
+ * @return     static The current object, for fluid interface
  */
 public function setParent(\$parent = null)
 {
@@ -1027,7 +1027,7 @@ public function getAncestors(\$query = null, ?PropulsionPDO \$con = null)
  *
  * @param      $objectClassname \$child	Propulsion object for child node
  *
- * @return     $objectClassname The current Propulsion object
+ * @return     static The current Propulsion object
  */
 public function addChild($objectClassname \$child)
 {
@@ -1070,7 +1070,7 @@ public function addChild($objectClassname \$child)
  *
  * @param      $objectClassname \$parent	Propulsion object for parent node
  *
- * @return     $objectClassname The current Propulsion object
+ * @return     static The current Propulsion object
  */
 public function insertAsFirstChildOf(\$parent)
 {
@@ -1115,7 +1115,7 @@ public function insertAsFirstChildOf(\$parent)
  *
  * @param      $objectClassname \$parent	Propulsion object for parent node
  *
- * @return     $objectClassname The current Propulsion object
+ * @return     static The current Propulsion object
  */
 public function insertAsLastChildOf(\$parent)
 {
@@ -1160,7 +1160,7 @@ public function insertAsLastChildOf(\$parent)
  *
  * @param      $objectClassname \$sibling	Propulsion object for parent node
  *
- * @return     $objectClassname The current Propulsion object
+ * @return     static The current Propulsion object
  */
 public function insertAsPrevSiblingOf(\$sibling)
 {
@@ -1202,7 +1202,7 @@ public function insertAsPrevSiblingOf(\$sibling)
  *
  * @param      $objectClassname \$sibling	Propulsion object for parent node
  *
- * @return     $objectClassname The current Propulsion object
+ * @return     static The current Propulsion object
  */
 public function insertAsNextSiblingOf(\$sibling)
 {
@@ -1242,7 +1242,7 @@ public function insertAsNextSiblingOf(\$sibling)
  * @param      $objectClassname \$parent	Propulsion object for parent node
  * @param      PropulsionPDO \$con	Connection to use.
  *
- * @return     $objectClassname The current Propulsion object
+ * @return     static The current Propulsion object
  */
 public function moveToFirstChildOf(\$parent, ?PropulsionPDO \$con = null)
 {
@@ -1278,7 +1278,7 @@ public function moveToFirstChildOf(\$parent, ?PropulsionPDO \$con = null)
  * @param      $objectClassname \$parent	Propulsion object for parent node
  * @param      PropulsionPDO \$con	Connection to use.
  *
- * @return     $objectClassname The current Propulsion object
+ * @return     static The current Propulsion object
  */
 public function moveToLastChildOf(\$parent, ?PropulsionPDO \$con = null)
 {
@@ -1314,7 +1314,7 @@ public function moveToLastChildOf(\$parent, ?PropulsionPDO \$con = null)
  * @param      $objectClassname \$sibling	Propulsion object for sibling node
  * @param      PropulsionPDO \$con	Connection to use.
  *
- * @return     $objectClassname The current Propulsion object
+ * @return     static The current Propulsion object
  */
 public function moveToPrevSiblingOf(\$sibling, ?PropulsionPDO \$con = null)
 {
@@ -1353,7 +1353,7 @@ public function moveToPrevSiblingOf(\$sibling, ?PropulsionPDO \$con = null)
  * @param      $objectClassname \$sibling	Propulsion object for sibling node
  * @param      PropulsionPDO \$con	Connection to use.
  *
- * @return     $objectClassname The current Propulsion object
+ * @return     static The current Propulsion object
  */
 public function moveToNextSiblingOf(\$sibling, ?PropulsionPDO \$con = null)
 {
@@ -1529,7 +1529,7 @@ public function getIterator()
  *
  * @deprecated since 1.5
  * @see        makeRoot
- * @return     {$this->objectClassname} The current object
+ * @return     static The current object
  */
 public function createRoot()
 {
@@ -1554,7 +1554,7 @@ public function retrieveParent(?PropulsionPDO \$con = null)
  * @deprecated since 1.5
  * @see        setParent
  * @param      $objectClassname \$parent
- * @return     {$this->objectClassname} The current object
+ * @return     static The current object
  */
 public function setParentNode(\$parent = null)
 {
