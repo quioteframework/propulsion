@@ -9,6 +9,9 @@
 public function compute<?php echo $column->getPhpName() ?>(PropulsionPDO $con)
 {
 	$stmt = $con->prepare('<?php echo $sql ?>');
+	if ($stmt === false) {
+		throw new PropulsionException('Could not prepare the aggregate query for <?php echo $column->getName() ?>');
+	}
 <?php foreach ($bindings as $key => $binding): ?>
   $stmt->bindValue(':p<?php echo $key ?>', $this->get<?php echo $binding ?>());
 <?php endforeach; ?>

@@ -894,6 +894,9 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 		}
 
 		\$stmt = \$con->prepare(\$sql);
+		if (\$stmt === false) {
+			throw new PropulsionException('Could not prepare the nested-set node update');
+		}
 		\$stmt->bindValue(':left', \$node->getLeftValue(), PDO::PARAM_INT);
 		\$stmt->bindValue(':right', \$node->getRightValue(), PDO::PARAM_INT);
 		if (self::SCOPE_COL) {

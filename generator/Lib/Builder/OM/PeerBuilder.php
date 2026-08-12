@@ -1701,6 +1701,14 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 */
 	public static function doValidateThis(\$obj, mixed \$cols = null)
 	{
+		// \$obj stays untyped in the signature for the LSP reason above, so this is
+		// where it becomes this model: the column reads below are its own getters,
+		// which nothing shared could declare. Called once per object being
+		// validated, not per row.
+		if (!\$obj instanceof \\" . $this->getStubObjectBuilder()->getFullyQualifiedClassname() . ") {
+			throw new PropulsionException('" . $this->getPeerClassname() . "::doValidateThis() expects a \\" . $this->getStubObjectBuilder()->getFullyQualifiedClassname() . ", got ' . get_debug_type(\$obj));
+		}
+
 		\$columns = array();
 
 		if (\$cols) {

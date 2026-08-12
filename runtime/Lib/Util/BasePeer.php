@@ -143,7 +143,7 @@ class BasePeer
 	 *             return for every removed row, instead of just a count -- see
 	 *             DBAdapter::supportsRowReturning(). Null (the default) means "just
 	 *             return the count", the original behavior.
-	 * @return     int|array<int,array<string,mixed>> The number of rows affected by last
+	 * @return     ($returningColumns is null ? int : array<int,array<string,mixed>>) The number of rows affected by last
 	 *             statement execution (see the multi-table caveat below), or, when
 	 *             $returningColumns is given, the removed rows themselves (each an
 	 *             associative array keyed by column name) -- concatenated across every
