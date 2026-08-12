@@ -33,7 +33,6 @@ class RelationMapTest extends TestCase
 
   public function testLocalTable()
   {
-    $this->assertNull($this->rmap->getLocalTable(), 'A new relation has no local table');
     $tmap1 = new TableMap('foo', $this->databaseMap);
     $this->rmap->setLocalTable($tmap1);
     $this->assertEquals($tmap1, $this->rmap->getLocalTable(), 'The local table is set by setLocalTable()');
@@ -41,10 +40,31 @@ class RelationMapTest extends TestCase
 
   public function testForeignTable()
   {
-    $this->assertNull($this->rmap->getForeignTable(), 'A new relation has no foreign table');
     $tmap2 = new TableMap('bar', $this->databaseMap);
     $this->rmap->setForeignTable($tmap2);
     $this->assertEquals($tmap2, $this->rmap->getForeignTable(), 'The foreign table is set by setForeignTable()');
+  }
+
+  /**
+   * getLocalTable()/getForeignTable() used to return null for a relation that
+   * had never been given one, which made every caller responsible for a case
+   * TableMap::addRelation() -- the only thing that builds a RelationMap -- cannot
+   * produce, since it sets both tables before returning. They now throw, so the
+   * only way to observe the unset state is to construct a RelationMap directly,
+   * as this test does.
+   */
+  public function testGetLocalTableThrowsWhenNeverSet()
+  {
+    $this->expectException(PropulsionException::class);
+    $this->expectExceptionMessage("Relation 'foo' has no local table set");
+    $this->rmap->getLocalTable();
+  }
+
+  public function testGetForeignTableThrowsWhenNeverSet()
+  {
+    $this->expectException(PropulsionException::class);
+    $this->expectExceptionMessage("Relation 'foo' has no foreign table set");
+    $this->rmap->getForeignTable();
   }
 
   public function testProperties()

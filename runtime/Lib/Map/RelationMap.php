@@ -110,7 +110,7 @@ class RelationMap
    *
    * @param      TableMap $table The local table for this relationship
    */
-  public function setLocalTable($table): void
+  public function setLocalTable(TableMap $table): void
   {
     $this->localTable = $table;
   }
@@ -118,10 +118,26 @@ class RelationMap
   /**
    * Get the local table
    *
-   * @return      TableMap|null The local table for this relationship
+   * A fully built relation always has one. TableMap::addRelation() -- the only
+   * thing that constructs a RelationMap -- sets both tables before it returns,
+   * from `$this` and from DatabaseMap::getTableByPhpName(), which is itself
+   * non-nullable. So the null here is only the window between `new RelationMap`
+   * and those two setter calls, inside that one method.
+   *
+   * This used to be declared TableMap|null, which pushed that impossible case
+   * onto every caller: of the four in the runtime, three responded by throwing
+   * and the fourth by skipping, and the generated query code -- which reads
+   * `$relationMap->getRightTable()->getName()` when aliasing a join -- did not
+   * check at all. One guard here replaces all of them.
+   *
+   * @return      TableMap The local table for this relationship
+   * @throws      PropulsionException If the relation was never given one.
    */
-  public function getLocalTable()
+  public function getLocalTable(): TableMap
   {
+    if ($this->localTable === null) {
+      throw new PropulsionException("Relation '" . $this->name . "' has no local table set");
+    }
     return $this->localTable;
   }
 
@@ -130,7 +146,7 @@ class RelationMap
    *
    * @param      TableMap $table The foreign table for this relationship
    */
-  public function setForeignTable($table): void
+  public function setForeignTable(TableMap $table): void
   {
     $this->foreignTable = $table;
   }
@@ -138,19 +154,25 @@ class RelationMap
   /**
    * Get the foreign table
    *
-   * @return    TableMap|null The foreign table for this relationship
+   * Always set on a fully built relation -- see getLocalTable().
+   *
+   * @return    TableMap The foreign table for this relationship
+   * @throws    PropulsionException If the relation was never given one.
    */
-  public function getForeignTable()
+  public function getForeignTable(): TableMap
   {
+    if ($this->foreignTable === null) {
+      throw new PropulsionException("Relation '" . $this->name . "' has no foreign table set");
+    }
     return $this->foreignTable;
   }
 
   /**
    * Get the left table of the relation
    *
-   * @return    TableMap|null The left table for this relationship
+   * @return    TableMap The left table for this relationship
    */
-  public function getLeftTable()
+  public function getLeftTable(): TableMap
   {
   	return ($this->getType() == RelationMap::MANY_TO_ONE) ? $this->getLocalTable() : $this->getForeignTable();
   }
@@ -158,9 +180,9 @@ class RelationMap
   /**
    * Get the right table of the relation
    *
-   * @return    TableMap|null The right table for this relationship
+   * @return    TableMap The right table for this relationship
    */
-  public function getRightTable()
+  public function getRightTable(): TableMap
   {
   	return ($this->getType() == RelationMap::MANY_TO_ONE) ? $this->getForeignTable() : $this->getLocalTable();
   }
@@ -310,11 +332,7 @@ class RelationMap
   public function getSymmetricalRelation(): mixed
   {
   	$localMapping = array($this->getLeftColumns(), $this->getRightColumns());
-  	$rightTable = $this->getRightTable();
-  	if ($rightTable === null) {
-  		throw new PropulsionException("Cannot get symmetrical relation for relation with no right table set: " . $this->name);
-  	}
-  	foreach ($rightTable->getRelations() as $relation) {
+  	foreach ($this->getRightTable()->getRelations() as $relation) {
   		if ($localMapping == array($relation->getRightColumns(), $relation->getLeftColumns())) {
   			return $relation;
   		}

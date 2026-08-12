@@ -258,11 +258,7 @@ class PropulsionObjectCollection extends PropulsionCollection
 			throw new PropulsionException('populateRelation() needs instance pooling to be enabled prior to populating the collection');
 		}
 		$relationMap = $this->getFormatter()->getTableMap()->getRelation($relation);
-		$rightTable = $relationMap->getRightTable();
-		if (!$rightTable instanceof TableMap) {
-			throw new PropulsionException('Relation ' . $relation . ' has no right table');
-		}
-		$rightClassname = $rightTable->getClassname();
+		$rightClassname = $relationMap->getRightTable()->getClassname();
 		if (!is_string($rightClassname)) {
 			throw new PropulsionException('The right table of relation ' . $relation . ' has no classname');
 		}

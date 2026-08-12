@@ -404,8 +404,7 @@ class ColumnMap
     {
       if($relation->getType() == RelationMap::MANY_TO_ONE)
       {
-        $foreignTable = $relation->getForeignTable();
-        if ($foreignTable !== null && $foreignTable->getName() == $this->getRelatedTableName()
+        if ($relation->getForeignTable()->getName() == $this->getRelatedTableName()
          && array_key_exists($this->getFullyQualifiedName(), $relation->getColumnMappings()))
         {
           return $relation;

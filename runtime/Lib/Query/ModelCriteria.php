@@ -911,11 +911,7 @@ class ModelCriteria extends Criteria
 
 		// add the ModelJoin to the current object
 		if($relationAlias !== null) {
-			$rightTable = $relationMap->getRightTable();
-			if ($rightTable === null) {
-				throw new PropulsionException('Cannot alias relation ' . $relationName . ': it has no right table set');
-			}
-			$this->addAlias($relationAlias, $rightTable->getName());
+			$this->addAlias($relationAlias, $relationMap->getRightTable()->getName());
 			$this->addJoinObject($join, $relationAlias);
 		} else {
 			$this->addJoinObject($join, $relationName);

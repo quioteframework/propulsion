@@ -562,9 +562,6 @@ class TableMap
     // set columns
     $localTable = $relation->getLocalTable();
     $foreignTable = $relation->getForeignTable();
-    if ($localTable === null || $foreignTable === null) {
-      throw new PropulsionException("Cannot add relation '" . $name . "': local or foreign table is not set");
-    }
     foreach ($columnMapping as $local => $foreign) {
       $relation->addColumnMapping(
         $localTable->getColumn($local, false),
