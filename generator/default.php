@@ -113,7 +113,13 @@ return [
     'propulsion.addValidateMethod' => 'true',
     'propulsion.addIncludes' => 'false',
     'propulsion.addHooks' => 'true',
+    // Prefix for the generated base *classes* -- still used by the peer, query
+    // and node builders, which have not moved to traits yet.
     'propulsion.basePrefix' => 'Base',
+    // Suffix for generated *traits*. The object builder emits `trait <X>Generated`
+    // rather than `abstract class Base<X>`, so that $this inside generated code is
+    // provably the user's model class. See docs/GENERATED_TRAITS_PLAN.md.
+    'propulsion.generatedSuffix' => 'Generated',
     'propulsion.saveException' => 'PropulsionException',
     'propulsion.emulateForeignKeyConstraints' => 'false',
 

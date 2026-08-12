@@ -62,7 +62,16 @@ class ExtensionObjectBuilder extends AbstractObjectBuilder
         $tableName = $table->getName();
         $tableDesc = $table->getDescription();
 
-        $baseClassname = $this->getObjectBuilder()->getClassname();
+        // This class, not the generated code, is now the one that extends and
+        // implements: the generated code is a trait this class uses, so the real
+        // parent and the interface list live here. See
+        // docs/GENERATED_TRAITS_PLAN.md.
+        $this->declareClass('Propulsion\\OM\\BaseObject');
+        $this->declareClass('Propulsion\\OM\\Persistent');
+        $this->declareClass('Propulsion\\OM\\Poolable');
+        $this->declareClass('Propulsion\\OM\\WritableModelInterface');
+        $parentClass = $this->getObjectParentClass();
+        $implements = ' implements ' . implode(', ', $this->getObjectInterfaces());
 
         $script .= "
 
@@ -84,9 +93,17 @@ class ExtensionObjectBuilder extends AbstractObjectBuilder
  * application requirements.  This class will only be generated as
  * long as it does not already exist in the output directory.
  *
+ * The generated copy() constructs `new static()`, so every subclass of this one
+ * has to stay constructible with no arguments. That was always true -- copy()
+ * used to reach the same constructor through `new (get_class(\$this))()` -- but
+ * the annotation has to sit on the using class rather than on the trait for a
+ * static analyser to see it.
+ *
+ * @phpstan-consistent-constructor
  */
-class ".$this->getClassname()." extends $baseClassname
+class ".$this->getClassname()." extends $parentClass$implements
 {
+    use ".$this->getObjectBuilder()->getClassname().";
 ";
     }
 

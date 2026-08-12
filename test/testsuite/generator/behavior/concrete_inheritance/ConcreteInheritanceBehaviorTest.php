@@ -101,11 +101,11 @@ class ConcreteInheritanceBehaviorTest extends BookstoreTestBase
 
 	public function testParentObjectClass()
 	{
-		$article = new ConcreteArticle(); // to autoload the BaseConcreteArticle class
-		$r = new ReflectionClass('BaseConcreteArticle');
+		// The generated object code is a trait now, so the model class itself is
+		// what carries the parent -- there is no BaseConcreteArticle to reflect on.
+		$r = new ReflectionClass(ConcreteArticle::class);
 		$this->assertEquals('ConcreteContent', $r->getParentClass()->getName(), 'concrete_inheritance changes the parent class of the Model Object to the parent object class');
-		$quizz = new ConcreteQuizz(); // to autoload the BaseConcreteQuizz class
-		$r = new ReflectionClass('BaseConcreteQuizz');
+		$r = new ReflectionClass(ConcreteQuizz::class);
 		$this->assertEquals('ConcreteContent', $r->getParentClass()->getName(), 'concrete_inheritance changes the parent class of the Model Object to the parent object class');
 	}
 

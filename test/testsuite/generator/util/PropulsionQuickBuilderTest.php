@@ -79,10 +79,14 @@ EOF;
 	public function testGetClasses($builder)
 	{
 		$script = $builder->getClasses();
-		$this->assertStringContainsString('class QuickBuildFoo1 extends BaseQuickBuildFoo1', $script);
+		// The object model's generated code is a trait the stub uses, so the stub
+		// carries the real parent and interfaces. Peer and query still emit a base
+		// class -- they move in later steps of docs/GENERATED_TRAITS_PLAN.md.
+		$this->assertStringContainsString('class QuickBuildFoo1 extends BaseObject', $script);
+		$this->assertStringContainsString('use QuickBuildFoo1Generated;', $script);
+		$this->assertStringContainsString('trait QuickBuildFoo1Generated', $script);
 		$this->assertStringContainsString('class QuickBuildFoo1Peer extends BaseQuickBuildFoo1Peer', $script);
 		$this->assertStringContainsString('class QuickBuildFoo1Query extends BaseQuickBuildFoo1Query', $script);
-		$this->assertStringContainsString('class BaseQuickBuildFoo1 extends BaseObject', $script);
 		$this->assertStringContainsString('class BaseQuickBuildFoo1Peer', $script);
 		$this->assertStringContainsString('class BaseQuickBuildFoo1Query extends ModelCriteria', $script);
 	}

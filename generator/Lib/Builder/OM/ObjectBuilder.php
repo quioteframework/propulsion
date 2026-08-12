@@ -57,12 +57,34 @@ class ObjectBuilder extends AbstractObjectBuilder
 	}
 
 	/**
-	 * Returns the name of the current class being built.
+	 * Returns the name of the current trait being built.
+	 *
+	 * A *suffix* rather than the `basePrefix` the other builders still use: this
+	 * builder emits `trait BookGenerated`, not `abstract class BaseBook`, and a
+	 * suffix both reads better on a trait and cannot collide with a `BaseBook`
+	 * a downstream project already has while it migrates. See
+	 * docs/GENERATED_TRAITS_PLAN.md.
 	 * @return     string
 	 */
 	public function getUnprefixedClassname()
 	{
-		return $this->getStringBuildProperty('basePrefix') . $this->getStubObjectBuilder()->getUnprefixedClassname();
+		return $this->getStubObjectBuilder()->getUnprefixedClassname() . $this->getStringBuildProperty('generatedSuffix');
+	}
+
+	/**
+	 * Returns the class name a fluent method emitted into the generated trait
+	 * should declare it returns.
+	 *
+	 * Not getClassname(): that now names the *trait*, and a trait name used as a
+	 * return type is a type nothing can ever satisfy. Under concrete inheritance
+	 * it fails loudly -- `ConcreteQuizz::setId(): ConcreteQuizzGenerated must be
+	 * compatible with ConcreteContent::setId(): ConcreteContentGenerated` -- and
+	 * silently everywhere else. The stub is what these methods actually return.
+	 * @return     string
+	 */
+	public function getObjectReturnType(): string
+	{
+		return $this->getStubObjectBuilder()->getClassname();
 	}
 
 	/**
@@ -330,32 +352,15 @@ class ObjectBuilder extends AbstractObjectBuilder
 		$table = $this->getTable();
 		$tableName = $table->getName();
 		$tableDesc = $table->getDescription();
-		$interface = $this->getInterface();
-		$parentClass = $this->getBehaviorContent('parentClass');
-		$parentClass = is_string($parentClass) ? $parentClass : ClassTools::classname($this->getBaseClass());
-		$implementsList = array();
-		if ($interface == "Persistent") {
-			$implementsList[] = "Persistent";
-		}
-		// Unconditional, unlike Persistent: a read-only table's object is emitted
-		// without save()/delete() and so cannot be Persistent, but it is still
-		// hydrated and still pooled, and <Model>Peer::addInstanceToPool() has to
-		// have one type that accepts both. See the interface.
-		$this->declareClass('Propulsion\\OM\\Poolable');
-		$implementsList[] = "Poolable";
-		// setByName()/setByPosition()/fromArray() (addSetByName()/addSetByPosition()/
-		// addFromArray() below) are only emitted under this same isAddGenericMutators()
-		// condition -- WritableModelInterface only ever needs to be implemented in lockstep
-		// with whether those methods actually exist on this class.
-		if ($this->isAddGenericMutators()) {
-			$implementsList[] = "WritableModelInterface";
-		}
-		// Never empty: Poolable is added unconditionally above.
-		$implements = " implements " . implode(", ", $implementsList);
 
 		$script .= "
 /**
- * Base class that represents a row from the '$tableName' table.
+ * Generated code for a row from the '$tableName' table.
+ *
+ * A trait rather than a base class, so that \$this inside this generated code is
+ * provably the model class using it -- see docs/GENERATED_TRAITS_PLAN.md. The
+ * parent class and interfaces this code assumes are carried by that stub, which
+ * ExtensionObjectBuilder emits; the two must be read together.
  *
  * $tableDesc
  *
@@ -389,7 +394,7 @@ class ObjectBuilder extends AbstractObjectBuilder
 		$this->addUseStatements($script);
 
 		$script .= "
-abstract class " . $this->getClassname() . " extends $parentClass$implements
+trait " . $this->getClassname() . "
 {";
 	}
 
@@ -400,10 +405,10 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	protected function addClassBody(&$script): void
 	{
-		// Declare essential classes for Base object classes
-		$this->declareClass('Propulsion\\OM\\BaseObject');
-		$this->declareClass('Propulsion\\OM\\Persistent');
-		$this->declareClass('Propulsion\\OM\\WritableModelInterface');
+		// BaseObject, Persistent, Poolable and WritableModelInterface are deliberately
+		// *not* declared here: with the generated code now a trait, those four appear
+		// only in the stub's extends/implements clause, so ExtensionObjectBuilder
+		// declares them and this file would just carry four unused use statements.
 		$this->declareClass('Propulsion\\Exception\\PropulsionException');
 		$this->declareClass('Propulsion\\Util\\BasePeer');
 		$this->declareClass('\\DateTime');
@@ -664,7 +669,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$script .= "
 
 	/**
-	 * Initializes internal state of {$this->getClassname()} object.
+	 * Initializes internal state of {$this->getObjectReturnType()} object.
 	 * @see parent::__construct()
 	 */
 	public function __construct()
@@ -800,7 +805,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	{
 		$cfc = $col->getPhpName();
 		$singularPhpName = rtrim($cfc, 's');
-		$returnType = $this->getClassname();
+		$returnType = $this->getObjectReturnType();
 		$script .= "
 
 	/**
@@ -825,7 +830,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	{
 		$cfc = $col->getPhpName();
 		$singularPhpName = rtrim($cfc, 's');
-		$returnType = $this->getClassname();
+		$returnType = $this->getObjectReturnType();
 		$script .= "
 
 	/**
@@ -1118,7 +1123,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	public function addTemporalMutatorComment(string &$script, Column $col): void
 	{
 		$colname = (string) $col->getName();
-		$returnType = $this->getClassname();
+		$returnType = $this->getObjectReturnType();
 		$description = $col->getDescription() ? $col->getDescription() : "Set the value of [$colname] column.";
 		$script .= "
 
@@ -1140,7 +1145,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	{
 		$colname = (string) $col->getName();
 		$paramType = $this->getPhp85TypeHint($col);
-		$returnType = $this->getClassname();
+		$returnType = $this->getObjectReturnType();
 		$description = $col->getDescription() ? $col->getDescription() : "Set the value of [$colname] column.";
 		$script .= "
 
@@ -1164,7 +1169,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	public function addMutatorOpenOpen(string &$script, Column $col): void
 	{
 		$phpname = $col->getPhpName();
-		$returnType = $this->getClassname();
+		$returnType = $this->getObjectReturnType();
 		if ($col->isTemporalType()) {
 			$paramType = 'DateTimeInterface|string|int|null';
 		} elseif ($col->isBooleanType()) {
@@ -1185,7 +1190,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		$colname = self::requireNotNull($col->getName(), sprintf("Column '%s' name", $col->getConstantName()));
 		$phpname = $col->getPhpName();
 		$paramType = $this->getPhp85TypeHint($col);
-		$returnType = $this->getClassname();
+		$returnType = $this->getObjectReturnType();
 
 		if ($col->isTemporalType() || $col->isLobType() || $col->isUuidType()) {
 			$this->declareClass('Propulsion\\Exception\\PropulsionException');
@@ -3116,9 +3121,11 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 	 */
 	public function copy(bool \$deepCopy = false): static
 	{
-		// we use get_class(), because this might be a subclass
-		\$clazz = get_class(\$this);
-		\$copyObj = new \$clazz();
+		// `new static()` rather than `new (get_class(\$this))()`: both construct the
+		// late-static-bound class, so a subclass still copies to its own type, but
+		// only the former carries that type through -- the variable form is just
+		// `object`, which is not a `static` and not something copyInto() accepts.
+		\$copyObj = new static();
 		\$this->copyInto(\$copyObj, \$deepCopy);
 		return \$copyObj;
 	}";

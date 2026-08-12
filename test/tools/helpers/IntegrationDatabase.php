@@ -1298,7 +1298,13 @@ return " . var_export($config, true) . ";
             if (preg_match('/^\s*namespace\s+([\w\\\\]+)\s*;/m', $source, $m)) {
                 $namespace = $m[1] . '\\';
             }
-            if (preg_match_all('/^\s*(?:abstract\s+)?(?:final\s+)?class\s+(\w+)/m', $source, $cm)) {
+            // Traits and interfaces are mapped alongside classes: generated object
+            // code is emitted as `trait <X>Generated`, and the stub that uses it
+            // cannot be declared until PHP can autoload that trait. Missing it does
+            // not fail loudly -- the eager-load loop below swallows the error, and
+            // the stub then goes missing with a confusing "class not found" naming
+            // the stub's *parent*.
+            if (preg_match_all('/^\s*(?:abstract\s+)?(?:final\s+)?(?:class|trait|interface)\s+(\w+)/m', $source, $cm)) {
                 foreach ($cm[1] as $cls) {
                     $classmap[$namespace . $cls] = $file->getPathname();
                 }
@@ -1337,7 +1343,7 @@ return " . var_export($config, true) . ";
         // project that has not been registered yet, and that is exactly the
         // case the autoloader above still covers on demand.
         foreach ($classmap as $class => $file) {
-            if (!class_exists($class, false) && !interface_exists($class, false)) {
+            if (!class_exists($class, false) && !interface_exists($class, false) && !trait_exists($class, false)) {
                 try {
                     require_once $file;
                 } catch (\Throwable) {

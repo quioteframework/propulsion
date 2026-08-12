@@ -136,4 +136,46 @@ abstract class AbstractObjectBuilder extends OMBuilder
 		return $this->getBehaviorContentBase($contentName, 'ObjectBuilderModifier');
 	}
 
+	/**
+	 * Returns the class the model object extends.
+	 *
+	 * This used to be answered by ObjectBuilder, because the generated base class
+	 * was the thing doing the extending. Now that the generated code is a trait,
+	 * the *stub* carries the real parent, so the answer has to be reachable from
+	 * either builder -- and the concrete-inheritance behavior's parentClass()
+	 * hook already accepts any AbstractObjectBuilder, so the stub gets the same
+	 * answer the base used to.
+	 * @return     string
+	 */
+	protected function getObjectParentClass(): string
+	{
+		$parentClass = $this->getBehaviorContent('parentClass');
+		return is_string($parentClass) ? $parentClass : ClassTools::classname($this->getBaseClass());
+	}
+
+	/**
+	 * Returns the interfaces the model object implements, in emission order.
+	 *
+	 * Never empty: Poolable is unconditional. A read-only table's object is
+	 * emitted without save()/delete() and so cannot be Persistent, but it is
+	 * still hydrated and still pooled, and <Model>Peer::addInstanceToPool() has
+	 * to have one type that accepts both.
+	 * @return     list<string>
+	 */
+	protected function getObjectInterfaces(): array
+	{
+		$implementsList = array();
+		if ($this->getInterface() == "Persistent") {
+			$implementsList[] = "Persistent";
+		}
+		$implementsList[] = "Poolable";
+		// setByName()/setByPosition()/fromArray() are only emitted under this same
+		// isAddGenericMutators() condition -- WritableModelInterface only ever needs
+		// to be implemented in lockstep with whether those methods actually exist.
+		if ($this->isAddGenericMutators()) {
+			$implementsList[] = "WritableModelInterface";
+		}
+		return $implementsList;
+	}
+
 }

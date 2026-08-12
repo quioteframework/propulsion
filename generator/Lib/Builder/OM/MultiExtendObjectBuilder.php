@@ -97,7 +97,12 @@ class MultiExtendObjectBuilder extends AbstractObjectBuilder
 	{
 		$ancestor = $this->getChild()->getAncestor();
 		if (!$ancestor) {
-			return $this->getObjectBuilder()->getClasspath();
+			// The *stub*, not the object builder: the object builder now emits a
+			// trait, and `extends SomeTrait` is a fatal. An inheritance child with
+			// no explicit extends= is a sibling of the stub's own row class, so the
+			// stub is what it should extend anyway -- this happened to be the same
+			// class back when the object builder emitted the base.
+			return $this->getStubObjectBuilder()->getClasspath();
 		}
 		if (str_contains($ancestor, '\\')) {
 			return '\\' . ltrim($ancestor, '\\');
