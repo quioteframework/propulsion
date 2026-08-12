@@ -128,6 +128,11 @@ rm -rf fixtures/bookstore/build fixtures/schemas/build fixtures/namespaced/build
 
 ## Open: generated relation parameters name the stub class, not the base
 
+> **The fix is planned in `docs/GENERATED_TRAITS_PLAN.md`** — emit generated code
+> as a trait the user's class `use`s, rather than a base class it extends. That
+> dissolves the problem instead of working around it. The base-class widening
+> described below was attempted and abandoned; see the end of this section.
+
 253 of the ~550 remaining PHPStan level 9 findings in *generated* code are one
 shape:
 
@@ -200,10 +205,27 @@ It admits exactly the same runtime objects (nothing but `BaseBook` subclasses
 ever reaches these), and a hand-extended base starts working rather than
 throwing. Cost: `BaseBook` appears in public signatures.
 
-Deferred rather than implemented: it is a wide, mechanical diff across the
-relation emitters in `QueryBuilder`, `ObjectBuilder` and the nested-set behavior
-modifiers, and it changes public generated signatures, so it wants to land on
-its own rather than inside a level 9 sweep.
+**Attempted and abandoned.** Widening the parameter forces widening the property
+it assigns to, which forces widening the accessor that returns it --
+`getBook(): ?BaseBook`. That breaks the entire point of the stub, because
+`$review->getBook()->myCustomMethod()` stops resolving. Measured on the FK cache
+property and mutator alone: 253 findings removed, 56 created, every one of the
+form `getPublisher() should return Publisher|null but returns BasePublisher|null`.
+
+Keeping the properties and accessors at the stub type and narrowing with an
+`instanceof` at each storage boundary (FK set, collection add) does work, but it
+puts the check on the per-row join path and still does not let a hand-extended
+base function -- it only converts a `TypeError` into a `PropulsionException`.
+Not worth it now that `docs/GENERATED_TRAITS_PLAN.md` exists.
+
+One finding from the attempt is worth keeping regardless:
+`AggregateColumnRelationBehavior::objectFilter()` locates the FK mutator by regex
+and pins the *parameter class name*, so changing the signature silently stopped
+the aggregate updating on a replaced or removed relation
+(`AggregateColumnBehaviorTest::testReplaceRelation`/`::testRemoveRelation` catch
+it). That method's own comment records the same breakage when `: static` was
+added. Matching the signature's shape -- `\(\??\w+ \$v = null\)` -- rather than
+its spelling would stop a third occurrence.
 
 ### Rejected: an interface per model
 
