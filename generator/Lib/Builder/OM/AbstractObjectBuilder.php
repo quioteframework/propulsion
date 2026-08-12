@@ -142,9 +142,11 @@ abstract class AbstractObjectBuilder extends OMBuilder
 	 * This used to be answered by ObjectBuilder, because the generated base class
 	 * was the thing doing the extending. Now that the generated code is a trait,
 	 * the *stub* carries the real parent, so the answer has to be reachable from
-	 * either builder -- and the concrete-inheritance behavior's parentClass()
-	 * hook already accepts any AbstractObjectBuilder, so the stub gets the same
-	 * answer the base used to.
+	 * either builder.
+	 *
+	 * The parentClass behavior hook has no bundled provider since
+	 * concrete_inheritance was removed in 3.0, but it stays as an extension point:
+	 * a project behavior can still answer it to redirect a model's parent.
 	 * @return     string
 	 */
 	protected function getObjectParentClass(): string

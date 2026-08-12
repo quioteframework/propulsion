@@ -81,15 +81,18 @@ class AggregateColumnBehavior extends Behavior
 		}
 
 		// add a behavior in the foreign table to autoupdate the aggregate column
+		//
+		// The concrete_inheritance_parent guard that used to wrap this is gone with
+		// that behavior: a parent table in a concrete-inheritance pair had its
+		// columns copied into each child, so attaching the relation behavior there
+		// would have registered the same aggregate update more than once.
 		$foreignTable = $this->requireForeignTable();
-		if (!$foreignTable->hasBehavior('concrete_inheritance_parent')) {
-			$relationBehavior = new AggregateColumnRelationBehavior();
-			$relationBehavior->setName('aggregate_column_relation');
-			$foreignKey = $this->requireForeignKey();
-			$relationBehavior->addParameter(array('name' => 'foreign_table', 'value' => $table->getName()));
-			$relationBehavior->addParameter(array('name' => 'update_method', 'value' => 'update' . $this->requireColumn()->getPhpName()));
-			$foreignTable->addBehavior($relationBehavior);
-		}
+		$relationBehavior = new AggregateColumnRelationBehavior();
+		$relationBehavior->setName('aggregate_column_relation');
+		$foreignKey = $this->requireForeignKey();
+		$relationBehavior->addParameter(array('name' => 'foreign_table', 'value' => $table->getName()));
+		$relationBehavior->addParameter(array('name' => 'update_method', 'value' => 'update' . $this->requireColumn()->getPhpName()));
+		$foreignTable->addBehavior($relationBehavior);
 	}
 
 	public function objectMethods(ObjectBuilder $builder): string

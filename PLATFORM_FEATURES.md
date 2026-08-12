@@ -1824,10 +1824,10 @@ change-tracker steal list, which is deliberately not repeated here.
 - [ ] **Schema drift check** — a `schema:validate`-style command comparing the
   live database against the schema, alongside the existing
   `migration:status`/`sql:diff` commands.
-- [ ] **Joined-table inheritance.** Single-table and concrete-table
-  inheritance both exist (`ConcreteInheritance` behavior, `extends=`);
-  class-table/joined inheritance (Doctrine `JOINED`) is the missing third
-  strategy.
+- [ ] **Joined-table inheritance.** Only single-table inheritance exists
+  (`extends=`). Concrete-table inheritance was removed in 3.0, and
+  class-table/joined inheritance (Doctrine `JOINED`) has never been
+  implemented.
 - [ ] **Code-first schema definition** via PHP attributes as an alternative to
   XML (Doctrine attributes, EF Core fluent API, Prisma schema). By far the
   largest effort listed anywhere in this document, but it is the DX gap a new

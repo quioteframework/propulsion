@@ -213,6 +213,24 @@ abstract class XMLElement
   }
 
   /**
+   * Behaviors removed in 3.0, mapped to the guidance shown when a schema still
+   * declares one.
+   *
+   * @var array<string, string>
+   */
+  private const REMOVED_BEHAVIORS = [
+    'concrete_inheritance' =>
+      'It generated a copy of every parent column into the child table and chained '
+      . 'the generated classes through the user-owned stubs, which is what forced '
+      . 'generated code to extend hand-written code. Model the relationship with a '
+      . 'foreign key to the parent table, or use single-table inheritance '
+      . '(<column ... inheritance="single">).',
+    'concrete_inheritance_parent' =>
+      'It only ever existed to mark the parent side of concrete_inheritance, which '
+      . 'was removed in the same release. Remove the declaration.',
+  ];
+
+  /**
    * Find the best class name for a given behavior
    * Looks in build.properties for path like propulsion.behavior.[bname].class
    * If not found, tries to autoload [Bname]Behavior
@@ -223,6 +241,18 @@ abstract class XMLElement
    */
   public function getConfiguredBehavior($bname)
   {
+    // Named explicitly rather than left to the "Unknown behavior" throw below,
+    // which would tell the user to configure a propulsion.behavior.*.class
+    // setting -- advice that cannot work for something that no longer exists.
+    // Same reasoning as the treeMode="NestedSet" refusal in ModelManager.
+    if (isset(self::REMOVED_BEHAVIORS[$bname])) {
+      throw new \InvalidArgumentException(sprintf(
+        'The "%s" behavior was removed in Propulsion 3.0. %s',
+        $bname,
+        self::REMOVED_BEHAVIORS[$bname]
+      ));
+    }
+
     if ($config = $this->getGeneratorConfig()) {
       if ($class = $config->getConfiguredBehavior($bname)) {
         return $class;

@@ -375,7 +375,6 @@ return [
     'propulsion.behavior.nested_set.class' => 'Propulsion\Generator\Behavior\NestedSet\NestedSetBehavior',
     'propulsion.behavior.sortable.class' => 'Propulsion\Generator\Behavior\Sortable\SortableBehavior',
     'propulsion.behavior.sluggable.class' => 'Propulsion\Generator\Behavior\Sluggable\SluggableBehavior',
-    'propulsion.behavior.concrete_inheritance.class' => 'Propulsion\Generator\Behavior\ConcreteInheritance\ConcreteInheritanceBehavior',
     'propulsion.behavior.aggregate_column.class' => 'Propulsion\Generator\Behavior\AggregateColumn\AggregateColumnBehavior',
     'propulsion.behavior.versionable.class' => 'Propulsion\Generator\Behavior\Versionable\VersionableBehavior',
     'propulsion.behavior.optimistic_lock.class' => 'Propulsion\Generator\Behavior\OptimisticLock\OptimisticLockBehavior',

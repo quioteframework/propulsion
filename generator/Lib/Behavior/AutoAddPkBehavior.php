@@ -47,7 +47,10 @@ class AutoAddPkBehavior extends Behavior
 	public function modifyTable()
 	{
 		$table = $this->requireTable();
-		if (!$table->hasPrimaryKey() && !$table->hasBehavior('concrete_inheritance')) {
+		// The concrete_inheritance exemption that used to guard this is gone with the
+		// behavior: it copied the parent's primary key into the child table itself,
+		// so adding one here would have produced a second.
+		if (!$table->hasPrimaryKey()) {
 			$columnAttributes = array_merge(array('primaryKey' => 'true'), $this->getParameters());
 			$table->addColumn($columnAttributes);
 		}

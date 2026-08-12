@@ -39,8 +39,6 @@ return [
     'Column' => 'Propulsion\\Generator\\Model\\Column',
     'ColumnDefaultValue' => 'Propulsion\\Generator\\Model\\ColumnDefaultValue',
     'ColumnValue' => 'Propulsion\\Generator\\Builder\\Util\\ColumnValue',
-    'ConcreteInheritanceBehavior' => 'Propulsion\\Generator\\Behavior\\ConcreteInheritance\\ConcreteInheritanceBehavior',
-    'ConcreteInheritanceParentBehavior' => 'Propulsion\\Generator\\Behavior\\ConcreteInheritance\\ConcreteInheritanceParentBehavior',
     'ConstraintNameGenerator' => 'Propulsion\\Generator\\Model\\ConstraintNameGenerator',
     'DataModelBuilder' => 'Propulsion\\Generator\\Builder\\DataModelBuilder',
     'DataRow' => 'Propulsion\\Generator\\Builder\\Util\\DataRow',

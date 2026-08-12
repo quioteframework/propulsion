@@ -87,15 +87,6 @@
 		</unique>
 	</table>
 
-	<table name="second_hand_book" schema="second_hand_books">
-		<column name="age" type="INTEGER" />
-		<behavior name="concrete_inheritance">
-			<parameter name="extends" value="book" />
-			<parameter name="schema" value="bookstore_schemas" />
-		</behavior>
-	</table>
-
-
 	<table name="bookstore_contest_entry" schema="contest" reloadOnInsert="true">
 		<column name="bookstore_id" type="INTEGER" primaryKey="true" />
 		<column name="contest_id" type="INTEGER" primaryKey="true" />
