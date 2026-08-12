@@ -2795,7 +2795,12 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			\$key2 = " . $joinedTablePeerBuilder->getPeerClassname() . "::getPrimaryKeyHashFromRow(\$row, \$startcol);
 			if (\$key2 !== null) {
 				\$obj2 = \$session !== null ? \$session->getPooledInstance(" . $joinedTablePeerBuilder->getPeerClassname() . "::class, \$key2) : null;
-				if (!\$obj2) {
+				// instanceof rather than a falsy test: the pool is heterogeneous
+				// (Session::getPooledInstance() returns ?object), so this is what
+				// says the entry is this relation's model -- and it is what lets the
+				// ->add<Relation>() call below be resolved. populateObjects() has
+				// always narrowed the same way.
+				if (!\$obj2 instanceof \\" . $joinedTablePeerBuilder->getStubObjectBuilder()->getFullyQualifiedClassname() . ") {
 ";
 			if ($joinTable->getChildrenColumn()) {
 				$script .= "
@@ -2804,7 +2809,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 ";
 			} else {
 				$script .= "
-					\$cls = " . $joinedTablePeerBuilder->getPeerClassname() . "::getOMClass(false);
+					\$cls = " . $joinedTablePeerBuilder->getPeerClassname() . "::OM_CLASS;
 ";
 			}
 			$script .= "
@@ -3029,7 +3034,8 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			\$key$index = " . $joinedTablePeerBuilder->getPeerClassname() . "::getPrimaryKeyHashFromRow(\$row, \$startcol$index);
 			if (\$key$index !== null) {
 				\$obj$index = \$session !== null ? \$session->getPooledInstance(" . $joinedTablePeerBuilder->getPeerClassname() . "::class, \$key$index) : null;
-				if (!\$obj$index) {
+				// See the two-table variant: narrow the heterogeneous pool entry.
+				if (!\$obj$index instanceof \\" . $joinedTablePeerBuilder->getStubObjectBuilder()->getFullyQualifiedClassname() . ") {
 ";
 				if ($joinTable->getChildrenColumn()) {
 					$script .= "
@@ -3038,7 +3044,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 ";
 				} else {
 					$script .= "
-					\$cls = " . $joinedTablePeerBuilder->getPeerClassname() . "::getOMClass(false);
+					\$cls = " . $joinedTablePeerBuilder->getPeerClassname() . "::OM_CLASS;
 ";
 				}
 				$script .= "
@@ -3267,7 +3273,8 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			\$key$index = " . $joinedTablePeerBuilder->getPeerClassname() . "::getPrimaryKeyHashFromRow(\$row, \$startcol$index);
 			if (\$key$index !== null) {
 				\$obj$index = \$session !== null ? \$session->getPooledInstance(" . $joinedTablePeerBuilder->getPeerClassname() . "::class, \$key$index) : null;
-				if (!\$obj$index) {
+				// See the two-table variant: narrow the heterogeneous pool entry.
+				if (!\$obj$index instanceof \\" . $joinedTablePeerBuilder->getStubObjectBuilder()->getFullyQualifiedClassname() . ") {
 ";
 						if ($joinTable->getChildrenColumn()) {
 							$script .= "
@@ -3276,7 +3283,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 ";
 						} else {
 							$script .= "
-					\$cls = " . $joinedTablePeerBuilder->getPeerClassname() . "::getOMClass(false);
+					\$cls = " . $joinedTablePeerBuilder->getPeerClassname() . "::OM_CLASS;
 ";
 						}
 						$script .= "
