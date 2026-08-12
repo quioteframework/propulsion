@@ -1832,10 +1832,6 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			// indexing $row (with the $startcol + N offset arithmetic) two or
 			// three times per column. hydrate() runs once per result row, so
 			// halving the array accesses here is a direct win on every read.
-			$script .= "
-		\$v = \$row[\$startcol + " . $n . "];
-		\$this->$phpname = (\$v !== null) ? ";
-
 			// Per-type hydrate expressions (temporal/interval/range/vector value
 			// objects, enum label<->index conversion, native/emulated array,
 			// SET, OBJECT, JSON, BcMath\Number) live in a ColumnTypeHandler --
@@ -1844,16 +1840,32 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			$handler = ColumnTypeHandlerRegistry::resolve($col);
 			$expr = $handler !== null ? $handler->buildHydrateExpr($col, $this) : null;
 			if ($expr !== null) {
-				$script .= $expr;
-			} elseif ($col->isNumericType()) {
-				$phpType = $col->getPhpType();
-				// Use canonical cast names (PHP 8.5 deprecates non-canonical forms)
-				$castType = match($phpType) { 'double' => 'float', 'integer' => 'int', default => $phpType };
-				$script .= "($castType) \$v";
+				$guard = "\$v !== null";
 			} else {
-				$script .= "(string) \$v";
+				// is_scalar() rather than a null check, because a cell read out of
+				// $row is `mixed` and casting mixed is not something a caller can
+				// verify. The two are equivalent for every column that reaches this
+				// fallback: a LOB -- the one column type PDO hands back as a
+				// resource rather than a scalar -- is always lazy-loaded and so is
+				// skipped above (see LobHandler's class comment), leaving only
+				// numeric and plain-string columns, for which PDO yields
+				// string|int|float|bool|null. Where they would differ, casting a
+				// resource or an array to int/string, the old code produced a
+				// meaningless number or a fatal, so null is not a worse answer.
+				$guard = "is_scalar(\$v)";
+				if ($col->isNumericType()) {
+					$phpType = $col->getPhpType();
+					// Use canonical cast names (PHP 8.5 deprecates non-canonical forms)
+					$castType = match($phpType) { 'double' => 'float', 'integer' => 'int', default => $phpType };
+					$expr = "($castType) \$v";
+				} else {
+					$expr = "(string) \$v";
+				}
 			}
-			$script .= " : null;";
+
+			$script .= "
+		\$v = \$row[\$startcol + " . $n . "];
+		\$this->$phpname = ($guard) ? " . $expr . " : null;";
 			$n++;
 		}
 
@@ -2943,7 +2955,12 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		} else {
 			$castType = 'string';
 		}
-		return "($varExpr === null ? null : ($castType) $varExpr)";
+		// is_scalar() rather than a null check, for the reason addHydrate() gives:
+		// $varExpr is a mixed value (a setPrimaryKey() argument, a fromArray()
+		// element, a doInsert() return), and casting mixed is not something the
+		// caller can verify. Anything reaching a numeric/string column's cast that
+		// is neither null nor scalar had no meaningful cast to begin with.
+		return "(is_scalar($varExpr) ? ($castType) $varExpr : null)";
 	}
 
 	protected function addIsPrimaryKeyNull(string &$script): void

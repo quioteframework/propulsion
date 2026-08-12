@@ -1461,7 +1461,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		if (" . implode(' && ', $cond) . ") {
 			return null;
 		}
-		return " . $this->getInstancePoolKeySnippet($pk) . ";
+		return " . $this->getInstancePoolKeySnippet($pk, true) . ";
 	}";
 	}
 
@@ -1469,20 +1469,31 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 * Helper method to get instance pool key snippet
 	 * @param list<string>|string $pkphp One (or more) PHP code snippets, each evaluating to a
 	 *                                   PK component's value (e.g. '$id'), not the value itself.
+	 * @param bool $fromMixed Whether those snippets read a `mixed` value -- a raw resultset
+	 *                        cell rather than a typed local. Casting mixed to string is not
+	 *                        something a caller can verify, so each component is narrowed with
+	 *                        is_scalar() first. The '' fallback is what `(string) null` already
+	 *                        produced for the null component of a partially-null composite key,
+	 *                        so a key built this way is byte-identical to the old one; only a
+	 *                        non-scalar, non-null component behaves differently, and for a
+	 *                        primary key column there is no such value.
 	 */
-	public function getInstancePoolKeySnippet(array|string $pkphp): string
+	public function getInstancePoolKeySnippet(array|string $pkphp, bool $fromMixed = false): string
 	{
 		$pkphp = (array) $pkphp; // make it an array if it is not.
+		$cast = static fn (string $var): string => $fromMixed
+			? "(is_scalar($var) ? (string) $var : '')"
+			: "(string) $var";
 		$script = "";
 		if (count($pkphp) > 1) {
 			$script .= "serialize(array(";
 			$i = 0;
 			foreach ($pkphp as $pkvar) {
-				$script .= ($i++ ? ', ' : '') . "(string) $pkvar";
+				$script .= ($i++ ? ', ' : '') . $cast($pkvar);
 			}
 			$script .= "))";
 		} else {
-			$script .= "(string) " . $pkphp[0];
+			$script .= $cast($pkphp[0]);
 		}
 		return $script;
 	}
@@ -2014,7 +2025,13 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			foreach ($table->getColumns() as $col) {
 				if (!$col->isLazyLoad()) {
 					if ($col->isPrimaryKey()) {
-						$pk = '(' . $col->getPhpType() . ') ' . ($n ? "\$row[\$startcol + $n]" : "\$row[\$startcol]");
+						// The narrowing goes *inside* the cast rather than around it:
+						// a resultset cell is `mixed`, which cannot be cast, but
+						// `scalar|null` can -- and casting null is exactly what this
+						// already did for a null PK component ((int) null === 0), so
+						// the emitted method keeps returning what it returned before.
+						$rowCell = $n ? "\$row[\$startcol + $n]" : "\$row[\$startcol]";
+						$pk = '(' . $col->getPhpType() . ') (is_scalar(' . $rowCell . ') ? ' . $rowCell . ' : null)';
 						if ($table->hasCompositePrimaryKey()) {
 							$pks[] = $pk;
 						}
