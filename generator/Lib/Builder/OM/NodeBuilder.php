@@ -52,7 +52,7 @@ class NodeBuilder extends AbstractObjectBuilder
 	 */
 	public function getUnprefixedClassname(): string
 	{
-		return $this->getStringBuildProperty('basePrefix') . $this->getStubNodeBuilder()->getUnprefixedClassname();
+		return $this->getStubNodeBuilder()->getUnprefixedClassname() . $this->getStringBuildProperty('generatedSuffix');
 	}
 
 	/**
@@ -76,7 +76,12 @@ class NodeBuilder extends AbstractObjectBuilder
 
 		$script .= "
 /**
- * Base class that represents a row from the '$tableName' table with node behavior.
+ * Generated node behavior for a row from the '$tableName' table.
+ *
+ * A trait rather than a base class, so that \$this inside this generated code is
+ * provably the node class using it -- see docs/GENERATED_TRAITS_PLAN.md. The
+ * IteratorAggregate implementation this code satisfies is declared on the stub
+ * ExtensionNodeBuilder emits.
  *
  * $tableDesc
  *";
@@ -89,7 +94,7 @@ class NodeBuilder extends AbstractObjectBuilder
 		}
 		$script .= "
  */
-abstract class ".$this->getClassname()." implements \\IteratorAggregate
+trait ".$this->getClassname()."
 {
 ";
 	}

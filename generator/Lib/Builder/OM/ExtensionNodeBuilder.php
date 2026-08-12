@@ -79,8 +79,9 @@ class ExtensionNodeBuilder extends AbstractObjectBuilder
  * long as it does not already exist in the output directory.
  *
  */
-class ".$this->getClassname()." extends ".$this->getNodeBuilder()->getClassname()."
+class ".$this->getClassname()." implements \\IteratorAggregate
 {
+    use ".$this->getNodeBuilder()->getClassname().";
 ";
 	}
 

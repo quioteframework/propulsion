@@ -53,7 +53,7 @@ class NodePeerBuilder extends AbstractPeerBuilder
 	 */
 	public function getUnprefixedClassname(): string
 	{
-		return $this->getStringBuildProperty('basePrefix') . $this->getStubNodePeerBuilder()->getUnprefixedClassname();
+		return $this->getStubNodePeerBuilder()->getUnprefixedClassname() . $this->getStringBuildProperty('generatedSuffix');
 	}
 
 	/**
@@ -77,7 +77,10 @@ class NodePeerBuilder extends AbstractPeerBuilder
 
 		$script .= "
 /**
- * Base static class for performing query operations on tree nodes from the '$tableName' table.
+ * Generated static query operations on tree nodes from the '$tableName' table.
+ *
+ * A trait rather than a base class, for consistency with the rest of the
+ * generated model -- see docs/GENERATED_TRAITS_PLAN.md.
  *
  * $tableDesc
  *";
@@ -90,7 +93,7 @@ class NodePeerBuilder extends AbstractPeerBuilder
 		}
 		$script .= "
  */
-abstract class ".$this->getClassname()."
+trait ".$this->getClassname()."
 {
 ";
 	}

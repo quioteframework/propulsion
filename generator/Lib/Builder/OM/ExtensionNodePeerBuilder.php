@@ -45,7 +45,7 @@ class ExtensionNodePeerBuilder extends AbstractPeerBuilder
 		// Only include if autoloading is not available
 		$script .= "
 // Using autoloading - manual include only as fallback
-if (!class_exists('{$this->getNodePeerBuilder()->getClassname()}')) {
+if (!trait_exists('{$this->getNodePeerBuilder()->getClassname()}')) {
     require_once '{$this->getNodePeerBuilder()->getClassFilePath()}';
 }
 ";
@@ -89,8 +89,9 @@ if (!class_exists('{$this->getNodePeerBuilder()->getClassname()}')) {
  * - Modern array syntax and null coalescing operators
  *
  */
-class " . $this->getClassname() . " extends $baseClassname
+class " . $this->getClassname() . "
 {
+    use $baseClassname;
 ";
 	}
 
