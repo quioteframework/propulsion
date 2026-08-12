@@ -183,25 +183,49 @@ provably already is -- `BaseBook` itself, or an interface `BaseBook` implements.
 Anything below it in the hierarchy cannot work from inside the base, because
 subclassing the base is always legal.
 
-### The two options that do work
+### The fix
 
-1. **Type the parameters on the base object class** -- `setBook(?BaseBook $v)`.
-   One change per emitter: use `getNewObjectBuilder($table)->getClassname()`
-   where `getNewStubObjectBuilder($table)->getClassname()` is used today, for
-   both the docblock and the `instanceof` narrowing inside the method body. It
-   admits exactly the same runtime objects (nothing but `BaseBook` subclasses
-   ever reaches these), and a hand-extended base starts working rather than
-   throwing. Cost: `BaseBook` appears in public signatures.
+**Type the relation parameters on the base object class** -- `setBook(?BaseBook $v)`.
+Per emitter, use `getNewObjectBuilder($table)->getClassname()` where
+`getNewStubObjectBuilder($table)->getClassname()` is used today. Three places
+need it, not one:
 
-2. **Generate an interface per model** -- `BaseBook implements BookInterface`,
-   parameters typed `BookInterface`. Nicer signatures and a genuine extension
-   point, at the cost of a new builder, a config entry, and one more generated
-   file per model.
+- the `@param` docblock,
+- the `instanceof` narrowing inside the method body
+  (`if ($book instanceof Book)` in `filterBy<Relation>()`),
+- the FK cache property the mutator assigns to -- `protected ?Book $aBook = null;`
+  becomes `?BaseBook`, or `$this->aBook = $v` is an `assign.propertyType` error.
 
-Option 1 was chosen and then deferred rather than implemented; it is a wide,
-mechanical diff across the relation emitters in `QueryBuilder`, `ObjectBuilder`
-and the nested-set behavior modifiers, and it changes public generated
-signatures, so it wants to land on its own rather than inside a level 9 sweep.
+It admits exactly the same runtime objects (nothing but `BaseBook` subclasses
+ever reaches these), and a hand-extended base starts working rather than
+throwing. Cost: `BaseBook` appears in public signatures.
+
+Deferred rather than implemented: it is a wide, mechanical diff across the
+relation emitters in `QueryBuilder`, `ObjectBuilder` and the nested-set behavior
+modifiers, and it changes public generated signatures, so it wants to land on
+its own rather than inside a level 9 sweep.
+
+### Rejected: an interface per model
+
+`BaseBook implements BookInterface`, parameters typed `BookInterface`. Looks
+like the tidier signature until you ask what the interface has to contain.
+`setBook()` calls `$v->getId()` *and* `$v->addReview($this)`, so `BookInterface`
+needs the relation methods too -- and `addReview()`'s own parameter has this
+same problem, so it needs `ReviewInterface`. The interfaces come out mutually
+referential and mirroring most of the generated surface, one extra file per
+model, for a name.
+
+The extension-point argument for it does not survive either: a class
+implementing `BookInterface` without extending `BaseBook` cannot be hydrated,
+cannot be pooled (`addInstanceToPool()` takes `Poolable`) and cannot go in a
+`PropulsionObjectCollection<Book>` (`@template T of BaseObject`). Nothing can
+usefully implement it, which makes it a second name for the base class rather
+than a contract.
+
+Making it user-editable like the stubs would be worse again: codegen depends on
+the interface matching the methods it emits, so a hand-maintained one would
+drift and break generation. The stubs are editable precisely because nothing
+generated depends on their contents.
 
 ## Known-open, deliberately not fixed
 
