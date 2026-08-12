@@ -91,6 +91,101 @@ See **[docs/CACHING.md](docs/CACHING.md)** for driver trade-offs (they differ fa
 more in what they share than in how fast they are), invalidation, overload
 protection, and the correctness caveats worth reading before switching it on.
 
+## Upgrading to 3.0: generated code is a trait, not a base class
+
+Propulsion 3.0 emits generated object, query and node code as a **trait** that
+your model class uses, rather than a base class it extends:
+
+```php
+// 2.x -- om/BaseBook.php held the generated code
+class Book extends BaseBook {}
+
+// 3.0 -- om/BookGenerated.php holds it
+class Book extends BaseObject implements Persistent, Poolable, WritableModelInterface
+{
+    use BookGenerated;
+}
+```
+
+**Why.** Every relation call the generator emits passes `$this` — for instance
+`$review->setBook($this)`, where `setBook()` takes a `Book`. Written into
+`BaseBook`, `$this` is a `BaseBook`, so the call only held at runtime because
+the stub happened to be the base's only subclass, which nothing stated or
+enforced. A hand-written `class Rogue extends BaseBook` got a `TypeError`.
+PHPStan analyses a trait body once per using class, so inside `BookGenerated`,
+`$this` *is* `Book`, and the premise stops being true rather than being
+suppressed. It removed 275 of 550 level 9 findings in generated code.
+
+Peers still extend a generated base — `BookPeer extends BaseBookPeer` is
+unchanged, because peer methods are all static and never had a `$this` to
+mistype.
+
+### Automated migration
+
+Your stubs are generated once and then owned by you, so regenerating will not
+update them. A second Rector rule,
+`Propulsion\Generator\Rector\StubBaseClassToGeneratedTraitRector`, does:
+
+```php
+<?php
+// rector.php
+
+use Propulsion\Generator\Rector\StubBaseClassToGeneratedTraitRector;
+use Rector\Config\RectorConfig;
+
+return RectorConfig::configure()
+    ->withPaths([__DIR__ . '/src'])   // wherever your model stubs live
+    ->withRules([StubBaseClassToGeneratedTraitRector::class]);
+```
+
+Upgrade the library and regenerate **first**, so the traits exist, then:
+
+```bash
+vendor/bin/rector process --dry-run
+vendor/bin/rector process
+```
+
+### `parent::` is the one thing that changes shape
+
+`parent::` used to reach the generated base. Now it reaches `BaseObject`, so a
+call to a *generated* method no longer resolves and needs the trait aliased:
+
+```php
+-class Book extends BaseBook
+-{
+-    public function save(?PropulsionPDO $con = null): int { return parent::save($con); }
++class Book extends BaseObject implements Persistent, Poolable, WritableModelInterface
++{
++    use BookGenerated { save as private generatedSave; }
++
++    public function save(?PropulsionPDO $con = null): int { return $this->generatedSave($con); }
+ }
+```
+
+The rule does this for you, and only where it is actually needed. Calls to
+methods that are really declared on `BaseObject` — `preSave()`, `postSave()`,
+`preInsert()`, and the other lifecycle hooks — keep working through `parent::`
+and are left untouched. That distinction matters: PHP rejects an alias for a
+method the trait does not define ("An alias (x) was defined for method foo(),
+but this method does not exist"), so aliasing a hook would be a hard fatal.
+
+**What it leaves alone, by design:** peer stubs; any class that is not a stub
+sitting directly on its own generated base (`class X extends BaseX`); stubs
+whose new parent cannot be resolved, since classifying `parent::` calls without
+the parent's method list would be guesswork and a wrong guess fails at compile
+time; and `parent::` inside a closure or nested anonymous class, which binds to
+a different scope.
+
+### Also removed in 3.0
+
+- **The `concrete_inheritance` behavior.** It copied every parent column into
+  the child table and chained the generated classes through your stubs. Model
+  the relationship with a foreign key to the parent table, or use single-table
+  inheritance (`<column ... inheritance="single">`). A schema still declaring it
+  is refused at build time with that guidance rather than failing obscurely.
+- **`treeMode="NestedSet"`**, superseded by the `nested_set` behavior. The
+  behavior itself is unaffected and still supported.
+
 ## Migrating `useQuery()`/`endUse()` to `withQuery()` with Rector
 
 `useQuery()`/`endUse()` (and the generated `use<Relation>Query()` wrappers) are
