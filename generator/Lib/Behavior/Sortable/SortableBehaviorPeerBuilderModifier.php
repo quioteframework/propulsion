@@ -153,9 +153,6 @@ public static function getMaxRank(" . ($useScope ? "\$scope = null, " : "") . "?
 	if (\$con === null) {
 		\$con = Propulsion::getConnection({$this->peerClassname}::DATABASE_NAME);
 	}
-	if (!\$con instanceof PropulsionPDO) {
-		throw new PropulsionException('Expected a PropulsionPDO connection');
-	}
 	// shift the objects with a position lower than the one of object
 	\$c = new Criteria();
 	\$c->addSelectColumn('MAX(' . {$this->peerClassname}::RANK_COL . ')');";
@@ -208,10 +205,6 @@ public static function retrieveByRank(\$rank, " . ($useScope ? "\$scope = null, 
 	if (\$con === null) {
 		\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME);
 	}
-	if (!\$con instanceof PropulsionPDO) {
-		throw new PropulsionException('Expected a PropulsionPDO connection');
-	}
-
 	\$c = new Criteria;
 	\$c->add($peerClassname::RANK_COL, \$rank);";
 		if($useScope) {
@@ -246,10 +239,6 @@ public static function reorder(array \$order, ?PropulsionPDO \$con = null)
 	if (\$con === null) {
 		\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME);
 	}
-	if (!\$con instanceof PropulsionPDO) {
-		throw new PropulsionException('Expected a PropulsionPDO connection');
-	}
-
 	\$con->beginTransaction();
 	try {
 		\$ids = array_keys(\$order);
@@ -290,10 +279,6 @@ public static function doSelectOrderByRank(?Criteria \$criteria = null, \$order 
 	if (\$con === null) {
 		\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME);
 	}
-	if (!\$con instanceof PropulsionPDO) {
-		throw new PropulsionException('Expected a PropulsionPDO connection');
-	}
-
 	if (\$criteria === null) {
 		\$criteria = new Criteria();
 	} elseif (\$criteria instanceof Criteria) {
@@ -404,10 +389,6 @@ public static function shiftRank(\$delta, \$first, \$last = null, " . ($useScope
 	if (\$con === null) {
 		\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
 	}
-	if (!\$con instanceof PropulsionPDO) {
-		throw new PropulsionException('Expected a PropulsionPDO connection');
-	}
-
 	\$whereCriteria = new Criteria($peerClassname::DATABASE_NAME);
 	\$criterion = \$whereCriteria->getNewCriterion($peerClassname::RANK_COL, \$first, Criteria::GREATER_EQUAL);
 	if (null !== \$last) {

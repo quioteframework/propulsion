@@ -2077,10 +2077,6 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		if (\$con === null) {
 			\$con = Propulsion::getWriteConnection(" . $this->getPeerClassname() . "::DATABASE_NAME);
 		}
-		if (!\$con instanceof PropulsionPDO) {
-			throw new PropulsionException('Expected a PropulsionPDO connection');
-		}
-
 		\$con->beginTransaction();
 		try {
 			\$deleteQuery = " . $this->getQueryClassname() . "::create()
@@ -2176,10 +2172,6 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		if (\$con === null) {
 			\$con = Propulsion::getWriteConnection(" . $this->getPeerClassname() . "::DATABASE_NAME);
 		}
-		if (!\$con instanceof PropulsionPDO) {
-			throw new PropulsionException('Expected a PropulsionPDO connection');
-		}
-
 		\$con->beginTransaction();
 		\$isInsert = \$this->isNew();
 		try {";
@@ -2539,10 +2531,6 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		if (\$con === null) {
 			\$con = Propulsion::getReadConnection(" . $this->getPeerClassname() . "::DATABASE_NAME);
 		}
-		if (!\$con instanceof PropulsionPDO) {
-			throw new PropulsionException('Expected a PropulsionPDO connection');
-		}
-
 		\$stmt = " . $this->getPeerClassname() . "::doSelectStmt(\$this->buildPkeyCriteria(), \$con);
 		\$row = \$stmt->fetch(PDO::FETCH_NUM);
 		\$stmt->closeCursor();

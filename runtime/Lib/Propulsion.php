@@ -140,8 +140,8 @@ class Propulsion
 	private static $adapterMap = array();
 
 	/**
-	 * @var        array<string, array<string, PDO|PropulsionPDO>> Cache of established connections (to eliminate overhead).
-	 *             initConnection() guarantees each value is a PDO|PropulsionPDO instance
+	 * @var        array<string, array<string, PropulsionPDO>> Cache of established connections (to eliminate overhead).
+	 *             initConnection() guarantees each value implements PropulsionPDO
 	 *             (it throws if the configured connection `classname` doesn't produce one).
 	 */
 	private static $connectionMap = array();
@@ -888,7 +888,7 @@ class Propulsion
 	 * @param      string $name The datasource name that is used to look up the DSN from the runtime configuation file.
 	 * @param      string $mode The connection mode (this applies to replication systems).
 	 *
-	 * @return     PDO|PropulsionPDO A database connection
+	 * @return     PropulsionPDO A database connection
 	 *
 	 * @throws     PropulsionException - if connection cannot be configured or initialized.
 	 */
@@ -914,7 +914,7 @@ class Propulsion
 	 *
 	 * @param      string $name The datasource name that is used to look up the DSN from the runtime configuation file.
 	 *
-	 * @return     PDO|PropulsionPDO A database connection
+	 * @return     PropulsionPDO A database connection
 	 *
 	 * @throws     PropulsionException - if connection cannot be configured or initialized.
 	 */
@@ -928,7 +928,7 @@ class Propulsion
 	 *
 	 * @param      string $name The datasource name that is used to look up the DSN from the runtime configuation file.
 	 *
-	 * @return     PDO|PropulsionPDO A database connection
+	 * @return     PropulsionPDO A database connection
 	 *
 	 * @throws     PropulsionException - if connection cannot be configured or initialized.
 	 */
@@ -943,7 +943,7 @@ class Propulsion
 	 * @param      string $name The datasource name that is used to look up the DSN
 	 *                          from the runtime configuation file. Empty name not allowed.
 	 *
-	 * @return     PDO|PropulsionPDO A database connection
+	 * @return     PropulsionPDO A database connection
 	 *
 	 * @throws     PropulsionException - if connection cannot be configured or initialized.
 	 */
@@ -1002,15 +1002,15 @@ class Propulsion
 	 * so the rebuild below is an ordinary cache miss rather than special-case
 	 * surgery on the pool.
 	 *
-	 * @param      PDO|PropulsionPDO $con  The pooled connection about to be handed out.
+	 * @param      PropulsionPDO $con  The pooled connection about to be handed out.
 	 * @param      string            $name The datasource it is registered under.
 	 * @param      string            $mode Propulsion::CONNECTION_READ or ::CONNECTION_WRITE.
 	 *
-	 * @return     PDO|PropulsionPDO The same connection, or a fresh replacement.
+	 * @return     PropulsionPDO The same connection, or a fresh replacement.
 	 */
-	private static function checkOutPooled(PDO|PropulsionPDO $con, string $name, string $mode)
+	private static function checkOutPooled(PropulsionPDO $con, string $name, string $mode)
 	{
-		if (self::$rebuildingConnection || !$con instanceof PropulsionPDO) {
+		if (self::$rebuildingConnection) {
 			return $con;
 		}
 
@@ -1254,13 +1254,6 @@ class Propulsion
 	public static function transaction(callable $work, ?string $name = null, ?RetryPolicy $policy = null)
 	{
 		$con = self::getWriteConnection($name);
-		if (!$con instanceof PropulsionPDO) {
-			throw new PropulsionException(
-				'Propulsion::transaction() needs a PropulsionPDO connection for datasource ['
-				. ($name ?? self::getDefaultDB()) . '], got a ' . get_debug_type($con)
-			);
-		}
-
 		if ($con->isInTransaction()) {
 			return self::runInTransaction($con, $work);
 		}
@@ -1276,13 +1269,6 @@ class Propulsion
 			// gets a live one. (On a deadlock the connection is fine and this
 			// hands back the very same object.)
 			$con = self::getWriteConnection($name);
-			if (!$con instanceof PropulsionPDO) {
-				throw new PropulsionException(
-					'Propulsion::transaction() needs a PropulsionPDO connection for datasource ['
-					. ($name ?? self::getDefaultDB()) . '], got a ' . get_debug_type($con)
-				);
-			}
-
 			$committing = false;
 			try {
 				$con->beginTransaction();
@@ -1622,13 +1608,6 @@ class Propulsion
 	private static function advisoryLockConnection(?string $dbName): PropulsionPDO
 	{
 		$con = self::getWriteConnection($dbName);
-		if (!$con instanceof PropulsionPDO) {
-			throw new PropulsionException(
-				'Advisory locks need a PropulsionPDO connection for datasource ['
-				. ($dbName ?? self::getDefaultDB()) . '], got a ' . get_debug_type($con)
-			);
-		}
-
 		return $con;
 	}
 
@@ -1682,7 +1661,7 @@ class Propulsion
 	 * @param      string $name The datasource name that is used to look up the DSN
 	 *                          from the runtime configuation file. Empty name not allowed.
 	 *
-	 * @return     PDO|PropulsionPDO A database connection
+	 * @return     PropulsionPDO A database connection
 	 *
 	 * @throws     PropulsionException - if connection cannot be configured or initialized.
 	 */
@@ -1740,7 +1719,7 @@ class Propulsion
 	 * 									meaningful for callers that need to bypass that per-adapter
 	 * 									dispatch entirely.
 	 *
-	 * @return     PDO|PropulsionPDO A database connection of the given class (PDO, PropulsionPDO, SlavePDO or user-defined)
+	 * @return     PropulsionPDO A database connection of the given class (PDO, PropulsionPDO, SlavePDO or user-defined)
 	 *
 	 * @throws     PropulsionException - if lower-level exception caught when trying to connect.
 	 */
@@ -1809,8 +1788,32 @@ class Propulsion
 
 		try {
 			$con = new $classname($dsn, $user, $password, $driver_options);
+			// PropulsionPDO, not merely PDO. Nothing can be done with a connection
+			// that only satisfies the latter: BasePeer::doSelect()/doInsert()/
+			// doUpdate()/doDelete()/executeSelectSql() all declare PropulsionPDO
+			// natively, as does Propulsion::setConnection(), so such a connection
+			// TypeErrors on the first statement it is asked to run. Accepting it
+			// here only moved the failure somewhere that does not name the cause.
+			// (Propel 1.6 had no interface -- PropelPDO was a concrete class you
+			// could decline to use -- which is where the looser check came from.)
+			//
+			// Both checks, and in this order: PropulsionPDO is an interface and so
+			// cannot extend a class, meaning implementing it does not by itself make
+			// something a PDO -- which DBAdapter::initConnection() below still
+			// requires. In practice the two always travel together; asking
+			// separately keeps each diagnostic pointed at what is actually missing.
 			if (!$con instanceof PDO) {
 				throw new PropulsionException(sprintf('Configured PDO subclass (%s) does not extend PDO.', get_class($con)));
+			}
+			if (!$con instanceof PropulsionPDO) {
+				throw new PropulsionException(sprintf(
+					'The PDO class configured for datasource [%s], %s, does not implement %s. '
+					. 'It must extend one of Propulsion\\Connection\\GenericPropulsionPDO or the '
+					. 'driver-specific subclasses; omit `classname` to get the right one automatically.',
+					$name,
+					get_class($con),
+					PropulsionPDO::class
+				));
 			}
 			$con->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 		} catch (PDOException $e) {

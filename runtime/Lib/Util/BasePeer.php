@@ -813,10 +813,6 @@ class BasePeer
 		if ($con === null) {
 			$con = Propulsion::getConnection($criteria->getDbName(), Propulsion::CONNECTION_READ);
 		}
-		if (!$con instanceof PropulsionPDO) {
-			throw new PropulsionException('Expected a PropulsionPDO connection');
-		}
-
 		$params = array();
 		$sql = self::createSelectSql($criteria, $params);
 
@@ -873,10 +869,6 @@ class BasePeer
 		if ($con === null) {
 			$con = Propulsion::getConnection($criteria->getDbName(), Propulsion::CONNECTION_READ);
 		}
-		if (!$con instanceof PropulsionPDO) {
-			throw new PropulsionException('Expected a PropulsionPDO connection');
-		}
-
 		$params = array();
 		$sql = self::createCountSql($criteria, $params);
 

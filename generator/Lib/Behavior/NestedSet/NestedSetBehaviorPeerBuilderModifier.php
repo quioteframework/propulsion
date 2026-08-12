@@ -311,10 +311,6 @@ public static function shiftRLValues(\$delta, \$first, \$last = null" . ($useSco
 	if (\$con === null) {
 		\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
 	}
-	if (!\$con instanceof PropulsionPDO) {
-		throw new PropulsionException('Expected a PropulsionPDO connection');
-	}
-
 	// Shift left column values
 	\$whereCriteria = new Criteria($peerClassname::DATABASE_NAME);
 	\$criterion = \$whereCriteria->getNewCriterion($peerClassname::LEFT_COL, \$first, Criteria::GREATER_EQUAL);
@@ -379,10 +375,6 @@ public static function shiftLevel(\$delta, \$first, \$last" . ($useScope ? ", \$
 	if (\$con === null) {
 		\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
 	}
-	if (!\$con instanceof PropulsionPDO) {
-		throw new PropulsionException('Expected a PropulsionPDO connection');
-	}
-
 	\$whereCriteria = new Criteria($peerClassname::DATABASE_NAME);
 	\$whereCriteria->add($peerClassname::LEFT_COL, \$first, Criteria::GREATER_EQUAL);
 	\$whereCriteria->add($peerClassname::RIGHT_COL, \$last, Criteria::LESS_EQUAL);";

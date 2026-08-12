@@ -1410,10 +1410,6 @@ protected function moveSubtreeTo(\$destLeft, \$levelDelta, ?PropulsionPDO \$con 
 	if (\$con === null) {
 		\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
 	}
-	if (!\$con instanceof PropulsionPDO) {
-		throw new PropulsionException('Expected a PropulsionPDO connection');
-	}
-
 	\$con->beginTransaction();
 	try {
 		// make room next to the target for the subtree
@@ -1471,9 +1467,6 @@ public function deleteDescendants(?PropulsionPDO \$con = null)
 	}
 	if (\$con === null) {
 		\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME, Propulsion::CONNECTION_READ);
-	}
-	if (!\$con instanceof PropulsionPDO) {
-		throw new PropulsionException('Expected a PropulsionPDO connection');
 	}
 	\$left = \$this->getLeftValue();
 	\$right = \$this->getRightValue();";

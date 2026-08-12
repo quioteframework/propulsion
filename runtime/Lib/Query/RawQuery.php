@@ -282,10 +282,6 @@ class RawQuery
         }
 
         $con = Propulsion::getConnection($this->dbName, Propulsion::CONNECTION_READ);
-        if (!$con instanceof PropulsionPDO) {
-            throw new PropulsionException('Expected a PropulsionPDO connection for datasource "' . $this->dbName . '"');
-        }
-
         return $con;
     }
 

@@ -681,10 +681,6 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(self::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
 		}
-		if (!\$con instanceof PropulsionPDO) {
-			throw new PropulsionException('Expected a PropulsionPDO connection');
-		}
-
 		if (\$values instanceof Criteria) {
 			\$criteria = clone \$values; // rename for clarity
 		} elseif (\$values instanceof ".$this->getObjectClassname().") {
@@ -784,10 +780,6 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(self::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
 		}
-		if (!\$con instanceof PropulsionPDO) {
-			throw new PropulsionException('Expected a PropulsionPDO connection');
-		}
-
 		\$selectCriteria = new Criteria(self::DATABASE_NAME);
 
 		if (\$values instanceof Criteria) {
@@ -866,10 +858,6 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_READ);
 		}
-		if (!\$con instanceof PropulsionPDO) {
-			throw new PropulsionException('Expected a PropulsionPDO connection');
-		}
-
 		[\$sql, \$params, \$criteria] = ".$this->getPeerClassname()."::prepareSelectSql(\$criteria, \$con);
 
 		\$result = Propulsion::getSession()->getQueryCache()->remember(
@@ -977,10 +965,6 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_READ);
 		}
-		if (!\$con instanceof PropulsionPDO) {
-			throw new PropulsionException('Expected a PropulsionPDO connection');
-		}
-
 		[\$sql, \$params, \$criteria] = ".$this->getPeerClassname()."::prepareSelectSql(\$criteria, \$con);
 
 		// BasePeer returns a PDOStatement
@@ -1038,9 +1022,6 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_READ);
-		}
-		if (!\$con instanceof PropulsionPDO) {
-			throw new PropulsionException('Expected a PropulsionPDO connection');
 		}";
 
 		$this->applyBehaviorModifier('preSelect', $script);
@@ -1577,10 +1558,6 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(self::getDatabaseName(), Propulsion::CONNECTION_READ);
 		}
-		if (!\$con instanceof PropulsionPDO) {
-			throw new PropulsionException('Expected a PropulsionPDO connection');
-		}
-
 		\$criteria = new Criteria(self::getDatabaseName());
 		\$criteria->add(self::" . strtoupper(self::requireNotNull($pk->getName(), sprintf("Column '%s' name", $pk->getConstantName()))) . ", \$pk);
 
@@ -1651,10 +1628,6 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(self::getDatabaseName(), Propulsion::CONNECTION_READ);
 		}
-		if (!\$con instanceof PropulsionPDO) {
-			throw new PropulsionException('Expected a PropulsionPDO connection');
-		}
-
 		\$criteria = new Criteria(self::getDatabaseName());
 		\$criteria->add(self::" . strtoupper(self::requireNotNull($firstPk->getName(), sprintf("Column '%s' name", $firstPk->getConstantName()))) . ", \$pks, Criteria::IN);
 
@@ -1788,10 +1761,6 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
 		}
-		if (!\$con instanceof PropulsionPDO) {
-			throw new PropulsionException('Expected a PropulsionPDO connection');
-		}
-
 		if (\$values instanceof Criteria) {";
 		if (!$emulateCascade) {
 			$script .= "
@@ -2271,9 +2240,6 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
 		}
-		if (!\$con instanceof PropulsionPDO) {
-			throw new PropulsionException('Expected a PropulsionPDO connection');
-		}
 		\$affectedRows = 0; // initialize var to track total num of affected rows
 		try {
 			// use transaction because \$criteria could contain info
@@ -2342,10 +2308,6 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_READ);
 		}
-		if (!\$con instanceof PropulsionPDO) {
-			throw new PropulsionException('Expected a PropulsionPDO connection');
-		}
-
 		\$criteria = new Criteria(".$this->getPeerClassname()."::DATABASE_NAME);
 		\$criteria->add(".$this->getColumnConstant($col, $this->getPeerClassname()).", \$pk);
 
@@ -2378,10 +2340,6 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_READ);
 		}
-		if (!\$con instanceof PropulsionPDO) {
-			throw new PropulsionException('Expected a PropulsionPDO connection');
-		}
-
 		\$objs = null;
 		if (empty(\$pks)) {
 			\$objs = array();
@@ -2440,9 +2398,6 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(".$this->getPeerClassname()."::DATABASE_NAME, Propulsion::CONNECTION_READ);
-		}
-		if (!\$con instanceof PropulsionPDO) {
-			throw new PropulsionException('Expected a PropulsionPDO connection');
 		}
 		\$criteria = new Criteria(".$this->getPeerClassname()."::DATABASE_NAME);";
 		foreach ($table->getPrimaryKey() as $col) {
@@ -2907,9 +2862,6 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(" . $this->getPeerClassname() . "::DATABASE_NAME, Propulsion::CONNECTION_READ);
 		}
-		if (!\$con instanceof PropulsionPDO) {
-			throw new PropulsionException('Expected a PropulsionPDO connection');
-		}
 ";
 			$script .= $this->addCriteriaJoin($fk, $table, $joinTable, $joinedTablePeerBuilder);
 
@@ -3126,9 +3078,6 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(" . $this->getPeerClassname() . "::DATABASE_NAME, Propulsion::CONNECTION_READ);
-		}
-		if (!\$con instanceof PropulsionPDO) {
-			throw new PropulsionException('Expected a PropulsionPDO connection');
 		}
 ";
 
@@ -3373,9 +3322,6 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 		if (\$con === null) {
 			\$con = Propulsion::getConnection(" . $this->getPeerClassname() . "::DATABASE_NAME, Propulsion::CONNECTION_READ);
-		}
-		if (!\$con instanceof PropulsionPDO) {
-			throw new PropulsionException('Expected a PropulsionPDO connection');
 		}
 ";
 			foreach ($table->getForeignKeys() as $subfk) {

@@ -1997,10 +1997,6 @@ class ModelCriteria extends Criteria
 		if ($con === null) {
 			$con = Propulsion::getConnection($this->getDbName(), Propulsion::CONNECTION_READ);
 		}
-		if (!$con instanceof PropulsionPDO) {
-			throw new PropulsionException('Expected a PropulsionPDO connection');
-		}
-
 		return $con;
 	}
 
@@ -2414,10 +2410,6 @@ class ModelCriteria extends Criteria
 		if ($con === null) {
 			$con = Propulsion::getConnection($this->getDbName(), Propulsion::CONNECTION_WRITE);
 		}
-		if (!$con instanceof PropulsionPDO) {
-			throw new PropulsionException('Expected a PropulsionPDO connection');
-		}
-
 		$criteria = $this->isKeepQuery() ? clone $this : $this;
 		$criteria->setDbName($this->getDbName());
 
@@ -2487,10 +2479,6 @@ class ModelCriteria extends Criteria
 		if ($con === null) {
 			$con = Propulsion::getConnection($this->getDbName(), Propulsion::CONNECTION_WRITE);
 		}
-		if (!$con instanceof PropulsionPDO) {
-			throw new PropulsionException('Expected a PropulsionPDO connection');
-		}
-
 		$preEvent = new PreBulkDeleteEvent($this, $con);
 		Propulsion::dispatch($preEvent);
 		if ($preEvent->isPropagationStopped()) {
@@ -2604,10 +2592,6 @@ class ModelCriteria extends Criteria
 		if ($con === null) {
 			$con = Propulsion::getConnection($this->getDbName(), Propulsion::CONNECTION_WRITE);
 		}
-		if (!$con instanceof PropulsionPDO) {
-			throw new PropulsionException('Expected a PropulsionPDO connection');
-		}
-
 		$preEvent = new PreBulkUpdateEvent($this, $values, $con, $forceIndividualSaves);
 		Propulsion::dispatch($preEvent);
 		$values = $preEvent->getValues();
@@ -2721,10 +2705,6 @@ class ModelCriteria extends Criteria
 		if ($con === null) {
 			$con = Propulsion::getConnection($this->getDbName(), Propulsion::CONNECTION_WRITE);
 		}
-		if (!$con instanceof PropulsionPDO) {
-			throw new PropulsionException('Expected a PropulsionPDO connection');
-		}
-
 		$insertCriteria = new Criteria($this->getDbName());
 		foreach ($insertValues as $columnName => $value) {
 			$realColumnName = $this->getTableMap()->getColumnByPhpName($columnName)->getFullyQualifiedName();
