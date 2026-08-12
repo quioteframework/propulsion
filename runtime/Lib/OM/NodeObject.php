@@ -99,6 +99,42 @@ interface NodeObject extends \IteratorAggregate
 	public function getDescendants(?PropulsionPDO $con = null);
 
 	/**
+	 * Gets the node's left value in the nested set.
+	 *
+	 * Declared here because the generated NestedSetPeer calls it on values typed
+	 * only as NodeObject -- the interface was describing less than the contract
+	 * it is actually used under. NestedSetBuilder, the sole producer of
+	 * implementations, has always emitted all four left/right accessors with
+	 * these exact signatures.
+	 *
+	 * @return     ?int
+	 */
+	public function getLeftValue(): ?int;
+
+	/**
+	 * Gets the node's right value in the nested set.
+	 *
+	 * @return     ?int
+	 */
+	public function getRightValue(): ?int;
+
+	/**
+	 * Sets the node's left value in the nested set.
+	 *
+	 * @param      int $v new value
+	 * @return     object The current object (for fluent API support)
+	 */
+	public function setLeftValue(int $v);
+
+	/**
+	 * Sets the node's right value in the nested set.
+	 *
+	 * @param      int $v new value
+	 * @return     object The current object (for fluent API support)
+	 */
+	public function setRightValue(int $v);
+
+	/**
 	 * Sets the level of the node in the tree
 	 *
 	 * @param      int $level new value
