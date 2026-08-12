@@ -28,7 +28,7 @@ class_exists(\Propulsion\Propulsion::class);
 
 use Propulsion\Generator\Util\PropulsionQuickBuilder;
 use Propulsion\Adapter\DBSQLite;
-use Propulsion\Connection\PropulsionPDO;
+use Propulsion\Adapter\Sqlite\SqlitePropulsionPDO;
 use Propulsion\Propulsion;
 
 $ROWS = isset($argv[1]) ? max(1, (int) $argv[1]) : 5000;
@@ -63,7 +63,7 @@ $classFile = ($cacheDir = getenv('BENCH_TMP') ?: sys_get_temp_dir()) . '/propuls
 file_put_contents($classFile, $classSrc);
 require $classFile;
 
-$con = new PropulsionPDO('sqlite::memory:');
+$con = new SqlitePropulsionPDO('sqlite::memory:');
 $con->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_WARNING);
 $builder->buildSQL($con);
 $dbName = $builder->getDatabase()->getName();

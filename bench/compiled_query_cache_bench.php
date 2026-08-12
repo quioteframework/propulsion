@@ -22,7 +22,7 @@ class_exists(\Propulsion\Propulsion::class);
 
 use Propulsion\Generator\Util\PropulsionQuickBuilder;
 use Propulsion\Adapter\DBSQLite;
-use Propulsion\Connection\PropulsionPDO;
+use Propulsion\Adapter\Sqlite\SqlitePropulsionPDO;
 use Propulsion\Propulsion;
 use Propulsion\Util\BasePeer;
 
@@ -54,7 +54,7 @@ $classFile = (getenv('BENCH_TMP') ?: sys_get_temp_dir()) . '/propulsion_bench_cq
 file_put_contents($classFile, $classSrc);
 require $classFile;
 
-$con = new PropulsionPDO('sqlite::memory:');
+$con = new SqlitePropulsionPDO('sqlite::memory:');
 $con->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_WARNING);
 $builder->buildSQL($con);
 $dbName = $builder->getDatabase()->getName();
