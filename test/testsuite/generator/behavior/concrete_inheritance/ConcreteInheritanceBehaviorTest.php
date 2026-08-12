@@ -124,12 +124,25 @@ class ConcreteInheritanceBehaviorTest extends BookstoreTestBase
 	 */
 	public function testParentPeerClass()
 	{
+		// Inverted deliberately. concrete_inheritance used to chain peers the way it
+		// still chains objects and queries, but a peer is a bag of static methods
+		// with no polymorphism, and the generated child redeclared every method the
+		// parent had -- so the chain carried no behaviour and only imposed LSP,
+		// which is what forced addInstanceToPool() to widen to Poolable and
+		// doValidateThis() to drop its type on all 71 generated peers for the sake
+		// of the 4 that use this behavior. See docs/GENERATED_TRAITS_PLAN.md.
 		$q = new ConcreteArticlePeer(); // to autoload the BaseConcreteArticlePeer class
 		$r = new ReflectionClass('BaseConcreteArticlePeer');
-		$this->assertEquals('ConcreteContentPeer', $r->getParentClass()->getName(), 'concrete_inheritance changes the parent class of the Peer Object to the parent object class');
+		$this->assertFalse($r->getParentClass(), 'concrete_inheritance no longer chains the Peer class to the parent peer');
 		$q = new ConcreteQuizzPeer(); // to autoload the BaseConcreteQuizzPeer class
 		$r = new ReflectionClass('BaseConcreteQuizzPeer');
-		$this->assertEquals('ConcreteContentPeer', $r->getParentClass()->getName(), 'concrete_inheritance changes the parent class of the Peer Object to the parent object class');
+		$this->assertFalse($r->getParentClass(), 'concrete_inheritance no longer chains the Peer class to the parent peer');
+
+		// The narrower signatures the broken chain buys back.
+		$add = new ReflectionMethod('BaseConcreteArticlePeer', 'addInstanceToPool');
+		$this->assertEquals('ConcreteArticle', $add->getParameters()[0]->getType()?->getName());
+		$validate = new ReflectionMethod('BaseConcreteArticlePeer', 'doValidateThis');
+		$this->assertEquals('ConcreteArticle', $validate->getParameters()[0]->getType()?->getName());
 	}
 
 	public function testPreSaveCopyData()

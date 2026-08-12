@@ -221,11 +221,17 @@ class ConcreteInheritanceBehavior extends Behavior
 			$builder->declareClass($objectBuilder->getFullyQualifiedClassname());
 			return $objectBuilder->getClassname();
 		}
-		if ($builder instanceof AbstractPeerBuilder) {
-			$peerBuilder = $builder->getNewStubPeerBuilder($parentTable);
-			$builder->declareClass($peerBuilder->getFullyQualifiedClassname());
-			return $peerBuilder->getClassname();
-		}
+		// Deliberately no AbstractPeerBuilder arm. Peers used to chain the same way
+		// -- BaseConcreteArticlePeer extends ConcreteContentPeer -- but a peer is a
+		// bag of static methods with no polymorphism, and the generated child
+		// redeclares every method the parent has (verified across all four chains
+		// in the fixtures, including the three-deep News -> Article -> Content one:
+		// nothing was inherited-but-not-redeclared). So the chain carried no
+		// behaviour; it only imposed LSP, and that is what forced
+		// addInstanceToPool() to widen to Poolable and doValidateThis() to drop its
+		// type -- a cost paid by all 71 generated peers for the 4 that use this
+		// behavior. Objects and queries keep their arm above: an object genuinely
+		// is-a its parent, and that inheritance is the point of the behavior.
 		return null;
 	}
 

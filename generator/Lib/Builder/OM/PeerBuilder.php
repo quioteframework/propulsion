@@ -244,7 +244,9 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		$this->declareClassFromBuilder($this->getStubObjectBuilder());
 		$this->declareClass('Propulsion\\OM\\BaseObject');
 		$this->declareClass('Propulsion\\OM\\Persistent');
-		$this->declareClass('Propulsion\\OM\\Poolable');
+		// Poolable is deliberately not declared: addInstanceToPool() names the model
+		// class directly now that no peer inherits from another, so nothing in a
+		// generated peer refers to the interface any more.
 		$this->declareClass('Propulsion\\Exception\\PropulsionException');
 		$this->declareClass('Propulsion\\Util\\BasePeer');
 		$this->declareClass('Propulsion\\Connection\\PropulsionPDO');
@@ -1249,34 +1251,13 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds an object to the instance pool.
 	 *
-	 * \$obj is typed to the Poolable interface every generated object implements,
-	 * rather than to \\" . $objectClass . " itself, because this method is inherited: a
-	 * concrete-inheritance table generates a real peer-class inheritance chain (e.g.
-	 * ConcreteArticlePeer extends ConcreteContentPeer), and a child peer re-declaring
-	 * this with its own narrower model type would break contravariance -- the same
-	 * hazard doValidateThis() documents. An interface shared by every model is the
-	 * one type that stays invariant down such a chain.
-	 *
-	 * It is also the type callers can actually satisfy. The pooling call in a
-	 * generated save() is " . $this->getPeerClassname() . "::addInstanceToPool(\$this) made
-	 * from the *base* of \\" . $objectClass . ", and \$this there is that base class, not the
-	 * stub -- true to say it is Poolable, not provable to say it is \\" . $objectClass . ".
-	 *
-	 * @param \\Propulsion\\OM\\Poolable \$obj A \\" . $objectClass . " object.
+	 * @param \\" . $objectClass . " \$obj
 	 * @param ?string \$key optional key to use for instance map (for performance boost if key was already calculated externally).
 	 */
-	public static function addInstanceToPool(Poolable \$obj, ?string \$key = null): void
+	public static function addInstanceToPool(\\" . $objectClass . " \$obj, ?string \$key = null): void
 	{
 		if (Propulsion::isInstancePoolingEnabled()) {
-			if (\$key === null) {
-				// Deriving the key needs this model's own primary-key getters, which
-				// no shared interface declares. Only reached when the caller has not
-				// already computed the key -- populateObjects() and the doSelectJoin
-				// family pass one, so this is the save() path, once per object, not
-				// the per-row one.
-				if (!\$obj instanceof \\" . $objectClass . ") {
-					throw new PropulsionException('" . $this->getPeerClassname() . "::addInstanceToPool() can only derive a pool key from a \\" . $objectClass . ", got ' . get_class(\$obj));
-				}";
+			if (\$key === null) {";
 
 		$pks = $table->getPrimaryKey();
 		$php = array();
@@ -1655,33 +1636,15 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	 *
 	 * NOTICE: This does not apply to primary or foreign keys for now.
 	 *
-	 * \$obj is deliberately untyped (not \$this->getObjectClassname()): concrete-inheritance
-	 * tables generate a real PHP peer-class inheritance chain (e.g.
-	 * ConcreteArticlePeer extends ConcreteContentPeer), and narrowing this parameter's
-	 * type per-table would violate LSP the moment a child peer overrides this method
-	 * with a narrower type than its parent -- PHP fatals with a
-	 * \"must be compatible with\" error, which is exactly the class of bug this rename
-	 * from doValidate was meant to avoid in the first place. \$obj is only ever called
-   * with \$this from the generated object class (see ObjectBuilder::addValidate()), so
-	 * the missing type hint costs nothing in practice.
-	 *
-	 * @param      mixed \$obj The object to validate.
+	 * @param      \\" . $this->getStubObjectBuilder()->getFullyQualifiedClassname() . " \$obj The object to validate.
 	 * @param      mixed \$cols Column name or array of column names.
 	 *
 	 * @return     true|array<string, ValidationFailed> TRUE if every column is valid, otherwise
 	 *             the ValidationFailed objects keyed by column name -- whatever
 	 *             {$this->basePeerClassname}::doValidate() returned, which this hands straight back.
 	 */
-	public static function doValidateThis(\$obj, mixed \$cols = null)
+	public static function doValidateThis(\\" . $this->getStubObjectBuilder()->getFullyQualifiedClassname() . " \$obj, mixed \$cols = null)
 	{
-		// \$obj stays untyped in the signature for the LSP reason above, so this is
-		// where it becomes this model: the column reads below are its own getters,
-		// which nothing shared could declare. Called once per object being
-		// validated, not per row.
-		if (!\$obj instanceof \\" . $this->getStubObjectBuilder()->getFullyQualifiedClassname() . ") {
-			throw new PropulsionException('" . $this->getPeerClassname() . "::doValidateThis() expects a \\" . $this->getStubObjectBuilder()->getFullyQualifiedClassname() . ", got ' . get_debug_type(\$obj));
-		}
-
 		\$columns = array();
 
 		if (\$cols) {
