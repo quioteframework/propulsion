@@ -148,6 +148,43 @@ generated trait meet on one object. Audit:
 Do this audit *first* -- it can invalidate the naming decision (a per-behavior
 trait with `insteadof` resolution, rather than one trait per class).
 
+### Audit result: clear, naming decision stands
+
+Scanned all 744 classes across the three fixture builds plus `runtime/Lib`,
+comparing each `Base<X>`'s declared properties and constants against its
+resolved parent chain. Every collision found is a **byte-identical
+redeclaration** -- same visibility, same type:
+
+| Name | Against | Count |
+| --- | --- | --- |
+| `modifiedColumns` | `BaseObject` | 76 |
+| `alreadyInSave`, `alreadyInValidation`, `new`, `deleted` | concrete-inheritance parent | 5 each |
+| `Id`, `Title`, `CategoryId`, `Body`, `AuthorId`, `DescendantClass` | concrete-inheritance parent | 1-5 each |
+| `aConcreteAuthor`, `aConcreteContent`, `aConcreteCategory`, `singleConcreteNews` | concrete-inheritance parent | 1-4 each |
+| `ISBN`, `Price` | `BaseBookstoreSchemasBook` | 1 each |
+| `PEER` (constant) | concrete-inheritance parent | 5 |
+
+Executed against PHP 8.5.8 to establish what actually fatals, rather than
+reasoning from the manual:
+
+- Property from a trait vs. the same property on a **parent class**: legal when
+  visibility and type match. **A differing default is fine** -- the plan's worry
+  about defaults was wrong; only type and visibility mismatches fatal
+  (`Type of C::$x must be ?string (as in class P)` /
+  `Access level to C::$x must be public`).
+- A `private` property on the parent does not collide at all -- separate slot.
+- Constant from a trait vs. the same constant on a **parent class**: legal
+  *even when the value differs* -- the trait's value wins, which is exactly the
+  `const PEER` override that concrete inheritance needs.
+- Constant from a trait vs. one declared on **the using class itself**: fatal if
+  the value differs. This is the only live hazard, and it is a downstream one --
+  a user stub that declares `const PEER` will break. Nothing in-tree does.
+- `parent::__construct()` from inside a trait reaches the using class's parent.
+- A trait method satisfies an inherited `abstract` declaration.
+
+Nothing here blocks the plan and nothing forces per-behavior traits. Proceeding
+with one trait per class, named `<X>Generated`.
+
 ## 4. Migration for existing projects
 
 Every stub in every downstream project changes shape:
