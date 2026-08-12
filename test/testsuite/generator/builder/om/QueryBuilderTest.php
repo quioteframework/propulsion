@@ -756,6 +756,28 @@ class QueryBuilderTest extends BookstoreTestBase
 		$this->assertTrue($q->equals($q1), 'joinRefFk() translates to a "INNER JOIN" when this is defined as defaultJoin in the schema');
 	}
 
+	/**
+	 * The runtime tests below all pass `fn ($q) => $q->filterByX(...)` and pass, because at
+	 * runtime the callback's return value is simply discarded. The contract PHPStan reads is
+	 * in the docblock, and nothing else here looks at it: the generated classes live under
+	 * test/fixtures/**\/build/classes, which phpstan.neon does not analyse. So a `void`
+	 * callback return type -- which rejects that very arrow function at level 9 while every
+	 * test stays green -- is invisible to this suite unless something asserts on the docblock
+	 * itself. That is what this does.
+	 */
+	public function testUseFkQueryCallbackContractAcceptsAFluentArrowFunction()
+	{
+		$doc = (new ReflectionMethod('BookQuery', 'withAuthorQuery'))->getDocComment();
+		$this->assertIsString($doc, 'with<Relation>Query() is generated with a docblock');
+		$this->assertStringContainsString(
+			'@param     callable(\AuthorQuery): mixed $callback',
+			$doc,
+			'with<Relation>Query() types its callback as returning mixed, not void: an arrow'
+				. ' function returning the query it just filtered is the documented idiom, and'
+				. ' a void return type makes PHPStan reject it with an argument.type error.'
+		);
+	}
+
 	public function testUseFkQuerySimple()
 	{
 		$q = BookQuery::create()->withAuthorQuery(fn($q) => $q

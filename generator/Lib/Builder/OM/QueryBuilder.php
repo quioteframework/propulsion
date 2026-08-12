@@ -1410,7 +1410,12 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      *
      * @see       \\Propulsion\\Query\\ModelCriteria::withTypedQuery()
      *
-     * @param     callable($queryClass): void \$callback Receives the secondary query to add conditions to
+     * @param     callable($queryClass): mixed \$callback Receives the secondary query to add
+     *                                   conditions to. Its return value is ignored -- the type is
+     *                                   `mixed` rather than `void` so the idiomatic
+     *                                   `fn (\$q) => \$q->filterByX(...)` arrow function, which
+     *                                   returns the query it filtered, is accepted as well as a
+     *                                   statement-bodied closure that returns nothing.
      * @param     string \$relationAlias optional alias for the relation,
      *                                   to be used as main alias in the secondary query
      * @param     string \$joinType Accepted values are null, 'left join', 'right join', 'inner join'

@@ -56,7 +56,7 @@ final class GlobalQueryFilters
 	 * replaces rather than stacks -- a bootstrap that runs twice (a test, a
 	 * worker reload) must not end up applying its filters twice.
 	 *
-	 * @var array<string, array<string, callable(ModelCriteria): void>>
+	 * @var array<string, array<string, callable(ModelCriteria): mixed>>
 	 */
 	private array $filters = array();
 
@@ -65,7 +65,10 @@ final class GlobalQueryFilters
 	 *                               reports it -- i.e. exactly what the generated query class
 	 *                               carries, namespace included if it has one.
 	 * @param     string $filterName A name for this filter, unique per model.
-	 * @param     callable(ModelCriteria): void $filter Receives the query and adds conditions to it.
+	 * @param     callable(ModelCriteria): mixed $filter Receives the query and adds conditions
+	 *                               to it. Its return value is ignored -- `mixed` rather than
+	 *                               `void` so a `fn ($q) => $q->filterByX(...)` arrow function
+	 *                               is accepted alongside a closure that returns nothing.
 	 */
 	public function add(string $modelName, string $filterName, callable $filter): void
 	{
@@ -104,7 +107,7 @@ final class GlobalQueryFilters
 	/**
 	 * The filters registered for $modelName, keyed by name. Empty if none.
 	 *
-	 * @return    array<string, callable(ModelCriteria): void>
+	 * @return    array<string, callable(ModelCriteria): mixed>
 	 */
 	public function forModel(string $modelName): array
 	{

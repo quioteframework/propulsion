@@ -25,7 +25,12 @@ public function useI18nQuery($locale = '<?php echo $defaultLocale ?>', $relation
  *
  * @see       \Propulsion\Query\ModelCriteria::withTypedQuery()
  *
- * @param     callable(<?php echo $queryClass ?>): void $callback Receives the secondary query to add conditions to
+ * @param     callable(<?php echo $queryClass ?>): mixed $callback Receives the secondary query to add
+ *                                   conditions to. Its return value is ignored -- the type is
+ *                                   `mixed` rather than `void` so the idiomatic
+ *                                   `fn ($q) => $q->filterByX(...)` arrow function, which returns
+ *                                   the query it filtered, is accepted as well as a
+ *                                   statement-bodied closure that returns nothing.
  * @param     string $locale Locale to use for the join condition, e.g. 'fr_FR'
  * @param     string $relationAlias optional alias for the relation
  * @param     string $joinType Accepted values are null, 'left join', 'right join', 'inner join'. Defaults to left join.

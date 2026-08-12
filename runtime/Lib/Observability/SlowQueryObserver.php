@@ -32,7 +32,10 @@ final class SlowQueryObserver implements QueryObserver
 	 * @param     float    $thresholdSeconds Statements at or above this duration are
 	 *                                       reported. Seconds-as-float, matching
 	 *                                       QueryExecution::getDurationSeconds().
-	 * @param     ?callable(QueryExecution): void $onSlowQuery What to do with one.
+	 * @param     ?callable(QueryExecution): mixed $onSlowQuery What to do with one. Its return
+	 *                                       value is ignored -- `mixed`, not `void`, so a
+	 *                                       one-expression arrow function is accepted whatever
+	 *                                       the call it wraps returns.
 	 *                                       Defaults to logging through Propulsion's
 	 *                                       PSR-3 channel; pass your own to push a
 	 *                                       metric, sample a stack trace, or route it

@@ -1437,7 +1437,8 @@ class Propulsion
 	 *                                and it is what a query names to drop this one
 	 *                                filter without dropping the others
 	 *                                ({@see ModelCriteria::withoutGlobalFilter()}).
-	 * @param      callable(\Propulsion\Query\ModelCriteria): void $filter
+	 * @param      callable(\Propulsion\Query\ModelCriteria): mixed $filter Its return value is
+	 *                                ignored; see {@see GlobalQueryFilters::add()}.
 	 */
 	public static function addGlobalQueryFilter(string $modelName, string $filterName, callable $filter): void
 	{

@@ -1252,8 +1252,11 @@ class ModelCriteria extends Criteria
 	 *      subclass instead of a plain ModelCriteria.
 	 *
 	 * @param     string $relationName Relation name or alias
-	 * @param     callable(ModelCriteria): void $callback Receives the secondary criteria to
-	 *             add conditions to
+	 * @param     callable(ModelCriteria): mixed $callback Receives the secondary criteria to
+	 *             add conditions to. Its return value is ignored -- the type is `mixed` rather
+	 *             than `void` so the idiomatic `fn ($q) => $q->filterByX(...)` arrow function,
+	 *             which returns the query it filtered, is accepted as well as a
+	 *             statement-bodied closure that returns nothing.
 	 * @param     class-string<ModelCriteria>|null $secondaryCriteriaClass Classname for the
 	 *             ModelCriteria to be used. Accepted for backwards compatibility with code
 	 *             generated before withTypedQuery() existed -- prefer withTypedQuery(), which
@@ -1290,7 +1293,8 @@ class ModelCriteria extends Criteria
 	 *
 	 * @template T of ModelCriteria
 	 * @param     string $relationName Relation name or alias
-	 * @param     callable(T): void $callback Receives the secondary criteria to add conditions to
+	 * @param     callable(T): mixed $callback Receives the secondary criteria to add conditions
+	 *             to. Its return value is ignored -- see withQuery()'s $callback.
 	 * @param     class-string<T> $secondaryCriteriaClass Classname for the ModelCriteria to be used
 	 *
 	 * @return    static
@@ -1321,7 +1325,7 @@ class ModelCriteria extends Criteria
 	 * never cares what a subquery selects, only whether it returns any rows.
 	 *
 	 * @param      string $modelName The phpName of the related model to query, e.g. 'Review'.
-	 * @param      callable(ModelCriteria): void $callback Receives the subquery to add conditions to.
+	 * @param      callable(ModelCriteria): mixed $callback Receives the subquery to add conditions to. Its return value is ignored.
 	 * @param      bool $negate Use NOT EXISTS instead of EXISTS.
 	 * @param      string|null $modelAlias Optional alias for the subquery's own table.
 	 *
@@ -1351,7 +1355,7 @@ class ModelCriteria extends Criteria
 	 * Alias for useExistsQuery($modelName, $callback, true, $modelAlias). See useExistsQuery().
 	 *
 	 * @param      string $modelName
-	 * @param      callable(ModelCriteria): void $callback
+	 * @param      callable(ModelCriteria): mixed $callback
 	 * @param      string|null $modelAlias
 	 *
 	 * @return     static
@@ -1387,7 +1391,7 @@ class ModelCriteria extends Criteria
 	 *
 	 * @param      string $columnName The phpName of the column on this query's model to filter.
 	 * @param      string $modelName The phpName of the related model to query.
-	 * @param      callable(ModelCriteria): void $callback Receives the subquery to add conditions to.
+	 * @param      callable(ModelCriteria): mixed $callback Receives the subquery to add conditions to. Its return value is ignored.
 	 * @param      bool $negate Use NOT IN instead of IN.
 	 *
 	 * @return     static
@@ -1433,7 +1437,7 @@ class ModelCriteria extends Criteria
 	 *
 	 * @param      string $name
 	 * @param      string $modelName The phpName of the model to query, e.g. 'Review'.
-	 * @param      callable(ModelCriteria): void $callback Receives the subquery to add columns/conditions to.
+	 * @param      callable(ModelCriteria): mixed $callback Receives the subquery to add columns/conditions to. Its return value is ignored.
 	 * @param      array<int, string> $columns Explicit column list -- see withCte()'s own $columns parameter.
 	 * @param      string|null $modelAlias Optional alias for the subquery's own table.
 	 *
