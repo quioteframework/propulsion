@@ -2810,7 +2810,8 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			$script .= "
 					" . $this->buildObjectInstanceCreationCode('$obj2', '$cls', $joinTable->getChildrenColumn() ? $joinedTablePeerBuilder->getObjectClassname() : null) . "
 					\$obj2->hydrate(\$row, \$startcol);
-					if (\$session !== null && \$key2 !== null) {
+					// The enclosing `if (\$key2 !== null)` already established the key.
+					if (\$session !== null) {
 						\$session->addPooledInstance(" . $joinedTablePeerBuilder->getPeerClassname() . "::class, \$key2, \$obj2);
 					}
 				} // if obj2 already loaded
@@ -3043,7 +3044,8 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 				$script .= "
 					" . $this->buildObjectInstanceCreationCode('$obj' . $index, '$cls', $joinTable->getChildrenColumn() ? $joinedTablePeerBuilder->getObjectClassname() : null) . "
 					\$obj" . $index . "->hydrate(\$row, \$startcol$index);
-					if (\$session !== null && \$key$index !== null) {
+					// The enclosing `if (\$key$index !== null)` already established the key.
+					if (\$session !== null) {
 						\$session->addPooledInstance(" . $joinedTablePeerBuilder->getPeerClassname() . "::class, \$key$index, \$obj$index);
 					}
 				} // if obj$index loaded
@@ -3280,7 +3282,8 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 						$script .= "
 					" . $this->buildObjectInstanceCreationCode('$obj' . $index, '$cls', $joinTable->getChildrenColumn() ? $joinedTablePeerBuilder->getObjectClassname() : null) . "
 					\$obj" . $index . "->hydrate(\$row, \$startcol$index);
-					if (\$session !== null && \$key$index !== null) {
+					// The enclosing `if (\$key$index !== null)` already established the key.
+					if (\$session !== null) {
 						\$session->addPooledInstance(" . $joinedTablePeerBuilder->getPeerClassname() . "::class, \$key$index, \$obj$index);
 					}
 				} // if \$obj$index already loaded
