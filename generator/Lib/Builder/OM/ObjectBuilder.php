@@ -2527,7 +2527,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 		\$stmt = " . $this->getPeerClassname() . "::doSelectStmt(\$this->buildPkeyCriteria(), \$con);
 		\$row = \$stmt->fetch(PDO::FETCH_NUM);
 		\$stmt->closeCursor();
-		if (!is_array(\$row)) {
+		if (!is_array(\$row) || !array_is_list(\$row)) {
 			throw new PropulsionException('Cannot find matching row in the database to reload object values.');
 		}
 		\$this->hydrate(\$row, 0, true); // rehydrate";

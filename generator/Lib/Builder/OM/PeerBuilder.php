@@ -1154,15 +1154,15 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 		$script .= "
 		// Instance pooling is a process-wide, loop-invariant setting: resolve the
-		// enabled flag and the session once here rather than paying two static
-		// calls (isInstancePoolingEnabled() + getSession()) per row inside
+		// session once here rather than paying two static calls
+		// (isInstancePoolingEnabled() + getSession()) per row inside
 		// getInstanceFromPool()/addInstanceToPool() for every row in the result.
-		\$poolEnabled = Propulsion::isInstancePoolingEnabled();
-		\$session = \$poolEnabled ? Propulsion::getSession() : null;
+		// Null means pooling is off, so the null checks below are the enabled test.
+		\$session = Propulsion::isInstancePoolingEnabled() ? Propulsion::getSession() : null;
 		// populate the object(s)
 		foreach (\$rows as \$row) {
 			\$key = self::getPrimaryKeyHashFromRow(\$row, 0);
-			if (\$poolEnabled && \$key !== null && (\$obj = \$session->getPooledInstance(self::class, \$key)) instanceof \\" . $objectClass . ") {
+			if (\$session !== null && \$key !== null && (\$obj = \$session->getPooledInstance(self::class, \$key)) instanceof \\" . $objectClass . ") {
 				// We no longer rehydrate the object, since this can cause data loss.
 				// See http://www.propelorm.org/ticket/509
 				// \$obj->hydrate(\$row, 0, true); // rehydrate
@@ -1177,7 +1177,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 				" . $this->buildObjectInstanceCreationCode('$obj', '$cls', $this->getObjectClassname()) . "
 				\$obj->hydrate(\$row);
 				\$results[] = \$obj;
-				if (\$poolEnabled && \$key !== null) {
+				if (\$session !== null && \$key !== null) {
 					\$session->addPooledInstance(self::class, \$key, \$obj);
 				}";
 		} else {
@@ -1185,7 +1185,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 				" . $this->buildObjectInstanceCreationCode('$obj', '$cls') . "
 				\$obj->hydrate(\$row);
 				\$results[] = \$obj;
-				if (\$poolEnabled && \$key !== null) {
+				if (\$session !== null && \$key !== null) {
 					\$session->addPooledInstance(self::class, \$key, \$obj);
 				}";
 		}
@@ -2717,15 +2717,14 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		\$stmt = " . $this->basePeerClassname . "::doSelect(\$criteria, \$con);
 		\$results = array();
 		// Instance pooling is loop-invariant -- resolve it once (see populateObjects()).
-		\$poolEnabled = Propulsion::isInstancePoolingEnabled();
-		\$session = \$poolEnabled ? Propulsion::getSession() : null;
+		\$session = Propulsion::isInstancePoolingEnabled() ? Propulsion::getSession() : null;
 
 		while (\$row = \$stmt->fetch(PDO::FETCH_NUM)) {
-			if (!is_array(\$row)) {
+			if (!is_array(\$row) || !array_is_list(\$row)) {
 				continue;
 			}
 			\$key1 = " . $this->getPeerClassname() . "::getPrimaryKeyHashFromRow(\$row, 0);
-			if (\$poolEnabled && \$key1 !== null && (\$obj1 = \$session->getPooledInstance(" . $this->getPeerClassname() . "::class, \$key1)) instanceof \\" . $this->getStubObjectBuilder()->getFullyQualifiedClassname() . ") {
+			if (\$session !== null && \$key1 !== null && (\$obj1 = \$session->getPooledInstance(" . $this->getPeerClassname() . "::class, \$key1)) instanceof \\" . $this->getStubObjectBuilder()->getFullyQualifiedClassname() . ") {
 				// We no longer rehydrate the object, since this can cause data loss.
 			} else {
 ";
@@ -2742,14 +2741,14 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			$script .= "
 				" . $this->buildObjectInstanceCreationCode('$obj1', '$cls', $table->getChildrenColumn() ? $this->getObjectClassname() : null) . "
 				\$obj1->hydrate(\$row);
-				if (\$poolEnabled && \$key1 !== null) {
+				if (\$session !== null && \$key1 !== null) {
 					\$session->addPooledInstance(" . $this->getPeerClassname() . "::class, \$key1, \$obj1);
 				}
 			} // if \$obj1 already loaded
 
 			\$key2 = " . $joinedTablePeerBuilder->getPeerClassname() . "::getPrimaryKeyHashFromRow(\$row, \$startcol);
 			if (\$key2 !== null) {
-				\$obj2 = \$poolEnabled ? \$session->getPooledInstance(" . $joinedTablePeerBuilder->getPeerClassname() . "::class, \$key2) : null;
+				\$obj2 = \$session !== null ? \$session->getPooledInstance(" . $joinedTablePeerBuilder->getPeerClassname() . "::class, \$key2) : null;
 				if (!\$obj2) {
 ";
 			if ($joinTable->getChildrenColumn()) {
@@ -2765,7 +2764,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			$script .= "
 					" . $this->buildObjectInstanceCreationCode('$obj2', '$cls', $joinTable->getChildrenColumn() ? $joinedTablePeerBuilder->getObjectClassname() : null) . "
 					\$obj2->hydrate(\$row, \$startcol);
-					if (\$poolEnabled && \$key2 !== null) {
+					if (\$session !== null && \$key2 !== null) {
 						\$session->addPooledInstance(" . $joinedTablePeerBuilder->getPeerClassname() . "::class, \$key2, \$obj2);
 					}
 				} // if obj2 already loaded
@@ -2934,15 +2933,14 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		\$stmt = " . $this->basePeerClassname . "::doSelect(\$criteria, \$con);
 		\$results = array();
 		// Instance pooling is loop-invariant -- resolve it once (see populateObjects()).
-		\$poolEnabled = Propulsion::isInstancePoolingEnabled();
-		\$session = \$poolEnabled ? Propulsion::getSession() : null;
+		\$session = Propulsion::isInstancePoolingEnabled() ? Propulsion::getSession() : null;
 
 		while (\$row = \$stmt->fetch(PDO::FETCH_NUM)) {
-			if (!is_array(\$row)) {
+			if (!is_array(\$row) || !array_is_list(\$row)) {
 				continue;
 			}
 			\$key1 = " . $this->getPeerClassname() . "::getPrimaryKeyHashFromRow(\$row, 0);
-			if (\$poolEnabled && \$key1 !== null && (\$obj1 = \$session->getPooledInstance(" . $this->getPeerClassname() . "::class, \$key1)) instanceof \\" . $this->getStubObjectBuilder()->getFullyQualifiedClassname() . ") {
+			if (\$session !== null && \$key1 !== null && (\$obj1 = \$session->getPooledInstance(" . $this->getPeerClassname() . "::class, \$key1)) instanceof \\" . $this->getStubObjectBuilder()->getFullyQualifiedClassname() . ") {
 				// We no longer rehydrate the object, since this can cause data loss.
 			} else {";
 
@@ -2960,7 +2958,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		$script .= "
 				" . $this->buildObjectInstanceCreationCode('$obj1', '$cls', $table->getChildrenColumn() ? $this->getObjectClassname() : null) . "
 				\$obj1->hydrate(\$row);
-				if (\$poolEnabled && \$key1 !== null) {
+				if (\$session !== null && \$key1 !== null) {
 					\$session->addPooledInstance(" . $this->getPeerClassname() . "::class, \$key1, \$obj1);
 				}
 			} // if obj1 already loaded
@@ -2983,7 +2981,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 			\$key$index = " . $joinedTablePeerBuilder->getPeerClassname() . "::getPrimaryKeyHashFromRow(\$row, \$startcol$index);
 			if (\$key$index !== null) {
-				\$obj$index = \$poolEnabled ? \$session->getPooledInstance(" . $joinedTablePeerBuilder->getPeerClassname() . "::class, \$key$index) : null;
+				\$obj$index = \$session !== null ? \$session->getPooledInstance(" . $joinedTablePeerBuilder->getPeerClassname() . "::class, \$key$index) : null;
 				if (!\$obj$index) {
 ";
 				if ($joinTable->getChildrenColumn()) {
@@ -2999,7 +2997,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 				$script .= "
 					" . $this->buildObjectInstanceCreationCode('$obj' . $index, '$cls', $joinTable->getChildrenColumn() ? $joinedTablePeerBuilder->getObjectClassname() : null) . "
 					\$obj" . $index . "->hydrate(\$row, \$startcol$index);
-					if (\$poolEnabled && \$key$index !== null) {
+					if (\$session !== null && \$key$index !== null) {
 						\$session->addPooledInstance(" . $joinedTablePeerBuilder->getPeerClassname() . "::class, \$key$index, \$obj$index);
 					}
 				} // if obj$index loaded
@@ -3172,15 +3170,14 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		\$stmt = " . $this->basePeerClassname . "::doSelect(\$criteria, \$con);
 		\$results = array();
 		// Instance pooling is loop-invariant -- resolve it once (see populateObjects()).
-		\$poolEnabled = Propulsion::isInstancePoolingEnabled();
-		\$session = \$poolEnabled ? Propulsion::getSession() : null;
+		\$session = Propulsion::isInstancePoolingEnabled() ? Propulsion::getSession() : null;
 
 		while (\$row = \$stmt->fetch(PDO::FETCH_NUM)) {
-			if (!is_array(\$row)) {
+			if (!is_array(\$row) || !array_is_list(\$row)) {
 				continue;
 			}
 			\$key1 = " . $this->getPeerClassname() . "::getPrimaryKeyHashFromRow(\$row, 0);
-			if (\$poolEnabled && \$key1 !== null && (\$obj1 = \$session->getPooledInstance(" . $this->getPeerClassname() . "::class, \$key1)) instanceof \\" . $this->getStubObjectBuilder()->getFullyQualifiedClassname() . ") {
+			if (\$session !== null && \$key1 !== null && (\$obj1 = \$session->getPooledInstance(" . $this->getPeerClassname() . "::class, \$key1)) instanceof \\" . $this->getStubObjectBuilder()->getFullyQualifiedClassname() . ") {
 				// We no longer rehydrate the object, since this can cause data loss.
 			} else {";
 			if ($table->getChildrenColumn()) {
@@ -3197,7 +3194,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			$script .= "
 				" . $this->buildObjectInstanceCreationCode('$obj1', '$cls', $table->getChildrenColumn() ? $this->getObjectClassname() : null) . "
 				\$obj1->hydrate(\$row);
-				if (\$poolEnabled && \$key1 !== null) {
+				if (\$session !== null && \$key1 !== null) {
 					\$session->addPooledInstance(" . $this->getPeerClassname() . "::class, \$key1, \$obj1);
 				}
 			} // if obj1 already loaded
@@ -3221,7 +3218,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 
 			\$key$index = " . $joinedTablePeerBuilder->getPeerClassname() . "::getPrimaryKeyHashFromRow(\$row, \$startcol$index);
 			if (\$key$index !== null) {
-				\$obj$index = \$poolEnabled ? \$session->getPooledInstance(" . $joinedTablePeerBuilder->getPeerClassname() . "::class, \$key$index) : null;
+				\$obj$index = \$session !== null ? \$session->getPooledInstance(" . $joinedTablePeerBuilder->getPeerClassname() . "::class, \$key$index) : null;
 				if (!\$obj$index) {
 ";
 						if ($joinTable->getChildrenColumn()) {
@@ -3237,7 +3234,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 						$script .= "
 					" . $this->buildObjectInstanceCreationCode('$obj' . $index, '$cls', $joinTable->getChildrenColumn() ? $joinedTablePeerBuilder->getObjectClassname() : null) . "
 					\$obj" . $index . "->hydrate(\$row, \$startcol$index);
-					if (\$poolEnabled && \$key$index !== null) {
+					if (\$session !== null && \$key$index !== null) {
 						\$session->addPooledInstance(" . $joinedTablePeerBuilder->getPeerClassname() . "::class, \$key$index, \$obj$index);
 					}
 				} // if \$obj$index already loaded
