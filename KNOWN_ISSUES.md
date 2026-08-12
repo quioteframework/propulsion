@@ -144,6 +144,39 @@ left open with a reason rather than silently:
   "don't use persistent connections with this ORM", which is also what
   `getQueryCount()` already tells you.
 
+- **A query-level `preDelete()` hook never fires when `soft_delete` is on.**
+  `SoftDeleteBehavior::preDeleteQuery()` emits an if/else where *both* branches
+  return, so the `return $this->preDelete($con);` that `QueryBuilder` appends to
+  `basePreDelete()` is unreachable — PHPStan reports it as
+  `deadCode.unreachable` on every soft-deletable table's query class. The
+  object-level `preDelete()` is unaffected; this is only the `ModelCriteria`
+  one. Left alone because the fix is a semantic choice about delete ordering
+  (run the user hook first and honour a false return? ignore it?) rather than a
+  mechanical repair, and it should land with tests that pin the chosen
+  ordering.
+
+- **The nested_set collection getters return two different shapes.**
+  `getChildren()`, `getSiblings()`, `getDescendants()`, `getBranch()` and
+  `getAncestors()` return a `PropulsionObjectCollection` on the populated path
+  but a plain `array()` on the short-circuit branch (leaf, root, or new node).
+  `getFirstChild()`/`getLastChild()` are worse: `array()` or a single object.
+  Their annotations now say so rather than claiming only the array shape, which
+  is what they used to do. Unifying them on an empty collection would be the
+  real fix — `PropulsionObjectCollection` counts and iterates like the array
+  did — but it would break any caller doing `=== array()` or `is_array()`, so
+  it wants a deliberate decision and a release note.
+
+- **Generated `filterBy<Relation>()` guards a parameter its own docblock says
+  cannot be wrong.** For relations that accept only the related object (1:1 and
+  composite-PK relations), `QueryBuilder` emits
+  `@param ReaderFavorite $readerFavorite` and then an `instanceof` check with a
+  `PropulsionException` in the else branch. PHPStan trusts the annotation and
+  reports `instanceof.alwaysTrue`; at runtime the parameter is untyped, so the
+  guard is real. Giving the parameter a native type would resolve both and let
+  PHP enforce it, at the cost of turning a `PropulsionException` into a
+  `TypeError` for callers passing the wrong thing — a public generated API
+  change worth making on purpose rather than in passing.
+
 ## Missing modernization work
 
 - **PSR-18**: not started, nothing to wire it into yet.

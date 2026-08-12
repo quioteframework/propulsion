@@ -155,10 +155,8 @@ public function orderByRank(\$order = Criteria::ASC)
 	switch (\$order) {
 		case Criteria::ASC:
 			return \$this->addAscendingOrderByColumn(\$this->getAliasedColName(" . $this->peerClassname . "::RANK_COL));
-			break;
 		case Criteria::DESC:
 			return \$this->addDescendingOrderByColumn(\$this->getAliasedColName(" . $this->peerClassname . "::RANK_COL));
-			break;
 		default:
 			throw new PropulsionException('" . $this->queryClassname . "::orderBy() only accepts \"asc\" or \"desc\" as argument');
 	}
