@@ -42,9 +42,19 @@ class TemporalHandler extends ColumnTypeHandler
 		return "new \\DateTime({$defaultValueExpr})";
 	}
 
+	public function buildHydrateGuard(Column $col): ?string
+	{
+		return 'is_scalar($v)';
+	}
+
 	public function buildHydrateExpr(Column $col, ObjectBuilder $builder): ?string
 	{
-		return 'new DateTime($v)';
+		// The cast keeps DateTime's string parameter satisfied from a $row cell,
+		// which is mixed. PDO hands temporal columns back as strings, so in
+		// practice this is a no-op -- but where a driver returned an int (a bare
+		// year, say) the old code relied on PHP coercing it at the call boundary,
+		// which is the same conversion written down rather than left implicit.
+		return 'new DateTime((string) $v)';
 	}
 
 	public function buildCastExpr(Column $col, string $varExpr): ?string

@@ -1847,7 +1847,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			$handler = ColumnTypeHandlerRegistry::resolve($col);
 			$expr = $handler !== null ? $handler->buildHydrateExpr($col, $this) : null;
 			if ($expr !== null) {
-				$guard = "\$v !== null";
+				$guard = $handler?->buildHydrateGuard($col) ?? "\$v !== null";
 			} else {
 				// is_scalar() rather than a null check, because a cell read out of
 				// $row is `mixed` and casting mixed is not something a caller can

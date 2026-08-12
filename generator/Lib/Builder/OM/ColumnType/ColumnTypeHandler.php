@@ -126,6 +126,19 @@ abstract class ColumnTypeHandler
 	 * column coming from a raw DB row. Null falls through to
 	 * `getColumnValueCastExpr()`'s own generic numeric/string cast.
 	 */
+	/**
+	 * The condition hydrate() puts in front of {@see buildHydrateExpr()}, when the
+	 * default `$v !== null` is not enough. A handler whose expression casts $v --
+	 * a `mixed` cell read out of the result row -- needs `is_scalar($v)` instead,
+	 * since casting mixed is not something a caller can verify.
+	 *
+	 * Null keeps the default.
+	 */
+	public function buildHydrateGuard(Column $col): ?string
+	{
+		return null;
+	}
+
 	public function buildCastExpr(Column $col, string $varExpr): ?string
 	{
 		return null;

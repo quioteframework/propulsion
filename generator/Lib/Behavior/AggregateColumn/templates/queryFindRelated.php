@@ -10,7 +10,9 @@ protected function findRelated<?php echo $relationName ?>s($con)
 {
 	$criteria = clone $this;
 	if ($this->useAliasInSQL) {
-		$alias = $this->getModelAlias();
+		// getModelAlias() is nullable and removeAlias() is not: aliasing being on
+		// does not by itself prove one was set.
+		$alias = $this->getModelAlias() ?? '';
 		$criteria->removeAlias($alias);
 	} else {
 		$alias = '';

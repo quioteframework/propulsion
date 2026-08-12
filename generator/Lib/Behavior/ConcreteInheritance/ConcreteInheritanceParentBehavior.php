@@ -110,10 +110,13 @@ public function hasChildObject()
  */
 public function getChildObject()
 {
-	if (!\$this->hasChildObject()) {
+	// One read of the descendant column rather than hasChildObject() and then the
+	// getter: they ask the same question, but only a single read establishes for
+	// PropulsionQuery::from() below that the class name is not null.
+	\$childObjectClass = \$this->" . $this->getColumnGetter() . "();
+	if (\$childObjectClass === null) {
 		return null;
 	}
-	\$childObjectClass = \$this->" . $this->getColumnGetter() . "();
 	\$childObject = PropulsionQuery::from(\$childObjectClass)->findPk(\$this->getPrimaryKey());
 	return \$childObject->hasChildObject() ? \$childObject->getChildObject() : \$childObject;
 }
