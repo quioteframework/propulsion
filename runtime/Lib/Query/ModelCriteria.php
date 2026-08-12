@@ -2253,10 +2253,6 @@ class ModelCriteria extends Criteria
 			ttl: $criteria->getQueryCacheTtl(),
 		);
 
-		if (!is_int($count)) {
-			throw new PropulsionException('Query result cache entry for a count() query was not an int');
-		}
-
 		return $count;
 	}
 

@@ -64,16 +64,23 @@ class TieredQueryCache
      * a shared tier to store them in, so an L1-only deployment keeps the
      * streaming memory profile it has always had.
      *
+     * @template TResult
+     *
      * @param  string                              $dbName        datasource name, part of cache identity
      * @param  string                              $sql           the rendered SQL
      * @param  array<int|string, mixed>            $params        bound parameter structs
      * @param  list<string>                        $touchedTables tables whose contents the result depends on
      * @param  string                              $variant       discriminator for results that differ despite identical SQL
      * @param  callable(): PDOStatement            $execute       runs the query
-     * @param  callable(PDOStatement): mixed       $formatStatement formats from a live statement
-     * @param  callable(iterable<int, array<int, mixed>>): mixed $formatRows formats from a row array
+     * @param  callable(PDOStatement): TResult     $formatStatement formats from a live statement
+     * @param  callable(iterable<int, array<int, mixed>>): TResult $formatRows formats from a row array
      * @param  bool                                $cacheable     whether this result may be cached at all, at either tier
      * @param  bool                                $shared        whether it may additionally reach the process-shared tier
+     *
+     * @return TResult Whatever the two formatters produce -- every path here is one
+     *                 of them, or an L1 entry a previous call put there through one
+     *                 of them. Callers used to get `mixed` and each re-established
+     *                 the shape with its own is_array()/is_int()/instanceof guard.
      */
     public function remember(
         string $dbName,

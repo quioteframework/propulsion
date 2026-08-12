@@ -887,10 +887,6 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			\$criteria->getQueryCacheTtl()
 		);
 
-		if (!is_array(\$result)) {
-			throw new PropulsionException('Query result cache entry for a doSelect() query was not an array');
-		}
-
 		return \$result;
 	}";
 	}
@@ -1074,10 +1070,6 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			\$con,
 			\$criteria->getQueryCacheTtl()
 		);
-
-		if (!is_int(\$count)) {
-			throw new PropulsionException('Query result cache entry for a doCount() query was not an int');
-		}
 
 		return \$count;
 	}
