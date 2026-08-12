@@ -69,7 +69,6 @@ EOF;
             <parameter name="level_column" value="my_level_column" />
             <parameter name="use_scope" value="true" />
             <parameter name="scope_column" value="my_scope_column" />
-            <parameter name="method_proxies" value="true" />
         </behavior>
     </table>
 </database>
@@ -84,7 +83,6 @@ EOF;
         $this->assertStringContainsString('MyRightColumn', $script);
         $this->assertStringContainsString('MyLevelColumn', $script);
         $this->assertStringContainsString('MyScopeColumn', $script);
-        // method_proxies=true adds the short getLeftValue()/getRightValue()/getLevel() aliases.
         $this->assertStringContainsString('function getLeftValue', $script);
     }
 }

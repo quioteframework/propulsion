@@ -85,8 +85,6 @@ return [
     'NestedSetBehaviorObjectBuilderModifier' => 'Propulsion\\Generator\\Behavior\\NestedSet\\NestedSetBehaviorObjectBuilderModifier',
     'NestedSetBehaviorPeerBuilderModifier' => 'Propulsion\\Generator\\Behavior\\NestedSet\\NestedSetBehaviorPeerBuilderModifier',
     'NestedSetBehaviorQueryBuilderModifier' => 'Propulsion\\Generator\\Behavior\\NestedSet\\NestedSetBehaviorQueryBuilderModifier',
-    'NestedSetBuilder' => 'Propulsion\\Generator\\Builder\\OM\\NestedSetBuilder',
-    'NestedSetPeerBuilder' => 'Propulsion\\Generator\\Builder\\OM\\NestedSetPeerBuilder',
     'NodeBuilder' => 'Propulsion\\Generator\\Builder\\OM\\NodeBuilder',
     'NodePeerBuilder' => 'Propulsion\\Generator\\Builder\\OM\\NodePeerBuilder',
     'OMBuilder' => 'Propulsion\\Generator\\Builder\\OM\\OMBuilder',

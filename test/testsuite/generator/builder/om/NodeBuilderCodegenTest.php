@@ -12,10 +12,11 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * Coverage for the treeMode="MaterializedPath" codegen path
- * (NodeBuilder/NodePeerBuilder/ExtensionNodeBuilder/ExtensionNodePeerBuilder),
- * which had no test at all -- unlike treeMode="NestedSet" (see
- * NestedSetBuilderCodegenTest), no fixture project or dedicated runtime test
- * exercises this feature anywhere in the suite.
+ * (NodeBuilder/NodePeerBuilder/ExtensionNodeBuilder/ExtensionNodePeerBuilder).
+ * No fixture project or dedicated runtime test exercises this feature anywhere
+ * else in the suite, so this is the only thing standing behind it -- worth
+ * knowing, since treeMode="NestedSet" was removed in 3.0 and MaterializedPath
+ * is now the sole surviving treeMode.
  */
 class NodeBuilderCodegenTest extends TestCase
 {

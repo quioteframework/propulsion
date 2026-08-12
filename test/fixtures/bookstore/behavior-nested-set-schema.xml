@@ -20,7 +20,6 @@
 			<parameter name="level_column" value="my_level_column" />
 			<parameter name="use_scope" value="true" />
 			<parameter name="scope_column" value="my_scope_column" />
-			<parameter name="method_proxies" value="true" />
 		</behavior>
 	</table>
 

@@ -101,11 +101,11 @@ interface NodeObject extends \IteratorAggregate
 	/**
 	 * Gets the node's left value in the nested set.
 	 *
-	 * Declared here because the generated NestedSetPeer calls it on values typed
-	 * only as NodeObject -- the interface was describing less than the contract
-	 * it is actually used under. NestedSetBuilder, the sole producer of
-	 * implementations, has always emitted all four left/right accessors with
-	 * these exact signatures.
+	 * Declared here because the peer the nested_set behavior generates calls it
+	 * on values typed only as NodeObject -- the interface was describing less
+	 * than the contract it is actually used under. The behavior emits all four
+	 * left/right accessors, with these exact signatures, onto every object it
+	 * attaches NodeObject to.
 	 *
 	 * @return     ?int
 	 */

@@ -260,8 +260,6 @@ return [
     'propulsion.builder.nodestub.class' => 'Propulsion\Generator\Builder\OM\ExtensionNodeBuilder',
     'propulsion.builder.nodepeerstub.class' => 'Propulsion\Generator\Builder\OM\ExtensionNodePeerBuilder',
 
-    'propulsion.builder.nestedset.class' => 'Propulsion\Generator\Builder\OM\NestedSetBuilder',
-    'propulsion.builder.nestedsetpeer.class' => 'Propulsion\Generator\Builder\OM\NestedSetPeerBuilder',
 
     'propulsion.builder.queryinheritance.class' => 'Propulsion\Generator\Builder\OM\QueryInheritanceBuilder',
     'propulsion.builder.queryinheritancestub.class' => 'Propulsion\Generator\Builder\OM\ExtensionQueryInheritanceBuilder',
@@ -275,8 +273,6 @@ return [
     'propulsion.builder.query.php84.class' => 'Propulsion\Generator\Builder\OM\QueryBuilder',
     'propulsion.builder.node.php84.class' => 'Propulsion\Generator\Builder\OM\NodeBuilder',
     'propulsion.builder.nodepeer.php84.class' => 'Propulsion\Generator\Builder\OM\NodePeerBuilder',
-    'propulsion.builder.nestedset.php84.class' => 'Propulsion\Generator\Builder\OM\NestedSetBuilder',
-    'propulsion.builder.nestedsetpeer.php84.class' => 'Propulsion\Generator\Builder\OM\NestedSetPeerBuilder',
     'propulsion.builder.objectmultiextend.php84.class' => 'Propulsion\Generator\Builder\OM\MultiExtendObjectBuilder',
     'propulsion.builder.nodestub.php84.class' => 'Propulsion\Generator\Builder\OM\ExtensionNodeBuilder',
     'propulsion.builder.nodepeerstub.php84.class' => 'Propulsion\Generator\Builder\OM\ExtensionNodePeerBuilder',

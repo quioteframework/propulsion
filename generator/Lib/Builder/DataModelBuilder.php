@@ -139,18 +139,6 @@ abstract class DataModelBuilder
 	private $stubNodePeerBuilder;
 
 	/**
-	 * NestedSet object builder for current table.
-	 * @var        AbstractObjectBuilder|null
-	 */
-	private $nestedSetBuilder;
-
-	/**
-	 * NestedSet peer builder for current table.
-	 * @var        AbstractPeerBuilder|null
-	 */
-	private $nestedSetPeerBuilder;
-
-	/**
 	 * The Data-SQL builder for current table.
 	 * @var        DataSQLBuilder|null
 	 */
@@ -371,30 +359,6 @@ abstract class DataModelBuilder
 			$this->stubNodePeerBuilder = $this->configureBuilder($this->getTable(), 'nodepeerstub', AbstractPeerBuilder::class);
 		}
 		return $this->stubNodePeerBuilder;
-	}
-
-	/**
-	 * Returns new or existing nested set object builder class for this table.
-	 * @return     AbstractObjectBuilder
-	 */
-	public function getNestedSetBuilder()
-	{
-		if (!isset($this->nestedSetBuilder)) {
-			$this->nestedSetBuilder = $this->configureBuilder($this->getTable(), 'nestedset', AbstractObjectBuilder::class);
-		}
-		return $this->nestedSetBuilder;
-	}
-
-	/**
-	 * Returns new or existing nested set Peer builder class for this table.
-	 * @return     AbstractPeerBuilder
-	 */
-	public function getNestedSetPeerBuilder()
-	{
-		if (!isset($this->nestedSetPeerBuilder)) {
-			$this->nestedSetPeerBuilder = $this->configureBuilder($this->getTable(), 'nestedsetpeer', AbstractPeerBuilder::class);
-		}
-		return $this->nestedSetPeerBuilder;
 	}
 
 	/**

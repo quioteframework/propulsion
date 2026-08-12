@@ -64,17 +64,7 @@ class ExtensionPeerBuilder extends AbstractPeerBuilder
         $tableName = $table->getName();
         $tableDesc = $table->getDescription();
 
-        switch ($table->treeMode()) {
-            case 'NestedSet':
-                $this->declareClassFromBuilder($this->getNestedSetPeerBuilder());
-                $baseClassname = $this->getNestedSetPeerBuilder()->getClassname();
-                break;
-            case 'MaterializedPath':
-            case 'AdjacencyList':
-            default:
-                $baseClassname = $this->getPeerBuilder()->getClassname();
-                break;
-        }
+        $baseClassname = $this->getPeerBuilder()->getClassname();
 
         $script .= "
 

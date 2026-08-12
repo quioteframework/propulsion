@@ -29,8 +29,6 @@ namespace Propulsion\Generator\Config;
  use Propulsion\Generator\Builder\OM\NodePeerBuilder;
  use Propulsion\Generator\Builder\OM\ExtensionNodeBuilder;
  use Propulsion\Generator\Builder\OM\ExtensionNodePeerBuilder;
- use Propulsion\Generator\Builder\OM\NestedSetBuilder;
- use Propulsion\Generator\Builder\OM\NestedSetPeerBuilder;
 
 class QuickGeneratorConfig implements GeneratorConfigInterface
 {
@@ -57,8 +55,6 @@ class QuickGeneratorConfig implements GeneratorConfigInterface
 		'nodepeer'			=> NodePeerBuilder::class,
 		'nodestub'			=> ExtensionNodeBuilder::class,
 		'nodepeerstub'	=> ExtensionNodePeerBuilder::class,
-		'nestedset'			=> NestedSetBuilder::class,
-		'nestedsetpeer' => NestedSetPeerBuilder::class,
 	);
 
 	/** @var array<string,mixed> */

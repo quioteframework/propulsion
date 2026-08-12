@@ -127,11 +127,17 @@ class ModelManager extends AbstractSchemaManager
         if ($treeMode = $table->treeMode()) {
             switch ($treeMode) {
                 case 'NestedSet':
-                    foreach (['nestedsetpeer', 'nestedset'] as $target) {
-                        $builder = $generatorConfig->getConfiguredBuilder($table, $target);
-                        $written += $this->writeBuilderOutput($builder);
-                    }
-                    break;
+                    // Removed in 3.0, deprecated since 1.5. Refusing is the point:
+                    // silently generating nothing would leave the schema looking
+                    // supported while every tree method the application calls is
+                    // simply absent.
+                    throw new EngineException(sprintf(
+                        'Table "%s" uses treeMode="NestedSet", which was removed in Propulsion 3.0. '
+                        . 'Replace the attribute with the nested_set behavior: '
+                        . '<behavior name="nested_set" />. It supersedes the treeMode and has been '
+                        . 'the supported way to build a nested set since 1.5.',
+                        $table->getName()
+                    ));
 
                 case 'MaterializedPath':
                     foreach (['nodepeer', 'node'] as $target) {

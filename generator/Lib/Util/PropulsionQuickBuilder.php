@@ -289,11 +289,6 @@ class PropulsionQuickBuilder
 
 		if ($table->treeMode()) {
 			switch($table->treeMode()) {
-				case 'NestedSet':
-					foreach (array('nestedsetpeer', 'nestedset') as $target) {
-						$script .= $this->buildScriptFor($table, $target);
-					}
-				break;
 				case 'MaterializedPath':
 					foreach (array('nodepeer', 'node') as $target) {
 						$script .= $this->buildScriptFor($table, $target);

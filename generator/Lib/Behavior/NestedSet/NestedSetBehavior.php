@@ -24,8 +24,7 @@ class NestedSetBehavior extends Behavior
 		'right_column'	 => 'tree_right',
 		'level_column'	 => 'tree_level',
 		'use_scope'			 => 'false',
-		'scope_column'	 => 'tree_scope',
-		'method_proxies' => 'false'
+		'scope_column'	 => 'tree_scope'
 	);
 
 	protected ?NestedSetBehaviorObjectBuilderModifier $objectBuilderModifier = null;
