@@ -337,6 +337,12 @@ class ObjectBuilder extends AbstractObjectBuilder
 		if ($interface == "Persistent") {
 			$implementsList[] = "Persistent";
 		}
+		// Unconditional, unlike Persistent: a read-only table's object is emitted
+		// without save()/delete() and so cannot be Persistent, but it is still
+		// hydrated and still pooled, and <Model>Peer::addInstanceToPool() has to
+		// have one type that accepts both. See the interface.
+		$this->declareClass('Propulsion\\OM\\Poolable');
+		$implementsList[] = "Poolable";
 		// setByName()/setByPosition()/fromArray() (addSetByName()/addSetByPosition()/
 		// addFromArray() below) are only emitted under this same isAddGenericMutators()
 		// condition -- WritableModelInterface only ever needs to be implemented in lockstep
@@ -344,7 +350,8 @@ class ObjectBuilder extends AbstractObjectBuilder
 		if ($this->isAddGenericMutators()) {
 			$implementsList[] = "WritableModelInterface";
 		}
-		$implements = $implementsList ? " implements " . implode(", ", $implementsList) : "";
+		// Never empty: Poolable is added unconditionally above.
+		$implements = " implements " . implode(", ", $implementsList);
 
 		$script .= "
 /**

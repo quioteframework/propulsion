@@ -244,6 +244,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		$this->declareClassFromBuilder($this->getStubObjectBuilder());
 		$this->declareClass('Propulsion\\OM\\BaseObject');
 		$this->declareClass('Propulsion\\OM\\Persistent');
+		$this->declareClass('Propulsion\\OM\\Poolable');
 		$this->declareClass('Propulsion\\Exception\\PropulsionException');
 		$this->declareClass('Propulsion\\Util\\BasePeer');
 		$this->declareClass('Propulsion\\Connection\\PropulsionPDO');
@@ -1270,13 +1271,34 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	/**
 	 * Adds an object to the instance pool.
 	 *
-	 * @param \\" . $objectClass . " \$obj A \\" . $objectClass . " object.
+	 * \$obj is typed to the Poolable interface every generated object implements,
+	 * rather than to \\" . $objectClass . " itself, because this method is inherited: a
+	 * concrete-inheritance table generates a real peer-class inheritance chain (e.g.
+	 * ConcreteArticlePeer extends ConcreteContentPeer), and a child peer re-declaring
+	 * this with its own narrower model type would break contravariance -- the same
+	 * hazard doValidateThis() documents. An interface shared by every model is the
+	 * one type that stays invariant down such a chain.
+	 *
+	 * It is also the type callers can actually satisfy. The pooling call in a
+	 * generated save() is " . $this->getPeerClassname() . "::addInstanceToPool(\$this) made
+	 * from the *base* of \\" . $objectClass . ", and \$this there is that base class, not the
+	 * stub -- true to say it is Poolable, not provable to say it is \\" . $objectClass . ".
+	 *
+	 * @param \\Propulsion\\OM\\Poolable \$obj A \\" . $objectClass . " object.
 	 * @param ?string \$key optional key to use for instance map (for performance boost if key was already calculated externally).
 	 */
-	public static function addInstanceToPool(object \$obj, ?string \$key = null): void
+	public static function addInstanceToPool(Poolable \$obj, ?string \$key = null): void
 	{
 		if (Propulsion::isInstancePoolingEnabled()) {
-			if (\$key === null) {";
+			if (\$key === null) {
+				// Deriving the key needs this model's own primary-key getters, which
+				// no shared interface declares. Only reached when the caller has not
+				// already computed the key -- populateObjects() and the doSelectJoin
+				// family pass one, so this is the save() path, once per object, not
+				// the per-row one.
+				if (!\$obj instanceof \\" . $objectClass . ") {
+					throw new PropulsionException('" . $this->getPeerClassname() . "::addInstanceToPool() can only derive a pool key from a \\" . $objectClass . ", got ' . get_class(\$obj));
+				}";
 
 		$pks = $table->getPrimaryKey();
 		$php = array();
@@ -2099,8 +2121,12 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 			$script .= "
 			\$cls = ".$this->getPeerClassname()."::getOMClass(\$row, \$startcol, false);";
 		}
+		// Only the inheritance branch needs the instanceof: there $cls comes from
+		// getOMClass($row, ...) and is just a string, so `new $cls()` yields an
+		// unknown object. On the other branch it is the OM_CLASS constant, which
+		// resolves to this table's own class and makes the check provably redundant.
 		$script .= "
-			\$obj = new \$cls();
+			" . $this->buildObjectInstanceCreationCode('$obj', '$cls', $table->getChildrenColumn() ? $this->getObjectClassname() : null) . "
 			\$col = \$obj->hydrate(\$row, \$startcol);
 			" . $this->getPeerClassname() . "::addInstanceToPool(\$obj, \$key);
 		}
