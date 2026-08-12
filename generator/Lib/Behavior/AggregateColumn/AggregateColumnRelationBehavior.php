@@ -70,7 +70,9 @@ class AggregateColumnRelationBehavior extends Behavior
 	public function objectAttributes(ObjectBuilder $builder): string
 	{
 		$relationName = $this->getRelationName($builder);
-		return "protected \$old{$relationName};
+		$relatedClass = $this->requireForeignTable()->getPhpName();
+		return "/** @var ?\\{$relatedClass} The related object this one used to point at, so its aggregate can be updated too */
+protected \$old{$relationName};
 ";
 	}
 
@@ -155,7 +157,9 @@ class AggregateColumnRelationBehavior extends Behavior
 	{
 		$relationName = $this->getRelationName($builder);
 		$variableName = self::lcfirst($relationName);
-		return "protected \${$variableName}s;
+		$relatedClass = $this->requireForeignTable()->getPhpName();
+		return "/** @var \\Propulsion\\Collection\\PropulsionObjectCollection<\\{$relatedClass}>|null Related objects found before the write, updated after it */
+protected \${$variableName}s;
 ";
 	}
 

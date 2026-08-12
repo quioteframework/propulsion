@@ -272,6 +272,7 @@ class ConcreteInheritanceBehavior extends Behavior
 /**
  * Get or Create the parent " . $parentClass . " object of the current object
  *
+ * @param     ?PropulsionPDO \$con Optional connection object
  * @return    " . $parentClass . " The parent object
  */
 public function getParentOrCreate(\$con = null)
@@ -297,6 +298,7 @@ public function getParentOrCreate(\$con = null)
  * Create or Update the parent " . $parentTable->getPhpName() . " object
  * And return its primary key
  *
+ * @param     ?PropulsionPDO \$con Optional connection object
  * @return    " . $cptype . " The primary key of the parent object
  */
 public function getSyncParent(\$con = null)

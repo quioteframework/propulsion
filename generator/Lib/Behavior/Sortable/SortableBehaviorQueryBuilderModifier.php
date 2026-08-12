@@ -280,7 +280,7 @@ public function getMaxRank(" . ($useScope ? "\$scope = null, " : "") . "?Propuls
  * Beware that there is no check made on the positions passed
  * So incoherent positions will result in an incoherent list
  *
- * @param     array     \$order id => rank pairs
+ * @param     array<int|string, int> \$order id => rank pairs
  * @param     PropulsionPDO \$con   optional connection
  *
  * @return    boolean true if the reordering took place, false if a database problem prevented it

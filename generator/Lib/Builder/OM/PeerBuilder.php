@@ -467,7 +467,11 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 	protected function addEnumColumnAttributes(string &$script): void
 	{
 		$script .= "
-	/** The enumerated values for this table */
+	/**
+	 * The enumerated values for this table, keyed by fully qualified column name.
+	 *
+	 * @var array<string, array<int, string>>
+	 */
 	protected static \$enumValueSets = array(";
 		foreach ($this->getTable()->getColumns() as $col) {
 			if ($col->isEnumType()) {
@@ -516,7 +520,7 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		$script .= "
 	/**
 	 * Gets the list of values for all ENUM columns
-	 * @return array
+	 * @return array<string, array<int, string>> keyed by fully qualified column name
 	 */
 	public static function getValueSets()
 	{
@@ -534,7 +538,8 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		$script .= "
 	/**
 	 * Gets the list of values for an ENUM column
-	 * @return array list of possible values for the column
+	 * @param  string \$colname fully qualified column name
+	 * @return array<int, string> list of possible values for the column
 	 */
 	public static function getValueSet(\$colname)
 	{

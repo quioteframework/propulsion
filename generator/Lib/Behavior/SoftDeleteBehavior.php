@@ -124,6 +124,9 @@ class SoftDeleteBehavior extends Behavior
 		$script .= "
 /**
  * Bypass the soft_delete behavior and force a hard delete of the current object
+ *
+ * @param     ?PropulsionPDO \$con an optional connection object
+ * @return    void
  */
 public function forceDelete(?PropulsionPDO \$con = null)
 {
@@ -184,7 +187,10 @@ public function unDelete(?PropulsionPDO \$con = null)
 
 	public function queryAttributes(): string
 	{
-		return "protected static \$softDelete = true;
+		return "/** @var bool Whether the behavior is on for this model, process-wide */
+protected static \$softDelete = true;
+
+/** @var bool Whether it is on for this query object specifically */
 protected \$localSoftDelete = true;
 ";
 	}
@@ -296,6 +302,8 @@ public function unDelete(?PropulsionPDO \$con = null)
 		$script .= "
 /**
  * Enable the soft_delete behavior for this model
+ *
+ * @return    void
  */
 public static function enableSoftDelete()
 {
@@ -309,6 +317,8 @@ public static function enableSoftDelete()
 		$script .= "
 /**
  * Disable the soft_delete behavior for this model
+ *
+ * @return    void
  */
 public static function disableSoftDelete()
 {
@@ -375,6 +385,8 @@ EOT;
 		$script .= "
 /**
  * Enable the soft_delete behavior for this model
+ *
+ * @return    void
  */
 public static function enableSoftDelete()
 {
@@ -390,6 +402,8 @@ public static function enableSoftDelete()
 		$script .= "
 /**
  * Disable the soft_delete behavior for this model
+ *
+ * @return    void
  */
 public static function disableSoftDelete()
 {

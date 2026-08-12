@@ -3,6 +3,8 @@
  * Updates the aggregate column <?php echo $column->getName() ?>
  *
  * @param PropulsionPDO $con A connection object
+ *
+ * @return void
  */
 public function update<?php echo $column->getPhpName() ?>(PropulsionPDO $con)
 {

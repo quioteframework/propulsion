@@ -94,7 +94,7 @@ class NestedSetBehaviorObjectBuilderModifier
 		return "
 /**
  * Queries to be executed in the save transaction
- * @var        array
+ * @var        array<int, array{callable: callable, arguments: array<int, mixed>}>
  */
 protected \$nestedSetQueries = array();
 
@@ -273,6 +273,9 @@ if (\$this->isInTree()) {
 		$script .= "
 /**
  * Execute queries that were saved to be run inside the save transaction
+ *
+ * @param      ?PropulsionPDO \$con
+ * @return     void
  */
 protected function processNestedSetQueries(\$con)
 {
@@ -491,7 +494,7 @@ public function isLeaf()
 /**
  * Tests if node is a descendant of another node
  *
- * @param      $objectClassname \$node Propulsion node object
+ * @param      $objectClassname \$parent Propulsion node object
  * @return     bool
  */
 public function isDescendantOf(\$parent)
@@ -515,7 +518,7 @@ public function isDescendantOf(\$parent)
 /**
  * Tests if node is a ancestor of another node
  *
- * @param      $objectClassname \$node Propulsion node object
+ * @param      $objectClassname \$child Propulsion node object
  * @return     bool
  */
 public function isAncestorOf(\$child)
@@ -774,7 +777,7 @@ public function hasChildren()
  *
  * @param      Criteria  \$criteria Criteria to filter results.
  * @param      PropulsionPDO \$con Connection to use.
- * @return     array     List of $objectClassname objects
+ * @return     array<int, $objectClassname>     List of $objectClassname objects
  */
 public function getChildren(\$criteria = null, ?PropulsionPDO \$con = null)
 {
@@ -837,7 +840,7 @@ public function countChildren(\$criteria = null, ?PropulsionPDO \$con = null)
  *
  * @param      Criteria \$query Criteria to filter results.
  * @param      PropulsionPDO \$con Connection to use.
- * @return     array 		List of $objectClassname objects
+ * @return     array<int, $objectClassname> 		List of $objectClassname objects
  */
 public function getFirstChild(\$query = null, ?PropulsionPDO \$con = null)
 {
@@ -863,7 +866,7 @@ public function getFirstChild(\$query = null, ?PropulsionPDO \$con = null)
  *
  * @param      Criteria \$query Criteria to filter results.
  * @param      PropulsionPDO \$con Connection to use.
- * @return     array 		List of $objectClassname objects
+ * @return     array<int, $objectClassname> 		List of $objectClassname objects
  */
 public function getLastChild(\$query = null, ?PropulsionPDO \$con = null)
 {
@@ -891,7 +894,7 @@ public function getLastChild(\$query = null, ?PropulsionPDO \$con = null)
  * @param      Criteria \$query Criteria to filter results.
  * @param      PropulsionPDO \$con Connection to use.
  *
- * @return     array 		List of $objectClassname objects
+ * @return     array<int, $objectClassname> 		List of $objectClassname objects
  */
 public function getSiblings(\$includeNode = false, \$query = null, ?PropulsionPDO \$con = null)
 {
@@ -920,7 +923,7 @@ public function getSiblings(\$includeNode = false, \$query = null, ?PropulsionPD
  *
  * @param      Criteria \$query Criteria to filter results.
  * @param      PropulsionPDO \$con Connection to use.
- * @return     array 		List of $objectClassname objects
+ * @return     array<int, $objectClassname> 		List of $objectClassname objects
  */
 public function getDescendants(\$query = null, ?PropulsionPDO \$con = null)
 {
@@ -972,7 +975,7 @@ public function countDescendants(\$query = null, ?PropulsionPDO \$con = null)
  *
  * @param      Criteria \$query Criteria to filter results.
  * @param      PropulsionPDO \$con Connection to use.
- * @return     array 		List of $objectClassname objects
+ * @return     array<int, $objectClassname> 		List of $objectClassname objects
  */
 public function getBranch(\$query = null, ?PropulsionPDO \$con = null)
 {
@@ -995,7 +998,7 @@ public function getBranch(\$query = null, ?PropulsionPDO \$con = null)
  *
  * @param      Criteria \$query Criteria to filter results.
  * @param      PropulsionPDO \$con Connection to use.
- * @return     array 		List of $objectClassname objects
+ * @return     array<int, $objectClassname> 		List of $objectClassname objects
  */
 public function getAncestors(\$query = null, ?PropulsionPDO \$con = null)
 {
@@ -1390,6 +1393,7 @@ public function moveToNextSiblingOf(\$sibling, ?PropulsionPDO \$con = null)
  * @param      int	\$destLeft Destination left value
  * @param      int	\$levelDelta Delta to add to the levels
  * @param      PropulsionPDO \$con		Connection to use.
+ * @return     void
  */
 protected function moveSubtreeTo(\$destLeft, \$levelDelta, ?PropulsionPDO \$con = null)
 {
@@ -1525,6 +1529,7 @@ public function getIterator()
  *
  * @deprecated since 1.5
  * @see        makeRoot
+ * @return     {$this->objectClassname} The current object
  */
 public function createRoot()
 {
@@ -1536,6 +1541,7 @@ public function createRoot()
  *
  * @deprecated since 1.5
  * @see        getParent
+ * @return     mixed Propulsion object if exists else false
  */
 public function retrieveParent(?PropulsionPDO \$con = null)
 {
@@ -1547,6 +1553,8 @@ public function retrieveParent(?PropulsionPDO \$con = null)
  *
  * @deprecated since 1.5
  * @see        setParent
+ * @param      $objectClassname \$parent
+ * @return     {$this->objectClassname} The current object
  */
 public function setParentNode(\$parent = null)
 {
@@ -1558,6 +1566,7 @@ public function setParentNode(\$parent = null)
  *
  * @deprecated since 1.5
  * @see        setParent
+ * @return     int Number of descendants
  */
 public function getNumberOfDescendants(?PropulsionPDO \$con = null)
 {
@@ -1569,6 +1578,7 @@ public function getNumberOfDescendants(?PropulsionPDO \$con = null)
  *
  * @deprecated since 1.5
  * @see        setParent
+ * @return     int Number of children
  */
 public function getNumberOfChildren(?PropulsionPDO \$con = null)
 {
@@ -1580,6 +1590,7 @@ public function getNumberOfChildren(?PropulsionPDO \$con = null)
  *
  * @deprecated since 1.5
  * @see        getParent
+ * @return     mixed Propulsion object if exists else false
  */
 public function retrievePrevSibling(?PropulsionPDO \$con = null)
 {
@@ -1591,6 +1602,7 @@ public function retrievePrevSibling(?PropulsionPDO \$con = null)
  *
  * @deprecated since 1.5
  * @see        getParent
+ * @return     mixed Propulsion object if exists else false
  */
 public function retrieveNextSibling(?PropulsionPDO \$con = null)
 {
@@ -1602,6 +1614,7 @@ public function retrieveNextSibling(?PropulsionPDO \$con = null)
  *
  * @deprecated since 1.5
  * @see        getParent
+ * @return     array<int, {$this->objectClassname}> List of objects
  */
 public function retrieveFirstChild(?PropulsionPDO \$con = null)
 {
@@ -1613,6 +1626,7 @@ public function retrieveFirstChild(?PropulsionPDO \$con = null)
  *
  * @deprecated since 1.5
  * @see        getParent
+ * @return     array<int, {$this->objectClassname}> List of objects
  */
 public function retrieveLastChild(?PropulsionPDO \$con = null)
 {
@@ -1624,6 +1638,7 @@ public function retrieveLastChild(?PropulsionPDO \$con = null)
  *
  * @deprecated since 1.5
  * @see        getAncestors
+ * @return     array<int, {$this->objectClassname}> The ancestors plus this node
  */
 public function getPath(?PropulsionPDO \$con = null)
 {

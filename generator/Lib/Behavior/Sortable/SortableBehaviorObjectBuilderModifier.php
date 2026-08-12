@@ -121,7 +121,7 @@ class SortableBehaviorObjectBuilderModifier
 		return "
 /**
  * Queries to be executed in the save transaction
- * @var        array
+ * @var        array<int, array{callable: callable, arguments: array<int, mixed>}>
  */
 protected \$sortableQueries = array();
 ";
@@ -176,7 +176,7 @@ public function getRank()
 /**
  * Wrap the setter for rank value
  *
- * @param     int
+ * @param     int \$v
  * @return    {$this->objectClassname}
  */
 public function setRank(\$v)
@@ -205,7 +205,7 @@ public function getScopeValue()
 /**
  * Wrap the setter for scope value
  *
- * @param     int
+ * @param     int \$v
  * @return    {$this->objectClassname}
  */
 public function setScopeValue(\$v)
@@ -641,6 +641,9 @@ public function removeFromList()
 		$script .= "
 /**
  * Execute queries that were saved to be run inside the save transaction
+ *
+ * @param     ?PropulsionPDO \$con
+ * @return    void
  */
 protected function processSortableQueries(\$con)
 {

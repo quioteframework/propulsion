@@ -3,6 +3,8 @@
  * Update the aggregate column in the related <?php echo $relationName ?> object
  *
  * @param PropulsionPDO $con A connection object
+ *
+ * @return void
  */
 protected function updateRelated<?php echo $relationName ?>(PropulsionPDO $con)
 {

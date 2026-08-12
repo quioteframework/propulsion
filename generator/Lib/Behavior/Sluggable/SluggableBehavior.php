@@ -163,7 +163,7 @@ if (\$this->isColumnModified($const) && \$this->{$this->getColumnGetter()}()) {
 /**
  * Wrap the setter for slug value
  *
- * @param   string
+ * @param   string \$v
  * @return  " . $this->requireTable()->getPhpName() . "
  */
 public function setSlug(\$v)
@@ -237,9 +237,9 @@ protected function createRawSlug()
  * Cleanup a string to make a slug of it
  * Removes special characters, replaces blanks with a separator, and trim it
  *
- * @param     string \$text      the text to slugify
- * @param     string \$separator the separator used by slug
- * @return    string             the slugified text
+ * @param     string \$slug        the text to slugify
+ * @param     string \$replacement the separator used by slug
+ * @return    string               the slugified text
  */
 protected static function cleanupSlugPart(\$slug, \$replacement = '" . $this->getStringParameter('replacement') . "')
 {
@@ -283,6 +283,7 @@ protected static function cleanupSlugPart(\$slug, \$replacement = '" . $this->ge
  * Make sure the slug is short enough to accomodate the column size
  *
  * @param	string \$slug			the slug to check
+ * @param	int \$incrementReservedSpace	characters to keep free for a uniqueness suffix
  *
  * @return string						the truncated slug
  */
@@ -306,6 +307,7 @@ protected static function limitSlugSize(\$slug, \$incrementReservedSpace = 3)
  *
  * @param	string \$slug			the slug to check
  * @param	string \$separator the separator used by slug
+ * @param	int \$increment		suffix counter, bumped until the slug is unique
  * @return string						the unique slug
  */
 protected function makeSlugUnique(\$slug, \$separator = '" . $this->getStringParameter('separator') ."', \$increment = 0)

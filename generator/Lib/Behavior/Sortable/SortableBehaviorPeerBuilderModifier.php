@@ -230,7 +230,7 @@ public static function retrieveByRank(\$rank, " . ($useScope ? "\$scope = null, 
  * Beware that there is no check made on the positions passed
  * So incoherent positions will result in an incoherent list
  *
- * @param     array     \$order id => rank pairs
+ * @param     array<int|string, int> \$order id => rank pairs
  * @param     PropulsionPDO \$con   optional connection
  *
  * @return    boolean true if the reordering took place, false if a database problem prevented it
@@ -274,7 +274,7 @@ public static function reorder(array \$order, ?PropulsionPDO \$con = null)
  * @param     string    \$order     sorting order, to be chosen between Criteria::ASC (default) and Criteria::DESC
  * @param     PropulsionPDO \$con       optional connection
  *
- * @return    array list of sortable objects
+ * @return    array<int, mixed> list of sortable objects
  */
 public static function doSelectOrderByRank(?Criteria \$criteria = null, \$order = Criteria::ASC, ?PropulsionPDO \$con = null)
 {
@@ -312,7 +312,7 @@ public static function doSelectOrderByRank(?Criteria \$criteria = null, \$order 
  * @param     string    \$order  sorting order, to be chosen between Criteria::ASC (default) and Criteria::DESC
  * @param     PropulsionPDO \$con    optional connection
  *
- * @return    array list of sortable objects
+ * @return    array<int, mixed> list of sortable objects
  */
 public static function retrieveList(\$scope, \$order = Criteria::ASC, ?PropulsionPDO \$con = null)
 {
@@ -334,7 +334,7 @@ public static function retrieveList(\$scope, \$order = Criteria::ASC, ?Propulsio
  * @param     int       \$scope  the scope of the list
  * @param     PropulsionPDO \$con    optional connection
  *
- * @return    array list of sortable objects
+ * @return    int the number of objects in the scope
  */
 public static function countList(\$scope, ?PropulsionPDO \$con = null)
 {
@@ -385,6 +385,7 @@ public static function deleteList(\$scope, ?PropulsionPDO \$con = null)
 		}
 		$script .= "
  * @param      PropulsionPDO \$con Connection to use.
+ * @return     void
  */
 public static function shiftRank(\$delta, \$first, \$last = null, " . ($useScope ? "\$scope = null, " : "") . "?PropulsionPDO \$con = null)
 {

@@ -226,6 +226,8 @@ abstract class ".$this->getClassname()." extends ".$this->getObjectBuilder()->ge
 
 	/**
 	 * Store children of the node
+	 *
+	 * @var ?array<int, $objectClassName>
 	 */
 	protected ?array \$children = null;
 ";

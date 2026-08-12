@@ -304,6 +304,7 @@ public static function deleteTree(" . ($useScope ? "\$scope = null, " : "") . "?
 		}
 		$script .= "
  * @param      PropulsionPDO \$con		Connection to use.
+ * @return     void
  */
 public static function shiftRLValues(\$delta, \$first, \$last = null" . ($useScope ? ", \$scope = null" : ""). ", ?PropulsionPDO \$con = null)
 {
@@ -368,6 +369,7 @@ public static function shiftRLValues(\$delta, \$first, \$last = null" . ($useSco
 		}
 		$script .= "
  * @param      PropulsionPDO \$con		Connection to use.
+ * @return     void
  */
 public static function shiftLevel(\$delta, \$first, \$last" . ($useScope ? ", \$scope = null" : ""). ", ?PropulsionPDO \$con = null)
 {
@@ -402,6 +404,7 @@ public static function shiftLevel(\$delta, \$first, \$last" . ($useScope ? ", \$
  *
  * @param      $objectClassname \$prune		Object to prune from the update
  * @param      PropulsionPDO \$con		Connection to use.
+ * @return     void
  */
 public static function updateLoadedNodes(\$prune = null, ?PropulsionPDO \$con = null)
 {
@@ -496,6 +499,7 @@ public static function updateLoadedNodes(\$prune = null, ?PropulsionPDO \$con = 
  		$script .= "
  * @param      mixed \$prune	Object to prune from the shift
  * @param      PropulsionPDO \$con	Connection to use.
+ * @return     void
  */
 public static function makeRoomForLeaf(\$left" . ($useScope ? ", \$scope" : ""). ", \$prune = null, ?PropulsionPDO \$con = null)
 {
@@ -522,6 +526,7 @@ public static function makeRoomForLeaf(\$left" . ($useScope ? ", \$scope" : "").
  		}
  		$script .= "
  * @param      PropulsionPDO \$con	Connection to use.
+ * @return     void
  */
 public static function fixLevels(" . ($useScope ? "\$scope, " : ""). "?PropulsionPDO \$con = null)
 {

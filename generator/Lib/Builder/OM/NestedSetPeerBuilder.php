@@ -273,6 +273,8 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 		$script .= "
 	/**
 	 * Get the tree structure as an array
+	 *
+	 * @return     array<int, NodeObject> The nodes in tree order
 	 */
 	public static function getTree(?int \$scope = null): array
 	{
@@ -941,7 +943,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 	/**
 	 * Returns path to a specific node as an array, useful to create breadcrumbs
 	 *
-	 * @return     array Array in order of hierarchy
+	 * @return     array<int, NodeObject> Array in order of hierarchy
 	 */
 	public static function getPath(NodeObject \$node, ?PropulsionPDO \$con = null): array
 	{
@@ -1150,7 +1152,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 	/**
 	 * Hydrate recursively the descendants of the given node
 	 *
-	 * @return     array
+	 * @return     array<int, NodeObject>
 	 */
 	protected static function hydrateDescendants(NodeObject \$node, \PDOStatement \$stmt): array
 	{
@@ -1204,7 +1206,7 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 	/**
 	 * Hydrate the direct children of the given node
 	 *
-	 * @return     array
+	 * @return     array<int, NodeObject>
 	 */
 	protected static function hydrateChildren(NodeObject \$node, \PDOStatement \$stmt): array
 	{
@@ -1266,6 +1268,8 @@ abstract class ".$this->getClassname()." extends ".$this->getPeerBuilder()->getC
 		$script .= "
 	/**
 	 * Reload all already loaded nodes to sync them with updated db
+	 *
+	 * @param      int \$delta Amount the L and R values moved by
 	 */
 	protected static function updateLoadedNode(?NodeObject \$node, \$delta, ?PropulsionPDO \$con = null): void
 	{
@@ -1301,6 +1305,8 @@ $rightSetterLine
 		$script .= "
 	/**
 	 * Move \$node and its children to location \$destLeft and updates rest of tree
+	 *
+	 * @param      int \$destLeft Destination left value
 	 */
 	protected static function updateDBNode(NodeObject \$node, \$destLeft, ?PropulsionPDO \$con = null): void
 	{
@@ -1331,6 +1337,10 @@ $rightSetterLine
 		$script .= "
 	/**
 	 * Adds '\$delta' to all L and R values that are >= '\$first'. '\$delta' can also be negative.
+	 *
+	 * @param      int \$first First L/R value to shift
+	 * @param      int \$delta Amount to shift by
+	 * @param      int|null \$scopeId Restrict the shift to one tree scope
 	 */
 	protected static function shiftRLValues(\$first, \$delta, ?PropulsionPDO \$con = null, \$scopeId = null): void
 	{
@@ -1400,7 +1410,11 @@ $rightSetterLine
 	 * Adds '\$delta' to all L and R values that are >= '\$first' and <= '\$last'.
 	 * '\$delta' can also be negative.
 	 *
-	 * @return     array Shifted L and R values
+	 * @param      int \$first First L/R value in the range
+	 * @param      int \$last Last L/R value in the range
+	 * @param      int \$delta Amount to shift by
+	 * @param      int|null \$scopeId Restrict the shift to one tree scope
+	 * @return     array<int, NodeObject> Shifted L and R values
 	 */
 	protected static function shiftRLRange(\$first, \$last, \$delta, ?PropulsionPDO \$con = null, \$scopeId = null): array
 	{

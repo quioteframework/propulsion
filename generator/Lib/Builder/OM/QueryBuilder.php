@@ -1634,7 +1634,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
     /**
      * Code to execute before every UPDATE statement
      *
-     * @param     array \$values The associatiove array of columns and values for the update
+     * @param     array<string, mixed> \$values The associatiove array of columns and values for the update
      * @param     PropulsionPDO \$con The connection object used by the query
      * @param     boolean \$forceIndividualSaves If false (default), the resulting call is a BasePeer::doUpdate(), ortherwise it is a series of save() calls on all the found objects
      */
