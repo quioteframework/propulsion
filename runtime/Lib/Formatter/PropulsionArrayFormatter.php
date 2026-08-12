@@ -20,12 +20,13 @@ namespace Propulsion\Formatter;
  use \PDO;
  use \PDOStatement;
  use Propulsion\Collection\PropulsionCollection;
+ use Propulsion\Collection\PropulsionArrayCollection;
  use Propulsion\Exception\PropulsionException;
  use Propulsion\OM\BaseObject;
  use Propulsion\Util\StatementRows;
 class PropulsionArrayFormatter extends PropulsionFormatter
 {
-	/** @var class-string<PropulsionCollection> */
+	/** @var class-string<PropulsionArrayCollection> */
 	protected string $collectionName = 'Propulsion\\Collection\\PropulsionArrayCollection';
 
 	/** @var array<string, array<int|string, array<array-key, mixed>>> */

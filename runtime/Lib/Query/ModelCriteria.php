@@ -1747,7 +1747,7 @@ class ModelCriteria extends Criteria
 	 *
 	 * @param     PropulsionPDO $con an optional connection object
 	 *
-	* @return     PropulsionCollection the list of results (default formatter returns PropulsionObjectCollection or PropulsionArrayCollection, never null)
+	* @return     PropulsionCollection<mixed> the list of results (default formatter returns PropulsionObjectCollection or PropulsionArrayCollection, never null)
 	*/
     public function find(?PropulsionPDO $con = null) : PropulsionCollection
 	{
@@ -1972,7 +1972,7 @@ class ModelCriteria extends Criteria
 	 * @param     array<int, mixed> $keys Primary keys to use for the query
 	 * @param     PropulsionPDO $con an optional connection object
 	 *
-	* @return    PropulsionCollection the list of results (default formatter returns PropulsionObjectCollection or PropulsionArrayCollection, never null)
+	* @return    PropulsionCollection<mixed> the list of results (default formatter returns PropulsionObjectCollection or PropulsionArrayCollection, never null)
 	*/
     public function findPks(mixed $keys, ?PropulsionPDO $con = null) : PropulsionCollection
 	{
@@ -2155,7 +2155,7 @@ class ModelCriteria extends Criteria
 	 * @param     array<string, mixed> $conditions An array of conditions, using column phpNames as key
 	 * @param     PropulsionPDO $con an optional connection object
 	 *
-	 * @return    PropulsionCollection the list of results (default formatter returns PropulsionObjectCollection, never null)
+	 * @return    PropulsionCollection<mixed> the list of results (default formatter returns PropulsionObjectCollection, never null)
 	 */
 	public function findByArray(array $conditions, ?PropulsionPDO $con = null) : PropulsionCollection
 	{
@@ -2675,9 +2675,6 @@ class ModelCriteria extends Criteria
 				throw new PropulsionException('doUpdate() with $forceIndividualSaves expects a PropulsionObjectCollection');
 			}
 			foreach ($objects as $object) {
-				if (!$object instanceof BaseObject) {
-					throw new PropulsionException('doUpdate() with $forceIndividualSaves expects a PropulsionObjectCollection of BaseObject instances');
-				}
 				foreach ($values as $key => $value) {
 					self::callSetByName($object, $key, $value);
 				}

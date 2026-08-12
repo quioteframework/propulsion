@@ -44,6 +44,7 @@ class PropulsionModelPager implements \IteratorAggregate, \Countable
 	protected int $currentMaxLink = 1;
 	protected mixed $parameterHolder = null;
 	protected bool|int $maxRecordLimit = false;
+	/** @var PropulsionCollection<mixed>|null */
 	protected ?PropulsionCollection $results = null;
 	protected int $resultsCounter	= 0;
 	protected ?PropulsionPDO $con = null;
@@ -107,7 +108,7 @@ class PropulsionModelPager implements \IteratorAggregate, \Countable
 	/**
 	 * Get the collection of results in the page
 	 *
-	 * @return PropulsionCollection A collection of results
+	 * @return PropulsionCollection<mixed> A collection of results
 	 */
 	public function getResults()
 	{

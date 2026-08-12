@@ -660,7 +660,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * @param     " . $keysType . " \$keys Primary keys to use for the query
      * @param     PropulsionPDO \$con an optional connection object
      *
-     * @return    PropulsionObjectCollection the list of results, formatted by the current formatter
+     * @return    PropulsionObjectCollection<" . $this->getStubObjectBuilder()->getClassname() . "> the list of results, formatted by the current formatter
      */
     public function findPks(mixed \$keys, ?PropulsionPDO \$con = null) : PropulsionObjectCollection
     {
@@ -1149,7 +1149,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * @param     $fkPhpName $objectName The related object to use as filter";
         } else {
             $script .= "
-     * @param     $fkPhpName|PropulsionObjectCollection $objectName The related object(s) to use as filter";
+     * @param     $fkPhpName|PropulsionObjectCollection<$fkPhpName> $objectName The related object(s) to use as filter";
         }
         $script .= "
      * @param     string \$comparison Operator to use for the column comparison, defaults to Criteria::EQUAL
@@ -1217,7 +1217,7 @@ abstract class ".$this->getClassname()." extends " . $parentClass . "
      * @param     $fkPhpName $objectName  the related object to use as filter";
         } else {
             $script .= "
-     * @param     $fkPhpName|PropulsionObjectCollection $objectName  the related object(s) to use as filter";
+     * @param     $fkPhpName|PropulsionObjectCollection<$fkPhpName> $objectName  the related object(s) to use as filter";
         }
         $script .= "
      * @param     string \$comparison Operator to use for the column comparison, defaults to Criteria::EQUAL

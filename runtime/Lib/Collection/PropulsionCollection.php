@@ -38,7 +38,8 @@ namespace Propulsion\Collection;
  use Propulsion\Util\BasePeer;
 
 /**
- * @extends \ArrayObject<array-key,mixed>
+ * @template T
+ * @extends \ArrayObject<array-key,T>
  */
 class PropulsionCollection extends \ArrayObject implements \Serializable
 {
@@ -468,7 +469,7 @@ class PropulsionCollection extends \ArrayObject implements \Serializable
 	 * Overrides ArrayObject::getIterator() to save the iterator object
 	 * for internal use e.g. getNext(), isOdd(), etc.
 	 *
-	 * @return    Iterator<array-key,mixed>
+	 * @return    Iterator<array-key,T>
 	 */
 	public function getIterator(): Iterator
 	{

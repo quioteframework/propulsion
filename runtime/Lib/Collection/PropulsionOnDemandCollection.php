@@ -19,6 +19,11 @@ use Propulsion\Exception\PropulsionException;
 use Propulsion\Formatter\PropulsionObjectFormatter;
 use Propulsion\OM\BaseObject;
 use Propulsion\Util\BasePeer;
+/**
+ * Streams hydrated model objects straight off the statement.
+ *
+ * @extends PropulsionCollection<BaseObject>
+ */
 class PropulsionOnDemandCollection extends PropulsionCollection
 {
 	/**

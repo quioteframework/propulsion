@@ -599,7 +599,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 				$script .= "
 
 	/**
-	 * @var PropulsionObjectCollection|null
+	 * @var PropulsionObjectCollection<$refTableName>|null
 	 */
 	protected PropulsionObjectCollection|null \$$varName = null;";
 			}
@@ -615,7 +615,7 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			$script .= "
 
 	/**
-	 * @var PropulsionObjectCollection|null
+	 * @var PropulsionObjectCollection<$crossTableName>|null
 	 */
 	protected PropulsionObjectCollection|null \$$varName = null;";
 		}
@@ -3827,14 +3827,11 @@ abstract class " . $this->getClassname() . " extends $parentClass$implements
 			// {$varName} is always a PropulsionObjectCollection (never a plain array);
 			// the old is_array() guard here was always false and this branch was
 			// consequently dead code.
+			// The collection's element type is declared on the property, so the
+			// instanceof this loop used to carry purely to prove clearAllReferences()
+			// exists is no longer doing anything.
 			foreach (\$this->{$varName} as \$o) {
-				// clearAllReferences() is an abstract method on BaseObject (every
-				// generated model object extends it), so this instanceof check --
-				// unlike the previous method_exists() one -- lets static analysis
-				// see that the call below is valid.
-				if (\$o instanceof BaseObject) {
-					\$o->clearAllReferences(\$deep);
-				}
+				\$o->clearAllReferences(\$deep);
 			}
 		}";
 			}

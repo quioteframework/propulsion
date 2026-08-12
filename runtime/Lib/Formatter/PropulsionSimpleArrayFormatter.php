@@ -12,6 +12,7 @@ namespace Propulsion\Formatter;
 use PDOStatement;
 use PDO;
 use Propulsion\Collection\PropulsionCollection;
+use Propulsion\Collection\PropulsionArrayCollection;
 use Propulsion\Exception\PropulsionException;
 use Propulsion\Util\StatementRows;
 /**
@@ -23,7 +24,7 @@ use Propulsion\Util\StatementRows;
  * @version    $Revision$
  */
 class PropulsionSimpleArrayFormatter extends PropulsionFormatter {
-	/** @var class-string<PropulsionCollection> */
+	/** @var class-string<PropulsionArrayCollection> */
 	protected string $collectionName = 'Propulsion\\Collection\\PropulsionArrayCollection';
 
 	public function format(PDOStatement $stmt): mixed {

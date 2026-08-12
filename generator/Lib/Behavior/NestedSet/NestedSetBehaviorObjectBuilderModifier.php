@@ -100,7 +100,7 @@ protected \$nestedSetQueries = array();
 
 /**
  * Internal cache for children nodes
- * @var        null|PropulsionObjectCollection
+ * @var        null|PropulsionObjectCollection<$objectClassname>
  */
 protected \$collNestedSetChildren = null;
 
@@ -1507,7 +1507,7 @@ public function deleteDescendants(?PropulsionPDO \$con = null)
 /**
  * Returns a pre-order iterator for this node and its children.
  *
- * @return     RecursiveIterator
+ * @return     \RecursiveIterator<string, ?object>
  */
 public function getIterator()
 {

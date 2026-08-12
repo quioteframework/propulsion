@@ -20,6 +20,12 @@ use Propulsion\Propulsion;
 use Propulsion\OM\BaseObject;
 use Propulsion\Util\BasePeer;
 
+/**
+ * Rows, not objects: each element is whatever the formatter put in -- normally
+ * one model's data as an array, but toArray() is free to return a scalar.
+ *
+ * @extends PropulsionCollection<mixed>
+ */
 class PropulsionArrayCollection extends PropulsionCollection
 {
 	/** @var BaseObject|null */

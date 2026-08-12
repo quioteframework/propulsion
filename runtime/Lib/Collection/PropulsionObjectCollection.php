@@ -24,6 +24,19 @@ namespace Propulsion\Collection;
 use Propulsion\Map\TableMap;
 use Propulsion\OM\BaseObject;
 use Propulsion\Util\BasePeer;
+/**
+ * T is invariant, which it has to be: the collection is mutable and inherits
+ * ArrayObject<array-key,T>, itself invariant. The visible cost is with concrete
+ * inheritance, where a child query overrides findPks() and returns a collection
+ * of its own model -- PropulsionObjectCollection<ConcreteArticle> against the
+ * parent's PropulsionObjectCollection<ConcreteContent>, which invariance rejects.
+ * Four such overrides across the fixture builds; the alternative is dropping the
+ * element type from every generated find()/findPks(), which costs far more than
+ * it saves.
+ *
+ * @template T of BaseObject
+ * @extends PropulsionCollection<T>
+ */
 class PropulsionObjectCollection extends PropulsionCollection
 {
 
@@ -45,7 +58,6 @@ class PropulsionObjectCollection extends PropulsionCollection
 		}
 		$con->beginTransaction();
 		try {
-			/** @var BaseObject $element */
 			foreach ($this as $element) {
 				$element->save($con);
 			}
@@ -74,7 +86,6 @@ class PropulsionObjectCollection extends PropulsionCollection
 		}
 		$con->beginTransaction();
 		try {
-			/** @var BaseObject $element */
 			foreach ($this as $element) {
 				$element->delete($con);
 			}
@@ -95,7 +106,6 @@ class PropulsionObjectCollection extends PropulsionCollection
 	{
 		$ret = array();
 
-		/** @var BaseObject $obj*/
 		foreach ($this as $key => $obj) {
 			$key = $usePrefix ? ($this->getModel() . '_' . $key) : $key;
 			$ret[$key]= $obj->getPrimaryKey();
@@ -114,12 +124,30 @@ class PropulsionObjectCollection extends PropulsionCollection
 	public function fromArray($arr): void
 	{
 		$class = $this->getModel();
+		if ($class === '') {
+			throw new PropulsionException('Cannot build objects for a collection with no model set');
+		}
 		foreach ($arr as $element) {
-			/** @var BaseObject */
 			$obj = new $class();
 			$obj->fromArray($element);
 			$this->append($obj);
 		}
+	}
+
+	/**
+	 * The model class of the objects in this collection.
+	 *
+	 * Overridden purely to narrow the return type: for an *object* collection the
+	 * model class is the element class, which the base declaration cannot say
+	 * because a PropulsionArrayCollection has a model too and holds arrays. Saying
+	 * it here is what lets fromArray() construct a T rather than a bare BaseObject.
+	 *
+	 * @return    class-string<T>|'' Empty until setModel() has run.
+	 */
+	public function getModel()
+	{
+		/** @var class-string<T>|'' */
+		return parent::getModel();
 	}
 
 	/**
@@ -162,7 +190,6 @@ class PropulsionObjectCollection extends PropulsionCollection
 		$ret = array();
 		$keyGetterMethod = 'get' . $keyColumn;
 
-		/** @var BaseObject $obj */
 		foreach ($this as $key => $obj) {
 			$key = null === $keyColumn ? $key : $obj->$keyGetterMethod();
 			$key = $usePrefix ? ($this->getModel() . '_' . $key) : $key;
@@ -250,7 +277,7 @@ class PropulsionObjectCollection extends PropulsionCollection
 	 * @param     Criteria   $criteria  Optional Criteria object to filter the related object collection
 	 * @param     PropulsionPDO  $con       Optional connection object
 	 *
-	 * @return    PropulsionObjectCollection  The list of related objects
+	 * @return    PropulsionObjectCollection<BaseObject>  The list of related objects
 	 */
 	public function populateRelation($relation, $criteria = null, $con = null)
 	{
@@ -286,9 +313,6 @@ class PropulsionObjectCollection extends PropulsionCollection
 			// initialize the embedded collections of the main objects
 			$relationName = $relationMap->getName();
 			foreach ($this as $mainObj) {
-				if (!$mainObj instanceof BaseObject) {
-					continue;
-				}
 				$mainObj->initRelation($relationName);
 			}
 			// associate the related objects to the main objects

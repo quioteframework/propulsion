@@ -25,7 +25,7 @@ namespace Propulsion\Formatter;
  use PDO;
 class PropulsionObjectFormatter extends PropulsionFormatter
 {
-	/** @var class-string<PropulsionCollection> */
+	/** @var class-string<PropulsionCollection<BaseObject>> */
 	protected string $collectionName = 'Propulsion\\Collection\\PropulsionObjectCollection';
 
 	public function format(PDOStatement $stmt): mixed
