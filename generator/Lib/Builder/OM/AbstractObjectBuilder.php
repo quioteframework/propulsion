@@ -32,6 +32,156 @@ abstract class AbstractObjectBuilder extends OMBuilder
 	}
 
 	/**
+	 * Tokenizes this builder's own generated output to answer "what public,
+	 * non-static, non-magic instance methods will this table's Generated
+	 * trait define, and with what signature" -- without duplicating this
+	 * class's (or a behavior modifier's) method-emission logic.
+	 *
+	 * Used by DelegateBehavior to generate real forwarding methods for a
+	 * delegate table's accessors/relations, instead of the old runtime-only
+	 * __call() dispatch: that only discovered a delegate's method surface at
+	 * call time via method_exists(), invisible to static analysis and to
+	 * anything (like a `use Trait { name as ...; }` alias) that needs the
+	 * method to exist as a real symbol at compile time.
+	 *
+	 * Uses PHP's own tokenizer rather than re-deriving names/types from the
+	 * table's columns and foreign keys: that would mean re-implementing (and
+	 * keeping in sync with) every method-emission path this class and its
+	 * behavior modifiers have -- columns, FK/refFK/crossFK accessors in all
+	 * their join-method variants, generic accessors, whatever a future
+	 * behavior adds -- rather than reading the one place they already all
+	 * converge: this builder's own generated output.
+	 *
+	 * @return array<string, array{params: string, returnType: ?string}>
+	 */
+	public function getGeneratedMethodSignatures(): array
+	{
+		$tokens = token_get_all($this->build());
+
+		$signatures = array();
+		$depth = 0;
+		$count = count($tokens);
+		for ($i = 0; $i < $count; $i++) {
+			$token = $tokens[$i];
+			if ($token === '{') {
+				$depth++;
+				continue;
+			}
+			if ($token === '}') {
+				$depth--;
+				continue;
+			}
+			// Only the trait/class's own top-level members -- not, e.g., a
+			// match/closure body nested one level deeper (none exist in
+			// today's generated code, but this keeps a future one honest).
+			if ($depth !== 1 || !is_array($token) || $token[0] !== T_FUNCTION) {
+				continue;
+			}
+
+			[$isPublic, $isStatic] = $this->classifyMethodModifiers($tokens, $i);
+			if (!$isPublic || $isStatic) {
+				continue;
+			}
+
+			$nameIndex = $i + 1;
+			while ($nameIndex < $count && is_array($tokens[$nameIndex]) && $tokens[$nameIndex][0] === T_WHITESPACE) {
+				$nameIndex++;
+			}
+			if (!is_array($tokens[$nameIndex]) || $tokens[$nameIndex][0] !== T_STRING) {
+				continue;
+			}
+			$name = $tokens[$nameIndex][1];
+			// Magic methods (__construct, __call, __toString, ...) can't be
+			// meaningfully forwarded to a delegate.
+			if (str_starts_with($name, '__')) {
+				continue;
+			}
+
+			$parenIndex = $nameIndex + 1;
+			while ($parenIndex < $count && $tokens[$parenIndex] !== '(') {
+				$parenIndex++;
+			}
+			[$params, $afterParams] = $this->extractBalanced($tokens, $parenIndex, '(', ')');
+
+			$returnType = null;
+			$r = $afterParams;
+			while ($r < $count && is_array($tokens[$r]) && $tokens[$r][0] === T_WHITESPACE) {
+				$r++;
+			}
+			if (isset($tokens[$r]) && $tokens[$r] === ':') {
+				$r++;
+				$typeText = '';
+				while ($r < $count && $tokens[$r] !== '{' && $tokens[$r] !== ';') {
+					$typeText .= is_array($tokens[$r]) ? $tokens[$r][1] : $tokens[$r];
+					$r++;
+				}
+				$returnType = trim($typeText);
+			}
+
+			$signatures[$name] = array('params' => trim($params), 'returnType' => $returnType);
+		}
+		return $signatures;
+	}
+
+	/**
+	 * Walks backward from a T_FUNCTION token, over the modifier keywords of
+	 * its own declaration, stopping at the previous statement/block boundary.
+	 * @param list<array{0: int, 1: string, 2: int}|string> $tokens
+	 * @return array{0: bool, 1: bool} [isPublic, isStatic]
+	 */
+	private function classifyMethodModifiers(array $tokens, int $functionIndex): array
+	{
+		$isPublic = false;
+		$isStatic = false;
+		for ($j = $functionIndex - 1; $j >= 0; $j--) {
+			$t = $tokens[$j];
+			if ($t === '{' || $t === '}' || $t === ';') {
+				break;
+			}
+			if (!is_array($t)) {
+				continue;
+			}
+			if ($t[0] === T_PUBLIC) {
+				$isPublic = true;
+			} elseif ($t[0] === T_PRIVATE || $t[0] === T_PROTECTED) {
+				return array(false, $isStatic);
+			} elseif ($t[0] === T_STATIC) {
+				$isStatic = true;
+			}
+		}
+		return array($isPublic, $isStatic);
+	}
+
+	/**
+	 * Concatenates tokens between a balanced pair of single-character
+	 * delimiters starting at $openIndex (which must hold $open itself).
+	 * @param list<array{0: int, 1: string, 2: int}|string> $tokens
+	 * @return array{0: string, 1: int} [text between the delimiters, index just past the closer]
+	 */
+	private function extractBalanced(array $tokens, int $openIndex, string $open, string $close): array
+	{
+		$count = count($tokens);
+		$depth = 0;
+		$text = '';
+		for ($i = $openIndex; $i < $count; $i++) {
+			$t = $tokens[$i];
+			if ($t === $open) {
+				$depth++;
+				if ($depth === 1) {
+					continue;
+				}
+			} elseif ($t === $close) {
+				$depth--;
+				if ($depth === 0) {
+					return array($text, $i + 1);
+				}
+			}
+			$text .= is_array($t) ? $t[1] : $t;
+		}
+		return array($text, $count);
+	}
+
+	/**
 	 * This method adds the contents of the generated class to the script.
 	 *
 	 * This method is abstract and should be overridden by the subclasses.
