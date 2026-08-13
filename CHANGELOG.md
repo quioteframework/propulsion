@@ -1,3 +1,81 @@
+## [3.0.0-RC1] - 2026-08-13
+
+### 🚀 Features
+
+- *(generator)* [**breaking**] Emit the object model as a trait instead of a base class
+- *(generator)* [**breaking**] Remove the concrete_inheritance behavior
+- *(generator)* [**breaking**] Emit the query model as a trait instead of a base class
+- *(generator)* [**breaking**] Emit the node model as traits instead of base classes
+- *(rector)* Ship a migration rule for the stub-to-trait change
+
+### 🐛 Bug Fixes
+
+- *(generator)* Correct return and parameter types across four behaviors
+- *(generator)* Drop a dead break, and record three findings not worth guessing at
+- *(generator)* Make primary-key types agree between the object and the query
+- *(generator)* Stop reading rows and primary keys as mixed
+- *(generator)* Refuse to move an unplaced node, and type the nested_set row reads
+- *(generator)* [**breaking**] Honour a query preDelete() veto, unify tree returns, type filterBy
+- *(generator)* Type array columns, and stop the suite inheriting a leaked container
+- *(generator)* Let a rank move and an aggregate update take a nullable connection
+- *(generator)* Guard nullable relations, LOB writes and read-only validation
+- *(generator)* Stop coercing mixed values through columns and tree lookups
+- *(generator)* Clear the last generated-code level 9 findings
+
+### 🚜 Refactor
+
+- *(generator)* [**breaking**] Stop concrete_inheritance chaining peer classes
+
+### 📚 Documentation
+
+- *(generator)* Record the trait collision audit, which comes back clear
+- *(known-issues)* Drop the section the traits work superseded
+
+### 🧪 Testing
+
+- *(generator)* Pin the contracts the traits work established
+- *(runtime)* Cover PropulsionArrayCollection's re-keying API
+
+### ⚙️ Miscellaneous Tasks
+
+- *(phpstan)* Gate generated code at level 9, not just the source that emits it
+## [pre-traits-checkpoint] - 2026-08-12
+
+### 🚀 Features
+
+- *(om)* Add Poolable, the type a Peer's instance pool actually accepts
+- *(collection)* Make the collections generic in their element type
+- *(generator)* [**breaking**] Remove the NestedSet treeMode and the 1.4 nested-set proxies
+
+### 🐛 Bug Fixes
+
+- *(query)* Accept a fluent arrow function as a sub-query callback
+- *(generator)* Import the runtime classes generated code names
+- *(bench)* Instantiate a concrete PDO class, not the PropulsionPDO interface
+- *(generator)* Let generated Peer/Object code prove its own row and session types
+- *(om)* Declare the left/right accessors NodeObject is already used through
+- *(generator)* Narrow a resultset cell before casting it
+- *(map)* A built relation always has both tables, so stop typing them nullable
+- *(generator)* Say that validation failures are ValidationFailed objects
+- *(behavior)* Return static from the fluent behavior methods, and guard a missing neighbour
+- *(generator)* Check what came out of the pool in the doSelectJoin paths
+- *(generator)* Establish what doValidateThis(), prepare() and doDelete() hand back
+- *(generator)* Confirm the connection is a PropulsionPDO after resolving it
+- *(generator)* Emit parseable @method tags for typeless columns, and tidy three property types
+- *(generator)* Give temporal hydration a scalar guard, and read nullables once
+
+### 🚜 Refactor
+
+- *(cache)* Return what the formatters return from remember()
+- *(generator)* Drop a null check the enclosing branch already made
+- *(connection)* [**breaking**] Require a PropulsionPDO, once, where the connection is built
+
+### 📚 Documentation
+
+- *(generator)* Type the parameters, returns and properties the behaviors emit
+- *(known-issues)* Write up the Base<Model> relation-parameter problem
+- *(known-issues)* Strike the per-model interface, and name the FK cache property
+- *(generator)* Plan the move from generated base classes to traits
 ## [2.1.1] - 2026-08-10
 
 ### 🐛 Bug Fixes

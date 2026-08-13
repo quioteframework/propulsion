@@ -4,6 +4,7 @@
 [![codecov](https://codecov.io/gh/quioteframework/propulsion/graph/badge.svg)](https://codecov.io/gh/quioteframework/propulsion)
 [![Latest release](https://img.shields.io/github/v/release/quioteframework/propulsion)](https://github.com/quioteframework/propulsion/releases)
 [![PHP](https://img.shields.io/badge/php-%3E%3D8.5-777bb4)](composer.json)
+[![PHPStan](https://img.shields.io/badge/PHPStan-level%209-brightgreen)](phpstan-generated.neon)
 [![License: MIT](https://img.shields.io/github/license/quioteframework/propulsion)](LICENSE)
 
 Propulsion is an object-relational mapper (ORM) for PHP, forked from
@@ -17,6 +18,14 @@ console app, PostgreSQL promoted to the default/recommended database, and
 ongoing bug fixes. See `NOTICE.md` for attribution details and
 `KNOWN_ISSUES.md` for a running log of what's changed and what's still in
 progress.
+
+**PHPStan level 9, including the code the generator emits.** The hand-written
+source and the generated model classes both analyse clean at level 9, and CI
+fails the build if either stops doing so — it builds the fixture projects and
+runs the analyser over them, rather than trusting that generated code nobody
+reviews stayed correct. Generated code went from 550 findings to zero in 3.0;
+the bulk of that came from emitting it as a trait, which is what makes `$this`
+inside it provably your model class (see the upgrade section below).
 
 ## Database support
 
