@@ -89,3 +89,13 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           body_path: /tmp/release-notes.md
+          # A SemVer pre-release identifier is everything after the first `-`
+          # (v3.0.0-RC1, v3.0.0-beta.2), so its presence is the whole test.
+          #
+          # This has to be stated explicitly: the action defaults `prerelease`
+          # to false and never looks at the tag. The auto-detection that makes
+          # this feel automatic belongs to the *web UI*, which pre-ticks "Set as
+          # a pre-release" for tags shaped like this; the REST API the action
+          # calls has no such rule. v3.0.0-RC1 published as a full release, and
+          # took the "Latest" flag off v2.1.1 with it.
+          prerelease: ${{ contains(github.ref_name, '-') }}

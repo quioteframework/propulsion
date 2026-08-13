@@ -195,6 +195,35 @@ a different scope.
 - **`treeMode="NestedSet"`**, superseded by the `nested_set` behavior. The
   behavior itself is unaffected and still supported.
 
+### Three behavior changes to check your code against
+
+Three generated-code faults were fixed as part of the 3.0 work, and each one
+is a real behavior change rather than a pure bug fix — code that depended on
+the old (wrong) behavior needs updating:
+
+- **A query-level `preDelete()` veto now actually vetoes.** `ModelCriteria`'s
+  `delete()`/`deleteAll()` treated a `false` return from `preDelete()` as
+  "nothing happened, carry on," so a hook written to block a deletion was
+  silently ignored. It now stops the delete, as the method's own docblock
+  always claimed. If you have a `preDelete()` override that returns `false`
+  expecting the delete to proceed anyway, it will now be blocked. On a
+  soft-deletable table, `preDelete()` previously ran *after* the
+  `soft_delete` behavior's code and was unreachable; it now runs first, so
+  its veto also pre-empts a soft delete.
+- **`nested_set` accessors return one shape instead of two.**
+  `getChildren()`, `getSiblings()`, `getDescendants()`, `getBranch()` and
+  `getAncestors()` return an empty `PropulsionObjectCollection` instead of
+  `array()` when there's nothing to return; `getFirstChild()`/
+  `getLastChild()` return `null` instead of `array()`. Code checking
+  `=== array()` or `is_array()` against these results needs to check for an
+  empty collection / `null` instead.
+- **`filterBy<Relation>()` raises `TypeError`, not `PropulsionException`,
+  for a wrong-typed argument.** The parameter is now natively typed
+  (`Model|PropulsionObjectCollection`, matching what the docblock always
+  said), so PHP itself rejects the wrong shape. Catch `TypeError` instead of
+  `PropulsionException` if you were relying on that specific exception
+  class.
+
 ## Migrating `useQuery()`/`endUse()` to `withQuery()` with Rector
 
 `useQuery()`/`endUse()` (and the generated `use<Relation>Query()` wrappers) are
