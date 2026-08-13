@@ -1,0 +1,99 @@
+# Codecov configuration.
+#
+# The five "Full suite" jobs in .github/workflows/tests.yml each run the WHOLE
+# test suite against one database (Postgres, MySQL, MariaDB, MSSQL, Oracle) and
+# upload their own report under a per-platform flag. They are not partitions of
+# the suite -- they are five runs of the same ~4000 tests -- so the only figure
+# that describes this project is the UNION of all five.
+#
+# That distinction is not cosmetic. Measured locally over the same tree, on one
+# platform's report versus all five merged:
+#
+#                             postgres only      all five merged
+#     runtime/Lib/Adapter         52.99%              75.67%
+#     generator/Lib/Reverse       38.29%              88.04%
+#
+# The per-platform adapters and schema parsers are the cause: DBOracle and
+# OracleSchemaParser are exercised only by the Oracle job, DBMSSQL/
+# MssqlSchemaParser only by the MSSQL job, and so on. Read one flag's report and
+# every other platform's code looks untested when it is in fact fully covered by
+# a sibling job -- systematically understating exactly the code most likely to
+# break. This file exists to make the merged number the one Codecov reports.
+
+codecov:
+  # THE important setting here. Without it Codecov computes and publishes the
+  # commit's status, badge and PR comment as soon as it has *a* report, which for
+  # this repo means whichever platform job finishes first -- a single-platform
+  # figure presented as the project's coverage. The five uploads do all arrive
+  # and do all get merged, but the number that was already reported is the one
+  # people read. Hold off until every platform has landed.
+  #
+  # Keep this in step with the number of coverage-uploading jobs in tests.yml:
+  # the "Unit tests (no Docker)", "PHPStan" and "FrankenPHP worker-mode" jobs
+  # deliberately run with `coverage: none` and upload nothing, so they do not
+  # count. If a sixth database tier is ever added, bump this to 6.
+  notify:
+    after_n_builds: 5
+    # Don't report against a commit whose CI is still failing -- a red platform
+    # job's report is missing whatever the failure cut short.
+    wait_for_ci: true
+
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        # Ordinary refactoring moves the total by fractions of a percent; this
+        # only fails a PR for a real regression.
+        threshold: 1%
+    patch:
+      default:
+        target: auto
+        threshold: 1%
+
+# Every flag carries forward. This is what stops a platform job that did not
+# report -- a cancelled run, an infrastructure failure pulling a testcontainer,
+# Oracle's Instant Client download 404ing (see the comment on that job) -- from
+# silently deflating the merged number instead of simply reusing that platform's
+# last known result. Without it, one missing upload out of five reads as "all of
+# that platform's adapter code became uncovered".
+flag_management:
+  default_rules:
+    carryforward: true
+  # Declared individually as well so the flags exist for carryforward purposes
+  # before a given commit's upload arrives, and so the set of expected platforms
+  # is written down somewhere other than the workflow.
+  individual_flags:
+    - name: postgres
+      carryforward: true
+    - name: mysql
+      carryforward: true
+    - name: mariadb
+      carryforward: true
+    - name: mssql
+      carryforward: true
+    - name: oracle
+      carryforward: true
+
+comment:
+  # Same reasoning as codecov.notify.after_n_builds: a PR comment posted off one
+  # platform's report is worse than no comment.
+  after_n_builds: 5
+  layout: "header, diff, flags, files"
+  # Keep one comment updated as later platform uploads arrive rather than
+  # posting five.
+  behavior: default
+  require_changes: false
+
+ignore:
+  # Class-less file: a single `return [100-entry array];` statement. Excluded
+  # from PHPUnit's own source analysis for the same reason -- see the comment in
+  # test/phpunit.xml, which explains why its ~102 fully-exercised lines
+  # otherwise read as uncovered.
+  - "runtime/Lib/legacy-class-map.php"
+  # Generated model classes, built into the fixture tree at test time and never
+  # committed. They are gated separately, at PHPStan level 9, by the "analyse"
+  # job's `composer analyse:generated` step.
+  - "test/fixtures/**/build/**"
+  # Behavior templates are emitted into generated classes, not executed in place.
+  - "generator/Lib/Behavior/*/templates/**"
