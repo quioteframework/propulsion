@@ -216,12 +216,16 @@ public function childrenOf($objectName)
  */
 public function siblingsOf($objectName, ?PropulsionPDO \$con = null)
 {
-	if ({$objectName}->isRoot()) {
+	\$parent = {$objectName}->isRoot() ? null : {$objectName}->getParent(\$con);
+	// isRoot() being false says there should be a parent, but the lookup can
+	// still come back empty on a tree whose rows were deleted underneath the
+	// object -- in which case there are no siblings to match either.
+	if (\$parent === null) {
 		return \$this->
 			add({$this->peerClassname}::LEVEL_COL, '1<>1', Criteria::CUSTOM);
 	} else {
 		return \$this
-			->childrenOf({$objectName}->getParent(\$con))
+			->childrenOf(\$parent)
 			->prune($objectName);
 	}
 }

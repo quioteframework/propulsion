@@ -337,8 +337,8 @@ class ObjectBuilder extends AbstractObjectBuilder
 		$type = $this->getPhp85TypeHint($col);
 
 		return match ($type) {
-			'array' => 'array<int, mixed>',
-			'?array' => 'array<int, mixed>|null',
+			'array' => 'array<array-key, mixed>',
+			'?array' => 'array<array-key, mixed>|null',
 			default => $type,
 		};
 	}
@@ -1188,7 +1188,7 @@ trait " . $this->getClassname() . "
 	public function addMutatorComment(string &$script, Column $col): void
 	{
 		$colname = (string) $col->getName();
-		$paramType = $this->getPhp85DocType($col);
+		$paramDocType = $this->getPhp85DocType($col);
 		$returnType = $this->getObjectReturnType();
 		$description = $col->getDescription() ? $col->getDescription() : "Set the value of [$colname] column.";
 		$script .= "
@@ -1196,7 +1196,7 @@ trait " . $this->getClassname() . "
 	/**
 	 * $description
 	 *
-	 * @param $paramType \$value New value
+	 * @param $paramDocType \$value New value
 	 * @return $returnType The current object (for fluent API support)
 	 */";
 	}
@@ -1233,7 +1233,10 @@ trait " . $this->getClassname() . "
 	{
 		$colname = self::requireNotNull($col->getName(), sprintf("Column '%s' name", $col->getConstantName()));
 		$phpname = $col->getPhpName();
+		// Two types: the signature takes the native one, the docblock the one
+		// that carries an array's element type. See getPhp85DocType().
 		$paramType = $this->getPhp85TypeHint($col);
+		$paramDocType = $this->getPhp85DocType($col);
 		$returnType = $this->getObjectReturnType();
 
 		if ($col->isTemporalType() || $col->isLobType() || $col->isUuidType()) {
@@ -1297,7 +1300,7 @@ trait " . $this->getClassname() . "
 	/**
 	 * $description
 	 *
-	 * @param $paramType \$value New value: a UUID string in canonical
+	 * @param $paramDocType \$value New value: a UUID string in canonical
 	 *              8-4-4-4-12 hyphenated hexadecimal form.
 	 * @return $returnType The current object (for fluent API support)
 	 * @throws PropulsionException if \$value is not null and not a well-formed UUID string
@@ -1446,7 +1449,7 @@ trait " . $this->getClassname() . "
 	/**
 	 * $description
 	 *
-	 * @param $paramType \$value New value
+	 * @param $paramDocType \$value New value
 	 * @return $returnType The current object (for fluent API support)
 	 */
 	public function set$phpname($paramType \$value$defaultValue): $returnType
@@ -1612,7 +1615,12 @@ trait " . $this->getClassname() . "
 			if (\$index === false) {
 				throw new PropulsionException(sprintf('Value \"%s\" is not accepted in this enumerated column', \$v));
 			}
-			\$v = \$index;
+			// Cast: the property holds the emulated index *as a string* -- see
+			// EnumHandler's class docblock, and the hydration path, which casts
+			// the same way. PHP indexes an array by a numeric string exactly as
+			// it does by the equivalent int, which is what makes the getter's
+			// \$valueSet[\$this->$phpname] lookup work either way.
+			\$v = (string) \$index;
 		}
 
 		if (\$this->$phpname !== \$v) {

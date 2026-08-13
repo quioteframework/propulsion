@@ -30,23 +30,23 @@ class PeerBehaviorTest extends BookstoreTestBase
   public function testPreSelect()
   {
     $con = Propulsion::getConnection(Table3Peer::DATABASE_NAME, Propulsion::CONNECTION_READ);
-    $con->preSelect = 0;
+    Table3Peer::$preSelect = 0;
     Table3Peer::doSelect(new Criteria, $con);
-    $this->assertNotEquals($con->preSelect, 0, 'preSelect hook is called in doSelect()');
-    $con->preSelect = 0;
+    $this->assertNotEquals(Table3Peer::$preSelect, 0, 'preSelect hook is called in doSelect()');
+    Table3Peer::$preSelect = 0;
     Table3Peer::doSelectOne(new Criteria, $con);
-    $this->assertNotEquals($con->preSelect, 0, 'preSelect hook is called in doSelectOne()');
-    $con->preSelect = 0;
+    $this->assertNotEquals(Table3Peer::$preSelect, 0, 'preSelect hook is called in doSelectOne()');
+    Table3Peer::$preSelect = 0;
     Table3Peer::doCount(new Criteria, $con);
-    $this->assertNotEquals($con->preSelect, 0, 'preSelect hook is called in doCount()');
-    $con->preSelect = 0;
+    $this->assertNotEquals(Table3Peer::$preSelect, 0, 'preSelect hook is called in doCount()');
+    Table3Peer::$preSelect = 0;
     Table3Peer::doSelectStmt(new Criteria, $con);
-    $this->assertNotEquals($con->preSelect, 0, 'preSelect hook is called in doSelectStmt()');
+    $this->assertNotEquals(Table3Peer::$preSelect, 0, 'preSelect hook is called in doSelectStmt()');
     // and for the doSelectJoin and doCountJoin methods, well just believe my word
 
-    $con->preSelect = 0;
+    Table3Peer::$preSelect = 0;
     Table3Peer::doSelect(new Criteria, $con);
-    $this->assertEquals($con->preSelect, 'Propulsion\\Generator\\Builder\\OM\\PeerBuilder', 'preSelect hook is called with the peer builder as parameter');
+    $this->assertEquals(Table3Peer::$preSelect, 'Propulsion\\Generator\\Builder\\OM\\PeerBuilder', 'preSelect hook is called with the peer builder as parameter');
   }
 
   public function testPeerFilter()

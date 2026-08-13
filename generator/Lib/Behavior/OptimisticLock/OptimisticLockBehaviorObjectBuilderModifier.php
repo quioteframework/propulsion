@@ -75,7 +75,7 @@ class OptimisticLockBehaviorObjectBuilderModifier
  * The version value this object had before its current in-progress
  * update's preUpdate() bumped it -- see OptimisticLockBehavior.
  *
- * @var mixed
+ * @var ?int
  */
 protected ?int \$optimisticLockPreviousVersion = null;
 ";

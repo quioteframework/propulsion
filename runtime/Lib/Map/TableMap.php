@@ -444,7 +444,9 @@ class TableMap
    * @param      string $fkColumn A String with the foreign key column name.
    * @param      boolean $isNotNull Whether column does not allow NULL values.
    * @param      int|null $size An int specifying the size.
-   * @param      string $defaultValue The default value for this column.
+   * @param      mixed $defaultValue The default value for this column (its PHP type
+   *                    mirrors the schema default, so an INTEGER column's is an int),
+   *                    as in addColumn().
    * @return     ColumnMap Newly added ForeignKey column.
    */
   public function addForeignKey($columnName, string $phpName, $type, $fkTable, $fkColumn, $isNotNull = false, $size = 0, $defaultValue = null)
@@ -461,7 +463,9 @@ class TableMap
    * @param      string $fkColumn A String with the foreign key column name.
    * @param      boolean $isNotNull Whether column does not allow NULL values.
    * @param      int|null $size An int specifying the size.
-   * @param      string $defaultValue The default value for this column.
+   * @param      mixed $defaultValue The default value for this column (its PHP type
+   *                    mirrors the schema default, so an INTEGER column's is an int),
+   *                    as in addColumn().
    * @return     ColumnMap Newly created foreign pkey column.
    */
   public function addForeignPrimaryKey($columnName, string $phpName, $type, $fkTable, $fkColumn, $isNotNull = false, $size = 0, $defaultValue = null)

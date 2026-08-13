@@ -287,8 +287,8 @@ trait ".$this->getClassname()."
         $type = $this->getModernPhpType($column);
 
         return match ($type) {
-            'array' => 'array<int, mixed>',
-            '?array' => '?array<int, mixed>',
+            'array' => 'array<array-key, mixed>',
+            '?array' => '?array<array-key, mixed>',
             default => $type,
         };
     }
@@ -905,7 +905,7 @@ trait ".$this->getClassname()."
      *              Use associative array('min' => \$minValue, 'max' => \$maxValue) for intervals.";
         } elseif ($col->getType() == PropulsionTypes::PHP_ARRAY || $col->isSetType()) {
             $script .= "
-     * @param     array<int, mixed>|null \$$variableName The values to use as filter.";
+     * @param     array<array-key, mixed>|null \$$variableName The values to use as filter.";
         } elseif ($col->isJsonType()) {
             $script .= "
      * @param     mixed \$$variableName The value to use as filter. An array or object
@@ -1055,12 +1055,12 @@ trait ".$this->getClassname()."
         \$valueSet = " . $this->getPeerClassname() . "::getValueSet(" . $this->getColumnConstant($col) . ");
         if (is_scalar(\$$variableName)) {
             if (!in_array(\$$variableName, \$valueSet)) {
-                throw new PropulsionException(sprintf('Value \"%s\" is not accepted in this enumerated column', is_scalar(\$$variableName) ? (string) \$$variableName : get_debug_type(\$$variableName)));
+                throw new PropulsionException(sprintf('Value \"%s\" is not accepted in this enumerated column', (string) \$$variableName));
             }
             \$$variableName = array_search(\$$variableName, \$valueSet);
         } elseif (is_array(\$$variableName)) {
             \$convertedValues = array();
-            foreach (\$$variableName ?? array() as \$value) {
+            foreach (\$$variableName as \$value) {
                 if (!in_array(\$value, \$valueSet)) {
                     throw new PropulsionException(sprintf('Value \"%s\" is not accepted in this enumerated column', is_scalar(\$value) ? (string) \$value : get_debug_type(\$value)));
                 }

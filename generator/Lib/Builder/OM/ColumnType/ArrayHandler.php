@@ -54,7 +54,7 @@ class ArrayHandler extends ColumnTypeHandler
 		}
 		// array_map() over strval: the elements are whatever the application
 		// stored, and implode() wants strings.
-		return "{$phpAccessExpr} ? ' | ' . implode(' | ', array_map(strval(...), {$phpAccessExpr})) . ' | ' : ''";
+		return "{$phpAccessExpr} ? ' | ' . implode(' | ', array_map(static fn (mixed \$element): string => is_scalar(\$element) ? (string) \$element : '', {$phpAccessExpr})) . ' | ' : ''";
 	}
 
 	public function buildCastExpr(Column $col, string $varExpr): ?string

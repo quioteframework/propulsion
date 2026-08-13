@@ -237,11 +237,11 @@ protected function createRawSlug()
  * Cleanup a string to make a slug of it
  * Removes special characters, replaces blanks with a separator, and trim it
  *
- * @param     string \$slug        the text to slugify
+ * @param     ?string \$slug        the text to slugify; null is treated as empty
  * @param     string \$replacement the separator used by slug
  * @return    string               the slugified text
  */
-protected static function cleanupSlugPart(\$slug, \$replacement = '" . $this->getStringParameter('replacement') . "')
+protected static function cleanupSlugPart(?string \$slug, \$replacement = '" . $this->getStringParameter('replacement') . "')
 {
 	\$slug = (string) \$slug;
 	// transliterate
