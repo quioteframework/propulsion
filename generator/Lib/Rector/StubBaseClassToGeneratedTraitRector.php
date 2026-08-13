@@ -104,14 +104,22 @@ final class StubBaseClassToGeneratedTraitRector extends AbstractRector
         }
 
         $stubName = $node->name->toString();
-        $parentName = $node->extends->toString();
 
-        // Only a stub sitting directly on its own generated base. Anything else
-        // -- a project's own hierarchy, an inheritance child extending a sibling
-        // stub -- is left alone.
-        if ($parentName !== 'Base' . $stubName) {
+        // Compared on the short name. Rector resolves `extends` to the fully
+        // qualified name, so a namespaced stub's parent reads as
+        // App\Model\OM\BaseBookQuery, not BaseBookQuery -- matching against the
+        // bare 'Base' . $stubName silently skipped every namespaced project,
+        // which is very nearly all of them.
+        if ($node->extends->getLast() !== 'Base' . $stubName) {
             return null;
         }
+
+        // The trait lives exactly where the base it replaces did -- the
+        // generator emits both into the same `om` package. Deriving its name
+        // from the old parent rather than from the stub is what keeps this
+        // correct for a namespaced project, where the stub sits in the parent
+        // namespace and the generated code one level down in OM\.
+        $traitName = $this->buildTraitName($node->extends, $stubName);
 
         $kind = $this->resolveKind($stubName);
         if ($kind === null) {
@@ -132,7 +140,7 @@ final class StubBaseClassToGeneratedTraitRector extends AbstractRector
             $node->implements[] = new FullyQualified($interface);
         }
 
-        array_unshift($node->stmts, $this->buildTraitUse($stubName . 'Generated', $aliases));
+        array_unshift($node->stmts, $this->buildTraitUse($traitName, $aliases));
 
         return $node;
     }
@@ -306,6 +314,24 @@ CODE_SAMPLE
     }
 
     /**
+     * The generated trait's fully qualified name, derived from the base class it
+     * replaces.
+     *
+     * Both are emitted into the same package, so the trait is the old parent's
+     * namespace with the last segment swapped: App\Model\OM\BaseBookQuery
+     * becomes App\Model\OM\BookQueryGenerated. Taking it from the stub's own
+     * name instead would put it in the stub's namespace, one level too high.
+     */
+    private function buildTraitName(Name $baseClass, string $stubName): string
+    {
+        $parts = $baseClass->getParts();
+        array_pop($parts);
+        $parts[] = $stubName . 'Generated';
+
+        return implode('\\', $parts);
+    }
+
+    /**
      * @param array<string, string> $aliases generated method name => alias name
      */
     private function buildTraitUse(string $traitName, array $aliases): TraitUse
@@ -323,6 +349,13 @@ CODE_SAMPLE
             );
         }
 
-        return new TraitUse([new Name($traitName)], $adaptations);
+        // Fully qualified only when there is a namespace to qualify. A global
+        // class emitted as `\BookGenerated` is valid but reads as noise in a
+        // project that has no namespaces at all.
+        $name = str_contains($traitName, '\\')
+            ? new FullyQualified($traitName)
+            : new Name($traitName);
+
+        return new TraitUse([$name], $adaptations);
     }
 }
