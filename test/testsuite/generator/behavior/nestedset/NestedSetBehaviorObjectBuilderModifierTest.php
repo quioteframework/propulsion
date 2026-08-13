@@ -556,7 +556,7 @@ class NestedSetBehaviorObjectBuilderModifierTest extends BookstoreNestedSetTestB
 		       |  \
 		       t6 t7
 		*/
-		$this->assertEquals(array(), $t1->getSiblings(), 'getSiblings() returns an empty array for root');
+		$this->assertCount(0, $t1->getSiblings(), 'getSiblings() returns an empty collection for root');
 		$siblings = $t5->getSiblings();
 		$expected = array(
 			't4' => array(5, 6, 2),
@@ -599,7 +599,7 @@ class NestedSetBehaviorObjectBuilderModifierTest extends BookstoreNestedSetTestB
 		       |  \
 		       t6 t7
 		*/
-		$this->assertEquals(array(), $t2->getDescendants(), 'getDescendants() returns an empty array for leafs');
+		$this->assertCount(0, $t2->getDescendants(), 'getDescendants() returns an empty collection for leafs');
 		$descendants = $t3->getDescendants();
 		$expected = array(
 			't4' => array(5, 6, 2),
@@ -677,7 +677,7 @@ class NestedSetBehaviorObjectBuilderModifierTest extends BookstoreNestedSetTestB
 		       |  \
 		       t6 t7
 		*/
-		$this->assertEquals(array(), $t1->getAncestors(), 'getAncestors() returns an empty array for roots');
+		$this->assertCount(0, $t1->getAncestors(), 'getAncestors() returns an empty collection for roots');
 		$ancestors = $t5->getAncestors();
 		$expected = array(
 			't1' => array(1, 14, 0),

@@ -1205,6 +1205,13 @@ trait ".$this->getClassname()."
         $fkPhpName = $fkStubObjectBuilder->getClassname();
         $relationName = $this->getFKPhpNameAffix($fk);
         $objectName = '$' . $fkTable->getStudlyPhpName();
+        // A native type, so PHP enforces what the docblock always claimed and the
+        // hand-rolled instanceof guard becomes unnecessary rather than
+        // unreachable-but-alive. A caller passing the wrong thing now gets a
+        // TypeError where it previously got a PropulsionException.
+        $nativeType = $fk->isComposite()
+            ? $fkPhpName . ' '
+            : $fkPhpName . '|PropulsionObjectCollection ';
         $script .= "
     /**
      * Filter the query by a related $fkPhpName object
@@ -1221,9 +1228,13 @@ trait ".$this->getClassname()."
      *
      * @return    static The current query, for fluid interface
      */
-    public function filterBy$relationName($objectName, \$comparison = null)
-    {
-        if ($objectName instanceof $fkPhpName) {
+    public function filterBy$relationName($nativeType$objectName, \$comparison = null)
+    {";
+        if (!$fk->isComposite()) {
+            $script .= "
+        if ($objectName instanceof $fkPhpName) {";
+        }
+        $script .= "
             return \$this";
         foreach ($fk->getLocalForeignMapping() as $localColumn => $foreignColumn) {
             $localColumnObject = $table->getColumn($localColumn);
@@ -1235,25 +1246,22 @@ trait ".$this->getClassname()."
         if (!$fk->isComposite()) {
             $localColumnConstant = $this->getColumnConstant($fk->getLocalColumn());
             $foreignColumnName = self::requireNotNull($fk->getForeignColumn(), sprintf("Foreign key '%s' foreign column", $fk->getName() ?? '(unnamed)'))->getPhpName();
+            // No `elseif ... else throw`: the parameter's native type already
+            // admits exactly these two, so the collection branch is the only
+            // thing left and a trailing throw would be unreachable. Anything
+            // else now fails at the call with a TypeError, which is the same
+            // rejection the PropulsionException used to perform by hand.
             $script .= "
-        } elseif ($objectName instanceof PropulsionObjectCollection) {
-            if (null === \$comparison) {
-                \$comparison = Criteria::IN;
-            }
-            return \$this
-                ->addUsingAlias($localColumnConstant, {$objectName}->toKeyValue('PrimaryKey', '$foreignColumnName'), \$comparison);";
+        }
+
+        if (null === \$comparison) {
+            \$comparison = Criteria::IN;
+        }
+
+        return \$this
+            ->addUsingAlias($localColumnConstant, {$objectName}->toKeyValue('PrimaryKey', '$foreignColumnName'), \$comparison);";
         }
         $script .= "
-        } else {";
-        if ($fk->isComposite()) {
-            $script .= "
-            throw new PropulsionException('filterBy$relationName() only accepts arguments of type $fkPhpName');";
-        } else {
-            $script .= "
-            throw new PropulsionException('filterBy$relationName() only accepts arguments of type $fkPhpName or PropulsionObjectCollection');";
-        }
-        $script .= "
-        }
     }
 ";
     }
@@ -1273,6 +1281,11 @@ trait ".$this->getClassname()."
         $fkPhpName = $fkStubObjectBuilder->getClassname();
         $relationName = $this->getRefFKPhpNameAffix($fk);
         $objectName = '$' . $fkTable->getStudlyPhpName();
+        // See addFilterByFk(): a native type replaces the hand-rolled instanceof
+        // guard, so PHP enforces the contract the docblock already stated.
+        $nativeType = $fk->isComposite()
+            ? $fkPhpName . ' '
+            : $fkPhpName . '|PropulsionObjectCollection ';
         $script .= "
     /**
      * Filter the query by a related $fkPhpName object
@@ -1289,9 +1302,13 @@ trait ".$this->getClassname()."
      *
      * @return    static The current query, for fluid interface
      */
-    public function filterBy$relationName($objectName, \$comparison = null)
-    {
-        if ($objectName instanceof $fkPhpName) {
+    public function filterBy$relationName($nativeType$objectName, \$comparison = null)
+    {";
+        if (!$fk->isComposite()) {
+            $script .= "
+        if ($objectName instanceof $fkPhpName) {";
+        }
+        $script .= "
             return \$this";
         foreach ($fk->getForeignLocalMapping() as $localColumn => $foreignColumn) {
             $localColumnObject = $table->getColumn($localColumn);
@@ -1314,9 +1331,13 @@ trait ".$this->getClassname()."
             // by value -- so dropping getPrimaryKeys()' model-name prefixing changes
             // nothing.
             $fkPks = $fkTable->getPrimaryKey();
+            // A plain fall-through rather than `elseif ($x instanceof
+            // PropulsionObjectCollection)`: the native union leaves exactly one
+            // other possibility, so that test could only ever be true.
             $script .= "
-        } elseif ($objectName instanceof PropulsionObjectCollection) {
-            return \$this->with{$relationName}Query(function (\$q) use ($objectName) {
+        }
+
+        return \$this->with{$relationName}Query(function (\$q) use ($objectName) {
                 \$keys = [];
                 foreach ($objectName as \$relatedObject) {";
             if (count($fkPks) === 1) {
@@ -1338,16 +1359,6 @@ trait ".$this->getClassname()."
             });";
         }
         $script .= "
-        } else {";
-        if ($fk->isComposite()) {
-            $script .= "
-            throw new PropulsionException('filterBy$relationName() only accepts arguments of type $fkPhpName');";
-        } else {
-            $script .= "
-            throw new PropulsionException('filterBy$relationName() only accepts arguments of type $fkPhpName or PropulsionObjectCollection');";
-        }
-        $script .= "
-        }
     }
 ";
     }
@@ -1674,16 +1685,28 @@ trait ".$this->getClassname()."
         if (!$behaviorCode) {
             return;
         }
+        // The application hook runs *before* the behavior code, not after.
+        // Behaviors that handle the delete themselves -- soft_delete is the one
+        // in tree -- return unconditionally from both branches, which left the
+        // trailing `return $this->preDelete($con);` unreachable and the hook
+        // silently never called on a soft-deletable table.
+        //
+        // A false return vetoes the delete, so it also has to be seen before the
+        // behavior gets a chance to perform one. See ModelCriteria::delete().
         $script .= "
     /**
      * Code to execute before every DELETE statement
      *
      * @param     PropulsionPDO \$con The connection object used by the query
+     * @return    mixed false to veto the delete, a row count if it was already
+     *            carried out here, null to let it proceed
      */
     protected function basePreDelete(PropulsionPDO \$con)
-    {" . $behaviorCode . "
-
-        return \$this->preDelete(\$con);
+    {
+        if (\$this->preDelete(\$con) === false) {
+            return false;
+        }
+" . $behaviorCode . "
     }
 ";
     }

@@ -220,7 +220,7 @@ class NestedSetBehaviorObjectBuilderModifierWithScopeTest extends BookstoreNeste
 		 | \
 		 t9 t10
 		*/
-		$this->assertEquals(array(), $t1->getAncestors(), 'getAncestors() returns an empty array for roots');
+		$this->assertCount(0, $t1->getAncestors(), 'getAncestors() returns an empty collection for roots');
 		$ancestors = $t5->getAncestors();
 		$expected = array(
 			't1' => array(1, 14, 0),

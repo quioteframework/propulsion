@@ -2359,6 +2359,15 @@ class ModelCriteria extends Criteria
 	/**
 	 * Code to execute before every DELETE statement
 	 *
+	 * Three outcomes, distinguished by the return value:
+	 *
+	 * - `false` vetoes the delete entirely. Nothing is deleted and delete()/
+	 *   deleteAll() report 0 affected rows.
+	 * - Any other truthy value means the delete was already carried out here --
+	 *   the soft_delete behavior returns its own affected-row count this way --
+	 *   and is used as the affected-row count.
+	 * - Anything else (null, the default) lets the real DELETE proceed.
+	 *
 	 * @param     PropulsionPDO $con The connection object used by the query
 	 * @return    mixed
 	 */
@@ -2368,6 +2377,10 @@ class ModelCriteria extends Criteria
 	}
 
 	/**
+	 * Hook for application code. Return false to prevent the delete from
+	 * happening at all -- the way to make a deletion conditional on application
+	 * state. Returning nothing lets it proceed.
+	 *
 	 * @return mixed
 	 */
 	protected function preDelete(PropulsionPDO $con)
@@ -2421,7 +2434,15 @@ class ModelCriteria extends Criteria
 
 		$con->beginTransaction();
 		try {
-			if(!$affectedRows = $criteria->basePreDelete($con)) {
+			// `=== false` is checked separately from falsiness: a preDelete()
+			// hook returning false vetoes the delete, whereas returning nothing
+			// (the default) lets it proceed. The old `if (!$result)` collapsed
+			// those two into "proceed", so a hook written to block a deletion
+			// was silently ignored.
+			$affectedRows = $criteria->basePreDelete($con);
+			if ($affectedRows === false) {
+				$affectedRows = 0;
+			} elseif (!$affectedRows) {
 				$affectedRows = $criteria->doDelete($con);
 			}
 			$affectedRows = is_int($affectedRows) ? $affectedRows : 0;
@@ -2487,7 +2508,11 @@ class ModelCriteria extends Criteria
 
 		$con->beginTransaction();
 		try {
-			if(!$affectedRows = $this->basePreDelete($con)) {
+			// See delete() on why false is distinguished from other falsy values.
+			$affectedRows = $this->basePreDelete($con);
+			if ($affectedRows === false) {
+				$affectedRows = 0;
+			} elseif (!$affectedRows) {
 				$affectedRows = $this->doDeleteAll($con);
 			}
 			$affectedRows = is_int($affectedRows) ? $affectedRows : 0;

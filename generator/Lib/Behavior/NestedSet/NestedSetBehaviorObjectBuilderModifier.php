@@ -706,7 +706,25 @@ public function clearNestedSetChildren()
 
 	protected function addNestedSetChildrenInit(string &$script): void
 	{
+		$objectClassname = $this->requireBuilder()->getNewStubObjectBuilder($this->table)->getClassname();
 		$script .= "
+/**
+ * Builds an empty, model-aware collection of this node's type.
+ *
+ * Every tree accessor that can find nothing returns one of these rather than a
+ * plain array(), so the return type is the same on every path. The model has to
+ * be set on it, or save()/getPrimaryKeys() on the result would fail.
+ *
+ * @return     PropulsionObjectCollection<$objectClassname>
+ */
+protected function emptyNestedSetCollection()
+{
+	\$coll = new PropulsionObjectCollection();
+	\$coll->setModel('$objectClassname');
+
+	return \$coll;
+}
+
 /**
  * Initializes the \$collNestedSetChildren collection.
  *
@@ -714,8 +732,7 @@ public function clearNestedSetChildren()
  */
 public function initNestedSetChildren()
 {
-	\$this->collNestedSetChildren = new PropulsionObjectCollection();
-	\$this->collNestedSetChildren->setModel('" . $this->requireBuilder()->getNewStubObjectBuilder($this->table)->getClassname() . "');
+	\$this->collNestedSetChildren = \$this->emptyNestedSetCollection();
 }
 ";
 	}
@@ -772,7 +789,7 @@ public function hasChildren()
  *
  * @param      Criteria  \$criteria Criteria to filter results.
  * @param      PropulsionPDO \$con Connection to use.
- * @return     PropulsionObjectCollection<$objectClassname>|null The child $objectClassname objects
+ * @return     PropulsionObjectCollection<$objectClassname> The child $objectClassname objects
  */
 public function getChildren(\$criteria = null, ?PropulsionPDO \$con = null)
 {
@@ -791,7 +808,8 @@ public function getChildren(\$criteria = null, ?PropulsionPDO \$con = null)
 			\$this->collNestedSetChildren = \$collNestedSetChildren;
 		}
 	}
-	return \$this->collNestedSetChildren;
+
+	return \$this->collNestedSetChildren ?? \$this->emptyNestedSetCollection();
 }
 ";
 	}
@@ -835,13 +853,12 @@ public function countChildren(\$criteria = null, ?PropulsionPDO \$con = null)
  *
  * @param      Criteria \$query Criteria to filter results.
  * @param      PropulsionPDO \$con Connection to use.
- * @return     $objectClassname|array{}|null The firstchild child, null when the query matches nothing,
- *             or an empty array on a leaf -- see KNOWN_ISSUES.md, these shapes should be one
+ * @return     $objectClassname|null The first child, or null when this node is a leaf
  */
 public function getFirstChild(\$query = null, ?PropulsionPDO \$con = null)
 {
 	if(\$this->isLeaf()) {
-		return array();
+		return null;
 	} else {
 		return $queryClassname::create(null, \$query)
 			->childrenOf(\$this)
@@ -862,13 +879,12 @@ public function getFirstChild(\$query = null, ?PropulsionPDO \$con = null)
  *
  * @param      Criteria \$query Criteria to filter results.
  * @param      PropulsionPDO \$con Connection to use.
- * @return     $objectClassname|array{}|null The lastchild child, null when the query matches nothing,
- *             or an empty array on a leaf -- see KNOWN_ISSUES.md, these shapes should be one
+ * @return     $objectClassname|null The last child, or null when this node is a leaf
  */
 public function getLastChild(\$query = null, ?PropulsionPDO \$con = null)
 {
 	if(\$this->isLeaf()) {
-		return array();
+		return null;
 	} else {
 		return $queryClassname::create(null, \$query)
 			->childrenOf(\$this)
@@ -891,14 +907,12 @@ public function getLastChild(\$query = null, ?PropulsionPDO \$con = null)
  * @param      Criteria \$query Criteria to filter results.
  * @param      PropulsionPDO \$con Connection to use.
  *
- * @return     PropulsionObjectCollection<$objectClassname>|array{} The matching $objectClassname
- *             objects, or an empty array on the short-circuit branch -- see
- *             KNOWN_ISSUES.md, these two shapes should be one
+ * @return     PropulsionObjectCollection<$objectClassname> The matching $objectClassname objects
  */
 public function getSiblings(\$includeNode = false, \$query = null, ?PropulsionPDO \$con = null)
 {
 	if(\$this->isRoot()) {
-		return array();
+		return \$this->emptyNestedSetCollection();
 	} else {
 		 \$query = $queryClassname::create(null, \$query)
 				->childrenOf(\$this->getParent(\$con))
@@ -922,14 +936,12 @@ public function getSiblings(\$includeNode = false, \$query = null, ?PropulsionPD
  *
  * @param      Criteria \$query Criteria to filter results.
  * @param      PropulsionPDO \$con Connection to use.
- * @return     PropulsionObjectCollection<$objectClassname>|array{} The matching $objectClassname
- *             objects, or an empty array on the short-circuit branch -- see
- *             KNOWN_ISSUES.md, these two shapes should be one
+ * @return     PropulsionObjectCollection<$objectClassname> The matching $objectClassname objects
  */
 public function getDescendants(\$query = null, ?PropulsionPDO \$con = null)
 {
 	if(\$this->isLeaf()) {
-		return array();
+		return \$this->emptyNestedSetCollection();
 	} else {
 		return $queryClassname::create(null, \$query)
 			->descendantsOf(\$this)
@@ -976,9 +988,7 @@ public function countDescendants(\$query = null, ?PropulsionPDO \$con = null)
  *
  * @param      Criteria \$query Criteria to filter results.
  * @param      PropulsionPDO \$con Connection to use.
- * @return     PropulsionObjectCollection<$objectClassname>|array{} The matching $objectClassname
- *             objects, or an empty array on the short-circuit branch -- see
- *             KNOWN_ISSUES.md, these two shapes should be one
+ * @return     PropulsionObjectCollection<$objectClassname> The matching $objectClassname objects
  */
 public function getBranch(\$query = null, ?PropulsionPDO \$con = null)
 {
@@ -1001,15 +1011,13 @@ public function getBranch(\$query = null, ?PropulsionPDO \$con = null)
  *
  * @param      Criteria \$query Criteria to filter results.
  * @param      PropulsionPDO \$con Connection to use.
- * @return     PropulsionObjectCollection<$objectClassname>|array{} The matching $objectClassname
- *             objects, or an empty array on the short-circuit branch -- see
- *             KNOWN_ISSUES.md, these two shapes should be one
+ * @return     PropulsionObjectCollection<$objectClassname> The matching $objectClassname objects
  */
 public function getAncestors(\$query = null, ?PropulsionPDO \$con = null)
 {
 	if(\$this->isRoot()) {
 		// save one query
-		return array();
+		return \$this->emptyNestedSetCollection();
 	} else {
 		return $queryClassname::create(null, \$query)
 			->ancestorsOf(\$this)
