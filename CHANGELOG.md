@@ -1,3 +1,14 @@
+## [3.0.0-RC2] - 2026-08-13
+
+### 🐛 Bug Fixes
+
+- *(ci)* Publish a tag with a SemVer pre-release identifier as a pre-release
+- *(generator)* Bump the version to 3.0.0-RC1, and stop it living in two places
+- *(rector)* Make the stub migration work on namespaced projects
+
+### 📚 Documentation
+
+- *(readme)* Add a PHPStan level 9 badge, and say what backs it
 ## [3.0.0-RC1] - 2026-08-13
 
 ### 🚀 Features
