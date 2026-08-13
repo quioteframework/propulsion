@@ -102,7 +102,7 @@ class AggregateColumnBehavior extends Behavior
 		}
 		$script = '';
 		$script .= $this->addObjectCompute();
-		$script .= $this->addObjectUpdate();
+		$script .= $this->addObjectUpdate($builder);
 
 		return $script;
 	}
@@ -140,10 +140,11 @@ class AggregateColumnBehavior extends Behavior
 		));
 	}
 
-	protected function addObjectUpdate(): string
+	protected function addObjectUpdate(ObjectBuilder $builder): string
 	{
 		return $this->renderTemplate('objectUpdate', array(
 			'column'  => $this->requireColumn(),
+			'peerClassname' => $builder->getStubPeerBuilder()->getClassname(),
 		));
 	}
 

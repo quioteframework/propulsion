@@ -404,7 +404,7 @@ public function insertAtTop()
  * Move the object to a new rank, and shifts the rank
  * Of the objects inbetween the old and new rank accordingly
  *
- * @param     integer   \$newRank rank value
+ * @param     ?int   \$newRank rank value
  * @param     PropulsionPDO \$con optional connection
  *
  * @return    static the current object
@@ -416,6 +416,12 @@ public function moveToRank(\$newRank, ?PropulsionPDO \$con = null)
 	if (\$this->isNew()) {
 		throw new PropulsionException('New objects cannot be moved. Please use insertAtRank() instead');
 	}
+	// Nullable because getMaxRank() is -- an empty list has no maximum -- and
+	// moveToBottom() passes it straight through. There is no rank to move to in
+	// that case, and the comparisons below would treat null as 0.
+	if (\$newRank === null) {
+		throw new PropulsionException('Cannot move to a null rank; the list is empty');
+	}
 	if (\$con === null) {
 		\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME);
 	}
@@ -424,7 +430,9 @@ public function moveToRank(\$newRank, ?PropulsionPDO \$con = null)
 	}
 
 	\$oldRank = \$this->{$this->getColumnGetter()}();
-	if (\$oldRank == \$newRank) {
+	if (\$oldRank === null || \$oldRank == \$newRank) {
+		// A null old rank means this object is not in the list, so there is
+		// nothing between the two positions to shift.
 		return \$this;
 	}
 
