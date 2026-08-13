@@ -52,7 +52,9 @@ class ArrayHandler extends ColumnTypeHandler
 			$builder->declareClass('\\Propulsion\\Type\\PgArray');
 			return "PgArray::encode({$phpAccessExpr})";
 		}
-		return "{$phpAccessExpr} ? ' | ' . implode(' | ', {$phpAccessExpr}) . ' | ' : ''";
+		// array_map() over strval: the elements are whatever the application
+		// stored, and implode() wants strings.
+		return "{$phpAccessExpr} ? ' | ' . implode(' | ', array_map(strval(...), {$phpAccessExpr})) . ' | ' : ''";
 	}
 
 	public function buildCastExpr(Column $col, string $varExpr): ?string

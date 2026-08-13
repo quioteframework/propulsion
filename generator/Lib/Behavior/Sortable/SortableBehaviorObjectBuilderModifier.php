@@ -195,7 +195,7 @@ public function setRank(\$v)
 /**
  * Wrap the getter for scope value
  *
- * @return    int
+ * @return    ?int The scope, or null on an object not yet placed in a list
  */
 public function getScopeValue()
 {
@@ -205,8 +205,8 @@ public function getScopeValue()
 /**
  * Wrap the setter for scope value
  *
- * @param     int \$v
- * @return    static
+ * @param     ?int \$v
+ * @return    {$this->objectClassname} The current object (for fluent API support)
  */
 public function setScopeValue(\$v)
 {

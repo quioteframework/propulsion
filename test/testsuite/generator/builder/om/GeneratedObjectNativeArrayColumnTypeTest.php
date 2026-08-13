@@ -68,7 +68,10 @@ EOF;
 
 		$script = $builder->build();
 
-		$this->assertStringContainsString("implode(' | ', \$this->Labels)", $script);
+		// The elements are whatever the application stored, so they are mapped
+		// through strval() before implode(), which wants strings. The point of
+		// this assertion is the emulated " | " format, not the exact call.
+		$this->assertStringContainsString("implode(' | ', array_map(strval(...), \$this->Labels))", $script);
 	}
 
 	public function testFilterByColEncodesArrayForNativeArrayColumn()

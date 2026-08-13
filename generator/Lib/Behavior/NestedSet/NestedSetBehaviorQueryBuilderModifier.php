@@ -346,7 +346,8 @@ public function orderByLevel(\$reverse = false)
 		$script .= "
  * @param      PropulsionPDO \$con	Connection to use.
  *
- * @return     static The tree root object
+ * @return     {$this->objectClassname}|null The tree root object, or null when the tree is empty.
+ *             Not `static`: the body ends in findOne(), which hydrates a model.
  */
 public function findRoot(" . ($useScope ? "\$scope = null, " : "") . "\$con = null)
 {

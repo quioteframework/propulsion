@@ -1115,7 +1115,10 @@ trait " . $this->getClassname() . "
 				// cast of a resource produces a useless \"Resource id #N\"
 				// instead of its content, so read it out first.
 				\$rawValue = is_resource(\$row[0]) ? stream_get_contents(\$row[0]) : \$row[0];
-				\$this->$phpname = ($castType) \$rawValue;
+				// stream_get_contents() returns false on a read failure, and a
+				// non-resource row value is mixed as far as the row array goes;
+				// neither is meaningfully castable.
+				\$this->$phpname = is_scalar(\$rawValue) ? ($castType) \$rawValue : null;
 			} else {
 				\$this->$phpname = null;
 			}
@@ -1602,7 +1605,14 @@ trait " . $this->getClassname() . "
 			if (!in_array(\$v, \$valueSet)) {
 				throw new PropulsionException(sprintf('Value \"%s\" is not accepted in this enumerated column', \$v));
 			}
-			\$v = array_search(\$v, \$valueSet);
+			// in_array() above already established membership, so array_search()
+			// cannot miss -- but it is typed int|false, and false is not
+			// something this column can hold.
+			\$index = array_search(\$v, \$valueSet);
+			if (\$index === false) {
+				throw new PropulsionException(sprintf('Value \"%s\" is not accepted in this enumerated column', \$v));
+			}
+			\$v = \$index;
 		}
 
 		if (\$this->$phpname !== \$v) {

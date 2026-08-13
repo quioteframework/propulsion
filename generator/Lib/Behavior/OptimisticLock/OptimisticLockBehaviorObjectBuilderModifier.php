@@ -77,7 +77,7 @@ class OptimisticLockBehaviorObjectBuilderModifier
  *
  * @var mixed
  */
-protected \$optimisticLockPreviousVersion = null;
+protected ?int \$optimisticLockPreviousVersion = null;
 ";
 	}
 

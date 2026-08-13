@@ -917,11 +917,14 @@ public function getLastChild(\$query = null, ?PropulsionPDO \$con = null)
  */
 public function getSiblings(\$includeNode = false, \$query = null, ?PropulsionPDO \$con = null)
 {
-	if(\$this->isRoot()) {
+	\$parent = \$this->isRoot() ? null : \$this->getParent(\$con);
+	// isRoot() says there should be a parent, but the lookup can still come back
+	// empty on a tree whose rows have been deleted underneath this object.
+	if (\$parent === null) {
 		return \$this->emptyNestedSetCollection();
 	} else {
 		 \$query = $queryClassname::create(null, \$query)
-				->childrenOf(\$this->getParent(\$con))
+				->childrenOf(\$parent)
 				->orderByBranch();
 		if (!\$includeNode) {
 			\$query->prune(\$this);

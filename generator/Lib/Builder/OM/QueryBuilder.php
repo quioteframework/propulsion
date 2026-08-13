@@ -1010,7 +1010,7 @@ trait ".$this->getClassname()."
             $script .= "
         \$key = \$this->getAliasedColName($qualifiedName);
         if (null === \$comparison || \$comparison == Criteria::CONTAINS_ALL) {
-            foreach (\$$variableName as \$value) {
+            foreach (\$$variableName ?? array() as \$value) {
                 if (!is_scalar(\$value)) {
                     continue;
                 }
@@ -1023,7 +1023,7 @@ trait ".$this->getClassname()."
             }
             return \$this;
         } elseif (\$comparison == Criteria::CONTAINS_SOME) {
-            foreach (\$$variableName as \$value) {
+            foreach (\$$variableName ?? array() as \$value) {
                 if (!is_scalar(\$value)) {
                     continue;
                 }
@@ -1036,7 +1036,7 @@ trait ".$this->getClassname()."
             }
             return \$this;
         } elseif (\$comparison == Criteria::CONTAINS_NONE) {
-            foreach (\$$variableName as \$value) {
+            foreach (\$$variableName ?? array() as \$value) {
                 if (!is_scalar(\$value)) {
                     continue;
                 }
@@ -1055,14 +1055,14 @@ trait ".$this->getClassname()."
         \$valueSet = " . $this->getPeerClassname() . "::getValueSet(" . $this->getColumnConstant($col) . ");
         if (is_scalar(\$$variableName)) {
             if (!in_array(\$$variableName, \$valueSet)) {
-                throw new PropulsionException(sprintf('Value \"%s\" is not accepted in this enumerated column', \$$variableName));
+                throw new PropulsionException(sprintf('Value \"%s\" is not accepted in this enumerated column', is_scalar(\$$variableName) ? (string) \$$variableName : get_debug_type(\$$variableName)));
             }
             \$$variableName = array_search(\$$variableName, \$valueSet);
         } elseif (is_array(\$$variableName)) {
             \$convertedValues = array();
-            foreach (\$$variableName as \$value) {
+            foreach (\$$variableName ?? array() as \$value) {
                 if (!in_array(\$value, \$valueSet)) {
-                    throw new PropulsionException(sprintf('Value \"%s\" is not accepted in this enumerated column', \$value));
+                    throw new PropulsionException(sprintf('Value \"%s\" is not accepted in this enumerated column', is_scalar(\$value) ? (string) \$value : get_debug_type(\$value)));
                 }
                 \$convertedValues []= array_search(\$value, \$valueSet);
             }

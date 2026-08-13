@@ -13,6 +13,10 @@ public function update<?php echo $column->getPhpName() ?>(?PropulsionPDO $con = 
 	if ($con === null) {
 		$con = Propulsion::getConnection(<?php echo $peerClassname ?>::DATABASE_NAME, Propulsion::CONNECTION_WRITE);
 	}
-	$this->set<?php echo $column->getPhpName() ?>($this->compute<?php echo $column->getPhpName() ?>($con));
+	// fetchColumn() is typed mixed, and the aggregate column's setter takes
+	// ?int. An aggregate expression that produced something else is a schema
+	// error, not a value to coerce.
+	$aggregate = $this->compute<?php echo $column->getPhpName() ?>($con);
+	$this->set<?php echo $column->getPhpName() ?>(is_numeric($aggregate) ? (int) $aggregate : null);
 	$this->save($con);
 }
