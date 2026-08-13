@@ -66,11 +66,21 @@ class ExtensionObjectBuilder extends AbstractObjectBuilder
         // implements: the generated code is a trait this class uses, so the real
         // parent and the interface list live here. See
         // docs/GENERATED_TRAITS_PLAN.md.
-        $this->declareClass('Propulsion\\OM\\BaseObject');
         $this->declareClass('Propulsion\\OM\\Persistent');
         $this->declareClass('Propulsion\\OM\\Poolable');
         $this->declareClass('Propulsion\\OM\\WritableModelInterface');
-        $parentClass = $this->getObjectParentClass();
+        if ($this->getTable()->getBaseClass() !== null || is_string($this->getBehaviorContent('parentClass'))) {
+            // A table baseClass attribute or a parentClass behavior hook overrides the
+            // default: normalize instead of declareClass(), since a bare override name
+            // is meant to resolve against this file's own namespace (see
+            // OMBuilder::toAbsoluteClassReference()), not be imported.
+            $parentClass = $this->toAbsoluteClassReference($this->getObjectParentClass());
+        } else {
+            // The default: bare 'BaseObject' resolves correctly via the runtime-class
+            // alias map in getRuntimeClassFqcnMap(), so declareClass() it directly.
+            $this->declareClass('Propulsion\\OM\\BaseObject');
+            $parentClass = $this->getObjectParentClass();
+        }
         $implements = ' implements ' . implode(', ', $this->getObjectInterfaces());
 
         $script .= "

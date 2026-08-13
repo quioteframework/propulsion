@@ -128,9 +128,9 @@ class PeerBuilder extends AbstractPeerBuilder
 		$extendingPeerClass = '';
 		$parentClass = $this->getBehaviorContent('parentClass');
 		if (is_string($parentClass)) {
-			$extendingPeerClass = ' extends ' . $parentClass;
+			$extendingPeerClass = ' extends ' . $this->toAbsoluteClassReference($parentClass);
 		} elseif ($this->basePeerClassname && $this->basePeerClassname !== 'BasePeer') {
-			$extendingPeerClass = ' extends ' . $this->basePeerClassname;
+			$extendingPeerClass = ' extends ' . $this->toAbsoluteClassReference($this->basePeerClassname);
 		}
 
 		$script .= "

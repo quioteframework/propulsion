@@ -103,26 +103,4 @@ interface ".$this->getClassname()."
 ";
 	}
 
-	public function build(): string
-	{
-		$script = '';
-		
-		if ($this->getNamespace()) {
-			$script .= "<?php
-
-namespace " . $this->getNamespace() . ";
-
-";
-		} else {
-			$script .= "<?php
-
-";
-		}
-
-		$this->addClassOpen($script);
-		$this->addClassBody($script);
-		$this->addClassClose($script);
-
-		return $script;
-	}
 }

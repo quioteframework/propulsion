@@ -83,6 +83,13 @@ class QueryInheritanceBuilder extends OMBuilder
 
 	/**
 	 * Returns classpath to parent class.
+	 *
+	 * declareClassFromBuilder()s whichever builder actually answers the name --
+	 * not necessarily $this->getStubQueryBuilder() (this table's own root query
+	 * stub): a deeper inheritance chain (a child extending another child, not
+	 * the table's root class) resolves to a different QueryInheritanceBuilder
+	 * instance instead, and only declaring the root stub left that case
+	 * emitting `extends SomeOtherChildQuery` with no `use` for it.
 	 * @return     string
 	 */
 	protected function getParentClassName(): ?string
@@ -90,7 +97,9 @@ class QueryInheritanceBuilder extends OMBuilder
 		$ancestorClassName = ClassTools::classname(self::requireNotNull($this->getChild()->getAncestor(), sprintf("Inheritance child '%s' ancestor class name", $this->getChild()->getClassName())));
 		$ancestorTable = $this->getDatabase()->getTableByPhpName($ancestorClassName);
 		if ($ancestorTable !== null) {
-			return $this->getNewStubQueryBuilder($ancestorTable)->getClassname();
+			$builder = $this->getNewStubQueryBuilder($ancestorTable);
+			$this->declareClassFromBuilder($builder);
+			return $builder->getClassname();
 		} else {
 			// find the inheritance for the parent class
 			$childrenColumn = self::requireNotNull(
@@ -99,7 +108,9 @@ class QueryInheritanceBuilder extends OMBuilder
 			);
 			foreach ($childrenColumn->getChildren() ?? [] as $child) {
 				if ($child->getClassName() == $ancestorClassName) {
-					return $this->getNewStubQueryInheritanceBuilder($child)->getClassname();
+					$builder = $this->getNewStubQueryInheritanceBuilder($child);
+					$this->declareClassFromBuilder($builder);
+					return $builder->getClassname();
 				}
 			}
 		}
@@ -129,8 +140,6 @@ require '".$requiredClassFilePath."';
 		$tableName = $table->getName();
 		$tableDesc = $table->getDescription();
 
-		$baseBuilder = $this->getStubQueryBuilder();
-		$this->declareClassFromBuilder($baseBuilder);
 		$baseClassname = $this->getParentClassName();
 
 		$script .= "

@@ -351,6 +351,32 @@ abstract class OMBuilder extends DataModelBuilder
 	}
 
 	/**
+	 * Normalizes a user-supplied class name (a schema `baseClass`/`basePeer`
+	 * attribute, or a `parentClass` behavior hook) for use in an `extends`
+	 * clause, without emitting a `use` import for it.
+	 *
+	 * A bare name (no `\`) is returned unchanged: by existing convention (see
+	 * {@see \Propulsion\Generator\Builder\OM\MultiExtendObjectBuilder::getParentClasspath()}),
+	 * that resolves against the *generated file's own* namespace, which is
+	 * correct exactly when the author meant a sibling class -- and importing
+	 * it here would be a guess a `use` statement can't safely make: it would
+	 * either be a no-op silently reinterpreted as "the global class of this
+	 * name", or shadow a same-namespace class the author actually meant.
+	 *
+	 * A qualified name (contains `\`) is normalized to an absolute reference
+	 * (leading `\`): a *relative*-qualified name (`\` but no leading `\`) is
+	 * rooted at the current namespace by PHP, not the global namespace, so
+	 * left alone it would silently generate `extends CurrentNamespace\Foo\Bar`
+	 * instead of the class the author named. An absolute reference needs no
+	 * `use` statement -- it already resolves regardless of what else is
+	 * imported into this file.
+	 */
+	protected function toAbsoluteClassReference(string $className): string
+	{
+		return str_contains($className, '\\') ? '\\' . ltrim($className, '\\') : $className;
+	}
+
+	/**
 	 * Declares multiple classes at once (variadic via func_get_args()).
 	 */
 	public function declareClasses(string ...$classes): void

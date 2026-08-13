@@ -106,6 +106,12 @@ trait ".$this->getClassname()."
 	 */
 	protected function addClassBody(&$script): void
 	{
+		// addAttributes() types $parentNode/$prevSibling/$nextSibling as the
+		// concrete object class by bare name; a namespaced target needs the
+		// `use` this produces, or the property types resolve to a class that
+		// doesn't exist.
+		$this->declareClassFromBuilder($this->getStubObjectBuilder());
+
 		$this->addAttributes($script);
 		$this->addGetIterator($script);
 		$this->addIsLeaf($script);

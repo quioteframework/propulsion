@@ -62,6 +62,7 @@ if (!trait_exists('{$this->getNodePeerBuilder()->getClassname()}')) {
 		$tableDesc = $table->getDescription();
 
 		$baseClassname = $this->getNodePeerBuilder()->getClassname();
+		$this->declareClassFromBuilder($this->getNodePeerBuilder());
 
 		$script .= "
 

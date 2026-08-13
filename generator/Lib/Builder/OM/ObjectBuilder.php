@@ -440,7 +440,13 @@ trait " . $this->getClassname() . "
 		$this->declareClass('Propulsion\\Collection\\PropulsionCollection');
 		$this->declareClass('Propulsion\\Collection\\PropulsionObjectCollection');
 		
-		// Declare related builders for type hints and relationships
+		// Declare related builders for type hints and relationships.
+		// The stub object builder itself must be declared too: every column
+		// mutator returns getObjectReturnType() (the concrete class, for the
+		// fluent API), and without a `use` for it here, tables with no FK
+		// -- the only other place that declared it -- emit a trait that
+		// references an unimported class.
+		$this->declareClassFromBuilder($this->getStubObjectBuilder());
 		$this->declareClassFromBuilder($this->getStubPeerBuilder());
 		$this->declareClassFromBuilder($this->getStubQueryBuilder());
 

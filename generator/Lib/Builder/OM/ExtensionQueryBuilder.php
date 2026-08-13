@@ -56,9 +56,18 @@ require '".$requiredClassFilePath."';
 		$tableDesc = $table->getDescription();
 		// This class, not the generated code, is what extends: the generated code is
 		// a trait this class uses. See docs/GENERATED_TRAITS_PLAN.md.
-		$this->declareClass('Propulsion\\Query\\ModelCriteria');
-		$parentClass = $this->getBehaviorContent('parentClass');
-		$parentClass = is_string($parentClass) ? $parentClass : 'ModelCriteria';
+		$parentClassHook = $this->getBehaviorContent('parentClass');
+		if (is_string($parentClassHook)) {
+			// A behavior-supplied override: normalize instead of declareClass(), since
+			// a bare override name is meant to resolve against this file's own
+			// namespace (see OMBuilder::toAbsoluteClassReference()), not be imported.
+			$parentClass = $this->toAbsoluteClassReference($parentClassHook);
+		} else {
+			// The default: 'ModelCriteria' resolves correctly via the runtime-class
+			// alias map in getRuntimeClassFqcnMap(), so declareClass() it directly.
+			$this->declareClass('Propulsion\\Query\\ModelCriteria');
+			$parentClass = 'ModelCriteria';
+		}
 		$traitName = $this->getQueryBuilder()->getClassname();
 
 		$script .= "
