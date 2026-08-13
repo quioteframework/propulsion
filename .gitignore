@@ -4,3 +4,7 @@ composer.phar
 *.cache
 /test/fixtures/*/build/
 /.claude/
+# Where the coverage-producing CI jobs write their clover report
+# (--coverage-clover=coverage/clover.xml, run from test/), so running that
+# command locally does not leave an untracked file behind.
+/test/coverage/

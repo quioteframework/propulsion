@@ -67,7 +67,15 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.5'
-          extensions: pdo, pdo_sqlite, pdo_pgsql, pdo_mysql, mbstring, xml, simplexml
+          extensions: pdo, pdo_sqlite, pdo_pgsql, pdo_mysql, mbstring, xml, simplexml, apcu
+          # apcu, and apc.enable_cli so it is usable from the CLI SAPI: without
+          # both, ApcuCacheTest and CacheDriverFactoryTest's apcu path
+          # markTestSkipped() themselves, and runtime/Lib/Cache/Driver/ApcuCache.php
+          # reports 0% -- 53 lines that are in fact tested. The "Unit tests (no
+          # Docker)" job above is the only one that had them, and it runs with
+          # `coverage: none`, so the one job exercising that driver was also the one
+          # job measuring nothing. Every coverage-producing job needs them.
+          ini-values: apc.enable_cli=1
           # pcov, not xdebug. This job used to use xdebug because pcov "silently
           # instruments nothing on PHP 8.5 -- a 0.00% report regardless of what
           # actually ran". That diagnosis was wrong: pcov 1.0.12 works fine on
@@ -131,7 +139,15 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.5'
-          extensions: pdo, pdo_sqlite, pdo_pgsql, pdo_mysql, mbstring, xml, simplexml
+          extensions: pdo, pdo_sqlite, pdo_pgsql, pdo_mysql, mbstring, xml, simplexml, apcu
+          # apcu, and apc.enable_cli so it is usable from the CLI SAPI: without
+          # both, ApcuCacheTest and CacheDriverFactoryTest's apcu path
+          # markTestSkipped() themselves, and runtime/Lib/Cache/Driver/ApcuCache.php
+          # reports 0% -- 53 lines that are in fact tested. The "Unit tests (no
+          # Docker)" job above is the only one that had them, and it runs with
+          # `coverage: none`, so the one job exercising that driver was also the one
+          # job measuring nothing. Every coverage-producing job needs them.
+          ini-values: apc.enable_cli=1
           # See the integration job above for why pcov needs an explicit
           # pcov.directory on the run line.
           coverage: pcov
@@ -198,7 +214,15 @@ jobs:
         with:
           php-version: '8.5'
           # Same driver as real MySQL: there is no separate pdo_mariadb.
-          extensions: pdo, pdo_sqlite, pdo_pgsql, pdo_mysql, mbstring, xml, simplexml
+          extensions: pdo, pdo_sqlite, pdo_pgsql, pdo_mysql, mbstring, xml, simplexml, apcu
+          # apcu, and apc.enable_cli so it is usable from the CLI SAPI: without
+          # both, ApcuCacheTest and CacheDriverFactoryTest's apcu path
+          # markTestSkipped() themselves, and runtime/Lib/Cache/Driver/ApcuCache.php
+          # reports 0% -- 53 lines that are in fact tested. The "Unit tests (no
+          # Docker)" job above is the only one that had them, and it runs with
+          # `coverage: none`, so the one job exercising that driver was also the one
+          # job measuring nothing. Every coverage-producing job needs them.
+          ini-values: apc.enable_cli=1
           # See the integration job above for why pcov needs an explicit
           # pcov.directory on the run line.
           coverage: pcov
@@ -246,7 +270,15 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.5'
-          extensions: pdo, pdo_sqlite, pdo_pgsql, pdo_mysql, pdo_dblib, mbstring, xml, simplexml
+          extensions: pdo, pdo_sqlite, pdo_pgsql, pdo_mysql, pdo_dblib, mbstring, xml, simplexml, apcu
+          # apcu, and apc.enable_cli so it is usable from the CLI SAPI: without
+          # both, ApcuCacheTest and CacheDriverFactoryTest's apcu path
+          # markTestSkipped() themselves, and runtime/Lib/Cache/Driver/ApcuCache.php
+          # reports 0% -- 53 lines that are in fact tested. The "Unit tests (no
+          # Docker)" job above is the only one that had them, and it runs with
+          # `coverage: none`, so the one job exercising that driver was also the one
+          # job measuring nothing. Every coverage-producing job needs them.
+          ini-values: apc.enable_cli=1
           # See the integration job above for why pcov needs an explicit
           # pcov.directory on the run line.
           coverage: pcov
@@ -310,7 +342,15 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.5'
-          extensions: pdo, pdo_sqlite, pdo_pgsql, pdo_mysql, mbstring, xml, simplexml
+          extensions: pdo, pdo_sqlite, pdo_pgsql, pdo_mysql, mbstring, xml, simplexml, apcu
+          # apcu, and apc.enable_cli so it is usable from the CLI SAPI: without
+          # both, ApcuCacheTest and CacheDriverFactoryTest's apcu path
+          # markTestSkipped() themselves, and runtime/Lib/Cache/Driver/ApcuCache.php
+          # reports 0% -- 53 lines that are in fact tested. The "Unit tests (no
+          # Docker)" job above is the only one that had them, and it runs with
+          # `coverage: none`, so the one job exercising that driver was also the one
+          # job measuring nothing. Every coverage-producing job needs them.
+          ini-values: apc.enable_cli=1
           # See the integration job above for why pcov needs an explicit
           # pcov.directory on the run line.
           coverage: pcov
