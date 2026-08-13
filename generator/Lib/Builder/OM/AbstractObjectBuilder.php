@@ -57,6 +57,7 @@ abstract class AbstractObjectBuilder extends OMBuilder
 	public function getGeneratedMethodSignatures(): array
 	{
 		$tokens = token_get_all($this->build());
+		$useMap = $this->extractUseImportMap($tokens);
 
 		$signatures = array();
 		$depth = 0;
@@ -118,9 +119,109 @@ abstract class AbstractObjectBuilder extends OMBuilder
 				$returnType = trim($typeText);
 			}
 
-			$signatures[$name] = array('params' => trim($params), 'returnType' => $returnType);
+			$signatures[$name] = array(
+				'params' => $this->qualifyTypeHints(trim($params), $useMap),
+				'returnType' => $returnType !== null ? $this->qualifyTypeHints($returnType, $useMap) : null,
+			);
 		}
 		return $signatures;
+	}
+
+	/**
+	 * A bare class name in a param/return type only resolves correctly
+	 * because *this* file's own `use` statements brought it into scope --
+	 * copying that bare text verbatim into a forwarding method generated on
+	 * a *different* table (a different namespace) silently resolves it
+	 * against the wrong namespace instead. PHP doesn't error on this: it
+	 * just checks values against a class that doesn't exist (or worse,
+	 * happens to exist and isn't the one meant), so it surfaces as a
+	 * confusing TypeError naming the wrong FQCN at the first call, not a
+	 * loud failure at generation time. Absolute references need no import
+	 * and carry correctly wherever they're pasted, so every bare class name
+	 * this file's own imports can resolve gets normalized to one; anything
+	 * this method can't resolve (already absolute, a native type, or
+	 * genuinely not imported here) is left untouched.
+	 * @param array<string, string> $useMap bare name => FQCN, from extractUseImportMap()
+	 */
+	private function qualifyTypeHints(string $type, array $useMap): string
+	{
+		static $reservedTypes = array(
+			'int', 'float', 'string', 'bool', 'array', 'object', 'mixed', 'void', 'never',
+			'null', 'false', 'true', 'self', 'static', 'parent', 'callable', 'iterable',
+		);
+		return preg_replace_callback(
+			'/(?<!\\\\)\b[A-Za-z_][A-Za-z0-9_]*\b/',
+			function (array $m) use ($useMap, $reservedTypes): string {
+				$name = $m[0];
+				if (in_array(strtolower($name), $reservedTypes, true)) {
+					return $name;
+				}
+				return isset($useMap[$name]) ? '\\' . $useMap[$name] : $name;
+			},
+			$type
+		) ?? $type;
+	}
+
+	/**
+	 * The bare-name => FQCN map this file's own `use Some\Namespace\Name;`
+	 * (and `use Some\Namespace\Name as Alias;`) import statements establish,
+	 * read from the same token stream getGeneratedMethodSignatures() already
+	 * has -- only import statements outside any class/trait body (depth 0)
+	 * count; a `use SomeTrait;` inside a class body is a trait-use, not an
+	 * import, and is naturally excluded by the same depth check.
+	 * @param list<array{0: int, 1: string, 2: int}|string> $tokens
+	 * @return array<string, string>
+	 */
+	private function extractUseImportMap(array $tokens): array
+	{
+		$map = array();
+		$depth = 0;
+		$count = count($tokens);
+		for ($i = 0; $i < $count; $i++) {
+			$token = $tokens[$i];
+			if ($token === '{') {
+				$depth++;
+				continue;
+			}
+			if ($token === '}') {
+				$depth--;
+				continue;
+			}
+			if ($depth !== 0 || !is_array($token) || $token[0] !== T_USE) {
+				continue;
+			}
+
+			// PHP 8's tokenizer emits a qualified name (`A\B\C`) as a single
+			// T_NAME_QUALIFIED token (T_NAME_FULLY_QUALIFIED / T_NAME_RELATIVE for
+			// the `\`-leading/`namespace\`-leading forms; a single unqualified
+			// segment is still plain T_STRING) -- not one T_STRING per segment.
+			$fqcn = null;
+			$alias = null;
+			$j = $i + 1;
+			for (; $j < $count && $tokens[$j] !== ';'; $j++) {
+				$t = $tokens[$j];
+				if (!is_array($t)) {
+					continue;
+				}
+				if ($fqcn === null && in_array($t[0], array(T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED, T_NAME_RELATIVE), true)) {
+					$fqcn = ltrim($t[1], '\\');
+				} elseif ($t[0] === T_AS) {
+					for ($k = $j + 1; $k < $count && $tokens[$k] !== ';'; $k++) {
+						if (is_array($tokens[$k]) && $tokens[$k][0] === T_STRING) {
+							$alias = $tokens[$k][1];
+							break;
+						}
+					}
+				}
+			}
+			if ($fqcn !== null) {
+				$parts = explode('\\', $fqcn);
+				$bareName = $alias ?? end($parts);
+				$map[$bareName] = $fqcn;
+			}
+			$i = $j;
+		}
+		return $map;
 	}
 
 	/**
