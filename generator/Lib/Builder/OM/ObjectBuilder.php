@@ -477,8 +477,14 @@ trait " . $this->getClassname() . "
 			$this->addManipulationMethods($script);
 		}
 
-		// Add validation methods if enabled
-		if ($this->isAddValidateMethod()) {
+		// Add validation methods if enabled.
+		//
+		// The isAlias()/isReadOnly() half matches AbstractPeerBuilder's guard on
+		// addUpdateMethods(), which is what emits doValidateThis(). Without it
+		// the object generated validate() calling a peer method that was never
+		// written -- a "call to undefined static method" waiting for the first
+		// caller, on ContestView in the fixtures.
+		if ($this->isAddValidateMethod() && !$table->isAlias() && !$table->isReadOnly()) {
 			$this->addValidationMethods($script);
 		}
 
@@ -1254,6 +1260,9 @@ trait " . $this->getClassname() . "
 	public function set$phpname(mixed \$value$defaultValue): $returnType
 	{
 		if (\$value !== null && !is_resource(\$value)) {
+			if (!is_scalar(\$value)) {
+				throw new PropulsionException('The [$colname] LOB column accepts a stream, a scalar or null, got ' . get_debug_type(\$value));
+			}
 			\$fp = fopen('php://memory', 'r+');
 			if (\$fp === false) {
 				throw new PropulsionException('Unable to open php://memory stream for [$colname] column.');
@@ -1770,7 +1779,12 @@ trait " . $this->getClassname() . "
 		if ($fk->isLocalPrimaryKey()) {
 			$script .= "
 			// Because this foreign key represents a one-to-one relationship, we will create a bi-directional association.
-			\$this->{$varName}->set".$this->getRefFKPhpNameAffix($fk, $plural = false)."(\$this);";
+			// Guarded: the lookup above returns null when the referenced row is
+			// gone, and setting the back-reference on null is a fatal rather
+			// than the missing-relation the caller is about to handle.
+			if (\$this->{$varName} !== null) {
+				\$this->{$varName}->set".$this->getRefFKPhpNameAffix($fk, $plural = false)."(\$this);
+			}";
 		}
 		$script .= "
 		}

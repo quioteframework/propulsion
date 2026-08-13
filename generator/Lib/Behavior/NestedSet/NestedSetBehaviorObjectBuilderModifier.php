@@ -567,7 +567,8 @@ public function setParent(\$parent = null)
  * The result is cached so further calls to the same method don't issue any queries
  *
  * @param      PropulsionPDO \$con Connection to use.
- * @return     mixed 		Propulsion object if exists else false
+ * @return     {$this->objectClassname}|null The parent node, or null at the root. Not `mixed ... else false`:
+ *             the body returns the cached property, which is the model or null.
  */
 public function getParent(?PropulsionPDO \$con = null)
 {
@@ -753,11 +754,16 @@ public function initNestedSetChildren()
  */
 public function addNestedSetChild($objectName)
 {
+	// Assigned directly rather than through initNestedSetChildren(), so the
+	// property is provably non-null for the rest of this method -- a call that
+	// assigns a property does not narrow it for the caller.
 	if (\$this->collNestedSetChildren === null) {
-		\$this->initNestedSetChildren();
+		\$this->collNestedSetChildren = \$this->emptyNestedSetCollection();
 	}
 	if (!\$this->collNestedSetChildren->contains($objectName)) { // only add it if the **same** object is not already associated
-		\$this->collNestedSetChildren[]= $objectName;
+		// append(), not []=: the property is a PropulsionObjectCollection, and
+		// the array-append form reads as assigning an array to it.
+		\$this->collNestedSetChildren->append($objectName);
 		{$objectName}->setParent(\$this);
 	}
 }
@@ -1484,14 +1490,18 @@ protected function moveSubtreeTo(\$destLeft, \$levelDelta, ?PropulsionPDO \$con 
 public function deleteDescendants(?PropulsionPDO \$con = null)
 {
 	if(\$this->isLeaf()) {
-		// save one query
-		return;
+		// save one query -- a leaf has no descendants, so nothing was deleted
+		return 0;
 	}
 	if (\$con === null) {
 		\$con = Propulsion::getConnection($peerClassname::DATABASE_NAME, Propulsion::CONNECTION_READ);
 	}
 	\$left = \$this->getLeftValue();
-	\$right = \$this->getRightValue();";
+	\$right = \$this->getRightValue();
+	if (\$left === null || \$right === null) {
+		// Not placed in a tree, so there is no room to reclaim below.
+		return 0;
+	}";
 		if ($useScope) {
 			$script .= "
 	\$scope = \$this->getScopeValue();";

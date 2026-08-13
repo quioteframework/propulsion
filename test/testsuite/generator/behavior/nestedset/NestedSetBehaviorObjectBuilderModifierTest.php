@@ -1433,7 +1433,9 @@ class NestedSetBehaviorObjectBuilderModifierTest extends BookstoreNestedSetTestB
 		       |  \
 		       t6 t7
 		*/
-		$this->assertNull($t2->deleteDescendants(), 'deleteDescendants() returns null leafs');
+		// 0, not null: the method's own @return has always said int, and a leaf
+		// simply has no descendants to delete.
+		$this->assertSame(0, $t2->deleteDescendants(), 'deleteDescendants() returns 0 for leafs');
 		$this->assertEquals(4, $t3->deleteDescendants(), 'deleteDescendants() returns the number of deleted nodes');
 		$this->assertEquals(5, $t3->getRightValue(), 'deleteDescendants() updates the current node');
 		$this->assertEquals(5, $t4->getLeftValue(), 'deleteDescendants() does not update existing nodes (because delete() clears the instance cache)');
