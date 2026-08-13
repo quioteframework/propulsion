@@ -297,6 +297,13 @@ public function reorder(array \$order, ?PropulsionPDO \$con = null)
 		\$objects = \$this->findPks(\$ids, \$con);
 		foreach (\$objects as \$object) {
 			\$pk = \$object->getPrimaryKey();
+			// A primary-key getter is nullable -- an unsaved object has no key --
+			// and null is not a usable array key. Nothing findPks() returned can
+			// have one, so this only ever skips an impossible row; without it the
+			// \$order lookups below index on int|null.
+			if (\$pk === null) {
+				continue;
+			}
 			if (\$object->$columnGetter() != \$order[\$pk]) {
 				\$object->$columnSetter(\$order[\$pk]);
 				\$object->save(\$con);

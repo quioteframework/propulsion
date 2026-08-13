@@ -452,7 +452,11 @@ public static function updateLoadedNodes(\$prune = null, ?PropulsionPDO \$con = 
 
 		$script .= "
 			\$stmt = $peerClassname::doSelectStmt(\$criteria, \$con);
-			while (\$row = \$stmt->fetch(PDO::FETCH_NUM)) {
+			// is_array() rather than a bare truthiness test: PDOStatement::fetch()
+			// is declared to return mixed, so every \$row[N] read below was an
+			// access on mixed. It returns false when the result set is exhausted,
+			// so this terminates identically while giving the rows a type.
+			while (is_array(\$row = \$stmt->fetch(PDO::FETCH_NUM))) {
 				\$key = $peerClassname::getPrimaryKeyHashFromRow(\$row, 0);
 				if (null !== (\$object = $peerClassname::getInstanceFromPool(\$key))) {";
 		$n = 0;

@@ -738,11 +738,16 @@ trait ".$this->getClassname()."
      */
     protected function addFilterByPrimaryKey(&$script): void
     {
+        // Typed rather than `mixed`. A composite key is read positionally below
+        // ($key[0], $key[1], ...), and `mixed` made every one of those an
+        // offsetAccess finding while telling the caller nothing about the shape
+        // it has to pass. This is the same type getPrimaryKey() now returns.
+        $keyType = $this->getPrimaryKeyPhpDocType($this->getTable()->getPrimaryKey());
         $script .= "
     /**
      * Filter the query by primary key
      *
-     * @param     mixed \$key Primary key to use for the query
+     * @param     $keyType \$key Primary key to use for the query
      *
      * @return    static The current query, for fluid interface
      */
