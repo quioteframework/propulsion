@@ -1,0 +1,26 @@
+# PHPStan level 9 over the *generated* model classes, on top of the source.
+#
+# phpstan.neon deliberately analyses only generator/, runtime/ and bin/, because
+# test/fixtures/*/build/classes does not exist until something builds it, and a
+# config pointing at a missing path fails rather than skipping.
+#
+# Including that file merges its `paths` with the ones below, so this config is a
+# superset: one command gates hand-written and generated code together. Build the
+# fixtures first:
+#
+#     cd test && PROPULSION_REQUIRE_INTEGRATION=1 php tools/generate-fixtures.php
+#     composer analyse:generated
+#
+# Generated code reached zero findings at level 9 in 2026-08; this config is what
+# keeps it there. Regenerating is not optional before running it -- the build
+# tree is never pruned, so classes the generator no longer emits linger and get
+# analysed. See KNOWN_ISSUES.md.
+includes:
+    - phpstan.neon
+
+parameters:
+    paths:
+        - test/fixtures/bookstore/build/classes
+        - test/fixtures/schemas/build/classes
+        - test/fixtures/namespaced/build/classes
+    tmpDir: /tmp/phpstan-propulsion-generated

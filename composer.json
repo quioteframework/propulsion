@@ -42,7 +42,9 @@
       "docker network ls -q --filter label=propulsion.test-container=true | xargs -r docker network rm --"
     ],
     "test:worker": "php test/worker/driver.php",
-    "analyse": "phpstan analyse"
+    "test:generate-fixtures": "php test/tools/generate-fixtures.php",
+    "analyse": "phpstan analyse",
+    "analyse:generated": "phpstan analyse -c phpstan-generated.neon"
   },
   "config": {
     "allow-plugins": {

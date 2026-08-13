@@ -25,6 +25,14 @@ rm -rf fixtures/bookstore/build fixtures/schemas/build fixtures/namespaced/build
   (`Session::reset()`) is what makes concurrent requests safe, not any
   per-thread separation the runtime provides for you.
 - `composer test:cleanup-containers` — remove any testcontainers leaked by a killed run.
+- `composer test:generate-fixtures` — build all three fixture projects' model
+  classes without running the suite. Needs Docker (only the bookstore project
+  builds without a database), and refuses to exit 0 on a partial tree.
+- `composer analyse:generated` — PHPStan level 9 over the generated classes
+  *and* the source, via `phpstan-generated.neon`. Generate first; the build tree
+  is never pruned, so classes the generator no longer emits linger and get
+  analysed. Generated code has been at zero findings since 2026-08 and CI's
+  `analyse` job gates it.
 - **Code coverage:** pass `-d pcov.directory=<repo root>` explicitly:
 
   ```

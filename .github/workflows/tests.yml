@@ -425,11 +425,14 @@ jobs:
           fail_ci_if_error: true
 
   analyse:
-    name: PHPStan (level 9)
+    name: PHPStan (level 9, hand-written + generated)
     runs-on: ubuntu-latest
     # CLAUDE.md requires every edited file to reach PHPStan level 9, but nothing
     # enforced it mechanically -- this job turns that rule from discipline into
-    # a gate.
+    # a gate, for the generated model classes as much as for the source that
+    # emits them. Generated code reached zero findings at level 9 in 2026-08
+    # (down from 550); without this job nothing would notice it drifting back,
+    # because the generated tree is never committed and so never reviewed.
     steps:
       - uses: actions/checkout@v5
 
@@ -454,8 +457,29 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --no-progress --prefer-dist
 
-      - name: Run PHPStan
+      # Run first, and on its own, so a failure in hand-written code reports
+      # against generator/runtime/bin rather than arriving mixed into a run that
+      # also covers 450-odd generated files.
+      - name: Run PHPStan over hand-written code
         run: composer analyse
+
+      # Only the bookstore project builds without a database; the namespaced and
+      # schemas projects are Postgres-specific, so this starts a testcontainer.
+      # PROPULSION_REQUIRE_INTEGRATION makes an unavailable one a failure rather
+      # than a skip -- a partial tree would leave the gate below analysing a
+      # fraction of the code and reporting success. The script additionally
+      # refuses to exit 0 on a tree that has collapsed, for the same reason.
+      - name: Generate fixture model classes
+        env:
+          PROPULSION_REQUIRE_INTEGRATION: '1'
+        run: composer test:generate-fixtures
+
+      - name: Run PHPStan over generated code
+        run: composer analyse:generated
+
+      - name: Clean up leaked test containers
+        if: always()
+        run: composer test:cleanup-containers
 
   worker:
     name: FrankenPHP worker-mode matrix
