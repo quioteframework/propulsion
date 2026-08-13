@@ -1395,15 +1395,24 @@ public function moveToNextSiblingOf(\$sibling, ?PropulsionPDO \$con = null)
 /**
  * Move current node and its children to location \$destLeft and updates rest of tree
  *
- * @param      int	\$destLeft Destination left value
- * @param      int	\$levelDelta Delta to add to the levels
+ * @param      ?int	\$destLeft Destination left value
+ * @param      ?int	\$levelDelta Delta to add to the levels
  * @param      PropulsionPDO \$con		Connection to use.
  * @return     void
+ * @throws     PropulsionException if this node, or the destination, is not placed in a tree
  */
 protected function moveSubtreeTo(\$destLeft, \$levelDelta, ?PropulsionPDO \$con = null)
 {
 	\$left  = \$this->getLeftValue();
-	\$right = \$this->getRightValue();";
+	\$right = \$this->getRightValue();
+	// Every one of these is nullable -- a node that has not been placed in a
+	// tree has no left, right or level -- and the arithmetic below would
+	// silently treat null as 0, producing a plausible-looking but wrong shift.
+	// Refuse instead, and narrow the values for the rest of the method.
+	if (\$left === null || \$right === null || \$destLeft === null) {
+		throw new PropulsionException('Cannot move a node that is not in a tree, or to a destination that is not.');
+	}
+	\$levelDelta = \$levelDelta ?? 0;";
 		if ($useScope) {
 			$script .= "
 	\$scope = \$this->getScopeValue();";

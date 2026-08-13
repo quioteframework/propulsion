@@ -457,6 +457,7 @@ public static function updateLoadedNodes(\$prune = null, ?PropulsionPDO \$con = 
 			// access on mixed. It returns false when the result set is exhausted,
 			// so this terminates identically while giving the rows a type.
 			while (is_array(\$row = \$stmt->fetch(PDO::FETCH_NUM))) {
+				/** @var array<int, scalar|null> \$row -- FETCH_NUM gives int keys, and a driver column is a scalar or null */
 				\$key = $peerClassname::getPrimaryKeyHashFromRow(\$row, 0);
 				if (null !== (\$object = $peerClassname::getInstanceFromPool(\$key))) {";
 		$n = 0;
@@ -464,13 +465,13 @@ public static function updateLoadedNodes(\$prune = null, ?PropulsionPDO \$con = 
 			if ($col->isLazyLoad()) continue;
 			if ($col->getPhpName() == $this->getColumnPhpName('left_column')) {
 				$script .= "
-					\$object->setLeftValue(\$row[$n]);";
+					\$object->setLeftValue(\$row[$n] === null ? null : (int) \$row[$n]);";
 			} else if ($col->getPhpName() == $this->getColumnPhpName('right_column')) {
 				$script .= "
-					\$object->setRightValue(\$row[$n]);";
+					\$object->setRightValue(\$row[$n] === null ? null : (int) \$row[$n]);";
 			} else if ($col->getPhpName() == $this->getColumnPhpName('level_column')) {
 				$script .= "
-					\$object->setLevel(\$row[$n]);
+					\$object->setLevel(\$row[$n] === null ? null : (int) \$row[$n]);
 					\$object->clearNestedSetChildren();";
 			}
 			$n++;
@@ -499,7 +500,7 @@ public static function updateLoadedNodes(\$prune = null, ?PropulsionPDO \$con = 
  * @param      integer \$scope	scope column value";
  		}
  		$script .= "
- * @param      mixed \$prune	Object to prune from the shift
+ * @param      ?{$this->objectClassname} \$prune	Object to prune from the shift
  * @param      PropulsionPDO \$con	Connection to use.
  * @return     void
  */
