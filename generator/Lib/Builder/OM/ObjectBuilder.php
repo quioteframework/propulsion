@@ -2869,12 +2869,27 @@ trait " . $this->getClassname() . "
 		return \$this->get$phpname();
 	}";
 		} else {
+			// A precise array shape rather than array<int,mixed>. The elements are
+			// this table's own primary-key columns, whose types are known here, and
+			// callers index them positionally -- filterByPrimaryKey() reads $key[0],
+			// $key[1] -- so `mixed` turned every one of those reads into an
+			// offsetAccess finding and made the value useless to
+			// filterByPrimaryKeys(), which declares the same shape.
+			// Nullable elements, matching the column getters this delegates to: an
+			// unsaved object has no key yet. QueryBuilder::getPrimaryKeyPhpDocType()
+			// has to agree with this, or a key read off one object cannot be handed
+			// to the query that filters on it.
+			$shapeParts = array();
+			foreach ($pks as $i => $pkCol) {
+				$shapeParts[] = $i . ': ' . $this->getPhp85TypeHint($pkCol);
+			}
+			$shape = 'array{' . implode(', ', $shapeParts) . '}';
 			$script .= "
 
 	/**
 	 * Returns the composite primary key for this object.
 	 * The array elements will be in same order as the primary key columns in the table schema.
-	 * @return array<int,mixed>
+	 * @return $shape
 	 */
 	public function getPrimaryKey(): array
 	{

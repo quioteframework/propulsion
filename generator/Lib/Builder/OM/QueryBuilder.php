@@ -587,17 +587,48 @@ trait ".$this->getClassname()."
      * @return     string A PHPDoc type: the column's own type for a single-column key,
      *                     or an `array{0: T0, 1: T1, ...}` shape for a composite key.
      */
+    /**
+     * Returns a precise PHPDoc type for the value of a single primary key.
+     *
+     * Nullability is kept, not stripped. A primary-key column's generated
+     * property and getter are nullable -- an object that has not been saved has
+     * no key yet -- so getPrimaryKey() really can hand back null, or an array of
+     * nulls for a composite key. Declaring the non-null form here made this type
+     * disagree with the one ObjectBuilder::addGetPrimaryKey() emits, which is
+     * exactly the mismatch that stopped a collection's keys being usable by
+     * filterByPrimaryKeys().
+     *
+     * @param      \Propulsion\Generator\Model\Column[] $pks The primary key columns of the table, in order.
+     * @return     string A PHPDoc type: the column's own type for a single-column key,
+     *                     or an `array{0: T0, 1: T1, ...}` shape for a composite key.
+     */
     protected function getPrimaryKeyPhpDocType(array $pks): string
     {
         if (count($pks) === 1) {
-            return ltrim($this->getModernPhpType($pks[0]), '?');
+            return $this->nullablePrimaryKeyType($pks[0]);
         }
         $shapeParts = array();
         foreach ($pks as $i => $col) {
-            $shapeParts[]= $i . ': ' . ltrim($this->getModernPhpType($col), '?');
+            $shapeParts[]= $i . ': ' . $this->nullablePrimaryKeyType($col);
         }
 
         return 'array{'. join(', ', $shapeParts) . '}';
+    }
+
+    /**
+     * Unconditionally nullable, unlike getModernPhpType(), which answers `int`
+     * for a NOT NULL column.
+     *
+     * That is right for a column value but wrong for a primary key read back off
+     * a model: ObjectBuilder declares every column property and getter nullable
+     * regardless of the schema, because an object that has not been saved yet
+     * holds no value. So getPrimaryKey() genuinely returns ?int (or an array of
+     * them), and a type here that says otherwise cannot be satisfied by the
+     * thing that produces it.
+     */
+    private function nullablePrimaryKeyType(Column $col): string
+    {
+        return '?' . ltrim($this->getModernPhpType($col), '?');
     }
 
     /**
@@ -1265,10 +1296,40 @@ trait ".$this->getClassname()."
         }
         $script .= ";";
         if (!$fk->isComposite()) {
+            // Built here rather than via PropulsionObjectCollection::getPrimaryKeys().
+            // That method is typed against BaseObject, whose getPrimaryKey() is
+            // necessarily mixed (scalar for a single-column key, array for a
+            // composite one), so its return flattens to array<array-key, mixed> and
+            // satisfies no filterByPrimaryKeys() signature. Iterating the collection
+            // keeps the element type from the @param above, and each model's own
+            // getPrimaryKey() is precisely typed.
+            //
+            // The keys of the array are irrelevant to the callee -- a single-column
+            // key goes straight into an IN clause, a composite one is only iterated
+            // by value -- so dropping getPrimaryKeys()' model-name prefixing changes
+            // nothing.
+            $fkPks = $fkTable->getPrimaryKey();
             $script .= "
         } elseif ($objectName instanceof PropulsionObjectCollection) {
             return \$this->with{$relationName}Query(function (\$q) use ($objectName) {
-                \$q->filterByPrimaryKeys({$objectName}->getPrimaryKeys());
+                \$keys = [];
+                foreach ($objectName as \$relatedObject) {";
+            if (count($fkPks) === 1) {
+                // Only a single-column key can be null, and an unsaved object with a
+                // null key would only have contributed a NULL to an IN clause, which
+                // never matches anything.
+                $script .= "
+                    \$key = \$relatedObject->getPrimaryKey();
+                    if (\$key !== null) {
+                        \$keys[] = \$key;
+                    }";
+            } else {
+                $script .= "
+                    \$keys[] = \$relatedObject->getPrimaryKey();";
+            }
+            $script .= "
+                }
+                \$q->filterByPrimaryKeys(\$keys);
             });";
         }
         $script .= "
