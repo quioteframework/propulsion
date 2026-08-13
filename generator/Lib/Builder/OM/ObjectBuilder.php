@@ -323,6 +323,27 @@ class ObjectBuilder extends AbstractObjectBuilder
 	}
 
 	/**
+	 * The type to write in a docblock, which is not always the type to write in
+	 * a signature.
+	 *
+	 * `array` is legal as a native type hint but says nothing about the values,
+	 * so PHPStan reports every array column's property, getter and setter as
+	 * having no value type. An array column holds a list -- the pipe-delimited
+	 * encoding and PgArray::decode() both produce sequential keys -- and the
+	 * element type is whatever the application put in it.
+	 */
+	protected function getPhp85DocType(Column $col): string
+	{
+		$type = $this->getPhp85TypeHint($col);
+
+		return match ($type) {
+			'array' => 'array<int, mixed>',
+			'?array' => 'array<int, mixed>|null',
+			default => $type,
+		};
+	}
+
+	/**
 	 * Adds the include() statements for files that this class depends on or utilizes.
 	 * @param      string &$script The script will be modified in this method.
 	 */
@@ -535,12 +556,17 @@ trait " . $this->getClassname() . "
 				}
 			}
 
-			// Add property documentation
+			// Add property documentation. The @var is only worth emitting where
+			// it says more than the native type does -- an array column, whose
+			// `?array` hint carries no element type.
+			$docType = $this->getPhp85DocType($col);
+			$varTag = $docType === $type ? '' : "
+	 * @var $docType";
 			$script .= "
 
 	/**
 	 * The value for the $colname field.
-	 * " . ($col->getDescription() ? $col->getDescription() : '') . "
+	 * " . ($col->getDescription() ? $col->getDescription() : '') . $varTag . "
 	 */";
 		// Add the typed property. PHP5ObjectBuilder always declared column properties
 		// `protected` (see archaeology/php5-builders/PHP5ObjectBuilder.php,
@@ -794,7 +820,7 @@ trait " . $this->getClassname() . "
 	 */
 	public function has$singularPhpName(mixed \$value): bool
 	{
-		return in_array(\$value, \$this->get$cfc());
+		return in_array(\$value, \$this->get$cfc() ?? array());
 	}";
 	}
 
@@ -841,7 +867,9 @@ trait " . $this->getClassname() . "
 	public function remove$singularPhpName(mixed \$value): $returnType
 	{
 		\$targetArray = array();
-		foreach (\$this->get$cfc() as \$element) {
+		// The getter is nullable -- the column can hold SQL NULL -- and null is
+		// not iterable. Nothing to remove from in that case.
+		foreach (\$this->get$cfc() ?? array() as \$element) {
 			if (\$element != \$value) {
 				\$targetArray[] = \$element;
 			}
@@ -906,7 +934,7 @@ trait " . $this->getClassname() . "
 	{
 		$colname = (string) $col->getName();
 		$description = $col->getDescription() ? $col->getDescription() : "Get the value of [$colname] column.";
-		$returnType = $this->getPhp85TypeHint($col);
+		$returnType = $this->getPhp85DocType($col);
 		$script .= "
 
 	/**
@@ -1027,6 +1055,7 @@ trait " . $this->getClassname() . "
 		if ($col->isLobType()) {
 			$script .= "
 			if (is_array(\$row) && \$row[0] !== null) {
+				/** @var array<int, mixed> \$row -- FETCH_NUM is what makes the keys int */
 				if (is_resource(\$row[0])) {
 					// Some PDO drivers (e.g. pgsql, for bytea columns) already return a
 					// stream for a LOB column -- but it's the driver's own live,
@@ -1052,6 +1081,12 @@ trait " . $this->getClassname() . "
 					\$fp = fopen('php://memory', 'r+');
 					if (\$fp === false) {
 						throw new PropulsionException('Unable to open php://memory stream for [$clo] column.');
+					}
+					// A driver hands a non-resource LOB back as a scalar; anything
+					// else is not something a column can hold, so refuse rather
+					// than casting an array or object into gibberish.
+					if (!is_scalar(\$row[0])) {
+						throw new PropulsionException('Unexpected value type for the [$clo] LOB column: ' . get_debug_type(\$row[0]));
 					}
 					fwrite(\$fp, (string) \$row[0]);
 					\$this->$phpname = \$fp;
@@ -1144,7 +1179,7 @@ trait " . $this->getClassname() . "
 	public function addMutatorComment(string &$script, Column $col): void
 	{
 		$colname = (string) $col->getName();
-		$paramType = $this->getPhp85TypeHint($col);
+		$paramType = $this->getPhp85DocType($col);
 		$returnType = $this->getObjectReturnType();
 		$description = $col->getDescription() ? $col->getDescription() : "Set the value of [$colname] column.";
 		$script .= "

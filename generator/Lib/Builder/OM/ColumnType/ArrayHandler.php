@@ -39,7 +39,11 @@ class ArrayHandler extends ColumnTypeHandler
 			$builder->declareClass('\\Propulsion\\Type\\PgArray');
 			return 'PgArray::decode($v)';
 		}
-		return "(\$v === '' ? array() : (preg_match('/^ \\| (.*) \\| $/s', \$v, \$matches) ? explode(' | ', \$matches[1]) : explode(' | ', \$v)))";
+		// $v is a raw PDO row value, so mixed as far as static analysis is
+		// concerned, and the pipe-delimited decoding below is string work. A
+		// non-string cannot be a serialized array, and the empty-string case
+		// already means "no elements", so both collapse to an empty array.
+		return "(is_string(\$v) ? (\$v === '' ? array() : (preg_match('/^ \\| (.*) \\| $/s', \$v, \$matches) ? explode(' | ', \$matches[1]) : explode(' | ', \$v))) : array())";
 	}
 
 	public function buildValueExpr(Column $col, string $phpAccessExpr, ObjectBuilder $builder): ?string
@@ -53,10 +57,12 @@ class ArrayHandler extends ColumnTypeHandler
 
 	public function buildCastExpr(Column $col, string $varExpr): ?string
 	{
-		// The setter already accepts a broader union or needs value-specific
-		// handling; passing the raw value through preserves existing
-		// behavior for this rare/exotic primary key type.
-		return $varExpr;
+		// $varExpr is a mixed value (a setByPosition()/fromArray() element), and
+		// the setter takes ?array. There is no meaningful cast from a scalar to
+		// an array column's value, so anything that is not already an array
+		// becomes null -- the same shape the generic fallback in
+		// ObjectBuilder::getColumnValueCastExpr() uses for its own types.
+		return "(is_array($varExpr) ? $varExpr : null)";
 	}
 
 	public function hasArrayElementConvenienceMethods(Column $col): bool

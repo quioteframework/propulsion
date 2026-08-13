@@ -545,8 +545,21 @@ abstract class BaseObject
 	 *             corresponding scalar/null for a JSON scalar/null literal.
 	 * @throws     PropulsionException If $value is not well-formed JSON.
 	 */
-	protected static function decodeJsonColumn(string|int|float|bool $value, string $columnName): mixed
+	/**
+	 * Takes mixed rather than a scalar union because that is what the caller
+	 * actually has: hydrate() reads a raw PDO row, whose values are typed mixed.
+	 * Declaring the narrow union only pushed the problem to the call site, where
+	 * a generated class had no way to satisfy it. Validating here keeps the
+	 * loud-failure contract this method exists for in one place.
+	 */
+	protected static function decodeJsonColumn(mixed $value, string $columnName): mixed
 	{
+		if (!is_scalar($value)) {
+			throw new PropulsionException(
+				"Expected a scalar value for JSON column [$columnName], got " . get_debug_type($value)
+			);
+		}
+
 		try {
 			return json_decode((string) $value, true, 512, JSON_THROW_ON_ERROR);
 		} catch (\JsonException $e) {

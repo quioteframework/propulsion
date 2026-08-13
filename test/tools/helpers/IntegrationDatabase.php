@@ -935,6 +935,41 @@ return " . var_export($config, true) . ";
         return null;
     }
 
+    /**
+     * Removes testcontainers this suite left behind in Docker's `Created` state.
+     *
+     * A run that dies partway can leave a container that was created but never
+     * started. It holds the published port, so the *next* run cannot start its
+     * own, and ensureReady() responds the only way it can -- by skipping. The
+     * result is a green "OK, but some tests were skipped!" with ~1400 skips
+     * instead of 99, in ten seconds instead of a minute, and nothing anywhere
+     * saying why. That has cost three separate measurements in one session.
+     *
+     * Running `composer test:cleanup-containers` beforehand does not help,
+     * because the leak happens *during* a run, not before one. Sweeping here is
+     * what closes it.
+     *
+     * Deliberately narrow: only containers carrying this suite's own label, and
+     * only ones in `created` -- never a running container, which might belong to
+     * something else the developer is doing.
+     */
+    private static function removeLeakedContainers(): void
+    {
+        $label = array_key_first(self::CONTAINER_LABELS);
+        $filter = escapeshellarg('label=' . $label . '=' . self::CONTAINER_LABELS[$label]);
+
+        $ids = shell_exec('docker ps -aq --filter status=created --filter ' . $filter . ' 2>/dev/null');
+        if (!is_string($ids) || trim($ids) === '') {
+            return;
+        }
+
+        foreach (preg_split('/\s+/', trim($ids)) ?: [] as $id) {
+            if ($id !== '') {
+                shell_exec('docker rm -f ' . escapeshellarg($id) . ' 2>/dev/null');
+            }
+        }
+    }
+
     private static function ensureContainerStarted(): void
     {
         if (self::$container !== null) {
@@ -946,6 +981,7 @@ return " . var_export($config, true) . ";
         }
 
         self::workaroundBrokenDockerCredentialHelper();
+        self::removeLeakedContainers();
 
         $platform = self::platform();
 

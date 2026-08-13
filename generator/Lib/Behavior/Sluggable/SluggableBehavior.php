@@ -246,7 +246,14 @@ protected static function cleanupSlugPart(\$slug, \$replacement = '" . $this->ge
 	\$slug = (string) \$slug;
 	// transliterate
 	if (function_exists('iconv')) {
-		\$slug = iconv('utf-8', 'us-ascii//TRANSLIT', \$slug);
+		// iconv() returns false when the string cannot be converted (a byte
+		// sequence that is not valid UTF-8, say). Keeping the original is
+		// better than propagating false into the string operations below,
+		// where it would silently become ''.
+		\$transliterated = iconv('utf-8', 'us-ascii//TRANSLIT', \$slug);
+		if (\$transliterated !== false) {
+			\$slug = \$transliterated;
+		}
 	}
 
 	// lowercase
@@ -260,7 +267,10 @@ protected static function cleanupSlugPart(\$slug, \$replacement = '" . $this->ge
 	\$slug = str_replace(array('\'', '`', '^'), '', \$slug);
 
 	// replace non letter or digits with separator
-	\$slug = preg_replace('" . $this->getStringParameter('replace_pattern') . "', \$replacement, \$slug);
+	// preg_replace() returns null if the pattern fails to compile or the subject
+	// blows a PCRE limit; keep the pre-replacement string rather than passing
+	// null on to trim().
+	\$slug = preg_replace('" . $this->getStringParameter('replace_pattern') . "', \$replacement, \$slug) ?? \$slug;
 
 	// trim
 	\$slug = trim(\$slug, \$replacement);

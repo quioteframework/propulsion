@@ -130,7 +130,7 @@ class QueryBuilder extends OMBuilder
         // Modern typed magic filterBy() methods for IDE completion
         // Note: filterBy methods accept the column type OR array (for IN queries, ranges, etc.)
         foreach ($this->getTable()->getColumns() as $column) {
-            $phpType = $this->getModernPhpType($column);
+            $phpType = $this->getModernPhpDocType($column);
             // Convert ?T to T|null for union types (PHPDoc doesn't support ?T in unions)
             $baseType = ltrim($phpType, '?');
             // The array form covers both IN-style lists (int keys) and range filters
@@ -191,7 +191,7 @@ class QueryBuilder extends OMBuilder
 
         // Modern typed findBy() methods with proper type hints
         foreach ($this->getTable()->getColumns() as $column) {
-            $phpType = $this->getModernPhpType($column);
+            $phpType = $this->getModernPhpDocType($column);
             $script .= "
  * @method     ?$modelClass findOneBy" . $column->getPhpName() . "($phpType \$" . $column->getName() . ") Return the first $modelClass filtered by the " . $column->getName() . " column";
         }
@@ -199,7 +199,7 @@ class QueryBuilder extends OMBuilder
  *";
 
         foreach ($this->getTable()->getColumns() as $column) {
-            $phpType = $this->getModernPhpType($column);
+            $phpType = $this->getModernPhpDocType($column);
             $script .= "
  * @method     array<$modelClass> findBy" . $column->getPhpName() . "($phpType \$" . $column->getName() . ") Return $modelClass objects filtered by the " . $column->getName() . " column";
         }
@@ -274,6 +274,25 @@ trait ".$this->getClassname()."
     /**
      * Get modern PHP 8.4 type for a column
      */
+    /**
+     * getModernPhpType(), but safe to put in a docblock.
+     *
+     * A bare `array` is a legal signature type and an incomplete PHPDoc one --
+     * PHPStan reports every @method tag carrying it as having no value type.
+     * An array column holds a list; its element type is whatever the
+     * application stored.
+     */
+    protected function getModernPhpDocType(Column $column): string
+    {
+        $type = $this->getModernPhpType($column);
+
+        return match ($type) {
+            'array' => 'array<int, mixed>',
+            '?array' => '?array<int, mixed>',
+            default => $type,
+        };
+    }
+
     protected function getModernPhpType(Column $column): string
     {
         if ($column->isTemporalType()) {
@@ -886,7 +905,7 @@ trait ".$this->getClassname()."
      *              Use associative array('min' => \$minValue, 'max' => \$maxValue) for intervals.";
         } elseif ($col->getType() == PropulsionTypes::PHP_ARRAY || $col->isSetType()) {
             $script .= "
-     * @param     array \$$variableName The values to use as filter.";
+     * @param     array<int, mixed>|null \$$variableName The values to use as filter.";
         } elseif ($col->isJsonType()) {
             $script .= "
      * @param     mixed \$$variableName The value to use as filter. An array or object
@@ -992,6 +1011,9 @@ trait ".$this->getClassname()."
         \$key = \$this->getAliasedColName($qualifiedName);
         if (null === \$comparison || \$comparison == Criteria::CONTAINS_ALL) {
             foreach (\$$variableName as \$value) {
+                if (!is_scalar(\$value)) {
+                    continue;
+                }
                 \$value = '%| ' . \$value . ' |%';
                 if(\$this->containsKey(\$key)) {
                     \$this->addAnd(\$key, \$value, Criteria::LIKE);
@@ -1002,6 +1024,9 @@ trait ".$this->getClassname()."
             return \$this;
         } elseif (\$comparison == Criteria::CONTAINS_SOME) {
             foreach (\$$variableName as \$value) {
+                if (!is_scalar(\$value)) {
+                    continue;
+                }
                 \$value = '%| ' . \$value . ' |%';
                 if(\$this->containsKey(\$key)) {
                     \$this->addOr(\$key, \$value, Criteria::LIKE);
@@ -1012,6 +1037,9 @@ trait ".$this->getClassname()."
             return \$this;
         } elseif (\$comparison == Criteria::CONTAINS_NONE) {
             foreach (\$$variableName as \$value) {
+                if (!is_scalar(\$value)) {
+                    continue;
+                }
                 \$value = '%| ' . \$value . ' |%';
                 if(\$this->containsKey(\$key)) {
                     \$this->addAnd(\$key, \$value, Criteria::NOT_LIKE);
@@ -1174,7 +1202,9 @@ trait ".$this->getClassname()."
                 \$comparison = Criteria::LIKE;
             }
         } elseif (\$comparison == Criteria::CONTAINS_NONE) {
-            \$$variableName = '%| ' . \$$variableName . ' |%';
+            // Guarded like the CONTAINS_ALL branch above: the value is mixed,
+            // and the \" | \" containment trick is string concatenation.
+            \$$variableName = is_scalar(\$$variableName) ? '%| ' . \$$variableName . ' |%' : null;
             \$comparison = Criteria::NOT_LIKE;
             \$key = \$this->getAliasedColName($qualifiedName);
             if(\$this->containsKey(\$key)) {
