@@ -47,14 +47,8 @@ class Propulsion
 {
 	/**
 	 * The Propulsion version.
-	 *
-	 * The single source of truth: generator/default.php's `propulsion.version`
-	 * build property reads this constant rather than repeating the literal, so
-	 * the number stamped into generated file headers cannot drift from the one
-	 * `bin/propulsion --version` reports. They had drifted -- both said 2.1.0
-	 * through the 2.1.1 release and into 3.0.
 	 */
-	const VERSION = '3.0.0-RC1';
+	public const string VERSION = '3.0.0';
 
 	/**
 	 * A constant for <code>default</code>.

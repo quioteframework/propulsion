@@ -1,3 +1,21 @@
+## [3.0.0] - 2026-08-14
+
+### 🐛 Bug Fixes
+
+- *(generator)* Import bare class-name type hints in namespaced generated code
+- *(behavior)* Give delegate targets real forwarding methods, not just __call
+- *(behavior)* Qualify bare type hints copied into delegate forwarders
+- *(generator)* Preserve collection generics in delegate-forwarded getters
+
+### 🧪 Testing
+
+- *(adapter,reverse)* Cover the defaults and helpers no platform job reaches
+- *(runtime,generator)* Cover three classes that reported zero coverage
+
+### ⚙️ Miscellaneous Tasks
+
+- *(codecov)* Report the merged five-platform coverage, not the first job's
+- *(tests)* Install apcu in the jobs that actually measure coverage
 ## [3.0.0-RC2] - 2026-08-13
 
 ### 🐛 Bug Fixes
@@ -5,6 +23,7 @@
 - *(ci)* Publish a tag with a SemVer pre-release identifier as a pre-release
 - *(generator)* Bump the version to 3.0.0-RC1, and stop it living in two places
 - *(rector)* Make the stub migration work on namespaced projects
+- *(doc)* CHANGELOG for v3.0.0-RC2
 
 ### 📚 Documentation
 
