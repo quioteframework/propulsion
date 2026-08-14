@@ -99,7 +99,7 @@ class PropulsionOnDemandFormatterTest extends BookstoreEmptyTestBase
 			$book->save($con);
 		}
 
-		$stmt = $con->query('SELECT * FROM book');
+		$stmt = $con->query('SELECT * FROM book ORDER BY id ASC');
 		$formatter = new PropulsionOnDemandFormatter();
 		$formatter->init(new ModelCriteria('bookstore', 'Book'));
 		$books = $formatter->format($stmt);
