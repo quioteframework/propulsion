@@ -52,7 +52,7 @@ abstract class AbstractObjectBuilder extends OMBuilder
 	 * behavior adds -- rather than reading the one place they already all
 	 * converge: this builder's own generated output.
 	 *
-	 * @return array<string, array{params: string, returnType: ?string}>
+	 * @return array<string, array{params: string, returnType: ?string, returnDoc: ?string}>
 	 */
 	public function getGeneratedMethodSignatures(): array
 	{
@@ -119,12 +119,45 @@ abstract class AbstractObjectBuilder extends OMBuilder
 				$returnType = trim($typeText);
 			}
 
+			$returnDoc = null;
+			$docComment = $this->findPrecedingDocComment($tokens, $i);
+			if ($docComment !== null && preg_match('/@return\s+(\S+)/', $docComment, $m)) {
+				$returnDoc = $this->qualifyTypeHints($m[1], $useMap);
+			}
+
 			$signatures[$name] = array(
 				'params' => $this->qualifyTypeHints(trim($params), $useMap),
 				'returnType' => $returnType !== null ? $this->qualifyTypeHints($returnType, $useMap) : null,
+				'returnDoc' => $returnDoc,
 			);
 		}
 		return $signatures;
+	}
+
+	/**
+	 * Finds the doc comment attached to a T_FUNCTION token, skipping back
+	 * over whitespace and the modifier keywords (public, static, ...) that
+	 * sit between a method's doc comment and its `function` keyword. Returns
+	 * null if the method has no doc comment (or the token immediately before
+	 * the modifiers isn't one).
+	 * @param list<array{0: int, 1: string, 2: int}|string> $tokens
+	 */
+	private function findPrecedingDocComment(array $tokens, int $functionIndex): ?string
+	{
+		for ($j = $functionIndex - 1; $j >= 0; $j--) {
+			$t = $tokens[$j];
+			if (!is_array($t)) {
+				return null;
+			}
+			if ($t[0] === T_WHITESPACE) {
+				continue;
+			}
+			if (in_array($t[0], array(T_PUBLIC, T_PRIVATE, T_PROTECTED, T_STATIC, T_ABSTRACT, T_FINAL), true)) {
+				continue;
+			}
+			return $t[0] === T_DOC_COMMENT ? $t[1] : null;
+		}
+		return null;
 	}
 
 	/**

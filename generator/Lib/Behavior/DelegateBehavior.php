@@ -268,7 +268,7 @@ class DelegateBehavior extends Behavior
 	 * output -- cascading/transitive delegation, which this behavior has
 	 * never supported (a direct call to a second-hop method has always
 	 * thrown, and stays that way).
-	 * @return array<string, array{params: string, returnType: ?string}>
+	 * @return array<string, array{params: string, returnType: ?string, returnDoc: ?string}>
 	 */
 	private function getOwnGeneratedMethodSignatures(AbstractObjectBuilder $objectBuilder, string $tableName): array
 	{
@@ -345,9 +345,19 @@ class DelegateBehavior extends Behavior
 				} else {
 					$forwardingStatement = "return $forwardedCall;";
 				}
+				// The bare return type PHP itself resolves is enough for `void`/`static`/
+				// concrete classes, but a generic collection (PropulsionObjectCollection
+				// without its <T>) loses the element type entirely once copied here --
+				// only the delegate's own PHPDoc carries it. Only worth restating when
+				// it actually adds a generic argument the plain type lacks; a bare `@return
+				// int` duplicating the native `: int` is just noise.
+				$returnDoc = $signature['returnDoc'];
+				$returnDocBlock = ($returnDoc !== null && str_contains($returnDoc, '<'))
+					? "\n	 *\n	 * @return $returnDoc"
+					: '';
 				$script .= "
 	/**
-	 * Delegates to " . $ARClassName . "::" . $name . "().
+	 * Delegates to " . $ARClassName . "::" . $name . "()." . $returnDocBlock . "
 	 */
 	public function $name({$signature['params']})$returnTypeDecl
 	{
