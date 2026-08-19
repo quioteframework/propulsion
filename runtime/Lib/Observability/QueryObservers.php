@@ -74,19 +74,46 @@ final class QueryObservers
 	 * Opens an execution record and notifies every observer, or returns null
 	 * when none are registered -- which is also the signal to the caller that
 	 * it need not call {@see finish()} either.
+	 *
+	 * @param array<int|string, mixed> $boundParams Values already bound via
+	 *        `bindValue()`, if any -- see {@see QueryExecution}'s constructor.
 	 */
-	public function start(string $sql, string $source, PropulsionPDO $connection): ?QueryExecution
+	public function start(string $sql, string $source, PropulsionPDO $connection, array $boundParams = array()): ?QueryExecution
 	{
 		if ($this->observers === array()) {
 			return null;
 		}
 
-		$execution = new QueryExecution($sql, $source, $connection);
+		// Read once per statement rather than handed in by every call site:
+		// the three places that call start() (PropulsionStatement::execute(),
+		// PropulsionPDOTrait::exec()/query()) would otherwise all need to know
+		// how to fetch it, for something that is Session's job to hold, not
+		// theirs to plumb through.
+		$correlationId = Propulsion::getSession()->getCorrelationId();
+
+		$execution = new QueryExecution($sql, $source, $connection, $boundParams, $correlationId);
 		foreach ($this->observers as $observer) {
 			$this->safely($observer, static fn () => $observer->queryStarted($execution), 'queryStarted');
 		}
 
 		return $execution;
+	}
+
+	/**
+	 * Notifies every registered {@see RowCapturingQueryObserver} once
+	 * `$execution`'s result set is exhausted or closed. A no-op for an
+	 * execution nothing asked to capture rows for -- callers should check
+	 * {@see QueryExecution::wantsRowCapture()} first rather than rely on this
+	 * doing nothing, since building the row list itself already happened by
+	 * the time this runs.
+	 */
+	public function notifyRowsCaptured(QueryExecution $execution): void
+	{
+		foreach ($this->observers as $observer) {
+			if ($observer instanceof RowCapturingQueryObserver) {
+				$this->safely($observer, static fn () => $observer->rowsCaptured($execution), 'rowsCaptured');
+			}
+		}
 	}
 
 	/**

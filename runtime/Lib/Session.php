@@ -68,6 +68,18 @@ class Session
     private bool $forceMasterConnection = false;
 
     /**
+     * Correlation id for whatever request this worker is currently serving --
+     * request-scoped for the same reason `$forceMasterConnection` is: a
+     * caller-supplied identifier (e.g. quiote's cassette recorder) set once
+     * per request via {@see setCorrelationId()} and stamped onto every
+     * {@see \Propulsion\Observability\QueryExecution} by
+     * {@see \Propulsion\Observability\QueryObservers::start()}, so an
+     * observer can tell which request's queries are which without needing
+     * its own request-scoped storage.
+     */
+    private ?string $correlationId = null;
+
+    /**
      * Generated-Peer instance pools, keyed by Peer FQCN then by instance-pool
      * key. Phase 4b: this replaces every generated Peer class's own private
      * `static $instances` array as the real storage backing
@@ -317,6 +329,23 @@ class Session
     }
 
     /**
+     * Set the correlation id for the request this worker is currently
+     * serving, or null to clear it early.
+     */
+    public function setCorrelationId(?string $id): void
+    {
+        $this->correlationId = $id;
+    }
+
+    /**
+     * The current request's correlation id, or null if none was set.
+     */
+    public function getCorrelationId(): ?string
+    {
+        return $this->correlationId;
+    }
+
+    /**
      * Reset all request-scoped state carried by this Session. Intended to be
      * called at a request boundary in a persistent-worker environment (between
      * requests that reuse the same PHP process, and therefore the same
@@ -353,6 +382,8 @@ class Session
      *  6. Zero each open connection's debug counters (query count, last
      *     executed query), which are per-request figures sitting on a
      *     process-scoped object -- see resetConnectionDebugCounters().
+     *  7. Clear the correlation id, so a request that set one does not leak
+     *     it onto queries belonging to the next request sharing this worker.
      *
      * Two things are deliberately *not* reset here:
      *
@@ -383,6 +414,7 @@ class Session
         // process's cache at the end of every request.
         $this->tieredCache?->reset();
         $this->resetConnectionDebugCounters();
+        $this->correlationId = null;
     }
 
     /**

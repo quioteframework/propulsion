@@ -48,21 +48,46 @@ final class QueryExecution
 	/** @var array<string, mixed> */
 	private array $attributes = array();
 
+	private bool $rowCaptureRequested = false;
+
+	private int $maxRowCapture = 0;
+
+	/** @var array<int, mixed> */
+	private array $capturedRows = array();
+
+	private bool $rowsTruncated = false;
+
+	/** @var array<int, string>|null */
+	private ?array $columnNames = null;
+
 	/**
-	 * @param     string        $sql        The statement text, as sent.
-	 * @param     string        $source     One of the SOURCE_* constants.
-	 * @param     PropulsionPDO $connection The connection it ran on. Deliberately
-	 *                                      the connection rather than a datasource
-	 *                                      name: a connection genuinely does not
-	 *                                      know the name it was registered under
-	 *                                      (see PropulsionPDO::ping()'s docblock for
-	 *                                      the same constraint), and inventing one
-	 *                                      here would mean inventing a wrong one.
+	 * @param     string        $sql          The statement text, as sent.
+	 * @param     string        $source       One of the SOURCE_* constants.
+	 * @param     PropulsionPDO $connection   The connection it ran on. Deliberately
+	 *                                        the connection rather than a datasource
+	 *                                        name: a connection genuinely does not
+	 *                                        know the name it was registered under
+	 *                                        (see PropulsionPDO::ping()'s docblock for
+	 *                                        the same constraint), and inventing one
+	 *                                        here would mean inventing a wrong one.
+	 * @param     array<int|string, mixed> $boundParams Values bound via
+	 *                                        `PDOStatement::bindValue()` before this
+	 *                                        statement ran, keyed the same way PDO
+	 *                                        does (1-based position, or `:name`).
+	 *                                        Always empty for `exec()`/`query()`
+	 *                                        traffic, which has no bind step.
+	 *                                        Values bound via `bindParam()` (by
+	 *                                        reference) are not captured -- see
+	 *                                        docs/OBSERVABILITY.md.
+	 * @param     ?string       $correlationId Whatever {@see \Propulsion\Propulsion::getCorrelationId()}
+	 *                                        returned when this execution began.
 	 */
 	public function __construct(
 		public readonly string $sql,
 		public readonly string $source,
 		public readonly PropulsionPDO $connection,
+		public readonly array $boundParams = array(),
+		public readonly ?string $correlationId = null,
 	) {
 		$this->startedAt = hrtime(true);
 	}
@@ -131,5 +156,104 @@ final class QueryExecution
 	public function getAttribute(string $key): mixed
 	{
 		return $this->attributes[$key] ?? null;
+	}
+
+	/**
+	 * Ask that fetched rows be captured, up to `$maxRows` -- call this from
+	 * {@see QueryObserver::queryStarted()} only; a request made any later has
+	 * nothing to attach to, since {@see \Propulsion\Connection\PropulsionStatement}
+	 * decides once, right after `queryStarted()` runs, whether it is worth
+	 * wrapping `fetch()` at all for this statement.
+	 *
+	 * Safe to call from more than one observer: the largest `$maxRows` any of
+	 * them asked for wins, rather than the last one silently overriding an
+	 * earlier, larger request.
+	 */
+	public function requestRowCapture(int $maxRows = 100): void
+	{
+		$this->rowCaptureRequested = true;
+		$this->maxRowCapture = max($this->maxRowCapture, $maxRows);
+	}
+
+	/** Whether any observer called {@see requestRowCapture()} during `queryStarted()`. */
+	public function wantsRowCapture(): bool
+	{
+		return $this->rowCaptureRequested;
+	}
+
+	public function getMaxRowCapture(): int
+	{
+		return $this->maxRowCapture;
+	}
+
+	/**
+	 * Called by {@see \Propulsion\Connection\PropulsionStatement} only, once
+	 * per fetched row, while {@see wantsRowCapture()} is true. Silently stops
+	 * appending -- and sets {@see isRowsTruncated()} -- once
+	 * {@see getMaxRowCapture()} is reached, rather than growing without bound
+	 * for a large result set.
+	 *
+	 * @internal
+	 */
+	public function captureRow(mixed $row): void
+	{
+		if (count($this->capturedRows) >= $this->maxRowCapture) {
+			$this->rowsTruncated = true;
+
+			return;
+		}
+		$this->capturedRows[] = $row;
+	}
+
+	/**
+	 * Rows captured so far, in whatever shape the caller actually fetched
+	 * them in -- a numeric-indexed array for the ORM's own default formatter,
+	 * but an object, an associative array, or a scalar for a caller using a
+	 * different `PDO::FETCH_*` mode. Faithful to what actually happened,
+	 * rather than normalised to one shape.
+	 *
+	 * @return array<int, mixed>
+	 */
+	public function getCapturedRows(): array
+	{
+		return $this->capturedRows;
+	}
+
+	/**
+	 * True once more rows were fetched than {@see getMaxRowCapture()} allows.
+	 * The rows themselves are simply not there past the cap -- there is no
+	 * separate "how many were dropped" count, since a cassette recorder
+	 * generally only needs to know its capture is incomplete, not by how much.
+	 */
+	public function isRowsTruncated(): bool
+	{
+		return $this->rowsTruncated;
+	}
+
+	/**
+	 * Called by {@see \Propulsion\Connection\PropulsionStatement} only, at
+	 * most once per execution, and only when the fetched rows are
+	 * list-shaped (`PDO::FETCH_NUM`) -- an associative or object row already
+	 * carries its own column names, so capturing them again would be pure
+	 * overhead for no benefit.
+	 *
+	 * @param array<int, string> $names
+	 * @internal
+	 */
+	public function setColumnNames(array $names): void
+	{
+		$this->columnNames ??= $names;
+	}
+
+	/**
+	 * Column names for {@see getCapturedRows()}'s rows, positionally
+	 * matching a list-shaped row -- null if nothing was captured, or if what
+	 * was captured already carried its own names.
+	 *
+	 * @return array<int, string>|null
+	 */
+	public function getColumnNames(): ?array
+	{
+		return $this->columnNames;
 	}
 }

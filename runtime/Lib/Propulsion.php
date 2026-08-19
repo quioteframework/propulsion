@@ -842,6 +842,32 @@ class Propulsion
 	}
 
 	/**
+	 * Set the correlation id for the request this worker is currently
+	 * serving -- request-scoped, on {@see Session}, for the same reason
+	 * {@see setForceMasterConnection()} is. Every
+	 * {@see \Propulsion\Observability\QueryExecution} built while it is set
+	 * carries it, so an observer (e.g. a record/replay recorder) can tell
+	 * which request's queries are which without its own request-scoped
+	 * storage -- which matters under a threaded worker runtime, where
+	 * per-request `addQueryObserver()`/`removeQueryObserver()` is not safe
+	 * (see docs/WORKER_MODE.md, R10).
+	 *
+	 * Cleared by {@see \Propulsion\Session::reset()}.
+	 */
+	public static function setCorrelationId(?string $id): void
+	{
+		self::getSession()->setCorrelationId($id);
+	}
+
+	/**
+	 * The current request's correlation id, or null if none was set.
+	 */
+	public static function getCorrelationId(): ?string
+	{
+		return self::getSession()->getCorrelationId();
+	}
+
+	/**
 	 * Returns the process-scoped service registry (worker-safety rework phase 4a).
 	 * Lazily creates one on first access.
 	 *

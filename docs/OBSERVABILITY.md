@@ -55,6 +55,8 @@ into a correlation map keyed by something that would have to be invented.
 | `->sql` | the statement text, as sent |
 | `->source` | `statement` (a prepared statement — nearly all ORM traffic), `exec`, or `query` |
 | `->connection` | the `PropulsionPDO` it ran on |
+| `->boundParams` | values bound via `bindValue()` before this statement ran, keyed the way PDO does (position or `:name`); always empty for `exec()`/`query()` |
+| `->correlationId` | whatever `Propulsion::getCorrelationId()` returned when this execution began, or `null` |
 | `getDurationSeconds()` / `getDurationMilliseconds()` | monotonic (`hrtime`), so an NTP step cannot produce a negative duration |
 | `getRowCount()` | rows affected, for statements that change rows; `null` for a SELECT |
 | `isFailed()` / `getError()` | the exception, which is rethrown to the caller regardless |
@@ -244,6 +246,110 @@ requires installing a native extension, which some hosts do not allow —
 `OpenTelemetryQueryObserver` is pure PHP/Composer. The two are complementary,
 not competing: run both if you want both persistent-connection coverage and
 ORM-aware spans.
+
+## Correlation id
+
+`Propulsion::setCorrelationId(?string $id)` sets a request-scoped identifier
+-- something a record/replay recorder, or a log aggregator, can use to group
+every query one request issued. It lives on `Session`, the same
+request-scoped bucket `forceMasterConnection` already lives in, and is
+cleared by `Session::reset()`, so it never leaks onto a later request sharing
+this worker process:
+
+```php
+Propulsion::setCorrelationId($request->getHeaderLine('X-Request-Id'));
+// ... handle the request ...
+Propulsion::getSession()->reset();   // clears it, along with everything else request-scoped
+```
+
+Every `QueryExecution` built while it is set carries it on `->correlationId`,
+so an observer sees which request a query belongs to without needing its own
+request-scoped storage. That matters specifically because
+**`QueryObservers` itself is process-scoped, not request-scoped**: adding and
+removing an observer per request would be reading and writing process-wide
+state from what should be request-scoped code, which is unsafe under a
+threaded worker runtime -- FrankenPHP with `worker <n>` above 1 shares
+process statics across every thread with no per-thread isolation (see
+`docs/WORKER_MODE.md`, R10). Register one observer at boot and let it read
+`->correlationId` off each execution instead.
+
+## Bound parameters and captured rows
+
+Two more things a record/replay recorder needs that a tracer or a stats
+collector does not: what values a statement actually ran with, and what came
+back.
+
+**Bound parameters** are on `->boundParams`, captured from `bindValue()`
+calls -- every runtime call site (`DBAdapter::bindValues()`/`bindValue()`)
+binds individually and then calls `execute()` with no arguments, so a value
+never otherwise reaches `execute()`'s own `$params` to be captured there.
+**`bindParam()` (by-reference binding) is not captured** -- nothing in this
+codebase's own generated/runtime SQL uses it, and capturing it correctly
+would mean reading the referenced variable at `execute()` time rather than
+bind time. Raw/manual PDO code that binds by reference will not have its
+values reported.
+
+**Returned rows** need an observer to opt in, because of a timing problem
+querying alone can't solve: for `find()`/`findOne()`, rows are fetched by the
+*caller*, after `PropulsionStatement::execute()` has already returned --
+`queryFinished()` fires strictly before any row exists to report. So this is
+a separate, later signal:
+
+```php
+use Propulsion\Observability\QueryExecution;
+use Propulsion\Observability\RowCapturingQueryObserver;
+
+final class CassetteObserver implements RowCapturingQueryObserver
+{
+    public function queryStarted(QueryExecution $execution): void
+    {
+        $execution->requestRowCapture(100);   // ask, or rowsCaptured() never fires
+    }
+
+    public function queryFinished(QueryExecution $execution): void
+    {
+    }
+
+    public function rowsCaptured(QueryExecution $execution): void
+    {
+        $cassette->record(
+            $execution->sql,
+            $execution->boundParams,
+            $execution->getCapturedRows(),
+            $execution->getColumnNames(),
+            $execution->isRowsTruncated(),
+        );
+    }
+}
+```
+
+- **Ask first, in `queryStarted()`.** An observer that never calls
+  `requestRowCapture()` never gets `rowsCaptured()` called, and costs nothing
+  extra on the `fetch()` hot path either — the same "free when unused" shape
+  every observer here already has.
+- **Capped, by default at 100 rows.** More than one observer can ask; the
+  largest request wins. Past the cap, `isRowsTruncated()` is true and the
+  rows past it are simply not there — there is no partial/best-effort count,
+  since a recorder generally only needs to know its capture is incomplete,
+  not by how much.
+- **Fires once**, after the result set is exhausted or closed — whichever
+  happens first among the cursor naturally running out, an explicit
+  `closeCursor()`, the statement being re-`execute()`'d without having been
+  exhausted, or (belt-and-braces, same shape `PropulsionOnDemandIterator`
+  already uses) the statement's own destructor.
+- **Column names** are attached once, only for a list-shaped row
+  (`PDO::FETCH_NUM`, what the ORM's own default formatter uses) -- an
+  associative or object row already carries its own names, so nothing extra
+  is captured there.
+- **Rows are handed over exactly as fetched** — a numeric array for the
+  default formatter, but an object, an associative array, or a scalar for a
+  caller using a different fetch mode. **No redaction happens here.** A
+  cassette that needs to scrub PII/secrets out of bound values or returned
+  rows (a `shipping_address`, a token) does that on the consuming side, with
+  whatever discipline it already applies elsewhere — Propulsion's job is
+  only to expose what actually happened.
+- `rowsCaptured()` says nothing about duration or success/failure. Keep using
+  `queryFinished()` for that.
 
 ## Things to know
 

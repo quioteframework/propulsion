@@ -59,6 +59,35 @@ class PropulsionStatement extends \PDOStatement
 	protected $pdo;
 
 	/**
+	 * Values bound via {@see bindValue()} since the last `execute()`, keyed
+	 * the same way PDO does (1-based position, or `:name`) -- handed to the
+	 * next {@see QueryExecution} this statement opens. Not reset between
+	 * executions of the same reused prepared statement: a value that was not
+	 * rebound for a later iteration genuinely is still the value that will be
+	 * used, so keeping it is correct, not stale.
+	 *
+	 * @var array<int|string, mixed>
+	 */
+	private array $boundValues = array();
+
+	/**
+	 * The execution `execute()` most recently opened, kept around so
+	 * {@see fetch()}/{@see closeCursor()}/{@see __destruct()} -- all called
+	 * well after `execute()` has returned -- know what to attach captured
+	 * rows to and what to notify {@see notifyRowsCapturedIfNeeded()} about.
+	 */
+	private ?QueryExecution $currentExecution = null;
+
+	/**
+	 * Whether {@see notifyRowsCapturedIfNeeded()} has already fired for
+	 * {@see $currentExecution}. `fetch()` exhaustion, an explicit
+	 * `closeCursor()`, a re-`execute()` of this same statement, and
+	 * `__destruct()` can all reach that call for the same execution; this
+	 * keeps it to exactly one notification each.
+	 */
+	private bool $rowsNotified = false;
+
+	/**
 	 * PDO instantiates this itself, passing the arguments registered alongside
 	 * the class name in PDO::ATTR_STATEMENT_CLASS; the constructor is protected
 	 * because PDO requires it to be non-public.
@@ -68,6 +97,26 @@ class PropulsionStatement extends \PDOStatement
 	protected function __construct(PropulsionPDO $pdo)
 	{
 		$this->pdo = $pdo;
+	}
+
+	/**
+	 * Records a bound value, then binds it as normal. This is the only place
+	 * that ever sees real parameter values: every runtime call site
+	 * (`DBAdapter::bindValues()`/`bindValue()`) binds individually and then
+	 * calls `execute()` with no arguments, so a value never otherwise reaches
+	 * `execute()`'s own `$params` argument to be captured there.
+	 *
+	 * `bindParam()` (by-reference binding) is deliberately not overridden the
+	 * same way: nothing in this codebase's own generated/runtime SQL uses it,
+	 * and capturing it correctly would mean reading the referenced variable
+	 * at `execute()` time rather than bind time, which is real additional
+	 * machinery for a path that does not occur here. See docs/OBSERVABILITY.md.
+	 */
+	public function bindValue(string|int $param, mixed $value, int $type = \PDO::PARAM_STR): bool
+	{
+		$this->boundValues[$param] = $value;
+
+		return parent::bindValue($param, $value, $type);
 	}
 
 	/**
@@ -92,8 +141,16 @@ class PropulsionStatement extends \PDOStatement
 	 */
 	public function execute(?array $params = null): bool
 	{
+		// A prepared statement re-executed in a loop (e.g. a batch insert)
+		// without the caller ever exhausting or closing the previous result
+		// set would otherwise leave that execution's row capture -- if any
+		// was requested -- silently unreported once this overwrites it below.
+		$this->notifyRowsCapturedIfNeeded();
+
 		$observers = Propulsion::getServiceContainer()->getQueryObservers();
-		$execution = $observers->start($this->queryString, QueryExecution::SOURCE_STATEMENT, $this->pdo);
+		$execution = $observers->start($this->queryString, QueryExecution::SOURCE_STATEMENT, $this->pdo, $this->boundValues);
+		$this->currentExecution = $execution;
+		$this->rowsNotified = false;
 
 		try {
 			$return = parent::execute($params);
@@ -117,5 +174,83 @@ class PropulsionStatement extends \PDOStatement
 		$this->pdo->touchActivity();
 
 		return $return;
+	}
+
+	/**
+	 * Captures a fetched row onto {@see $currentExecution} when a registered
+	 * {@see \Propulsion\Observability\RowCapturingQueryObserver} asked for
+	 * one during `queryStarted()`, and notifies once the result set is
+	 * exhausted. A statement nothing asked to capture rows for costs exactly
+	 * one extra property read (`$this->currentExecution?->wantsRowCapture()`)
+	 * on top of the ordinary `fetch()` call.
+	 */
+	public function fetch(int $mode = \PDO::FETCH_DEFAULT, int $cursorOrientation = \PDO::FETCH_ORI_NEXT, int $cursorOffset = 0): mixed
+	{
+		$row = parent::fetch($mode, $cursorOrientation, $cursorOffset);
+
+		$execution = $this->currentExecution;
+		if ($execution === null || !$execution->wantsRowCapture()) {
+			return $row;
+		}
+
+		if ($row === false) {
+			$this->notifyRowsCapturedIfNeeded();
+
+			return $row;
+		}
+
+		// Only a list-shaped row (PDO::FETCH_NUM, what the ORM's own default
+		// formatter uses -- see StatementRows::iterate()) needs column names
+		// attached: an associative row or an object already carries its own.
+		if ($execution->getColumnNames() === null && is_array($row) && array_is_list($row)) {
+			$execution->setColumnNames($this->columnNames());
+		}
+		$execution->captureRow($row);
+
+		return $row;
+	}
+
+	/**
+	 * Belt-and-braces: a caller that reads a few rows and stops without
+	 * exhausting the cursor still gets notified, via whichever of
+	 * `closeCursor()` or `__destruct()` runs first -- the same
+	 * primary-signal-plus-destructor-backstop shape
+	 * {@see \Propulsion\Collection\PropulsionOnDemandIterator} already uses
+	 * for the same reason (see docs/WORKER_MODE.md, R11: do not rely on
+	 * destructor *timing*, but a destructor as a backstop under an explicit
+	 * primary signal is fine).
+	 */
+	public function closeCursor(): bool
+	{
+		$this->notifyRowsCapturedIfNeeded();
+
+		return parent::closeCursor();
+	}
+
+	public function __destruct()
+	{
+		$this->notifyRowsCapturedIfNeeded();
+	}
+
+	/** @return array<int, string> */
+	private function columnNames(): array
+	{
+		$names = array();
+		$count = $this->columnCount();
+		for ($i = 0; $i < $count; $i++) {
+			$meta = $this->getColumnMeta($i);
+			$names[] = is_array($meta) ? $meta['name'] : (string) $i;
+		}
+
+		return $names;
+	}
+
+	private function notifyRowsCapturedIfNeeded(): void
+	{
+		if ($this->rowsNotified || $this->currentExecution === null || !$this->currentExecution->wantsRowCapture()) {
+			return;
+		}
+		$this->rowsNotified = true;
+		Propulsion::getServiceContainer()->getQueryObservers()->notifyRowsCaptured($this->currentExecution);
 	}
 }
