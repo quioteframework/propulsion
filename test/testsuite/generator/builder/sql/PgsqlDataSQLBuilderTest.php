@@ -15,13 +15,12 @@ use Propulsion\Generator\Manager\DataSqlManager;
 /**
  * Coverage for PgsqlDataSQLBuilder, the Postgres-specific data-dump SQL
  * builder used by `data:sql` when propulsion.database=pgsql. The existing
- * DataSqlManagerTest only exercises the MySQL builder (chosen there because
- * sqlite has no datasql builder at all); this locks in Postgres-specific
- * behavior the Mysql builder doesn't have: boolean formatting ('t'/'f'), and
- * -- most importantly -- the auto-increment sequence resync SQL
- * (`SELECT pg_catalog.setval(...)`) that a data dump into a table with a
- * native-id-method primary key needs to keep the sequence in sync with the
- * highest imported id.
+ * DataSqlManagerTest only exercises the MySQL builder; this locks in
+ * Postgres-specific behavior the Mysql builder doesn't have: boolean
+ * formatting ('t'/'f'), and -- most importantly -- the auto-increment
+ * sequence resync SQL (`SELECT pg_catalog.setval(...)`) that a data dump
+ * into a table with a native-id-method primary key needs to keep the
+ * sequence in sync with the highest imported id.
  */
 class PgsqlDataSQLBuilderTest extends TestCase
 {
@@ -92,6 +91,39 @@ EOT
         $sql = file_get_contents($sqlFile);
         $this->assertStringContainsString("'t'", $sql);
         $this->assertStringContainsString("'f'", $sql);
+    }
+
+    /**
+     * PDO_PGSQL itself never converts a boolean column to a native PHP bool
+     * -- it hands back the driver's own "t"/"f" text, which is what actually
+     * reaches getBooleanSql() for data *dumped from* Postgres. "1"/"0" cover
+     * a value dumped from a platform (mysql, sqlite) that stores booleans as
+     * plain integers and then re-converted *to* Postgres SQL.
+     */
+    public function testBooleanValuesAreParsedFromEveryOnTheWireSpelling()
+    {
+        $dataXmlFile = $this->workDir . '/dataset.xml';
+        file_put_contents($dataXmlFile, <<<'EOT'
+<?xml version="1.0" encoding="UTF-8"?>
+<dataset>
+  <PgWidget Id="1" Name="FromPgsqlTrue" Active="t"/>
+  <PgWidget Id="2" Name="FromPgsqlFalse" Active="f"/>
+  <PgWidget Id="3" Name="FromIntTrue" Active="1"/>
+  <PgWidget Id="4" Name="FromIntFalse" Active="0"/>
+</dataset>
+EOT
+        );
+
+        $manager = new DataSqlManager($this->buildConfig());
+        $sqlFile = $this->workDir . '/dataset.sql';
+        $manager->transform([$this->schemaFile], $dataXmlFile, $sqlFile);
+
+        $sql = file_get_contents($sqlFile);
+        $rows = array_filter(explode("\n", $sql));
+        $this->assertStringContainsString("'t'", $rows[0], 'Active="t" must render true');
+        $this->assertStringContainsString("'f'", $rows[1], 'Active="f" must render false');
+        $this->assertStringContainsString("'t'", $rows[2], 'Active="1" must render true');
+        $this->assertStringContainsString("'f'", $rows[3], 'Active="0" must render false');
     }
 
     public function testAutoIncrementColumnsGetSequenceResyncedToMaxValue()

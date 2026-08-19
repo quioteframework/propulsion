@@ -72,7 +72,7 @@ EOT
             $database = $input->getOption('database');
             $database = is_string($database) ? $database : null;
 
-            $config = $this->loadConfiguration($input);
+            $config = $this->loadConfiguration($input, $dsn);
             $manager = new DataDumpManager(
                 $config,
                 $dsn,
@@ -96,9 +96,23 @@ EOT
         }
     }
 
-    private function loadConfiguration(InputInterface $input): GeneratorConfig
+    private function loadConfiguration(InputInterface $input, string $dsn): GeneratorConfig
     {
         $defaultPropertiesFile = dirname(__DIR__, 2) . '/default.php';
+
+        // Unlike data:sql's --database flag (DataSqlCommand::loadConfiguration()),
+        // there is no separate CLI option naming the target SQL platform here:
+        // --database/-d already means something else for this command (which
+        // <database name="..."> element of the *schema* to dump). --dsn is the
+        // only thing this command is always given that says what the platform
+        // actually is, so its driver prefix is what sets propulsion.database --
+        // otherwise it silently stays at the hardcoded pgsql default
+        // (default.php's propulsion.database), regardless of what --dsn says.
+        $overrides = [];
+        $database = self::databaseFromDsn($dsn);
+        if ($database !== null) {
+            $overrides['propulsion.database'] = $database;
+        }
 
         $configOption = $input->getOption('config');
         $configFiles = is_array($configOption) ? array_values(array_filter($configOption, 'is_string')) : [];
@@ -106,8 +120,35 @@ EOT
         return GeneratorConfig::createFromPropertiesFile(
             $defaultPropertiesFile,
             $configFiles,
-            []
+            $overrides
         );
+    }
+
+    /**
+     * Maps a PDO DSN's driver prefix (the part before the first ":") to the
+     * propulsion.database value naming the same platform in this codebase's
+     * build properties. Two of them differ from PDO's own driver name --
+     * "dblib" is "mssql" here, "oci" is "oracle" -- the same mapping
+     * PropulsionPDOTrait::$savepointCapableDrivers's docblock and
+     * OpenTelemetryQueryObserver::DB_SYSTEM_BY_DRIVER already encode, for the
+     * same underlying reason, elsewhere in this codebase.
+     *
+     * Null for anything unrecognized (including a DSN with no ":" at all),
+     * which callers should treat as "no override" -- falling through to
+     * whatever propulsion.database already resolves to, exactly as before
+     * this method existed, rather than forcing a wrong platform from a
+     * malformed DSN PDO itself is about to fail on anyway.
+     */
+    private static function databaseFromDsn(string $dsn): ?string
+    {
+        $driver = strtolower(explode(':', $dsn, 2)[0]);
+
+        return match ($driver) {
+            'pgsql', 'mysql', 'sqlite', 'sqlsrv' => $driver,
+            'dblib' => 'mssql',
+            'oci' => 'oracle',
+            default => null,
+        };
     }
 
     /**

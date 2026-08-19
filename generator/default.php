@@ -303,6 +303,7 @@ return [
     'propulsion.builder.datasql.mssql.class' => 'Propulsion\Generator\Builder\SQL\MSSQL\MssqlDataSQLBuilder',
     'propulsion.builder.datasql.sqlsrv.class' => 'Propulsion\Generator\Builder\SQL\Sqlsrv\SqlsrvDataSQLBuilder',
     'propulsion.builder.datasql.oracle.class' => 'Propulsion\Generator\Builder\SQL\Oracle\OracleDataSQLBuilder',
+    'propulsion.builder.datasql.sqlite.class' => 'Propulsion\Generator\Builder\SQL\Sqlite\SqliteDataSQLBuilder',
 
     'propulsion.builder.datasql.class' => '${propulsion.builder.datasql.${propulsion.database}.class}',
 

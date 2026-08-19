@@ -148,7 +148,31 @@ abstract class DataSQLBuilder extends DataModelBuilder
 	 */
 	protected function getBooleanSql($value)
 	{
-		return (int) $value;
+		return $this->parseBoolean($value) ? 1 : 0;
+	}
+
+	/**
+	 * Normalizes a boolean value coming from a dumped dataset to a real PHP
+	 * bool. Every value reaching a *Sql() method has already been round-tripped
+	 * through a stringified XML attribute (see DataDumpManager), and the string
+	 * it was stringified from may itself be a source platform's own on-the-wire
+	 * spelling rather than "0"/"1" -- PDO_PGSQL in particular never converts a
+	 * boolean column to a native PHP bool at all, handing back the literal
+	 * strings "t"/"f" instead. A bare `(int) $value` cast treats both of those
+	 * as 0: every `true` value dumped from Postgres and converted to any other
+	 * platform's SQL would silently become false there. This is the one place
+	 * that decides what counts as false, shared by every subclass -- including
+	 * the ones (Mysql, Mssql, Sqlsrv, Oracle, Sqlite) whose getBooleanSql()
+	 * calls straight through to this instead of overriding it, so the fix
+	 * lives once here rather than needing to be repeated in each of them.
+	 */
+	protected function parseBoolean(mixed $value): bool
+	{
+		if (is_string($value)) {
+			return !in_array(strtolower(trim($value)), ['f', 'false', '0', ''], true);
+		}
+
+		return (bool) $value;
 	}
 
 	/**

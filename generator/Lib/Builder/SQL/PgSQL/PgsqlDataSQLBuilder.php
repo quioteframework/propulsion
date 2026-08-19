@@ -83,10 +83,7 @@ class PgsqlDataSQLBuilder extends DataSQLBuilder
 	 */
 	protected function getBooleanSql($value)
 	{
-		if ($value === 'f' || $value === 'false' || $value === "0") {
-			$value = false;
-		}
-		return ($value ? "'t'" : "'f'");
+		return $this->parseBoolean($value) ? "'t'" : "'f'";
 	}
 
 	/**
