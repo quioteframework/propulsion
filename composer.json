@@ -18,14 +18,29 @@
     "symfony/yaml": "^8.0",
     "psr/log": "^3.0",
     "psr/event-dispatcher": "^1.0",
-    "psr/simple-cache": "^3.0"
+    "psr/simple-cache": "^3.0",
+    "psr/http-client": "^1.0",
+    "psr/http-factory": "^1.1",
+    "php-http/discovery": "^1.20"
   },
   "require-dev": {
     "phpunit/phpunit": "^12.0",
     "testcontainers/testcontainers": "^1.0",
     "phpstan/phpstan": "^2.2",
     "symfony/http-client": "^8.1",
-    "rector/rector": "^2.5"
+    "rector/rector": "^2.5",
+    "open-telemetry/api": "^1.10",
+    "open-telemetry/sdk": "^1.15",
+    "open-telemetry/exporter-otlp": "^1.4",
+    "open-telemetry/sem-conv": "^1.38",
+    "nyholm/psr7": "^1.8"
+  },
+  "suggest": {
+    "open-telemetry/api": "Enables telemetry.enabled in the runtime configuration -- see docs/OBSERVABILITY.md",
+    "open-telemetry/sdk": "Enables telemetry.enabled in the runtime configuration -- see docs/OBSERVABILITY.md",
+    "open-telemetry/exporter-otlp": "Enables telemetry.enabled in the runtime configuration -- see docs/OBSERVABILITY.md",
+    "open-telemetry/sem-conv": "Enables telemetry.enabled in the runtime configuration -- see docs/OBSERVABILITY.md",
+    "psr/http-client-implementation": "Any PSR-18 HTTP client (e.g. guzzlehttp/guzzle, symfony/http-client) is needed to export OpenTelemetry spans over OTLP/HTTP"
   },
   "autoload": {
     "psr-4": {

@@ -390,6 +390,17 @@ class Propulsion
 		// reachable. (While the cache was request-scoped this could not bite,
 		// because the entries never outlived the request that built them.)
 		self::$serviceContainer?->clearCompiledQueryCache();
+
+		// Same idea for telemetry: drop whatever observer/tracer-provider
+		// wiring belonged to the old configuration -- including one
+		// registered via setTelemetryTracerProvider()/setTelemetryHttpClient(),
+		// which does not survive reconfiguration any more than an explicitly
+		// registered query cache pool does (see clearQueryCachePool() above) --
+		// then re-derive fresh wiring from the new configuration. Construction
+		// of the expensive SDK/exporter objects, if `telemetry.enabled` is
+		// true, still only happens lazily on the first statement executed.
+		self::$serviceContainer?->clearTelemetry();
+		self::getServiceContainer()->registerTelemetryFromConfig();
 	}
 
 	/**
@@ -647,6 +658,70 @@ class Propulsion
 	public static function getQueryCacheConfig(): QueryCacheConfig
 	{
 		return self::getServiceContainer()->getQueryCacheConfig();
+	}
+
+	/**
+	 * The parsed `telemetry` section of the runtime configuration. See
+	 * docs/OBSERVABILITY.md.
+	 */
+	public static function getTelemetryConfig(): \Propulsion\Observability\TelemetryConfig
+	{
+		return self::getServiceContainer()->getTelemetryConfig();
+	}
+
+	/**
+	 * Registers the PSR-18 client used to export OpenTelemetry spans over
+	 * OTLP/HTTP, bypassing `php-http/discovery`.
+	 *
+	 * Only consulted by the `telemetry.enabled` configuration-driven path --
+	 * a tracer provider registered via {@see setTelemetryTracerProvider()}
+	 * already carries its own transport. Mirrors {@see setQueryCachePool()}:
+	 * state lives on {@see ServiceContainer}, this is a convenience delegator.
+	 */
+	public static function setTelemetryHttpClient(\Psr\Http\Client\ClientInterface $client): void
+	{
+		self::getServiceContainer()->setTelemetryHttpClient($client);
+	}
+
+	/**
+	 * Registers an already-built tracer provider for query span export,
+	 * bypassing `telemetry` configuration entirely -- your own, or one shared
+	 * with other instrumentation. Takes effect immediately, independent of
+	 * `telemetry.enabled`. See docs/OBSERVABILITY.md.
+	 */
+	public static function setTelemetryTracerProvider(\OpenTelemetry\API\Trace\TracerProviderInterface $provider): void
+	{
+		self::getServiceContainer()->setTelemetryTracerProvider($provider);
+	}
+
+	/**
+	 * The tracer provider currently backing query span export -- one
+	 * registered via {@see setTelemetryTracerProvider()}, otherwise one built
+	 * from `telemetry` configuration.
+	 *
+	 * @throws PropulsionException if telemetry is not active and no provider
+	 *         was registered, or if the optional `open-telemetry/*` packages
+	 *         (or a PSR-18 client) are missing.
+	 */
+	public static function getTelemetryTracerProvider(): \OpenTelemetry\API\Trace\TracerProviderInterface
+	{
+		return self::getServiceContainer()->getTelemetryTracerProvider();
+	}
+
+	/**
+	 * Flush whatever telemetry spans have buffered so far, without waiting
+	 * for the exporter's own batch timer.
+	 *
+	 * Call this at the request boundary under a true async worker runtime
+	 * (FrankenPHP worker mode): the batch processor otherwise only flushes at
+	 * worker-process exit, not per served request -- the same "reset per
+	 * request yourself under a worker" contract
+	 * {@see \Propulsion\Observability\QueryStatsObserver::reset()} already
+	 * documents. A no-op if telemetry was never activated.
+	 */
+	public static function flushTelemetry(): void
+	{
+		self::getServiceContainer()->flushTelemetry();
 	}
 
 	/**

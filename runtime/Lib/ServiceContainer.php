@@ -9,13 +9,18 @@
  */
 namespace Propulsion;
 
+use OpenTelemetry\API\Trace\TracerProviderInterface;
 use Propulsion\Cache\CacheDriverFactory;
 use Propulsion\Cache\CompiledQueryCache;
 use Propulsion\Cache\Driver\NullCache;
 use Propulsion\Cache\QueryCacheConfig;
 use Propulsion\Connection\ConnectionConfig;
+use Propulsion\Observability\OpenTelemetryQueryObserver;
 use Propulsion\Observability\QueryObservers;
+use Propulsion\Observability\TelemetryConfig;
+use Propulsion\Observability\TelemetryTracerProviderFactory;
 use Propulsion\Query\GlobalQueryFilters;
+use Psr\Http\Client\ClientInterface;
 use Psr\SimpleCache\CacheInterface;
 
 /**
@@ -161,6 +166,173 @@ class ServiceContainer
     public function getQueryObservers(): QueryObservers
     {
         return $this->queryObservers ??= new QueryObservers();
+    }
+
+    /** Parsed `telemetry` configuration, resolved lazily and then memoised. */
+    private ?TelemetryConfig $telemetryConfig = null;
+
+    /**
+     * A tracer provider handed in via {@see setTelemetryTracerProvider()},
+     * which always wins over configuration -- mirrors
+     * {@see setQueryCachePool()}'s relationship to `cache.query`.
+     */
+    private ?TracerProviderInterface $telemetryTracerProviderOverride = null;
+
+    /**
+     * A tracer provider built from `telemetry` configuration by
+     * {@see TelemetryTracerProviderFactory}, memoised so the SDK/exporter
+     * objects (and the HTTP client behind them) are constructed at most once
+     * per process.
+     */
+    private ?TracerProviderInterface $telemetryTracerProviderBuilt = null;
+
+    /** PSR-18 client handed in via {@see setTelemetryHttpClient()}, overriding discovery. */
+    private ?ClientInterface $telemetryHttpClient = null;
+
+    /**
+     * The exact {@see OpenTelemetryQueryObserver} instance currently
+     * registered on {@see QueryObservers}, if any -- tracked so it can be
+     * removed again on reconfiguration without disturbing any other observer
+     * an application registered directly.
+     */
+    private ?OpenTelemetryQueryObserver $telemetryObserver = null;
+
+    /**
+     * The parsed `telemetry` section, read from the runtime configuration on
+     * first use and memoised thereafter.
+     */
+    public function getTelemetryConfig(): TelemetryConfig
+    {
+        return $this->telemetryConfig ??= TelemetryConfig::fromConfigArray(
+            Propulsion::getConfigurationArray()
+        );
+    }
+
+    /**
+     * Register a PSR-18 client to use for OTLP/HTTP export, bypassing
+     * `php-http/discovery`. Only consulted by the configuration-driven path
+     * ({@see getTelemetryTracerProvider()}); a tracer provider registered via
+     * {@see setTelemetryTracerProvider()} already has its own transport.
+     */
+    public function setTelemetryHttpClient(ClientInterface $client): void
+    {
+        $this->telemetryHttpClient = $client;
+    }
+
+    /**
+     * Register an already-built tracer provider -- your own, or one shared
+     * with other instrumentation -- bypassing `telemetry` configuration
+     * entirely. Always wins over a configuration-built one. Takes effect
+     * immediately: any previously registered telemetry observer is replaced,
+     * independent of whether `telemetry.enabled` is set at all.
+     */
+    public function setTelemetryTracerProvider(TracerProviderInterface $provider): void
+    {
+        $this->telemetryTracerProviderOverride = $provider;
+        $this->registerTelemetryObserver(static fn (): TracerProviderInterface => $provider, recordStatementText: true);
+    }
+
+    /**
+     * The tracer provider backing telemetry: one registered via
+     * {@see setTelemetryTracerProvider()}, otherwise one built from
+     * `telemetry` configuration by {@see TelemetryTracerProviderFactory} --
+     * memoised, so the underlying SDK/exporter/HTTP-client objects are built
+     * at most once.
+     *
+     * @throws \Propulsion\Exception\PropulsionException if `telemetry` is not
+     *         active and no override was registered, or if the optional
+     *         `open-telemetry/*` packages (or a PSR-18 client) are missing --
+     *         see {@see TelemetryTracerProviderFactory::build()}
+     */
+    public function getTelemetryTracerProvider(): TracerProviderInterface
+    {
+        if ($this->telemetryTracerProviderOverride !== null) {
+            return $this->telemetryTracerProviderOverride;
+        }
+
+        return $this->telemetryTracerProviderBuilt ??= TelemetryTracerProviderFactory::build(
+            $this->getTelemetryConfig(),
+            $this->telemetryHttpClient
+        );
+    }
+
+    /**
+     * Re-derive telemetry wiring from the current configuration --
+     * {@see Propulsion::setConfiguration()} calls this right after clearing
+     * the previous wiring. A no-op when `telemetry.enabled` is false.
+     */
+    public function registerTelemetryFromConfig(): void
+    {
+        if (!$this->getTelemetryConfig()->isActive()) {
+            return;
+        }
+
+        $this->registerTelemetryObserver(
+            fn (): TracerProviderInterface => $this->getTelemetryTracerProvider(),
+            $this->getTelemetryConfig()->recordStatementText,
+        );
+    }
+
+    /**
+     * @param \Closure(): TracerProviderInterface $tracerProvider
+     */
+    private function registerTelemetryObserver(\Closure $tracerProvider, bool $recordStatementText): void
+    {
+        $observers = $this->getQueryObservers();
+        if ($this->telemetryObserver !== null) {
+            $observers->remove($this->telemetryObserver);
+        }
+
+        $observer = new OpenTelemetryQueryObserver(
+            static fn () => $tracerProvider()->getTracer('propulsion'),
+            $recordStatementText
+        );
+        $observers->add($observer);
+        $this->telemetryObserver = $observer;
+    }
+
+    /**
+     * Flush whatever telemetry has buffered, if a tracer provider has
+     * actually been built (never triggers one to be built just to flush
+     * nothing). Only does something when that provider is the SDK's own
+     * {@see \OpenTelemetry\SDK\Trace\TracerProvider} -- a custom
+     * {@see TracerProviderInterface} registered via
+     * {@see setTelemetryTracerProvider()} is the application's own to flush.
+     *
+     * Call this at the request boundary under a true async worker runtime
+     * (FrankenPHP worker mode): {@see TelemetryTracerProviderFactory::build()}'s
+     * `register_shutdown_function()` only fires at worker-process exit there,
+     * not per served request -- the same worker-mode caveat already
+     * documented on {@see \Propulsion\Observability\QueryStatsObserver::reset()}.
+     */
+    public function flushTelemetry(): void
+    {
+        $provider = $this->telemetryTracerProviderOverride ?? $this->telemetryTracerProviderBuilt;
+        if ($provider instanceof \OpenTelemetry\SDK\Trace\TracerProvider) {
+            $provider->forceFlush();
+        }
+    }
+
+    /**
+     * Forget every telemetry override, built provider, and registration, so
+     * the next {@see registerTelemetryFromConfig()} (which
+     * {@see Propulsion::setConfiguration()} always calls right after this)
+     * re-derives everything from the new configuration. Mirrors
+     * {@see clearQueryCachePool()}: an explicitly registered override does
+     * not survive reconfiguration either, matching that method's existing,
+     * documented contract -- call {@see setTelemetryTracerProvider()} again
+     * afterward if you need it to.
+     */
+    public function clearTelemetry(): void
+    {
+        if ($this->telemetryObserver !== null) {
+            $this->getQueryObservers()->remove($this->telemetryObserver);
+            $this->telemetryObserver = null;
+        }
+        $this->telemetryConfig = null;
+        $this->telemetryTracerProviderOverride = null;
+        $this->telemetryTracerProviderBuilt = null;
+        $this->telemetryHttpClient = null;
     }
 
     /**

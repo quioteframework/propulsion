@@ -154,6 +154,12 @@ left open with a reason rather than silently:
 
 ## Missing modernization work
 
-- **PSR-18**: not started, nothing to wire it into yet.
+- **PSR-18**: wired in, scoped to OpenTelemetry span export
+  (`telemetry.enabled` in the runtime configuration -- see
+  `docs/OBSERVABILITY.md`). `psr/http-client`/`psr/http-factory` are now
+  dependencies and `TelemetryTracerProviderFactory` resolves a concrete
+  client via `php-http/discovery` rather than pinning one. No other part of
+  this codebase issues HTTP requests, so this is the only PSR-18 consumer;
+  broader adoption elsewhere remains unstarted.
 - **Phase 4d (Quiote adapter integration)**: tracked in the Quiote-side repo,
   not here.

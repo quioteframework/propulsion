@@ -1783,13 +1783,26 @@ change-tracker steal list, which is deliberately not repeated here.
     `rowCount()` as unreliable there, and several drivers must buffer the
     whole result set to answer, so consulting it would make the measurement
     change what it measures.
-  - **Not shipped, on purpose**: an OpenTelemetry adapter of our own. The
-    interface is the integration point and `opentelemetry-php` is a
-    fully-featured dependency; a thin wrapper here would pin its version for
-    every consumer. `docs/OBSERVABILITY.md` shows the ~15-line observer that
-    does it. Persistent connections see nothing from prepared-statement
-    execution, the same PDO `ATTR_PERSISTENT` limitation
-    `KNOWN_ISSUES.md` already records for dropped-connection detection.
+  - **Now shipped**: `OpenTelemetryQueryObserver`, plus a `telemetry`
+    configuration section that builds and registers it automatically --
+    `telemetry.enabled: true` and an OTLP/HTTP endpoint is the whole setup,
+    no application code required. Full write-up in `docs/OBSERVABILITY.md`.
+    What changed the earlier "not shipped, on purpose" calculus: the observer
+    itself binds only against `open-telemetry/api` (interfaces plus no-op
+    fallbacks, negligible weight); the actual SDK/exporter packages stay
+    `require-dev`/`suggest`, never a hard `require`, and nothing in this
+    codebase references those classes until a query actually runs with
+    telemetry active. The remaining piece -- an HTTP client to ship spans
+    over -- is resolved via `php-http/discovery` rather than pinning one
+    concrete implementation for every consumer (`psr/http-client`,
+    `psr/http-factory` and `php-http/discovery` themselves *are* hard
+    dependencies, but they are interfaces and discovery plumbing, the same
+    tier as `psr/simple-cache`). Persistent connections still see nothing
+    from prepared-statement execution, the same PDO `ATTR_PERSISTENT`
+    limitation `KNOWN_ISSUES.md` already records for dropped-connection
+    detection -- `open-telemetry/opentelemetry-auto-pdo`, a native-extension
+    based auto-instrumentation package, reaches those and is the documented
+    complement, not a replacement.
 - [x] **`->explain()`** on a query object, returning the platform's plan
   (Rails, Django, Laravel all ship this). New `ModelCriteria::explain(bool
   $analyze = false, ?PropulsionPDO $con = null): array` builds the exact same
