@@ -200,6 +200,43 @@ class RowCapturingQueryObserverTest extends TestCase
 	}
 
 	/**
+	 * No runtime call site actually calls execute() with a $params array --
+	 * every one binds individually via bindValue() first, see
+	 * bindValue()'s own docblock -- but a value passed this way is sitting
+	 * right in the array with nothing to defer, unlike bindParam(), so
+	 * execute() must capture it too rather than silently reporting an empty
+	 * boundParams for a statement that plainly had one.
+	 */
+	public function testBoundParamsAreCapturedFromTheExecuteParamsArray()
+	{
+		$observer = new class implements QueryObserver {
+			public ?QueryExecution $captured = null;
+
+			public function queryStarted(QueryExecution $execution): void
+			{
+			}
+
+			public function queryFinished(QueryExecution $execution): void
+			{
+				$this->captured = $execution;
+			}
+		};
+		Propulsion::addQueryObserver($observer);
+
+		$stmt = $this->pdo->prepare('INSERT INTO widgets (id, name) VALUES (?, ?)');
+		$this->assertNotFalse($stmt);
+		$stmt->execute(array(9, 'via-execute-params'));
+
+		$this->assertNotNull($observer->captured);
+		$boundParams = $observer->captured->boundParams;
+		$this->assertSame(array(0, 1), array_keys($boundParams));
+		$this->assertSame(9, $boundParams[0]->value);
+		$this->assertSame('via-execute-params', $boundParams[1]->value);
+		$this->assertNull($boundParams[0]->table);
+		$this->assertNull($boundParams[0]->column);
+	}
+
+	/**
 	 * The table/column identity a value was bound for is available three
 	 * layers up from PropulsionStatement::bindValue() -- in
 	 * DBAdapter::bindValues(), which is where BasePeer::buildParams() (INSERT)

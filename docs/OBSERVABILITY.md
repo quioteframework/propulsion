@@ -55,7 +55,7 @@ into a correlation map keyed by something that would have to be invented.
 | `->sql` | the statement text, as sent |
 | `->source` | `statement` (a prepared statement — nearly all ORM traffic), `exec`, or `query` |
 | `->connection` | the `PropulsionPDO` it ran on |
-| `->boundParams` | values bound via `bindValue()` before this statement ran, keyed the way PDO does (position or `:name`); always empty for `exec()`/`query()` |
+| `->boundParams` | values bound via `bindValue()` or `execute($params)`, keyed the way PDO does (position or `:name`); always empty for `exec()`/`query()` |
 | `->correlationId` | whatever `Propulsion::getCorrelationId()` returned when this execution began, or `null` |
 | `getDurationSeconds()` / `getDurationMilliseconds()` | monotonic (`hrtime`), so an NTP step cannot produce a negative duration |
 | `getRowCount()` | rows affected, for statements that change rows; `null` for a SELECT |
@@ -281,11 +281,13 @@ back.
 
 **Bound parameters** are on `->boundParams`, an array of `BoundParameter`
 (`->value`, `->table`, `->column`) keyed the way PDO keys placeholders
-(1-based position, or `:name`). Captured from `bindValue()` calls -- every
-runtime call site (`DBAdapter::bindValues()`/`bindValue()`) binds
-individually and then calls `execute()` with no arguments, so a value never
-otherwise reaches `execute()`'s own `$params` to be captured there.
-`->table`/`->column` are populated whenever `DBAdapter::bindValues()` itself
+(1-based position, or `:name`). Captured both from `bindValue()` calls --
+every runtime call site (`DBAdapter::bindValues()`/`bindValue()`) binds
+individually and then calls `execute()` with no arguments -- and from a
+value passed through `execute($params)`'s own argument instead, which no
+runtime call site actually uses but is captured all the same, with `->table`/
+`->column` left `null` (that path carries no column identity to attach).
+`->table`/`->column` are otherwise populated whenever `DBAdapter::bindValues()` itself
 knew them (which is essentially always for ORM traffic — `BasePeer::buildParams()`
 for `INSERT`/`UPDATE` and `Criterion` for a `SELECT`'s `WHERE` clause both
 carry table/column all the way through) and `null` when it didn't (a value

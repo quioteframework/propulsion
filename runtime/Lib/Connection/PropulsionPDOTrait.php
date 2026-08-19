@@ -51,12 +51,18 @@ trait PropulsionPDOTrait
 	 * this project's own test/deployment matrix targets (see IntegrationDatabase)
 	 * and whose SAVEPOINT support is both present and standard-syntax-compatible.
 	 *
-	 * dblib/MSSQL is the one driver here that doesn't use real transactions at
-	 * all (see MssqlPropulsionPDO), so it falls back to the pre-existing
-	 * depth-counter/poison-flag emulation instead, where a rollback of a nested
-	 * transaction doesn't undo anything by itself but instead poisons the outer
-	 * transaction so that its eventual commit() throws instead of silently
-	 * discarding the rolled-back work.
+	 * dblib/MSSQL is *not* the driver that falls back to the depth-counter/
+	 * poison-flag emulation below -- {@see MssqlPropulsionPDO} overrides
+	 * beginTransaction()/commit()/rollBack()/forceRollBack() entirely, issuing
+	 * real T-SQL `SAVE TRANSACTION`/`ROLLBACK TRANSACTION savepoint_name` (SQL
+	 * Server's own syntax for what standard SAVEPOINT does elsewhere), so it
+	 * never calls {@see supportsSavepoints()} and never reaches this trait's own
+	 * generic transaction methods at all; its absence from this list is
+	 * therefore irrelevant to it. The emulation is a defensive fallback for a
+	 * hypothetical driver that connects via *this trait's* generic
+	 * beginTransaction()/commit()/rollBack() (i.e. does not override them the
+	 * way MssqlPropulsionPDO does) without appearing here -- no driver this
+	 * codebase currently supports is in that situation.
 	 *
 	 * Oracle ("oci") *is* included here -- SAVEPOINT and ROLLBACK TO SAVEPOINT are
 	 * both standard Oracle syntax -- even though it has no RELEASE SAVEPOINT

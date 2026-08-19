@@ -121,17 +121,20 @@ class PropulsionStatement extends \PDOStatement
 	/**
 	 * Records a bound value -- together with the column it was bound for, if
 	 * {@see setPendingColumn()} was called immediately before this -- then
-	 * binds it as normal. This is the only place that ever sees real
-	 * parameter values: every runtime call site
-	 * (`DBAdapter::bindValues()`/`bindValue()`) binds individually and then
-	 * calls `execute()` with no arguments, so a value never otherwise reaches
-	 * `execute()`'s own `$params` argument to be captured there.
+	 * binds it as normal. Every runtime call site
+	 * (`DBAdapter::bindValues()`/`bindValue()`) binds individually this way
+	 * and then calls `execute()` with no arguments -- {@see execute()} itself
+	 * captures the other case, a value passed through its own `$params`
+	 * argument instead, which no runtime call site actually uses but which
+	 * carries a real value just as much as this method does.
 	 *
 	 * `bindParam()` (by-reference binding) is deliberately not overridden the
 	 * same way: nothing in this codebase's own generated/runtime SQL uses it,
 	 * and capturing it correctly would mean reading the referenced variable
 	 * at `execute()` time rather than bind time, which is real additional
-	 * machinery for a path that does not occur here. See docs/OBSERVABILITY.md.
+	 * machinery for a path that does not occur here -- unlike `execute($params)`,
+	 * whose values are already sitting in hand with nothing to defer. See
+	 * docs/OBSERVABILITY.md.
 	 */
 	public function bindValue(string|int $param, mixed $value, int $type = \PDO::PARAM_STR): bool
 	{
@@ -188,6 +191,20 @@ class PropulsionStatement extends \PDOStatement
 		// set would otherwise leave that execution's row capture -- if any
 		// was requested -- silently unreported once this overwrites it below.
 		$this->notifyRowsCapturedIfNeeded();
+
+		// $params rebinds exactly the keys it names, the same way PDO's own
+		// native execute($params) does -- overlaid on whatever bindValue()
+		// already captured rather than replacing it outright, so a key not
+		// present here keeps what was actually bound for it. No runtime call
+		// site in this codebase actually passes $params (see bindValue()'s
+		// own docblock), but unlike bindParam(), the value here is not merely
+		// knowable in principle -- it is sitting right in the array already,
+		// with no excuse to drop it.
+		if ($params !== null) {
+			foreach ($params as $key => $value) {
+				$this->boundValues[$key] = new BoundParameter($value);
+			}
+		}
 
 		$observers = Propulsion::getServiceContainer()->getQueryObservers();
 		$execution = $observers->start($this->queryString, QueryExecution::SOURCE_STATEMENT, $this->pdo, $this->boundValues);
