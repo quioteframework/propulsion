@@ -1628,6 +1628,21 @@ abstract class DBAdapter
 		foreach ($params as $param) {
 			$position++;
 			$parameter = ':p' . $position;
+
+			// The one place downstream -- PropulsionStatement::bindValue(), a
+			// PDO-native override that cannot grow a 4th argument without
+			// breaking the interface it implements -- still has table/column
+			// identity to attach to whatever it captures for observability.
+			// Set unconditionally, including the two branches below that never
+			// resolve a ColumnMap, so a captured NULL or table-less value still
+			// carries whatever table/column *is* known rather than always None.
+			if ($stmt instanceof \Propulsion\Connection\PropulsionStatement) {
+				$stmt->setPendingColumn(
+					is_string($param['table'] ?? null) ? $param['table'] : null,
+					is_string($param['column'] ?? null) ? $param['column'] : null,
+				);
+			}
+
 			$value = $param['value'];
 			if (null === $value) {
 				$stmt->bindValue($parameter, null, PDO::PARAM_NULL);

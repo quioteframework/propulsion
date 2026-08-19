@@ -75,8 +75,8 @@ final class QueryObservers
 	 * when none are registered -- which is also the signal to the caller that
 	 * it need not call {@see finish()} either.
 	 *
-	 * @param array<int|string, mixed> $boundParams Values already bound via
-	 *        `bindValue()`, if any -- see {@see QueryExecution}'s constructor.
+	 * @param array<int|string, BoundParameter> $boundParams Values already bound
+	 *        via `bindValue()`, if any -- see {@see QueryExecution}'s constructor.
 	 */
 	public function start(string $sql, string $source, PropulsionPDO $connection, array $boundParams = array()): ?QueryExecution
 	{

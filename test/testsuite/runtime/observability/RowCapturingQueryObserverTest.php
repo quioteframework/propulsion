@@ -13,10 +13,12 @@ use Propulsion\Adapter\DBSQLite;
 use Propulsion\Adapter\Sqlite\SqlitePropulsionPDO;
 use Propulsion\Config\PropulsionConfiguration;
 use Propulsion\Connection\PropulsionPDO;
+use Propulsion\Generator\Util\PropulsionQuickBuilder;
 use Propulsion\Observability\QueryExecution;
 use Propulsion\Observability\QueryObserver;
 use Propulsion\Observability\RowCapturingQueryObserver;
 use Propulsion\Propulsion;
+use Propulsion\Query\Criteria;
 
 /**
  * Requests row capture (with an optional cap) in queryStarted(), records
@@ -134,7 +136,15 @@ class RowCapturingQueryObserverTest extends TestCase
 		$this->insertWidgetViaBindValue(1, 'a');
 
 		$this->assertNotNull($observer->captured);
-		$this->assertSame(array(1 => 1, 2 => 'a'), $observer->captured->boundParams);
+		$boundParams = $observer->captured->boundParams;
+		$this->assertSame(array(1, 2), array_keys($boundParams));
+		$this->assertSame(1, $boundParams[1]->value);
+		$this->assertSame('a', $boundParams[2]->value);
+		// Bound directly via $stmt->bindValue(), bypassing DBAdapter::bindValues()
+		// entirely -- there is no table/column to attach here, and there must
+		// not be one invented.
+		$this->assertNull($boundParams[1]->table);
+		$this->assertNull($boundParams[1]->column);
 	}
 
 	public function testBoundParamsAreCapturedForNamedPlaceholders()
@@ -160,7 +170,10 @@ class RowCapturingQueryObserverTest extends TestCase
 		$stmt->execute();
 
 		$this->assertNotNull($observer->captured);
-		$this->assertSame(array(':id' => 7, ':name' => 'named'), $observer->captured->boundParams);
+		$boundParams = $observer->captured->boundParams;
+		$this->assertSame(array(':id', ':name'), array_keys($boundParams));
+		$this->assertSame(7, $boundParams[':id']->value);
+		$this->assertSame('named', $boundParams[':name']->value);
 	}
 
 	public function testExecAndQueryReportEmptyBoundParams()
@@ -184,6 +197,66 @@ class RowCapturingQueryObserverTest extends TestCase
 
 		$this->assertCount(1, $observer->captured);
 		$this->assertSame(array(), $observer->captured[0]->boundParams);
+	}
+
+	/**
+	 * The table/column identity a value was bound for is available three
+	 * layers up from PropulsionStatement::bindValue() -- in
+	 * DBAdapter::bindValues(), which is where BasePeer::buildParams() (INSERT)
+	 * and Criterion (SELECT WHERE) both ultimately funnel their bound values
+	 * through. This is the one test that goes through that real path (a
+	 * generated class built by PropulsionQuickBuilder, not $this->pdo's raw
+	 * `widgets` table used everywhere else in this file, which bypasses the
+	 * ORM's SQL-building entirely and so never has a table/column to report)
+	 * rather than asserting the plumbing works by inspection.
+	 */
+	public function testBoundParamsCarryTableAndColumnForRealOrmTraffic()
+	{
+		$schema = <<<'EOF'
+<database name="bound_param_table_column_test">
+    <table name="bound_param_table_column_widget">
+        <column name="id" primaryKey="true" type="INTEGER" autoIncrement="true" />
+        <column name="name" type="VARCHAR" size="64" />
+    </table>
+</database>
+EOF;
+		PropulsionQuickBuilder::buildSchema($schema);
+
+		$captured = array();
+		Propulsion::addQueryObserver(new class ($captured) implements QueryObserver {
+			public function __construct(private array &$captured)
+			{
+			}
+
+			public function queryStarted(QueryExecution $execution): void
+			{
+			}
+
+			public function queryFinished(QueryExecution $execution): void
+			{
+				if ($execution->boundParams !== array()) {
+					$this->captured[] = $execution;
+				}
+			}
+		});
+
+		$widget = new BoundParamTableColumnWidget();
+		$widget->setName('a');
+		$widget->save();
+
+		BoundParamTableColumnWidgetQuery::create()->filterByName('a', Criteria::EQUAL)->find();
+
+		$this->assertCount(2, $captured, 'one INSERT, one SELECT WHERE, both binding at least one value');
+
+		$insert = $captured[0]->boundParams[':p1'];
+		$this->assertSame('a', $insert->value);
+		$this->assertSame('bound_param_table_column_widget', $insert->table);
+		$this->assertSame('NAME', $insert->column);
+
+		$select = $captured[1]->boundParams[':p1'];
+		$this->assertSame('a', $select->value);
+		$this->assertSame('bound_param_table_column_widget', $select->table);
+		$this->assertSame('NAME', $select->column);
 	}
 
 	public function testCorrelationIdIsStampedOntoEveryExecution()

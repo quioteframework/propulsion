@@ -279,15 +279,22 @@ Two more things a record/replay recorder needs that a tracer or a stats
 collector does not: what values a statement actually ran with, and what came
 back.
 
-**Bound parameters** are on `->boundParams`, captured from `bindValue()`
-calls -- every runtime call site (`DBAdapter::bindValues()`/`bindValue()`)
-binds individually and then calls `execute()` with no arguments, so a value
-never otherwise reaches `execute()`'s own `$params` to be captured there.
-**`bindParam()` (by-reference binding) is not captured** -- nothing in this
-codebase's own generated/runtime SQL uses it, and capturing it correctly
-would mean reading the referenced variable at `execute()` time rather than
-bind time. Raw/manual PDO code that binds by reference will not have its
-values reported.
+**Bound parameters** are on `->boundParams`, an array of `BoundParameter`
+(`->value`, `->table`, `->column`) keyed the way PDO keys placeholders
+(1-based position, or `:name`). Captured from `bindValue()` calls -- every
+runtime call site (`DBAdapter::bindValues()`/`bindValue()`) binds
+individually and then calls `execute()` with no arguments, so a value never
+otherwise reaches `execute()`'s own `$params` to be captured there.
+`->table`/`->column` are populated whenever `DBAdapter::bindValues()` itself
+knew them (which is essentially always for ORM traffic — `BasePeer::buildParams()`
+for `INSERT`/`UPDATE` and `Criterion` for a `SELECT`'s `WHERE` clause both
+carry table/column all the way through) and `null` when it didn't (a value
+bound directly via `bindValue()` from outside that path, e.g. `Propulsion::rawQuery()`
+or hand-written PDO code). **`bindParam()` (by-reference binding) is not
+captured at all** -- nothing in this codebase's own generated/runtime SQL
+uses it, and capturing it correctly would mean reading the referenced
+variable at `execute()` time rather than bind time. Raw/manual PDO code that
+binds by reference will not have its values reported.
 
 **Returned rows** need an observer to opt in, because of a timing problem
 querying alone can't solve: for `find()`/`findOne()`, rows are fetched by the
@@ -312,6 +319,8 @@ final class CassetteObserver implements RowCapturingQueryObserver
 
     public function rowsCaptured(QueryExecution $execution): void
     {
+        // Each BoundParameter carries ->value plus, when known, ->table/->column
+        // -- e.g. {":p1": {value: "a@example.com", table: "customer", column: "EMAIL"}}.
         $cassette->record(
             $execution->sql,
             $execution->boundParams,

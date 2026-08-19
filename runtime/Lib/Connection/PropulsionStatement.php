@@ -9,6 +9,7 @@
  */
 namespace Propulsion\Connection;
 
+use Propulsion\Observability\BoundParameter;
 use Propulsion\Observability\QueryExecution;
 use Propulsion\Propulsion;
 
@@ -66,9 +67,27 @@ class PropulsionStatement extends \PDOStatement
 	 * rebound for a later iteration genuinely is still the value that will be
 	 * used, so keeping it is correct, not stale.
 	 *
-	 * @var array<int|string, mixed>
+	 * @var array<int|string, BoundParameter>
 	 */
 	private array $boundValues = array();
+
+	/**
+	 * The table this statement's *next* {@see bindValue()} call is for, if
+	 * known -- set by {@see setPendingColumn()} and consumed (read, then
+	 * cleared) by {@see bindValue()} itself.
+	 *
+	 * A side channel, not a 4th argument to {@see bindValue()}, because that
+	 * method overrides a PDO-native one: its signature is fixed by the
+	 * interface it implements, and cannot grow a parameter PDO itself never
+	 * calls it with. {@see \Propulsion\Adapter\DBAdapter::bindValues()} is the
+	 * one place downstream that still has the raw table/column strings (see
+	 * `Criterion`/`BasePeer::buildParams()`, which is where they originate) --
+	 * it sets this immediately before each `bindValue()` call it makes.
+	 */
+	private ?string $pendingColumnTable = null;
+
+	/** @see $pendingColumnTable */
+	private ?string $pendingColumnName = null;
 
 	/**
 	 * The execution `execute()` most recently opened, kept around so
@@ -100,8 +119,10 @@ class PropulsionStatement extends \PDOStatement
 	}
 
 	/**
-	 * Records a bound value, then binds it as normal. This is the only place
-	 * that ever sees real parameter values: every runtime call site
+	 * Records a bound value -- together with the column it was bound for, if
+	 * {@see setPendingColumn()} was called immediately before this -- then
+	 * binds it as normal. This is the only place that ever sees real
+	 * parameter values: every runtime call site
 	 * (`DBAdapter::bindValues()`/`bindValue()`) binds individually and then
 	 * calls `execute()` with no arguments, so a value never otherwise reaches
 	 * `execute()`'s own `$params` argument to be captured there.
@@ -114,9 +135,30 @@ class PropulsionStatement extends \PDOStatement
 	 */
 	public function bindValue(string|int $param, mixed $value, int $type = \PDO::PARAM_STR): bool
 	{
-		$this->boundValues[$param] = $value;
+		$table = $this->pendingColumnTable;
+		$column = $this->pendingColumnName;
+		$this->pendingColumnTable = null;
+		$this->pendingColumnName = null;
+
+		$this->boundValues[$param] = new BoundParameter($value, $table, $column);
 
 		return parent::bindValue($param, $value, $type);
+	}
+
+	/**
+	 * Sets the table/column {@see bindValue()}'s *next* call is for, so that
+	 * call can attach it to what it captures. Consumed (read, then cleared)
+	 * by that very next call -- a `bindValue()` reached without this having
+	 * been called first (raw/manual PDO code outside `DBAdapter`) simply
+	 * captures a `null` table/column, which is the correct answer: none is
+	 * genuinely known there.
+	 *
+	 * @internal called by {@see \Propulsion\Adapter\DBAdapter::bindValues()} only
+	 */
+	public function setPendingColumn(?string $table, ?string $column): void
+	{
+		$this->pendingColumnTable = $table;
+		$this->pendingColumnName = $column;
 	}
 
 	/**

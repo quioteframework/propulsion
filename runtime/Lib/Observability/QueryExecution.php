@@ -70,14 +70,17 @@ final class QueryExecution
 	 *                                        (see PropulsionPDO::ping()'s docblock for
 	 *                                        the same constraint), and inventing one
 	 *                                        here would mean inventing a wrong one.
-	 * @param     array<int|string, mixed> $boundParams Values bound via
+	 * @param     array<int|string, BoundParameter> $boundParams Values bound via
 	 *                                        `PDOStatement::bindValue()` before this
 	 *                                        statement ran, keyed the same way PDO
-	 *                                        does (1-based position, or `:name`).
-	 *                                        Always empty for `exec()`/`query()`
-	 *                                        traffic, which has no bind step.
-	 *                                        Values bound via `bindParam()` (by
-	 *                                        reference) are not captured -- see
+	 *                                        does (1-based position, or `:name`),
+	 *                                        each carrying the table/column it was
+	 *                                        bound for when the caller was
+	 *                                        `DBAdapter::bindValues()` and that is
+	 *                                        known. Always empty for `exec()`/
+	 *                                        `query()` traffic, which has no bind
+	 *                                        step. Values bound via `bindParam()`
+	 *                                        (by reference) are not captured -- see
 	 *                                        docs/OBSERVABILITY.md.
 	 * @param     ?string       $correlationId Whatever {@see \Propulsion\Propulsion::getCorrelationId()}
 	 *                                        returned when this execution began.
