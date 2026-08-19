@@ -88,6 +88,17 @@ class PropulsionTemplate
 			throw $e;
 		}
 
-		return ob_get_clean();
+		$rendered = ob_get_clean();
+		if ($rendered === false) {
+			// Only reachable if the template itself closed the output buffer
+			// this method opened (e.g. its own ob_end_clean()/ob_end_flush())
+			// -- ob_start() above guarantees one is open on every other path.
+			throw new \Propulsion\Generator\Exception\EngineException(
+				'PropulsionTemplate::render(): no output buffer was active when rendering finished -- '
+				. 'the template likely closed the one render() opened'
+			);
+		}
+
+		return $rendered;
 	}
 }

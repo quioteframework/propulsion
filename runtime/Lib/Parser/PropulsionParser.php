@@ -71,6 +71,12 @@ abstract class PropulsionParser
 		ob_start();
 		include($path);
 		$contents = ob_get_clean();
+		if ($contents === false) {
+			// Only reachable if the included file itself closed the output
+			// buffer this method opened -- ob_start() above guarantees one is
+			// open on every other path.
+			throw new PropulsionException(sprintf('PropulsionParser::load(): "%s" closed the output buffer it was loaded into', $path));
+		}
 
 		return $contents;
 	}

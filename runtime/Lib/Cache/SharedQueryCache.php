@@ -334,7 +334,13 @@ class SharedQueryCache
 
         $rows = [];
         foreach ($value as $row) {
-            if (!is_array($row)) {
+            // is_array() alone is not enough: the formatters expect
+            // PDO::FETCH_NUM-shaped rows (sequential int keys from 0), the
+            // same convention StatementRows::iterate() and
+            // PropulsionOnDemandIterator::next() already rely on. A row with
+            // string keys is exactly as malformed for this cache as a
+            // non-array value -- a miss, not a type error at the formatter.
+            if (!is_array($row) || !array_is_list($row)) {
                 return null;
             }
             $rows[] = $row;
