@@ -1,3 +1,8 @@
+## [3.1.0] - 2026-08-20
+
+### ⚙️ Miscellaneous Tasks
+
+- Prep v3.1.0
 ## [3.1.0-RC1] - 2026-08-20
 
 ### 🚀 Features

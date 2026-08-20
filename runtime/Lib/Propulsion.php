@@ -48,7 +48,7 @@ class Propulsion
 	/**
 	 * The Propulsion version.
 	 */
-	public const string VERSION = '3.0.0';
+	public const string VERSION = '3.1.0';
 
 	/**
 	 * A constant for <code>default</code>.
