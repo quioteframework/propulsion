@@ -1,3 +1,16 @@
+## [3.1.0-RC1] - 2026-08-20
+
+### 🚀 Features
+
+- *(observability)* Add config-driven OpenTelemetry span export
+- *(observability)* Add correlation id, bound params, and row capture
+
+### 🐛 Bug Fixes
+
+- *(observability)* Thread table/column identity through to boundParams
+- *(phpstan)* Resolve the repo's last three level-9 findings
+- *(runtime)* Correct dblib transaction docblock, capture execute() params
+- *(generator)* Sqlite datasql builder, dump DSN platform, boolean cast
 ## [3.0.0] - 2026-08-14
 
 ### 🐛 Bug Fixes
@@ -11,11 +24,13 @@
 
 - *(adapter,reverse)* Cover the defaults and helpers no platform job reaches
 - *(runtime,generator)* Cover three classes that reported zero coverage
+- *(formatter)* Pin row order in on-demand bulk-format test
 
 ### ⚙️ Miscellaneous Tasks
 
 - *(codecov)* Report the merged five-platform coverage, not the first job's
 - *(tests)* Install apcu in the jobs that actually measure coverage
+- Prepare v3.0.0
 ## [3.0.0-RC2] - 2026-08-13
 
 ### 🐛 Bug Fixes
