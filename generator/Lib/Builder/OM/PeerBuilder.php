@@ -2692,9 +2692,6 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		\$session = Propulsion::isInstancePoolingEnabled() ? Propulsion::getSession() : null;
 
 		while (\$row = \$stmt->fetch(PDO::FETCH_NUM)) {
-			if (!is_array(\$row) || !array_is_list(\$row)) {
-				continue;
-			}
 			\$key1 = " . $this->getPeerClassname() . "::getPrimaryKeyHashFromRow(\$row, 0);
 			if (\$session !== null && \$key1 !== null && (\$obj1 = \$session->getPooledInstance(" . $this->getPeerClassname() . "::class, \$key1)) instanceof \\" . $this->getStubObjectBuilder()->getFullyQualifiedClassname() . ") {
 				// We no longer rehydrate the object, since this can cause data loss.
@@ -2911,9 +2908,6 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		\$session = Propulsion::isInstancePoolingEnabled() ? Propulsion::getSession() : null;
 
 		while (\$row = \$stmt->fetch(PDO::FETCH_NUM)) {
-			if (!is_array(\$row) || !array_is_list(\$row)) {
-				continue;
-			}
 			\$key1 = " . $this->getPeerClassname() . "::getPrimaryKeyHashFromRow(\$row, 0);
 			if (\$session !== null && \$key1 !== null && (\$obj1 = \$session->getPooledInstance(" . $this->getPeerClassname() . "::class, \$key1)) instanceof \\" . $this->getStubObjectBuilder()->getFullyQualifiedClassname() . ") {
 				// We no longer rehydrate the object, since this can cause data loss.
@@ -3147,9 +3141,6 @@ abstract class " . $this->getClassname() . $extendingPeerClass . "
 		\$session = Propulsion::isInstancePoolingEnabled() ? Propulsion::getSession() : null;
 
 		while (\$row = \$stmt->fetch(PDO::FETCH_NUM)) {
-			if (!is_array(\$row) || !array_is_list(\$row)) {
-				continue;
-			}
 			\$key1 = " . $this->getPeerClassname() . "::getPrimaryKeyHashFromRow(\$row, 0);
 			if (\$session !== null && \$key1 !== null && (\$obj1 = \$session->getPooledInstance(" . $this->getPeerClassname() . "::class, \$key1)) instanceof \\" . $this->getStubObjectBuilder()->getFullyQualifiedClassname() . ") {
 				// We no longer rehydrate the object, since this can cause data loss.

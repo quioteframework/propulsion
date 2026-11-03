@@ -2612,7 +2612,7 @@ trait " . $this->getClassname() . "
 		\$stmt = " . $this->getPeerClassname() . "::doSelectStmt(\$this->buildPkeyCriteria(), \$con);
 		\$row = \$stmt->fetch(PDO::FETCH_NUM);
 		\$stmt->closeCursor();
-		if (!is_array(\$row) || !array_is_list(\$row)) {
+		if (\$row === false) {
 			throw new PropulsionException('Cannot find matching row in the database to reload object values.');
 		}
 		\$this->hydrate(\$row, 0, true); // rehydrate";
