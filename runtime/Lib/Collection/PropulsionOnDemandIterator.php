@@ -126,7 +126,7 @@ class PropulsionOnDemandIterator implements Iterator
 	public function next(): void
 	{
 		$row = $this->stmt->fetch(PDO::FETCH_NUM);
-		$this->currentRow = (is_array($row) && array_is_list($row)) ? $row : false;
+		$this->currentRow = $row;
 		$this->currentKey++;
 		$this->isValid = (bool) $this->currentRow;
 		if (!$this->isValid) {

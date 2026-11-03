@@ -126,13 +126,15 @@ class DBSQLSRV extends DBMSSQL
 			// get written to database.
 			rewind($value);
 			// pdo_sqlsrv must have bind binaries using bindParam so that the PDO::SQLSRV_ENCODING_BINARY
-			// driver option can be utilized. This requires a unique blob parameter because the bindParam
-			// value is passed by reference and if we didn't do this then the referenced parameter value
-			// would change on the next loop
-			$blob = "blob".$position;
-			$$blob = $value;
+			// driver option can be utilized. bindParam binds by reference, so each LOB needs a variable
+			// of its own that nothing else writes to before execute(). A local of this method is exactly
+			// that: every call -- one per parameter, from bindValues()' loop -- gets a fresh one, and
+			// once this returns the statement holds the only reference to it. (This used to be a
+			// variable-variable named after $position, which bought nothing over a plain local and left
+			// the analyser unable to rule out it overwriting $stmt itself.)
+			$lob = $value;
 
-			return $stmt->bindParam($parameter, ${$blob}, PDO::PARAM_LOB, 0, PDO::SQLSRV_ENCODING_BINARY);
+			return $stmt->bindParam($parameter, $lob, PDO::PARAM_LOB, 0, PDO::SQLSRV_ENCODING_BINARY);
 		}
 
 		return $stmt->bindValue($parameter, $value, $cMap->getPdoType());

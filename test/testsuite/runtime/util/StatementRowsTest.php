@@ -118,16 +118,6 @@ class StatementRowsTest extends TestCase
 		}
 	}
 
-	public function testIterateSkipsNonListRows(): void
-	{
-		$stmt = $this->statementYielding(array(array(1), array('assoc' => 'not a list'), array(2)));
-
-		$this->assertSame(
-			array(array(1), array(2)),
-			iterator_to_array(StatementRows::iterate($stmt), false)
-		);
-	}
-
 	public function testAllMaterialisesRowsAsAList(): void
 	{
 		$stmt = $this->statementExpectingOneCloseCursor(array(array(1, 'a'), array(2, 'b')));

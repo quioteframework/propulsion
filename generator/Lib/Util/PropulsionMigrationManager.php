@@ -367,8 +367,10 @@ class PropulsionMigrationManager
 		// A datasource whose migration table didn't exist yet is treated as
 		// "no migrations applied", i.e. the oldest possible version -- 0, the
 		// documented "no migrations applied yet" baseline, and what a full
-		// "down" back to the start leaves behind.
-		if ($sawUninitializedDatasource || !$migrationTimestamps) {
+		// "down" back to the start leaves behind. (There is no separate
+		// empty-ledger case: the early return above guarantees at least one
+		// connection, and each one either recorded a version or set the flag.)
+		if ($sawUninitializedDatasource) {
 			return 0;
 		}
 		sort($migrationTimestamps);

@@ -224,49 +224,32 @@ abstract class BaseSchemaParser implements SchemaParser
 	/**
 	 * Fetches one row as a string-keyed array (PDO::FETCH_ASSOC), or null once
 	 * the result set is exhausted (or, defensively, if the driver ever
-	 * returned something else). PDOStatement::fetch()'s own return type is
-	 * `mixed` (its actual shape depends on the fetch-mode argument, which
-	 * PHPStan cannot resolve statically), so this validates the shape for
-	 * real -- keeping only genuinely string-keyed entries -- rather than
-	 * asserting the type away.
+	 * returned something else).
+	 *
+	 * PHPStan resolves PDOStatement::fetch()'s return type from the fetch mode
+	 * (since 2.3), so FETCH_ASSOC is already known to yield a string-keyed
+	 * array or false; only the false needs handling here.
 	 *
 	 * @return     array<string, mixed>|null
 	 */
 	protected function fetchAssoc(\PDOStatement $stmt): ?array
 	{
-		$raw = $stmt->fetch(\PDO::FETCH_ASSOC);
-		if (!is_array($raw)) {
-			return null;
-		}
-		$row = [];
-		foreach ($raw as $key => $value) {
-			if (is_string($key)) {
-				$row[$key] = $value;
-			}
-		}
-		return $row;
+		$row = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+		return is_array($row) ? $row : null;
 	}
 
 	/**
 	 * Fetches one row as a list (PDO::FETCH_NUM), or null once the result set
-	 * is exhausted. See fetchAssoc() for why this validates the shape rather
-	 * than asserting PDOStatement::fetch()'s `mixed` return type away.
+	 * is exhausted. See fetchAssoc() for why only the false needs handling.
 	 *
 	 * @return     array<int, mixed>|null
 	 */
 	protected function fetchNum(\PDOStatement $stmt): ?array
 	{
-		$raw = $stmt->fetch(\PDO::FETCH_NUM);
-		if (!is_array($raw)) {
-			return null;
-		}
-		$row = [];
-		foreach ($raw as $key => $value) {
-			if (is_int($key)) {
-				$row[$key] = $value;
-			}
-		}
-		return $row;
+		$row = $stmt->fetch(\PDO::FETCH_NUM);
+
+		return is_array($row) ? $row : null;
 	}
 
 	/**

@@ -475,26 +475,6 @@ class BaseSchemaParserTest extends TestCase
         $this->assertNull($parser->callFetchNum($stmt), 'null once the result set is exhausted');
     }
 
-    /**
-     * The shape validation is not decoration: each helper keeps only the keys of
-     * the type it promises its callers, so a row that mixes them cannot leak an
-     * int-keyed entry into an array<string, mixed> (or vice versa).
-     */
-    public function testFetchHelpersDropKeysOfTheWrongType()
-    {
-        $parser = new TestableBaseSchemaParser();
-        $pdo = new PDO('sqlite::memory:');
-        $pdo->setAttribute(PDO::ATTR_STATEMENT_CLASS, array(MalformedRowStatement::class));
-
-        MalformedRowStatement::$rows = array(array('name' => 'x', 0 => 'positional'));
-        $stmt = $pdo->query('SELECT 1');
-        $this->assertInstanceOf(PDOStatement::class, $stmt);
-        $this->assertSame(array('name' => 'x'), $parser->callFetchAssoc($stmt));
-
-        MalformedRowStatement::$rows = array(array('name' => 'x', 0 => 'positional'));
-        $this->assertSame(array(0 => 'positional'), $parser->callFetchNum($stmt));
-    }
-
     public function testFetchHelpersReturnNullWhenTheDriverReturnsANonArray()
     {
         $parser = new TestableBaseSchemaParser();
