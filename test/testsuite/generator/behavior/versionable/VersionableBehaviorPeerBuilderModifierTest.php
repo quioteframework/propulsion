@@ -29,7 +29,7 @@ class VersionableBehaviorPeerBuilderModifierTest extends TestCase
 		<column name="bar" type="INTEGER" />
 		<behavior name="versionable" />
 	</table>
-</database>>
+</database>
 EOF;
 			PropulsionQuickBuilder::buildSchema($schema);
 		}

@@ -132,10 +132,25 @@ class XmlToAppData
 		$this->schemasTagsStack[$xmlFile] = array();
 		$this->currentXmlFile = $xmlFile;
 
+		// An empty schema -- nothing, or only an XML declaration -- yields an
+		// empty AppData rather than an error. That used to fall out of parsing
+		// without is_final; now that the parse below is final, it is stated here.
+		$body = preg_replace('/^\s*<\?xml\b(?:[^?]|\?(?!>))*\?>/', '', $xmlString) ?? $xmlString;
+		if (trim($body) === '') {
+			array_pop($this->schemasTagsStack);
+
+			return $this->app;
+		}
+
 		$parser = xml_parser_create($this->encoding);
 		xml_parser_set_option($parser, XML_OPTION_CASE_FOLDING, 0);
 		xml_set_element_handler($parser, [$this, 'startElement'], [$this, 'endElement']);
-		if (!xml_parse($parser, $xmlString)) {
+		// is_final: the whole schema is in this one string. Without it libxml
+		// treats the input as a first chunk and, depending on its version, may
+		// never check that the document is complete -- a stray character after
+		// </database>, or a missing </database>, passed on libxml 2.9 and
+		// failed (or not) on newer builds.
+		if (!xml_parse($parser, $xmlString, true)) {
 			throw new \Exception(sprintf("XML error: %s at line %d",
 				xml_error_string(xml_get_error_code($parser)),
 				xml_get_current_line_number($parser))
