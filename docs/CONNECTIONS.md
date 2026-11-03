@@ -15,6 +15,10 @@ reaped between requests by an idle timeout, a load balancer, a failover or a
 restart. Under PHP-FPM the connection died with the request, so most of this has
 nothing to catch. See `docs/WORKER_MODE.md`.
 
+Section 5 is about logging in rather than staying connected: token
+authentication with Azure managed identities, including separate identities for
+the application and its migrations.
+
 ## 1. Dropped-connection detection
 
 A connection whose server-side session has gone away is detected wherever a
@@ -250,6 +254,157 @@ All four are verified against a real server of that platform, each with a
 second connection standing in for the other process — Postgres in the test
 suite, the rest by hand against MariaDB 11.8, MySQL 9.7, `azure-sql-edge` and
 Oracle 23.
+
+## 5. Token authentication (Azure managed identity)
+
+A connection can log in with a Microsoft Entra access token instead of a
+password: Azure Database for PostgreSQL and for MySQL (flexible server), and
+Azure SQL Database / Managed Instance. Add an `auth` block to the connection and
+drop the password:
+
+```php
+'datasources' => [
+    'app' => [
+        'adapter'    => 'pgsql',
+        'connection' => [
+            'dsn'  => 'pgsql:host=myserver.postgres.database.azure.com;dbname=app;sslmode=require',
+            'user' => 'app-runtime',      // the database role created for the identity
+            'auth' => [
+                'provider'  => 'azure_managed_identity',
+                'client_id' => '11111111-1111-1111-1111-111111111111', // user-assigned; omit for system-assigned
+            ],
+        ],
+    ],
+],
+```
+
+Replica (`slaves`) connections take their own `auth` block the same way.
+
+### Separate identities for the app and its migrations
+
+The build-time connections that `propulsion migrate` and `sql:diff` use come
+from `buildtime-conf.php`, not from the runtime configuration, and take an
+`auth` block of their own. Use that to keep least privilege: the application
+logs in as an identity that can only read and write data, while migrations log
+in as one that can `CREATE`/`ALTER`/`DROP`:
+
+```php
+// buildtime-conf.php
+return [
+    'default'     => 'app',
+    'datasources' => [
+        'app' => [
+            'adapter' => 'pgsql',
+            'dsn'     => 'pgsql:host=myserver.postgres.database.azure.com;dbname=app;sslmode=require',
+            'user'    => 'app-migrations',
+            'auth'    => [
+                'provider'  => 'azure_managed_identity',
+                'client_id' => '22222222-2222-2222-2222-222222222222',
+            ],
+        ],
+    ],
+];
+```
+
+Tokens are cached per identity (and per resource), never per datasource name,
+so the two never share a token. That holds even in one process and one APCu
+segment.
+
+Name the identity with `client_id` in each connection rather than relying on
+`AZURE_CLIENT_ID`. Outside Workload Identity that variable is deliberately
+ignored, because one environment variable shared by the app and the migration
+job would silently pick the identity for both.
+
+### Where the token comes from
+
+Detected from the environment, in this order:
+
+| Host | Detected by | Token endpoint |
+| --- | --- | --- |
+| AKS Workload Identity | `AZURE_FEDERATED_TOKEN_FILE` | Entra (`AZURE_AUTHORITY_HOST`), federated token exchange; needs `AZURE_TENANT_ID`, and `client_id` or `AZURE_CLIENT_ID` |
+| App Service, Functions, Container Apps | `IDENTITY_ENDPOINT` + `IDENTITY_HEADER` | the platform's local identity endpoint |
+| VMs, scale sets, anything else | (fallback) | IMDS at `169.254.169.254` |
+
+With Workload Identity, a migration Job that uses a different `client_id`
+than the app needs a federated credential on that identity for the Job's
+service account.
+
+HTTP goes through any PSR-18 client, found via `php-http/discovery`. Install one
+(`guzzlehttp/guzzle`, `symfony/http-client`), or register one with
+`Propulsion::setConnectionAuthHttpClient()`. If the process uses an HTTP proxy,
+exclude `169.254.169.254` from it with `NO_PROXY`.
+
+### How the token is presented
+
+| PDO driver | Token goes | `user` |
+| --- | --- | --- |
+| `pgsql` | as the password | required: the identity's database role |
+| `mysql` | as the password | required: the identity's database user |
+| `sqlsrv` | `AccessToken=` appended to the DSN | must be absent, as pdo_sqlsrv requires |
+
+Everything else is refused with an explanation:
+
+- **`dblib`:** FreeTDS cannot present an Entra token, so use pdo_sqlsrv (`DBSQLSRV`) for Azure SQL.
+- **MariaDB:** use the `mysql` driver; Azure Database for MariaDB itself was retired in September 2025.
+
+`auth` together with a non-empty `password` is an error.
+
+The default token audience follows the driver: `https://ossrdbms-aad.database.windows.net`
+for pgsql/mysql, `https://database.windows.net/` for sqlsrv. Set `auth.resource`
+for sovereign clouds (e.g. `https://ossrdbms-aad.database.chinacloudapi.cn`).
+
+**MySQL must use TLS.** Azure asks for the token over `mysql_clear_password`,
+and mysqlnd answers that without checking for TLS. So configure the
+`PDO\Mysql::ATTR_SSL_*` options; Azure's default `require_secure_transport=ON`
+refuses unencrypted logins anyway.
+
+### Caching
+
+Every token is cached in process memory, which under a persistent worker means one
+fetch per token lifetime. Under PHP-FPM, process memory dies with each request,
+so `auth.cache.driver` picks a shared tier:
+
+| `driver` | Shared tier |
+| --- | --- |
+| `auto` (default) | APCu when loaded and enabled in this SAPI, else none |
+| `apcu` | APCu; an error if unavailable |
+| `file` | files under `auth.cache.directory`, created `0700`/`0600`. These are bearer tokens on disk, so it is never chosen automatically |
+| `psr16` | the pool registered with `Propulsion::setConnectionTokenCache()`, e.g. Redis, to share across hosts |
+| `none` | process memory only |
+
+A token is replaced `auth.refresh_before` seconds (default 300) before it
+expires, or at half its lifetime if that comes sooner. If the refresh fails, the
+cached token is used, with a PSR-3 warning, for as long as it is still valid.
+
+If the server rejects a login made with a cached token (revoked, or issued before
+the identity's role changed), that token is dropped from both tiers and the
+login is retried **once** with a fresh one. A rejection that a new token cannot
+fix surfaces the server's error unchanged.
+
+Under `psr16`, entries for system-assigned identities include the host (IMDS) or
+the app (App Service) in the key, so one Redis shared by several VMs or apps
+never hands one resource's identity token to another.
+
+### Your own token source
+
+Implement `Propulsion\Connection\Auth\TokenProvider` (fetch a token; name the
+principal it is for) and put the instance in the config, for example for a
+service principal or a secrets manager issuing short-lived passwords. Caching,
+retry and per-driver presentation are the same as for the built-in provider.
+
+```php
+'auth' => ['provider' => new MyServicePrincipalProvider(/* ... */)],
+```
+
+### Limits
+
+- `Propulsion::setConnectionAuthHttpClient()` and `setConnectionTokenCache()`
+  do not survive `Propulsion::setConfiguration()`, like the other registrations;
+  call them after configuring. Build-time connections have no equivalent of
+  `setConnectionTokenCache()`, so use `auto` or `none` there.
+- With `PDO::ATTR_PERSISTENT`, PDO keys persistent handles on the credentials,
+  so each new token opens a new persistent handle and the old ones linger until
+  the worker exits.
 
 ## What is still not handled
 

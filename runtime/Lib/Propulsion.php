@@ -381,6 +381,7 @@ class Propulsion
 		// Same for the execution-strategy settings, which are memoised for the
 		// same "consulted on every connection checkout" reason.
 		self::$serviceContainer?->clearConnectionConfig();
+		self::$serviceContainer?->clearConnectionTokenAuth();
 
 		// Likewise drop every compiled SELECT. That cache is process-scoped, and
 		// the SQL text in it is specific to the adapter its datasource was using
@@ -681,6 +682,27 @@ class Propulsion
 	public static function setTelemetryHttpClient(\Psr\Http\Client\ClientInterface $client): void
 	{
 		self::getServiceContainer()->setTelemetryHttpClient($client);
+	}
+
+	/**
+	 * Registers the PSR-18 client the built-in `azure_managed_identity` token
+	 * provider fetches tokens with, bypassing php-http/discovery. Like the
+	 * other registrations here it does not survive {@see setConfiguration()};
+	 * call it after configuring. See docs/CONNECTIONS.md.
+	 */
+	public static function setConnectionAuthHttpClient(\Psr\Http\Client\ClientInterface $client): void
+	{
+		self::getServiceContainer()->getConnectionTokenAuth()->setHttpClient($client);
+	}
+
+	/**
+	 * Registers the PSR-16 pool used by connections whose `auth.cache.driver`
+	 * is `psr16` -- e.g. Redis, to share one token across hosts. Does not
+	 * survive {@see setConfiguration()}; call it after configuring.
+	 */
+	public static function setConnectionTokenCache(CacheInterface $cache): void
+	{
+		self::getServiceContainer()->getConnectionTokenAuth()->setTokenCache($cache);
 	}
 
 	/**
@@ -1872,8 +1894,23 @@ class Propulsion
 			$classname = $defaultClass ?? $adapter->getDefaultPdoClass();
 		}
 
-		$user = isset($conparams['user']) ? $conparams['user'] : null;
-		$password = isset($conparams['password']) ? $conparams['password'] : null;
+		if (!is_string($dsn)) {
+			throw new PropulsionException('The dsn of datasource [' . $name . '] must be a string, got ' . get_debug_type($dsn));
+		}
+		$user = $conparams['user'] ?? null;
+		$password = $conparams['password'] ?? null;
+		if ($user !== null && !is_string($user)) {
+			throw new PropulsionException('The user of datasource [' . $name . '] must be a string, got ' . get_debug_type($user));
+		}
+		if ($password !== null && !is_string($password)) {
+			throw new PropulsionException('The password of datasource [' . $name . '] must be a string, got ' . get_debug_type($password));
+		}
+
+		// Token authentication (`auth`) resolves to the same three PDO
+		// arguments; without it these are the configured values, untouched.
+		$tokenAuth = self::getServiceContainer()->getConnectionTokenAuth();
+		$authPath = 'datasources.' . $name . '.connection.auth';
+		$credentials = $tokenAuth->credentialsFor($dsn, $user, $password, $conparams['auth'] ?? null, $authPath);
 
 		// load any driver options from the config file
 		// driver options are those PDO settings that have to be passed during the connection construction
@@ -1888,7 +1925,22 @@ class Propulsion
 		}
 
 		try {
-			$con = new $classname($dsn, $user, $password, $driver_options);
+			try {
+				$con = new $classname($credentials->dsn, $credentials->user, $credentials->password, $driver_options);
+			} catch (PDOException $e) {
+				// A cached token the server no longer accepts -- revoked, or
+				// issued before the identity's database role was changed --
+				// would otherwise fail every connection until it aged out of
+				// the cache. Retried once, and only with a *different* token;
+				// retryAfterRejection() returns null for password logins and
+				// when the issuer hands back the same token, so the original
+				// error surfaces unchanged.
+				$retry = $tokenAuth->retryAfterRejection($credentials, $user, $dsn, $authPath);
+				if ($retry === null) {
+					throw $e;
+				}
+				$con = new $classname($retry->dsn, $retry->user, $retry->password, $driver_options);
+			}
 			// PropulsionPDO, not merely PDO. Nothing can be done with a connection
 			// that only satisfies the latter: BasePeer::doSelect()/doInsert()/
 			// doUpdate()/doDelete()/executeSelectSql() all declare PropulsionPDO

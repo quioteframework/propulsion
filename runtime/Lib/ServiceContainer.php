@@ -14,6 +14,7 @@ use Propulsion\Cache\CacheDriverFactory;
 use Propulsion\Cache\CompiledQueryCache;
 use Propulsion\Cache\Driver\NullCache;
 use Propulsion\Cache\QueryCacheConfig;
+use Propulsion\Connection\Auth\ConnectionTokenAuth;
 use Propulsion\Connection\ConnectionConfig;
 use Propulsion\Observability\OpenTelemetryQueryObserver;
 use Propulsion\Observability\QueryObservers;
@@ -480,5 +481,30 @@ class ServiceContainer
     public function clearConnectionConfig(): void
     {
         $this->connectionConfig = null;
+    }
+
+    /**
+     * Token authentication for runtime connections, built on first use. Owns
+     * the token providers and therefore the in-process token cache, which is
+     * why it lives here rather than being rebuilt per connection.
+     */
+    private ?ConnectionTokenAuth $connectionTokenAuth = null;
+
+    public function getConnectionTokenAuth(): ConnectionTokenAuth
+    {
+        return $this->connectionTokenAuth ??= new ConnectionTokenAuth();
+    }
+
+    /**
+     * Forget the token providers -- and with them the in-process tokens --
+     * plus any HTTP client or token pool registered for them. Called by
+     * {@see Propulsion::setConfiguration()}: like a registered query cache
+     * pool, these do not survive reconfiguration. Tokens in a shared pool
+     * (APCu, Redis) are untouched and are picked up again by the new
+     * providers.
+     */
+    public function clearConnectionTokenAuth(): void
+    {
+        $this->connectionTokenAuth = null;
     }
 }

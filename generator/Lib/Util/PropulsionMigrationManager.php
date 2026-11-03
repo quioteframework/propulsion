@@ -143,8 +143,7 @@ class PropulsionMigrationManager
 		$username = self::optionalConfigString($buildConnection, 'user', $datasource);
 		$password = self::optionalConfigString($buildConnection, 'password', $datasource);
 
-		$pdo = new PDO($dsn, $username, $password);
-		$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+		$pdo = BuildTimeConnection::open($datasource, $dsn, $username, $password, $buildConnection['auth'] ?? null);
 
 		// This connection is plain PDO, not a Propulsion\Adapter\DBOracle
 		// instance -- none of DBOracle::initConnection()'s session setup runs
