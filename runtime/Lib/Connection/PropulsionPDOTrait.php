@@ -69,9 +69,17 @@ trait PropulsionPDOTrait
 	 * statement of its own; see $releaseSavepointCapableDrivers/
 	 * supportsReleaseSavepoint() for how commit() handles that one gap.
 	 *
+	 * SQL Server through pdo_sqlsrv ("sqlsrv") is included too, in its own
+	 * dialect -- SAVE TRANSACTION / ROLLBACK TRANSACTION <name>, see
+	 * savepointSql()/rollbackToSavepointSql() -- and, like Oracle, without a
+	 * release statement. It used to be missing, so on DBSQLSRV (which uses
+	 * GenericPropulsionPDO, not MssqlPropulsionPDO's dblib-specific overrides)
+	 * every nested rollBack() fell through to the emulation and poisoned the
+	 * whole outer transaction.
+	 *
 	 * @var       array<int, string>
 	 */
-	protected static $savepointCapableDrivers = ['pgsql', 'mysql', 'sqlite', 'oci'];
+	protected static $savepointCapableDrivers = ['pgsql', 'mysql', 'sqlite', 'oci', 'sqlsrv'];
 
 	/**
 	 * Subset of $savepointCapableDrivers whose SQL dialect also has an explicit
@@ -366,7 +374,7 @@ trait PropulsionPDOTrait
 			}
 			$this->isUncommitable = false;
 		} elseif ($this->supportsSavepoints()) {
-			$return = parent::exec('SAVEPOINT ' . $this->getSavepointName($this->nestedTransactionCount + 1)) !== false;
+			$return = parent::exec($this->savepointSql($this->getSavepointName($this->nestedTransactionCount + 1))) !== false;
 		}
 		$this->nestedTransactionCount++;
 
@@ -470,7 +478,7 @@ trait PropulsionPDOTrait
 				}
 				$this->discardQueryCacheInvalidations();
 			} elseif ($this->supportsSavepoints()) {
-				$return = parent::exec('ROLLBACK TO SAVEPOINT ' . $this->getSavepointName($opcount)) !== false;
+				$return = parent::exec($this->rollbackToSavepointSql($this->getSavepointName($opcount))) !== false;
 			} else {
 				$this->isUncommitable = true;
 			}
@@ -498,6 +506,30 @@ trait PropulsionPDOTrait
 		$driver = $this->getAttribute(\PDO::ATTR_DRIVER_NAME);
 
 		return is_string($driver) && in_array($driver, self::$savepointCapableDrivers, true);
+	}
+
+	/**
+	 * The statement that sets a savepoint: standard `SAVEPOINT`, except on SQL
+	 * Server, whose T-SQL spelling is `SAVE TRANSACTION`. A reused name re-marks
+	 * the savepoint there as it does on Oracle; see getSavepointName().
+	 */
+	protected function savepointSql(string $name): string
+	{
+		return $this->getAttribute(\PDO::ATTR_DRIVER_NAME) === 'sqlsrv'
+			? 'SAVE TRANSACTION ' . $name
+			: 'SAVEPOINT ' . $name;
+	}
+
+	/**
+	 * The statement that undoes work back to a savepoint: standard
+	 * `ROLLBACK TO SAVEPOINT`, or T-SQL's `ROLLBACK TRANSACTION <name>` -- which,
+	 * given a savepoint name, rolls back to it and leaves the transaction open.
+	 */
+	protected function rollbackToSavepointSql(string $name): string
+	{
+		return $this->getAttribute(\PDO::ATTR_DRIVER_NAME) === 'sqlsrv'
+			? 'ROLLBACK TRANSACTION ' . $name
+			: 'ROLLBACK TO SAVEPOINT ' . $name;
 	}
 
 	/**
