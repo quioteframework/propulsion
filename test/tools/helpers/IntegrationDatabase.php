@@ -148,6 +148,34 @@ class IntegrationDatabase
     private const ORACLE_APP_USER = 'propulsion';
     private const ORACLE_APP_PASSWORD = 'propulsion';
 
+    /**
+     * Which PHP driver talks to the MSSQL container: `dblib` (FreeTDS, the
+     * default and what CI has always used) or, with
+     * PROPULSION_MSSQL_DRIVER=sqlsrv, Microsoft's `pdo_sqlsrv`. Same container,
+     * same platform() -- tests that branch on "is this MSSQL" keep doing so --
+     * but the runtime adapter becomes DBSQLSRV and the generator platform
+     * SqlsrvPlatform, as an application using pdo_sqlsrv would configure them.
+     */
+    private static function mssqlDriver(): string
+    {
+        return getenv('PROPULSION_MSSQL_DRIVER') === 'sqlsrv' ? 'sqlsrv' : 'dblib';
+    }
+
+    /**
+     * MSSQL DSN for the given database (or the server's default one), in the
+     * selected driver's syntax. ODBC Driver 18 encrypts and verifies the
+     * certificate by default; the container's is self-signed, hence
+     * TrustServerCertificate.
+     */
+    private static function mssqlDsn(string $host, int $port, ?string $dbname = null): string
+    {
+        if (self::mssqlDriver() === 'sqlsrv') {
+            return "sqlsrv:Server=$host,$port;TrustServerCertificate=1" . ($dbname !== null ? ";Database=$dbname" : '');
+        }
+
+        return "dblib:host=$host:$port" . ($dbname !== null ? ";dbname=$dbname" : '') . ';charset=UTF8';
+    }
+
     private static function platform(): string
     {
         $platform = getenv('PROPULSION_TEST_DB');
@@ -174,7 +202,11 @@ class IntegrationDatabase
      */
     public static function generatorPlatform(): string
     {
-        return self::platform() === 'mariadb' ? 'mysql' : self::platform();
+        return match (self::platform()) {
+            'mariadb' => 'mysql',
+            'mssql' => self::mssqlDriver() === 'sqlsrv' ? 'sqlsrv' : 'mssql',
+            default => self::platform(),
+        };
     }
 
     /**
@@ -202,7 +234,7 @@ class IntegrationDatabase
     public static function pdoDriverPrefix(): string
     {
         return match (self::platform()) {
-            'mssql' => 'dblib',
+            'mssql' => self::mssqlDriver(),
             'oracle' => 'oci',
             'mariadb' => 'mysql',
             default => self::platform(),
@@ -228,7 +260,7 @@ class IntegrationDatabase
     public static function pdoDsn(string $host, int $port, string $dbname): string
     {
         return match (self::platform()) {
-            'mssql' => "dblib:host=$host:$port;dbname=$dbname;charset=UTF8",
+            'mssql' => self::mssqlDsn($host, $port, $dbname),
             'oracle' => "oci:dbname=//$host:$port/FREEPDB1;charset=UTF8",
             default => self::pdoDriverPrefix() . ":host=$host;port=$port;dbname=$dbname",
         };
@@ -1158,7 +1190,7 @@ return " . var_export($config, true) . ";
      */
     private static function createMssqlDatabase(string $host, int $port): void
     {
-        $pdo = self::connectMssqlWithRetry("dblib:host=$host:$port;charset=UTF8", 'sa', self::MSSQL_SA_PASSWORD);
+        $pdo = self::connectMssqlWithRetry(self::mssqlDsn($host, $port), 'sa', self::MSSQL_SA_PASSWORD);
         $exists = self::queryScalar($pdo, "SELECT 1 FROM sys.databases WHERE name = 'propulsion_test'");
         if (!$exists) {
             $pdo->exec('CREATE DATABASE propulsion_test');
@@ -1438,7 +1470,7 @@ return " . var_export($config, true) . ";
 
         [$dsn, $user, $password] = match ($platform) {
             'mysql', 'mariadb' => ["mysql:host=$host;port=$port;dbname=propulsion_test", 'propulsion', 'propulsion'],
-            'mssql' => ["dblib:host=$host:$port;dbname=propulsion_test;charset=UTF8", 'sa', self::MSSQL_SA_PASSWORD],
+            'mssql' => [self::mssqlDsn($host, $port, 'propulsion_test'), 'sa', self::MSSQL_SA_PASSWORD],
             'oracle' => ["oci:dbname=//$host:$port/FREEPDB1;charset=UTF8", self::ORACLE_APP_USER, self::ORACLE_APP_PASSWORD],
             default => ["pgsql:host=$host;port=$port;dbname=propulsion_test", 'propulsion', 'propulsion'],
         };
@@ -1521,6 +1553,10 @@ return " . var_export($config, true) . ";
                 // commit/rollback/lastInsertId workaround that class provides on top.
                 'classname' => match ($platform) {
                     'mssql' => 'Propulsion\\Adapter\\MSSQL\\MssqlDebugPDO',
+                    // pdo_sqlsrv has no driver-specific PDO subclass to extend
+                    // (see DBSQLSRV::getDefaultPdoClass()); DebugPDO is the
+                    // driver-agnostic one.
+                    'sqlsrv' => 'Propulsion\\Connection\\DebugPDO',
                     'oracle' => 'Propulsion\\Adapter\\Oracle\\OracleDebugPDO',
                     'mysql', 'mariadb' => 'Propulsion\\Adapter\\Mysql\\MysqlDebugPDO',
                     'sqlite' => 'Propulsion\\Adapter\\Sqlite\\SqliteDebugPDO',

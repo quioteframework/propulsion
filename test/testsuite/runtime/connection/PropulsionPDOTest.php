@@ -436,7 +436,9 @@ class PropulsionPDOTest extends TestCase
 		// "BEGIN TRANSACTION"/"COMMIT TRANSACTION" SQL sent through exec(),
 		// which *does* get tracked -- the last one executed here is the
 		// COMMIT, not the DELETE.
-		$latestExecutedQuery = Propulsion::getDB(BookPeer::DATABASE_NAME) instanceof DBMSSQL
+		// MssqlPropulsionPDO (dblib) specifically: DBSQLSRV connects through the
+		// generic class, whose transactions are native.
+		$latestExecutedQuery = $con instanceof \Propulsion\Adapter\MSSQL\MssqlPropulsionPDO
 			? 'COMMIT TRANSACTION'
 			: 'DELETE FROM book';
 		$this->assertEquals($latestExecutedQuery, normalizeGeneratedSql($con->getLastExecutedQuery()), 'PropulsionPDO updates the last executed query on delete operations');
@@ -483,8 +485,7 @@ class PropulsionPDOTest extends TestCase
 		// unlike every other platform's direct (untracked) native PDO calls --
 		// doDeleteAll() here counts as 3 tracked queries (BEGIN, DELETE, COMMIT)
 		// on MSSQL, not just 1 (the DELETE alone).
-		$isMssql = Propulsion::getDB(BookPeer::DATABASE_NAME) instanceof DBMSSQL;
-		$countAfterDeleteAll = $isMssql ? 4 : 2;
+		$countAfterDeleteAll = $con instanceof \Propulsion\Adapter\MSSQL\MssqlPropulsionPDO ? 4 : 2;
 		$this->assertEquals($countAfterDeleteAll, $con->getQueryCount(), 'PropulsionPDO updates the query count on delete operations');
 
 		$sql = 'DELETE FROM book WHERE 1=1';

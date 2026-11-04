@@ -49,13 +49,15 @@ class GeneratedPeerDoSelectTest extends BookstoreEmptyTestBase
 
 		$c = new Criteria();
 		$c->add(BookPeer::ID, 'foo');
-		if (in_array(IntegrationDatabase::currentPlatform(), ['mysql', 'mariadb', 'mssql'], true)) {
+		// Keyed on the PDO driver, not the platform: it is the driver that decides.
+		if (in_array(IntegrationDatabase::pdoDriverPrefix(), ['mysql', 'dblib'], true)) {
 			// MySQL/MariaDB loosely coerce a non-numeric string to 0 in an integer
-			// comparison, matching no rows. MSSQL (via FreeTDS/pdo_dblib)
+			// comparison, matching no rows. MSSQL via FreeTDS/pdo_dblib
 			// behaves the same way for a *bound parameter* specifically
 			// (empirically verified against a live instance) -- unlike an
 			// inline literal, which SQL Server does reject with a conversion
-			// error.
+			// error. pdo_sqlsrv binds the parameter as a real nvarchar, so SQL
+			// Server rejects it there too, and takes the branch below.
 			$res = BookPeer::doSelect($c);
 			$this->assertEquals(array(), $res, 'doSelect() accepts an incorrect Criteria');
 		} else {
@@ -176,10 +178,11 @@ class GeneratedPeerDoSelectTest extends BookstoreEmptyTestBase
 
 		$c = new Criteria();
 		$c->add(BookPeer::ID, 'foo');
-		if (in_array(IntegrationDatabase::currentPlatform(), ['mysql', 'mariadb', 'mssql'], true)) {
+		if (in_array(IntegrationDatabase::pdoDriverPrefix(), ['mysql', 'dblib'], true)) {
 			// See testDoSelect() -- MySQL/MariaDB loosely coerce a non-numeric
-			// string to 0 in an integer comparison; MSSQL (via FreeTDS/pdo_dblib)
-			// behaves the same way for a bound parameter.
+			// string to 0 in an integer comparison; MSSQL via FreeTDS/pdo_dblib
+			// behaves the same way for a bound parameter, while pdo_sqlsrv gets
+			// SQL Server's conversion error like Postgres below.
 			$res = BookPeer::doSelectOne($c);
 			$this->assertNull($res, 'doSelectOne() returns null if the Criteria matches no record');
 		} else {

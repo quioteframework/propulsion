@@ -162,15 +162,20 @@ class MssqlSchemaParserTest extends TestCase
      * Confirmed against a live server: pdo_dblib's sp_columns reports
      * NULLABLE=0 for every single column here, including email/bio (neither
      * declared NOT NULL) -- addColumns() reads that value as-is
-     * (`setNotNull(!$is_nullable)`), so every reverse-engineered MSSQL column
-     * comes back marked NOT NULL regardless of its real nullability. This
-     * documents that limitation rather than the nullable=true one would
-     * expect from Postgres/MySQL.
+     * (`setNotNull(!$is_nullable)`), so through dblib every reverse-engineered
+     * MSSQL column comes back marked NOT NULL regardless of its real
+     * nullability. pdo_sqlsrv reports the real value, so the same parser gets
+     * it right there. The dblib half documents that limitation, not desired
+     * behavior.
      */
-    public function testNullableColumnIsNeverthelessMarkedNotNull()
+    public function testNullableColumnIsMarkedNotNullOnlyThroughDblib()
     {
         $column = $this->database->getTable('rev_author')->getColumn('email');
-        $this->assertTrue($column->isNotNull(), 'documents a parser/driver limitation, not desired behavior -- see this test\'s docblock');
+        if (IntegrationDatabase::pdoDriverPrefix() === 'dblib') {
+            $this->assertTrue($column->isNotNull(), 'documents a dblib driver limitation, not desired behavior -- see this test\'s docblock');
+        } else {
+            $this->assertFalse($column->isNotNull(), 'pdo_sqlsrv reports the real nullability');
+        }
     }
 
     public function testTextColumnMapsToLongVarChar()

@@ -1,8 +1,9 @@
 # Codecov configuration.
 #
-# The five "Full suite" jobs in .github/workflows/tests.yml each run the WHOLE
-# test suite against one database (Postgres, MySQL, MariaDB, MSSQL, Oracle) and
-# upload their own report under a per-platform flag. They are not partitions of
+# The six "Full suite" jobs in .github/workflows/tests.yml each run the WHOLE
+# test suite against one database (Postgres, MySQL, MariaDB, MSSQL, Oracle --
+# MSSQL twice, through pdo_dblib and through pdo_sqlsrv, whose adapters differ)
+# and upload their own report under a per-platform flag. They are not partitions of
 # the suite -- they are five runs of the same ~4000 tests -- so the only figure
 # that describes this project is the UNION of all five.
 #
@@ -31,9 +32,10 @@ codecov:
   # Keep this in step with the number of coverage-uploading jobs in tests.yml:
   # the "Unit tests (no Docker)", "PHPStan" and "FrankenPHP worker-mode" jobs
   # deliberately run with `coverage: none` and upload nothing, so they do not
-  # count. If a sixth database tier is ever added, bump this to 6.
+  # count. Six since the MSSQL suite also runs through pdo_sqlsrv
+  # (integration-mssql-sqlsrv) as well as dblib; add one per new tier.
   notify:
-    after_n_builds: 5
+    after_n_builds: 6
     # Don't report against a commit whose CI is still failing -- a red platform
     # job's report is missing whatever the failure cut short.
     wait_for_ci: true
@@ -72,16 +74,18 @@ flag_management:
       carryforward: true
     - name: mssql
       carryforward: true
+    - name: mssql-sqlsrv
+      carryforward: true
     - name: oracle
       carryforward: true
 
 comment:
   # Same reasoning as codecov.notify.after_n_builds: a PR comment posted off one
   # platform's report is worse than no comment.
-  after_n_builds: 5
+  after_n_builds: 6
   layout: "header, diff, flags, files"
   # Keep one comment updated as later platform uploads arrive rather than
-  # posting five.
+  # posting six.
   behavior: default
   require_changes: false
 
