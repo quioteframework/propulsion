@@ -8,7 +8,9 @@
  * @license    MIT License
  */
 
+use Http\Discovery\ClassDiscovery;
 use Nyholm\Psr7\Factory\Psr17Factory;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Propulsion\Connection\Auth\AzureManagedIdentity;
 use Propulsion\Exception\PropulsionException;
@@ -258,6 +260,136 @@ class AzureManagedIdentityTest extends TestCase
         $token = $this->provider($http)->fetchToken(AzureManagedIdentity::RESOURCE_OSS_RDBMS);
 
         $this->assertStringNotContainsString('super-secret', print_r($token, true));
+    }
+
+    public function testAnEmptyClientIdIsRejected(): void
+    {
+        $this->expectException(PropulsionException::class);
+        $this->expectExceptionMessage('omit it to use the default identity');
+
+        new AzureManagedIdentity('');
+    }
+
+    public function testAnEmptyResourceIsRejected(): void
+    {
+        $this->expectException(PropulsionException::class);
+        $this->expectExceptionMessage('resource must not be empty');
+
+        $this->provider(TokenAuthHttpClient::json([]))->fetchToken('');
+    }
+
+    public function testWorkloadIdentityWithoutAClientIdIsAClearError(): void
+    {
+        $http = TokenAuthHttpClient::json([]);
+        $env = ['AZURE_FEDERATED_TOKEN_FILE' => $this->tempFile('sa'), 'AZURE_TENANT_ID' => 't'];
+
+        $this->expectException(PropulsionException::class);
+        $this->expectExceptionMessage('AKS Workload Identity needs a client ID');
+        $this->provider($http, $env)->fetchToken(AzureManagedIdentity::RESOURCE_OSS_RDBMS);
+    }
+
+    public function testWorkloadIdentityPrincipalKeysNameTenantAndClient(): void
+    {
+        $http = TokenAuthHttpClient::json([]);
+        $env = ['AZURE_FEDERATED_TOKEN_FILE' => $this->tempFile('sa'), 'AZURE_TENANT_ID' => 'tenant-a', 'AZURE_CLIENT_ID' => 'runtime-client'];
+
+        $runtime = $this->provider($http, $env)->principalKey();
+        $migrations = $this->provider($http, $env, 'migration-client')->principalKey();
+        $otherTenant = $this->provider($http, ['AZURE_TENANT_ID' => 'tenant-b'] + $env)->principalKey();
+
+        $this->assertNotSame($runtime, $migrations, 'the configured client ID wins over AZURE_CLIENT_ID');
+        $this->assertNotSame($runtime, $otherTenant);
+        $this->assertSame($runtime, $this->provider($http, $env)->principalKey());
+    }
+
+    public function testADateStringExpiresOnIsUnderstood(): void
+    {
+        // Very old App Service API versions answered with a date, not seconds.
+        $http = TokenAuthHttpClient::json(['access_token' => 'tok', 'expires_on' => gmdate('D, d M Y H:i:s', self::NOW + 3600) . ' GMT']);
+
+        $token = $this->provider($http)->fetchToken(AzureManagedIdentity::RESOURCE_OSS_RDBMS);
+
+        $this->assertSame(self::NOW + 3600, $token->expiresAt);
+    }
+
+    /**
+     * @return iterable<string, array{array<string, string>, string}>
+     */
+    public static function sources(): iterable
+    {
+        yield 'IMDS' => [[], 'IMDS managed identity'];
+        yield 'App Service' => [['IDENTITY_ENDPOINT' => 'http://localhost/msi', 'IDENTITY_HEADER' => 'h'], 'App Service managed identity'];
+        yield 'Workload Identity' => [['AZURE_FEDERATED_TOKEN_FILE' => '{tokenfile}', 'AZURE_TENANT_ID' => 't', 'AZURE_CLIENT_ID' => 'c'], 'Workload Identity'];
+    }
+
+    /**
+     * @param array<string, string> $env
+     */
+    #[DataProvider('sources')]
+    public function testATokenWithoutAnExpiryIsRejectedNamingItsSource(array $env, string $source): void
+    {
+        $env = array_map(fn (string $v): string => $v === '{tokenfile}' ? $this->tempFile('sa') : $v, $env);
+        $http = TokenAuthHttpClient::json(['access_token' => 'tok']);
+
+        $this->expectException(PropulsionException::class);
+        $this->expectExceptionMessage('The Azure ' . $source . ' token endpoint returned a token without a usable expires_on or expires_in');
+        $this->provider($http, $env)->fetchToken(AzureManagedIdentity::RESOURCE_OSS_RDBMS);
+    }
+
+    public function testARefusalWithoutAnExplanationStillCarriesTheStatus(): void
+    {
+        $http = new TokenAuthHttpClient(static fn (): \Psr\Http\Message\ResponseInterface => new \Nyholm\Psr7\Response(502, [], 'Bad Gateway'));
+
+        $this->expectException(PropulsionException::class);
+        $this->expectExceptionMessageMatches('/refused to issue a token for \S+: HTTP 502$/');
+        $this->provider($http)->fetchToken(AzureManagedIdentity::RESOURCE_OSS_RDBMS);
+    }
+
+    /**
+     * @return iterable<string, array{bool, bool, bool, array<string, string>, string}>
+     */
+    public static function missingHttpPieces(): iterable
+    {
+        // [client given, request factory given, stream factory given, env, what the message names]
+        yield 'client' => [false, true, true, [], 'a PSR-18 HTTP client'];
+        yield 'request factory' => [true, false, true, [], 'a PSR-17 request factory'];
+        // Only the Workload Identity POST needs a stream for its form body.
+        yield 'stream factory' => [true, true, false, ['AZURE_FEDERATED_TOKEN_FILE' => '{tokenfile}', 'AZURE_TENANT_ID' => 't', 'AZURE_CLIENT_ID' => 'c'], 'a PSR-17 stream factory'];
+    }
+
+    /**
+     * With nothing installed for php-http/discovery to find, the error says
+     * what to install and how to bypass discovery -- not discovery's own
+     * generic message.
+     *
+     * @param array<string, string> $env
+     */
+    #[DataProvider('missingHttpPieces')]
+    public function testMissingHttpPiecesNameWhatToInstall(bool $withClient, bool $withRequests, bool $withStreams, array $env, string $missing): void
+    {
+        $env = array_map(fn (string $v): string => $v === '{tokenfile}' ? $this->tempFile('sa') : $v, $env);
+        $factory = new Psr17Factory();
+        $provider = new AzureManagedIdentity(
+            null,
+            $withClient ? TokenAuthHttpClient::json([]) : null,
+            $withRequests ? $factory : null,
+            $withStreams ? $factory : null,
+            $env,
+            static fn (): int => self::NOW
+        );
+
+        $strategies = [...ClassDiscovery::getStrategies()];
+        ClassDiscovery::setStrategies([]);
+        try {
+            $provider->fetchToken(AzureManagedIdentity::RESOURCE_OSS_RDBMS);
+            $this->fail('expected discovery to fail');
+        } catch (PropulsionException $e) {
+            $this->assertStringContainsString('needs ' . $missing . ' to fetch tokens', $e->getMessage());
+            $this->assertStringContainsString('Propulsion::setConnectionAuthHttpClient()', $e->getMessage());
+            $this->assertInstanceOf(\Http\Discovery\Exception\NotFoundException::class, $e->getPrevious());
+        } finally {
+            ClassDiscovery::setStrategies($strategies);
+        }
     }
 
     private function tempFile(string $contents): string

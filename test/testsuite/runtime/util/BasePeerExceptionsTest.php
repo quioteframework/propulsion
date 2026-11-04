@@ -53,6 +53,29 @@ class BasePeerExceptionsTest extends BookstoreTestBase
 		}
 	}
 
+	public function testDoDeleteFailingBeforeItsSqlIsBuiltSaysSo()
+	{
+		// getDeleteFromClause() reads the comment first, so this fails before
+		// any SQL exists -- the message must not quote a statement (it used to
+		// format an undefined variable, or the previous table's SQL).
+		$c = new class extends Criteria {
+			public function getComment(): ?string
+			{
+				throw new RuntimeException('comment unavailable');
+			}
+		};
+		$c->setPrimaryTableName(BookPeer::TABLE_NAME);
+		$c->add(BookPeer::ID, 12);
+
+		try {
+			BasePeer::doDelete($c, Propulsion::getConnection());
+			$this->fail('expected the DELETE to fail');
+		} catch (PropulsionException $e) {
+			$this->assertStringContainsString('Unable to build DELETE statement for table [book]', $e->getMessage());
+			$this->assertInstanceOf(RuntimeException::class, $e->getPrevious());
+		}
+	}
+
 	public function testDoDeleteAll()
 	{
 		try {

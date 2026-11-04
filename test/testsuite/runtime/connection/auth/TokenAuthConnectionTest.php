@@ -8,7 +8,9 @@
  * @license    MIT License
  */
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Propulsion\Cache\Driver\ArrayCache;
 use Propulsion\Connection\Auth\AccessToken;
 use Propulsion\Exception\PropulsionException;
 use Propulsion\Generator\Util\BuildTimeConnection;
@@ -225,6 +227,85 @@ class TokenAuthConnectionTest extends TestCase
 
         $this->expectException(PropulsionException::class);
         $this->expectExceptionMessage('datasources.' . self::DATASOURCE . '.connection.auth.clientid');
+        Propulsion::getConnection(self::DATASOURCE);
+    }
+
+    public function testABuildTimeConnectionReplacesARejectedTokenAndRetriesOnce(): void
+    {
+        $db = $this->containerOrSkip();
+        $provider = new TokenAuthFakeProvider([
+            new AccessToken('revoked-token', time() + 3600),
+            new AccessToken($db['password'], time() + 3600),
+        ], 'migration-identity');
+
+        $pdo = BuildTimeConnection::open('app', $db['dsn'], $db['user'], null, [
+            'provider' => $provider,
+            'cache' => ['driver' => 'none'],
+        ]);
+
+        $this->assertSame('1', (string) $pdo->query('SELECT 1')?->fetchColumn());
+        $this->assertSame(\PDO::ERRMODE_EXCEPTION, $pdo->getAttribute(\PDO::ATTR_ERRMODE), 'the retried connection is set up like the first');
+        $this->assertSame(2, $provider->fetches);
+    }
+
+    public function testABuildTimeRejectionThatATokenRefreshCannotFixSurfacesTheServersError(): void
+    {
+        $db = $this->containerOrSkip();
+        $provider = TokenAuthFakeProvider::constant('wrong-token', time() + 3600, 'migration-identity');
+
+        try {
+            BuildTimeConnection::open('app', $db['dsn'], $db['user'], null, [
+                'provider' => $provider,
+                'cache' => ['driver' => 'none'],
+            ]);
+            $this->fail('expected the login to fail');
+        } catch (\PDOException $e) {
+            $this->assertStringNotContainsString('wrong-token', $e->getMessage());
+        }
+        $this->assertSame(2, $provider->fetches, 'one refresh attempt, no loop');
+    }
+
+    public function testTheRegisteredHttpClientAndTokenCacheAreUsed(): void
+    {
+        // Registered after configuring, as documented: setConfiguration()
+        // starts the token state afresh.
+        $this->configure('sqlite', ['dsn' => 'sqlite::memory:']);
+        $http = TokenAuthHttpClient::json(['access_token' => 'from-registered-client', 'expires_on' => (string) (time() + 3600)]);
+        $pool = new ArrayCache();
+        Propulsion::setConnectionAuthHttpClient($http);
+        Propulsion::setConnectionTokenCache($pool);
+
+        $credentials = Propulsion::getServiceContainer()->getConnectionTokenAuth()->credentialsFor('pgsql:host=x', 'app', null, [
+            'provider' => 'azure_managed_identity',
+            'client_id' => 'runtime-mi',
+            'cache' => ['driver' => 'psr16'],
+        ], 'datasources.app.connection.auth');
+
+        $this->assertSame('from-registered-client', $credentials->password);
+        $this->assertCount(1, $http->requests);
+        $this->assertSame(1, $pool->count());
+    }
+
+    /**
+     * @return iterable<string, array{array<string, mixed>, string}>
+     */
+    public static function nonStringCredentials(): iterable
+    {
+        yield 'dsn' => [['dsn' => 42], 'The dsn of datasource [' . self::DATASOURCE . '] must be a string, got int'];
+        yield 'user' => [['dsn' => 'sqlite::memory:', 'user' => ['u']], 'The user of datasource [' . self::DATASOURCE . '] must be a string, got array'];
+        yield 'password' => [['dsn' => 'sqlite::memory:', 'password' => 1.5], 'The password of datasource [' . self::DATASOURCE . '] must be a string, got float'];
+    }
+
+    /**
+     * @param array<string, mixed> $connection
+     */
+    #[DataProvider('nonStringCredentials')]
+    public function testNonStringConnectionCredentialsAreRejected(array $connection, string $message): void
+    {
+        $this->configure('sqlite', $connection);
+
+        $this->expectException(PropulsionException::class);
+        $this->expectExceptionMessage($message);
         Propulsion::getConnection(self::DATASOURCE);
     }
 }

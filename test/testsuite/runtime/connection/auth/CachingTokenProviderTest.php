@@ -218,6 +218,26 @@ class CachingTokenProviderTest extends TestCase
         new CachingTokenProvider(TokenAuthFakeProvider::constant('t', $this->now + 1), null, -1);
     }
 
+    public function testAnEmptyTokenIsRejected(): void
+    {
+        $this->expectException(PropulsionException::class);
+        $this->expectExceptionMessage('must not be empty');
+
+        new AccessToken('', $this->now + 3600);
+    }
+
+    public function testATokenWithNoLifetimeLeftIsNotShared(): void
+    {
+        // A custom provider is not obliged to validate expiry the way the
+        // Azure one does; such a token can be used once, but sharing it would
+        // only hand other processes something already dead.
+        $shared = new ArrayCache();
+        $caching = $this->caching(TokenAuthFakeProvider::constant('dying', $this->now), $shared);
+
+        $this->assertSame('dying', $caching->getToken(self::RESOURCE)->token);
+        $this->assertSame([], $this->sharedKeys($shared));
+    }
+
     /**
      * @return list<string>
      */

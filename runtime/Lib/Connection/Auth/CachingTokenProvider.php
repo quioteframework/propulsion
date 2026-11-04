@@ -68,11 +68,6 @@ final class CachingTokenProvider
         $this->clock = $clock ?? static fn (): int => time();
     }
 
-    public function getProvider(): TokenProvider
-    {
-        return $this->provider;
-    }
-
     /**
      * A token for $resource that is not due for refresh, from the cheapest
      * tier that has one.

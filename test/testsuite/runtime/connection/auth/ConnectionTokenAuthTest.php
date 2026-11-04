@@ -124,6 +124,7 @@ class ConnectionTokenAuthTest extends TestCase
         yield 'sqlsrv dsn with a uid' => ['sqlsrv:Server=x; UID=sa', null, null, 'already sets UID'];
         yield 'dblib' => ['dblib:host=x', 'u', null, 'connect to Azure SQL through pdo_sqlsrv'];
         yield 'sqlite' => ['sqlite::memory:', null, null, 'not supported for the "sqlite" PDO driver'];
+        yield 'no driver prefix' => ['host=x;dbname=app', 'u', null, 'Cannot tell the PDO driver from the DSN of the connection at "datasources.app.connection"'];
     }
 
     #[DataProvider('misconfigurations')]
@@ -254,5 +255,43 @@ class ConnectionTokenAuthTest extends TestCase
         $auth->credentialsFor('pgsql:host=replica', 'u', null, $config, 'datasources.app.slaves.connection.auth');
 
         $this->assertSame(1, $provider->fetches, 'the replica reuses the primary\'s token');
+    }
+
+    public function testAPoolRegisteredAfterConstructionBacksThePsr16Driver(): void
+    {
+        $pool = new ArrayCache();
+        $auth = $this->auth();
+        $auth->setTokenCache($pool);
+
+        $credentials = $auth->credentialsFor('pgsql:host=x', 'u', null, [
+            'provider' => TokenAuthFakeProvider::constant('pooled', time() + 3600),
+            'cache' => ['driver' => 'psr16'],
+        ], self::PATH);
+
+        $this->assertSame('pooled', $credentials->password);
+        $this->assertSame(1, $pool->count(), 'the token was written to the registered pool');
+    }
+
+    public function testNoRetryWhenFetchingAReplacementFails(): void
+    {
+        $provider = new TokenAuthFakeProvider([
+            new AccessToken('stale', time() + 3600),
+            new PropulsionException('identity endpoint down'),
+        ]);
+        $auth = $this->auth();
+        $first = $auth->credentialsFor('pgsql:host=x', 'u', null, ['provider' => $provider, 'cache' => ['driver' => 'none']], self::PATH);
+
+        $this->assertNull($auth->retryAfterRejection($first, 'u', 'pgsql:host=x', self::PATH), 'the server\'s rejection is what should surface');
+        $this->assertSame(2, $provider->fetches);
+    }
+
+    public function testTheAutoCacheDriverWorksWhetherOrNotApcuIsUsable(): void
+    {
+        $credentials = $this->auth()->credentialsFor('pgsql:host=x', 'u', null, [
+            'provider' => TokenAuthFakeProvider::constant('t', time() + 3600),
+            'cache' => ['driver' => 'auto'],
+        ], self::PATH);
+
+        $this->assertSame('t', $credentials->password);
     }
 }
