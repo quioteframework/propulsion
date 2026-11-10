@@ -29,6 +29,22 @@ class PropulsionStatementFormatterTest extends BookstoreEmptyTestBase
 		return $db instanceof DBOracle ? 0 : $actual;
 	}
 
+	/**
+	 * formatOne() re-execute()s the statement after peeking at the first row.
+	 * On PHP 8.5.12 exactly, re-executing a pdo_oci statement corrupts the heap
+	 * and takes the whole PHPUnit process down: php-src 11690db178 clears
+	 * stmt->executed on every execute(), which pdo_oci reads as "first execute"
+	 * and reallocates its column buffers while OCI's defines still point at the
+	 * old ones. Fixed upstream by d5696b8cd1 (php/php-src#24372) for 8.5.13, so
+	 * this is pinned to the one affected release rather than to Oracle in general.
+	 */
+	private function skipIfOracleReexecuteCorruptsHeap(): void
+	{
+		if (PHP_VERSION_ID === 80512 && Propulsion::getDB(BookPeer::DATABASE_NAME) instanceof DBOracle) {
+			$this->markTestSkipped('PHP 8.5.12 pdo_oci re-execute() heap corruption (php/php-src#24372)');
+		}
+	}
+
 	protected function setUp(): void
 	{
 		parent::setUp();
@@ -105,6 +121,8 @@ class PropulsionStatementFormatterTest extends BookstoreEmptyTestBase
 
 	public function testFormatoneNoCriteria()
 	{
+		$this->skipIfOracleReexecuteCorruptsHeap();
+
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
 		$stmt = $con->query('SELECT * FROM book');
@@ -120,6 +138,8 @@ class PropulsionStatementFormatterTest extends BookstoreEmptyTestBase
 
 	public function testFormatOneManyResults()
 	{
+		$this->skipIfOracleReexecuteCorruptsHeap();
+
 		$con = Propulsion::getConnection(BookPeer::DATABASE_NAME);
 
 		$stmt = $con->query('SELECT * FROM book');

@@ -183,6 +183,10 @@ class BasePeer
 			$whereClause = array();
 			$params = array();
 			$stmt = null;
+			// Reset per table: the catch below reports it, and a value left over
+			// from the previous table would name the wrong statement when this
+			// table fails before its own SQL is built.
+			$sql = null;
 			try {
 				$sql = $db->getDeleteFromClause($criteria, $tableName);
 
@@ -213,7 +217,12 @@ class BasePeer
 				}
 			} catch (Exception $e) {
 				Propulsion::log($e->getMessage(), Propulsion::LOG_ERR);
-				throw new PropulsionException(sprintf('Unable to execute DELETE statement [%s]', $sql), $e);
+				throw new PropulsionException(
+					$sql === null
+						? sprintf('Unable to build DELETE statement for table [%s]', $tableName)
+						: sprintf('Unable to execute DELETE statement [%s]', $sql),
+					$e
+				);
 			}
 
 			// The loop key is whatever the criterion map carried -- a table alias

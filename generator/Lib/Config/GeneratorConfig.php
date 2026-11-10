@@ -19,6 +19,7 @@ namespace Propulsion\Generator\Config;
 
 use Propulsion\Generator\Exception\EngineException;
 use PDO;
+use Propulsion\Generator\Util\BuildTimeConnection;
 use Propulsion\Generator\Platform\PropulsionPlatformInterface;
 use Propulsion\Generator\Reverse\SchemaParser;
 use Propulsion\Generator\Model\Table;
@@ -36,7 +37,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 	private $buildProperties = array();
 
 	/**
-	 * @var array<string,array{adapter:?string,dsn:?string,user:?string,password:?string}>|null
+	 * @var array<string,array{adapter:?string,dsn:?string,user:?string,password:?string,auth?:mixed}>|null
 	 */
 	protected $buildConnections = null;
 
@@ -457,7 +458,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 	}
 
 	/**
-	 * @param array<string,array{adapter:?string,dsn:?string,user:?string,password:?string}> $buildConnections
+	 * @param array<string,array{adapter:?string,dsn:?string,user:?string,password:?string,auth?:mixed}> $buildConnections
 	 */
 	public function setBuildConnections(array $buildConnections): void
 	{
@@ -477,7 +478,7 @@ class GeneratorConfig implements GeneratorConfigInterface
 	 *    and tried at a direct path, CWD, or a repository `build/propel/`
 	 *    directory.
 	 *
-	 * @return array<string,array{adapter:?string,dsn:?string,user:?string,password:?string}>
+	 * @return array<string,array{adapter:?string,dsn:?string,user:?string,password:?string,auth?:mixed}>
 	 */
 	public function getBuildConnections()
 	{
@@ -565,18 +566,26 @@ class GeneratorConfig implements GeneratorConfigInterface
 			if (!is_string($name) || !is_array($connection)) {
 				throw new EngineException("Expected 'datasources' in build connections config to be an array of string-keyed connection-info arrays.");
 			}
-			$buildConnections[$name] = array(
+			$buildConnection = array(
 				'adapter'  => isset($connection['adapter']) && is_string($connection['adapter']) ? $connection['adapter'] : null,
 				'dsn'      => isset($connection['dsn']) && is_string($connection['dsn']) ? $connection['dsn'] : null,
 				'user'     => isset($connection['user']) && is_string($connection['user']) ? $connection['user'] : null,
 				'password' => isset($connection['password']) && is_string($connection['password']) ? $connection['password'] : null,
 			);
+			// Token authentication, present only when configured so a
+			// password-only connection keeps exactly its old shape. Validated
+			// where it is used (ConnectionTokenAuth), which can name the exact
+			// key at fault; kept raw until then.
+			if (isset($connection['auth'])) {
+				$buildConnection['auth'] = $connection['auth'];
+			}
+			$buildConnections[$name] = $buildConnection;
 		}
 		$this->buildConnections = $buildConnections;
 	}
 
 	/**
-	 * @return array{adapter:?string,dsn:?string,user:?string,password:?string}
+	 * @return array{adapter:?string,dsn:?string,user:?string,password:?string,auth?:mixed}
 	 */
 	public function getBuildConnection(?string $databaseName = null): array
 	{
@@ -614,9 +623,6 @@ class GeneratorConfig implements GeneratorConfigInterface
 		$username = isset($buildConnection['user']) && $buildConnection['user'] ? $buildConnection['user'] : null;
 		$password = isset($buildConnection['password']) && $buildConnection['password'] ? $buildConnection['password'] : null;
 
-		$pdo = new PDO($dsn, $username, $password);
-		$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
-		return $pdo;
+		return BuildTimeConnection::open($database, $dsn, $username, $password, $buildConnection['auth'] ?? null);
 	}
 }

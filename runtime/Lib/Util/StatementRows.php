@@ -56,9 +56,6 @@ final class StatementRows
         // covers both paths.
         try {
             while (($row = $stmt->fetch(PDO::FETCH_NUM)) !== false) {
-                if (!is_array($row) || !array_is_list($row)) {
-                    continue;
-                }
                 yield $row;
             }
         } finally {

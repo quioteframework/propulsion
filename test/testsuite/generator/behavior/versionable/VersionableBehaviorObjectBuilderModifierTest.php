@@ -95,6 +95,7 @@ EOF;
 			<parameter name="version_comment_column" value="MyComment" />
 		</behavior>
 	</table>
+</database>
 EOF;
 			PropulsionQuickBuilder::buildSchema($schema2);
 		}

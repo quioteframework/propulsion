@@ -16,6 +16,8 @@ use Propulsion\Generator\Platform\MssqlPlatform;
 use Propulsion\Generator\Model\PropulsionTypes;
 use Propulsion\Generator\Model\IDMethod;
 use Propulsion\Generator\Model\Unique;
+use Propulsion\Generator\Model\Table;
+use Propulsion\Generator\Model\Column;
 
 require_once dirname(__DIR__, 4) . '/tools/helpers/IntegrationDatabase.php';
 
@@ -56,7 +58,16 @@ class MssqlSchemaParserTest extends TestCase
         [$user, $password] = IntegrationDatabase::pdoCredentials();
         $admin = new PDO($dsn, $user, $password);
         $admin->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        $admin->exec("IF DB_ID('" . self::DB_NAME . "') IS NOT NULL DROP DATABASE " . self::DB_NAME);
+        // SINGLE_USER WITH ROLLBACK IMMEDIATE disconnects any session still in
+        // the scratch database before the drop. Through pdo_sqlsrv the previous
+        // test's connection can outlive its PDO object (ODBC releases it
+        // asynchronously, or pools it), and a plain DROP then fails with
+        // "currently in use" -- on every other test, in CI only.
+        $admin->exec(
+            "IF DB_ID('" . self::DB_NAME . "') IS NOT NULL BEGIN "
+            . 'ALTER DATABASE ' . self::DB_NAME . ' SET SINGLE_USER WITH ROLLBACK IMMEDIATE; '
+            . 'DROP DATABASE ' . self::DB_NAME . '; END'
+        );
         $admin->exec('CREATE DATABASE ' . self::DB_NAME);
 
         $scratchDsn = IntegrationDatabase::pdoDsn($conn['host'], $conn['port'], self::DB_NAME);
@@ -102,19 +113,24 @@ class MssqlSchemaParserTest extends TestCase
             $this->pdo->exec('DROP TABLE IF EXISTS rev_book');
             $this->pdo->exec('DROP TABLE IF EXISTS rev_author');
         }
+        // PHPUnit keeps finished test objects alive until the run ends, so
+        // without this every test's connection stays open in the scratch
+        // database.
+        $this->pdo = null;
+        $this->database = null;
         parent::tearDown();
     }
 
-    public function testParseFindsBothTables()
+    public function testParseFindsBothTables(): void
     {
-        $names = array_map(fn($t) => $t->getName(), $this->database->getTables());
+        $names = array_map(fn($t) => $t->getName(), $this->database()->getTables());
         sort($names);
         $this->assertSame(array('rev_author', 'rev_book'), $names);
     }
 
-    public function testIdentityPrimaryKeyIsDetectedAsAutoIncrement()
+    public function testIdentityPrimaryKeyIsDetectedAsAutoIncrement(): void
     {
-        $column = $this->database->getTable('rev_author')->getColumn('id');
+        $column = $this->column('rev_author', 'id');
         $this->assertTrue($column->isPrimaryKey());
         $this->assertTrue($column->isAutoIncrement());
         $this->assertSame(PropulsionTypes::INTEGER, $column->getType());
@@ -130,29 +146,29 @@ class MssqlSchemaParserTest extends TestCase
      * never flagged as auto-increment, unlike every other reverse-engineered
      * platform in this suite.
      */
-    public function testBigintIdentityColumnIsNotDetectedAsAutoIncrement()
+    public function testBigintIdentityColumnIsNotDetectedAsAutoIncrement(): void
     {
-        $this->pdo->exec('CREATE TABLE rev_bigid (id BIGINT IDENTITY PRIMARY KEY, val VARCHAR(10))');
+        $this->pdo()->exec('CREATE TABLE rev_bigid (id BIGINT IDENTITY PRIMARY KEY, val VARCHAR(10))');
         try {
             $database = new Database();
             $database->setPlatform(new MssqlPlatform());
             $database->setDefaultIdMethod(IDMethod::NATIVE);
-            $parser = new MssqlSchemaParser($this->pdo);
+            $parser = new MssqlSchemaParser($this->pdo());
             $parser->setGeneratorConfig(new QuickGeneratorConfig());
             $parser->setPlatform(new MssqlPlatform());
             $parser->parse($database);
 
-            $column = $database->getTable('rev_bigid')->getColumn('id');
+            $column = $this->column('rev_bigid', 'id', $database);
             $this->assertSame(PropulsionTypes::BIGINT, $column->getType());
             $this->assertFalse($column->isAutoIncrement(), 'documents a parser limitation, not desired behavior -- see this test\'s docblock');
         } finally {
-            $this->pdo->exec('DROP TABLE IF EXISTS rev_bigid');
+            $this->pdo()->exec('DROP TABLE IF EXISTS rev_bigid');
         }
     }
 
-    public function testVarcharColumnCapturesSizeAndNotNull()
+    public function testVarcharColumnCapturesSizeAndNotNull(): void
     {
-        $column = $this->database->getTable('rev_author')->getColumn('name');
+        $column = $this->column('rev_author', 'name');
         $this->assertSame(PropulsionTypes::VARCHAR, $column->getType());
         $this->assertEquals(100, $column->getSize());
         $this->assertTrue($column->isNotNull());
@@ -162,20 +178,25 @@ class MssqlSchemaParserTest extends TestCase
      * Confirmed against a live server: pdo_dblib's sp_columns reports
      * NULLABLE=0 for every single column here, including email/bio (neither
      * declared NOT NULL) -- addColumns() reads that value as-is
-     * (`setNotNull(!$is_nullable)`), so every reverse-engineered MSSQL column
-     * comes back marked NOT NULL regardless of its real nullability. This
-     * documents that limitation rather than the nullable=true one would
-     * expect from Postgres/MySQL.
+     * (`setNotNull(!$is_nullable)`), so through dblib every reverse-engineered
+     * MSSQL column comes back marked NOT NULL regardless of its real
+     * nullability. pdo_sqlsrv reports the real value, so the same parser gets
+     * it right there. The dblib half documents that limitation, not desired
+     * behavior.
      */
-    public function testNullableColumnIsNeverthelessMarkedNotNull()
+    public function testNullableColumnIsMarkedNotNullOnlyThroughDblib(): void
     {
-        $column = $this->database->getTable('rev_author')->getColumn('email');
-        $this->assertTrue($column->isNotNull(), 'documents a parser/driver limitation, not desired behavior -- see this test\'s docblock');
+        $column = $this->column('rev_author', 'email');
+        if (IntegrationDatabase::pdoDriverPrefix() === 'dblib') {
+            $this->assertTrue($column->isNotNull(), 'documents a dblib driver limitation, not desired behavior -- see this test\'s docblock');
+        } else {
+            $this->assertFalse($column->isNotNull(), 'pdo_sqlsrv reports the real nullability');
+        }
     }
 
-    public function testTextColumnMapsToLongVarChar()
+    public function testTextColumnMapsToLongVarChar(): void
     {
-        $column = $this->database->getTable('rev_author')->getColumn('bio');
+        $column = $this->column('rev_author', 'bio');
         $this->assertSame(PropulsionTypes::LONGVARCHAR, $column->getType());
     }
 
@@ -187,38 +208,42 @@ class MssqlSchemaParserTest extends TestCase
      * for the sign and decimal point) -- so the reverse-engineered column's
      * size ends up 2 higher than the column's real declared precision.
      */
-    public function testDecimalColumnSizeIsPrecisionPlusTwoNotRawPrecision()
+    public function testDecimalColumnSizeIsPrecisionPlusTwoNotRawPrecision(): void
     {
-        $column = $this->database->getTable('rev_author')->getColumn('rating');
+        $column = $this->column('rev_author', 'rating');
         $this->assertSame(PropulsionTypes::DECIMAL, $column->getType());
         $this->assertEquals(5, $column->getSize(), 'documents a parser limitation (LENGTH used instead of PRECISION), not desired behavior -- see this test\'s docblock');
         $this->assertEquals(2, $column->getScale());
     }
 
-    public function testDecimalColumnWithDifferentPrecisionOnAnotherTable()
+    public function testDecimalColumnWithDifferentPrecisionOnAnotherTable(): void
     {
-        $column = $this->database->getTable('rev_book')->getColumn('price');
+        $column = $this->column('rev_book', 'price');
         $this->assertSame(PropulsionTypes::DECIMAL, $column->getType());
         $this->assertEquals(12, $column->getSize(), 'DECIMAL(10,2) -> LENGTH 12, same +2 offset as rev_author.rating');
         $this->assertEquals(2, $column->getScale());
     }
 
-    public function testBitColumnMapsToBooleanAndCapturesDefault()
+    public function testBitColumnMapsToBooleanAndCapturesDefault(): void
     {
-        $column = $this->database->getTable('rev_author')->getColumn('active');
+        $column = $this->column('rev_author', 'active');
         $this->assertSame(PropulsionTypes::BOOLEAN, $column->getType());
         $default = $column->getDefaultValue();
-        $this->assertNotNull($default);
+        if ($default === null) {
+            $this->fail('no default value was reverse-engineered');
+        }
         // T-SQL wraps a column default constraint's expression in parens (and
         // sp_columns' COLUMN_DEF returns it as-is, unprocessed) -- "1", not "((1))".
         $this->assertSame('((1))', $default->getValue());
     }
 
-    public function testNumericDefaultValueIsCapturedWithTsqlParens()
+    public function testNumericDefaultValueIsCapturedWithTsqlParens(): void
     {
-        $column = $this->database->getTable('rev_author')->getColumn('rating');
+        $column = $this->column('rev_author', 'rating');
         $default = $column->getDefaultValue();
-        $this->assertNotNull($default);
+        if ($default === null) {
+            $this->fail('no default value was reverse-engineered');
+        }
         $this->assertSame('((0.0))', $default->getValue());
     }
 
@@ -228,32 +253,34 @@ class MssqlSchemaParserTest extends TestCase
      * SQL Server's own auto-generated indexes backing the primary key and
      * the UNIQUE column constraint, reverse-engineers as a plain Index.
      */
-    public function testNoIndexIsEverReverseEngineeredAsUnique()
+    public function testNoIndexIsEverReverseEngineeredAsUnique(): void
     {
-        foreach ($this->database->getTable('rev_author')->getIndices() as $index) {
+        foreach ($this->table('rev_author')->getIndices() as $index) {
             $this->assertNotInstanceOf(Unique::class, $index, $index->getName() . ' should not be a Unique instance');
         }
-        foreach ($this->database->getTable('rev_book')->getIndices() as $index) {
+        foreach ($this->table('rev_book')->getIndices() as $index) {
             $this->assertNotInstanceOf(Unique::class, $index, $index->getName() . ' should not be a Unique instance');
         }
     }
 
-    public function testPlainIndexIsReverseEngineered()
+    public function testPlainIndexIsReverseEngineered(): void
     {
-        $table = $this->database->getTable('rev_book');
+        $table = $this->table('rev_book');
         $index = null;
         foreach ($table->getIndices() as $idx) {
             if ($idx->getName() === 'rev_book_price_idx') {
                 $index = $idx;
             }
         }
-        $this->assertNotNull($index);
+        if ($index === null) {
+            $this->fail('rev_book_price_idx was not reverse-engineered');
+        }
         $this->assertSame(array('price'), $index->getColumns());
     }
 
-    public function testForeignKeyIsReverseEngineeredWithoutActions()
+    public function testForeignKeyIsReverseEngineeredWithoutActions(): void
     {
-        $table = $this->database->getTable('rev_book');
+        $table = $this->table('rev_book');
         $fks = $table->getForeignKeys();
         $this->assertCount(1, $fks);
         $fk = $fks[0];
@@ -270,5 +297,43 @@ class MssqlSchemaParserTest extends TestCase
         // reverse-engineered.
         $this->assertFalse($fk->hasOnDelete(), 'documents a parser limitation, not desired behavior -- see this test\'s docblock');
         $this->assertFalse($fk->hasOnUpdate());
+    }
+
+    private function pdo(): PDO
+    {
+        if ($this->pdo === null) {
+            $this->fail('setUp() did not open the scratch database connection');
+        }
+
+        return $this->pdo;
+    }
+
+    private function database(): Database
+    {
+        if ($this->database === null) {
+            $this->fail('setUp() did not parse the scratch database');
+        }
+
+        return $this->database;
+    }
+
+    private function table(string $name, ?Database $database = null): Table
+    {
+        $table = ($database ?? $this->database())->getTable($name);
+        if ($table === null) {
+            $this->fail('table ' . $name . ' was not reverse-engineered');
+        }
+
+        return $table;
+    }
+
+    private function column(string $table, string $name, ?Database $database = null): Column
+    {
+        $column = $this->table($table, $database)->getColumn($name);
+        if ($column === null) {
+            $this->fail('column ' . $table . '.' . $name . ' was not reverse-engineered');
+        }
+
+        return $column;
     }
 }

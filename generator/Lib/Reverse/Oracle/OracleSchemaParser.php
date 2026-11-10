@@ -297,11 +297,6 @@ class OracleSchemaParser extends BaseSchemaParser
 	{
 		$stmt = $this->queryOrFail("SELECT COLS.COLUMN_NAME FROM USER_CONSTRAINTS CONS, USER_CONS_COLUMNS COLS WHERE CONS.CONSTRAINT_NAME = COLS.CONSTRAINT_NAME AND CONS.TABLE_NAME = '".$table->getName()."' AND CONS.CONSTRAINT_TYPE = 'P'");
 		while (is_array($row = $stmt->fetch(PDO::FETCH_ASSOC))) {
-			// This fixes a strange behavior by PDO. Sometimes the
-			// row values are inside an index 0 of an array
-			if (isset($row[0]) && is_array($row[0])) {
-				$row = $row[0];
-			}
 			$columnName = self::rowValueToString($row['COLUMN_NAME'] ?? '');
 			$column = $table->getColumn($columnName);
 			if ($column === null) {

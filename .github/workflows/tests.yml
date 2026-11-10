@@ -113,7 +113,7 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: test/coverage/clover.xml
-          # Flagged per platform so Codecov merges the five DB jobs' reports
+          # Flagged per platform so Codecov merges the six DB jobs' reports
           # into one number instead of the last upload winning. Without this
           # the reported figure was a Postgres-only run, which systematically
           # understated exactly the code most likely to break: the per-platform
@@ -310,6 +310,80 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: test/coverage/clover.xml
           flags: mssql
+          fail_ci_if_error: true
+
+  integration-mssql-sqlsrv:
+    name: Full suite (with Docker/MSSQL via pdo_sqlsrv)
+    runs-on: ubuntu-latest
+    # The same container and suite as integration-mssql above, but connecting
+    # through Microsoft's pdo_sqlsrv instead of FreeTDS/pdo_dblib
+    # (PROPULSION_MSSQL_DRIVER=sqlsrv; see IntegrationDatabase::mssqlDriver()).
+    # That makes the runtime adapter DBSQLSRV and the generator platform
+    # SqlsrvPlatform -- what an application on pdo_sqlsrv, and every Azure SQL
+    # managed-identity connection, actually runs. Until this job existed none of
+    # it ran anywhere: its first local run found nested transactions on
+    # pdo_sqlsrv poisoning the outer transaction on every inner rollBack(),
+    # because the generic savepoint code did not know SQL Server's dialect.
+    steps:
+      - uses: actions/checkout@v5
+
+      # Before setup-php, which builds pdo_sqlsrv from PECL against unixODBC.
+      # The Ubuntu version is read from the runner rather than hard-coded, so
+      # the next ubuntu-latest move cannot quietly point at the wrong repository.
+      - name: Install Microsoft ODBC Driver 18 for SQL Server
+        run: |
+          . /etc/os-release
+          curl -fsSLO "https://packages.microsoft.com/config/ubuntu/${VERSION_ID}/packages-microsoft-prod.deb"
+          sudo dpkg -i packages-microsoft-prod.deb
+          rm packages-microsoft-prod.deb
+          sudo apt-get update
+          sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 unixodbc-dev
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        env:
+          # setup-php otherwise logs a failed extension install and carries on,
+          # and this job would then run the dblib-free suite against nothing.
+          fail-fast: true
+        with:
+          php-version: '8.5'
+          extensions: pdo, pdo_sqlite, pdo_pgsql, pdo_mysql, pdo_sqlsrv, mbstring, xml, simplexml, apcu
+          # See integration-mssql above for apcu/apc.enable_cli, and the
+          # integration job for pcov.directory on the run line.
+          ini-values: apc.enable_cli=1
+          coverage: pcov
+
+      - name: Verify pdo_sqlsrv is loaded
+        run: php -r 'in_array("sqlsrv", PDO::getAvailableDrivers(), true) || exit(1);'
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Run full PHPUnit suite (starts its own MSSQL testcontainer)
+        working-directory: test
+        env:
+          PROPULSION_TEST_DB: mssql
+          PROPULSION_MSSQL_DRIVER: sqlsrv
+          PROPULSION_REQUIRE_INTEGRATION: '1'
+        run: php -d pcov.directory=${{ github.workspace }} ../vendor/bin/phpunit -c phpunit.xml --coverage-clover=coverage/clover.xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: test/coverage/clover.xml
+          flags: mssql-sqlsrv
           fail_ci_if_error: true
 
   integration-oracle:
