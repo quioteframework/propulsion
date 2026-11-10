@@ -1,3 +1,26 @@
+## [3.2.0-beta1] - 2026-11-10
+
+### 🚀 Features
+
+- *(connection)* Authenticate with Azure managed identity tokens
+
+### 🐛 Bug Fixes
+
+- *(phpstan)* Resolve findings surfaced by PHPStan 2.3
+- *(generator)* Parse schema XML as a complete document
+- *(phpstan)* Drop redundant row guards from generated peers and objects
+- *(connection)* Use SQL Server savepoints for nested transactions on pdo_sqlsrv
+
+### 🧪 Testing
+
+- *(formatter)* Skip formatOne() re-execute tests on Oracle under PHP 8.5.12
+- Run the MSSQL suite through pdo_sqlsrv as well as dblib
+- *(connection)* Cover token-auth error and retry paths
+- *(reverse)* Disconnect lingering sessions before dropping the MSSQL scratch database
+
+### ⚙️ Miscellaneous Tasks
+
+- Prep v3.2.0-beta1
 ## [3.1.0] - 2026-08-20
 
 ### ⚙️ Miscellaneous Tasks
